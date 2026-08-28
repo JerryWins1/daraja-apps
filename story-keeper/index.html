@@ -184,6 +184,18 @@ My pictures live in three places —
   </div>
 
   <button class="btn big wide gold" style="margin-top:8px" onclick="openBook()">📖 See your book so far</button>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>💾 Keep it safe</h2>
+    <p class="sub">Your stories live on this device. Save a backup file every so often —
+    keep it anywhere (email it to yourself, put it on a stick). If anything ever happens
+    to this device, the backup brings every word and picture back.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn green" onclick="backup()">💾 Save a backup</button>
+      <button class="btn ghost" onclick="document.getElementById('restoreIn').click()">↩ Bring a backup back</button>
+      <input type="file" id="restoreIn" accept=".json,application/json" style="display:none" onchange="restore(this.files)">
+    </div>
+  </div>
 </div>
 
 <!-- ================= INTERVIEW ================= -->
@@ -222,6 +234,7 @@ My pictures live in three places —
 <div class="hide" id="bookView">
   <div id="bookBar">
     <button class="btn ghost" onclick="closeBook()">‹ Back to writing</button>
+    <button class="btn gold" id="readBtn" onclick="toggleRead()">🔊 Read it to me</button>
     <button class="btn" onclick="window.print()">🖨 Print / save as PDF</button>
   </div>
   <div class="bookPage" id="bookPage"></div>
@@ -233,7 +246,7 @@ My pictures live in three places —
   <button id="nBook" onclick="openBook()"><span class="em">📖</span>Your book</button>
 </div>
 
-<div id="ver">Story Keeper v1.0 · first pass · 2026-08-28 · Daraja Studio — every copy helps a student in Kenya stay in school</div>
+<div id="ver">Story Keeper v1.1 · 2026-08-28 · Daraja Studio — every copy helps a student in Kenya stay in school</div>
 
 <script>
 /* ================= DATA ================= */
@@ -268,6 +281,11 @@ const CHAPTERS = [
    'When was a time your faith carried you?',
    'What would you tell your 25-year-old self?',
    'When it\'s all said and done, what do you want to be remembered for?']},
+ {id:'grand', em:'👧', name:'For my grandchildren', qs:[
+   'What was the world like when you were the age your grandchildren are now?',
+   'What do you love about each of your grandchildren? Say their names.',
+   'What do you hope they do with their lives — and what do you hope they never do?',
+   'If they read this book fifty years from now, what do you want them to hear you saying?']},
 ];
 
 const LS='story_keeper_v1';
@@ -474,7 +492,72 @@ function openBook(){
   $('nBook').classList.add('on'); $('nHome').classList.remove('on');
   window.scrollTo(0,0);
 }
-function closeBook(){ goHome(); }
+function closeBook(){ stopRead(); goHome(); }
+
+/* ---- read it to me ---- */
+let reading=false;
+function toggleRead(){ reading ? stopRead() : startRead(); }
+function startRead(){
+  if(!window.speechSynthesis){ alert('Reading aloud needs Chrome, Edge or Safari.'); return; }
+  const pieces=[];
+  CHAPTERS.forEach(c=>{
+    const parts=c.qs.map((q,qi)=>({q,a:db.ans[c.id+':'+qi]})).filter(x=>x.a&&x.a.text.trim());
+    if(!parts.length) return;
+    pieces.push('Chapter: '+c.name+'.');
+    parts.forEach(x=>{ pieces.push(x.q); pieces.push(x.a.text); });
+  });
+  if(!pieces.length){ alert('The book has no stories to read yet.'); return; }
+  reading=true; document.getElementById('readBtn').textContent='■ Stop reading';
+  speechSynthesis.cancel();
+  let k=0;
+  const sayNext=()=>{
+    if(!reading || k>=pieces.length){ stopRead(); return; }
+    const u=new SpeechSynthesisUtterance(pieces[k++]);
+    u.rate=.95;
+    const vs=speechSynthesis.getVoices();
+    const v=vs.find(v=>/Samantha|Google US English|en-US/i.test(v.name+v.lang));
+    if(v) u.voice=v;
+    u.onend=()=>setTimeout(sayNext,350);
+    u.onerror=()=>setTimeout(sayNext,350);
+    speechSynthesis.speak(u);
+  };
+  sayNext();
+}
+function stopRead(){
+  reading=false;
+  if(window.speechSynthesis) speechSynthesis.cancel();
+  const b=document.getElementById('readBtn'); if(b) b.textContent='🔊 Read it to me';
+}
+
+/* ---- backup & restore ---- */
+function backup(){
+  const blob=new Blob([JSON.stringify({app:'story_keeper',ver:1,saved:new Date().toISOString(),data:db})],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  const nm=(db.name||'my').toLowerCase().replace(/[^a-z0-9]+/g,'_');
+  a.download='story_keeper_backup_'+nm+'_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+function restore(files){
+  const f=files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const j=JSON.parse(rd.result);
+      const d=j.data||j;
+      if(!d.ans && !d.cast) throw new Error('not a Story Keeper backup');
+      if(!confirm('Bring back this backup'+(j.saved?' from '+j.saved.slice(0,10):'')+'?\nIt replaces what is on this device right now.')) return;
+      db={ name:d.name||'', cast:d.cast||[], ans:d.ans||{}, key:d.key||'' };
+      save();
+      document.getElementById('whoName').value=db.name;
+      document.getElementById('keyText').value=db.key;
+      renderCast(); renderChaps();
+      alert('Welcome back. Every story and picture is here. ✓');
+    }catch(e){ alert("That file doesn't look like a Story Keeper backup."); }
+  };
+  rd.readAsText(f);
+  document.getElementById('restoreIn').value='';
+}
 
 /* ================= INIT ================= */
 (function init(){
