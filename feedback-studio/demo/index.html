@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback Studio — See it in action</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#181c24; --panel2:#1f2530; --line:#2a3140;
+    --ink:#e8ecf3; --dim:#8b94a7; --accent:#e05d3a; --accent2:#3a9e7e;
+    --gold:#e0b13a; --blue:#4a90d9; --rec:#e0483a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--ink); min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  #head{text-align:center; padding:22px 16px 10px;}
+  #head h1{font-size:26px; font-weight:800;}
+  #head h1 span{color:var(--accent);}
+  #head p{color:var(--dim); font-size:14px; margin-top:4px;}
+
+  /* ===== MOVIE FRAME ===== */
+  #movie{
+    position:relative; width:min(860px, 96vw); aspect-ratio:16/10;
+    background:var(--bg); border:1px solid var(--line); border-radius:16px;
+    overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+
+  /* --- mock studio UI inside the movie --- */
+  #mock{position:absolute; inset:0; display:flex; flex-direction:column; font-size:clamp(8px, 1.55vw, 14px);}
+  .mtop{display:flex; align-items:center; gap:.7em; padding:.7em 1em; background:var(--panel); border-bottom:1px solid var(--line);}
+  .mlogo{font-weight:800; white-space:nowrap;}
+  .mlogo span{color:var(--accent);}
+  .murl{flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:.5em 1em; color:var(--dim); overflow:hidden; white-space:nowrap;}
+  .mopen{background:var(--blue); color:#fff; border-radius:999px; padding:.5em 1.1em; font-weight:700;}
+  .mbody{flex:1; display:flex; min-height:0;}
+  .mstage{flex:1.6; display:flex; flex-direction:column; min-width:0;}
+  .mapp{flex:1; background:#f4efe7; color:#222; position:relative; overflow:hidden;}
+  .mside{flex:1; background:var(--panel); border-left:1px solid var(--line); display:flex; flex-direction:column; min-width:0;}
+  .msideHead{display:flex; justify-content:space-between; align-items:center; padding:.7em 1em; border-bottom:1px solid var(--line); font-weight:800;}
+  .mcount{background:var(--accent); color:#fff; border-radius:999px; padding:.1em .7em; font-weight:800;}
+  .mnotes{flex:1; overflow:hidden; padding:.7em;}
+  .mnote{background:var(--panel2); border:1px solid var(--line); border-left:3px solid var(--rec); border-radius:.7em; padding:.6em .8em; margin-bottom:.6em; opacity:0; transform:translateY(8px); transition:all .4s;}
+  .mnote.in{opacity:1; transform:none;}
+  .mnote .nt{color:var(--gold); font-weight:800; font-size:.85em; margin-right:.6em;}
+  .mnote.mk{border-left-color:var(--gold);}
+  .mrec{display:flex; align-items:center; gap:.8em; padding:.6em 1em; background:var(--panel); border-top:1px solid var(--line);}
+  .mmic{width:3em; height:3em; border-radius:50%; background:var(--rec); display:flex; align-items:center; justify-content:center; font-size:1.1em; flex-shrink:0;}
+  .mmic.live{animation:mpulse 1.4s infinite;}
+  @keyframes mpulse{0%{box-shadow:0 0 0 0 rgba(224,72,58,.55);}70%{box-shadow:0 0 0 1em rgba(224,72,58,0);}100%{box-shadow:0 0 0 0 rgba(224,72,58,0);}}
+  .mlive{flex:1; color:var(--gold); font-style:italic; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;}
+  .mflag{background:var(--gold); color:#222; border-radius:999px; padding:.45em 1em; font-weight:700; white-space:nowrap;}
+  .mtimer{font-weight:800; color:var(--rec); font-variant-numeric:tabular-nums;}
+
+  /* mock app content (pretend Now & Next) */
+  .aphone{position:absolute; inset:6% 20%; background:#fffdf8; border-radius:1.2em; border:1px solid #ddd3c2; padding:1em; overflow:hidden;}
+  .aphone h4{color:#b3502f; font-size:1.05em;}
+  .acard{background:#fff; border:1px solid #e7ddcc; border-radius:.8em; padding:.7em .8em; margin-top:.7em; color:#333;}
+  .acard b{display:block; color:#1f2530;}
+  .acard.now{border:2px solid #e05d3a; background:#fff6f0;}
+  .acheck{color:#3a9e7e; font-weight:800;}
+  .cursor{
+    position:absolute; width:1.6em; height:1.6em; border-radius:50%;
+    background:rgba(74,144,217,.85); border:2px solid #fff; z-index:8;
+    transition:all .8s cubic-bezier(.5,0,.3,1); pointer-events:none;
+    left:50%; top:80%;
+  }
+  .cursor.tap{animation:tap .35s;}
+  @keyframes tap{50%{transform:scale(.55);}}
+
+  /* report overlay inside movie */
+  .mreport{
+    position:absolute; inset:8%; background:var(--panel); border:1px solid var(--line);
+    border-radius:1em; padding:1.2em; z-index:9; display:none; flex-direction:column; gap:.6em;
+    font-family:ui-monospace,Menlo,monospace; font-size:.9em; color:#cdd6e4; line-height:1.55;
+  }
+  .mreport.show{display:flex;}
+  .mreport h5{font-family:-apple-system,sans-serif; color:var(--ink); font-size:1.1em;}
+  .mreport .rbtn{align-self:flex-start; background:var(--accent2); color:#fff; border-radius:999px; padding:.4em 1.2em; font-weight:700; font-family:-apple-system,sans-serif;}
+
+  /* ===== CAPTIONS ===== */
+  #caps{
+    position:absolute; left:0; right:0; bottom:0; z-index:20;
+    background:linear-gradient(transparent, rgba(10,12,16,.92) 30%);
+    padding:2.2em 1.4em 1em; text-align:center; pointer-events:none;
+  }
+  #capText{
+    display:inline-block; background:rgba(0,0,0,.75); border-radius:.6em;
+    padding:.5em .9em; font-size:clamp(13px, 2vw, 19px); font-weight:600; line-height:1.45;
+    max-width:90%;
+  }
+
+  /* ===== BIG PLAY OVERLAY (front and center, per Jerry) ===== */
+  #playOv{
+    position:absolute; inset:0; z-index:30; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:16px; text-align:center;
+    background:radial-gradient(700px 420px at 50% 35%, #1c2230 0%, rgba(15,17,21,.97) 75%);
+    padding:24px;
+  }
+  #playOv h2{font-size:clamp(18px,3vw,28px); font-weight:800;}
+  #playOv h2 span{color:var(--accent);}
+  #playOv p{color:var(--dim); font-size:clamp(12px,1.8vw,16px); max-width:480px; line-height:1.5;}
+  #bigPlay{
+    width:clamp(84px,14vw,110px); height:clamp(84px,14vw,110px); border-radius:50%;
+    background:var(--accent); border:none; color:#fff; font-size:clamp(30px,5vw,42px);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 40px rgba(224,93,58,.45); transition:transform .1s;
+    padding-left:.15em;
+  }
+  #bigPlay:hover{transform:scale(1.05);}
+  #playOv small{color:var(--dim); font-size:12px;}
+
+  /* ===== CONTROLS UNDER MOVIE ===== */
+  #ctrl{display:flex; gap:10px; align-items:center; padding:14px; flex-wrap:wrap; justify-content:center;}
+  .cbtn{
+    background:var(--panel2); border:1px solid var(--line); color:var(--ink);
+    border-radius:999px; padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .cbtn.main{background:var(--accent); border-color:var(--accent); color:#fff;}
+  #share{color:var(--dim); font-size:13px; text-align:center; padding:0 16px 24px; line-height:1.6;}
+  #share a{color:var(--blue);}
+  #ver{color:#39404f; font-size:10px; padding-bottom:10px;}
+</style>
+</head>
+<body>
+
+<div id="head">
+  <h1>Feedback <span>Studio</span> — see it in action</h1>
+  <p>A two-minute tour. Sound on — it talks to you.</p>
+</div>
+
+<div id="movie">
+  <!-- mock UI -->
+  <div id="mock">
+    <div class="mtop">
+      <div class="mlogo">Feedback <span>Studio</span></div>
+      <div class="murl" id="mUrl">Paste the address of the app you want to review…</div>
+      <div class="mopen">Open</div>
+    </div>
+    <div class="mbody">
+      <div class="mstage">
+        <div class="mapp" id="mApp">
+          <div class="aphone" id="aPhone" style="opacity:0">
+            <h4>Now &amp; Next</h4>
+            <div class="acard now"><b>NOW: Feed the dog</b>10 minutes · you've got this</div>
+            <div class="acard"><b>NEXT: Homework</b>after this one</div>
+            <div class="acard" id="aDone" style="display:none"><span class="acheck">✓ Done!</span> High five! 🙌</div>
+          </div>
+          <div class="cursor" id="cur"></div>
+        </div>
+        <div class="mrec">
+          <div class="mmic" id="mMic">🎙</div>
+          <div class="mlive" id="mLive"></div>
+          <div class="mflag">🚩 Mark this spot</div>
+          <div class="mtimer" id="mTimer">0:00</div>
+        </div>
+      </div>
+      <div class="mside">
+        <div class="msideHead"><span>Session comments</span><span class="mcount" id="mCount">0</span></div>
+        <div class="mnotes" id="mNotes"></div>
+      </div>
+    </div>
+    <!-- report overlay -->
+    <div class="mreport" id="mReport">
+      <h5>📋 Report for Claude</h5>
+      <div>FEEDBACK SESSION — for Claude<br>
+      App reviewed: Now &amp; Next<br>
+      Comments: 3<br><br>
+      1. [0:12] The buttons feel small on my phone<br>
+      2. [0:31] 🚩 Look at the screen right here<br>
+      3. [0:48] I love the high five when you finish</div>
+      <div class="rbtn">Copy to clipboard ✓</div>
+    </div>
+  </div>
+
+  <!-- captions -->
+  <div id="caps" style="display:none"><span id="capText"></span></div>
+
+  <!-- big play -->
+  <div id="playOv">
+    <h2>What is Feedback <span>Studio</span>?</h2>
+    <p>It's the easiest way to tell a builder what you think of an app:
+    you just <b>use the app and talk</b>. This short movie shows how.</p>
+    <button id="bigPlay" onclick="play()">▶</button>
+    <small>About 2 minutes · sound on</small>
+  </div>
+</div>
+
+<div id="ctrl">
+  <button class="cbtn main" id="pBtn" onclick="togglePause()" style="display:none">⏸ Pause</button>
+  <button class="cbtn" onclick="restart()">↻ Start over</button>
+  <button class="cbtn" id="sndBtn" onclick="toggleSound()">🔊 Sound on</button>
+</div>
+
+<div id="share">
+  Want to try the real thing? It's free:<br>
+  <a href="https://jerrywins1.github.io/daraja-apps/feedback-studio/">jerrywins1.github.io/daraja-apps/feedback-studio</a>
+</div>
+<div id="ver">Feedback Studio demo v1.0 · 2026-08-27 · Daraja Studio</div>
+
+<script>
+/* ============ SCENES ============ */
+/* Each scene: say = narration+caption, do = visual action key, hold = extra ms after speech */
+const S = [
+ // ---- intro: what it is & the goal (10-15s, per Jerry's rule) ----
+ {say:"This is Feedback Studio. Here's the whole idea: when somebody builds an app for you, the hardest part is telling them what you really think.", do:"idle"},
+ {say:"With Feedback Studio, you don't write anything down. You just use the app — and talk. That's the goal: your voice becomes the to-do list.", do:"idle"},
+ // ---- step 1: open an app ----
+ {say:"Step one. Paste in the address of any app, and it opens right here in the window — the real app, working.", do:"openApp"},
+ {say:"This is Now and Next, a family app we're testing. You can tap it, use it, play with it — just like normal.", do:"useApp"},
+ // ---- step 2: talk ----
+ {say:"Step two. Press the big red button… and just say what you're thinking while you use it.", do:"micOn"},
+ {say:"The buttons feel small on my phone.", do:"speak1", voice:"user"},
+ {say:"See that? The moment you pause, your words land on the right — with the exact time you said them.", do:"note1"},
+ {say:"See something on screen that matters? Tap 'Mark this spot' and it drops a flag at that moment.", do:"marker"},
+ {say:"I love the high five when you finish a task.", do:"speak2", voice:"user"},
+ {say:"Every thought gets saved. Nothing gets lost. Nothing to type.", do:"note2"},
+ // ---- step 3: report ----
+ {say:"Step three. When you're done, one tap builds the whole session into a clean report — every comment, in order, with timestamps.", do:"report"},
+ {say:"Copy it, hand it to your builder — or paste it straight to Claude — and your feedback becomes a plan.", do:"reportCopy"},
+ // ---- close ----
+ {say:"Use the app. Say what you think. Done. That's Feedback Studio.", do:"finale"},
+];
+
+/* ============ STATE ============ */
+let i = -1, playing = false, paused = false, soundOn = true, timerIv = null, t0 = 0;
+const $ = id => document.getElementById(id);
+
+/* ============ ACTIONS ============ */
+let noteCount = 0;
+function addMockNote(t, text, mk){
+  noteCount++;
+  $('mCount').textContent = noteCount;
+  const d = document.createElement('div');
+  d.className = 'mnote' + (mk ? ' mk' : '');
+  d.innerHTML = '<span class="nt">'+t+'</span>' + text;
+  $('mNotes').appendChild(d);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.add('in')));
+}
+function moveCur(x,y,tap){
+  const c = $('cur');
+  c.style.left = x; c.style.top = y;
+  if(tap) setTimeout(()=>{c.classList.add('tap'); setTimeout(()=>c.classList.remove('tap'),400);}, 850);
+}
+const ACT = {
+  idle(){},
+  openApp(){
+    $('mUrl').textContent = 'https://jerrywins1.github.io/…/nownext/';
+    $('mUrl').style.color = '#e8ecf3';
+    moveCur('86%','7%',true);
+    setTimeout(()=>{ $('aPhone').style.transition='opacity .8s'; $('aPhone').style.opacity=1; }, 1300);
+  },
+  useApp(){ moveCur('48%','38%',true); setTimeout(()=>moveCur('50%','58%',true), 1600); },
+  micOn(){
+    moveCur('8%','88%',true);
+    setTimeout(()=>{ $('mMic').classList.add('live'); startMockTimer(); }, 1200);
+  },
+  speak1(){ typeLive('“The buttons feel small on my phone…”'); },
+  note1(){ $('mLive').textContent=''; addMockNote('0:12','The buttons feel small on my phone'); },
+  marker(){
+    moveCur('72%','88%',true);
+    setTimeout(()=>addMockNote('0:31','🚩 Look at the screen right here — this spot matters.', true), 1300);
+  },
+  speak2(){
+    $('aDone').style.display='block';
+    typeLive('“I love the high five when you finish…”');
+  },
+  note2(){ $('mLive').textContent=''; addMockNote('0:48','I love the high five when you finish a task'); },
+  report(){
+    stopMockTimer(); $('mMic').classList.remove('live');
+    $('mReport').classList.add('show');
+  },
+  reportCopy(){},
+  finale(){
+    $('mReport').classList.remove('show');
+  },
+};
+function typeLive(txt){
+  const el = $('mLive'); el.textContent = '';
+  let k = 0;
+  const iv = setInterval(()=>{
+    el.textContent = txt.slice(0, ++k);
+    if(k >= txt.length) clearInterval(iv);
+  }, 45);
+}
+function startMockTimer(){
+  t0 = Date.now();
+  timerIv = setInterval(()=>{
+    const s = Math.floor((Date.now()-t0)/1000);
+    $('mTimer').textContent = Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  }, 500);
+}
+function stopMockTimer(){ clearInterval(timerIv); timerIv = null; }
+
+/* ============ NARRATION ============ */
+function speak(text, cb){
+  if(!soundOn || !window.speechSynthesis){ setTimeout(cb, Math.max(2600, text.length*55)); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = .97; u.pitch = 1;
+  const vs = speechSynthesis.getVoices();
+  const v = vs.find(v=>/Samantha|Google US English|en-US/i.test(v.name+v.lang));
+  if(v) u.voice = v;
+  let done = false;
+  u.onend = ()=>{ if(!done){done=true; cb();} };
+  u.onerror = ()=>{ if(!done){done=true; cb();} };
+  speechSynthesis.speak(u);
+  // safety net if onend never fires
+  setTimeout(()=>{ if(!done){done=true; cb();} }, 1200 + text.length*90);
+}
+
+/* ============ PLAYER ============ */
+function play(){
+  $('playOv').style.display = 'none';
+  $('caps').style.display = 'block';
+  $('pBtn').style.display = 'inline-block';
+  playing = true; paused = false; i = -1;
+  if(window.speechSynthesis) speechSynthesis.getVoices(); // warm up
+  next();
+}
+function next(){
+  if(!playing || paused) return;
+  i++;
+  if(i >= S.length){ end(); return; }
+  const sc = S[i];
+  $('capText').textContent = sc.say;
+  $('capText').style.color = sc.voice==='user' ? '#e0b13a' : '#fff';
+  ACT[sc.do] && ACT[sc.do]();
+  speak(sc.say, ()=> setTimeout(next, 600));
+}
+function end(){
+  playing = false;
+  $('capText').textContent = '';
+  $('caps').style.display = 'none';
+  $('pBtn').style.display = 'none';
+  const ov = $('playOv');
+  ov.style.display = 'flex';
+  ov.querySelector('h2').innerHTML = 'That\'s Feedback <span>Studio</span>.';
+  ov.querySelector('p').innerHTML = '<b>Use the app. Say what you think. Done.</b><br>Press play to watch again — or try the real thing at the link below.';
+  $('bigPlay').textContent = '↻';
+}
+function togglePause(){
+  if(!playing) return;
+  paused = !paused;
+  $('pBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+  if(window.speechSynthesis){ paused ? speechSynthesis.pause() : speechSynthesis.resume(); }
+  if(!paused && !speechSynthesis.speaking) next();
+}
+function restart(){
+  if(window.speechSynthesis) speechSynthesis.cancel();
+  stopMockTimer();
+  playing = false; paused = false; noteCount = 0;
+  $('mNotes').innerHTML=''; $('mCount').textContent='0';
+  $('mLive').textContent=''; $('mTimer').textContent='0:00';
+  $('mMic').classList.remove('live');
+  $('mReport').classList.remove('show');
+  $('aPhone').style.opacity=0; $('aDone').style.display='none';
+  $('mUrl').textContent='Paste the address of the app you want to review…'; $('mUrl').style.color='';
+  $('cur').style.left='50%'; $('cur').style.top='80%';
+  $('pBtn').textContent='⏸ Pause';
+  play();
+}
+function toggleSound(){
+  soundOn = !soundOn;
+  $('sndBtn').textContent = soundOn ? '🔊 Sound on' : '🔇 Sound off';
+  if(!soundOn && window.speechSynthesis) speechSynthesis.cancel();
+}
+if(window.speechSynthesis) speechSynthesis.getVoices();
+</script>
+</body>
+</html>
