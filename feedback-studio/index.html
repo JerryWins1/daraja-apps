@@ -212,7 +212,16 @@
   <div id="side">
     <div id="sideHead">
       <h2>Session comments</h2>
-      <span id="cCount">0</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <select id="repFor" title="Who is this report for?" onchange="setRepFor(this.value)"
+          style="background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:12px;">
+          <option value="Claude">For: Claude</option>
+          <option value="ChatGPT">For: ChatGPT</option>
+          <option value="Gemini">For: Gemini</option>
+          <option value="My developer">For: my developer</option>
+        </select>
+        <span id="cCount">0</span>
+      </div>
     </div>
 
     <div id="comments">
@@ -225,7 +234,7 @@
     </div>
 
     <div id="actions">
-      <button class="btn green" onclick="showReport()">📋 Build report for Claude</button>
+      <button class="btn green" onclick="showReport()">📋 Build the report</button>
       <button class="btn ghost" onclick="clearAll()">Clear</button>
     </div>
   </div>
@@ -235,7 +244,7 @@
 <div id="reportOv">
   <div id="reportBox">
     <header>
-      <h3>Report for Claude</h3>
+      <h3 id="repTitle">Report for Claude</h3>
       <button class="btn ghost" onclick="hideReport()">✕ Close</button>
     </header>
     <pre id="reportTxt"></pre>
@@ -247,7 +256,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v1.1 · 2026-08-27 · Daraja Studio</div>
+<div id="ver">Feedback Studio v1.2 · 2026-08-27 · Daraja Studio</div>
 
 <script>
 /* ================== STATE ================== */
@@ -256,9 +265,10 @@ let db = load();
 function load(){
   try{
     const d = JSON.parse(localStorage.getItem(LS)||'{}');
-    return { appUrl:d.appUrl||'', notes:Array.isArray(d.notes)?d.notes:[], started:d.started||null };
-  }catch(e){ return {appUrl:'',notes:[],started:null}; }
+    return { appUrl:d.appUrl||'', notes:Array.isArray(d.notes)?d.notes:[], started:d.started||null, repFor:d.repFor||'Claude' };
+  }catch(e){ return {appUrl:'',notes:[],started:null,repFor:'Claude'}; }
 }
+function setRepFor(v){ db.repFor = v; save(); }
 function save(){ localStorage.setItem(LS, JSON.stringify(db)); }
 
 let sessionStart = db.started ? db.started : null;
@@ -408,21 +418,30 @@ function buildReport(){
   const d = new Date();
   const when = d.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})
              + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const who = db.repFor || 'Claude';
+  const isAI = who !== 'My developer';
   let out = '';
   out += '==========================================\n';
-  out += ' FEEDBACK SESSION — for Claude\n';
+  out += ' FEEDBACK SESSION — for ' + who + '\n';
   out += '==========================================\n';
   out += 'App reviewed : ' + (db.appUrl || '(none loaded)') + '\n';
   out += 'Date         : ' + when + '\n';
   out += 'Comments     : ' + db.notes.length + '\n';
-  out += 'Tool         : Feedback Studio v1.1 (Daraja Studio)\n';
+  out += 'Tool         : Feedback Studio v1.2 (Daraja Studio)\n';
   out += '------------------------------------------\n\n';
-  out += 'INSTRUCTIONS FOR CLAUDE:\n';
-  out += 'These are timestamped comments the owner made while\n';
-  out += 'actually using the app above. Timestamps are minutes:seconds\n';
-  out += 'from the start of the session. Read them in order, group them\n';
-  out += 'into themes, restate what you understood, then propose the\n';
-  out += 'changes as a numbered plan BEFORE building anything.\n\n';
+  if(isAI){
+    out += 'INSTRUCTIONS FOR ' + who.toUpperCase() + ':\n';
+    out += 'These are timestamped comments the owner made while\n';
+    out += 'actually using the app above. Timestamps are minutes:seconds\n';
+    out += 'from the start of the session. Read them in order, group them\n';
+    out += 'into themes, restate what you understood, then propose the\n';
+    out += 'changes as a numbered plan BEFORE building anything.\n\n';
+  } else {
+    out += 'NOTE FOR THE DEVELOPER:\n';
+    out += 'These are timestamped comments made while actually using\n';
+    out += 'the app above (minutes:seconds from session start). They are\n';
+    out += 'in the order things happened on screen.\n\n';
+  }
   out += '------------------------------------------\n';
   db.notes.forEach((n,i)=>{
     const tag = n.kind==='voice'?'SPOKEN':n.kind==='typed'?'TYPED ':'MARKER';
@@ -434,6 +453,8 @@ function buildReport(){
 }
 function showReport(){
   if(!db.notes.length){ alert("No comments yet — talk or type a few first."); return; }
+  document.getElementById('repTitle').textContent = 'Report for ' + (db.repFor||'Claude');
+  document.getElementById('copied').textContent = '✓ Copied — paste it to ' + (db.repFor||'Claude');
   document.getElementById('reportTxt').textContent = buildReport();
   document.getElementById('reportOv').classList.add('show');
   document.getElementById('copied').style.display='none';
@@ -455,6 +476,7 @@ function downloadReport(){
 /* ================== INIT ================== */
 (function init(){
   if(db.appUrl){ document.getElementById('urlin').value = db.appUrl; }
+  document.getElementById('repFor').value = db.repFor || 'Claude';
   if(db.started && db.notes.length){ sessionStart = db.started; startTimer(); }
   render();
   document.getElementById('urlin').addEventListener('keydown', e=>{
