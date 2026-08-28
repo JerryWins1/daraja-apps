@@ -1,0 +1,134 @@
+/* Daraja Store — one shared catalog. v1.0 · 2026-08-28
+   To add an app to the store: add one entry here. The shelf card AND its
+   2-minute video come from this data — nothing else to build. */
+const BASE = 'https://jerrywins1.github.io/daraja-apps/';
+const A = BASE + 'Apps%20(installable%20site)/';
+
+const APPS = {
+ nownext: {
+  name:'Now & Next', em:'🧭', cat:'family', price:'$4.99', testing:true,
+  tag:'One thing at a time — for kids and grown-ups whose brains run fast',
+  try:A+'nownext/', video:true,
+  lines:[
+   "This is Now and Next — for kids, and grown-ups, whose brains run fast.",
+   "The problem it solves: knowing exactly what to do… and still not being able to start. And the parent who's said 'hurry up' eleven times before seven thirty.",
+   "Here's how it works. The screen shows ONE thing — the thing to do now. Not the whole scary list. Just one.",
+   "A timer makes the middle short. And when you finish? It throws a little party. High fives, coins, a leaderboard for the family.",
+   "Mornings, homework and bedtime run on routines that show up by themselves — no nagging required.",
+   "Everyone in the family gets their own list, their own coins, their own buddy — the whole family on one phone.",
+   "The benefit is simple: kids start, kids finish, and nobody yells. Calmer mornings are worth a lot more than five dollars.",
+   "It's four ninety-nine, once. No account, no ads, works offline, nothing leaves your phone.",
+   "Try it right now with the button below — and see what your morning could sound like."]},
+ ahead: {
+  name:'Ahead of It', em:'🧾', cat:'family', price:'$9', testing:true,
+  tag:'Taxes, renewals, the dog\'s shots — know what bites if you miss it',
+  try:A+'ahead/', video:true,
+  lines:[
+   "This is Ahead of It — for whoever carries the household.",
+   "The problem: taxes, plate renewals, insurance, the dog's shots. Each one knows how to bite you if you miss it — and they all live in your head.",
+   "How it works: a library of twenty-seven things households forget, ready to add in one tap. Your real dates, your real stuff.",
+   "It shows you what's due in the next thirty days — and exactly what happens if you miss each one, so you know what actually matters.",
+   "There's a year map so you can see the whole calendar of obligations at a glance.",
+   "And a hand-off list — so if you're ever not the one carrying the household, someone else can pick it up without detective work.",
+   "The benefit: nothing bites you. No late fees, no lapsed insurance, no 'I thought YOU renewed it.'",
+   "Nine dollars, once. One missed late fee costs more.",
+   "Try it below — add three real things from your own house and feel the difference."]},
+ nextstep: {
+  name:'Next Step Board', em:'🗂', cat:'work', price:'$9', testing:true,
+  tag:'Every project, its next step, whose turn — one screen',
+  try:A+'nextstep/', video:true,
+  lines:[
+   "This is Next Step Board — for anyone juggling more than three projects.",
+   "The problem: projects don't stall because they're hard. They stall because nobody wrote down the NEXT STEP.",
+   "How it works: one screen. Every project you've got, its very next step, and whose turn it is — yours or someone you're waiting on.",
+   "Priorities and due dates keep the important things on top. A 'coming up' bar shows what's about to land.",
+   "Add a task in one tap, send a date to your calendar in one tap.",
+   "Sit down with your coffee, open the board, and go down the list — business person or household manager, it's the same relief.",
+   "The benefit: nothing stalls, nothing gets forgotten, and you always know what to do next.",
+   "Nine dollars, once. No subscription, no account, works offline.",
+   "Try it below — put your three real projects in and watch your morning get simpler."]},
+ breakeven: {
+  name:'Break-Even', em:'🧮', cat:'free', price:'Free', testing:false,
+  tag:'Price your product — see exactly when you start making money',
+  try:A+'breakeven/', video:true,
+  lines:[
+   "This is Break-Even — free, for anyone selling anything.",
+   "The problem: you made a thing, you picked a price… but you honestly don't know when you start making money.",
+   "How it works: put in your costs, your price, what each sale takes out — it shows the exact number of sales where you cross into profit.",
+   "Slide the price up and down and watch the break-even point move. Suddenly pricing isn't a guess.",
+   "The benefit: you stop selling at a loss without knowing it. Every craft-fair table and side hustle needs this once.",
+   "It's completely free — our gift, and a taste of how we build.",
+   "Try it below with your real numbers. It takes two minutes to know the truth."]},
+ safety: {
+  name:'My Safety Plan', em:'🫶', cat:'free', price:'Free forever', testing:false,
+  tag:'A private safety plan in your pocket — built in memory of Ryan',
+  try:A+'safety/', video:true,
+  lines:[
+   "This is My Safety Plan. It's free, forever — built in memory of Ryan.",
+   "It's a private safety plan in the proven six-step format counselors use: warning signs, ways to cope, reasons to stay, people to call.",
+   "You fill it out on a calm day — so it's there on a hard one.",
+   "'Talk to someone now' is one tap: nine-eight-eight, the Suicide and Crisis Lifeline.",
+   "It's completely private. No account, nothing leaves your phone.",
+   "If you love someone who struggles, put this on their phone together. That's the whole reason it exists.",
+   "It will never cost anything. Try it below — or share it with someone who needs it today."]},
+ feedback: {
+  name:'Feedback Studio', em:'🎙', cat:'work', price:'$12', testing:true,
+  tag:'Use an app, talk out loud — your voice becomes the builder\'s to-do list',
+  try:BASE+'feedback-studio/', video:true,
+  lines:[
+   "This is Feedback Studio — for anyone who builds apps, and anyone who tests them.",
+   "The problem: feedback is the hardest part of building. People say 'looks good!' — and then don't use the thing.",
+   "How it works: the app you're testing opens in a window, working for real. You press one red button… and just talk while you use it.",
+   "Every thought becomes a comment, stamped with the exact second you said it. See something? Tap 'mark this spot.'",
+   "When you're done, one tap builds a clean report — every comment in order. Hand it to Claude, ChatGPT, or a human developer. It works with any of them.",
+   "The benefit: honest feedback in five minutes instead of a meeting nobody schedules. One session can save a week of guessing.",
+   "Twelve dollars, once. If you build anything, it pays for itself the first afternoon.",
+   "There's a two-minute demo movie on the shelf — or just try it below on any app you like."]},
+ storykeeper: {
+  name:'Story Keeper', em:'📖', cat:'family', price:'Free app · printed book from $39', testing:true,
+  tag:'Their voice, in a book — life stories, photos, and The Key',
+  try:BASE+'story-keeper/', video:true,
+  lines:[
+   "This is Story Keeper. Their voice… in a book.",
+   "The problem: someone you love is full of stories — and one day the stories go with them. And their forty thousand photos? Scattered, unlabeled, unfindable.",
+   "How it works: sit down together. The app asks a gentle question — 'tell me about the day you met your sweetheart.' They press the red button and just talk.",
+   "Their words are written down exactly as they said them. Then the app asks: 'do you have a picture from this time? I'll wait.' Story by story, the photos that matter come out of the pile.",
+   "Every story remembers who was in it — so a grandchild can one day read every story that has THEM in it.",
+   "And at the back: The Key — one page that tells the family where all the pictures and accounts live. So nothing is lost.",
+   "It all becomes a real printed book. Cover, chapters, photos, their exact words.",
+   "The app is free. The printed book starts at thirty-nine dollars — and it's the gift nobody ever forgets getting.",
+   "Try it below. Ask someone you love one question tonight."]},
+ occ: {
+  name:'OCC Box Counter', em:'📦', cat:'free', price:'Free', testing:false,
+  tag:'Shoebox-packing inventory — how many boxes can we build?',
+  try:A+'occ/', video:true,
+  lines:[
+   "This is the OCC Box Counter — free, for shoebox-packing teams.",
+   "The problem: a table full of soap, toothbrushes, and toys — and no idea how many complete boxes you can actually build.",
+   "How it works: count your items with big plus and minus buttons. Mark what goes in every box.",
+   "The dashboard answers the only question that matters: 'READY TO BUILD: this many boxes' — and exactly what you're short on.",
+   "Made for Operation Christmas Child packing parties, church tables, and garage inventories.",
+   "It's free. Try it below — your next packing day will thank you."]},
+ zuri: {
+  name:'Zuri Ops', em:'📡', cat:'work', price:'Ask us', testing:false,
+  tag:'Field operations for a small ISP — works with no signal',
+  try:A+'zuri/', video:true,
+  lines:[
+   "This is Zuri Ops — built for a real internet company in Maai Mahiu, Kenya.",
+   "It's field operations on one phone: cash counts, expenses, bills, the Friday Report.",
+   "It learns your habits, forecasts when the float runs out, and syncs to a headquarters dashboard whenever it finds internet.",
+   "Built for teams that work where the signal doesn't — everything works offline first.",
+   "If you run a small field team anywhere in the world, this pattern fits you too. Ask us.",
+   "Try the demo below and see a day in the field."]},
+ compass: {
+  name:'Daraja Compass', em:'🧭', cat:'free', price:'Free', testing:false,
+  tag:'A life-mapping interview — talk your way to what matters',
+  try:A+'compass/', video:true,
+  lines:[
+   "This is Daraja Compass — a life-mapping interview, free.",
+   "It asks you the questions a good mentor would: where you are, what matters, what's next.",
+   "You can tap example answers — or press the microphone and just talk.",
+   "A little daily verse keeps it grounded.",
+   "The benefit: an hour with Compass and you can see your own life on one page.",
+   "It's free. Try it below when you have a quiet evening."]},
+};
