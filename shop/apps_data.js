@@ -98,6 +98,20 @@ const APPS = {
    "It all becomes a real printed book. Cover, chapters, photos, their exact words.",
    "The app is free. The printed book starts at thirty-nine dollars — and it's the gift nobody ever forgets getting.",
    "Try it below. Ask someone you love one question tonight."]},
+ academy: {
+  name:'Daraja Academy', em:'🌉', cat:'family', price:'Lesson 1 free · course $19', testing:true,
+  tag:'AI for Grandparents — learn to use AI, the patient way',
+  try:BASE+'academy/', video:true,
+  lines:[
+   "This is Daraja Academy — starting with A I for Grandparents.",
+   "The problem: the whole world is talking about A I… and nobody is patiently teaching the people who didn't grow up with it.",
+   "How it works: big print, one thing at a time, and every page can read itself out loud. Like a patient grandson showing you, not a manual.",
+   "Lesson one: Just Ask It. In ten minutes you'll talk to an A I for the first time — safely, right inside the lesson. You can't break anything.",
+   "You'll learn the only rule that matters: talk to it like a person, not a computer.",
+   "And the grandparent safety rule — how to spot the phone scams that copy a grandchild's voice. That lesson alone is worth the course.",
+   "You finish with a printable certificate: 'I speak A I.' Send a picture to the grandkids. Frame it.",
+   "Lesson one is free. The full course will be nineteen dollars — and it's a beautiful gift for a parent or grandparent.",
+   "Try lesson one below. It only takes ten minutes to feel ten years younger."]},
  occ: {
   name:'OCC Box Counter', em:'📦', cat:'free', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
