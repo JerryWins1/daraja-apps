@@ -16,6 +16,8 @@ const APPS = {
    "A timer makes the middle short. And when you finish? It throws a little party. High fives, coins, a leaderboard for the family.",
    "Mornings, homework and bedtime run on routines that show up by themselves — no nagging required.",
    "Everyone in the family gets their own list, their own coins, their own buddy — the whole family on one phone.",
+   "And it's getting smart. The new week planner lets you empty your head — laundry, appointments, visits — then spreads the whole week onto sensible days for everyone, in one tap.",
+   "It even notices on its own: four days in a row, don't break the chain. Two more finishes your best day ever. A helper on your shoulder, not a boss.",
    "The benefit is simple: kids start, kids finish, and nobody yells. Calmer mornings are worth a lot more than five dollars.",
    "It's four ninety-nine, once. No account, no ads, works offline, nothing leaves your phone.",
    "Try it right now with the button below — and see what your morning could sound like."]},
