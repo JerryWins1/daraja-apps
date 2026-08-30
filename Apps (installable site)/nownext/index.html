@@ -1125,3 +1125,66 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,replay:()=>
 </script>
 </body>
 </html>
+<script>
+/* ===== "It notices" v1.1 (2026-08-29) — Level 1 smarts, localStorage-based =====
+   Additive + guarded: reads the app's own saved data fresh each tick and renders
+   one gentle insight card under NOW. If anything goes wrong, it stays silent. */
+(function(){
+  function dkey(off){ const d=new Date(); d.setDate(d.getDate()-off); return d.toISOString().slice(0,10); }
+  function readDb(){
+    try{
+      let cur=null;
+      try{ const P=JSON.parse(localStorage.getItem('now_next_profiles_v1')||'null'); cur=P&&P.cur; }catch(e){}
+      const keys = cur ? ['now_next_v1_'+cur] : ['now_next_v1_tmp','now_next_v1'];
+      for(const k of keys){
+        try{ const d=JSON.parse(localStorage.getItem(k)||'null'); if(d&&d.history) return d; }catch(e){}
+      }
+    }catch(e){}
+    return null;
+  }
+  function insight(){
+    try{
+      const d=readDb(); if(!d) return null;
+      const H=d.history||{}, todayK=(d.dayKey||dkey(0));
+      const doneToday=H[todayK]||0;
+      let streak=0;
+      for(let o=doneToday>0?0:1;;o++){ if((H[dkey(o)]||0)>0) streak++; else break; if(o>365) break; }
+      let rec=0; Object.keys(H).forEach(k=>{ if(H[k]>rec) rec=H[k]; });
+      const days=Object.keys(H).filter(k=>H[k]>0);
+      let wkAvg=0, wkName='';
+      if(days.length>=5){
+        const dow=new Date().getDay(); let sum=0,n=0;
+        days.forEach(k=>{ const dd=new Date(k+'T12:00:00'); if(dd.getDay()===dow){ sum+=H[k]; n++; } });
+        if(n>=2){ wkAvg=Math.round(sum/n); wkName=['Sundays','Mondays','Tuesdays','Wednesdays','Thursdays','Fridays','Saturdays'][dow]; }
+      }
+      const open=(d.tasks||[]).filter(t=>!t.done).length;
+      const hr=new Date().getHours();
+      if(rec>1 && doneToday>0 && doneToday<rec && (rec-doneToday)<=2 && open>=(rec-doneToday))
+        return '🏆 '+(rec-doneToday)+' more finishes your best day ever ('+rec+')!';
+      if(streak>=3) return '🔥 '+streak+' days in a row. Don’t break the chain today!';
+      if(wkAvg>=2 && doneToday===0) return '💪 '+wkName+' are usually your day — about '+wkAvg+' things get done. Start the first one?';
+      if(days.length>=3 && doneToday===0 && hr>=15 && open>0) return '🌤 Nothing checked yet today. One tiny task gets the day rolling — pick the easiest.';
+      if(streak===2) return '✨ Two days going. Finish one thing today and it’s officially a streak!';
+      if(doneToday>=3) return '🎉 '+doneToday+' done today already. You’re rolling!';
+      return null;
+    }catch(e){ return null; }
+  }
+  function tick(){
+    try{
+      const anchor=document.getElementById('nowCard'); if(!anchor||!anchor.parentNode) return;
+      let card=document.getElementById('noticeCard');
+      const msg=insight();
+      if(!msg){ if(card) card.style.display='none'; return; }
+      if(!card){
+        card=document.createElement('div'); card.id='noticeCard';
+        card.style.cssText='margin:10px 0;padding:10px 14px;border-radius:14px;background:linear-gradient(135deg,#fdf4e3,#faeeda);border:1.5px solid #e8cf9e;font-size:14.5px;font-weight:700;color:#7a5b1f;line-height:1.45;';
+        anchor.parentNode.insertBefore(card, anchor.nextSibling);
+      }
+      const html='💡 <span style="font-weight:800;letter-spacing:.06em;font-size:11px;color:#b3891f;">IT NOTICED</span><br>'+msg;
+      if(card.innerHTML!==html) card.innerHTML=html;
+      card.style.display='block';
+    }catch(e){}
+  }
+  setInterval(tick, 2500); setTimeout(tick, 1200);
+})();
+</script>
