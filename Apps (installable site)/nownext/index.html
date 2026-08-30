@@ -1188,3 +1188,167 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,replay:()=>
   setInterval(tick, 2500); setTimeout(tick, 1200);
 })();
 </script>
+<script>
+/* ===== "Our Week" family planner v1.1 (2026-08-29) — Jerry's whole-picture idea =====
+   ADHD-informed: see the week concretely, brain-dump everything, let the app
+   suggest days ("Spread the week"), then send items into each person's own
+   Coming-up list — the app's existing morning-landing does the rest.
+   Additive + guarded; its own storage key; can't touch core data except
+   deliberate sends via the app's own schemas. */
+(function(){
+try{
+  const WK='nn_week_v1', PK='now_next_profiles_v1';
+  const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const SIZES=[['⚡','Quick',15],['🕐','Medium',30],['🏋️','Big',60]];
+  function rawIdx(){ return (new Date().getDay()+6)%7; }
+  const AHEAD = rawIdx()>=5; /* Sat/Sun: plan NEXT week — the natural planning days */
+  function monday(){ const d=new Date(); d.setDate(d.getDate()-rawIdx()+(AHEAD?7:0)); return d.toISOString().slice(0,10); }
+  function dayDate(i){ const d=new Date(monday()+'T12:00:00'); d.setDate(d.getDate()+i); return d.toISOString().slice(0,10); }
+  function todayIdx(){ return AHEAD ? -1 : rawIdx(); }
+  function uid2(){ return 'wk'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+  function loadW(){ try{ const w=JSON.parse(localStorage.getItem(WK)||'null'); if(w&&w.weekStart===monday()) return w; }catch(e){} return {weekStart:monday(), items:[]}; }
+  function saveW(w){ localStorage.setItem(WK, JSON.stringify(w)); }
+  function fam(){ try{ const P=JSON.parse(localStorage.getItem(PK)||'null'); if(P&&P.list&&P.list.length) return P; }catch(e){} return {list:[{id:null,name:'Me',em:'🙂'}],cur:null}; }
+
+  /* ---- floating button ---- */
+  function ensureBtn(){
+    if(document.getElementById('wkBtn')) return;
+    const b=document.createElement('button'); b.id='wkBtn'; b.textContent='📅';
+    b.title='Our Week — plan the whole picture';
+    b.style.cssText='position:fixed;right:12px;bottom:84px;z-index:80;width:52px;height:52px;border-radius:50%;border:none;background:#6FB0D6;color:#fff;font-size:24px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer;';
+    b.onclick=openWk;
+    document.body.appendChild(b);
+  }
+  setInterval(ensureBtn, 3000); setTimeout(ensureBtn, 1500);
+
+  /* ---- overlay ---- */
+  let W=null, pick={who:0,size:1,day:null,count:1};
+  function openWk(){
+    W=loadW();
+    let ov=document.getElementById('wkOv');
+    if(!ov){
+      ov=document.createElement('div'); ov.id='wkOv';
+      ov.style.cssText='position:fixed;inset:0;z-index:90;background:#17181C;color:#EEEAE2;overflow:auto;font-family:inherit;';
+      document.body.appendChild(ov);
+    }
+    render();
+    ov.style.display='block';
+  }
+  function closeWk(){ const ov=document.getElementById('wkOv'); if(ov) ov.style.display='none'; }
+
+  function chip(txt,on,fn){ return '<button onclick="'+fn+'" style="border:1.5px solid '+(on?'#F07A55':'#31343B')+';background:'+(on?'#F07A55':'#1F2126')+';color:'+(on?'#fff':'#B7AFA2')+';border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">'+txt+'</button>'; }
+
+  function render(){
+    const ov=document.getElementById('wkOv'); if(!ov) return;
+    const P=fam(); if(pick.who>=P.list.length) pick.who=0;
+    const who=P.list[pick.who]||P.list[0];
+    const sz=SIZES[pick.size];
+    const wkOf=(AHEAD?'planning next week · ':'week of ')+new Date(monday()+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    let h='<div style="max-width:560px;margin:0 auto;padding:16px 14px 60px;">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><div style="font-size:22px;font-weight:800;">📅 Our Week <span style="font-size:13px;color:#B7AFA2;font-weight:600;">· '+wkOf+'</span></div><button onclick="window.__wk.close()" style="background:#1F2126;border:1px solid #31343B;color:#B7AFA2;border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;font-family:inherit;">✕ Close</button></div>';
+    h+='<div style="color:#B7AFA2;font-size:13.5px;margin-bottom:12px;">Empty your head: everything the family has to do this week. Then let it <b style="color:#F5C25C;">spread the week</b> for you.</div>';
+    /* add row */
+    h+='<div style="background:#1F2126;border:1px solid #31343B;border-radius:14px;padding:12px;margin-bottom:14px;">';
+    h+='<input id="wkText" placeholder="e.g. Doctor Tuesday 1pm · laundry · visit Mom" style="width:100%;font:inherit;font-size:15px;padding:10px 12px;border-radius:10px;border:1px solid #31343B;background:#17181C;color:#EEEAE2;outline:none;margin-bottom:9px;">';
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
+    h+=chip((who.em||'🙂')+' '+(who.name||'Me'),true,'window.__wk.cyc(&quot;who&quot;)');
+    h+=chip(sz[0]+' '+sz[1],false,'window.__wk.cyc(&quot;size&quot;)');
+    h+=chip(pick.day===null?'📆 Any day':'📌 '+DAYS[pick.day],pick.day!==null,'window.__wk.cyc(&quot;day&quot;)');
+    h+=chip('×'+pick.count+(pick.count>1?' times':''),pick.count>1,'window.__wk.cyc(&quot;count&quot;)');
+    h+='<button onclick="window.__wk.add()" style="margin-left:auto;background:#62BE8E;border:none;color:#fff;border-radius:999px;padding:9px 20px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">+ Add</button>';
+    h+='</div></div>';
+    /* action buttons */
+    const anyFloating=W.items.some(x=>x.day===null);
+    const anyPlaced=W.items.some(x=>x.day!==null&&!x.sent);
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">';
+    if(anyFloating) h+='<button onclick="window.__wk.spread()" style="flex:1;background:#F5C25C;border:none;color:#221;border-radius:999px;padding:12px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;">✨ Spread the week for me</button>';
+    if(anyPlaced) h+='<button onclick="window.__wk.send()" style="flex:1;background:#F07A55;border:none;color:#fff;border-radius:999px;padding:12px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;">📬 Send to everyone\'s lists</button>';
+    h+='</div>';
+    /* anytime pool */
+    const pool=W.items.filter(x=>x.day===null);
+    if(pool.length){
+      h+='<div style="font-size:12px;font-weight:800;letter-spacing:.1em;color:#B7AFA2;margin:6px 0;">STILL FLOATING — tap to pin a day</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">';
+      pool.forEach(x=>{ h+=itemChip(x); });
+      h+='</div>';
+    }
+    /* day grid */
+    const ti=todayIdx();
+    for(let d=0; d<7; d++){
+      const its=W.items.filter(x=>x.day===d);
+      const isToday=!AHEAD&&d===ti;
+      h+='<div style="border:1px solid '+(isToday?'#F07A55':'#31343B')+';border-radius:12px;padding:9px 11px;margin-bottom:8px;background:'+(isToday?'#241f1c':'#1F2126')+';">';
+      h+='<div style="font-size:12.5px;font-weight:800;color:'+(isToday?'#F07A55':'#B7AFA2')+';margin-bottom:'+(its.length?'7px':'0')+';">'+DAYS[d]+(isToday?' · today':'')+' <span style="font-weight:600;opacity:.7">'+new Date(dayDate(d)+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'})+'</span></div>';
+      if(its.length){ h+='<div style="display:flex;gap:6px;flex-wrap:wrap;">'; its.forEach(x=>{ h+=itemChip(x); }); h+='</div>'; }
+      h+='</div>';
+    }
+    h+='<div style="color:#6b7280;font-size:11.5px;text-align:center;margin-top:14px;">Our Week v1 · tap an item to move it a day forward · ✕ removes · sent items land in each person\'s app on their day</div>';
+    h+='</div>';
+    ov.innerHTML=h;
+  }
+  function itemChip(x){
+    const P=fam(); const m=P.list.find(p=>p.id===x.who);
+    const em=(m&&m.em)||'🙂';
+    return '<span style="display:inline-flex;align-items:center;gap:5px;background:'+(x.sent?'#20301f':'#17181C')+';border:1px solid '+(x.sent?'#62BE8E':'#31343B')+';border-radius:999px;padding:6px 10px;font-size:13px;'+(x.sent?'opacity:.7;':'')+'">'
+      +'<span>'+em+'</span>'
+      +'<span onclick="window.__wk.bump(\''+x.id+'\')" style="cursor:pointer;font-weight:700;">'+x.text.replace(/</g,'&lt;')+(x.sent?' ✓':'')+'</span>'
+      +'<span style="color:#B7AFA2;font-size:11px;">'+x.mins+'m</span>'
+      +'<span onclick="window.__wk.del(\''+x.id+'\')" style="cursor:pointer;color:#B7AFA2;font-weight:800;padding-left:2px;">✕</span></span>';
+  }
+
+  /* ---- actions ---- */
+  window.__wk={
+    close:closeWk,
+    cyc:function(k){
+      const P=fam();
+      if(k==='who') pick.who=(pick.who+1)%P.list.length;
+      if(k==='size') pick.size=(pick.size+1)%SIZES.length;
+      if(k==='day') pick.day=pick.day===null?0:(pick.day>=6?null:pick.day+1);
+      if(k==='count') pick.count=pick.count>=5?1:pick.count+1;
+      const t=document.getElementById('wkText').value; render(); document.getElementById('wkText').value=t;
+    },
+    add:function(){
+      const el=document.getElementById('wkText'); const t=(el.value||'').trim(); if(!t) return;
+      const P=fam(); const who=P.list[pick.who]||P.list[0];
+      for(let c=0;c<pick.count;c++){
+        W.items.push({id:uid2(),text:t+(pick.count>1?' ('+(c+1)+' of '+pick.count+')':''),who:who.id,mins:SIZES[pick.size][2],day:pick.day,sent:false});
+      }
+      pick.count=1; pick.day=null; saveW(W); render();
+    },
+    del:function(id){ W.items=W.items.filter(x=>x.id!==id); saveW(W); render(); },
+    bump:function(id){ const x=W.items.find(x=>x.id===id); if(!x||x.sent) return; x.day=x.day===null?Math.max(0,todayIdx()):(x.day>=6?0:x.day+1); saveW(W); render(); },
+    spread:function(){
+      const ti=todayIdx();
+      const loadOf=(who,d)=>W.items.filter(x=>x.who===who&&x.day===d).length;
+      const start=Math.max(0,ti);
+      W.items.filter(x=>x.day===null).forEach(x=>{
+        let best=null,bestScore=1e9;
+        for(let d=start; d<7; d++){
+          const score=loadOf(x.who,d)*10+(d===ti?3:0)+Math.random();
+          if(score<bestScore){ bestScore=score; best=d; }
+        }
+        x.day=best===null?Math.max(0,ti):best;
+      });
+      saveW(W); render();
+    },
+    send:function(){
+      const ti=todayIdx(); let n=0;
+      const byWho={};
+      W.items.filter(x=>x.day!==null&&!x.sent).forEach(x=>{ (byWho[x.who]=byWho[x.who]||[]).push(x); });
+      Object.keys(byWho).forEach(whoId=>{
+        const key = whoId && whoId!=='null' ? 'now_next_v1_'+whoId : 'now_next_v1';
+        let d=null; try{ d=JSON.parse(localStorage.getItem(key)||'null'); }catch(e){}
+        if(!d||!d.tasks) return;
+        byWho[whoId].forEach(x=>{
+          if(!AHEAD&&x.day<=ti){ d.tasks.push({id:uid2(),text:x.text,mins:x.mins,done:false,notes:[],att:null}); }
+          else{ (d.upcoming=d.upcoming||[]).push({id:uid2(),text:x.text,mins:x.mins,date:dayDate(x.day),notes:[],att:null}); }
+          x.sent=true; n++;
+        });
+        localStorage.setItem(key, JSON.stringify(d));
+      });
+      saveW(W); render();
+      alert(n+' thing'+(n===1?'':'s')+' sent. Today\'s land on today\'s list right after a refresh — the rest arrive on their day, automatically. The week is handled. 🌿');
+    }
+  };
+}catch(e){}
+})();
+</script>
