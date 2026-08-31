@@ -87,11 +87,11 @@ const APPS = {
    "Twelve dollars, once. If you build anything, it pays for itself the first afternoon.",
    "There's a two-minute demo movie on the shelf — or just try it below on any app you like."]},
  storykeeper: {
-  name:'Story Keeper', em:'📖', cat:'family', price:'Free app · printed book from $39', testing:true,
+  name:'In My Own Words', em:'📖', cat:'family', price:'Free app · printed book from $39', testing:true,
   tag:'Their voice, in a book — life stories, photos, and The Key',
   try:BASE+'story-keeper/', video:true,
   lines:[
-   "This is Story Keeper. Their voice… in a book.",
+   "This is In My Own Words. Their voice… in a book.",
    "The problem: someone you love is full of stories — and one day the stories go with them. And their forty thousand photos? Scattered, unlabeled, unfindable.",
    "How it works: sit down together. The app asks a gentle question — 'tell me about the day you met your sweetheart.' They press the red button and just talk.",
    "Their words are written down exactly as they said them. Then the app asks: 'do you have a picture from this time? I'll wait.' Story by story, the photos that matter come out of the pile.",
