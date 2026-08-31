@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.5 · 2026-08-30 (scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -16,7 +16,8 @@ const APPS = {
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
    {t:"Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.", js:"try{go('routines')}catch(e){}", point:"#n-routines"},
    {t:"Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.", js:"try{go('today');document.getElementById('wkBtn')&&document.getElementById('wkBtn').click()}catch(e){}", point:"#wkBtn"},
-   {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"}],
+   {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"},
+   "You'll know it's set up right when the NOW card shows one thing with a timer — and somebody checks it off and gets the party."],
   lines:[
    "This is Now and Next — for kids, and grown-ups, whose brains run fast.",
    "The problem it solves: knowing exactly what to do… and still not being able to start. And the parent who's said 'hurry up' eleven times before seven thirty.",
@@ -39,7 +40,8 @@ const APPS = {
    "Step two: put in your real dates. For each one, the app shows what missing it would cost you — that's how you know what matters.",
    {t:"Step three: make Sunday your glance day. The thirty-days-out view tells you everything that's coming before it can surprise you.", js:"try{go('next')}catch(e){}", point:"nav button[data-v='next']"},
    {t:"Step four: look at the year map once — your whole year of obligations on one screen.", js:"try{go('year')}catch(e){}", point:"nav button[data-v='year']"},
-   {t:"Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done.", js:"try{go('more')}catch(e){}"}],
+   {t:"Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done.", js:"try{go('more')}catch(e){}"},
+   "You'll know you're set when the front page shows your next thirty days, with dates that are really yours — and nothing on it surprises you."],
   lines:[
    "This is Ahead of It — for whoever carries the household.",
    "The problem: taxes, plate renewals, insurance, the dog's shots. Each one causes real problems if you miss it — and they all live in your head.",
@@ -60,7 +62,8 @@ const APPS = {
    "Step two: for each project write ONE next step, and whose turn it is — yours, or someone you're waiting on.",
    "Step three: set priorities and due dates so the important things float to the top.",
    "Step four: every morning, open the board and just go down the list. Add anything new in one tap.",
-   "Step five: when a step gets done, write the next one right away. Projects never stall when the next step is always written. That's the whole secret."],
+   "Step five: when a step gets done, write the next one right away. Projects never stall when the next step is always written. That's the whole secret.",
+   "You'll know it's working when every project on the board has a next step written. No blanks — blanks are where projects go to sleep."],
   lines:[
    "This is Next Step Board — for anyone juggling more than three projects.",
    "The problem: projects don't stall because they're hard. They stall because nobody wrote down the NEXT STEP.",
@@ -80,7 +83,8 @@ const APPS = {
    "Step one: what does one unit cost you to make? Supplies, materials — the honest number.",
    "Step two: what do you sell it for? And what does selling cost — the table fee, the listing fee, shipping?",
    "Step three: read the answer. It shows the exact sale where you cross into profit.",
-   "Step four: slide the price up and down and watch the break-even point move. That's how you pick a price on purpose instead of by guess."],
+   "Step four: slide the price up and down and watch the break-even point move. That's how you pick a price on purpose instead of by guess.",
+   "You'll know it worked when you can say out loud: 'I make money on number twelve.' That sentence is the whole product."],
   lines:[
    "This is Break-Even — free, for anyone selling anything.",
    "The problem: you made a thing, you picked a price… but you honestly don't know when you start making money.",
@@ -118,7 +122,8 @@ const APPS = {
    "Step two: press the big red button. Your browser will ask about the microphone once — tap Allow.",
    "Step three: use the app and just talk. Pause between thoughts — each pause becomes its own timestamped comment on the right.",
    "Step four: see something on screen worth pointing at? Tap 'Mark this spot' — it drops a flag at that exact moment.",
-   "Step five: pick who the report is for — Claude, ChatGPT, Gemini, or your developer — then tap Build the report, Copy, and paste it wherever it needs to go. Five minutes of talking, a week of guessing saved."],
+   "Step five: pick who the report is for — Claude, ChatGPT, Gemini, or your developer — then tap Build the report, Copy, and paste it wherever it needs to go. Five minutes of talking, a week of guessing saved.",
+   "You'll know it worked when the report reads your own words back with timestamps. Copy it, send it — that's a finished session."],
   lines:[
    "This is Feedback Studio — for anyone who builds apps, and anyone who tests them.",
    "The problem: feedback is the hardest part of building. People say 'looks good!' — and then don't use the thing.",
@@ -139,7 +144,8 @@ const APPS = {
    {t:"Step two: pick a chapter, press the red button, and just talk, like telling a story at the kitchen table. Tap right in the words to fix anything it misheard — or tap Read it back and listen for wrong words.", js:"try{openChap('love')}catch(e){}"},
    "Step three: when the memory is warm, add a picture from that time — the app waits while you find it.",
    "Step four: riffed a bit? Tap Make it book-ready — it helps you polish the telling into book prose without losing your voice.",
-   {t:"Step five: fill in The Key at the bottom of the home page. Then tap See your book, and watch a life turn into pages. Save a backup now and then — the button's right there.", js:"try{openBook()}catch(e){}"}],
+   {t:"Step five: fill in The Key at the bottom of the home page. Then tap See your book, and watch a life turn into pages. Save a backup now and then — the button's right there.", js:"try{openBook()}catch(e){}"},
+   "You'll know it's working when Your Book shows a cover with their name and one real story beneath it. One story is a book begun."],
   lines:[
    "This is In My Own Words. Their voice… in a book.",
    "The problem: someone you love is full of stories — and one day the stories go with them. And their forty thousand photos? Scattered, unlabeled, unfindable.",
@@ -179,7 +185,8 @@ const APPS = {
    {t:"Box two: accounts that matter. Write where the passwords are KEPT — the notebook, the safe — never the passwords themselves.", js:"try{var c=document.querySelectorAll('.card')[1];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
    {t:"Box three: the papers. Will, deed, insurance — the drawer, the safe, the lawyer's name.", js:"try{var c=document.querySelectorAll('.card')[2];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
    {t:"Box four: the people who know things. The lawyer, the accountant, the grandson who does computers.", js:"try{var c=document.querySelectorAll('.card')[3];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
-   {t:"Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. Update it when life changes — the date prints on the page.", js:"", point:".btn.wide"}],
+   {t:"Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. Update it when life changes — the date prints on the page.", js:"", point:".btn.wide"},
+   "You'll know it's done when the printed page is in the drawer and the person you trust has their copy. That's the whole job — finished in an afternoon."],
   tag:'One page that tells your family where everything lives',
   lines:[
    "This is The Key — free, forever. The most loving page you'll ever print.",
@@ -198,7 +205,8 @@ const APPS = {
    "Step one: count what's on the table. Big plus and minus buttons; tap an item's name for plus five and plus ten.",
    "Step two: mark what goes in EVERY box — soap, toothbrush, washcloth — with the 'every box' toggle.",
    "Step three: read the dashboard: READY TO BUILD tells you how many complete boxes you can make, and what you're short on.",
-   "Step four: as you pack, count down. When it says you're short on washcloths — that's your shopping list."],
+   "Step four: as you pack, count down. When it says you're short on washcloths — that's your shopping list.",
+   "You'll know it's working when the dashboard says READY TO BUILD and a number. That number is the whole answer."],
   lines:[
    "This is the OCC Box Counter — free, for shoebox-packing teams.",
    "The problem: a table full of soap, toothbrushes, and toys — and no idea how many complete boxes you can actually build.",
