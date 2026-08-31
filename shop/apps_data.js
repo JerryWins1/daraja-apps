@@ -114,6 +114,18 @@ const APPS = {
    "You finish with a printable certificate: 'I speak A I.' Send a picture to the grandkids. Frame it.",
    "Lesson one is free. The full course will be nineteen dollars — and it's a beautiful gift for a parent or grandparent.",
    "Try lesson one below. It only takes ten minutes to feel ten years younger."]},
+ thekey: {
+  name:'The Key', em:'🔑', cat:'free', price:'Free forever', testing:false,
+  try:BASE+'thekey/', video:true,
+  tag:'One page that tells your family where everything lives',
+  lines:[
+   "This is The Key — free, forever. The most loving page you'll ever print.",
+   "The problem: your pictures are on a phone, in a cloud, on an old computer. Your papers are in a drawer somewhere. And the only person who knows where everything is… is you.",
+   "The Key is one page: where the pictures live, where the passwords are kept, where the papers are, and who to call.",
+   "Five minutes, once. Then print two copies — one for the drawer, one for the person you trust most.",
+   "Never the passwords themselves — just where they're kept. And nothing is sent anywhere; it stays on your device.",
+   "When the day comes, your family won't have to be detectives. They'll have The Key.",
+   "It's free. Fill yours out tonight — and send this to your parents while you're at it."]},
  occ: {
   name:'OCC Box Counter', em:'📦', cat:'free', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
