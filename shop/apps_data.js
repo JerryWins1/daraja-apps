@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.3 · 2026-08-29 (trainings for every app)
+/* Daraja Store — one shared catalog. v1.4 · 2026-08-30 (scene-directed trainings — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -12,11 +12,11 @@ const APPS = {
   train:[
    "Let's set up Now and Next — five minutes, then it runs your mornings forever.",
    "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
-   "Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.",
+   {t:"Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.", js:"try{go('today')}catch(e){}"},
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
-   "Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.",
-   "Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.",
-   "Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time."],
+   {t:"Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.", js:"try{go('routines')}catch(e){}"},
+   {t:"Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.", js:"try{go('today');document.getElementById('wkBtn')&&document.getElementById('wkBtn').click()}catch(e){}"},
+   {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"}],
   lines:[
    "This is Now and Next — for kids, and grown-ups, whose brains run fast.",
    "The problem it solves: knowing exactly what to do… and still not being able to start. And the parent who's said 'hurry up' eleven times before seven thirty.",
@@ -35,11 +35,11 @@ const APPS = {
   try:A+'ahead/', video:true,
   train:[
    "Setting up Ahead of It takes five minutes, once — then nothing catches you off guard again.",
-   "Step one: open the library and tap the items your house actually has — taxes, plate renewals, insurance, the dog's shots.",
+   {t:"Step one: open the library and tap the items your house actually has — taxes, plate renewals, insurance, the dog's shots.", js:"try{go('lib')}catch(e){}"},
    "Step two: put in your real dates. For each one, the app shows what missing it would cost you — that's how you know what matters.",
-   "Step three: make Sunday your glance day. The thirty-days-out view tells you everything that's coming before it can surprise you.",
-   "Step four: look at the year map once — your whole year of obligations on one screen.",
-   "Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done."],
+   {t:"Step three: make Sunday your glance day. The thirty-days-out view tells you everything that's coming before it can surprise you.", js:"try{go('next')}catch(e){}"},
+   {t:"Step four: look at the year map once — your whole year of obligations on one screen.", js:"try{go('year')}catch(e){}"},
+   {t:"Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done.", js:"try{go('more')}catch(e){}"}],
   lines:[
    "This is Ahead of It — for whoever carries the household.",
    "The problem: taxes, plate renewals, insurance, the dog's shots. Each one causes real problems if you miss it — and they all live in your head.",
@@ -136,10 +136,10 @@ const APPS = {
    "Making a book with In My Own Words — here's how a good session goes.",
    "Before you start: sit somewhere quiet, close to the microphone — arm's reach or less. That one habit makes the words come out right.",
    "Step one: add the people of your life — spouse, kids, grandkids. Every story will remember who was there.",
-   "Step two: pick a chapter, press the red button, and just talk, like telling a story at the kitchen table. Tap right in the words to fix anything it misheard — or tap Read it back and listen for wrong words.",
+   {t:"Step two: pick a chapter, press the red button, and just talk, like telling a story at the kitchen table. Tap right in the words to fix anything it misheard — or tap Read it back and listen for wrong words.", js:"try{openChap('love')}catch(e){}"},
    "Step three: when the memory is warm, add a picture from that time — the app waits while you find it.",
    "Step four: riffed a bit? Tap Make it book-ready — it helps you polish the telling into book prose without losing your voice.",
-   "Step five: fill in The Key at the bottom of the home page. Then tap See your book, and watch a life turn into pages. Save a backup now and then — the button's right there."],
+   {t:"Step five: fill in The Key at the bottom of the home page. Then tap See your book, and watch a life turn into pages. Save a backup now and then — the button's right there.", js:"try{openBook()}catch(e){}"}],
   lines:[
    "This is In My Own Words. Their voice… in a book.",
    "The problem: someone you love is full of stories — and one day the stories go with them. And their forty thousand photos? Scattered, unlabeled, unfindable.",
@@ -156,10 +156,10 @@ const APPS = {
   try:BASE+'academy/', video:true,
   train:[
    "Taking a Daraja Academy lesson — here's all there is to it.",
-   "Sit somewhere comfortable, sound on. Every page has a 'read this page to me' button — tap it and just listen.",
-   "Go one screen at a time with the big Next button. Nothing you tap can break anything — that's a promise.",
-   "When the lesson asks you to try something, try it — that's where the learning lives.",
-   "At the end, print your certificate. And yes — send a picture of it to the grandkids."],
+   {t:"Sit somewhere comfortable, sound on. Every page has a 'read this page to me' button — tap it and just listen.", js:"try{go(0)}catch(e){}"},
+   {t:"Go one screen at a time with the big Next button. Nothing you tap can break anything — that's a promise.", js:"try{go(1)}catch(e){}"},
+   {t:"When the lesson asks you to try something, try it — that's where the learning lives.", js:"try{go(3)}catch(e){}"},
+   {t:"At the end, print your certificate. And yes — send a picture of it to the grandkids.", js:"try{db.name=db.name||'Grandma';go(7)}catch(e){}"}],
   lines:[
    "This is Daraja Academy — starting with A I for Grandparents.",
    "The problem: the whole world is talking about A I… and nobody is patiently teaching the people who didn't grow up with it.",
@@ -175,11 +175,11 @@ const APPS = {
   try:BASE+'thekey/', video:true,
   train:[
    "Filling out The Key — five minutes for a lifetime of relief.",
-   "Box one: where your pictures live. Phones, clouds, albums in the closet — and who can get in.",
-   "Box two: accounts that matter. Write where the passwords are KEPT — the notebook, the safe — never the passwords themselves.",
-   "Box three: the papers. Will, deed, insurance — the drawer, the safe, the lawyer's name.",
-   "Box four: the people who know things. The lawyer, the accountant, the grandson who does computers.",
-   "Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. Update it when life changes — the date prints on the page."],
+   {t:"Box one: where your pictures live. Phones, clouds, albums in the closet — and who can get in.", js:"try{var c=document.querySelectorAll('.card')[0];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
+   {t:"Box two: accounts that matter. Write where the passwords are KEPT — the notebook, the safe — never the passwords themselves.", js:"try{var c=document.querySelectorAll('.card')[1];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
+   {t:"Box three: the papers. Will, deed, insurance — the drawer, the safe, the lawyer's name.", js:"try{var c=document.querySelectorAll('.card')[2];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
+   {t:"Box four: the people who know things. The lawyer, the accountant, the grandson who does computers.", js:"try{var c=document.querySelectorAll('.card')[3];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
+   {t:"Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. Update it when life changes — the date prints on the page.", js:"try{document.querySelector('.btn.wide').scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"}],
   tag:'One page that tells your family where everything lives',
   lines:[
    "This is The Key — free, forever. The most loving page you'll ever print.",
