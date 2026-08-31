@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.0 · 2026-08-28
+/* Daraja Store — one shared catalog. v1.2 · 2026-08-29 (training scripts added)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -9,6 +9,14 @@ const APPS = {
   name:'Now & Next', em:'🧭', cat:'family', price:'$4.99', testing:true,
   tag:'One thing at a time — for kids and grown-ups whose brains run fast',
   try:A+'nownext/', video:true,
+  train:[
+   "Let's set up Now and Next — five minutes, then it runs your mornings forever.",
+   "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
+   "Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.",
+   "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
+   "Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.",
+   "Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.",
+   "Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time."],
   lines:[
    "This is Now and Next — for kids, and grown-ups, whose brains run fast.",
    "The problem it solves: knowing exactly what to do… and still not being able to start. And the parent who's said 'hurry up' eleven times before seven thirty.",
@@ -25,6 +33,13 @@ const APPS = {
   name:'Ahead of It', em:'🧾', cat:'family', price:'$9', testing:true,
   tag:'Taxes, renewals, the dog\'s shots — know what bites if you miss it',
   try:A+'ahead/', video:true,
+  train:[
+   "Setting up Ahead of It takes five minutes, once — then nothing bites you again.",
+   "Step one: open the library and tap the items your house actually has — taxes, plate renewals, insurance, the dog's shots.",
+   "Step two: put in your real dates. For each one, the app shows what actually happens if you miss it — that's how you know what matters.",
+   "Step three: make Sunday your glance day. The thirty-days-out view tells you everything that's coming before it can surprise you.",
+   "Step four: look at the year map once — your whole year of obligations on one screen.",
+   "Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done."],
   lines:[
    "This is Ahead of It — for whoever carries the household.",
    "The problem: taxes, plate renewals, insurance, the dog's shots. Each one knows how to bite you if you miss it — and they all live in your head.",
@@ -39,6 +54,13 @@ const APPS = {
   name:'Next Step Board', em:'🗂', cat:'work', price:'$9', testing:true,
   tag:'Every project, its next step, whose turn — one screen',
   try:A+'nextstep/', video:true,
+  train:[
+   "Next Step Board setup — five minutes with your coffee.",
+   "Step one: add every project you're juggling. Work, home, church — all of them, one screen.",
+   "Step two: for each project write ONE next step, and whose turn it is — yours, or someone you're waiting on.",
+   "Step three: set priorities and due dates so the important things float to the top.",
+   "Step four: every morning, open the board and just go down the list. Add anything new in one tap.",
+   "Step five: when a step gets done, write the next one right away. Projects never stall when the next step is always written. That's the whole secret."],
   lines:[
    "This is Next Step Board — for anyone juggling more than three projects.",
    "The problem: projects don't stall because they're hard. They stall because nobody wrote down the NEXT STEP.",
@@ -77,6 +99,13 @@ const APPS = {
   name:'Feedback Studio', em:'🎙', cat:'work', price:'$12', testing:true,
   tag:'Use an app, talk out loud — your voice becomes the builder\'s to-do list',
   try:BASE+'feedback-studio/', video:true,
+  train:[
+   "Using Feedback Studio for the first time — here's the whole routine.",
+   "Step one: open it in Chrome or Edge. Paste the address of the app you're reviewing and tap Open. The real app appears in the window.",
+   "Step two: press the big red button. Your browser will ask about the microphone once — tap Allow.",
+   "Step three: use the app and just talk. Pause between thoughts — each pause becomes its own timestamped comment on the right.",
+   "Step four: see something on screen worth pointing at? Tap 'Mark this spot' — it drops a flag at that exact moment.",
+   "Step five: pick who the report is for — Claude, ChatGPT, Gemini, or your developer — then tap Build the report, Copy, and paste it wherever it needs to go. Five minutes of talking, a week of guessing saved."],
   lines:[
    "This is Feedback Studio — for anyone who builds apps, and anyone who tests them.",
    "The problem: feedback is the hardest part of building. People say 'looks good!' — and then don't use the thing.",
@@ -90,6 +119,14 @@ const APPS = {
   name:'In My Own Words', em:'📖', cat:'family', price:'Free app · printed book from $39', testing:true,
   tag:'Their voice, in a book — life stories, photos, and The Key',
   try:BASE+'story-keeper/', video:true,
+  train:[
+   "Making a book with In My Own Words — here's how a good session goes.",
+   "Before you start: sit somewhere quiet, close to the microphone — arm's reach or less. That one habit makes the words come out right.",
+   "Step one: add the people of your life — spouse, kids, grandkids. Every story will remember who was there.",
+   "Step two: pick a chapter, press the red button, and just talk, like telling a story at the kitchen table. Tap right in the words to fix anything it misheard — or tap Read it back and listen for wrong words.",
+   "Step three: when the memory is warm, add a picture from that time — the app waits while you find it.",
+   "Step four: riffed a bit? Tap Make it book-ready — it helps you polish the telling into book prose without losing your voice.",
+   "Step five: fill in The Key at the bottom of the home page. Then tap See your book, and watch a life turn into pages. Save a backup now and then — the button's right there."],
   lines:[
    "This is In My Own Words. Their voice… in a book.",
    "The problem: someone you love is full of stories — and one day the stories go with them. And their forty thousand photos? Scattered, unlabeled, unfindable.",
@@ -117,6 +154,13 @@ const APPS = {
  thekey: {
   name:'The Key', em:'🔑', cat:'free', price:'Free forever', testing:false,
   try:BASE+'thekey/', video:true,
+  train:[
+   "Filling out The Key — five minutes for a lifetime of relief.",
+   "Box one: where your pictures live. Phones, clouds, albums in the closet — and who can get in.",
+   "Box two: accounts that matter. Write where the passwords are KEPT — the notebook, the safe — never the passwords themselves.",
+   "Box three: the papers. Will, deed, insurance — the drawer, the safe, the lawyer's name.",
+   "Box four: the people who know things. The lawyer, the accountant, the grandson who does computers.",
+   "Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. Update it when life changes — the date prints on the page."],
   tag:'One page that tells your family where everything lives',
   lines:[
    "This is The Key — free, forever. The most loving page you'll ever print.",
