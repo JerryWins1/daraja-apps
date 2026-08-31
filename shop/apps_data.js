@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.4 · 2026-08-30 (scene-directed trainings — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v1.5 · 2026-08-30 (scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -14,8 +14,8 @@ const APPS = {
    "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
    {t:"Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.", js:"try{go('today')}catch(e){}"},
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
-   {t:"Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.", js:"try{go('routines')}catch(e){}"},
-   {t:"Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.", js:"try{go('today');document.getElementById('wkBtn')&&document.getElementById('wkBtn').click()}catch(e){}"},
+   {t:"Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.", js:"try{go('routines')}catch(e){}", point:"#n-routines"},
+   {t:"Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.", js:"try{go('today');document.getElementById('wkBtn')&&document.getElementById('wkBtn').click()}catch(e){}", point:"#wkBtn"},
    {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"}],
   lines:[
    "This is Now and Next — for kids, and grown-ups, whose brains run fast.",
@@ -35,10 +35,10 @@ const APPS = {
   try:A+'ahead/', video:true,
   train:[
    "Setting up Ahead of It takes five minutes, once — then nothing catches you off guard again.",
-   {t:"Step one: open the library and tap the items your house actually has — taxes, plate renewals, insurance, the dog's shots.", js:"try{go('lib')}catch(e){}"},
+   {t:"Step one: open the library and tap the items your house actually has — taxes, plate renewals, insurance, the dog's shots.", js:"try{go('lib')}catch(e){}", point:"nav button[data-v='lib']"},
    "Step two: put in your real dates. For each one, the app shows what missing it would cost you — that's how you know what matters.",
-   {t:"Step three: make Sunday your glance day. The thirty-days-out view tells you everything that's coming before it can surprise you.", js:"try{go('next')}catch(e){}"},
-   {t:"Step four: look at the year map once — your whole year of obligations on one screen.", js:"try{go('year')}catch(e){}"},
+   {t:"Step three: make Sunday your glance day. The thirty-days-out view tells you everything that's coming before it can surprise you.", js:"try{go('next')}catch(e){}", point:"nav button[data-v='next']"},
+   {t:"Step four: look at the year map once — your whole year of obligations on one screen.", js:"try{go('year')}catch(e){}", point:"nav button[data-v='year']"},
    {t:"Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done.", js:"try{go('more')}catch(e){}"}],
   lines:[
    "This is Ahead of It — for whoever carries the household.",
@@ -179,7 +179,7 @@ const APPS = {
    {t:"Box two: accounts that matter. Write where the passwords are KEPT — the notebook, the safe — never the passwords themselves.", js:"try{var c=document.querySelectorAll('.card')[1];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
    {t:"Box three: the papers. Will, deed, insurance — the drawer, the safe, the lawyer's name.", js:"try{var c=document.querySelectorAll('.card')[2];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
    {t:"Box four: the people who know things. The lawyer, the accountant, the grandson who does computers.", js:"try{var c=document.querySelectorAll('.card')[3];c&&c.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"},
-   {t:"Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. Update it when life changes — the date prints on the page.", js:"try{document.querySelector('.btn.wide').scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}"}],
+   {t:"Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. Update it when life changes — the date prints on the page.", js:"", point:".btn.wide"}],
   tag:'One page that tells your family where everything lives',
   lines:[
    "This is The Key — free, forever. The most loving page you'll ever print.",
