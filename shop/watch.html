@@ -106,7 +106,7 @@
   <button class="cbtn" onclick="restart()">↻ Start over</button>
   <button class="cbtn" id="sndBtn" onclick="toggleSound()">🔊 Sound on</button>
 </div>
-<div id="ver">Daraja Store video player v1.2 · 2026-08-29 — now showing the real app while it talks</div>
+<div id="ver">Daraja Store video player v1.3 · 2026-08-30 — the app changes screens with the story</div>
 
 <script src="apps_data.js"></script>
 <script>
@@ -147,20 +147,47 @@ function speak(text, cb){
 function play(){
   $('ov').style.display='none'; $('cap').style.display='block';
   const fr=$('appFrame');
-  if(fr && !fr.src) fr.src = app.try;
+  try{ localStorage.setItem('daraja_intro_'+id,'1'); }catch(e){}
+  try{
+    var ck='fs_coach_'+id, cs=JSON.parse(localStorage.getItem(ck)||'{}');
+    cs.seen=1; localStorage.setItem(ck, JSON.stringify(cs));
+  }catch(e){}
+  if(fr && !fr.src){
+    fr.src = app.try;
+    fr.addEventListener('load', function(){
+      var quiet=function(){ try{
+        const d=fr.contentDocument;
+        if(d){
+          var o=d.getElementById('introOv'); o&&o.remove();
+          var f=d.getElementById('fsIntro'); f&&(f.style.display='none');
+        }
+      }catch(e){} };
+      setTimeout(quiet, 900); setTimeout(quiet, 2500);
+    });
+  }
   $('appView').style.display='block'; $('slide').style.display='none';
   $('pBtn').style.display='inline-block';
   playing=true; paused=false; i=-1;
   if(window.speechSynthesis) speechSynthesis.getVoices();
   next();
 }
+function lineText(l){ return typeof l==='string' ? l : l.t; }
+function direct(l){
+  if(typeof l==='string' || !l.js) return;
+  try{
+    const fr=$('appFrame');
+    if(fr && fr.contentWindow) fr.contentWindow.eval(l.js);
+  }catch(e){}
+}
 function next(){
   if(!playing || paused) return;
   i++;
   if(i >= LINES.length){ end(); return; }
-  $('capText').textContent = LINES[i];
+  const l = LINES[i];
+  direct(l);
+  $('capText').textContent = lineText(l);
   $('prog').style.width = Math.round(((i+1)/LINES.length)*100)+'%';
-  speak(LINES[i], ()=>setTimeout(next, 500));
+  speak(lineText(l), ()=>setTimeout(next, 500));
 }
 function end(){
   playing=false;
