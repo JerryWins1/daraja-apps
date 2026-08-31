@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.2 · 2026-08-29 (training scripts added)
+/* Daraja Store — one shared catalog. v1.3 · 2026-08-29 (trainings for every app)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -75,6 +75,12 @@ const APPS = {
   name:'Break-Even', em:'🧮', cat:'free', price:'Free', testing:false,
   tag:'Price your product — see exactly when you start making money',
   try:A+'breakeven/', video:true,
+  train:[
+   "Using Break-Even — two minutes to the truth.",
+   "Step one: what does one unit cost you to make? Supplies, materials — the honest number.",
+   "Step two: what do you sell it for? And what does selling cost — the table fee, the listing fee, shipping?",
+   "Step three: read the answer. It shows the exact sale where you cross into profit.",
+   "Step four: slide the price up and down and watch the break-even point move. That's how you pick a price on purpose instead of by guess."],
   lines:[
    "This is Break-Even — free, for anyone selling anything.",
    "The problem: you made a thing, you picked a price… but you honestly don't know when you start making money.",
@@ -87,6 +93,13 @@ const APPS = {
   name:'My Safety Plan', em:'🫶', cat:'free', price:'Free forever', testing:false,
   tag:'A private safety plan in your pocket — built in memory of Ryan',
   try:A+'safety/', video:true,
+  train:[
+   "Filling out My Safety Plan — do this on a calm day, so it's ready on a hard one.",
+   "Step one: warning signs. Write what a bad day looks like for you — the thoughts, the feelings, the situations.",
+   "Step two: ways to cope. Small things that have helped before — a walk, music, a shower, calling someone.",
+   "Step three: your people. Who to talk to, and their numbers — a friend, family, your counselor.",
+   "Step four: reasons to stay. In your own words. Take your time on this one.",
+   "That's it. It saves privately on your phone, and 'Talk to someone now' is always one tap — nine-eight-eight. If you love someone who struggles, fill it out together."],
   lines:[
    "This is My Safety Plan. It's free, forever — built in memory of Ryan.",
    "It's a private safety plan in the proven six-step format counselors use: warning signs, ways to cope, reasons to stay, people to call.",
@@ -141,6 +154,12 @@ const APPS = {
   name:'Daraja Academy', em:'🌉', cat:'family', price:'Lesson 1 free · course $19', testing:true,
   tag:'AI for Grandparents — learn to use AI, the patient way',
   try:BASE+'academy/', video:true,
+  train:[
+   "Taking a Daraja Academy lesson — here's all there is to it.",
+   "Sit somewhere comfortable, sound on. Every page has a 'read this page to me' button — tap it and just listen.",
+   "Go one screen at a time with the big Next button. Nothing you tap can break anything — that's a promise.",
+   "When the lesson asks you to try something, try it — that's where the learning lives.",
+   "At the end, print your certificate. And yes — send a picture of it to the grandkids."],
   lines:[
    "This is Daraja Academy — starting with A I for Grandparents.",
    "The problem: the whole world is talking about A I… and nobody is patiently teaching the people who didn't grow up with it.",
@@ -174,6 +193,12 @@ const APPS = {
   name:'OCC Box Counter', em:'📦', cat:'free', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
   try:A+'occ/', video:true,
+  train:[
+   "Using the Box Counter at a packing party — here's the routine.",
+   "Step one: count what's on the table. Big plus and minus buttons; tap an item's name for plus five and plus ten.",
+   "Step two: mark what goes in EVERY box — soap, toothbrush, washcloth — with the 'every box' toggle.",
+   "Step three: read the dashboard: READY TO BUILD tells you how many complete boxes you can make, and what you're short on.",
+   "Step four: as you pack, count down. When it says you're short on washcloths — that's your shopping list."],
   lines:[
    "This is the OCC Box Counter — free, for shoebox-packing teams.",
    "The problem: a table full of soap, toothbrushes, and toys — and no idea how many complete boxes you can actually build.",
@@ -185,6 +210,12 @@ const APPS = {
   name:'Zuri Ops', em:'📡', cat:'work', price:'Ask us', testing:false,
   tag:'Field operations for a small ISP — works with no signal',
   try:A+'zuri/', video:true,
+  train:[
+   "Zuri Ops for the field — the daily rhythm.",
+   "Morning: open the app, confirm your float — the cash you're starting with.",
+   "During the day: log each expense and payment as it happens. It works with no signal; everything waits.",
+   "It learns your habits and warns you before the float runs out.",
+   "Friday: the Friday Report builds itself — and when the phone finds internet, everything syncs to the HQ dashboard on its own."],
   lines:[
    "This is Zuri Ops — built for a real internet company in Maai Mahiu, Kenya.",
    "It's field operations on one phone: cash counts, expenses, bills, the Friday Report.",
@@ -196,6 +227,11 @@ const APPS = {
   name:'Daraja Compass', em:'🧭', cat:'free', price:'Free', testing:false,
   tag:'A life-mapping interview — talk your way to what matters',
   try:A+'compass/', video:true,
+  train:[
+   "Using Daraja Compass — give it a quiet evening.",
+   "Step one: answer the questions honestly. Tap an example if the words won't come, or press the microphone and just talk.",
+   "Step two: don't rush. It asks what a good mentor would ask — where you are, what matters, what's next.",
+   "Step three: when you're done, look at your life on one page. Keep it, pray over it, come back in a season and see what moved."],
   lines:[
    "This is Daraja Compass — a life-mapping interview, free.",
    "It asks you the questions a good mentor would: where you are, what matters, what's next.",
