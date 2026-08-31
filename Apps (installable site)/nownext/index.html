@@ -1189,7 +1189,7 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,replay:()=>
 })();
 </script>
 <script>
-/* ===== "Our Week" family planner v1.1 (2026-08-29) — Jerry's whole-picture idea =====
+/* ===== "Our Week" family planner v1.2 (2026-08-29: person colors + smart day parsing) — Jerry's whole-picture idea =====
    ADHD-informed: see the week concretely, brain-dump everything, let the app
    suggest days ("Spread the week"), then send items into each person's own
    Coming-up list — the app's existing morning-landing does the rest.
@@ -1200,6 +1200,17 @@ try{
   const WK='nn_week_v1', PK='now_next_profiles_v1';
   const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const SIZES=[['⚡','Quick',15],['🕐','Medium',30],['🏋️','Big',60]];
+  const PCOLORS=['#F07A55','#6FB0D6','#62BE8E','#F5C25C','#c78ad6','#7fd6c9'];
+  function colorOf(whoId){
+    const P=fam(); const i=Math.max(0,P.list.findIndex(p=>p.id===whoId));
+    return PCOLORS[i % PCOLORS.length];
+  }
+  function parseDay(t){
+    const m=t.toLowerCase().match(/\b(monday|mon|tuesday|tues|tue|wednesday|wed|thursday|thurs|thu|friday|fri|saturday|sat|sunday|sun)\b/);
+    if(!m) return null;
+    const k=m[1].slice(0,3);
+    return {mon:0,tue:1,wed:2,thu:3,fri:4,sat:5,sun:6}[k];
+  }
   function rawIdx(){ return (new Date().getDay()+6)%7; }
   const AHEAD = rawIdx()>=5; /* Sat/Sun: plan NEXT week — the natural planning days */
   function monday(){ const d=new Date(); d.setDate(d.getDate()-rawIdx()+(AHEAD?7:0)); return d.toISOString().slice(0,10); }
@@ -1251,7 +1262,7 @@ try{
     h+='<div style="background:#1F2126;border:1px solid #31343B;border-radius:14px;padding:12px;margin-bottom:14px;">';
     h+='<input id="wkText" placeholder="e.g. Doctor Tuesday 1pm · laundry · visit Mom" style="width:100%;font:inherit;font-size:15px;padding:10px 12px;border-radius:10px;border:1px solid #31343B;background:#17181C;color:#EEEAE2;outline:none;margin-bottom:9px;">';
     h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
-    h+=chip((who.em||'🙂')+' '+(who.name||'Me'),true,'window.__wk.cyc(&quot;who&quot;)');
+    h+='<button onclick="window.__wk.cyc(&quot;who&quot;)" style="border:1.5px solid '+colorOf(who.id)+';background:'+colorOf(who.id)+';color:#fff;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">'+(who.em||'🙂')+' '+(who.name||'Me')+'</button>';
     h+=chip(sz[0]+' '+sz[1],false,'window.__wk.cyc(&quot;size&quot;)');
     h+=chip(pick.day===null?'📆 Any day':'📌 '+DAYS[pick.day],pick.day!==null,'window.__wk.cyc(&quot;day&quot;)');
     h+=chip('×'+pick.count+(pick.count>1?' times':''),pick.count>1,'window.__wk.cyc(&quot;count&quot;)');
@@ -1288,7 +1299,8 @@ try{
   function itemChip(x){
     const P=fam(); const m=P.list.find(p=>p.id===x.who);
     const em=(m&&m.em)||'🙂';
-    return '<span style="display:inline-flex;align-items:center;gap:5px;background:'+(x.sent?'#20301f':'#17181C')+';border:1px solid '+(x.sent?'#62BE8E':'#31343B')+';border-radius:999px;padding:6px 10px;font-size:13px;'+(x.sent?'opacity:.7;':'')+'">'
+    const pc=colorOf(x.who);
+    return '<span style="display:inline-flex;align-items:center;gap:5px;background:'+(x.sent?'#20301f':'#17181C')+';border:1.5px solid '+(x.sent?'#62BE8E':pc)+';border-radius:999px;padding:6px 10px;font-size:13px;'+(x.sent?'opacity:.7;':'')+'">'
       +'<span>'+em+'</span>'
       +'<span onclick="window.__wk.bump(\''+x.id+'\')" style="cursor:pointer;font-weight:700;">'+x.text.replace(/</g,'&lt;')+(x.sent?' ✓':'')+'</span>'
       +'<span style="color:#B7AFA2;font-size:11px;">'+x.mins+'m</span>'
@@ -1308,6 +1320,7 @@ try{
     },
     add:function(){
       const el=document.getElementById('wkText'); const t=(el.value||'').trim(); if(!t) return;
+      if(pick.day===null){ const pd=parseDay(t); if(pd!==null) pick.day=pd; }
       const P=fam(); const who=P.list[pick.who]||P.list[0];
       for(let c=0;c<pick.count;c++){
         W.items.push({id:uid2(),text:t+(pick.count>1?' ('+(c+1)+' of '+pick.count+')':''),who:who.id,mins:SIZES[pick.size][2],day:pick.day,sent:false});
