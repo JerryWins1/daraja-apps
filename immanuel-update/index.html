@@ -49,7 +49,8 @@
   <div class="card">
     <h2>🎥 This week's message</h2>
     <label>YouTube link (from the Sunday livestream)</label>
-    <input id="yt" placeholder="https://www.youtube.com/watch?v=…">
+    <input id="yt" placeholder="https://www.youtube.com/watch?v=…" onchange="autoFill()">
+    <p class="step" id="afMsg" style="margin-top:6px">Paste the link and the boxes below fill themselves from the video title.</p>
     <label>Date (the Sunday)</label>
     <input id="date" type="date">
     <label>Series</label>
@@ -93,7 +94,7 @@
     <div class="msg" id="pubMsg"></div>
   </div>
 
-  <div id="ver">Immanuel Weekly Update v1.0 · 2026-09-01 · Daraja Studio</div>
+  <div id="ver">Immanuel Weekly Update v1.1 — paste the link, the boxes fill themselves · 2026-09-01 · Daraja Studio</div>
 </div>
 
 <script>
@@ -108,6 +109,35 @@ function say(id,txt,ok){ const m=$(id); m.textContent=txt; m.className='msg '+(o
 function saveKey(){ const v=$('tok').value.trim(); if(!v){ say('keyMsg','Paste the key first.'); return; }
   TOK=v; localStorage.setItem('immanuel_key',v); say('keyMsg','✓ Key saved on this device.',1); }
 
+async function autoFill(){
+  const u=$('yt').value.trim(); const id=ytId(u); if(!id) return;
+  try{
+    $('afMsg').textContent='Reading the video title…';
+    const r=await fetch('https://www.youtube.com/oembed?url='+encodeURIComponent('https://www.youtube.com/watch?v='+id)+'&format=json');
+    const j=await r.json();
+    /* Their titles look like: Immanuel Church | Direct Line | Persistent Prayer | Joe Boerman | August 30, 2026 */
+    const parts=(j.title||'').split('|').map(x=>x.trim()).filter(Boolean);
+    const months=/January|February|March|April|May|June|July|August|September|October|November|December/i;
+    const refRe=/\d|Psalm|John|Luke|Matthew|Mark|Acts|Romans|Peter|Genesis|Exodus|Corinthians|Ephesians|Philippians|James|Hebrews|Revelation/i;
+    let series='', title='', ref='', who='', dateStr='';
+    for(const part of parts){
+      if(/immanuel church/i.test(part)) continue;
+      if(months.test(part) && /\d{4}/.test(part)){ dateStr=part.replace(/\s*\|\s*\d+\s*(am|pm)/i,''); continue; }
+      if(/^\d+\s*(am|pm)$/i.test(part)) continue;
+      if(!who && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(part)){ who=part; continue; }
+      if(!ref && refRe.test(part) && /\d/.test(part) && part.length<28){ ref=part; continue; }
+      if(!series){ if(part.includes(':')){ const k=part.split(':'); series=k[0].trim(); title=k.slice(1).join(':').trim(); } else series=part; continue; }
+      if(!title){ title=part; continue; }
+    }
+    if(series && !title){ title=series; series='Standalone'; }
+    if(series) $('series').value=series;
+    if(title) $('title').value=title;
+    if(ref) $('ref').value=ref;
+    if(who) $('who').value=who;
+    if(dateStr){ const d=new Date(dateStr); if(!isNaN(d)) $('date').value=d.toISOString().slice(0,10); }
+    $('afMsg').textContent='✓ Filled from the video — check it looks right, then Add.';
+  }catch(e){ $('afMsg').textContent='Couldn\'t read the title — fill the boxes by hand.'; }
+}
 function ytId(u){ const m=/(?:v=|youtu\.be\/|shorts\/|live\/)([A-Za-z0-9_-]{6,})/.exec(u||''); return m?m[1]:(/^[A-Za-z0-9_-]{6,}$/.test((u||'').trim())?(u||'').trim():null); }
 
 async function gh(method,body){
