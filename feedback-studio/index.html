@@ -206,6 +206,7 @@
         <div id="liveText"></div>
       </div>
       <button class="btn gold" onclick="addMarker()" title="Drop a flag at this moment">🚩 Mark this spot</button>
+      <button class="btn" style="background:#7a5ea8" onclick="snapShot()" title="Capture what's on screen right now — copied for pasting + saved as a comment">📸 Screenshot</button>
       <div id="timer">0:00</div>
     </div>
   </div>
@@ -272,8 +273,9 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v1.4 · 2026-09-01 · Daraja Studio</div>
+<div id="ver">Feedback Studio v1.5 · 2026-09-01 · Daraja Studio</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 /* ================== STATE ================== */
 const LS='feedback_studio_v1';
@@ -418,6 +420,28 @@ function addTyped(){
 document.getElementById('typeIn').addEventListener('keydown', e=>{
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); addTyped(); }
 });
+async function snapShot(){
+  const f=document.getElementById('appframe');
+  let doc=null; try{ doc=f&&f.style.display!=='none'&&f.contentDocument; }catch(e){}
+  if(!doc||!window.html2canvas){ alert(doc? 'Screenshot engine still loading — try again in a second.' : 'Open an app first, then 📸.'); return; }
+  const stamp=nowStamp();
+  try{
+    const canvas=await html2canvas(doc.body,{logging:false,useCORS:true,windowWidth:doc.documentElement.clientWidth,windowHeight:doc.documentElement.clientHeight});
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+    let how='saved';
+    try{
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      how='copied to your clipboard — PASTE it into the chat with your report';
+    }catch(e){
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download='feedback_'+stamp.replace(':','m')+'s.png'; a.click();
+      how='downloaded as '+a.download+' — attach it with your report';
+    }
+    addNote('marker','📸 Screenshot taken at '+stamp+' ('+how+'). It shows the screen being discussed.');
+  }catch(e){
+    addNote('marker','📸 (screenshot failed on this app — '+(e.message||'blocked')+')');
+  }
+}
 function addMarker(){
   addNote('marker','🚩 Look at the screen right here — this spot matters.');
 }
@@ -466,7 +490,7 @@ function buildReport(){
   out += 'App reviewed : ' + (db.appUrl || '(none loaded)') + '\n';
   out += 'Date         : ' + when + '\n';
   out += 'Comments     : ' + db.notes.length + '\n';
-  out += 'Tool         : Feedback Studio v1.4 (Daraja Studio)\n';
+  out += 'Tool         : Feedback Studio v1.5 (Daraja Studio)\n';
   out += '------------------------------------------\n\n';
   if(isAI){
     out += 'INSTRUCTIONS FOR ' + who.toUpperCase() + ':\n';
