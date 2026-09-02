@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serve Board</title>
+<style>
+  :root{ --bg:#F6F4EF; --card:#fff; --ink:#26221C; --soft:#6D675D; --brand:#3F7452; --gold:#C9982A; --line:#E5DCCB; --open:#D96C4F; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#1A1816; --card:#262420; --ink:#F0EDE6; --soft:#A29A8C; --brand:#6FB08D; --line:#3A362F; } }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); padding-bottom:40px; }
+  header{ background:var(--brand); color:#fff; padding:20px 18px; text-align:center; }
+  header h1{ font-size:24px; } header p{ font-size:13px; opacity:.92; margin-top:3px; font-weight:600; }
+  main{ max-width:640px; margin:0 auto; padding:14px; }
+  .hint{ font-size:13px; color:var(--soft); text-align:center; margin:4px 0 12px; line-height:1.5; }
+  .week{ background:var(--card); border:1px solid var(--line); border-radius:14px; margin-bottom:12px; overflow:hidden; }
+  .week h3{ background:rgba(63,116,82,.1); padding:10px 14px; font-size:14px; color:var(--brand); }
+  .role{ display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-top:1px solid var(--line); gap:10px; }
+  .role .r{ font-weight:700; font-size:14px; }
+  .who{ font-size:14px; font-weight:700; border:1.5px dashed var(--line); background:none; border-radius:999px; padding:7px 14px; cursor:pointer; color:var(--ink); font-family:inherit; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .who.open{ color:var(--open); border-color:var(--open); }
+  .btns{ display:flex; gap:8px; justify-content:center; margin:14px 0; flex-wrap:wrap; }
+  .btn{ font:800 13.5px -apple-system,sans-serif; border:1.5px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:10px 16px; cursor:pointer; }
+  .btn.solid{ background:var(--brand); color:#fff; border-color:var(--brand); }
+  footer{ text-align:center; font-size:11.5px; color:var(--soft); margin-top:14px; padding:0 20px; line-height:1.6; }
+  @media print{ header p, .hint, .btns, footer{ display:none; } .who{ border:none; } body{ background:#fff; } }
+</style>
+</head>
+<body>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#F6F4EF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#26221C;font-family:-apple-system,sans-serif">
+  <div style="font-size:62px">🙋</div><div style="font-size:28px;font-weight:800">Serve Board</div>
+  <div style="font-size:13px;color:#6D675D;font-weight:700">v1.0 · born Sep 1</div>
+  <div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div>
+</div>
+<script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+
+<header>
+  <h1>🙋 Serve Board</h1>
+  <p>Who's serving when — the whole month on one page</p>
+</header>
+
+<main>
+  <p class="hint">Tap any slot to fill it from the roster (or type a name). <span style="color:var(--open);font-weight:700">Orange</span> = still needs someone. Print it for the bulletin board.</p>
+  <div class="btns">
+    <button class="btn solid" onclick="addWeek()">＋ Add a Sunday</button>
+    <button class="btn" onclick="editRoster()">👥 Roster</button>
+    <button class="btn" onclick="editRoles()">🧩 Roles</button>
+    <button class="btn" onclick="window.print()">🖨 Print</button>
+    <button class="btn" onclick="resetAll()">↻ Start fresh</button>
+  </div>
+  <div id="board"></div>
+</main>
+
+<footer>
+  Lives on this device — Print or screenshot to share. (Team sync is the next version.)<br><br>
+  <span style="opacity:.8">Serve Board v1.0 · 2026-09-01 · Daraja Studio · every app helps a student in Kenya stay in school</span>
+</footer>
+
+<script>
+const KEY='serveboard_v1';
+const DEFAULT = {
+  roles: ["Greeters","Nursery","Kids' check-in","Coffee & donuts","Tech booth","Ushers"],
+  roster: ["", "— add your people in 👥 Roster —"],
+  weeks: []
+};
+function nextSundays(n){
+  const out=[]; const d=new Date();
+  d.setDate(d.getDate() + ((7-d.getDay())%7 || 7));
+  for(let i=0;i<n;i++){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+7); }
+  return out;
+}
+let db;
+function load(){
+  try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.weeks) return d; }catch(e){}
+  const d=JSON.parse(JSON.stringify(DEFAULT));
+  d.weeks = nextSundays(4).map(date=>({ date, slots:{} }));
+  return d;
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){} }
+db = load();
+
+const $=s=>document.querySelector(s);
+function label(d){ return new Date(d+"T12:00").toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'}); }
+
+function render(){
+  $('#board').innerHTML = db.weeks.map((w,wi)=>`
+    <div class="week">
+      <h3>☀️ ${label(w.date)}</h3>
+      ${db.roles.map(r=>{
+        const who=w.slots[r]||'';
+        return `<div class="role"><span class="r">${r}</span>
+          <button class="who ${who?'':'open'}" onclick="fill(${wi},'${r.replace(/'/g,"\\'")}')">${who||'needs someone'}</button></div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+window.fill=(wi,role)=>{
+  const w=db.weeks[wi];
+  const people=db.roster.filter(x=>x&&!x.startsWith('—'));
+  let pick;
+  if(people.length){
+    pick=prompt("Who's taking "+role+" on "+label(w.date)+"?\n\nRoster: "+people.join(', ')+"\n\n(Type a name — or leave blank to clear the slot)", w.slots[role]||'');
+  } else {
+    pick=prompt("Type a name for "+role+" ("+label(w.date)+") — and add your team in 👥 Roster so this gets faster:", w.slots[role]||'');
+  }
+  if(pick===null) return;
+  pick=pick.trim();
+  if(pick){ w.slots[role]=pick; if(!db.roster.includes(pick)&&!pick.startsWith('—')) db.roster.push(pick); }
+  else delete w.slots[role];
+  save(); render();
+};
+window.addWeek=()=>{
+  const last=db.weeks[db.weeks.length-1];
+  const d=new Date((last?last.date:nextSundays(1)[0])+"T12:00"); d.setDate(d.getDate()+7);
+  db.weeks.push({date:d.toISOString().slice(0,10), slots:{}}); save(); render();
+};
+window.editRoster=()=>{
+  const cur=db.roster.filter(x=>x&&!x.startsWith('—')).join(', ');
+  const v=prompt("Your serving team — names separated by commas:", cur);
+  if(v===null) return;
+  db.roster=v.split(',').map(x=>x.trim()).filter(Boolean); save(); render();
+};
+window.editRoles=()=>{
+  const v=prompt("The roles to fill each Sunday — separated by commas:", db.roles.join(', '));
+  if(v===null) return;
+  const roles=v.split(',').map(x=>x.trim()).filter(Boolean);
+  if(roles.length){ db.roles=roles; save(); render(); }
+};
+window.resetAll=()=>{
+  if(!confirm("Clear the whole board and start fresh? (Roster and roles are kept.)")) return;
+  db.weeks = nextSundays(4).map(date=>({date, slots:{}})); save(); render();
+};
+render();
+</script>
+</body>
+</html>
