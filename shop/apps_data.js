@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.7 · 2026-09-02 (+ churches & nonprofits shelf)  — was v1.6 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v1.8 · 2026-09-02 (+ The Church App & Weekly Update on the church shelf)  — was v1.6 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -247,6 +247,14 @@ const APPS = {
    "A little daily verse keeps it grounded.",
    "The benefit: an hour with Compass and you can see your own life on one page.",
    "It's free. Try it below when you have a quiet evening."]},
+ churchapp: {
+  name:'The Church App', em:'⛪', cat:'church', price:'Pilot free · one-time per church at launch', testing:true,
+  tag:'Your whole church in everyone\'s pocket — sermons, events, giving, prayer, ministries. See it live: this is the real app Immanuel Church runs today.',
+  try:'https://jerrywins1.github.io/immanuel-app/'},
+ weeklyupdate: {
+  name:'Weekly Update', em:'📝', cat:'church', price:'Included with The Church App', testing:true,
+  tag:'The steering wheel: church staff post the Sunday message and events themselves — no tech person, the app updates in one tap.',
+  try:'https://jerrywins1.github.io/daraja-apps/immanuel-update/'},
  serveboard: {
   name:'Serve Board', em:'🙋', cat:'church', price:'Free in testing · $49 at launch', testing:true,
   tag:"Who's serving when — the whole month on one page. Orange = a slot that still needs someone. Print it for the bulletin board.",
