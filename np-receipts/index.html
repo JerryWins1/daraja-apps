@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt Maker</title>
+<style>
+  :root{ --bg:#F6F4EF; --card:#fff; --ink:#26221C; --soft:#6D675D; --brand:#1F4E5F; --gold:#C9982A; --line:#E5DCCB; --ok:#2E8B57; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); padding-bottom:40px; }
+  header{ background:var(--brand); color:#fff; padding:20px 18px; text-align:center; }
+  header h1{ font-size:24px; } header p{ font-size:13px; opacity:.92; margin-top:3px; font-weight:600; }
+  main{ max-width:640px; margin:0 auto; padding:14px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:14px; }
+  .card h2{ font-size:16px; margin-bottom:8px; }
+  label{ display:block; font-size:12.5px; font-weight:700; color:var(--soft); margin:9px 0 3px; }
+  input, textarea{ width:100%; font:inherit; font-size:15px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); }
+  textarea{ min-height:110px; font-family:ui-monospace,Menlo,monospace; font-size:13px; }
+  .btn{ font:800 14px -apple-system,sans-serif; border:none; background:var(--brand); color:#fff; border-radius:999px; padding:12px 20px; cursor:pointer; margin-top:10px; }
+  .btn.gold{ background:var(--gold); color:#221; }
+  .hint{ font-size:12.5px; color:var(--soft); line-height:1.55; margin-top:6px; }
+  #letters{ background:#fff; color:#111; }
+  .letter{ max-width:640px; margin:0 auto; padding:48px 52px; font:15px/1.65 Georgia,serif; page-break-after:always; }
+  .letter .org{ font-weight:700; font-size:17px; }
+  .letter .small{ font-size:12.5px; color:#555; }
+  @media print{ body>*:not(#letters){ display:none !important; } body{ background:#fff; padding:0; } .letter{ padding:32px 20px; } }
+</style>
+</head>
+<body>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#F6F4EF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#26221C;font-family:-apple-system,sans-serif">
+  <div style="font-size:62px">🧾</div><div style="font-size:28px;font-weight:800">Receipt Maker</div>
+  <div style="font-size:13px;color:#6D675D;font-weight:700">v1.0 · born Sep 1</div>
+  <div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div>
+</div>
+<script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+
+<header>
+  <h1>🧾 Receipt Maker</h1>
+  <p>Donor acknowledgment letters, done right — one, or a whole January's worth</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>1 · Your organization <span style="font-weight:400;color:var(--soft);font-size:13px">(saved on this device)</span></h2>
+    <label>Organization name</label><input id="orgName" placeholder="e.g. Loving InDeed NFP">
+    <label>EIN</label><input id="orgEin" placeholder="e.g. 12-3456789">
+    <label>Address</label><input id="orgAddr" placeholder="street, city, state zip">
+    <label>Signer (name & title)</label><input id="orgSigner" placeholder="e.g. Jerry Winslow, President">
+  </div>
+
+  <div class="card">
+    <h2>2 · The gifts</h2>
+    <p class="hint">One gift per line: <b>Name, amount, date</b> — like:<br><code>Mary Smith, 250, 2026-03-14</code><br>For an in-kind gift, describe it instead of an amount: <code>Bill Jones, in-kind: used office desk, 2026-05-02</code></p>
+    <textarea id="gifts" placeholder="Mary Smith, 250, 2026-03-14&#10;Bill Jones, 1200, 2026-06-20"></textarea>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;color:var(--ink)"><input type="checkbox" id="noGoods" checked style="width:auto"> No goods or services were provided in exchange for these gifts <span style="color:var(--soft)">(uncheck if a dinner/auction item was involved — then edit that letter by hand)</span></label>
+  </div>
+
+  <button class="btn gold" onclick="makeLetters()">✉️ Make the letters</button>
+  <button class="btn" onclick="window.print()" id="printBtn" style="display:none">🖨 Print them all</button>
+  <p class="hint" id="madeMsg"></p>
+
+  <div id="letters"></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const OKEY='receiptmaker_org_v1';
+try{ const o=JSON.parse(localStorage.getItem(OKEY)||'{}');
+  ['orgName','orgEin','orgAddr','orgSigner'].forEach(k=>{ if(o[k]) $(k).value=o[k]; });
+}catch(e){}
+['orgName','orgEin','orgAddr','orgSigner'].forEach(k=>{
+  $(k).addEventListener('change',()=>{ try{
+    const o={}; ['orgName','orgEin','orgAddr','orgSigner'].forEach(x=>o[x]=$(x).value);
+    localStorage.setItem(OKEY, JSON.stringify(o));
+  }catch(e){} });
+});
+
+function fmtDate(s){ const d=new Date(s+"T12:00"); return isNaN(d)? s : d.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}); }
+function fmtAmt(a){ const n=Number(String(a).replace(/[$,]/g,'')); return isNaN(n)? null : n.toLocaleString('en-US',{style:'currency',currency:'USD'}); }
+
+function makeLetters(){
+  const org={ name:$('orgName').value.trim(), ein:$('orgEin').value.trim(), addr:$('orgAddr').value.trim(), signer:$('orgSigner').value.trim() };
+  if(!org.name){ alert('Fill in your organization name first.'); return; }
+  const rows=$('gifts').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!rows.length){ alert('Add at least one gift line.'); return; }
+  const noGoods=$('noGoods').checked;
+  const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  let html='', made=0, skipped=[];
+  for(const row of rows){
+    const parts=row.split(',').map(x=>x.trim());
+    if(parts.length<2){ skipped.push(row); continue; }
+    const name=parts[0];
+    const mid=parts.slice(1,-1).join(', ') || parts[1];
+    const dateRaw=parts.length>=3? parts[parts.length-1] : '';
+    const inKind=/^in-?kind/i.test(mid);
+    const amt=inKind? null : fmtAmt(mid);
+    if(!inKind && amt===null){ skipped.push(row); continue; }
+    const giftLine = inKind
+      ? 'your generous in-kind gift of <b>'+mid.replace(/^in-?kind:?\s*/i,'')+'</b>'
+      : 'your generous gift of <b>'+amt+'</b>';
+    html += `<div class="letter">
+      <div class="org">${org.name}</div>
+      <div class="small">${org.addr}${org.ein? ' · EIN '+org.ein:''}</div>
+      <br><div>${today}</div><br>
+      <div>Dear ${name},</div><br>
+      <div>Thank you for ${giftLine}${dateRaw? ', received on '+fmtDate(dateRaw):''}. Your support makes our work possible, and we are truly grateful.</div><br>
+      ${noGoods? '<div>No goods or services were provided in exchange for this contribution. '+org.name+' is a tax-exempt organization; this letter serves as your receipt for tax purposes. Please retain it for your records.</div><br>' : '<div><i>[Describe any goods or services provided and their good-faith value — the deductible amount is the gift minus that value.]</i></div><br>'}
+      ${inKind? '<div class="small">Note: for in-kind gifts, the donor determines the value for tax purposes; this letter describes the gift without assigning a value.</div><br>':''}
+      <div>With gratitude,</div><br><br>
+      <div>${org.signer||'_________________'}</div>
+      <div class="small">${org.name}</div>
+    </div>`;
+    made++;
+  }
+  $('letters').innerHTML=html;
+  $('printBtn').style.display= made? 'inline-block':'none';
+  $('madeMsg').textContent = made+' letter'+(made!==1?'s':'')+' ready below.'+(skipped.length? ' Skipped '+skipped.length+' line(s) I couldn\'t read: '+skipped.join(' | ') : '')+' Print puts each on its own page.';
+  if(made) document.querySelector('.letter').scrollIntoView({behavior:'smooth'});
+}
+</script>
+
+<footer style="text-align:center;font-size:11.5px;color:var(--soft);padding:20px;line-height:1.6">
+  Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
+  <span style="opacity:.8">Receipt Maker v1.0 · 2026-09-01 · Daraja Studio · every app helps a student in Kenya stay in school</span>
+</footer>
+</body>
+</html>
