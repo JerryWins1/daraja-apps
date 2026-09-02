@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v1.7 · 2026-09-02 (+ churches & nonprofits shelf)  — was v1.6 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -247,4 +247,36 @@ const APPS = {
    "A little daily verse keeps it grounded.",
    "The benefit: an hour with Compass and you can see your own life on one page.",
    "It's free. Try it below when you have a quiet evening."]},
+ serveboard: {
+  name:'Serve Board', em:'🙋', cat:'church', price:'Free in testing · $49 at launch', testing:true,
+  tag:"Who's serving when — the whole month on one page. Orange = a slot that still needs someone. Print it for the bulletin board.",
+  try:BASE+'church-serve/'},
+ steward: {
+  name:'Steward', em:'🗓', cat:'church', price:'Free in testing · $49 at launch', testing:true,
+  tag:'Every church deadline on one page — what it is, when it\'s due, and what happens if you forget.',
+  try:BASE+'church-steward/'},
+ churchkey: {
+  name:'The Key · Church Edition', em:'🔑', cat:'church', price:'Free in testing · $49 at launch', testing:true,
+  tag:'One page that tells the NEXT trustee, treasurer, or pastor where everything lives — nothing locked in one person\'s head.',
+  try:BASE+'church-key/'},
+ clubhouse: {
+  name:'The Clubhouse', em:'🏠', cat:'church', price:'Free in testing · $49 at launch', testing:true,
+  tag:'A kids\' page only the church can post to. No chat, no strangers, no ads — everything from church, nothing from anyone else.',
+  try:BASE+'church-clubhouse/'},
+ drivecounter: {
+  name:'Drive Counter', em:'📦', cat:'church', price:'Free in testing · $29 at launch', testing:true,
+  tag:'Food drive, coat drive, shoeboxes — count any collection live and watch the goal fill up.',
+  try:BASE+'church-drive/'},
+ gameday: {
+  name:'GameDay', em:'🏀', cat:'church', price:'Free in testing · $49 at launch', testing:true,
+  tag:'Church-league schedules, standings, and cancellations — one page for the whole league, no phone tree.',
+  try:BASE+'church-gameday/'},
+ goodstanding: {
+  name:'Good Standing', em:'✅', cat:'church', price:'Free in testing · $49 at launch', testing:true,
+  tag:'Nonprofit filings and renewals — what\'s due, when, and what it costs to forget. Never lose your status.',
+  try:BASE+'np-goodstanding/'},
+ receiptmaker: {
+  name:'Receipt Maker', em:'🧾', cat:'church', price:'Free in testing · $29 at launch', testing:true,
+  tag:'Donor acknowledgment letters done right — one at a time, or a whole January\'s worth.',
+  try:BASE+'np-receipts/'},
 };
