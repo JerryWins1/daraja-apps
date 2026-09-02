@@ -40,7 +40,7 @@
 <body>
 <div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#F6F3EC;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#26221C;font-family:-apple-system,sans-serif">
   <div style="font-size:62px">🥁</div><div style="font-size:28px;font-weight:800">Drumbeat</div>
-  <div style="font-size:13px;color:#6D675D;font-weight:700">v1.0 · born Sep 2</div>
+  <div style="font-size:13px;color:#6D675D;font-weight:700">v1.1 · born Sep 2</div>
   <div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div>
 </div>
 <script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
@@ -64,6 +64,14 @@
     <input id="q_goal" placeholder="e.g. show up Saturday · come to the sale · give online">
     <label>Anything else that matters? (tone, details, what makes it special)</label>
     <textarea id="q_more" placeholder="e.g. free food, bounce house, family-friendly — warm and fun, not salesy"></textarea>
+  </div>
+
+  <!-- 1.5: GROUPS -->
+  <div class="card">
+    <h2>👥 Your groups <span style="font-weight:400;color:var(--soft);font-size:12.5px">(optional — makes sending one tap)</span></h2>
+    <p class="hint">Paste each group's emails once. Then any email piece aimed at that group sends to ALL of them in one tap — from your own email, so there's never a per-contact fee. Numbers work too, for texts.</p>
+    <div id="groupsList"></div>
+    <button class="btn ghost" onclick="addGroup()">＋ Add a group</button>
   </div>
 
   <!-- 2: AI BUILD -->
@@ -97,7 +105,7 @@
 <div id="toast"></div>
 <footer>
   Drumbeat plans and writes — YOU press send, from your own email, your own Messages, your own Canva. Nothing sends itself; no accounts anywhere.<br><br>
-  <span style="opacity:.8">Drumbeat v1.0 · 2026-09-02 · Daraja Studio · every app helps a student in Kenya stay in school</span>
+  <span style="opacity:.8">Drumbeat v1.1 · 2026-09-02 · Daraja Studio · every app helps a student in Kenya stay in school</span>
 </footer>
 
 <script>
@@ -149,6 +157,36 @@ function loadExample(){
 }
 function startOver(){ if(confirm('Clear this campaign and start a new one?')){ C=null; save(); $('beatWrap').style.display='none'; window.scrollTo(0,0); } }
 
+const GKEY='drumbeat_groups_v1';
+let GROUPS={}; try{ GROUPS=JSON.parse(localStorage.getItem(GKEY)||'{}'); }catch(e){}
+function saveGroups(){ try{ localStorage.setItem(GKEY, JSON.stringify(GROUPS)); }catch(e){} renderGroups(); if(C) render(); }
+function renderGroups(){
+  const el=$('groupsList'); if(!el) return;
+  const names=Object.keys(GROUPS);
+  el.innerHTML = names.length? names.map(n=>{
+    const v=GROUPS[n]; const emails=v.split(/[\s,;]+/).filter(x=>x.includes('@')).length; const phones=v.split(/[\s,;]+/).filter(x=>/^\+?[\d().-]{7,}$/.test(x)).length;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px">
+      <span><b>${n}</b> · ${emails} email${emails!==1?'s':''}${phones? ' · '+phones+' number'+(phones!==1?'s':''):''}</span>
+      <span><button onclick="editGroup('${n.replace(/'/g,"\\'")}')" style="font:700 12px -apple-system,sans-serif;border:1px solid var(--line);background:none;border-radius:8px;padding:5px 10px;cursor:pointer;color:var(--ink)">edit</button></span>
+    </div>`; }).join('')
+  : '<p class="hint">No groups yet — e.g. "members", "neighborhood families", "volunteers".</p>';
+}
+window.addGroup=()=>{
+  const n=prompt('Group name (match what you told the AI — e.g. "members"):'); if(!n||!n.trim()) return;
+  editGroup(n.trim());
+};
+window.editGroup=(n)=>{
+  const v=prompt('Emails (and/or phone numbers) for "'+n+'" — separated by commas or new lines:\n\nTip: in Gmail, open a group email you sent before and copy the addresses.', GROUPS[n]||'');
+  if(v===null) return;
+  if(v.trim()) GROUPS[n]=v.trim(); else delete GROUPS[n];
+  saveGroups();
+};
+function groupFor(audience){
+  const a=(audience||'').toLowerCase();
+  const hit=Object.keys(GROUPS).find(g=>a.includes(g.toLowerCase())||g.toLowerCase().includes(a));
+  return hit? GROUPS[hit] : null;
+}
+function emailsOf(v){ return v.split(/[\s,;]+/).filter(x=>x.includes('@')); }
 const CH={ email:['✉️','EMAIL'], text:['💬','TEXT'], call:['📞','CALLS'], art:['🎨','ARTWORK'], social:['📣','SOCIAL'] };
 function fmtD(d){ const x=new Date(d+"T12:00"); return isNaN(x)?d:x.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}); }
 
@@ -163,8 +201,12 @@ function render(){
     `<div class="day">🗓 ${fmtD(d)}</div>`+
     byDate[d].map(p=>{
       const ch=CH[p.channel];
+      const grp=groupFor(p.audience);
+      const bcc=grp? emailsOf(grp) : [];
       const fire = p.channel==='email'
-        ? `<a href="mailto:?subject=${encodeURIComponent(p.subject||p.label)}&body=${encodeURIComponent(p.body)}">✉️ Open in email</a>`
+        ? (bcc.length
+           ? `<a href="mailto:?bcc=${encodeURIComponent(bcc.join(','))}&subject=${encodeURIComponent(p.subject||p.label)}&body=${encodeURIComponent(p.body)}" style="background:var(--gold);border-color:var(--gold);color:#221">✉️ Send to ${p.audience} (${bcc.length})</a>`
+           : `<a href="mailto:?subject=${encodeURIComponent(p.subject||p.label)}&body=${encodeURIComponent(p.body)}">✉️ Open in email</a>`)
         : p.channel==='text'
         ? `<a href="sms:?&body=${encodeURIComponent(p.body)}">💬 Open in Messages</a>`
         : p.channel==='art'
@@ -214,6 +256,7 @@ const EXAMPLE = { title:"Daraja Store — Tester Launch (the real one)", summary
   {id:'e7',date:'2026-09-09',channel:'text',audience:'every tester who helped',label:'The thank-you',body:"You were one of the first five people to walk through our store, and your honesty made it better. Thank you — truly. Every app is yours, free, forever. And when you see a student in Kenya graduate someday, you had a hand in that. — Jerry",done:false}
  ]};
 
+renderGroups();
 if(C){ render(); }
 </script>
 </body>
