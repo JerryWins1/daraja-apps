@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.9 · 2026-09-02 (+ 2-min videos for all 10 church-shelf apps)  — was v1.6 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v1.10 · 2026-09-02 (Church App copy: removed in-use claim)  — was v1.6 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -249,9 +249,9 @@ const APPS = {
    "It's free. Try it below when you have a quiet evening."]},
  churchapp: {
   name:'The Church App', em:'⛪', cat:'church', price:'Pilot free · one-time per church at launch', testing:true,
-  tag:'Your whole church in everyone\'s pocket — sermons, events, giving, prayer, ministries. See it live: this is the real app Immanuel Church runs today.',
+  tag:'Your whole church in everyone\'s pocket — sermons, events, giving, prayer, ministries. Tap Try it and hold a real, working church app.',
   try:'https://jerrywins1.github.io/immanuel-app/', video:true,
-  lines:["This is The Church App — your whole church, in everyone's pocket.", "The problem: your people are on their phones all week, but church lives on a website nobody opens and a bulletin that's gone by Tuesday.", "Here's how it works. Sunday's message is right on top — watch it, listen, take notes that save themselves.", "Events, service times, directions, giving, prayer — every door your church has, one tap away.", "It installs from a link. No app store, no accounts, works on every phone.", "And your own staff keep it current with the Weekly Update page — no tech person needed.", "This isn't a mock-up: Immanuel Church in Gurnee runs this exact app today.", "The benefit: your congregation stays connected Monday through Saturday, not just Sunday morning.", "One price, one time, per church — no monthly fees, ever. And it's free while we pilot.", "Tap Try it and hold a real church in your hand."]},
+  lines:["This is The Church App — your whole church, in everyone's pocket.", "The problem: your people are on their phones all week, but church lives on a website nobody opens and a bulletin that's gone by Tuesday.", "Here's how it works. Sunday's message is right on top — watch it, listen, take notes that save themselves.", "Events, service times, directions, giving, prayer — every door your church has, one tap away.", "It installs from a link. No app store, no accounts, works on every phone.", "And your own staff keep it current with the Weekly Update page — no tech person needed.", "And the demo below isn't a mock-up — it's a fully working app with real sermons, real events, real giving. Tap around it like a member would.", "The benefit: your congregation stays connected Monday through Saturday, not just Sunday morning.", "One price, one time, per church — no monthly fees, ever. And it's free while we pilot.", "Tap Try it and hold a real church in your hand."]},
  weeklyupdate: {
   name:'Weekly Update', em:'📝', cat:'church', price:'Included with The Church App', testing:true,
   tag:'The steering wheel: church staff post the Sunday message and events themselves — no tech person, the app updates in one tap.',
