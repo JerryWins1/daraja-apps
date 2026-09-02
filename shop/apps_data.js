@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.8 · 2026-09-02 (+ The Church App & Weekly Update on the church shelf)  — was v1.6 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v1.9 · 2026-09-02 (+ 2-min videos for all 10 church-shelf apps)  — was v1.6 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -250,41 +250,51 @@ const APPS = {
  churchapp: {
   name:'The Church App', em:'⛪', cat:'church', price:'Pilot free · one-time per church at launch', testing:true,
   tag:'Your whole church in everyone\'s pocket — sermons, events, giving, prayer, ministries. See it live: this is the real app Immanuel Church runs today.',
-  try:'https://jerrywins1.github.io/immanuel-app/'},
+  try:'https://jerrywins1.github.io/immanuel-app/', video:true,
+  lines:["This is The Church App — your whole church, in everyone's pocket.", "The problem: your people are on their phones all week, but church lives on a website nobody opens and a bulletin that's gone by Tuesday.", "Here's how it works. Sunday's message is right on top — watch it, listen, take notes that save themselves.", "Events, service times, directions, giving, prayer — every door your church has, one tap away.", "It installs from a link. No app store, no accounts, works on every phone.", "And your own staff keep it current with the Weekly Update page — no tech person needed.", "This isn't a mock-up: Immanuel Church in Gurnee runs this exact app today.", "The benefit: your congregation stays connected Monday through Saturday, not just Sunday morning.", "One price, one time, per church — no monthly fees, ever. And it's free while we pilot.", "Tap Try it and hold a real church in your hand."]},
  weeklyupdate: {
   name:'Weekly Update', em:'📝', cat:'church', price:'Included with The Church App', testing:true,
   tag:'The steering wheel: church staff post the Sunday message and events themselves — no tech person, the app updates in one tap.',
-  try:'https://jerrywins1.github.io/daraja-apps/immanuel-update/'},
+  try:'https://jerrywins1.github.io/daraja-apps/immanuel-update/', video:true,
+  lines:["This is Weekly Update — the steering wheel for The Church App.", "The problem: church apps go stale because updating them takes a tech person nobody has.", "How it works: Monday morning, the office opens one page, types this week's message title and events, and taps Send.", "The app updates itself — every phone in the congregation, in about a minute.", "No code, no logins for the congregation, nothing to install.", "The benefit: the app is always current, and the church owns the process — not a vendor.", "It's included with The Church App.", "Tap Try it to see the page the staff would use."]},
  serveboard: {
   name:'Serve Board', em:'🙋', cat:'church', price:'Free in testing · $49 at launch', testing:true,
   tag:"Who's serving when — the whole month on one page. Orange = a slot that still needs someone. Print it for the bulletin board.",
-  try:BASE+'church-serve/'},
+  try:BASE+'church-serve/', video:true,
+  lines:["This is Serve Board — who's serving, when, on one page.", "The problem: greeters, nursery, coffee, tech — every month somebody builds the schedule from texts and sticky notes, and somebody still gets missed.", "How it works: the whole month on one board. Tap any slot, pick a name from your roster — done.", "Orange means a slot still needs someone. You can see the holes from across the room.", "Print it for the bulletin board, or share the link.", "The benefit: no more Saturday-night phone tree, no more empty nursery surprise.", "Forty-nine dollars, once — free while we test.", "Tap Try it and fill a month in five minutes."]},
  steward: {
   name:'Steward', em:'🗓', cat:'church', price:'Free in testing · $49 at launch', testing:true,
   tag:'Every church deadline on one page — what it is, when it\'s due, and what happens if you forget.',
-  try:BASE+'church-steward/'},
+  try:BASE+'church-steward/', video:true,
+  lines:["This is Steward — every church deadline on one page.", "The problem: the insurance renewal, the elevator inspection, the 990 — each one bites if it's forgotten, and they all live in one volunteer's head.", "How it works: a library of the deadlines churches actually have. Add yours, put in real dates.", "For each one it shows what missing it would cost — so you know what matters most.", "A thirty-day view means nothing sneaks up on the trustees.", "The benefit: no late fees, no lapsed coverage, no 'I thought YOU filed it.'", "Forty-nine dollars, once — free while we test.", "Tap Try it and add your three scariest dates."]},
  churchkey: {
   name:'The Key · Church Edition', em:'🔑', cat:'church', price:'Free in testing · $49 at launch', testing:true,
   tag:'One page that tells the NEXT trustee, treasurer, or pastor where everything lives — nothing locked in one person\'s head.',
-  try:BASE+'church-key/'},
+  try:BASE+'church-key/', video:true,
+  lines:["This is The Key, Church Edition — where everything lives, written down.", "The problem: when a trustee, treasurer, or pastor moves on, the church spends months playing detective. Where's the deed? Who has the bank access? What's the boiler guy's number?", "How it works: one guided page. Ten minutes of questions — accounts, documents, contacts, passwords' locations — never the secrets themselves, just where they live.", "Print it, seal it, hand it to the next person. Update it once a year.", "The benefit: nothing the church needs is locked in one person's head. Ever.", "Forty-nine dollars, once — free while we test.", "Tap Try it — your future successor says thank you."]},
  clubhouse: {
   name:'The Clubhouse', em:'🏠', cat:'church', price:'Free in testing · $49 at launch', testing:true,
   tag:'A kids\' page only the church can post to. No chat, no strangers, no ads — everything from church, nothing from anyone else.',
-  try:BASE+'church-clubhouse/'},
+  try:BASE+'church-clubhouse/', video:true,
+  lines:["This is The Clubhouse — a kids' page only the church can post to.", "The problem: parents want church content for their kids, but not another app with chat, strangers, and ads.", "How it works: the church posts — memory verses, songs, announcements, fun. Kids read and watch. That's the whole deal.", "No accounts, no chat, no comments, no ads. Everything from church, nothing from anyone else.", "The benefit: parents trust it on sight, and kids' ministry finally has a home between Sundays.", "Forty-nine dollars, once — free while we test.", "Tap Try it and see what safe looks like."]},
  drivecounter: {
   name:'Drive Counter', em:'📦', cat:'church', price:'Free in testing · $29 at launch', testing:true,
   tag:'Food drive, coat drive, shoeboxes — count any collection live and watch the goal fill up.',
-  try:BASE+'church-drive/'},
+  try:BASE+'church-drive/', video:true,
+  lines:["This is Drive Counter — watch any collection fill up, live.", "The problem: food drives and shoebox seasons run on a clipboard, and nobody knows the total until it's over.", "How it works: set the goal, count what comes in — the thermometer climbs on the big screen in the lobby.", "Works for cans, coats, shoeboxes, anything you can count.", "The benefit: momentum. People give more when they can see the goal getting close.", "Twenty-nine dollars, once — free while we test.", "Tap Try it and start a pretend coat drive right now."]},
  gameday: {
   name:'GameDay', em:'🏀', cat:'church', price:'Free in testing · $49 at launch', testing:true,
   tag:'Church-league schedules, standings, and cancellations — one page for the whole league, no phone tree.',
-  try:BASE+'church-gameday/'},
+  try:BASE+'church-gameday/', video:true,
+  lines:["This is GameDay — the church league on one page.", "The problem: schedules in one text thread, standings in another, and a gym cancellation that half the parents never see.", "How it works: schedules, standings, and announcements on one page everyone bookmarks.", "Cancellations appear at the top the moment the league posts them — no phone tree.", "The benefit: parents stop guessing, coaches stop repeating themselves, and the league feels big-time.", "Forty-nine dollars, once — free while we test.", "Tap Try it and set up a season in minutes."]},
  goodstanding: {
   name:'Good Standing', em:'✅', cat:'church', price:'Free in testing · $49 at launch', testing:true,
   tag:'Nonprofit filings and renewals — what\'s due, when, and what it costs to forget. Never lose your status.',
-  try:BASE+'np-goodstanding/'},
+  try:BASE+'np-goodstanding/', video:true,
+  lines:["This is Good Standing — for the nonprofit that can't afford to forget.", "The problem: annual report, charitable registration, the 990 — miss one and your nonprofit status is genuinely at risk.", "How it works: every filing on one page — what it is, when it's due, and what it costs to forget.", "A thirty-day view keeps the board ahead of every deadline.", "The benefit: your status is never a surprise. Auditors love you.", "Forty-nine dollars, once — free while we test.", "Tap Try it and put your real filings in."]},
  receiptmaker: {
   name:'Receipt Maker', em:'🧾', cat:'church', price:'Free in testing · $29 at launch', testing:true,
   tag:'Donor acknowledgment letters done right — one at a time, or a whole January\'s worth.',
-  try:BASE+'np-receipts/'},
+  try:BASE+'np-receipts/', video:true,
+  lines:["This is Receipt Maker — donor letters, done right.", "The problem: every January somebody spends a weekend writing acknowledgment letters, and the IRS wording has to be exactly right.", "How it works: enter your organization once. Then for each gift — name, amount, date — it writes the proper letter, correct wording included.", "Do one at a time all year, or a whole January's worth in an afternoon.", "The benefit: donors get professional letters fast, and your treasurer gets their weekend back.", "Twenty-nine dollars, once — free while we test.", "Tap Try it with one pretend donation."]},
 };
