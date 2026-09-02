@@ -257,7 +257,7 @@
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:30px;font-weight:800">Now <span style="color:var(--now)">&</span> Next</div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v5.6 · updated Sep 1</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v5.7 · updated Sep 2</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1'); }catch(e){}
@@ -389,7 +389,7 @@
       <input id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">Now & Next <b>v5.6</b> · 2026-09-01 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">Now & Next <b>v5.7</b> · 2026-09-02 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -1543,6 +1543,136 @@ try{
     });
     if(n) setTimeout(clearLabels, 7000);
   }
+}catch(e){}
+})();
+</script>
+
+<script>
+/* ===== 🧩 Break It Down (phased tasks) + ✨ Horizons — v5.7, 2026-09-02, from Jerry's scripts =====
+   Additive & guarded: wraps the app from outside, touches no core logic. */
+(function(){
+try{
+  /* ---------- 🧩 BREAK IT DOWN ---------- */
+  var SIZES=[25,45,60];
+  var origAdd = window.addTask;
+  window.addTask = function(){
+    try{
+      var nameEl=document.getElementById('newTask'), minsEl=document.getElementById('newMins');
+      var name=(nameEl.value||'').trim(); var mins=Number(minsEl.value)||0;
+      if(name && mins>=60){
+        var hrs = mins>=60? (mins/60).toFixed(mins%60?1:0)+' hour'+(mins>60?'s':'') : mins+' min';
+        if(confirm('"'+name+'" is a '+hrs+' job — and big jobs never start.\n\n🧩 Break it into pieces you can do one at a time?\n\nOK = break it down · Cancel = keep it whole')){
+          var size=prompt('How many minutes should each piece be?\n(25, 45, or 60 work best)','45');
+          size=Number(size);
+          if(!SIZES.includes(size)) size = size>=55?60 : size>=35?45 : 25;
+          var n=Math.max(2, Math.ceil(mins/size));
+          for(var k=1;k<=n;k++){
+            nameEl.value = name+' — 🧩 piece '+k+' of '+n;
+            minsEl.value = String(size);
+            origAdd();
+          }
+          nameEl.value='';
+          try{ var reg=JSON.parse(localStorage.getItem('nn_ph_reg')||'{}'); reg[name]={n:n,done:0}; localStorage.setItem('nn_ph_reg',JSON.stringify(reg)); }catch(e){}
+          if(window.toast) toast('🧩 '+n+' pieces of '+size+' min — piece 1 is all you need to think about');
+          return;
+        }
+      }
+    }catch(e){}
+    origAdd();
+  };
+  /* piece-finish celebrations: watch the Done button, read the NOW task name */
+  document.addEventListener('click', function(ev){
+    try{
+      var b=ev.target.closest&&ev.target.closest('.done-btn'); if(!b) return;
+      var t=document.querySelector('#nowCard .task'); if(!t) return;
+      var m=/^(.*) — 🧩 piece (\d+) of (\d+)$/.exec(t.textContent.trim()); if(!m) return;
+      var name=m[1], k=Number(m[2]), n=Number(m[3]);
+      var reg={}; try{ reg=JSON.parse(localStorage.getItem('nn_ph_reg')||'{}'); }catch(e){}
+      var r=reg[name]||{n:n,done:0}; r.done=Math.min(n,(r.done||0)+1); reg[name]=r;
+      try{ localStorage.setItem('nn_ph_reg',JSON.stringify(reg)); }catch(e){}
+      setTimeout(function(){
+        if(r.done>=n){ if(window.toast) toast('👑 THE WHOLE '+name.toUpperCase()+' — done in pieces, like everything big ever built.', 7000); }
+        else { if(window.toast) toast('🧩 '+name+': '+r.done+' of '+n+' pieces done — '+Math.round(r.done/n*100)+'%. It never stood a chance.', 5500); }
+      }, 2600);
+    }catch(e){}
+  }, true);
+
+  /* ---------- ✨ HORIZONS ---------- */
+  var HZP='nn_hz_prefs', HZC='nn_hz_cards', HZK='nn_hz_kept', HZD='nn_hz_dismissed';
+  function jget(k,d){ try{ var v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
+  function jset(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+  function appData(){
+    var out={regulars:[],upcoming:[],recent:[]};
+    try{
+      var P=jget('now_next_profiles_v1',null); var cur=P&&P.cur;
+      var d=jget('now_next_v1_'+cur,null)||jget('now_next_v1',null)||{};
+      (d.regulars||[]).forEach(function(r){ out.regulars.push(r.text); });
+      (d.upcoming||[]).forEach(function(u){ out.upcoming.push(u.text); });
+      (d.tasks||[]).filter(function(t){return t.done;}).slice(-8).forEach(function(t){ out.recent.push(t.text); });
+    }catch(e){}
+    return out;
+  }
+  function hzPrompt(){
+    var pr=jget(HZP,{town:'',interests:''});
+    var a=appData();
+    var dism=jget(HZD,[]);
+    return "You are a gentle opportunity-scout for a child/family. Never use pressure or urgency. "
+     +"Given their real activities and interests, find 4-6 REAL nearby or easy next-step opportunities they'd never think to look for (clubs, open gyms, library programs, beginner events, free things). Verify they exist. No social media, nothing requiring purchases to enjoy.\n\n"
+     +"Reply with ONLY a JSON code block exactly like: {\"cards\":[{\"em\":\"♟️\",\"title\":\"Beginner chess night at the library\",\"why\":\"one warm sentence tying it to THEIR activity\",\"next\":\"the one small next step\",\"link\":\"https://...\"}]}\n\n"
+     +"Town/area: "+(pr.town||'(ask the parent to set it in ⚙️)')+"\n"
+     +"Interests: "+(pr.interests||'(none tagged yet)')+"\n"
+     +"Regular activities: "+(a.regulars.join('; ')||'none')+"\n"
+     +"Coming up: "+(a.upcoming.join('; ')||'none')+"\n"
+     +"Things finished lately: "+(a.recent.join('; ')||'none')+"\n"
+     +(dism.length? "Do NOT suggest (already declined): "+dism.join('; ') : "");
+  }
+  function esc(x){ return String(x||'').replace(/</g,'&lt;'); }
+  function renderHZ(){
+    var host=document.getElementById('hzCard'); if(!host) return;
+    var cards=jget(HZC,[]); var kept=jget(HZK,[]);
+    host.innerHTML =
+      '<h3 style="display:flex;justify-content:space-between;align-items:center">✨ Horizons <span><button onclick="HZ.setup()" title="town & interests" style="font:inherit;font-size:13px;border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:4px 10px;cursor:pointer">⚙️</button> <button onclick="HZ.copy()" title="copy the scout prompt for your AI" style="font:inherit;font-size:13px;border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:4px 10px;cursor:pointer">📋 prompt</button> <button onclick="HZ.paste()" style="font:inherit;font-size:13px;font-weight:800;border:none;background:var(--next);color:#fff;border-radius:999px;padding:4px 12px;cursor:pointer">paste →</button></span></h3>'
+      +'<p class="small" style="margin:4px 0 8px">Doors worth peeking through — found by your grown-up’s AI from what you already love. No pressure, ever.</p>'
+      +(cards.length? cards.slice(0,3).map(function(c,i){ return '<div style="border:1px solid var(--line);border-left:3px solid var(--sun);border-radius:10px;padding:9px 11px;margin-bottom:8px"><b>'+esc(c.em)+' '+esc(c.title)+'</b><div class="small" style="margin:3px 0">'+esc(c.why)+'</div><div class="small">➡️ '+esc(c.next)+(c.link?' · <a href="'+esc(c.link)+'" target="_blank" style="color:var(--next)">look</a>':'')+'</div><div style="margin-top:6px"><button onclick="HZ.keep('+i+')" style="font:inherit;font-size:12px;font-weight:700;border:1px solid var(--line-strong);background:var(--win-soft);color:var(--win);border-radius:999px;padding:4px 12px;cursor:pointer">💾 keep</button> <button onclick="HZ.nope('+i+')" style="font:inherit;font-size:12px;border:1px solid var(--line-strong);background:var(--surface);color:var(--faint);border-radius:999px;padding:4px 12px;cursor:pointer">👋 not for me</button></div></div>'; }).join('')
+        : '<p class="small" style="color:var(--faint)">Nothing here yet — a grown-up taps 📋 prompt, gives it to their AI (Claude, ChatGPT…), then taps paste →. Fresh doors once a week is plenty.</p>')
+      +(kept.length? '<div class="small" style="font-weight:800;color:var(--next);margin-top:8px">Doors we might open</div>'+kept.map(function(c,i){ return '<div class="small" style="padding:3px 0">'+esc(c.em)+' '+esc(c.title)+' <button onclick="HZ.unkeep('+i+')" style="font:inherit;font-size:11px;border:none;background:none;color:var(--faint);cursor:pointer">✕</button></div>'; }).join('') : '');
+  }
+  window.HZ={
+    setup:function(){
+      var pr=jget(HZP,{town:'',interests:''});
+      var t=prompt('Your town or area (so the AI can find LOCAL doors):', pr.town||''); if(t===null) return;
+      var i=prompt('Interests, separated by commas (chess, animals, science, faith, art…):', pr.interests||''); if(i===null) return;
+      jset(HZP,{town:t.trim(),interests:i.trim()}); renderHZ();
+      if(window.toast) toast('✨ Saved — now tap 📋 prompt');
+    },
+    copy:function(){
+      navigator.clipboard.writeText(hzPrompt()).then(function(){ if(window.toast) toast('📋 Scout prompt copied — paste it to your AI, then bring back its answer'); });
+    },
+    paste:function(){
+      var v=prompt('Paste the AI’s whole answer here:'); if(!v) return;
+      var m=v.match(/\{[\s\S]*\}/); if(!m){ if(window.toast) toast('No cards found — paste the whole reply'); return; }
+      try{
+        var d=JSON.parse(m[0]);
+        var cards=(d.cards||[]).slice(0,6).map(function(c){ return {em:String(c.em||'✨').slice(0,4),title:String(c.title||'').slice(0,90),why:String(c.why||'').slice(0,180),next:String(c.next||'').slice(0,140),link:/^https?:/.test(c.link||'')?c.link:''}; }).filter(function(c){return c.title;});
+        if(!cards.length){ if(window.toast) toast('The reply had no cards — try again'); return; }
+        jset(HZC,cards); renderHZ();
+        if(window.toast) toast('✨ '+cards.length+' doors on the board');
+      }catch(e){ if(window.toast) toast('Couldn’t read it — ask the AI for valid JSON only'); }
+    },
+    keep:function(i){ var c=jget(HZC,[]); var k=jget(HZK,[]); if(!c[i]) return; k.push(c[i]); c.splice(i,1); jset(HZK,k.slice(-8)); jset(HZC,c); renderHZ(); },
+    nope:function(i){ var c=jget(HZC,[]); if(!c[i]) return; var d=jget(HZD,[]); d.push(c[i].title); jset(HZD,d.slice(-30)); c.splice(i,1); jset(HZC,c); renderHZ(); },
+    unkeep:function(i){ var k=jget(HZK,[]); k.splice(i,1); jset(HZK,k); renderHZ(); }
+  };
+  /* mount the card on the Wins tab */
+  function mount(){
+    var w=document.getElementById('v-wins'); if(!w){ setTimeout(mount,900); return; }
+    if(!document.getElementById('hzCard')){
+      var d=document.createElement('div'); d.className='card'; d.id='hzCard';
+      w.appendChild(d);
+    }
+    renderHZ();
+  }
+  setTimeout(mount,1200);
 }catch(e){}
 })();
 </script>
