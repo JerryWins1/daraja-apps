@@ -16,6 +16,8 @@ const APPS = {
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
    {t:"Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.", js:"try{go('routines')}catch(e){}", point:"#n-routines"},
    {t:"Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.", js:"try{go('today');document.getElementById('wkBtn')&&document.getElementById('wkBtn').click()}catch(e){}", point:"#wkBtn"},
+   {t:"Step six: make it yours. Tap My photo and pick a picture you love — the grandkids, the lake — and your whole day floats on glass over it. Tap Look to change outfits: River, Warm Paper, or Quest H U D game mode. Tap A a to make the words bigger.", js:"try{go('today')}catch(e){}"},
+   {t:"And don't worry about learning it — the first time you touch any feature, a little card pops up and explains it, and it can even read itself out loud. Tap Got it and it never bothers you again."},
    {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"},
    "You'll know it's set up right when the NOW card shows one thing with a timer — and somebody checks it off and gets the party."],
   lines:[
@@ -31,7 +33,9 @@ const APPS = {
    "It's four ninety-nine, once. No account, no ads, works offline, nothing leaves your phone.",
    "Try it right now with the button below — and see what your morning could sound like.",
   'New: big jobs get broken into pieces you can actually start — a six-hour garage becomes eight little wins.',
-  'And Horizons: once a week, your grown-up\'s AI finds gentle doors near you — the open gym, the beginner chess night. No feed. No pressure.']},
+  'And Horizons: once a week, your grown-up\'s AI finds gentle doors near you — the open gym, the beginner chess night. No feed. No pressure.',
+  'And the brand-new River look: your own family photo becomes the background, your day floats over it on glass — with a timeline that shows when things happen. Three looks to choose from, including a game mode with X P for the teenagers.',
+  'New features explain themselves the first time you touch them — a little card, in plain words, that can read itself out loud.']},
  ahead: {
   name:'Ahead of It', em:'🧾', cat:'family', price:'$9', testing:true,
   tag:'Taxes, renewals, the dog\'s shots — know what it costs you to miss one',
