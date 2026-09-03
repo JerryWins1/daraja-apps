@@ -253,4 +253,104 @@ const APPS = {
    "A little daily verse keeps it grounded.",
    "The benefit: an hour with Compass and you can see your own life on one page.",
    "It's free. Try it below when you have a quiet evening."]},
+
+ /* ── CHURCH & NONPROFIT SHELF (videos play via the same watch.html player; cat:'church' never renders on the main store shelves) ── */
+ church: {
+  name:'The Church App', em:'⛪', cat:'church', price:'$149 one-time', video:true,
+  tag:'Your whole church in their pocket',
+  try:'https://jerrywins1.github.io/immanuel-app/',
+  lines:[
+   "This is The Church App — your whole church, in everyone's pocket.",
+   "The problem: announcements live in a bulletin nobody keeps, sermons live on a YouTube channel nobody finds, and the events calendar lives on a wall.",
+   "This app puts them in one place — on every member's phone, with your church's name on it.",
+   "Sermons sync from your own YouTube channel automatically. Post the video Sunday night; it's in the app Monday morning.",
+   "Sermon notes are built in — no more photographing the screen. Events, prayer requests, online giving links, your staff page — all there.",
+   "And your staff updates it from a phone, with a simple page and a key we give you. No web designer. No monthly bill.",
+   "It's yours for one hundred forty-nine dollars, once. Not per month — once, with setup included, and it grows with you.",
+   "You're looking at a real one right now — this is Immanuel's actual app. Try it below."]},
+ churchsteward: {
+  name:'Steward', em:'🧾', cat:'church', price:'$29 one-time', video:true,
+  tag:'Nothing catches the trustees by surprise',
+  try:'https://jerrywins1.github.io/daraja-apps/church-steward/',
+  lines:[
+   "This is Steward — for the person who keeps the church building alive.",
+   "The fire inspection. The boiler certificate. The elevator. The van registration. Background checks for the nursery.",
+   "Every one of those has a date — and when one slips, it costs real money, or shuts down a ministry.",
+   "Steward holds all of them on one calm page, and tells you what's coming thirty days out.",
+   "It comes loaded with the twenty-four things churches most often forget — you just tick the ones your building has and put in your real dates.",
+   "And when the trustee role changes hands — and it always does — Steward prints a hand-off list, so nothing lives in only one person's head.",
+   "Twenty-nine dollars, once. Cheaper than one missed inspection fine. Try it below."]},
+ churchserve: {
+  name:'Serve Board', em:'🙋', cat:'church', price:'$19 one-time', video:true,
+  tag:'The month of volunteers on one page',
+  try:'https://jerrywins1.github.io/daraja-apps/church-serve/',
+  lines:[
+   "This is Serve Board — the end of the Sunday-morning scramble.",
+   "Greeters, nursery, coffee, the tech booth: who's on, for the whole month, on one page.",
+   "Orange means 'needs someone' — you can see every hole in the schedule at a glance, weeks early.",
+   "Fill a slot with two taps. Swap two people without a phone tree.",
+   "And when it's set, print it for the bulletin board — because some of your best volunteers don't do phones, and that's fine.",
+   "Nineteen dollars, once, for every ministry team you have. Try it below."]},
+ churchdrive: {
+  name:'Drive Counter', em:'📦', cat:'church', price:'$19 one-time', video:true,
+  tag:'How many complete sets can we hand out right now?',
+  try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
+  lines:[
+   "This is Drive Counter — for food drives, coat drives, and shoebox season.",
+   "The question that matters isn't 'how much stuff do we have.' It's 'how many complete sets can we hand out right now?'",
+   "A food box needs rice AND beans AND oil. Ninety bags of rice and four bottles of oil is four boxes — not ninety.",
+   "Drive Counter does that math live, as donations come in. The big number is sets ready to give.",
+   "And it shows what runs out first, so Sunday's announcement writes itself: 'we need oil, friends. Just oil.'",
+   "Nineteen dollars, once, for every drive you'll ever run. Try it below."]},
+ churchclubhouse: {
+  name:'The Clubhouse', em:'🏠', cat:'church', price:'$29 one-time', video:true,
+  tag:'Church-to-kids, one way — no accounts, no chat, no strangers',
+  try:'https://jerrywins1.github.io/daraja-apps/church-clubhouse/',
+  lines:[
+   "This is The Clubhouse — the safe way to reach the kids' ministry families.",
+   "It's one-way on purpose: church to kids. No accounts, no chat, no comments, no strangers. Parents can breathe.",
+   "This week's lesson. The memory verse — it reads itself aloud. A kindness challenge. Countdowns to the fun stuff.",
+   "A kid opens it Tuesday night and church is still with them.",
+   "The leader updates it in five minutes a week from a phone.",
+   "Twenty-nine dollars, once. Safer than social media, warmer than a flyer. Try it below."]},
+ churchgameday: {
+  name:'GameDay', em:'🏀', cat:'church', price:'$29 one-time', video:true,
+  tag:'The league schedule that replaces the 40-family phone tree',
+  try:'https://jerrywins1.github.io/daraja-apps/church-gameday/',
+  lines:[
+   "This is GameDay — for the church basketball league, and every gym ministry like it.",
+   "Schedules, standings, practice times, which door of the gym to use — one link every family keeps.",
+   "And the big one: the red cancellation banner. Snow day? Tap once, and forty families see it before anyone drives.",
+   "That banner alone replaces the whole phone tree.",
+   "Twenty-nine dollars, once, per season, per league, forever. Try it below."]},
+ churchkey: {
+  name:'The Key · Church Edition', em:'🔑', cat:'church', price:'$19 one-time', video:true,
+  tag:'So nothing lives in only one person\'s head',
+  try:'https://jerrywins1.github.io/daraja-apps/church-key/',
+  lines:[
+   "This is The Key, church edition — the page you hope you never need, and one day desperately will.",
+   "Where's the water shutoff? Who has keys? Which plumber knows the old pipes? What's the alarm code story?",
+   "In most churches, that lives in one faithful person's head. The Key gets it onto one printed page.",
+   "Fill it in once — it takes an evening — print two copies, and the building stops depending on any one memory.",
+   "Nineteen dollars, once. It's insurance that costs less than lunch. Try it below."]},
+ npgoodstanding: {
+  name:'Good Standing', em:'🕊', cat:'church', price:'$29 one-time', video:true,
+  tag:'The filings that quietly end small nonprofits — now they can\'t',
+  try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
+  lines:[
+   "This is Good Standing — for the two-or-three-person nonprofit doing holy work with no office manager.",
+   "Here's the scary fact: miss the IRS nine-ninety three years running, and your tax-exempt status is automatically revoked. It happens to thousands of small nonprofits every year.",
+   "The nine-ninety. State registration. Board minutes. D and O insurance. Donor acknowledgments. Good Standing holds every date and warns you early.",
+   "It comes loaded with the filings small nonprofits actually face — tick what applies, enter your real dates, done.",
+   "Twenty-nine dollars, once. The cheapest insurance a mission ever bought. Try it below."]},
+ npreceipts: {
+  name:'Receipt Maker', em:'🧾', cat:'church', price:'$19 one-time', video:true,
+  tag:'January\'s donor letters in ten minutes',
+  try:'https://jerrywins1.github.io/daraja-apps/np-receipts/',
+  lines:[
+   "This is Receipt Maker — for the January job every small nonprofit dreads.",
+   "Donors need proper acknowledgment letters, with the exact IRS language, or their deduction is at risk — and your credibility with it.",
+   "Paste your donor list. Receipt Maker builds a proper letter for each one — right language, right layout, one page each.",
+   "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
+   "Nineteen dollars, once. Your treasurer will hug you. Try it below."]},
 };
