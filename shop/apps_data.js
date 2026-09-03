@@ -6,7 +6,7 @@ const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
  nownext: {
-  name:'Now & Next', em:'🧭', cat:'family', price:'$4.99', testing:true,
+  name:'Now & Next', em:'🧭', fresh:true, cat:'family', price:'$4.99', testing:true,
   tag:'One thing at a time — for kids and grown-ups whose brains run fast',
   try:A+'nownext/', video:true,
   train:[
@@ -37,7 +37,7 @@ const APPS = {
   'And the brand-new River look: your own family photo becomes the background, your day floats over it on glass — with a timeline that shows when things happen. Three looks to choose from, including a game mode with X P for the teenagers.',
   'New features explain themselves the first time you touch them — a little card, in plain words, that can read itself out loud.']},
  ahead: {
-  name:'Ahead of It', em:'🧾', cat:'family', price:'$9', testing:true,
+  name:'Ahead of It', em:'🧾', fresh:true, cat:'family', price:'$9', testing:true,
   tag:'Taxes, renewals, the dog\'s shots — know what it costs you to miss one',
   try:A+'ahead/', video:true,
   train:[
@@ -59,7 +59,7 @@ const APPS = {
    "Nine dollars, once. One missed late fee costs more.",
    "Try it below — add three real things from your own house and feel the difference."]},
  nextstep: {
-  name:'Next Step Board', em:'🗂', cat:'work', price:'$9', testing:true,
+  name:'Next Step Board', em:'🗂', fresh:true, cat:'work', price:'$9', testing:true,
   tag:'Every project, its next step, whose turn — one screen',
   try:A+'nextstep/', video:true,
   train:[
@@ -238,7 +238,7 @@ const APPS = {
    "If you run a small field team anywhere in the world, this pattern fits you too. Ask us.",
    "Try the demo below and see a day in the field."]},
  compass: {
-  name:'Daraja Compass', em:'🧭', cat:'free', price:'Free', testing:false,
+  name:'Daraja Compass', em:'🧭', fresh:true, cat:'free', price:'Free', testing:false,
   tag:'A life-mapping interview — talk your way to what matters',
   try:A+'compass/', video:true,
   train:[
