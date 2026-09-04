@@ -1,6 +1,11 @@
 /* Daraja Store — one shared catalog. v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
+/* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
+   'live'    = launched store (banner gone, badges gone, Get buttons use each app's buy link)
+   Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps). */
+const PHASE = 'testing';
+
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
