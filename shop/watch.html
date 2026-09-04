@@ -147,17 +147,23 @@ if(MODE==='train'){
 
 let i=-1, playing=false, paused=false, soundOn=true;
 function speak(text, cb){
-  if(!soundOn || !window.speechSynthesis){ setTimeout(cb, Math.max(2400, text.length*55)); return; }
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate=.97;
+  if(!soundOn || !window.speechSynthesis){ setTimeout(cb, Math.max(2600, text.length*60)); return; }
+  /* smooth-talk pass: dashes and dots become natural beats, not run-ons */
+  const spoken = text.replace(/\s+\u2014\s+/g, '\u2026 ').replace(/\s+\u00b7\s+/g, '\u2026 ').replace(/\u2014/g, ',');
+  const u = new SpeechSynthesisUtterance(spoken);
+  u.rate=.95; u.pitch=1;
   const vs = speechSynthesis.getVoices();
-  const v = vs.find(v=>/Samantha|Google US English|en-US/i.test(v.name+v.lang));
+  const v = vs.find(x=>/Samantha/i.test(x.name))
+        || vs.find(x=>/Google US English/i.test(x.name))
+        || vs.find(x=>/Aria|Jenny|Michelle|Natural/i.test(x.name))
+        || vs.find(x=>/^en[-_]US/i.test(x.lang||''));
   if(v) u.voice=v;
   let done=false;
-  const fin=()=>{ if(!done){done=true; cb();} };
+  const fin=()=>{ if(done) return; done=true; cb(); };
   u.onend=fin; u.onerror=fin;
   speechSynthesis.speak(u);
-  setTimeout(fin, 1200 + text.length*90);
+  /* safety net only \u2014 generous, and it silences a stuck line instead of talking over it */
+  setTimeout(function(){ if(!done){ try{ speechSynthesis.cancel(); }catch(e){} fin(); } }, 4000 + spoken.length*130);
 }
 function play(){
   $('ov').style.display='none'; $('cap').style.display='block';
@@ -237,7 +243,7 @@ function next(){
   direct(l);
   $('capText').textContent = lineText(l);
   $('prog').style.width = Math.round(((i+1)/LINES.length)*100)+'%';
-  speak(lineText(l), ()=>setTimeout(next, 500));
+  speak(lineText(l), ()=>setTimeout(next, 950));
 }
 function end(){
   playing=false;
