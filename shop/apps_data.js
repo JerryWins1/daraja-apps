@@ -6,7 +6,7 @@ const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
  nownext: {
-  name:'Now & Next', em:'🧭', fresh:true, cat:'family', price:'$4.99', testing:true,
+  name:'Now & Next', em:'🧭', sub:'one thing at a time', fresh:true, cat:'family', price:'$4.99', testing:true,
   tag:'One thing at a time — for kids and grown-ups whose brains run fast',
   try:A+'nownext/', video:true,
   train:[
@@ -37,7 +37,7 @@ const APPS = {
    "Every new feature explains itself the first time you touch it, in plain words, out loud if you like. Try the whole thing right now with the button below."
   ]},
  ahead: {
-  name:'Ahead of It', em:'🧾', fresh:true, cat:'family', price:'$9', testing:true,
+  name:'Ahead of It', em:'🧾', sub:'never miss a deadline', fresh:true, cat:'family', price:'$9', testing:true,
   tag:'Taxes, renewals, the dog\'s shots — know what it costs you to miss one',
   try:A+'ahead/', video:true,
   train:[
@@ -59,7 +59,7 @@ const APPS = {
    "Nine dollars, once. One missed late fee costs more.",
    "Try it below — add three real things from your own house and feel the difference."]},
  nextstep: {
-  name:'Next Step Board', em:'🗂', fresh:true, cat:'work', price:'$9', testing:true,
+  name:'Next Step Board', em:'🗂', sub:'every project's next move', fresh:true, cat:'work', price:'$9', testing:true,
   tag:'Every project, its next step, whose turn — one screen',
   try:A+'nextstep/', video:true,
   train:[
@@ -81,7 +81,7 @@ const APPS = {
    "Nine dollars, once. No subscription, no account, works offline.",
    "Try it below — put your three real projects in and watch your morning get simpler."]},
  breakeven: {
-  name:'Break-Even', em:'🧮', cat:'free', price:'Free', testing:false,
+  name:'Break-Even', em:'🧮', sub:'know your numbers', cat:'free', price:'Free', testing:false,
   tag:'Price your product — see exactly when you start making money',
   try:A+'breakeven/', video:true,
   train:[
@@ -100,7 +100,7 @@ const APPS = {
    "It's completely free — our gift, and a taste of how we build.",
    "Try it below with your real numbers. It takes two minutes to know the truth."]},
  safety: {
-  name:'My Safety Plan', em:'🫶', cat:'free', price:'Free forever', testing:false,
+  name:'My Safety Plan', em:'🫶', sub:'a plan for hard days', cat:'free', price:'Free forever', testing:false,
   tag:'A private safety plan in your pocket — built in memory of Ryan',
   try:A+'safety/', video:true,
   train:[
@@ -119,7 +119,7 @@ const APPS = {
    "If you love someone who struggles, put this on their phone together. That's the whole reason it exists.",
    "It will never cost anything. Try it below — or share it with someone who needs it today."]},
  feedback: {
-  name:'Feedback Studio', em:'🎙', cat:'work', price:'$12', testing:true,
+  name:'Feedback Studio', em:'🎙', sub:'talk while you test', cat:'work', price:'$12', testing:true,
   tag:'Use an app, talk out loud — your voice becomes the builder\'s to-do list',
   try:BASE+'feedback-studio/', video:true,
   train:[
@@ -140,7 +140,7 @@ const APPS = {
    "Twelve dollars, once. If you build anything, it pays for itself the first afternoon.",
    "There's a two-minute demo movie on the shelf — or just try it below on any app you like."]},
  storykeeper: {
-  name:'In My Own Words', em:'📖', cat:'family', price:'Free app · printed book from $39', testing:true,
+  name:'In My Own Words', em:'📖', sub:'your life, in a book', cat:'family', price:'Free app · printed book from $39', testing:true,
   tag:'Their voice, in a book — life stories, photos, and The Key',
   try:BASE+'story-keeper/', video:true,
   train:[
@@ -163,7 +163,7 @@ const APPS = {
    "The app is free. The printed book starts at thirty-nine dollars — and it's the gift nobody ever forgets getting.",
    "Try it below. Ask someone you love one question tonight."]},
  academy: {
-  name:'Daraja Academy', em:'🌉', cat:'family', price:'Lesson 1 free · course $19', testing:true,
+  name:'Daraja Academy', em:'🌉', sub:'learn AI, gently', cat:'family', price:'Lesson 1 free · course $19', testing:true,
   tag:'AI for Grandparents — learn to use AI, the patient way',
   try:BASE+'academy/', video:true,
   train:[
@@ -183,7 +183,7 @@ const APPS = {
    "Lesson one is free. The full course will be nineteen dollars — and it's a beautiful gift for a parent or grandparent.",
    "Try lesson one below. It only takes ten minutes to feel ten years younger."]},
  thekey: {
-  name:'The Key', em:'🔑', cat:'free', price:'Free forever', testing:false,
+  name:'The Key', em:'🔑', sub:'where everything is', cat:'free', price:'Free forever', testing:false,
   try:BASE+'thekey/', video:true,
   train:[
    "Filling out The Key — five minutes for a lifetime of relief.",
@@ -203,7 +203,7 @@ const APPS = {
    "When the day comes, your family won't have to be detectives. They'll have The Key.",
    "It's free. Fill yours out tonight — and send this to your parents while you're at it."]},
  occ: {
-  name:'OCC Box Counter', em:'📦', cat:'free', price:'Free', testing:false,
+  name:'OCC Box Counter', em:'📦', sub:'count what's ready', cat:'free', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
   try:A+'occ/', video:true,
   train:[
@@ -221,7 +221,7 @@ const APPS = {
    "Made for Operation Christmas Child packing parties, church tables, and garage inventories.",
    "It's free. Try it below — your next packing day will thank you."]},
  zuri: {
-  name:'Zuri Ops', em:'📡', cat:'work', price:'Ask us', testing:false,
+  name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'work', price:'Ask us', testing:false,
   tag:'Field operations for a small ISP — works with no signal',
   try:A+'zuri/', video:true,
   train:[
@@ -238,7 +238,7 @@ const APPS = {
    "If you run a small field team anywhere in the world, this pattern fits you too. Ask us.",
    "Try the demo below and see a day in the field."]},
  compass: {
-  name:'Daraja Compass', em:'🧭', fresh:true, cat:'free', price:'Free', testing:false,
+  name:'Daraja Compass', em:'🧭', sub:'map your next years', fresh:true, cat:'free', price:'Free', testing:false,
   tag:'A life-mapping interview — talk your way to what matters',
   try:A+'compass/', video:true,
   train:[
@@ -256,7 +256,7 @@ const APPS = {
 
  /* ── CHURCH & NONPROFIT SHELF (videos play via the same watch.html player; cat:'church' never renders on the main store shelves) ── */
  church: {
-  name:'The Church App', em:'⛪', cat:'church', price:'$149 one-time', video:true,
+  name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 one-time', video:true,
   tag:'Your whole church in their pocket',
   try:'https://jerrywins1.github.io/immanuel-app/',
   lines:[
@@ -269,7 +269,7 @@ const APPS = {
    "It is one hundred forty-nine dollars, once, with setup included, and it grows with you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
   ]},
  churchsteward: {
-  name:'Steward', em:'🧾', cat:'church', price:'$29 one-time', video:true,
+  name:'Steward', em:'🧾', sub:'never miss an inspection', cat:'church', price:'$29 one-time', video:true,
   tag:'Nothing catches the trustees by surprise',
   try:'https://jerrywins1.github.io/daraja-apps/church-steward/',
   lines:[
@@ -282,7 +282,7 @@ const APPS = {
    "It costs twenty-nine dollars, once, which is a good deal less than one missed inspection fine. Go ahead and try it below."
   ]},
  churchserve: {
-  name:'Serve Board', em:'🙋', cat:'church', price:'$19 one-time', video:true,
+  name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', price:'$19 one-time', video:true,
   tag:'The month of volunteers on one page',
   try:'https://jerrywins1.github.io/daraja-apps/church-serve/',
   lines:[
@@ -293,7 +293,7 @@ const APPS = {
    "And when it's set, print it for the bulletin board — because some of your best volunteers don't do phones, and that's fine.",
    "Nineteen dollars, once, for every ministry team you have. Try it below."]},
  churchdrive: {
-  name:'Drive Counter', em:'📦', cat:'church', price:'$19 one-time', video:true,
+  name:'Drive Counter', em:'📦', sub:'count complete sets', cat:'church', price:'$19 one-time', video:true,
   tag:'How many complete sets can we hand out right now?',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   lines:[
@@ -304,7 +304,7 @@ const APPS = {
    "And it shows what runs out first, so Sunday's announcement writes itself: 'we need oil, friends. Just oil.'",
    "Nineteen dollars, once, for every drive you'll ever run. Try it below."]},
  churchclubhouse: {
-  name:'The Clubhouse', em:'🏠', cat:'church', price:'$29 one-time', video:true,
+  name:'The Clubhouse', em:'🏠', sub:'church-to-kids, safely', cat:'church', price:'$29 one-time', video:true,
   tag:'Church-to-kids, one way — no accounts, no chat, no strangers',
   try:'https://jerrywins1.github.io/daraja-apps/church-clubhouse/',
   lines:[
@@ -315,7 +315,7 @@ const APPS = {
    "The leader keeps it fresh in about five minutes a week from a phone, and it costs twenty-nine dollars, once. Safer than social media, warmer than a flyer. Try it below."
   ]},
  churchgameday: {
-  name:'GameDay', em:'🏀', cat:'church', price:'$29 one-time', video:true,
+  name:'GameDay', em:'🏀', sub:'the league, organized', cat:'church', price:'$29 one-time', video:true,
   tag:'The league schedule that replaces the 40-family phone tree',
   try:'https://jerrywins1.github.io/daraja-apps/church-gameday/',
   lines:[
@@ -325,7 +325,7 @@ const APPS = {
    "That banner alone replaces the whole phone tree.",
    "Twenty-nine dollars, once, per season, per league, forever. Try it below."]},
  churchkey: {
-  name:'The Key · Church Edition', em:'🔑', cat:'church', price:'$19 one-time', video:true,
+  name:'The Key · Church Edition', em:'🔑', sub:'the building's memory', cat:'church', price:'$19 one-time', video:true,
   tag:'So nothing lives in only one person\'s head',
   try:'https://jerrywins1.github.io/daraja-apps/church-key/',
   lines:[
@@ -335,7 +335,7 @@ const APPS = {
    "Fill it in once — it takes an evening — print two copies, and the building stops depending on any one memory.",
    "Nineteen dollars, once. It's insurance that costs less than lunch. Try it below."]},
  npgoodstanding: {
-  name:'Good Standing', em:'🕊', cat:'church', price:'$29 one-time', video:true,
+  name:'Good Standing', em:'🕊', sub:'filings, never forgotten', cat:'church', price:'$29 one-time', video:true,
   tag:'The filings that quietly end small nonprofits — now they can\'t',
   try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
   lines:[
@@ -346,7 +346,7 @@ const APPS = {
    "Twenty-nine dollars, one time. It may be the cheapest insurance a mission ever bought. Try it below."
   ]},
  npreceipts: {
-  name:'Receipt Maker', em:'🧾', cat:'church', price:'$19 one-time', video:true,
+  name:'Receipt Maker', em:'🧾', sub:'donor letters, done', cat:'church', price:'$19 one-time', video:true,
   tag:'January\'s donor letters in ten minutes',
   try:'https://jerrywins1.github.io/daraja-apps/np-receipts/',
   lines:[
@@ -356,7 +356,7 @@ const APPS = {
    "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
    "Nineteen dollars, once. Your treasurer will hug you. Try it below."]},
  flipkit: {
-  name:'FlipKit', em:'💸', cat:'family', price:'$9', testing:true, fresh:true, video:true,
+  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'family', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
   lines:[
