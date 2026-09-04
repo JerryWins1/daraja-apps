@@ -64,7 +64,7 @@ const APPS = {
    "Nine dollars, once. One missed late fee costs more.",
    "Try it below — add three real things from your own house and feel the difference."]},
  nextstep: {
-  name:'Next Step Board', em:'🗂', sub:'every project's next move', fresh:true, cat:'work', price:'$9', testing:true,
+  name:'Next Step Board', em:'🗂', sub:'every project\'s next move', fresh:true, cat:'work', price:'$9', testing:true,
   tag:'Every project, its next step, whose turn — one screen',
   try:A+'nextstep/', video:true,
   train:[
@@ -330,7 +330,7 @@ const APPS = {
    "That banner alone replaces the whole phone tree.",
    "Twenty-nine dollars, once, per season, per league, forever. Try it below."]},
  churchkey: {
-  name:'The Key · Church Edition', em:'🔑', sub:'the building's memory', cat:'church', price:'$19 one-time', video:true,
+  name:'The Key · Church Edition', em:'🔑', sub:'the building\'s memory', cat:'church', price:'$19 one-time', video:true,
   tag:'So nothing lives in only one person\'s head',
   try:'https://jerrywins1.github.io/daraja-apps/church-key/',
   lines:[
