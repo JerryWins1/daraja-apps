@@ -208,7 +208,7 @@ const APPS = {
    "When the day comes, your family won't have to be detectives. They'll have The Key.",
    "It's free. Fill yours out tonight — and send this to your parents while you're at it."]},
  occ: {
-  name:'OCC Box Counter', em:'📦', sub:'count what's ready', cat:'free', price:'Free', testing:false,
+  name:'OCC Box Counter', em:'📦', sub:'count what\'s ready', cat:'free', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
   try:A+'occ/', video:true,
   train:[
