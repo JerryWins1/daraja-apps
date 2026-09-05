@@ -360,8 +360,12 @@ function startRace() { const s = season(); return s.start && s.start.afterKey ? 
 function loadMe() { try { me = JSON.parse(localStorage.getItem(LS_ME)); } catch (e) { me = null; } }
 function saveMe() { try { localStorage.setItem(LS_ME, JSON.stringify(me)); } catch (e) { } }
 function isCommish() { return me && state.league.commissioner === me.id; }
+// Test drive: on a device that is not on the group mailbox, act as any player without a PIN (for dry runs against Steve's hand scoring).
+function testMode() { return !mailbox() && !!(state.league && state.league.testMode); }
+function actAs(id) { if (!testMode()) return; me = { id, pin: '0000' }; saveMe(); pendingPick = { drivers: [], wildcard: false }; render(); toast('Acting as ' + pname(id)); }
 function openIdentity() {
-  const opts = state.players.map(p => `<option value="${esc(p.id)}" ${me && me.id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  const opts = state.players.filter(p => p.active !== false).map(p => `<option value="${esc(p.id)}" ${me && me.id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  if (testMode()) { modal(`<h2>Who are you? <span class="sub">test drive</span></h2><label class="f">Name<select id="idSel">${opts}</select></label><p class="small muted" style="margin-top:8px">Test drive is on: no PIN needed on this device.</p><div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="actAs($('idSel').value);closeModal()">That's me</button></div>`); return; }
   modal(`<h2>Who are you?</h2>
     <label class="f">Name<select id="idSel">${opts}</select></label>
     <label class="f" style="margin-top:8px">PIN <span class="muted small">(4 digits · first time sets it)</span><input id="idPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••" autocomplete="off"></label>
@@ -374,7 +378,7 @@ async function saveIdentity() {
   if (!/^\d{4,6}$/.test(pin)) { toast('PIN is 4 to 6 digits'); return; }
   const p = state.players.find(x => x.id === id);
   if (!mailbox()) { if (p.pin && p.pin !== pin) { toast('That PIN does not match'); return; } if (!p.pin) p.pin = pin; saveLocal(); }
-  me = { id, pin }; saveMe(); closeModal();
+  me = { id, pin }; saveMe(); pendingPick = { drivers: [], wildcard: false }; closeModal();
   if (mailbox()) { const r = await pushRemote('hello', {}); if (!r.ok) { toast(r.error || 'PIN rejected'); me = null; saveMe(); } }
   render();
 }
@@ -449,6 +453,8 @@ function rHome() {
         <div class="row" style="margin-top:12px;justify-content:space-between"><span class="small" style="color:var(--board-dim)">${pendingPick.wildcard ? 'Wild card selected' : pendingPick.drivers.length + ' of ' + (s.perRace || 2) + ' picked'}</span><button class="btn flag" onclick="submitPick('${nr.key}')">${myPick ? 'Update my picks' : 'Send my picks'}</button></div>`;
       }
     }
+    // test drive: switch player with one tap
+    if (testMode()) html += `<div class="row" style="margin-top:12px;gap:6px"><span class="lab" style="color:var(--board-dim)">Test drive · act as</span>${playersActive().map(p => `<button class="btn sm ${me && me.id === p.id ? 'flag' : ''}" style="${me && me.id === p.id ? '' : 'background:#FFFFFF14;border-color:#FFFFFF33;color:var(--board-ink)'}" onclick="actAs('${p.id}')">${esc(p.name)}</button>`).join('')}</div>`;
     // who's in
     const ins = playersActive().map(p => { const pk = s.picks && s.picks[nr.key] && s.picks[nr.key][p.id]; const L = R && R.lineups[p.id]; return `<div><b>${esc(p.name)}</b>${locked ? (L ? (L.wildcard ? 'Wild card' : L.drivers.map(dname).join(' + ')) + (L.auto ? ' <span class="pill" style="font-size:11px">auto</span>' : '') : '—') : (pk ? '✓ in' : '· waiting')}</div>`; }).join('');
     html += `<div class="lineup-grid">${ins}</div></div>`;
@@ -486,7 +492,8 @@ function rStandings() {
 }
 function rUsage() {
   const s = season(); const last = lastScored();
-  let html = `<div class="card"><h2>Driver usage <span class="sub">${last ? 'after ' + esc(last.race.name.replace(' Grand Prix', ' GP')) : 'season start'}</span></h2><p class="small muted">Drives left of ${s.drivesPer} for each driver, and wild cards left of ${s.wildcardsPer}. Wild card weekends don't use drives.</p><div class="usage">
+  const nr0 = nextRace(); const pending = nr0 && s.picks && s.picks[nr0.key] && Object.keys(s.picks[nr0.key]).length;
+  let html = `<div class="card"><h2>Driver usage <span class="sub">${last ? 'after ' + esc(last.race.name.replace(' Grand Prix', ' GP')) : 'season start'}</span></h2><p class="small muted">Drives left of ${s.drivesPer} for each driver, and wild cards left of ${s.wildcardsPer}. Wild card weekends don't use drives.${pending ? ' Picks already in for the ' + esc(nr0.name.replace(' Grand Prix', ' GP')) + ' are counted as used.' : ''}</p><div class="usage">
     ${playersActive().map(p => { const u = computed.usage[p.id] || {}; const roster = (s.roster && s.roster[p.id]) || []; return `<div class="u-p"><h3><span>${esc(p.name)}</span><span class="pill ${u._wild > 0 ? 'acc' : ''}">wild card ${Math.max(0, u._wild || 0)}/${s.wildcardsPer}</span></h3>
       ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; return `<div class="u-d ${left <= 0 ? 'out' : ''}"><span>${esc(dname(d))}</span><span class="n">${left}/${s.drivesPer}</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}</div>`; }).join('')}
   </div>
@@ -549,7 +556,11 @@ function rSetup() {
   const ro = c ? '' : 'disabled';
   let html = `<div class="card"><h2>Setup</h2><p class="small muted">${c ? 'You are the commissioner. Changes here apply to everyone.' : 'Only the commissioner (' + esc(pname(state.league.commissioner)) + ') can change settings. You can read them.'}</p>
   ${mailbox() ? `<span class="pill ok">Connected to the group mailbox</span>` : `<span class="pill bad">Not connected · this device only</span>`}</div>`;
-  html += `<details ${mailbox() ? '' : 'open'}><summary>Mailbox (shared data)</summary><div class="in">
+  html += `<details ${testMode() ? 'open' : ''}><summary>Test drive (this device only)</summary><div class="in">
+    <p class="small">For a dry run before the group joins: act as any of the five without a PIN, enter everyone's picks as they text them, and after the race compare the app's breakdown and Steve-style post with Steve's real one. Only works while this device is not connected to the mailbox; connecting turns it off and picks entered here go along to the mailbox.</p>
+    ${mailbox() ? '<span class="pill">Not available while connected to the mailbox</span>' : `<label class="row small" style="gap:8px"><input type="checkbox" style="width:auto" ${testMode() ? 'checked' : ''} onchange="state.league.testMode=this.checked;saveLocal();render();toast(this.checked?'Test drive on — tap a name on Home to act as them':'Test drive off')"> Act as any player without a PIN</label>`}
+  </div></details>`;
+  html += `<details ${mailbox() || testMode() ? '' : 'open'}><summary>Mailbox (shared data)</summary><div class="in">
     <p class="small">One Google Apps Script deploy and everyone's picks land in the same place. Open the file <b>f1/F1_Mailbox_AppsScript.gs</b> for the five-minute steps, then paste the web app URL here.</p>
     <label class="f">Mailbox URL (ends in /exec)<input id="mbUrl" value="${esc(state.league.mailboxUrl || '')}" placeholder="https://script.google.com/macros/s/…/exec"></label>
     <label class="f">League key<input id="mbKey" value="${esc(state.league.key || 'f1')}"></label>
@@ -623,7 +634,7 @@ function rSetup() {
   return html;
 }
 /* setup actions */
-async function connectMailbox() { const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1'; if (url && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('That does not look like an Apps Script /exec URL'); return; } state.league.mailboxUrl = url; state.league.key = key; saveLocal(); toast(url ? 'Connecting…' : 'Mailbox disconnected'); if (url) { const ok = await pullRemote(); toast(ok ? 'Connected' : 'Could not reach the mailbox'); } await refresh(); }
+async function connectMailbox() { const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1'; if (url && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('That does not look like an Apps Script /exec URL'); return; } state.league.mailboxUrl = url; state.league.key = key; if (url) { state.league.testMode = false; if (me && me.pin === '0000') { me = null; saveMe(); } } saveLocal(); toast(url ? 'Connecting…' : 'Mailbox disconnected'); if (url) { const ok = await pullRemote(); toast(ok ? 'Connected' : 'Could not reach the mailbox'); } await refresh(); }
 async function saveSeasonNumbers() { const y = seasonYear; await commit('set', { path: ['seasons', y], value: Object.assign({}, season(), { driversPer: +$('stDrivers').value, drivesPer: +$('stDrives').value, wildcardsPer: +$('stWild').value, perRace: +$('stPer').value }) }, st => { const s = st.seasons[y]; s.driversPer = +$('stDrivers').value; s.drivesPer = +$('stDrives').value; s.wildcardsPer = +$('stWild').value; s.perRace = +$('stPer').value; }); toast('Season numbers saved'); await refresh(); }
 async function saveStart() {
   if (!isCommish()) { toast('Commissioner only'); return; }
@@ -669,6 +680,11 @@ async function refresh() {
   loadApiCache(); loadMe();
   state = loadLocal() || (typeof PITWALL_SEED !== 'undefined' ? JSON.parse(JSON.stringify(PITWALL_SEED)) : null);
   if (!state) { $('view').innerHTML = '<div class="card"><h2>No league data</h2></div>'; return; }
+  // A device that is not on the group mailbox yet follows the newest seeded starting point (Steve's latest post), keeping its own picks and PIN.
+  if (typeof PITWALL_SEED !== 'undefined' && (state.seedVersion || 1) < (PITWALL_SEED.seedVersion || 1) && !(state.league && state.league.mailboxUrl)) {
+    for (const y in PITWALL_SEED.seasons) { const src = PITWALL_SEED.seasons[y]; state.seasons[y] = state.seasons[y] || JSON.parse(JSON.stringify(src)); if (src.start) state.seasons[y].start = JSON.parse(JSON.stringify(src.start)); if (src.canceled) state.seasons[y].canceled = src.canceled.slice(); }
+    state.history = JSON.parse(JSON.stringify(PITWALL_SEED.history)); state.seedVersion = PITWALL_SEED.seedVersion; saveLocal();
+  }
   seasonYear = state.league.currentSeason || Math.max.apply(null, Object.keys(state.seasons).map(Number));
   render();
   await pullRemote(true);

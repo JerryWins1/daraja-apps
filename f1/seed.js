@@ -4,6 +4,7 @@
    canceled race never shifts anyone's picks. Rounds with no entry here are auto-drafted until the
    commissioner backfills them in Setup. */
 const PITWALL_SEED = {
+  seedVersion: 2, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
   league: { name: 'F1 Group', key: 'f1', commissioner: 'steve', deadlineRule: 'friday', tz: 'America/Chicago', currentSeason: 2026, mailboxUrl: '' },
   players: [
     { id: 'steve', name: 'Steve', active: true },
@@ -50,19 +51,19 @@ const PITWALL_SEED = {
         italian:    { robbi: { drivers: ['piastri', 'antonelli'] }, ryan: { drivers: ['bottas', 'bortoleto'] } }
       },
       overrides: {},
-      // Starting point: Steve's last complete post (standings + usage list after the Monaco GP, June 8 2026).
-      // The app scores every race after Monaco; the commissioner can move this forward or overwrite it in Setup.
+      // Starting point: Steve's post after the Dutch GP (standings + driver usage list), copied exactly.
+      // The app scores every race from the Italian GP on; the commissioner can move or overwrite this in Setup.
       start: {
-        afterKey: 'monaco',
-        standings: { robbi: 491, mark: 429, jerry: 333, steve: 326, ryan: 218 },
+        afterKey: 'dutch',
+        standings: { robbi: 745, mark: 729, steve: 709, jerry: 682, ryan: 445 },
         usage: {
-          steve: { max_verstappen: 8, hadjar: 9, perez: 11, hulkenberg: 10, _wild: 1 },
-          ryan:  { norris: 9, bottas: 9, stroll: 10, bortoleto: 10, _wild: 1 },
-          jerry: { russell: 8, alonso: 12, sainz: 9, lawson: 7, _wild: 2 },
-          mark:  { leclerc: 9, hamilton: 10, ocon: 10, albon: 11, _wild: 0 },
-          robbi: { piastri: 10, antonelli: 9, gasly: 11, bearman: 10, _wild: 0 }
+          steve: { max_verstappen: 3, hadjar: 4, perez: 11, hulkenberg: 10, _wild: 0 },
+          ryan:  { norris: 6, bottas: 8, stroll: 6, bortoleto: 6, _wild: 1 },
+          jerry: { russell: 6, alonso: 12, sainz: 6, lawson: 3, _wild: 1 },
+          mark:  { leclerc: 6, hamilton: 6, ocon: 8, albon: 8, _wild: 0 },
+          robbi: { piastri: 8, antonelli: 7, gasly: 7, bearman: 6, _wild: 0 }
         },
-        note: 'From Steve\'s post after the Monaco GP (June 8, 2026): standings and driver usage list, copied exactly.'
+        note: 'From Steve\'s post after the Dutch GP (Sept 2026): overall standings and the 2026 driver usage list, copied exactly.'
       },
       note: 'Picks through Monaco are complete from the group text. From Spain on, only the picks that came through are here; Steve has the rest.'
     }
