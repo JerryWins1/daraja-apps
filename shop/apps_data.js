@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v1.7 · 2026-09-05 (+ fans & leagues shelf: Pit Wall preview) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
@@ -384,4 +384,34 @@ const APPS = {
    "Step five: tap 'Copy the listing' and paste it into Facebook Marketplace. That's the whole job.",
    "When it sells, tap 'Sold!' and enter what you got. The cash line at the top starts adding up — and that number is very motivating.",
    "Read the selling-safely card once. Then go find the next thing — the garage isn't empty yet."]},
+ pitwall: {
+  name:'Pit Wall', em:'🏁', sub:'your fantasy racing league, your rules', cat:'fans', price:'$9 / league season', testing:true, video:true,
+  tag:'Picks, deadlines, auto-draft, scoring and standings for a homegrown fantasy racing league — the commissioner finally gets to just watch the race',
+  try:BASE+'f1/?test=1',
+  lines:[
+   {t:"This is Pit Wall, made for a very specific kind of friend group: the ones who have run their own fantasy racing league by group text for years.", js:"try{state.league.testMode=true;saveLocal();go('home')}catch(e){}"},
+   "You know the setup. One friend is the commissioner. Every weekend he collects the picks, checks who has used up whom, does the math by hand, and posts the standings. One slip, and it gets argued about for a month.",
+   "Pit Wall does the commissioner's job, the same way every time, on everyone's phone.",
+   {t:"This is the weekend card. It knows the real calendar, the deadline, and which of your drivers still have drives left. Tap two names, and your pick is in.", point:"nav.tabs button[data-tab='home']"},
+   {t:"Miss the deadline? The house rule kicks in: it drafts your two highest placed drivers who still have drives. No midnight texts, no favors.", js:"try{go('races')}catch(e){}", point:"nav.tabs button[data-tab='races']"},
+   {t:"After the checkered flag, results arrive on their own. Twenty for the win down to one for tenth, qualifying by grid row, a bonus for fastest lap. Every number shows its work.", js:"try{go('standings')}catch(e){}", point:"nav.tabs button[data-tab='standings']"},
+   {t:"Standings race by race, and last year's champion on the front page, because that matters more than anyone admits.", js:"try{go('usage')}catch(e){}"},
+   {t:"The usage board shows how many drives everyone has burned on each driver, and who still has a wild card in their pocket.", point:"nav.tabs button[data-tab='usage']"},
+   {t:"On race day, the Live tab is a virtual scoreboard: the running order, fastest lap, and what every team would score if the race ended right now.", js:"try{go('live')}catch(e){}", point:"nav.tabs button[data-tab='live']"},
+   {t:"The paddock is for trash talk. It was always the best part, so it gets its own room.", js:"try{go('paddock')}catch(e){}", point:"nav.tabs button[data-tab='paddock']"},
+   {t:"And it bends to your rules. The commissioner sets the players, drivers per team, drives per driver, wild cards, deadline, and every point value, and can enter picks or fix points for anyone.", js:"try{go('setup')}catch(e){}", point:"nav.tabs button[data-tab='setup']"},
+   "No accounts, no ads. One shared mailbox your league owns, and the same link on every phone.",
+   {t:"This preview is in test drive, so you can act as any of the five players and try a whole weekend. Nine dollars covers a league for a season. For a commissioner, that is the cheapest assistant you will ever hire.", js:"try{go('home')}catch(e){}"},
+   "Try it now with the button below, and tell us honestly whether your league would pay for it."
+  ],
+  train:[
+   {t:"Let's set up Pit Wall for your league. Five minutes, then it runs every race weekend for you.", js:"try{state.league.testMode=true;saveLocal();go('setup')}catch(e){}"},
+   {t:"Step one: Setup. Under Players and league, put in each player's name and pick the commissioner. Everyone else needs only a four digit PIN the first time they open the app.", point:"nav.tabs button[data-tab='setup']"},
+   "Step two: Season. Choose the year, how many drivers each team gets, and how many drives each driver is allowed. The app works out the rest from the real calendar, including canceled races.",
+   "Step three: Rosters. Give each player their drivers. If you are joining mid-season, use Starting point to type in everyone's current points and drives used, exactly as they stand today.",
+   "Step four: Scoring. The defaults are twenty down to one for the race, ten down to one by qualifying row, and a five point fastest lap bonus. Change any number, and every future race scores your way.",
+   "Step five: the mailbox. Follow the five short steps in the deploy guide, paste the link into Setup, and tap Connect. That one link is what you text the group. Their phones connect on their own.",
+   {t:"Step six: race weekend. On Home, each player taps two drivers before the deadline, or plays a wild card. Anyone late gets auto-drafted. Results arrive by themselves after the race.", js:"try{go('home')}catch(e){}", point:"nav.tabs button[data-tab='home']"},
+   {t:"Step seven: if something needs fixing, the commissioner can enter picks for anyone from Home, or adjust points in Setup. Every change shows its work in Standings.", js:"try{go('standings')}catch(e){}", point:"nav.tabs button[data-tab='standings']"},
+   "You'll know it's set up right when Home shows the next race, your drivers, and the deadline, and the Standings match the last post your commissioner made by hand."]},
 };
