@@ -4,7 +4,7 @@
    canceled race never shifts anyone's picks. Rounds with no entry here are auto-drafted until the
    commissioner backfills them in Setup. */
 const PITWALL_SEED = {
-  seedVersion: 2, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
+  seedVersion: 3, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
   league: { name: 'F1 Group', key: 'f1', commissioner: 'steve', deadlineRule: 'friday', tz: 'America/Chicago', currentSeason: 2026, mailboxUrl: '' },
   players: [
     { id: 'steve', name: 'Steve', active: true },
@@ -28,6 +28,9 @@ const PITWALL_SEED = {
       year: 2026, driversPer: 4, drivesPer: 12, wildcardsPer: 2, perRace: 2,
       scoring: { racePlace: [20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1], rowPoints: [10,9,8,7,6,5,4,3,2,1], sprintUsesRows: true, fastestLapBonus: 5, sprintFastestLapBonus: 0, unclassifiedScoresZero: true, perRace: 2 },
       canceled: ['bahrain', 'saudi-arabian'],
+      // The 2026 draft was run by text on Feb 21, 2026 (Steve's post). Rosters below are the result; the app keeps the order for the record.
+      draft: { status: 'done', players: ['steve', 'ryan', 'jerry', 'mark', 'robbi'], note: 'Run by group text, Feb 2026',
+        order: [['steve', 'ryan', 'jerry', 'mark', 'robbi'], ['robbi', 'mark', 'jerry', 'ryan', 'steve'], ['steve', 'ryan', 'jerry', 'mark', 'robbi'], ['robbi', 'mark', 'jerry', 'ryan', 'steve']], picks: [] },
       roster: {
         steve: ['max_verstappen', 'hadjar', 'perez', 'hulkenberg'],
         ryan:  ['norris', 'bottas', 'stroll', 'bortoleto'],
