@@ -292,20 +292,33 @@ function deadline(race) { const s = season(); if (s.deadlines && s.deadlines[rac
 function fmtDT(d) { return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }); }
 function fmtD(d) { return new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); }
 
+// Drives and wild cards left, starting from the season's opening balances (the "starting point") if there is one.
+function remainingFrom(s, usedPicks, keys) {
+  const used = E.usage(s.roster || {}, usedPicks, keys); const out = {};
+  for (const p in (s.roster || {})) {
+    const op = (s.start && s.start.usage && s.start.usage[p]) || {};
+    out[p] = { _wild: (op._wild != null ? +op._wild : s.wildcardsPer) - (used[p] ? used[p]._wild : 0) };
+    s.roster[p].forEach(d => out[p][d] = (op[d] != null ? +op[d] : s.drivesPer) - (used[p] ? used[p][d] || 0 : 0));
+  }
+  return out;
+}
+function startPoints(p) { const s = season(); return (s.start && s.start.standings && +s.start.standings[p]) || 0; }
 // Everything computed for the season, in race order: lineups (with auto-drafts), scores, usage, standings.
 const computed = { rounds: {}, standings: [], usage: {}, ready: false };
 async function computeSeason() {
   const s = season(); if (!s || !schedule) return;
   const players = playersActive().map(p => p.id);
   const picks = s.picks || {};
-  const totals = {}; players.forEach(p => totals[p] = 0);
+  const totals = {}; players.forEach(p => totals[p] = startPoints(p));
   const usedPicks = {}; // key -> {player: {drivers, wildcard}} including auto-drafts, for usage
   computed.rounds = {};
   let rank = {};
+  let started = !(s.start && s.start.afterKey);
   for (const race of activeRaces()) {
+    if (!started) { computed.rounds[race.key] = { race, carried: true, lineups: {}, scores: {}, missing: [] }; if (race.key === s.start.afterKey) started = true; continue; }
     const R = { race, deadline: deadline(race), locked: false, lineups: {}, results: null, scores: {}, flDriver: null, flPlayer: null, missing: [] };
     R.locked = new Date() >= R.deadline;
-    const remBefore = E.remaining(s.roster || {}, usedPicks, Object.keys(usedPicks), s.drivesPer, s.wildcardsPer);
+    const remBefore = remainingFrom(s, usedPicks, Object.keys(usedPicks));
     if (R.locked) rank = await loadRank(seasonYear, race.round - 1);
     for (const p of players) {
       const pk = picks[race.key] && picks[race.key][p];
@@ -329,7 +342,7 @@ async function computeSeason() {
     }
     computed.rounds[race.key] = R;
   }
-  computed.usage = E.remaining(s.roster || {}, usedPicks, Object.keys(usedPicks), s.drivesPer, s.wildcardsPer);
+  computed.usage = remainingFrom(s, usedPicks, Object.keys(usedPicks));
   computed.standings = players.map(p => ({ id: p, name: pname(p), pts: totals[p] })).sort((a, b) => b.pts - a.pts);
   computed.ready = true;
   // Publish the computed deadlines so the mailbox can refuse late picks too. Commissioner's device does this quietly.
@@ -340,7 +353,8 @@ async function computeSeason() {
   }
 }
 function nextRace() { const now = new Date(); return activeRaces().find(r => new Date(r.date + 'T' + (r.time || '23:59:00Z')).getTime() + 3 * 3600e3 > now.getTime()); }
-function lastScored() { let last = null; for (const r of activeRaces()) { const R = computed.rounds[r.key]; if (R && R.results) last = R; } return last; }
+function lastScored() { let last = null; for (const r of activeRaces()) { const R = computed.rounds[r.key]; if (R && (R.results || R.carried)) last = R; } return last; }
+function startRace() { const s = season(); return s.start && s.start.afterKey ? (schedule || []).find(r => r.key === s.start.afterKey) : null; }
 
 /* ---------- identity ---------- */
 function loadMe() { try { me = JSON.parse(localStorage.getItem(LS_ME)); } catch (e) { me = null; } }
@@ -461,7 +475,9 @@ function rStandings() {
   const players = computed.standings;
   let html = `<div class="card"><h2>${seasonYear} standings <span class="sub">${races.length} of ${activeRaces().length} races scored</span></h2>
     <div class="tower">${players.map((x, i) => `<div class="tr ${i === 0 ? 'lead' : ''}"><div class="pos">${i + 1}</div><div class="name">${esc(x.name)}</div><div class="gap">${i > 0 ? '−' + (players[0].pts - x.pts) : ''}</div><div class="pts">${x.pts}</div></div>`).join('')}</div></div>`;
+  const sr = startRace();
   html += `<div class="card"><h2>Race by race <span class="sub">purple = fastest lap bonus</span></h2><div class="tablewrap"><table><thead><tr><th>Race</th>${players.map(p => `<th class="n">${esc(p.name)}</th>`).join('')}</tr></thead><tbody>
+    ${sr ? `<tr><td class="muted">Carried in · after ${esc(sr.name.replace(' Grand Prix', ''))}</td>${players.map(p => `<td class="n muted">${startPoints(p.id)}</td>`).join('')}</tr>` : ''}
     ${races.map(r => { const R = computed.rounds[r.key]; return `<tr><td><button class="btn sm ghost" style="padding:2px 6px" onclick="openRace('${r.key}')">${esc(r.name.replace(' Grand Prix', ''))}${r.sprint ? ' <span class="pill" style="font-size:10px">sprint</span>' : ''}</button></td>${players.map(p => { const sc = R.scores[p.id]; return `<td class="n ${sc && sc.fastestLapDriver ? 'fl' : ''}">${sc ? sc.total : '—'}${R.lineups[p.id] && R.lineups[p.id].wildcard ? ' <span title="wild card">★</span>' : ''}</td>`; }).join('')}</tr>`; }).join('')}
     <tr><td><b>Total</b></td>${players.map(p => `<td class="n"><b>${p.pts}</b></td>`).join('')}</tr></tbody></table></div><p class="small muted" style="margin-top:8px">★ wild card weekend. Tap a race for the driver-by-driver breakdown and Steve's post.</p></div>`;
   const hist = (state.history || []).slice().sort((a, b) => b.year - a.year);
@@ -482,11 +498,12 @@ function rUsage() {
 function rRaces() {
   const s = season();
   return `<div class="card"><h2>${seasonYear} calendar <span class="sub">${activeRaces().length} races${(s.canceled || []).length ? ' · ' + s.canceled.length + ' canceled' : ''}</span></h2><div class="race-list">
-    ${(schedule || []).map(r => { const canc = (s.canceled || []).includes(r.key); const R = computed.rounds[r.key]; const status = canc ? 'canceled' : R && R.results ? 'scored' : R && R.locked ? 'awaiting results' : 'picks open'; return `<button class="race ${canc ? 'canceled' : ''}" onclick="openRace('${r.key}')"><div class="rnd">${r.round}</div><div><b>${esc(r.name.replace(' Grand Prix', ' GP'))}</b><small>${fmtD(r.date)}${r.sprint ? ' · sprint weekend' : ''} · picks due ${canc ? '—' : fmtDT(deadline(r))}</small></div><span class="pill ${status === 'scored' ? 'ok' : status === 'picks open' ? 'flag' : ''}">${status}</span></button>`; }).join('')}
+    ${(schedule || []).map(r => { const canc = (s.canceled || []).includes(r.key); const R = computed.rounds[r.key]; const status = canc ? 'canceled' : R && R.carried ? 'carried in' : R && R.results ? 'scored' : R && R.locked ? 'awaiting results' : 'picks open'; return `<button class="race ${canc ? 'canceled' : ''}" onclick="openRace('${r.key}')"><div class="rnd">${r.round}</div><div><b>${esc(r.name.replace(' Grand Prix', ' GP'))}</b><small>${fmtD(r.date)}${r.sprint ? ' · sprint weekend' : ''} · picks due ${canc ? '—' : fmtDT(deadline(r))}</small></div><span class="pill ${status === 'scored' ? 'ok' : status === 'picks open' ? 'flag' : ''}">${status}</span></button>`; }).join('')}
   </div></div>`;
 }
 function openRace(key) { selRace = key; const r = schedule.find(x => x.key === key); const R = computed.rounds[key]; const s = season();
   if (!R) { modal(`<h2>${esc(r.name)}</h2><p class="muted">Canceled this season.</p><div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">Close</button></div>`); return; }
+  if (R.carried) { modal(`<h2>${esc(r.name)} <span class="sub">round ${r.round}</span></h2><p class="muted">Scored by Steve before the app. Points and driver usage from this weekend are carried in through the starting point in Setup.</p><div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">Close</button></div>`); return; }
   let body = `<h2>${esc(r.name)} <span class="sub">round ${r.round}</span></h2><p class="small muted">${fmtD(r.date)} · picks due ${fmtDT(R.deadline)}${r.sprint ? ' · sprint weekend' : ''}</p>`;
   if (R.results) {
     const rows = Object.keys(R.scores).sort((a, b) => R.scores[b].total - R.scores[a].total);
@@ -508,7 +525,7 @@ function racePost(key) {
   const R = computed.rounds[key]; if (!R || !R.results) return '';
   const weekend = Object.keys(R.scores).map(p => ({ name: pname(p), pts: R.scores[p].total })).sort((a, b) => b.pts - a.pts);
   const upTo = []; for (const r of activeRaces()) { const X = computed.rounds[r.key]; if (X && X.results) upTo.push(r.key); if (r.key === key) break; }
-  const tot = {}; playersActive().forEach(p => tot[p.id] = 0); upTo.forEach(k => { for (const p in computed.rounds[k].scores) tot[p] += computed.rounds[k].scores[p].total; });
+  const tot = {}; playersActive().forEach(p => tot[p.id] = startPoints(p.id)); upTo.forEach(k => { for (const p in computed.rounds[k].scores) tot[p] += computed.rounds[k].scores[p].total; });
   const overall = Object.keys(tot).map(p => ({ name: pname(p), pts: tot[p] })).sort((a, b) => b.pts - a.pts);
   const idx = activeRaces().findIndex(r => r.key === key); const nx = activeRaces()[idx + 1];
   const next = nx ? { raceName: nx.name.replace('Grand Prix', 'GP'), dateText: new Date(nx.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase(), deadlineText: deadline(nx).toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: state.league.tz || 'America/Chicago' }).toLowerCase() + ' central', sprint: !!nx.sprint } : null;
@@ -517,7 +534,7 @@ function racePost(key) {
 function usagePost(uptoKey) {
   const s = season();
   let u = computed.usage, after = lastScored() ? lastScored().race.name.replace('Grand Prix', 'GP') : null;
-  if (uptoKey) { const used = {}; for (const r of activeRaces()) { const R = computed.rounds[r.key]; if (R) { used[r.key] = R.lineups; } if (r.key === uptoKey) { after = r.name.replace('Grand Prix', 'GP'); break; } } u = E.remaining(s.roster, used, Object.keys(used), s.drivesPer, s.wildcardsPer); }
+  if (uptoKey) { const used = {}; for (const r of activeRaces()) { const R = computed.rounds[r.key]; if (R && !R.carried) { used[r.key] = R.lineups; } if (r.key === uptoKey) { after = r.name.replace('Grand Prix', 'GP'); break; } } u = remainingFrom(s, used, Object.keys(used)); }
   return E.formatUsage({ year: seasonYear, afterRaceName: after, players: playersActive().map(p => ({ name: p.name, drivers: (s.roster[p.id] || []).map(d => ({ name: dname(d), left: Math.max(0, (u[p.id] || {})[d] == null ? s.drivesPer : u[p.id][d]), of: s.drivesPer })), wildLeft: Math.max(0, (u[p.id] || {})._wild == null ? s.wildcardsPer : u[p.id]._wild), wildOf: s.wildcardsPer })) });
 }
 function rPaddock() {
@@ -571,6 +588,16 @@ function rSetup() {
   const dopts = Object.values(drivers).sort((a, b) => a.name.localeCompare(b.name));
   html += `<details><summary>Rosters</summary><div class="in">${playersActive().map(p => `<div><div class="lab">${esc(p.name)}</div><div class="grid4">${Array.from({ length: s.driversPer }).map((_, i) => { const cur = (s.roster[p.id] || [])[i] || ''; return `<select ${ro} onchange="setRoster('${p.id}',${i},this.value)"><option value="">—</option>${dopts.map(d => `<option value="${d.id}" ${d.id === cur ? 'selected' : ''}>${esc(d.full)}</option>`).join('')}${cur && !drivers[cur] ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : ''}</select>`; }).join('')}</div></div>`).join('')}
     <p class="small muted">Driver list comes from the ${seasonYear} F1 entry list. If a driver is replaced mid-season, keep the original here; the replacement's results count for that seat.</p></div></details>`;
+  // starting point: per team, points and drives left as they stand today (typed by the commissioner, or pre-filled from the group text)
+  const st0 = s.start || {}; const stU = st0.usage || {}; const stS = st0.standings || {};
+  html += `<details ${st0.afterKey ? '' : 'open'}><summary>Starting point · where each team stands today</summary><div class="in">
+    <p class="small muted">Pick the last race Steve scored by hand, then for each team enter the points total and every driver's drives left, straight off his last usage post. The app scores everything from the next race on. Leave the race on "none" to score the whole season from round 1.</p>
+    <label class="f">Last race scored by hand<select id="spRace" ${ro}><option value="">none — score from round 1</option>${activeRaces().map(r => `<option value="${r.key}" ${st0.afterKey === r.key ? 'selected' : ''}>${esc(r.name.replace(' Grand Prix', ''))}</option>`).join('')}</select></label>
+    <div class="tablewrap"><table><thead><tr><th>Team</th><th class="n">Points</th>${Array.from({ length: s.driversPer }).map((_, i) => `<th class="n">Driver ${i + 1} left</th>`).join('')}<th class="n">Wild cards left</th></tr></thead><tbody>
+      ${playersActive().map(p => `<tr><td><b>${esc(p.name)}</b><br><span class="small muted">${(s.roster[p.id] || []).map(dname).join(' · ')}</span></td><td class="n"><input class="mono" style="width:80px" type="number" id="sp_pts_${p.id}" value="${stS[p.id] != null ? stS[p.id] : ''}" placeholder="0" ${ro}></td>${(s.roster[p.id] || []).map(d => `<td class="n"><input class="mono" style="width:64px" type="number" id="sp_${p.id}_${d}" value="${stU[p.id] && stU[p.id][d] != null ? stU[p.id][d] : ''}" placeholder="${s.drivesPer}" ${ro}></td>`).join('')}<td class="n"><input class="mono" style="width:64px" type="number" id="sp_wild_${p.id}" value="${stU[p.id] && stU[p.id]._wild != null ? stU[p.id]._wild : ''}" placeholder="${s.wildcardsPer}" ${ro}></td></tr>`).join('')}
+    </tbody></table></div>
+    ${c ? `<div class="row"><button class="btn sm primary" onclick="saveStart()">Save starting point</button>${typeof PITWALL_SEED !== 'undefined' && PITWALL_SEED.seasons[seasonYear] && PITWALL_SEED.seasons[seasonYear].start ? `<button class="btn sm" onclick="useSeedStart()">Use the numbers from the group text</button>` : ''}<button class="btn sm ghost" onclick="adminSet(['seasons','${seasonYear}','start'],null,'Starting point cleared')">Clear</button></div>` : ''}
+    ${st0.note ? `<div class="note">${esc(st0.note)}</div>` : ''}</div></details>`;
   // backfill picks
   html += `<details><summary>Backfill picks</summary><div class="in"><p class="small muted">For weekends the group texted picks that never made it in here. Pick a race and a player, then set the lineup or wild card. Leave a lineup empty to fall back to auto-draft.</p>
     <div class="grid2"><label class="f">Race<select id="bfRace">${activeRaces().map(r => `<option value="${r.key}">${esc(r.name.replace(' Grand Prix', ''))}</option>`).join('')}</select></label><label class="f">Player<select id="bfPlayer">${playersActive().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label></div>
@@ -598,6 +625,16 @@ function rSetup() {
 /* setup actions */
 async function connectMailbox() { const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1'; if (url && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('That does not look like an Apps Script /exec URL'); return; } state.league.mailboxUrl = url; state.league.key = key; saveLocal(); toast(url ? 'Connecting…' : 'Mailbox disconnected'); if (url) { const ok = await pullRemote(); toast(ok ? 'Connected' : 'Could not reach the mailbox'); } await refresh(); }
 async function saveSeasonNumbers() { const y = seasonYear; await commit('set', { path: ['seasons', y], value: Object.assign({}, season(), { driversPer: +$('stDrivers').value, drivesPer: +$('stDrives').value, wildcardsPer: +$('stWild').value, perRace: +$('stPer').value }) }, st => { const s = st.seasons[y]; s.driversPer = +$('stDrivers').value; s.drivesPer = +$('stDrives').value; s.wildcardsPer = +$('stWild').value; s.perRace = +$('stPer').value; }); toast('Season numbers saved'); await refresh(); }
+async function saveStart() {
+  if (!isCommish()) { toast('Commissioner only'); return; }
+  const s = season(); const afterKey = $('spRace').value;
+  if (!afterKey) { await adminSet(['seasons', seasonYear, 'start'], null, 'Starting point cleared'); return; }
+  const standings = {}, usage = {};
+  playersActive().forEach(p => { standings[p.id] = +($('sp_pts_' + p.id).value || 0); usage[p.id] = { _wild: $('sp_wild_' + p.id).value === '' ? s.wildcardsPer : +$('sp_wild_' + p.id).value }; (s.roster[p.id] || []).forEach(d => { const v = $('sp_' + p.id + '_' + d).value; usage[p.id][d] = v === '' ? s.drivesPer : +v; }); });
+  const race = schedule.find(r => r.key === afterKey);
+  await adminSet(['seasons', seasonYear, 'start'], { afterKey, standings, usage, note: 'Entered by ' + pname(me.id) + ' as of after ' + (race ? race.name.replace(' Grand Prix', ' GP') : afterKey) + ', ' + new Date().toLocaleDateString() }, 'Starting point');
+}
+async function useSeedStart() { if (!isCommish()) { toast('Commissioner only'); return; } const st = JSON.parse(JSON.stringify(PITWALL_SEED.seasons[seasonYear].start)); await adminSet(['seasons', seasonYear, 'start'], st, 'Starting point from the group text'); }
 async function toggleCanceled(key, on) { const list = (season().canceled || []).filter(k => k !== key); if (on) list.push(key); await adminSet(['seasons', seasonYear, 'canceled'], list, on ? 'Race canceled' : 'Race restored'); }
 async function saveScoring() { const nums = v => v.split(/[,\s]+/).filter(Boolean).map(Number).filter(n => !isNaN(n)); const sc = { racePlace: nums($('scRace').value), rowPoints: nums($('scRow').value), fastestLapBonus: +$('scFL').value, sprintFastestLapBonus: +$('scSFL').value, sprintUsesRows: $('scSprint').value === 'rows', unclassifiedScoresZero: $('scDNF').value === 'zero', perRace: season().perRace || 2 }; await adminSet(['seasons', seasonYear, 'scoring'], sc, 'Scoring'); }
 async function setRoster(pid, i, val) { const r = (season().roster[pid] || []).slice(); r[i] = val; await adminSet(['seasons', seasonYear, 'roster', pid], r.filter(Boolean), 'Roster'); }

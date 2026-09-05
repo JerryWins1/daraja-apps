@@ -50,6 +50,20 @@ const PITWALL_SEED = {
         italian:    { robbi: { drivers: ['piastri', 'antonelli'] }, ryan: { drivers: ['bottas', 'bortoleto'] } }
       },
       overrides: {},
+      // Starting point: Steve's last complete post (standings + usage list after the Monaco GP, June 8 2026).
+      // The app scores every race after Monaco; the commissioner can move this forward or overwrite it in Setup.
+      start: {
+        afterKey: 'monaco',
+        standings: { robbi: 491, mark: 429, jerry: 333, steve: 326, ryan: 218 },
+        usage: {
+          steve: { max_verstappen: 8, hadjar: 9, perez: 11, hulkenberg: 10, _wild: 1 },
+          ryan:  { norris: 9, bottas: 9, stroll: 10, bortoleto: 10, _wild: 1 },
+          jerry: { russell: 8, alonso: 12, sainz: 9, lawson: 7, _wild: 2 },
+          mark:  { leclerc: 9, hamilton: 10, ocon: 10, albon: 11, _wild: 0 },
+          robbi: { piastri: 10, antonelli: 9, gasly: 11, bearman: 10, _wild: 0 }
+        },
+        note: 'From Steve\'s post after the Monaco GP (June 8, 2026): standings and driver usage list, copied exactly.'
+      },
       note: 'Picks through Monaco are complete from the group text. From Spain on, only the picks that came through are here; Steve has the rest.'
     }
   }
