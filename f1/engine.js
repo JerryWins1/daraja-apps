@@ -223,5 +223,45 @@
   function lapToMs(v) { if (!v) return Infinity; const m = String(v).match(/^(?:(\d+):)?(\d+)\.(\d+)$/); if (!m) return Infinity; return ((+m[1] || 0) * 60 + (+m[2])) * 1000 + parseInt((m[3] + '00').slice(0, 3), 10); }
   function fastestOf(board) { let best = null; board.forEach(d => { const ms = lapToMs(d.best); if (ms < Infinity && (!best || ms < best.ms)) best = { num: d.num, tla: d.tla, ms }; }); return best; }
 
-  return { DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs };
+  /* ---------- the draft (once a year, snake order) ----------
+     Round 1 is drawn at random; round 2 reverses it; round 3 repeats round 1; round 4 reverses again.
+     Four rounds for four drivers each. `seed` makes the draw repeatable (tests, or a draw everyone can verify). */
+  function seededRandom(seed) { let x = (seed >>> 0) || 1; return function () { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
+  function snakeOrder(playerIds, rounds, seed) {
+    const first = playerIds.slice(); const rnd = seed == null ? Math.random : seededRandom(seed);
+    for (let i = first.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [first[i], first[j]] = [first[j], first[i]]; }
+    const out = []; for (let r = 0; r < rounds; r++) out.push(r % 2 === 0 ? first.slice() : first.slice().reverse());
+    return out;
+  }
+  // draft = { order: [[ids]...], picks: [{player, driver}] }. Returns who is on the clock, or null when the draft is complete.
+  function draftTurn(draft) {
+    const order = (draft && draft.order) || []; const n = (draft && draft.picks || []).length;
+    let i = n; for (let r = 0; r < order.length; r++) { if (i < order[r].length) return { round: r + 1, slot: i + 1, player: order[r][i], overall: n + 1, total: order.reduce((a, x) => a + x.length, 0) }; i -= order[r].length; }
+    return null;
+  }
+  function draftTaken(draft) { return ((draft && draft.picks) || []).map(p => p.driver); }
+  // Validate a pick without applying it. Returns '' when fine, else the reason.
+  function draftCheck(draft, playerId, driverId, allowedDrivers) {
+    if (!draft || draft.status !== 'open') return 'The draft is not open';
+    const t = draftTurn(draft); if (!t) return 'The draft is complete';
+    if (t.player !== playerId) return 'Not your turn';
+    if (!driverId) return 'Pick a driver';
+    if (draftTaken(draft).includes(driverId)) return 'Already taken';
+    if (allowedDrivers && allowedDrivers.length && !allowedDrivers.includes(driverId)) return 'Not on the entry list';
+    return '';
+  }
+  // Rosters from a finished (or partial) draft, in pick order per player.
+  function draftRosters(draft) { const out = {}; (draft && draft.order || []).forEach(r => r.forEach(p => out[p] = out[p] || [])); ((draft && draft.picks) || []).forEach(p => { (out[p.player] = out[p.player] || []).push(p.driver); }); return out; }
+  // Steve's "2026 f1 draft order" post
+  function formatDraftOrder(order, names, year) {
+    const nm = id => (names && names[id]) || id;
+    return year + ' draft order\n\n' + order.map((r, i) => 'round ' + (i + 1) + '\n' + r.map((p, j) => (j + 1) + ') ' + String(nm(p)).toLowerCase()).join('\n')).join('\n\n');
+  }
+  // Steve's driver list "at full allowance": hamilton 12/12
+  function formatDraftResult(rosters, names, driverNames, drivesPer, year) {
+    const nm = id => (names && names[id]) || id, dn = id => (driverNames && driverNames[id]) || id;
+    return year + ' drivers\n\n' + Object.keys(rosters).map(p => String(nm(p)).toLowerCase() + '\n' + rosters[p].map((d, i) => (i + 1) + ') ' + String(dn(d)).toLowerCase() + ' ' + drivesPer + '/' + drivesPer).join('\n')).join('\n\n');
+  }
+
+  return { snakeOrder, draftTurn, draftTaken, draftCheck, draftRosters, formatDraftOrder, formatDraftResult, DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs };
 });

@@ -150,6 +150,17 @@
 
   .toast { position:fixed; left:50%; bottom:calc(84px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--board); color:var(--board-ink); padding:10px 16px; border-radius:999px; font-size:14px; z-index:50; box-shadow:0 6px 20px #0006; opacity:0; transition:opacity .2s; pointer-events:none; }
   .toast.show { opacity:1; }
+  .dboard { display:grid; gap:4px; }
+  .dboard .dr { display:grid; grid-template-columns:54px repeat(var(--n), minmax(0,1fr)); gap:4px; align-items:stretch; }
+  .dboard .dr .rl { font-family:"Barlow Condensed", sans-serif; font-weight:700; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; }
+  .dboard .dc { border:1px solid var(--line); border-radius:8px; padding:6px 7px; font-size:12.5px; min-height:44px; overflow:hidden; background:var(--paper); }
+  .dboard .dc b { display:block; font-family:"Barlow Condensed", sans-serif; font-weight:600; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+  .dboard .dc.done { background:var(--accent-soft); border-color:transparent; } .dboard .dc.done b { color:var(--accent); }
+  .dboard .dc.now { border:2px solid var(--flag); background:var(--flag-soft); }
+  .dgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .dpick { border:1px solid var(--line-strong); background:var(--paper); color:var(--ink); border-radius:10px; padding:10px 12px; text-align:left; display:grid; gap:2px; }
+  .dpick b { font-family:"Barlow Condensed", sans-serif; font-weight:600; font-size:18px; letter-spacing:.01em; } .dpick span { font-size:12px; color:var(--muted); }
+  .dpick:disabled { opacity:.4; text-decoration:line-through; }
   .modal { position:fixed; inset:0; background:#0009; display:flex; align-items:flex-end; justify-content:center; z-index:40; padding:14px; }
   .modal .card { width:100%; max-width:520px; }
   @media (min-width:600px) { .modal { align-items:center; } }
@@ -417,7 +428,7 @@ async function adminSet(path, value, label) {
 }
 
 /* ---------- render ---------- */
-function go(t) { tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); if (t === 'live' && (!live.at || Date.now() - live.at > 30000)) fetchLive(); }
+function go(t) { tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); if (t === 'draft' && !draftRank) loadDraftRank(seasonYear).then(r => { draftRank = r; if (tab === 'draft') render(); }); if (t === 'live' && (!live.at || Date.now() - live.at > 30000)) fetchLive(); }
 function render() {
   const s = season();
   $('meName').textContent = me ? pname(me.id) + (isCommish() ? ' · commish' : '') : 'Who are you?';
@@ -425,12 +436,17 @@ function render() {
   $('hdrSub').textContent = (state.league.name || 'F1 Group') + ' · ' + seasonYear + (mailbox() ? '' : ' · this device only');
   const v = $('view');
   if (!schedule) { v.innerHTML = `<div class="card"><h2>Loading the ${seasonYear} calendar…</h2><p class="muted small">Race dates and results come from the free Jolpica F1 data service. If this never finishes, check your connection.</p>${loadError ? `<div class="warn">${esc(loadError)}</div>` : ''}</div>`; return; }
-  v.innerHTML = ({ home: rHome, standings: rStandings, usage: rUsage, races: rRaces, live: rLive, paddock: rPaddock, setup: rSetup })[tab]();
+  v.innerHTML = ({ home: rHome, standings: rStandings, usage: rUsage, races: rRaces, live: rLive, paddock: rPaddock, setup: rSetup, draft: rDraft })[tab]();
   if (tab === 'paddock') { const c = $('chatBox'); if (c) c.scrollTop = c.scrollHeight; }
 }
 function rHome() {
   const s = season(); const nr = nextRace(); const champ = (state.history || []).slice().sort((a, b) => b.year - a.year)[0];
   let html = '';
+  // draft banner: the once-a-year event gets the top of the page while it is on
+  const dr = s.draft;
+  if (dr && dr.status === 'open') { const t = E.draftTurn(dr); html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🏁 <b>Draft in progress</b> · round ${t ? t.round : '–'} · <b>${t ? esc(pname(t.player)) : '—'}</b> is on the clock</span><button class="btn sm primary" onclick="go('draft')">Open the draft room</button></div>`; }
+  else if (dr && dr.status === 'setup') html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🎲 <b>Draft day is coming.</b> ${dr.order ? 'The order is drawn.' : 'The commissioner is setting it up.'}</span><button class="btn sm" onclick="go('draft')">Draft room</button></div>`;
+  else if (isCommish() && !Object.values(s.roster || {}).some(r => r && r.length)) html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🏁 <b>No rosters yet for ${seasonYear}.</b> Run the draft to fill them.</span><button class="btn sm primary" onclick="go('draft')">Open the draft room</button></div>`;
   // weekend card
   if (nr) {
     const R = computed.rounds[nr.key]; const dl = deadline(nr); const locked = new Date() >= dl; const w = who(); const rem = w ? (computed.usage[w] || {}) : {};
@@ -646,10 +662,17 @@ function rSetup() {
     ${mailbox() ? '<span class="pill">Not available while connected to the mailbox</span>' : `<label class="row small" style="gap:8px"><input type="checkbox" style="width:auto" ${testMode() ? 'checked' : ''} onchange="state.league.testMode=this.checked;saveLocal();render();toast(this.checked?'Test drive on — tap a name on Home to act as them':'Test drive off')"> Act as any player without a PIN</label>`}
   </div></details>`;
   html += `<details ${mailbox() || testMode() ? '' : 'open'}><summary>Mailbox (shared data)</summary><div class="in">
-    <p class="small">One Google Apps Script deploy and everyone's picks land in the same place. Open the file <b>f1/F1_Mailbox_AppsScript.gs</b> for the five-minute steps, then paste the web app URL here.</p>
+    ${mailbox() ? `<p class="small">Connected. Every phone that opens the app link shares this league. To move to a different mailbox, paste its URL and tap Connect.</p>` : `<p class="small">Right now the app lives on this device only. The mailbox is one free Google script that holds the league so every phone sees the same picks and standings. It takes about five minutes, once, and you need a Google sign-in.</p>
+    <ol class="small" style="margin:0 0 4px 18px;padding:0;display:grid;gap:4px">
+      <li>Open <a href="https://script.google.com/home" target="_blank" rel="noopener"><b>script.google.com</b></a> → <b>New project</b> → delete the sample code.</li>
+      <li>Open the <a href="https://raw.githubusercontent.com/JerryWins1/daraja-apps/main/f1/F1_Mailbox_AppsScript.gs" target="_blank" rel="noopener"><b>mailbox script</b></a> → select all → copy → paste it into the project → 💾 save → name it <b>Pit Wall mailbox</b>.</li>
+      <li><b>Deploy</b> → <b>New deployment</b> → ⚙ type <b>Web app</b> → Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → Deploy → Authorize (Google warns; choose Advanced → Go to Pit Wall mailbox).</li>
+      <li>Copy the <b>Web app URL</b> (it ends in <b>/exec</b>).</li>
+      <li>Paste it below → <b>Connect</b>. This device's league data seeds the mailbox.</li>
+    </ol>`}
     <label class="f">Mailbox URL (ends in /exec)<input id="mbUrl" value="${esc(state.league.mailboxUrl || '')}" placeholder="https://script.google.com/macros/s/…/exec"></label>
     <label class="f">League key<input id="mbKey" value="${esc(state.league.key || 'f1')}"></label>
-    <button class="btn primary sm" onclick="connectMailbox()">Connect</button></div></details>`;
+    <div class="row"><button class="btn primary sm" onclick="connectMailbox()">Connect</button>${mailbox() ? `<button class="btn sm ghost" onclick="disconnectMailbox()">Disconnect</button>` : ''}</div></div></details>`;
   html += `<details><summary>Season ${seasonYear}</summary><div class="in">
     <div class="grid4">
       <label class="f">Drivers per player<input type="number" id="stDrivers" value="${s.driversPer}" ${ro}></label>
@@ -680,6 +703,11 @@ function rSetup() {
     </div>
     <p class="small muted">Places beyond the list score zero, so with 20 entries P21 and P22 on a 22-car grid score nothing. Add two more numbers to change that.</p>
     ${c ? '<button class="btn sm primary" onclick="saveScoring()">Save scoring</button>' : ''}</div></details>`;
+  // draft room entry point
+  const dr0 = s.draft;
+  html += `<details><summary>Draft room</summary><div class="in">
+    <p class="small muted">Once a year, before the first race: tick who is in, draw the snake order, and everyone picks in turn until the ${s.driversPer} rounds are done. The finished draft writes the rosters below. ${dr0 ? (dr0.status === 'done' ? 'This season\'s draft is complete.' : dr0.status === 'open' ? 'A draft is in progress.' : 'A draft is being set up.') : 'No draft has been run in the app for ' + seasonYear + '.'}</p>
+    <div class="row"><button class="btn sm primary" onclick="go('draft')">Open the draft room</button><a class="btn sm ghost" href="rules.html" target="_blank">📖 Rulebook</a></div></div></details>`;
   // roster
   const dopts = Object.values(drivers).sort((a, b) => a.name.localeCompare(b.name));
   html += `<details><summary>Rosters</summary><div class="in">${playersActive().map(p => `<div><div class="lab">${esc(p.name)}</div><div class="grid4">${Array.from({ length: s.driversPer }).map((_, i) => { const cur = (s.roster[p.id] || [])[i] || ''; return `<select ${ro} onchange="setRoster('${p.id}',${i},this.value)"><option value="">—</option>${dopts.map(d => `<option value="${d.id}" ${d.id === cur ? 'selected' : ''}>${esc(d.full)}</option>`).join('')}${cur && !drivers[cur] ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : ''}</select>`; }).join('')}</div></div>`).join('')}
@@ -719,7 +747,28 @@ function rSetup() {
   return html;
 }
 /* setup actions */
-async function connectMailbox() { const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1'; if (url && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('That does not look like an Apps Script /exec URL'); return; } state.league.mailboxUrl = url; state.league.key = key; if (url) { state.league.testMode = false; if (me && me.pin === '0000') { me = null; saveMe(); } } saveLocal(); toast(url ? 'Connecting…' : 'Mailbox disconnected'); if (url) { const ok = await pullRemote(); toast(ok ? 'Connected' : 'Could not reach the mailbox'); } await refresh(); }
+async function connectMailbox() {
+  const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1';
+  if (!url) { // nothing pasted yet: show the recipe instead of silently disconnecting
+    modal(`<h2>No mailbox URL yet <span class="sub">five minutes, once</span></h2>
+      <p class="small">The mailbox is a free Google script that holds the league so every phone sees the same thing. Paste its web app URL in the box, then tap Connect. To make one:</p>
+      <ol class="small" style="margin:8px 0 8px 18px;padding:0;display:grid;gap:5px">
+        <li>Open <a href="https://script.google.com/home" target="_blank" rel="noopener"><b>script.google.com</b></a> → <b>New project</b> → delete the sample code.</li>
+        <li>Open the <a href="https://raw.githubusercontent.com/JerryWins1/daraja-apps/main/f1/F1_Mailbox_AppsScript.gs" target="_blank" rel="noopener"><b>mailbox script</b></a> → select all → copy → paste into the project → 💾 save → name it <b>Pit Wall mailbox</b>.</li>
+        <li><b>Deploy</b> → <b>New deployment</b> → ⚙ type <b>Web app</b> → Execute as <b>Me</b> · Who has access <b>Anyone</b> → Deploy → Authorize.</li>
+        <li>Copy the <b>Web app URL</b> ending in <b>/exec</b> → paste it here → Connect.</li>
+      </ol>
+      <p class="small muted">Until then the app keeps working on this device only. Nothing is lost.</p>
+      <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn primary" onclick="closeModal()">Got it</button></div>`);
+    return;
+  }
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('That does not look like an Apps Script /exec URL'); return; }
+  state.league.mailboxUrl = url; state.league.key = key; state.league.testMode = false; if (me && me.pin === '0000') { me = null; saveMe(); }
+  saveLocal(); toast('Connecting…');
+  const ok = await pullRemote(); toast(ok ? 'Connected' : 'Could not reach the mailbox');
+  await refresh();
+}
+async function disconnectMailbox() { if (!confirm('Disconnect this device from the mailbox? The league data stays in the mailbox; this device keeps its own copy.')) return; state.league.mailboxUrl = ''; saveLocal(); toast('Mailbox disconnected'); await refresh(); }
 async function saveSeasonNumbers() { const y = seasonYear; await commit('set', { path: ['seasons', y], value: Object.assign({}, season(), { driversPer: +$('stDrivers').value, drivesPer: +$('stDrives').value, wildcardsPer: +$('stWild').value, perRace: +$('stPer').value }) }, st => { const s = st.seasons[y]; s.driversPer = +$('stDrivers').value; s.drivesPer = +$('stDrives').value; s.wildcardsPer = +$('stWild').value; s.perRace = +$('stPer').value; }); toast('Season numbers saved'); await refresh(); }
 async function saveStart() {
   if (!isCommish()) { toast('Commissioner only'); return; }
@@ -744,6 +793,101 @@ async function newSeason() { const y = +prompt('Season year?', new Date().getFul
 async function refreshResults() { for (const k in apiCache) if (/results|qualifying|sprint|driverStandings/.test(k)) delete apiCache[k]; saveApiCache(); toast('Fetching fresh results…'); await refresh(); }
 function exportState() { const blob = new Blob([JSON.stringify(state, null, 1)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'pitwall-' + seasonYear + '.json'; a.click(); }
 
+/* ---------- the draft room ----------
+   Once a year. The commissioner ticks who is in and draws the snake order (round 1 random, round 2 reversed,
+   round 3 like round 1, round 4 like round 2). Then whoever is on the clock taps a driver; the commissioner
+   can pick for anyone and undo the last pick. The final pick writes everyone's rosters for the season. */
+let draftRank = null; // driverId -> points last season, for ordering the board
+async function loadDraftRank(year) {
+  try { const d = await api((year - 1) + '/driverStandings.json', Infinity); const L = d.StandingsTable && d.StandingsTable.StandingsLists && d.StandingsTable.StandingsLists[0]; const out = {}; ((L && L.DriverStandings) || []).forEach(x => out[x.Driver.driverId] = +x.points); return out; } catch (e) { return {}; }
+}
+function draftCanPickFor(pid) { return testMode() || isCommish() || (me && me.id === pid); }
+function draftOrderBoard(d, t) {
+  const n = (d.players || []).length || (d.order[0] || []).length;
+  let done = 0;
+  return `<div class="dboard" style="--n:${n}">${d.order.map((r, ri) => `<div class="dr"><div class="rl">Rd ${ri + 1}</div>${r.map((p, si) => { const k = done++; const pk = d.picks[k]; const now = t && t.round === ri + 1 && t.slot === si + 1; return `<div class="dc ${pk ? 'done' : ''} ${now ? 'now' : ''}"><b>${esc(pname(p))}</b>${pk ? esc(dname(pk.driver)) : (now ? 'on the clock' : '')}</div>`; }).join('')}</div>`).join('')}</div>`;
+}
+function rDraft() {
+  const s = season(); const d = s.draft; const c = isCommish(); const names = {}; state.players.forEach(p => names[p.id] = p.name);
+  let html = `<div class="card"><h2>Draft room <span class="sub">${seasonYear} · ${s.driversPer} rounds · snake</span></h2>`;
+  if (!d || d.status === 'setup') {
+    const chosen = (d && d.players) || playersActive().map(p => p.id);
+    html += `<p class="small muted">Once a year, a couple of weeks before the first race. Tick who is in, draw the order, then everyone picks in turn. Round 2 reverses round 1, round 3 repeats it, round 4 reverses again, so nobody gets stuck at the back every time.</p>`;
+    if (c) {
+      html += `<div class="lab">Who is in</div><div class="row" style="gap:6px;margin:6px 0 10px">${state.players.map(p => `<label class="pill" style="cursor:pointer;gap:6px"><input type="checkbox" style="width:auto;margin:0" ${chosen.includes(p.id) ? 'checked' : ''} onchange="draftToggle('${p.id}',this.checked)"> ${esc(p.name)}</label>`).join('')}</div>
+      <p class="small muted">Someone new? Add them under Setup → Players & league first. ${chosen.length} in · ${chosen.length * s.driversPer} picks · ${Object.keys(drivers).length} drivers on the ${seasonYear} entry list.</p>
+      <div class="row" style="margin-top:8px"><button class="btn primary" onclick="drawOrder()">🎲 ${d && d.order ? 'Draw again' : 'Draw the order'}</button>${d && d.order ? `<button class="btn flag" onclick="startDraft()">Start the draft</button><button class="btn ghost sm" onclick="copyText(E.formatDraftOrder(season().draft.order, Object.fromEntries(state.players.map(p=>[p.id,p.name])), seasonYear))">Copy the order for the group text</button>` : ''}</div>`;
+      if (d && d.order) html += `<div style="margin-top:12px">${draftOrderBoard(d, null)}</div>`;
+    } else html += `<p class="muted">No draft yet. ${esc(pname(state.league.commissioner))} sets it up here and posts the order.${d && d.order ? ' The order is drawn:' : ''}</p>${d && d.order ? draftOrderBoard(d, null) : ''}`;
+    html += `</div>`;
+  } else if (d.status === 'open') {
+    const t = E.draftTurn(d); const taken = E.draftTaken(d);
+    const mine = t && draftCanPickFor(t.player);
+    html += `<div class="weekend"><span class="lab">Round ${t.round} of ${d.order.length} · pick ${t.overall} of ${t.total}</span><h2>${esc(pname(t.player))} is on the clock</h2><div class="small" style="color:var(--board-dim)">${mine ? (me && me.id === t.player ? 'Your pick. Tap a driver below.' : 'Tap a driver to pick for ' + esc(pname(t.player)) + '.') : 'Waiting for ' + esc(pname(t.player)) + ' to pick. Pull down to refresh.'}</div></div>`;
+    html += `<div style="margin:12px 0">${draftOrderBoard(d, t)}</div>`;
+    const avail = Object.values(drivers).filter(x => !taken.includes(x.id)).sort((a, b) => ((draftRank && draftRank[b.id]) || 0) - ((draftRank && draftRank[a.id]) || 0) || a.name.localeCompare(b.name));
+    html += `<div class="lab" style="margin-bottom:6px">Available · ${avail.length}${draftRank && Object.keys(draftRank).length ? ' · ordered by last season\'s points' : ''}</div>
+      <div class="dgrid">${avail.map(x => `<button class="dpick" ${mine ? '' : 'disabled style="opacity:.7;text-decoration:none"'} onclick="draftPick('${x.id}')"><b>${esc(x.full || x.name)}</b><span>${x.code ? esc(x.code) + ' · ' : ''}${draftRank && draftRank[x.id] != null ? draftRank[x.id] + ' pts last season' : 'no points last season'}</span></button>`).join('')}</div>`;
+    if (c) html += `<div class="row" style="margin-top:12px"><button class="btn sm ghost" onclick="draftUndo()" ${d.picks.length ? '' : 'disabled'}>↶ Undo last pick</button><button class="btn sm ghost" onclick="copyText(E.formatDraftOrder(season().draft.order, Object.fromEntries(state.players.map(p=>[p.id,p.name])), seasonYear))">Copy the order</button></div>`;
+    if (testMode()) html += `<div class="row" style="margin-top:12px;gap:6px"><span class="lab">Test drive · act as</span>${playersActive().map(p => `<button class="btn sm ${me && me.id === p.id ? 'flag' : ''}" onclick="actAs('${p.id}')">${esc(p.name)}</button>`).join('')}</div>`;
+    html += `</div>`;
+  } else {
+    const ro = d.picks && d.picks.length ? E.draftRosters(d) : s.roster;
+    html += `<p class="small muted">Draft complete${d.finishedAt ? ' · ' + new Date(d.finishedAt).toLocaleDateString() : ''}${d.note ? ' · ' + esc(d.note) : ''}. Every driver starts with ${s.drivesPer} drives.</p>
+      <div class="lineup-grid">${(d.players || Object.keys(ro)).map(p => `<div><b>${esc(pname(p))}</b>${(ro[p] || []).map(x => esc(dname(x)) + ' ' + s.drivesPer + '/' + s.drivesPer).join('<br>') || '<span class="muted">—</span>'}</div>`).join('')}</div>
+      <div class="row" style="margin-top:12px"><button class="btn sm primary" onclick="copyText(E.formatDraftResult(${d.picks && d.picks.length ? 'E.draftRosters(season().draft)' : 'season().roster'}, Object.fromEntries(state.players.map(p=>[p.id,p.name])), Object.fromEntries(Object.values(drivers).map(x=>[x.id,x.name])), season().drivesPer, seasonYear))">Copy the driver list for the group text</button><button class="btn sm ghost" onclick="copyText(E.formatDraftOrder(season().draft.order, Object.fromEntries(state.players.map(p=>[p.id,p.name])), seasonYear))">Copy the order</button></div>`;
+    if (d.order) html += `<div style="margin-top:12px">${draftOrderBoard(d, null)}</div>`;
+    if (c) html += `<p class="small muted" style="margin-top:12px">Need a redo? <button class="btn sm ghost" onclick="draftReset()">Set up a new draft</button> (rosters stay until the new draft finishes).</p>`;
+    html += `</div>`;
+  }
+  html += `<div class="row" style="margin-top:12px;justify-content:space-between"><button class="btn sm ghost" onclick="go('home')">← Home</button><a class="btn sm ghost" href="rules.html" target="_blank">📖 How the league works</a></div>`;
+  return html;
+}
+async function draftToggle(pid, on) {
+  const s = season(); const d = s.draft && s.draft.status === 'setup' ? s.draft : { status: 'setup', players: playersActive().map(p => p.id), picks: [] };
+  const set = new Set(d.players); if (on) set.add(pid); else set.delete(pid);
+  d.players = state.players.map(p => p.id).filter(id => set.has(id)); delete d.order;
+  await adminSet(['seasons', seasonYear, 'draft'], d);
+}
+async function drawOrder() {
+  const s = season(); const cur = s.draft && s.draft.status === 'setup' ? s.draft : null;
+  const players = (cur && cur.players) || playersActive().map(p => p.id);
+  if (players.length < 2) { toast('Tick at least two players'); return; }
+  const d = { status: 'setup', players, order: E.snakeOrder(players, s.driversPer), picks: [], drawnAt: new Date().toISOString() };
+  await adminSet(['seasons', seasonYear, 'draft'], d, 'Order drawn');
+}
+async function startDraft() {
+  const s = season(); const d = s.draft; if (!d || !d.order) { toast('Draw the order first'); return; }
+  if (!Object.keys(drivers).length) { toast('Still loading the entry list'); return; }
+  const has = Object.values(s.roster || {}).some(r => r && r.length);
+  if (has && !confirm('Rosters already exist for ' + seasonYear + '. When this draft finishes it replaces them. Start?')) return;
+  d.status = 'open'; d.startedAt = new Date().toISOString(); d.picks = [];
+  await adminSet(['seasons', seasonYear, 'draft'], d, 'Draft started');
+  go('draft');
+}
+async function draftPick(driver) {
+  const s = season(); const d = s.draft; const t = E.draftTurn(d); if (!t) return;
+  if (!draftCanPickFor(t.player)) { toast("It's " + pname(t.player) + "'s pick"); return; }
+  const err = E.draftCheck(d, t.player, driver, Object.keys(drivers)); if (err) { toast(err); return; }
+  if (!me) { openIdentity(); return; }
+  const target = me.id === t.player ? undefined : t.player;
+  let finished = false;
+  await commit('draft', { year: seasonYear, driver, target }, st => {
+    const dd = st.seasons[seasonYear].draft; dd.picks.push({ player: t.player, driver, ts: new Date().toISOString() });
+    if (!E.draftTurn(dd)) { dd.status = 'done'; dd.finishedAt = new Date().toISOString(); const ro = E.draftRosters(dd); st.seasons[seasonYear].roster = st.seasons[seasonYear].roster || {}; for (const p in ro) st.seasons[seasonYear].roster[p] = ro[p]; finished = true; }
+  });
+  if (finished || (season().draft && season().draft.status === 'done')) { toast('Draft complete. Rosters are set.'); await refresh(); }
+}
+async function draftUndo() {
+  if (!isCommish()) return;
+  await commit('draftundo', { year: seasonYear }, st => { const dd = st.seasons[seasonYear].draft; if (dd && dd.picks.length) { dd.picks.pop(); dd.status = 'open'; delete dd.finishedAt; } });
+}
+async function draftReset() {
+  if (!isCommish()) return;
+  if (!confirm('Set up a new draft for ' + seasonYear + '? Current rosters stay until the new draft finishes.')) return;
+  await adminSet(['seasons', seasonYear, 'draft'], { status: 'setup', players: playersActive().map(p => p.id), picks: [] }, 'New draft');
+}
+
 /* ---------- misc ---------- */
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2200); }
 function modal(html) { $('modalHost').innerHTML = `<div class="modal" onclick="if(event.target===this)closeModal()"><div class="card">${html}</div></div>`; }
@@ -767,10 +911,12 @@ async function refresh() {
   if (!state) { $('view').innerHTML = '<div class="card"><h2>No league data</h2></div>'; return; }
   // A device that is not on the group mailbox yet follows the newest seeded starting point (Steve's latest post), keeping its own picks and PIN.
   if (typeof PITWALL_SEED !== 'undefined' && (state.seedVersion || 1) < (PITWALL_SEED.seedVersion || 1) && !(state.league && state.league.mailboxUrl)) {
-    for (const y in PITWALL_SEED.seasons) { const src = PITWALL_SEED.seasons[y]; state.seasons[y] = state.seasons[y] || JSON.parse(JSON.stringify(src)); if (src.start) state.seasons[y].start = JSON.parse(JSON.stringify(src.start)); if (src.canceled) state.seasons[y].canceled = src.canceled.slice(); }
+    for (const y in PITWALL_SEED.seasons) { const src = PITWALL_SEED.seasons[y]; state.seasons[y] = state.seasons[y] || JSON.parse(JSON.stringify(src)); if (src.start) state.seasons[y].start = JSON.parse(JSON.stringify(src.start)); if (src.canceled) state.seasons[y].canceled = src.canceled.slice(); if (src.draft && !state.seasons[y].draft) state.seasons[y].draft = JSON.parse(JSON.stringify(src.draft)); }
     state.history = JSON.parse(JSON.stringify(PITWALL_SEED.history)); state.seedVersion = PITWALL_SEED.seedVersion; saveLocal();
   }
   seasonYear = state.league.currentSeason || Math.max.apply(null, Object.keys(state.seasons).map(Number));
+  // Store / review link: f1/?test=1 opens straight into Test drive (act as any player, no PIN) on a device that is not on the group mailbox.
+  try { if (new URLSearchParams(location.search).get('test') === '1' && !mailbox()) { state.league.testMode = true; saveLocal(); } } catch (e) { }
   render();
   await pullRemote(true);
   await refresh();
