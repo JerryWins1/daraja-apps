@@ -662,10 +662,17 @@ function rSetup() {
     ${mailbox() ? '<span class="pill">Not available while connected to the mailbox</span>' : `<label class="row small" style="gap:8px"><input type="checkbox" style="width:auto" ${testMode() ? 'checked' : ''} onchange="state.league.testMode=this.checked;saveLocal();render();toast(this.checked?'Test drive on — tap a name on Home to act as them':'Test drive off')"> Act as any player without a PIN</label>`}
   </div></details>`;
   html += `<details ${mailbox() || testMode() ? '' : 'open'}><summary>Mailbox (shared data)</summary><div class="in">
-    <p class="small">One Google Apps Script deploy and everyone's picks land in the same place. Open the file <b>f1/F1_Mailbox_AppsScript.gs</b> for the five-minute steps, then paste the web app URL here.</p>
+    ${mailbox() ? `<p class="small">Connected. Every phone that opens the app link shares this league. To move to a different mailbox, paste its URL and tap Connect.</p>` : `<p class="small">Right now the app lives on this device only. The mailbox is one free Google script that holds the league so every phone sees the same picks and standings. It takes about five minutes, once, and you need a Google sign-in.</p>
+    <ol class="small" style="margin:0 0 4px 18px;padding:0;display:grid;gap:4px">
+      <li>Open <a href="https://script.google.com/home" target="_blank" rel="noopener"><b>script.google.com</b></a> → <b>New project</b> → delete the sample code.</li>
+      <li>Open the <a href="https://raw.githubusercontent.com/JerryWins1/daraja-apps/main/f1/F1_Mailbox_AppsScript.gs" target="_blank" rel="noopener"><b>mailbox script</b></a> → select all → copy → paste it into the project → 💾 save → name it <b>Pit Wall mailbox</b>.</li>
+      <li><b>Deploy</b> → <b>New deployment</b> → ⚙ type <b>Web app</b> → Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → Deploy → Authorize (Google warns; choose Advanced → Go to Pit Wall mailbox).</li>
+      <li>Copy the <b>Web app URL</b> (it ends in <b>/exec</b>).</li>
+      <li>Paste it below → <b>Connect</b>. This device's league data seeds the mailbox.</li>
+    </ol>`}
     <label class="f">Mailbox URL (ends in /exec)<input id="mbUrl" value="${esc(state.league.mailboxUrl || '')}" placeholder="https://script.google.com/macros/s/…/exec"></label>
     <label class="f">League key<input id="mbKey" value="${esc(state.league.key || 'f1')}"></label>
-    <button class="btn primary sm" onclick="connectMailbox()">Connect</button></div></details>`;
+    <div class="row"><button class="btn primary sm" onclick="connectMailbox()">Connect</button>${mailbox() ? `<button class="btn sm ghost" onclick="disconnectMailbox()">Disconnect</button>` : ''}</div></div></details>`;
   html += `<details><summary>Season ${seasonYear}</summary><div class="in">
     <div class="grid4">
       <label class="f">Drivers per player<input type="number" id="stDrivers" value="${s.driversPer}" ${ro}></label>
@@ -740,7 +747,28 @@ function rSetup() {
   return html;
 }
 /* setup actions */
-async function connectMailbox() { const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1'; if (url && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('That does not look like an Apps Script /exec URL'); return; } state.league.mailboxUrl = url; state.league.key = key; if (url) { state.league.testMode = false; if (me && me.pin === '0000') { me = null; saveMe(); } } saveLocal(); toast(url ? 'Connecting…' : 'Mailbox disconnected'); if (url) { const ok = await pullRemote(); toast(ok ? 'Connected' : 'Could not reach the mailbox'); } await refresh(); }
+async function connectMailbox() {
+  const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1';
+  if (!url) { // nothing pasted yet: show the recipe instead of silently disconnecting
+    modal(`<h2>No mailbox URL yet <span class="sub">five minutes, once</span></h2>
+      <p class="small">The mailbox is a free Google script that holds the league so every phone sees the same thing. Paste its web app URL in the box, then tap Connect. To make one:</p>
+      <ol class="small" style="margin:8px 0 8px 18px;padding:0;display:grid;gap:5px">
+        <li>Open <a href="https://script.google.com/home" target="_blank" rel="noopener"><b>script.google.com</b></a> → <b>New project</b> → delete the sample code.</li>
+        <li>Open the <a href="https://raw.githubusercontent.com/JerryWins1/daraja-apps/main/f1/F1_Mailbox_AppsScript.gs" target="_blank" rel="noopener"><b>mailbox script</b></a> → select all → copy → paste into the project → 💾 save → name it <b>Pit Wall mailbox</b>.</li>
+        <li><b>Deploy</b> → <b>New deployment</b> → ⚙ type <b>Web app</b> → Execute as <b>Me</b> · Who has access <b>Anyone</b> → Deploy → Authorize.</li>
+        <li>Copy the <b>Web app URL</b> ending in <b>/exec</b> → paste it here → Connect.</li>
+      </ol>
+      <p class="small muted">Until then the app keeps working on this device only. Nothing is lost.</p>
+      <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn primary" onclick="closeModal()">Got it</button></div>`);
+    return;
+  }
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('That does not look like an Apps Script /exec URL'); return; }
+  state.league.mailboxUrl = url; state.league.key = key; state.league.testMode = false; if (me && me.pin === '0000') { me = null; saveMe(); }
+  saveLocal(); toast('Connecting…');
+  const ok = await pullRemote(); toast(ok ? 'Connected' : 'Could not reach the mailbox');
+  await refresh();
+}
+async function disconnectMailbox() { if (!confirm('Disconnect this device from the mailbox? The league data stays in the mailbox; this device keeps its own copy.')) return; state.league.mailboxUrl = ''; saveLocal(); toast('Mailbox disconnected'); await refresh(); }
 async function saveSeasonNumbers() { const y = seasonYear; await commit('set', { path: ['seasons', y], value: Object.assign({}, season(), { driversPer: +$('stDrivers').value, drivesPer: +$('stDrives').value, wildcardsPer: +$('stWild').value, perRace: +$('stPer').value }) }, st => { const s = st.seasons[y]; s.driversPer = +$('stDrivers').value; s.drivesPer = +$('stDrives').value; s.wildcardsPer = +$('stWild').value; s.perRace = +$('stPer').value; }); toast('Season numbers saved'); await refresh(); }
 async function saveStart() {
   if (!isCommish()) { toast('Commissioner only'); return; }
