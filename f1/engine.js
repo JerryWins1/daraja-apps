@@ -189,5 +189,39 @@
     return L.join('\n');
   }
 
-  return { DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList };
+  /* ---------- F1 live timing (.jsonStream) ---------- */
+  // The free live timing page is fed by files where every line is "HH:MM:SS.mmm{json patch}".
+  // Replaying the patches in order gives the current state. Arrays arrive as objects keyed by index.
+  function deepMerge(target, patch) {
+    if (patch === null || typeof patch !== 'object') return patch;
+    if (target === null || typeof target !== 'object') target = Array.isArray(patch) ? [] : {};
+    for (const k in patch) target[k] = deepMerge(target[k], patch[k]);
+    return target;
+  }
+  function mergeStream(text) {
+    let state = {};
+    String(text || '').split(/\r?\n/).forEach(line => {
+      const i = line.indexOf('{'); if (i < 0) return;
+      try { state = deepMerge(state, JSON.parse(line.slice(i))); } catch (e) { /* skip a torn line */ }
+    });
+    return state;
+  }
+  // TimingData + DriverList -> [{num, tla, name, pos, retired, stopped, lap, best}] sorted by position.
+  function liveBoard(timing, driverList) {
+    const lines = (timing && timing.Lines) || {}; const dl = (driverList && driverList.Lines) || driverList || {};
+    const out = [];
+    for (const num in lines) {
+      const L = lines[num] || {}; const D = dl[num] || {};
+      const pos = parseInt(L.Position, 10);
+      out.push({ num, tla: D.Tla || '', name: D.LastName || D.BroadcastName || num, pos: isNaN(pos) ? 99 : pos,
+        retired: !!L.Retired, stopped: !!L.Stopped, lap: L.NumberOfLaps != null ? +L.NumberOfLaps : null,
+        best: L.BestLapTime && L.BestLapTime.Value ? L.BestLapTime.Value : null });
+    }
+    out.sort((a, b) => a.pos - b.pos);
+    return out;
+  }
+  function lapToMs(v) { if (!v) return Infinity; const m = String(v).match(/^(?:(\d+):)?(\d+)\.(\d+)$/); if (!m) return Infinity; return ((+m[1] || 0) * 60 + (+m[2])) * 1000 + parseInt((m[3] + '00').slice(0, 3), 10); }
+  function fastestOf(board) { let best = null; board.forEach(d => { const ms = lapToMs(d.best); if (ms < Infinity && (!best || ms < best.ms)) best = { num: d.num, tla: d.tla, ms }; }); return best; }
+
+  return { DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs };
 });

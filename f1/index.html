@@ -169,6 +169,7 @@
   <button data-tab="standings" onclick="go('standings')"><span class="ic">🏆</span>Standings</button>
   <button data-tab="usage" onclick="go('usage')"><span class="ic">🔢</span>Usage</button>
   <button data-tab="races" onclick="go('races')"><span class="ic">🗓</span>Races</button>
+  <button data-tab="live" onclick="go('live')"><span class="ic">🔴</span><span id="liveTabLabel">Live</span></button>
   <button data-tab="paddock" onclick="go('paddock')"><span class="ic">💬</span>Paddock</button>
   <button data-tab="setup" onclick="go('setup')"><span class="ic">⚙️</span>Setup</button>
 </nav>
@@ -416,7 +417,7 @@ async function adminSet(path, value, label) {
 }
 
 /* ---------- render ---------- */
-function go(t) { tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); }
+function go(t) { tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); if (t === 'live' && (!live.at || Date.now() - live.at > 30000)) fetchLive(); }
 function render() {
   const s = season();
   $('meName').textContent = me ? pname(me.id) + (isCommish() ? ' · commish' : '') : 'Who are you?';
@@ -424,7 +425,7 @@ function render() {
   $('hdrSub').textContent = (state.league.name || 'F1 Group') + ' · ' + seasonYear + (mailbox() ? '' : ' · this device only');
   const v = $('view');
   if (!schedule) { v.innerHTML = `<div class="card"><h2>Loading the ${seasonYear} calendar…</h2><p class="muted small">Race dates and results come from the free Jolpica F1 data service. If this never finishes, check your connection.</p>${loadError ? `<div class="warn">${esc(loadError)}</div>` : ''}</div>`; return; }
-  v.innerHTML = ({ home: rHome, standings: rStandings, usage: rUsage, races: rRaces, paddock: rPaddock, setup: rSetup })[tab]();
+  v.innerHTML = ({ home: rHome, standings: rStandings, usage: rUsage, races: rRaces, live: rLive, paddock: rPaddock, setup: rSetup })[tab]();
   if (tab === 'paddock') { const c = $('chatBox'); if (c) c.scrollTop = c.scrollHeight; }
 }
 function rHome() {
@@ -551,6 +552,83 @@ function usagePost(uptoKey) {
   if (uptoKey) { const used = {}; for (const r of activeRaces()) { const R = computed.rounds[r.key]; if (R && !R.carried) { used[r.key] = R.lineups; } if (r.key === uptoKey) { after = r.name.replace('Grand Prix', 'GP'); break; } } u = remainingFrom(s, used, Object.keys(used)); }
   return E.formatUsage({ year: seasonYear, afterRaceName: after, players: playersActive().map(p => ({ name: p.name, drivers: (s.roster[p.id] || []).map(d => ({ name: dname(d), left: Math.max(0, (u[p.id] || {})[d] == null ? s.drivesPer : u[p.id][d]), of: s.drivesPer })), wildLeft: Math.max(0, (u[p.id] || {})._wild == null ? s.wildcardsPer : u[p.id]._wild), wildOf: s.wildcardsPer })) });
 }
+/* ---------- Live: the race as it runs, scored the league's way ---------- */
+const LT = 'https://livetiming.formula1.com/static/';
+const live = { data: null, at: null, error: '', checking: false, quali: null, sprint: null, qualiKey: null };
+function sessionWindow(sess) {
+  // SessionInfo dates are track-local with a GmtOffset like "02:00:00". Live = 30 min before start to 3 h after start.
+  if (!sess || !sess.start) return { on: false };
+  const off = String(sess.gmt || '00:00:00').match(/^(-?)(\d+):(\d+)/); const sign = off && off[1] === '-' ? '-' : '+';
+  const iso = String(sess.start).replace(' ', 'T') + (off ? sign + off[2].padStart(2, '0') + ':' + off[3] : 'Z');
+  const start = new Date(iso); if (isNaN(start)) return { on: false };
+  const now = Date.now(); const isRace = /race|sprint/i.test(sess.type || '') && !/qualif|shootout/i.test(sess.name || '');
+  return { on: isRace && now >= start.getTime() - 30 * 60e3 && now <= start.getTime() + 3 * 3600e3, start, isRace };
+}
+async function fetchLive(force) {
+  if (live.checking) return; live.checking = true;
+  try {
+    let data = null;
+    try { // straight from the F1 timing files (works if the browser is allowed to read them)
+      const si = await (await fetch(LT + 'SessionInfo.json', { cache: 'no-store' })).json();
+      const path = si.Path || '';
+      const [dl, td] = await Promise.all([fetch(LT + path + 'DriverList.jsonStream', { cache: 'no-store' }).then(r => r.text()), fetch(LT + path + 'TimingData.jsonStream', { cache: 'no-store' }).then(r => r.text())]);
+      data = { session: { meeting: si.Meeting && si.Meeting.Name, type: si.Type, name: si.Name, start: si.StartDate, end: si.EndDate, gmt: si.GmtOffset, path }, driverList: E.mergeStream(dl), timing: E.mergeStream(td), source: 'direct' };
+    } catch (e) {
+      if (mailbox()) { const j = await (await fetch(mailbox() + '?live=1&t=' + Date.now(), { cache: 'no-store' })).json(); if (j && j.ok) data = j; else live.error = (j && j.error) || 'Mailbox could not fetch live timing'; }
+      else live.error = 'This browser cannot read the F1 timing files directly. Connect the mailbox in Setup and it fetches them for everyone.';
+    }
+    if (data) { live.data = data; live.error = ''; live.board = E.liveBoard(data.timing, data.driverList); live.fastest = E.fastestOf(live.board); }
+    live.at = new Date();
+    // qualifying (and sprint) points for the current round, once the feed has them
+    const nr = nextRace();
+    if (nr && live.qualiKey !== nr.key) { try { const q = await api(seasonYear + '/' + nr.round + '/qualifying.json', 30 * 60e3); const Q = q.RaceTable && q.RaceTable.Races && q.RaceTable.Races[0]; live.quali = {}; if (Q && Q.QualifyingResults) { Q.QualifyingResults.forEach(x => live.quali[x.Driver.driverId] = +x.position); live.qualiKey = nr.key; } } catch (e) { live.quali = null; }
+      if (nr.sprint) { try { const sp = await api(seasonYear + '/' + nr.round + '/sprint.json', 30 * 60e3); const S = sp.RaceTable && sp.RaceTable.Races && sp.RaceTable.Races[0]; live.sprint = null; if (S && S.SprintResults) { live.sprint = {}; S.SprintResults.forEach(x => live.sprint[x.Driver.driverId] = { position: +x.position, status: x.status }); } } catch (e) { live.sprint = null; } } }
+  } finally { live.checking = false; const w = sessionWindow(live.data && live.data.session); $('liveTabLabel').textContent = w.on ? '● LIVE' : 'Live'; if (tab === 'live') render(); }
+}
+function liveScores() {
+  // Provisional league points for the next race from the live board + known qualifying/sprint results.
+  const s = season(); const nr = nextRace(); if (!nr || !live.board) return null;
+  const R = computed.rounds[nr.key]; const sc = s.scoring || E.DEFAULT_SCORING;
+  const byCode = {}; live.board.forEach(d => { if (d.tla) byCode[d.tla.toUpperCase()] = d; });
+  const codeOf = id => (drivers[id] && drivers[id].code) || '';
+  const rows = playersActive().map(p => {
+    const L = (R && R.lineups[p.id]) || null; if (!L) return { id: p.id, name: p.name, drivers: [], total: 0, missing: true };
+    let total = 0; const ds = L.drivers.map(id => {
+      const b = byCode[codeOf(id).toUpperCase()] || null;
+      const q = live.quali && live.quali[id] ? E.rowPoints(live.quali[id], sc) : 0;
+      const sp = live.sprint && live.sprint[id] ? ((sc.unclassifiedScoresZero && !/^(Finished|\+\d+ Laps?)$/.test(live.sprint[id].status || 'Finished')) ? 0 : (sc.sprintUsesRows ? E.rowPoints(live.sprint[id].position, sc) : E.racePlacePoints(live.sprint[id].position, sc))) : 0;
+      const race = b && !b.retired && !b.stopped ? E.racePlacePoints(b.pos, sc) : 0;
+      const fl = live.fastest && b && live.fastest.num === b.num ? sc.fastestLapBonus : 0;
+      const t = q + sp + race + fl; total += t;
+      return { id, name: dname(id), pos: b ? b.pos : null, out: !!(b && (b.retired || b.stopped)), q, sp, race, fl, total: t, found: !!b };
+    });
+    return { id: p.id, name: p.name, drivers: ds, total, wildcard: L.wildcard, auto: L.auto };
+  }).sort((a, b) => b.total - a.total);
+  return { race: nr, rows };
+}
+function rLive() {
+  const w = sessionWindow(live.data && live.data.session); const sess = live.data && live.data.session;
+  let html = `<div class="card"><h2>Live <span class="sub">${live.at ? 'checked ' + live.at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : 'not checked yet'}</span></h2>`;
+  if (!live.data) html += `<p class="muted">${live.checking ? 'Reading the F1 timing feed…' : (live.error || 'Tap Check now to read the F1 timing feed.')}</p><button class="btn sm primary" onclick="fetchLive(true)">↻ Check now</button></div>`;
+  else if (!w.on) html += `<p class="muted">No race or sprint under way. The feed's latest session is <b>${esc((sess.meeting || '') + ' · ' + (sess.name || ''))}</b>. This board wakes up about 30 minutes before lights out and refreshes every minute while the race runs.</p><button class="btn sm" onclick="fetchLive(true)">↻ Check now</button></div>`;
+  else {
+    const S = liveScores(); const laps = Math.max.apply(null, live.board.map(d => d.lap || 0));
+    html += `<p class="small muted">${esc(sess.meeting || '')} · ${esc(sess.name || '')} · lap ${isFinite(laps) ? laps : '—'} · positions from the F1 live timing feed${live.data.source === 'mailbox' ? ' via the mailbox' : ''}, a few seconds ahead of TV. Points are what each lineup would score if the race ended now; qualifying${live.sprint ? ' and sprint' : ''} points are already locked in.</p>
+      <div class="tower">${S ? S.rows.map((r, i) => `<div class="tr ${i === 0 ? 'lead' : ''} ${me && r.id === me.id ? 'me-row' : ''}" style="grid-template-columns:34px 1fr auto"><div class="pos">${i + 1}</div><div class="name">${esc(r.name)}${r.wildcard ? ' <span class="pill acc" style="font-size:10px">wild card</span>' : ''}${r.auto ? ' <span class="pill" style="font-size:10px">auto</span>' : ''}<small>${r.missing ? 'no lineup' : r.drivers.map(d => `${esc(d.name)} ${d.out ? 'OUT' : d.found ? 'P' + d.pos : '—'} · ${d.total}${d.fl ? ' ★' : ''}`).join(' &nbsp;|&nbsp; ')}</small></div><div class="pts">${r.total}</div></div>`).join('') : '<div class="tr"><div class="name">No lineups for this race yet.</div></div>'}</div>
+      <div class="row" style="margin-top:10px"><button class="btn sm" onclick="copyText(liveSnapshot())">📋 Copy snapshot for the group</button><button class="btn sm ghost" onclick="fetchLive(true)">↻ Refresh</button></div>
+      <p class="small muted" style="margin-top:8px">★ holds the fastest lap. Retired cars score zero for the race. The official result is scored from the results feed a few hours after the flag; this board is for fun during the race.</p></div>`;
+    // running order
+    html += `<div class="card"><h2>Running order</h2><div class="tablewrap"><table><thead><tr><th class="n">P</th><th>Driver</th><th>Owner</th><th class="n">Race pts</th></tr></thead><tbody>${live.board.map(d => { const owner = ownerOfCode(d.tla); return `<tr><td class="n">${d.retired || d.stopped ? 'OUT' : d.pos}</td><td>${esc(d.name)} <span class="muted small">${esc(d.tla)}</span>${live.fastest && live.fastest.num === d.num ? ' <span class="fl">★</span>' : ''}</td><td class="${owner ? '' : 'muted'}">${owner ? esc(owner) : '—'}</td><td class="n">${d.retired || d.stopped ? 0 : E.racePlacePoints(d.pos, season().scoring || E.DEFAULT_SCORING)}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+  }
+  return html;
+}
+function ownerOfCode(tla) { const nr = nextRace(); const R = nr && computed.rounds[nr.key]; if (!R) return ''; for (const p in R.lineups) for (const id of R.lineups[p].drivers) if (drivers[id] && drivers[id].code && drivers[id].code.toUpperCase() === String(tla).toUpperCase()) return pname(p); return ''; }
+function liveSnapshot() {
+  const S = liveScores(); if (!S) return ''; const laps = Math.max.apply(null, live.board.map(d => d.lap || 0));
+  return [S.race.name.replace('Grand Prix', 'GP').toLowerCase() + ' · live, lap ' + (isFinite(laps) ? laps : '?'), '', E.ordinalList(S.rows.map(r => ({ name: r.name, pts: r.total }))), '', 'if it ended right now 🏎🏁'].join('\n');
+}
+setInterval(() => { if (document.visibilityState !== 'visible') return; const w = sessionWindow(live.data && live.data.session); if (tab === 'live' || w.on) fetchLive(); }, 60000);
+
 function rPaddock() {
   const msgs = state.paddock || [];
   return `<div class="card"><h2>Paddock <span class="sub">${playersActive().length} in the room</span></h2>

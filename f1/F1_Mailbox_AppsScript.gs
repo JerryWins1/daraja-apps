@@ -24,9 +24,48 @@ var SHEET_NAME = 'state';
 var MAX_CHAT = 300;
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.live) return out_(liveSnapshot_());
   var key = (e && e.parameter && e.parameter.league) || 'f1';
   var st = load_(key);
   return out_(st ? { ok: true, state: publicState_(st) } : { ok: true, empty: true });
+}
+
+/* ---------- live timing relay ----------
+   The free F1 live timing page is fed by plain files on livetiming.formula1.com. A browser may not be
+   allowed to read them directly, so the app asks this script, which fetches them, replays the patches
+   into the current state, trims it down, and caches the answer for 40 seconds so five phones polling
+   every minute cost one fetch. */
+var LT_BASE = 'https://livetiming.formula1.com/static/';
+function liveSnapshot_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('live_v1'); if (hit) return JSON.parse(hit);
+  var res;
+  try {
+    var si = JSON.parse(UrlFetchApp.fetch(LT_BASE + 'SessionInfo.json', { muteHttpExceptions: true, followRedirects: true }).getContentText());
+    var path = si.Path || '';
+    var dlText = UrlFetchApp.fetch(LT_BASE + path + 'DriverList.jsonStream', { muteHttpExceptions: true }).getContentText();
+    var tdText = UrlFetchApp.fetch(LT_BASE + path + 'TimingData.jsonStream', { muteHttpExceptions: true }).getContentText();
+    var dl = mergeStream_(dlText), td = mergeStream_(tdText);
+    var drivers = {}, lines = {};
+    var dlLines = dl.Lines || dl;
+    for (var n in dlLines) { var d = dlLines[n] || {}; if (d && (d.Tla || d.LastName)) drivers[n] = { Tla: d.Tla || '', LastName: d.LastName || d.BroadcastName || '' }; }
+    var tdLines = (td && td.Lines) || {};
+    for (var m in tdLines) { var L = tdLines[m] || {}; lines[m] = { Position: L.Position, Retired: !!L.Retired, Stopped: !!L.Stopped, NumberOfLaps: L.NumberOfLaps, BestLapTime: { Value: L.BestLapTime && L.BestLapTime.Value || '' } }; }
+    res = { ok: true, session: { meeting: si.Meeting && si.Meeting.Name, type: si.Type, name: si.Name, start: si.StartDate, end: si.EndDate, gmt: si.GmtOffset, path: path }, driverList: drivers, timing: { Lines: lines }, at: new Date().toISOString(), source: 'mailbox' };
+  } catch (err) { res = { ok: false, error: 'Live timing not reachable: ' + String(err && err.message || err), at: new Date().toISOString() }; }
+  try { cache.put('live_v1', JSON.stringify(res), 40); } catch (e2) { }
+  return res;
+}
+function deepMerge_(target, patch) {
+  if (patch === null || typeof patch !== 'object') return patch;
+  if (target === null || typeof target !== 'object') target = Array.isArray(patch) ? [] : {};
+  for (var k in patch) target[k] = deepMerge_(target[k], patch[k]);
+  return target;
+}
+function mergeStream_(text) {
+  var state = {}; var lines = String(text || '').split(/\r?\n/);
+  for (var i = 0; i < lines.length; i++) { var j = lines[i].indexOf('{'); if (j < 0) continue; try { state = deepMerge_(state, JSON.parse(lines[i].slice(j))); } catch (e) { } }
+  return state;
 }
 
 function doPost(e) {
