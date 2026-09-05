@@ -1,4 +1,16 @@
 const STEPS=[
+ // ---- FIRST — Pit Wall, the F1 league app (built from the group text) ----
+ {id:'f1merge',d:1,t:'Pit Wall — put the F1 app on the site (one click)',m:2,why:'The app is built: picks with a live deadline countdown, auto-draft, standings, the driver usage list, Steve\'s post to paste into the group text, and a Paddock for trash talk. It sits in the pull request below. Merging puts it live at jerrywins1.github.io/daraja-apps/f1/ in about a minute.',
+  steps:['Open the pull request below','Green button "Merge pull request" → "Confirm merge"','Wait a minute → open the app link → it should show the Italian GP countdown'],
+  links:[['🔀 The pull request','https://github.com/JerryWins1/daraja-apps/pull/3'],['🏁 Pit Wall (after merge)','https://jerrywins1.github.io/daraja-apps/f1/']]},
+ {id:'f1mailbox',d:1,t:'Pit Wall — the 5-minute mailbox so all five phones share one league',m:5,why:'Same recipe as Family Sync and Zuri: one paste at script.google.com. Without it the app works but only on your own device. The file with the steps at the top is f1/F1_Mailbox_AppsScript.gs in the repo (link below opens it).',
+  need:'Your Google sign-in.',
+  steps:['script.google.com → New project → delete the sample','Open the .gs link below → Raw → select all → copy → paste into the project → 💾 save, name it "Pit Wall mailbox"','Deploy → New deployment → ⚙ Web app → Execute as: Me · Who has access: Anyone → Deploy → Authorize','Copy the URL ending in /exec','Open Pit Wall → tap your name (Jerry, pick a PIN) → Setup → Mailbox → paste → Connect'],
+  links:[['script.google.com','https://script.google.com/home'],['📄 F1_Mailbox_AppsScript.gs','https://github.com/JerryWins1/daraja-apps/blob/main/f1/F1_Mailbox_AppsScript.gs'],['🏁 Pit Wall','https://jerrywins1.github.io/daraja-apps/f1/']]},
+ {id:'f1steve',d:1,t:'Pit Wall — hand Steve the keys',m:5,why:'Steve is set as commissioner. He taps his name, picks a PIN, and Setup opens up for him: rosters, scoring, canceled races, and Backfill picks for the weekends since Spain that came through as blank texts. Everyone else just opens the link, taps their name, and picks.',
+  copy:'We have an app for the league now — Pit Wall: https://jerrywins1.github.io/daraja-apps/f1/ — tap your name, choose a 4-digit PIN, and your picks go in there before the deadline (it shows the countdown). It scores everything the way Steve does and writes his post for him. Steve, you\'re the commissioner in Setup. Say hi in the Paddock.',
+  steps:['Copy the message → paste into the F1 group','Ask Steve to fill in Backfill picks for Spain onward from his records','Tell Claude anything that looks off — the rulebook and the app both bend to what the group decides'],
+  links:[['🏁 Pit Wall','https://jerrywins1.github.io/daraja-apps/f1/']]},
  // ---- TODAY — the testing morning ----
  {id:'teststore',d:1,t:'Walk the store as a stranger with a wallet',m:40,why:'The store wears its 🧪 TEST FLIGHT stripes now. New since you last walked it: the "Not sure where to start?" quiz, name subtitles on every card, ✨ NEW LOOK badges, church videos, FlipKit. Talk everything into Feedback Studio as you go.',
   steps:['Open the store → read it like a buyer','Tap the quiz → does it point you right?','Play 2–3 videos — the voice is smooth now; flag any line that still stumbles','Send me the Feedback Studio report'],
