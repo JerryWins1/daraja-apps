@@ -384,15 +384,20 @@ async function saveIdentity() {
 }
 
 /* ---------- actions ---------- */
+// Commissioner: enter picks on someone else's behalf (a late text, a fix). proxy = that player's id, or null for yourself.
+let proxy = null;
+function who() { return (isCommish() && proxy) ? proxy : (me && me.id); }
+function pickFor(id) { if (!isCommish()) return; proxy = (me && id === me.id) ? null : id; pendingPick = { drivers: [], wildcard: false }; render(); }
 async function submitPick(raceKey) {
   if (!me) { openIdentity(); return; }
   const race = schedule.find(r => r.key === raceKey); if (!race) return;
   if (new Date() >= deadline(race) && !isCommish()) { toast('Picks are locked for this race'); return; }
-  const s = season(); const rem = computed.usage[me.id] || {};
+  const s = season(); const w = who(); const rem = computed.usage[w] || {};
   const payload = pendingPick.wildcard ? { wildcard: true } : { drivers: pendingPick.drivers.slice() };
   if (!payload.wildcard && payload.drivers.length !== (s.perRace || 2)) { toast('Pick ' + (s.perRace || 2) + ' drivers, or wild card'); return; }
-  if (payload.wildcard && (rem._wild || 0) <= 0 && !(s.picks[raceKey] && s.picks[raceKey][me.id] && s.picks[raceKey][me.id].wildcard)) { toast('No wild cards left'); return; }
-  for (const d of (payload.drivers || [])) { const already = s.picks[raceKey] && s.picks[raceKey][me.id] && (s.picks[raceKey][me.id].drivers || []).includes(d); if ((rem[d] || 0) <= 0 && !already) { toast(dname(d) + ' has no drives left'); return; } }
+  if (payload.wildcard && (rem._wild || 0) <= 0 && !(s.picks[raceKey] && s.picks[raceKey][w] && s.picks[raceKey][w].wildcard)) { toast('No wild cards left'); return; }
+  for (const d of (payload.drivers || [])) { const already = s.picks[raceKey] && s.picks[raceKey][w] && (s.picks[raceKey][w].drivers || []).includes(d); if ((rem[d] || 0) <= 0 && !already) { toast(dname(d) + ' has no drives left'); return; } }
+  if (w !== me.id) { await adminSet(['seasons', seasonYear, 'picks', raceKey, w], Object.assign({ ts: new Date().toISOString(), by: me.id }, payload), pname(w) + "'s picks"); return; }
   await commit('pick', { year: seasonYear, raceKey, pick: payload }, st => { const ss = st.seasons[seasonYear]; ss.picks = ss.picks || {}; ss.picks[raceKey] = ss.picks[raceKey] || {}; ss.picks[raceKey][me.id] = Object.assign({ ts: new Date().toISOString() }, payload); });
   await refresh();
 }
@@ -427,8 +432,8 @@ function rHome() {
   let html = '';
   // weekend card
   if (nr) {
-    const R = computed.rounds[nr.key]; const dl = deadline(nr); const locked = new Date() >= dl; const rem = me ? (computed.usage[me.id] || {}) : {};
-    const myPick = s.picks && s.picks[nr.key] && me && s.picks[nr.key][me.id];
+    const R = computed.rounds[nr.key]; const dl = deadline(nr); const locked = new Date() >= dl; const w = who(); const rem = w ? (computed.usage[w] || {}) : {};
+    const myPick = s.picks && s.picks[nr.key] && w && s.picks[nr.key][w];
     const raceStart = new Date(nr.date + 'T' + (nr.time || '12:00:00Z'));
     html += `<div class="weekend">
       <div class="row" style="justify-content:space-between"><span class="lab">Round ${nr.round} · ${nr.sprint ? 'sprint weekend' : 'standard weekend'}</span>${R && R.results ? '<span class="pill flag">scored</span>' : locked ? '<span class="pill">picks locked</span>' : '<span class="pill flag">picks open</span>'}</div>
@@ -441,16 +446,18 @@ function rHome() {
         <div>Picks due<b>${fmtDT(dl)}</b></div>
       </div>
       <div class="row" style="justify-content:space-between;align-items:flex-end"><div><span class="lab">${locked ? 'Deadline passed' : 'Time left'}</span><div class="count ${locked ? 'due' : ''}" id="count" data-dl="${dl.toISOString()}">${countdown(dl)}</div></div>
-      ${me ? `<div style="text-align:right"><span class="lab">Your lineup</span><div class="disp" style="font-size:20px;font-weight:600">${myPick ? (myPick.wildcard ? 'Wild card · all four' : myPick.drivers.map(dname).join(' + ')) : (locked ? (R && R.lineups[me.id] ? 'Auto: ' + R.lineups[me.id].drivers.map(dname).join(' + ') : '—') : 'not in yet')}</div></div>` : ''}</div>`;
+      ${me ? `<div style="text-align:right"><span class="lab">${w === me.id ? 'Your lineup' : esc(pname(w)) + "'s lineup"}</span><div class="disp" style="font-size:20px;font-weight:600">${myPick ? (myPick.wildcard ? 'Wild card · all four' : myPick.drivers.map(dname).join(' + ')) : (locked ? (R && R.lineups[w] ? 'Auto: ' + R.lineups[w].drivers.map(dname).join(' + ') : '—') : 'not in yet')}</div></div>` : ''}</div>`;
+    // commissioner: enter picks for anyone, before or after the deadline
+    if (isCommish() && !testMode()) html += `<div class="row" style="margin-top:12px;gap:6px"><span class="lab" style="color:var(--board-dim)">Commissioner · picks for</span>${playersActive().map(p => `<button class="btn sm ${w === p.id ? 'flag' : ''}" style="${w === p.id ? '' : 'background:#FFFFFF14;border-color:#FFFFFF33;color:var(--board-ink)'}" onclick="pickFor('${p.id}')">${esc(p.name)}</button>`).join('')}</div>`;
     if (!locked || isCommish()) {
       if (!me) html += `<div style="margin-top:12px"><button class="btn flag" onclick="openIdentity()">Tap your name to pick</button></div>`;
       else {
-        const roster = (s.roster && s.roster[me.id]) || [];
+        const roster = (s.roster && s.roster[w]) || [];
         if (!pendingPick.init) { pendingPick = { init: true, drivers: myPick && !myPick.wildcard ? myPick.drivers.slice() : [], wildcard: !!(myPick && myPick.wildcard) }; }
         html += `<div class="drivers">${roster.map(d => { const left = rem[d] == null ? s.drivesPer : rem[d]; const already = myPick && !myPick.wildcard && myPick.drivers.includes(d); const on = pendingPick.drivers.includes(d) && !pendingPick.wildcard; return `<button class="drv ${on ? 'on' : ''}" ${left <= 0 && !already ? 'disabled' : ''} onclick="togglePick('${d}')"><b>${esc(dname(d))}</b><span>${left + (already ? 1 : 0)} of ${s.drivesPer} drives left${left <= 0 && !already ? ' · used up' : ''}</span></button>`; }).join('')}
           <button class="drv wild ${pendingPick.wildcard ? 'on' : ''}" ${(rem._wild || 0) <= 0 && !(myPick && myPick.wildcard) ? 'disabled' : ''} onclick="toggleWild()"><b>Wild card · run all four</b><span>${Math.max(0, rem._wild || 0) + ((myPick && myPick.wildcard) ? 1 : 0)} of ${s.wildcardsPer} left${nr.sprint ? ' · sprint weekend, all four score three sessions' : ''}</span></button>
         </div>
-        <div class="row" style="margin-top:12px;justify-content:space-between"><span class="small" style="color:var(--board-dim)">${pendingPick.wildcard ? 'Wild card selected' : pendingPick.drivers.length + ' of ' + (s.perRace || 2) + ' picked'}</span><button class="btn flag" onclick="submitPick('${nr.key}')">${myPick ? 'Update my picks' : 'Send my picks'}</button></div>`;
+        <div class="row" style="margin-top:12px;justify-content:space-between"><span class="small" style="color:var(--board-dim)">${pendingPick.wildcard ? 'Wild card selected' : pendingPick.drivers.length + ' of ' + (s.perRace || 2) + ' picked'}</span><button class="btn flag" onclick="submitPick('${nr.key}')">${w !== me.id ? (myPick ? 'Update ' : 'Send ') + esc(pname(w)) + "'s picks" : (myPick ? 'Update my picks' : 'Send my picks')}</button></div>`;
       }
     }
     // test drive: switch player with one tap
