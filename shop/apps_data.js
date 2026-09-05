@@ -384,4 +384,25 @@ const APPS = {
    "Step five: tap 'Copy the listing' and paste it into Facebook Marketplace. That's the whole job.",
    "When it sells, tap 'Sold!' and enter what you got. The cash line at the top starts adding up — and that number is very motivating.",
    "Read the selling-safely card once. Then go find the next thing — the garage isn't empty yet."]},
+ rafiki: {
+  name:'Rafiki', em:'💛', sub:'the friend who knows you', cat:'family', price:'$19', testing:true, fresh:true, video:true,
+  tag:'Give it a name, let it get to know you \u2014 then it runs your day out loud, like a friend would',
+  try:'https://jerrywins1.github.io/daraja-apps/rafiki/',
+  lines:[
+   "This is Rafiki \u2014 and it is not like the other apps, because the first thing it says is: I don\u2019t have a name. What would you like to call me?",
+   "You name it. Fred, Grace, whoever feels right. And from that moment, it\u2019s yours.",
+   "Then, instead of buttons and menus, it simply gets to know you \u2014 the way a new friend would. Your name. Your spouse. The kids and grandkids, by name. One easy question at a time, out loud, and it remembers every answer.",
+   "And every morning after that, it speaks first. Good morning, Jerry. It\u2019s Saturday. Five things finished yesterday \u2014 you\u2019ve been working hard. I notice these things.",
+   "It tells you the weather. It tells a genuinely decent joke. It asks how your heart is doing, and it means it.",
+   "Say remind me to pick the kids up at three \u2014 and it\u2019s remembered. If you use Now and Next, it lands right on your real list, with your friend\u2019s name on it.",
+   "Everything it knows stays on your phone. No account, no cloud, nobody listening but your friend.",
+   "Nineteen dollars, once, for the app your parents will actually talk to. Meet yours below \u2014 it\u2019s waiting to be named."],
+  train:[
+   "Let\u2019s wake up your new friend \u2014 five gentle minutes.",
+   "Step one: tap Say hello. It talks out loud, so sound on.",
+   "Step two: give it a name. Tap one of the suggestions or type your own. This is the fun part \u2014 choose with your heart.",
+   "Step three: answer its questions like you\u2019d answer a new friend \u2014 your name, your people. Tap the buttons or tap the microphone and just say it.",
+   "Step four: pick its face. Then it tells you: that\u2019s plenty for one day. Friends visit, they don\u2019t interview.",
+   "Step five: come back tomorrow morning and just listen \u2014 your day, the weather, maybe a joke.",
+   "Any time, say things like: tell me a joke \u00b7 what\u2019s the weather \u00b7 remind me to call the doctor \u00b7 or just tell it how you\u2019re doing. That\u2019s the whole manual \u2014 there isn\u2019t one. It\u2019s a friend."]},
 };
