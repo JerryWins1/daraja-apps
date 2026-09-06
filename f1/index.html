@@ -522,6 +522,26 @@ function rUsage() {
       ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; return `<div class="u-d ${left <= 0 ? 'out' : ''}"><span>${esc(dname(d))}</span><span class="n">${left}/${s.drivesPer}</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}</div>`; }).join('')}
   </div>
   <button class="btn sm" style="margin-top:12px" onclick="copyText(usagePost())">📋 Copy Steve's usage post</button></div>`;
+  // race by race: who ran which drivers, every weekend the app has scored
+  const grid = activeRaces().map(r => computed.rounds[r.key]).filter(R => R && !R.carried && (R.results || Object.keys(R.lineups).length));
+  const carriedCount = activeRaces().filter(r => computed.rounds[r.key] && computed.rounds[r.key].carried).length;
+  if (grid.length) {
+    const ps = playersActive();
+    html += `<div class="card"><h2>Race by race <span class="sub">drivers each player ran</span></h2>
+      <p class="small muted">Every weekend since the app took over. <b>W</b> = wild card (all four, no drives used) · <b>auto</b> = auto-drafted after the deadline.</p>
+      <div class="tablewrap"><table><tr><th>Race</th>${ps.map(p => `<th>${esc(p.name)}</th>`).join('')}</tr>
+      ${grid.map(R => `<tr><td><b>${esc(R.race.name.replace(' Grand Prix', ' GP'))}</b>${R.race.sprint ? '<br><span class="small muted">sprint</span>' : ''}</td>${ps.map(p => {
+        const L = R.lineups[p.id];
+        if (!L) return '<td class="muted">—</td>';
+        const names = (L.drivers || []).map(d => esc(dname(d))).join('<br>');
+        const tag = L.wildcard ? ' <span class="pill acc" style="font-size:10px">W</span>' : (L.auto ? ' <span class="pill" style="font-size:10px">auto</span>' : '');
+        const pts = R.scores && R.scores[p.id] ? `<br><span class="small muted">${R.scores[p.id].total} pts</span>` : '';
+        return `<td>${names || '<span class="muted">—</span>'}${tag}${pts}</td>`;
+      }).join('')}</tr>`).join('')}
+      </table></div>
+      ${carriedCount ? `<p class="small muted">The first ${carriedCount} race${carriedCount === 1 ? '' : 's'} of ${seasonYear} ${carriedCount === 1 ? 'was' : 'were'} scored by hand before the app; only the totals carried over, so ${carriedCount === 1 ? 'it is' : 'they are'} not listed here.</p>` : ''}
+      <button class="btn sm" style="margin-top:12px" onclick="copyText(gridPost())">📋 Copy this list for the group text</button></div>`;
+  }
   const missing = activeRaces().filter(r => computed.rounds[r.key] && computed.rounds[r.key].missing.length);
   if (missing.length) html += `<div class="card"><h2>Auto-drafted weekends</h2><p class="small muted">These lineups were filled by the auto-draft rule (two highest-placed drivers in the championship with drives left). If someone actually texted picks that week, the commissioner can enter them in Setup → Backfill.</p><ul class="small">${missing.map(r => `<li><b>${esc(r.name.replace(' Grand Prix', ''))}</b>: ${computed.rounds[r.key].missing.map(pname).join(', ')}</li>`).join('')}</ul></div>`;
   return html;
@@ -561,6 +581,22 @@ function racePost(key) {
   const idx = activeRaces().findIndex(r => r.key === key); const nx = activeRaces()[idx + 1];
   const next = nx ? { raceName: nx.name.replace('Grand Prix', 'GP'), dateText: new Date(nx.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase(), deadlineText: deadline(nx).toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: state.league.tz || 'America/Chicago' }).toLowerCase() + ' central', sprint: !!nx.sprint } : null;
   return E.formatPost({ raceName: R.race.name.replace('Grand Prix', 'GP'), weekend, flDriverName: R.flDriver ? dname(R.flDriver) : null, flPlayerName: R.flPlayer ? pname(R.flPlayer) : null, flBonus: (season().scoring || E.DEFAULT_SCORING).fastestLapBonus, overall, next });
+}
+// Plain-text version of the race-by-race grid, for the group text.
+function gridPost() {
+  const ps = playersActive();
+  const rows = activeRaces().map(r => computed.rounds[r.key]).filter(R => R && !R.carried && (R.results || Object.keys(R.lineups).length));
+  let out = seasonYear + ' drivers used, race by race\n';
+  for (const R of rows) {
+    out += '\n' + R.race.name.replace(' Grand Prix', ' GP').toLowerCase() + '\n';
+    for (const p of ps) {
+      const L = R.lineups[p.id];
+      if (!L) { out += '  ' + p.name.toLowerCase() + ': —\n'; continue; }
+      const names = (L.drivers || []).map(d => dname(d).toLowerCase()).join(', ');
+      out += '  ' + p.name.toLowerCase() + ': ' + names + (L.wildcard ? ' (wild card)' : L.auto ? ' (auto draft)' : '') + (R.scores && R.scores[p.id] ? ' - ' + R.scores[p.id].total : '') + '\n';
+    }
+  }
+  return out;
 }
 function usagePost(uptoKey) {
   const s = season();
