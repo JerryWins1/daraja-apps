@@ -92,7 +92,7 @@
   <p id="helloTxt">I'm your new friend — I just don't have a name yet. Come say hi and we'll fix that together. I talk out loud, so turn your sound on.</p>
   <button onclick="begin()">Say hello →</button>
   <div id="wipe" style="display:none;margin-top:14px"><button onclick="R.reset()" style="background:transparent;color:#F3B6A2;border:1.5px solid rgba(243,182,162,.5);font-size:14px;padding:9px 16px">🧹 Start fresh — forget everything</button></div>
-  <div class="v">Rafiki v1.2 · Sep 5, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
+  <div class="v">Rafiki v1.2b · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
 </div>
 
 <div class="wrap">
@@ -101,7 +101,7 @@
     <div class="pills"><button onclick="R.voice()" title="my voice">🗣</button><button onclick="R.mute()" id="muteB">🔊</button><button onclick="R.aa()">Aa</button><button onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.2 · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.2b · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -176,33 +176,75 @@ function speak(text, isSample){
   sentences(plain(text)).forEach(function(line){ if(line) vQueue.push(line); });
   pump();
 }
+
+/* ── v1.2b: iPhone/Safari will silently swallow speech in three situations.
+   1. the very first utterance of a page, unless a real finger-tap opened the door
+   2. anything spoken within a moment of speechSynthesis.cancel()
+   3. anything spoken while the engine is sitting in a stuck "paused" state
+   All three hit exactly when you restart the app or start over — so we guard all three. ── */
+var lastCancel = 0, unlocked = false;
+function unlock(){                     /* MUST be called straight from a tap, no timers in between */
+  if(unlocked || !window.speechSynthesis) return;
+  try{
+    var w = new SpeechSynthesisUtterance(' ');
+    w.volume = 0; w.rate = 2;
+    speechSynthesis.speak(w);
+    unlocked = true;
+  }catch(e){}
+}
 function pump(){
   if(vBusy || !vQueue.length || muted) return;
+  var since = Date.now() - lastCancel;
+  if(since < 280){ setTimeout(pump, 280 - since); return; }   /* let a cancel settle first */
   var text = vQueue.shift(); vBusy = true;
-  try{
-    var u = new SpeechSynthesisUtterance(text);
-    u.rate = (typeof S.rate==='number' ? S.rate : .90);   /* a touch slower than before */
-    u.pitch = 1.0;
-    var v = voiceFor(); if(v){ u.voice=v; u.lang=v.lang||'en-US'; }
-    var done=false, guard=null;
-    var fin=function(){ if(done) return; done=true; clearTimeout(guard); vBusy=false;
-      /* a real breath between sentences — this is what stops them running together */
-      setTimeout(pump, 520);
-    };
-    u.onend=fin; u.onerror=fin;
-    /* safety net only: never cut a voice off while it is still talking */
-    var wait = 4000 + text.length*160;
-    guard = setTimeout(function tick(){
-      if(done) return;
-      var busy=false; try{ busy = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
-      if(busy){ guard=setTimeout(tick, 900); return; }   /* still talking — keep waiting */
-      fin();
-    }, wait);
-    speechSynthesis.speak(u);
-  }catch(e){ vBusy=false; }
+  var done = false, guard = null, tries = 0;
+  function fin(){ if(done) return; done = true; clearTimeout(guard); vBusy = false;
+    setTimeout(pump, 520); }                                   /* the breath between sentences */
+  function go(){
+    if(done) return;
+    try{
+      try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){}
+      var u = new SpeechSynthesisUtterance(text);
+      u.rate  = (typeof S.rate==='number' ? S.rate : .90);
+      u.pitch = 1.0;
+      var v = voiceFor(); if(v){ u.voice = v; u.lang = v.lang || 'en-US'; }
+      var started = false;
+      u.onstart = function(){ started = true; };
+      u.onend   = fin;
+      u.onerror = fin;
+      speechSynthesis.speak(u);
+
+      /* if it never actually started, the browser ate it — say it again, up to twice */
+      setTimeout(function(){
+        if(done || started) return;
+        var busy = false; try{ busy = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
+        if(busy) return;
+        if(tries++ < 2){ try{ speechSynthesis.cancel(); }catch(e){} lastCancel = 0; setTimeout(go, 140); }
+        else fin();
+      }, 420);
+
+      /* safety net only — never cut a voice off while it is still talking */
+      clearTimeout(guard);
+      guard = setTimeout(function tick(){
+        if(done) return;
+        var busy = false; try{ busy = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
+        if(busy){ guard = setTimeout(tick, 900); return; }
+        fin();
+      }, 4000 + text.length*160);
+    }catch(e){ vBusy = false; }
+  }
+  go();
 }
-function hush(){ vQueue.length=0; vBusy=false; try{ speechSynthesis.cancel(); }catch(e){} }
-function sayAgain(el){ hush(); speak(el.parentNode.textContent.replace(/🔊$/,'')); }
+function hush(){
+  vQueue.length = 0; vBusy = false;
+  try{
+    if(speechSynthesis.speaking || speechSynthesis.pending){   /* only cancel when there IS something */
+      speechSynthesis.cancel();
+      lastCancel = Date.now();
+    }
+  }catch(e){}
+}
+function sayAgain(el){ unlock(); hush(); speak(el.parentNode.textContent.replace(/🔊$/,'')); }
 if(window.speechSynthesis){
   try{ speechSynthesis.getVoices(); }catch(e){}
   try{ speechSynthesis.onvoiceschanged=function(){ voiceMap=buildVoices(); }; }catch(e){}
@@ -249,7 +291,7 @@ function ask(onAnswer, placeholder, chipList){
     chipList.forEach(function(ch){
       var b=document.createElement('button'); b.textContent=ch[0];
       if(ch[2]==='hot') b.className='hot'; if(ch[2]==='warn') b.className='warn';
-      b.onclick=function(){ pending=null; clearAsk(); bubME(ch[0]); setTimeout(ch[1],320); };
+      b.onclick=function(){ unlock(); pending=null; clearAsk(); bubME(ch[0]); setTimeout(ch[1],320); };
       c.appendChild(b);
     });
     chat.appendChild(c);
@@ -599,7 +641,7 @@ window.sayAgain=sayAgain;
 window.R={
   send:function(){
     var b=document.getElementById('box'); if(!b) return;
-    var t=b.value.trim(); if(!t) return;
+    var t=b.value.trim(); if(!t) return; unlock();
     if(rec){ try{ rec.stop(); }catch(e){} rec=null; }
     var fn=pending; pending=null; clearAsk(); bubME(t);
     setTimeout(function(){ (fn||understand)(t); }, 320);
@@ -625,9 +667,9 @@ window.R={
       if(hint) hint.textContent='The microphone got shy — try the 🎤 on your keyboard, then tap Send.'; };
     try{ rec.start(); }catch(e){ rec=null; b.classList.remove('on'); b.textContent='🎤 Talk'; }
   },
-  voice:function(){ if(!chat){ return; } hush(); pickVoice(offerMenu); },
+  voice:function(){ if(!chat){ return; } unlock(); hush(); pickVoice(offerMenu); },
   reset:function(){
-    if(chat){ hush(); startOver(); return; }
+    if(chat){ unlock(); hush(); startOver(); return; }
     if(confirm('Erase everything and start over as strangers?\n\nMy name, your family, your notes and spots — all of it goes.')){
       try{ localStorage.removeItem(KEY); localStorage.removeItem('rafiki_aa'); }catch(e){}
       location.replace(location.pathname);
@@ -654,6 +696,7 @@ function handoff(){
   }catch(e){} return false;
 }
 function begin(){
+  unlock();                       /* this runs inside the tap on “Say hello” */
   var h=document.getElementById('hello');
   if(h){ h.style.transition='opacity .4s'; h.style.opacity='0'; setTimeout(function(){ h.remove(); }, 450); }
   chat=document.getElementById('chat');
