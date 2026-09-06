@@ -91,22 +91,23 @@
   <h1>Well, <em style="color:var(--gold);font-style:normal">hello</em> there.</h1>
   <p id="helloTxt">I'm your new friend — I just don't have a name yet. Come say hi and we'll fix that together. I talk out loud, so turn your sound on.</p>
   <button onclick="begin()">Say hello →</button>
-  <div class="v">Rafiki v1.1 · Sep 5, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
+  <div id="wipe" style="display:none;margin-top:14px"><button onclick="R.reset()" style="background:transparent;color:#F3B6A2;border:1.5px solid rgba(243,182,162,.5);font-size:14px;padding:9px 16px">🧹 Start fresh — forget everything</button></div>
+  <div class="v">Rafiki v1.2 · Sep 5, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
 </div>
 
 <div class="wrap">
   <header>
     <div class="who"><span class="face" id="hFace">🙂</span><div><b id="hName">Your friend</b><small id="hSub">getting to know you</small></div></div>
-    <div class="pills"><button onclick="R.mute()" id="muteB">🔊</button><button onclick="R.aa()">Aa</button></div>
+    <div class="pills"><button onclick="R.voice()" title="my voice">🗣</button><button onclick="R.mute()" id="muteB">🔊</button><button onclick="R.aa()">Aa</button><button onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.1 · 2026-09-05 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.2 · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
 <script>
 'use strict';
-/* ═════════ Rafiki v1.1 — the friend who knows you ═════════ */
+/* ═════════ Rafiki v1.2 — the friend who knows you ═════════ */
 var KEY='rafiki_v1';
 function db(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
 function save(d){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
@@ -114,32 +115,101 @@ var S = db();
 S.p = S.p||{}; S.notes = S.notes||[]; S.places = S.places||[]; S.jokeIx = S.jokeIx||0; S.visits = S.visits||0;
 function esc(s){ return String(s||'').replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
-/* ── FIX 1: a polite voice queue — one sentence waits for the last to finish ── */
+/* ── FIX 1 + v1.2: a polite voice queue — ONE SENTENCE AT A TIME, with a breath between ── */
 var muted = !!S.muted, vQueue = [], vBusy = false;
-function plain(t){ return String(t).replace(/\s+—\s+/g,'… ').replace(/—/g,',').replace(/[💛☀️🌧️😄🎉👋🌻⭐🪙📍🧹🔊]/g,''); }
-function speak(text){ if(muted || !window.speechSynthesis) return; vQueue.push(text); pump(); }
+function plain(t){ return String(t).replace(/\s+—\s+/g,'… ').replace(/—/g,',').replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu,'').replace(/\s{2,}/g,' ').trim(); }
+
+/* break a paragraph into real sentences so each one gets its own breath */
+function sentences(t){
+  var raw = String(t).match(/[^.!?…]+[.!?…]*/g) || [String(t)];
+  var out = [];
+  raw.forEach(function(x){ x=x.trim(); if(!x) return;
+    if(out.length && x.replace(/[^A-Za-z]/g,'').length < 12) out[out.length-1] += ' ' + x;  // don't strand tiny fragments
+    else out.push(x);
+  });
+  return out.length ? out : [String(t)];
+}
+
+/* ── v1.2 FIX: four voices — two women, two men ── */
+var VOICES=[
+ {k:'grace', label:'Grace',  who:'a warm American woman',   line:'Hello there. I’m Grace. I speak slowly, and I’m happy to meet you.',
+  pats:[/Samantha/i,/^Google US English$/i,/Aria/i,/Jenny/i,/Allison/i,/Ava/i,/Zira/i,/Karen/i,/Michelle/i]},
+ {k:'ruth',  label:'Ruth',   who:'a gentle British woman',  line:'Good day. My name is Ruth. I’d be glad to keep you company.',
+  pats:[/Serena/i,/Google UK English Female/i,/^Kate/i,/Moira/i,/Fiona/i,/Martha/i,/Sonia/i,/Hazel/i,/Tessa/i]},
+ {k:'daniel',label:'Daniel', who:'a calm British man',      line:'Hello. I’m Daniel. Take your time — I’m in no hurry at all.',
+  pats:[/^Daniel/i,/Google UK English Male/i,/Arthur/i,/Oliver/i,/^George/i]},
+ {k:'tom',   label:'Tom',    who:'an easy-going American man', line:'Hey there. Tom here. Good to meet you — we’re going to get along fine.',
+  pats:[/^Alex$/i,/Google US English Male/i,/^Aaron/i,/^Guy$/i,/^David$/i,/Nathan/i,/^Tom/i,/^Eddy/i,/^Reed/i]}
+];
+var voiceMap=null;
+function buildVoices(){
+  var vs=[]; try{ vs=speechSynthesis.getVoices()||[]; }catch(e){}
+  if(!vs.length) return null;
+  var en=vs.filter(function(v){ return /^en/i.test(v.lang||''); });
+  var pool = en.length ? en : vs, taken={}, map={};
+  VOICES.forEach(function(slot){
+    var hit=null;
+    slot.pats.some(function(rx){
+      hit = pool.find(function(v){ return rx.test(v.name||'') && !taken[v.name]; });
+      return !!hit;
+    });
+    if(hit){ taken[hit.name]=1; map[slot.k]=hit; }
+  });
+  /* any slot that found nothing borrows an unused voice so the choice still means something */
+  VOICES.forEach(function(slot){
+    if(map[slot.k]) return;
+    var spare = pool.find(function(v){ return !taken[v.name]; });
+    if(spare){ taken[spare.name]=1; map[slot.k]=spare; }
+  });
+  return map;
+}
+function voiceFor(){
+  if(!voiceMap) voiceMap=buildVoices();
+  if(!voiceMap) return null;
+  return voiceMap[S.voice] || voiceMap.grace || voiceMap[Object.keys(voiceMap)[0]] || null;
+}
+function voiceChoices(){   /* only the ones this device can actually do */
+  if(!voiceMap) voiceMap=buildVoices();
+  if(!voiceMap) return [];
+  return VOICES.filter(function(s){ return !!voiceMap[s.k]; });
+}
+
+function speak(text, isSample){
+  if(muted || !window.speechSynthesis) return;
+  sentences(plain(text)).forEach(function(line){ if(line) vQueue.push(line); });
+  pump();
+}
 function pump(){
   if(vBusy || !vQueue.length || muted) return;
   var text = vQueue.shift(); vBusy = true;
   try{
-    var u = new SpeechSynthesisUtterance(plain(text));
-    u.rate=.96; u.pitch=1.02;
-    var vs = speechSynthesis.getVoices();
-    var v = vs.find(function(x){return /Samantha/i.test(x.name);})
-         || vs.find(function(x){return /Google US English/i.test(x.name);})
-         || vs.find(function(x){return /Aria|Jenny|Michelle|Natural/i.test(x.name);})
-         || vs.find(function(x){return /^en[-_]US/i.test(x.lang||'');});
-    if(v) u.voice=v;
-    var done=false;
-    var fin=function(){ if(done) return; done=true; vBusy=false; setTimeout(pump, 320); };
+    var u = new SpeechSynthesisUtterance(text);
+    u.rate = (typeof S.rate==='number' ? S.rate : .90);   /* a touch slower than before */
+    u.pitch = 1.0;
+    var v = voiceFor(); if(v){ u.voice=v; u.lang=v.lang||'en-US'; }
+    var done=false, guard=null;
+    var fin=function(){ if(done) return; done=true; clearTimeout(guard); vBusy=false;
+      /* a real breath between sentences — this is what stops them running together */
+      setTimeout(pump, 520);
+    };
     u.onend=fin; u.onerror=fin;
+    /* safety net only: never cut a voice off while it is still talking */
+    var wait = 4000 + text.length*160;
+    guard = setTimeout(function tick(){
+      if(done) return;
+      var busy=false; try{ busy = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
+      if(busy){ guard=setTimeout(tick, 900); return; }   /* still talking — keep waiting */
+      fin();
+    }, wait);
     speechSynthesis.speak(u);
-    setTimeout(function(){ if(!done){ fin(); } }, 3000 + plain(text).length*120);
   }catch(e){ vBusy=false; }
 }
 function hush(){ vQueue.length=0; vBusy=false; try{ speechSynthesis.cancel(); }catch(e){} }
 function sayAgain(el){ hush(); speak(el.parentNode.textContent.replace(/🔊$/,'')); }
-if(window.speechSynthesis) try{ speechSynthesis.getVoices(); }catch(e){}
+if(window.speechSynthesis){
+  try{ speechSynthesis.getVoices(); }catch(e){}
+  try{ speechSynthesis.onvoiceschanged=function(){ voiceMap=buildVoices(); }; }catch(e){}
+}
 
 /* ── bubbles ── */
 var chat=null, pending=null;
@@ -163,7 +233,8 @@ function armDeadWatch(){
     if(document.getElementById('askRow')||document.querySelector('.chips')||document.querySelector('.faces')) return;
     ask(understand, 'say anything — or tap one below', [
      ['📝 Remember something', remember],['😄 Tell me a joke', joke],['💬 Check on me', checkin],
-     ['📍 Save this spot', savePlace],['🧡 Who do you know?', brag],['🧹 Start over', startOver]]);
+     ['📍 Save this spot', savePlace],['🧡 Who do you know?', brag],
+     ['🔊 Change my voice', function(){ pickVoice(offerMenu); }],['🧹 Start over', startOver]]);
   }, 2600);
 }
 
@@ -361,6 +432,7 @@ function offerMenu(){
      ['💬 Check on me', checkin],
      ['📍 Save this spot', savePlace],
      ['🧡 Who do you know?', brag],
+     ['🔊 Change my voice', function(){ pickVoice(offerMenu); }],
      ['🧹 Start over', startOver]
     ]);
   }, 650);
@@ -388,7 +460,34 @@ function chapter1(){
 function named(n){
   n = String(n||'').trim().replace(/^\w/,function(c){return c.toUpperCase();}) || 'Fred';
   S.name=n; save(S); paintHeader();
-  bubAI(esc(n)+'. '+esc(n)+'! I love it — that’s me, forever. 🎉 Now the important part: what should I call <b>you</b>?');
+  bubAI(esc(n)+'. '+esc(n)+'! I love it — that’s me, forever. 🎉');
+  setTimeout(function(){ pickVoice(askUserName); }, 1300);
+}
+/* ── v1.2 FIX: pick my voice — two women, two men ── */
+function pickVoice(next){
+  var ch = voiceChoices();
+  if(ch.length < 2){ if(next) next(); return; }
+  bubAI('Before we go on — I can sound like any of these. Tap a name and I’ll say hello in that voice.');
+  setTimeout(function(){
+    ask(null, 'or just tap a name below', ch.map(function(slot){
+      return [slot.label + ' — ' + slot.who, function(){
+        S.voice = slot.k; save(S); hush(); speak(slot.line);
+        bubAI('That’s ' + slot.label + '. Shall I keep this voice, or would you like to hear another?');
+        setTimeout(function(){
+          ask(null, 'or tap below', [
+            ['✓ Keep ' + slot.label, function(){
+               bubAI(slot.label + ' it is. That’s how I’ll always sound — and you can change me any time with the 🔊 button up at the top.');
+               setTimeout(next || function(){}, 1500);
+             }, 'hot'],
+            ['↺ Let me hear another', function(){ pickVoice(next); }]
+          ]);
+        }, 1700);
+      }];
+    }));
+  }, 1200);
+}
+function askUserName(){
+  bubAI('Now the important part: what should I call <b>you</b>?');
   ask(function(t){
     S.p.userName=String(t||'').trim().replace(/^\w/,function(c){return c.toUpperCase();}); save(S); paintHeader();
     bubAI('Good to finally meet you, '+esc(S.p.userName)+'. And when I say hello in the morning, what feels right?');
@@ -529,6 +628,14 @@ window.R={
       if(hint) hint.textContent='The microphone got shy — try the 🎤 on your keyboard, then tap Send.'; };
     try{ rec.start(); }catch(e){ rec=null; b.classList.remove('on'); b.textContent='🎤 Talk'; }
   },
+  voice:function(){ if(!chat){ return; } hush(); pickVoice(offerMenu); },
+  reset:function(){
+    if(chat){ hush(); startOver(); return; }
+    if(confirm('Erase everything and start over as strangers?\n\nMy name, your family, your notes and spots — all of it goes.')){
+      try{ localStorage.removeItem(KEY); localStorage.removeItem('rafiki_aa'); }catch(e){}
+      location.replace(location.pathname);
+    }
+  },
   mute:function(){ muted=!muted; S.muted=muted; save(S); document.getElementById('muteB').textContent=muted?'🔇':'🔊'; if(muted) hush(); },
   aa:function(){ var b=document.body;
     if(b.classList.contains('huge')) b.classList.remove('huge','big');
@@ -563,6 +670,7 @@ window.begin=begin;
     p.textContent='It’s '+(S.name||'me')+'. Come on in — I’ve got your '+(new Date().getHours()<12?'morning':'day')+' ready.';
     document.querySelector('#hello h1').innerHTML='Welcome back'+(S.p.userName?(', <em style="color:var(--gold);font-style:normal">'+esc(S.p.userName)+'</em>'):'')+'.';
     document.querySelector('#hello .big').textContent=S.face||'👋';
+    var w=document.getElementById('wipe'); if(w) w.style.display='block';
   }
 })();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
