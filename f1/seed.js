@@ -4,7 +4,7 @@
    canceled race never shifts anyone's picks. Rounds with no entry here are auto-drafted until the
    commissioner backfills them in Setup. */
 const PITWALL_SEED = {
-  seedVersion: 3, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
+  seedVersion: 4, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
   league: { name: 'F1 Group', key: 'f1', commissioner: 'steve', deadlineRule: 'friday', tz: 'America/Chicago', currentSeason: 2026, mailboxUrl: '' },
   players: [
     { id: 'steve', name: 'Steve', active: true },
@@ -51,7 +51,7 @@ const PITWALL_SEED = {
         belgian:    { robbi: { drivers: ['piastri', 'antonelli'] }, jerry: { drivers: ['sainz', 'lawson'] } },
         hungarian:  { robbi: { drivers: ['bearman', 'gasly'] }, jerry: { drivers: ['sainz', 'lawson'] } },
         dutch:      { jerry: { wildcard: true }, robbi: { drivers: ['bearman', 'gasly'] } },
-        italian:    { robbi: { drivers: ['piastri', 'antonelli'] }, ryan: { drivers: ['bottas', 'bortoleto'] } }
+        italian:    { robbi: { drivers: ['piastri', 'antonelli'] }, ryan: { drivers: ['bottas', 'bortoleto'] }, jerry: { drivers: ['russell', 'lawson'] }, steve: { drivers: ['max_verstappen', 'hadjar'] } }
       },
       overrides: {},
       // Starting point: Steve's post after the Dutch GP (standings + driver usage list), copied exactly.

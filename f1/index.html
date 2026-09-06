@@ -309,8 +309,10 @@ function remainingFrom(s, usedPicks, keys) {
   const used = E.usage(s.roster || {}, usedPicks, keys); const out = {};
   for (const p in (s.roster || {})) {
     const op = (s.start && s.start.usage && s.start.usage[p]) || {};
-    out[p] = { _wild: (op._wild != null ? +op._wild : s.wildcardsPer) - (used[p] ? used[p]._wild : 0) };
-    s.roster[p].forEach(d => out[p][d] = (op[d] != null ? +op[d] : s.drivesPer) - (used[p] ? used[p][d] || 0 : 0));
+    // driveAdj: the commissioner's correction, so the app's number can always be made to match the group's record
+    const ad = (s.driveAdj && s.driveAdj[p]) || {};
+    out[p] = { _wild: (op._wild != null ? +op._wild : s.wildcardsPer) - (used[p] ? used[p]._wild : 0) + (+ad._wild || 0) };
+    s.roster[p].forEach(d => out[p][d] = (op[d] != null ? +op[d] : s.drivesPer) - (used[p] ? used[p][d] || 0 : 0) + (+ad[d] || 0));
   }
   return out;
 }
@@ -423,7 +425,7 @@ async function sendChat() {
 async function adminSet(path, value, label) {
   if (!isCommish()) { toast('Only the commissioner can change that'); return; }
   await commit('set', { path, value }, st => { let o = st; for (let i = 0; i < path.length - 1; i++) { if (o[path[i]] == null || typeof o[path[i]] !== 'object') o[path[i]] = {}; o = o[path[i]]; } o[path[path.length - 1]] = value; });
-  if (label) toast(label + ' saved');
+  if (label) toast(label);
   await refresh();
 }
 
@@ -519,7 +521,8 @@ function rUsage() {
   const nr0 = nextRace(); const pending = nr0 && s.picks && s.picks[nr0.key] && Object.keys(s.picks[nr0.key]).length;
   let html = `<div class="card"><h2>Driver usage <span class="sub">${last ? 'after ' + esc(last.race.name.replace(' Grand Prix', ' GP')) : 'season start'}</span></h2><p class="small muted">Drives left of ${s.drivesPer} for each driver, and wild cards left of ${s.wildcardsPer}. Wild card weekends don't use drives.${pending ? ' Picks already in for the ' + esc(nr0.name.replace(' Grand Prix', ' GP')) + ' are counted as used.' : ''}</p><div class="usage">
     ${playersActive().map(p => { const u = computed.usage[p.id] || {}; const roster = (s.roster && s.roster[p.id]) || []; return `<div class="u-p"><h3><span>${esc(p.name)}</span><span class="pill ${u._wild > 0 ? 'acc' : ''}">wild card ${Math.max(0, u._wild || 0)}/${s.wildcardsPer}</span></h3>
-      ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; return `<div class="u-d ${left <= 0 ? 'out' : ''}"><span>${esc(dname(d))}</span><span class="n">${left}/${s.drivesPer}</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}</div>`; }).join('')}
+      ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; const adj = (s.driveAdj && s.driveAdj[p.id] && s.driveAdj[p.id][d]) || 0; return `<div class="u-d ${left <= 0 ? 'out' : ''}"><span>${esc(dname(d))}${adj ? ' <span class="pill" style="font-size:10px">corrected</span>' : ''}</span><span class="n">${left}/${s.drivesPer}${(isCommish() || testMode()) ? ` <button class="btn sm ghost" style="padding:1px 6px;font-size:11px" onclick="setDrivesLeft('${p.id}','${d}')">set</button>` : ''}</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}
+      ${(isCommish() || testMode()) ? `<div class="row" style="margin-top:6px"><span class="lab" style="flex:1">Wild cards left</span><b>${Math.max(0, u._wild || 0)}</b><button class="btn sm ghost" style="padding:1px 6px;font-size:11px" onclick="setDrivesLeft('${p.id}','_wild')">set</button></div>` : ''}</div>`; }).join('')}
   </div>
   <button class="btn sm" style="margin-top:12px" onclick="copyText(usagePost())">📋 Copy Steve's usage post</button></div>`;
   // race by race: who ran which drivers, every weekend the app has scored
@@ -536,7 +539,8 @@ function rUsage() {
         const names = (L.drivers || []).map(d => esc(dname(d))).join('<br>');
         const tag = L.wildcard ? ' <span class="pill acc" style="font-size:10px">W</span>' : (L.auto ? ' <span class="pill" style="font-size:10px">auto</span>' : '');
         const pts = R.scores && R.scores[p.id] ? `<br><span class="small muted">${R.scores[p.id].total} pts</span>` : '';
-        return `<td>${names || '<span class="muted">—</span>'}${tag}${pts}</td>`;
+        const fix = (isCommish() || testMode()) ? ` <button class="btn sm ghost" style="padding:2px 7px;font-size:11px;margin-top:4px" onclick="editLineup('${R.race.key}','${p.id}')">fix</button>` : '';
+        return `<td>${names || '<span class="muted">—</span>'}${tag}${pts}${fix}</td>`;
       }).join('')}</tr>`).join('')}
       </table></div>
       ${carriedCount ? `<p class="small muted">The first ${carriedCount} race${carriedCount === 1 ? '' : 's'} of ${seasonYear} ${carriedCount === 1 ? 'was' : 'were'} scored by hand before the app; only the totals carried over, so ${carriedCount === 1 ? 'it is' : 'they are'} not listed here.</p>` : ''}
@@ -770,8 +774,8 @@ function rSetup() {
     <div class="lab">Players</div>
     ${state.players.map(p => `<div class="row"><input class="grow" value="${esc(p.name)}" ${ro} onchange="renamePlayer('${p.id}',this.value)"><label class="row small" style="gap:6px"><input type="checkbox" style="width:auto" ${p.active !== false ? 'checked' : ''} ${ro} onchange="adminSet(['players',${state.players.indexOf(p)},'active'],this.checked,'Player')"> playing</label>${c ? `<button class="btn sm ghost" onclick="resetPin('${p.id}')">reset PIN</button>` : ''}</div>`).join('')}
     ${c ? `<div class="row"><input id="newPlayer" class="grow" placeholder="Add a player"><button class="btn sm" onclick="addPlayer()">Add</button></div>` : ''}
-    <label class="f">Commissioner<select id="lgCommish" ${ro} onchange="adminSet(['league','commissioner'],this.value,'Commissioner')">${state.players.map(p => `<option value="${p.id}" ${state.league.commissioner === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
-    ${c ? `<button class="btn sm primary" onclick="adminSet(['league','name'],$('lgName').value,'League name')">Save league name</button>` : ''}
+    <label class="f">Commissioner<select id="lgCommish" ${ro} onchange="adminSet(['league','commissioner'],this.value,'Commissioner saved')">${state.players.map(p => `<option value="${p.id}" ${state.league.commissioner === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
+    ${c ? `<button class="btn sm primary" onclick="adminSet(['league','name'],$('lgName').value,'League name saved')">Save league name</button>` : ''}
     <div class="lab" style="margin-top:6px">Champions</div>
     ${(state.history || []).slice().sort((a, b) => a.year - b.year).map((h, i) => `<div class="row small"><span style="min-width:44px" class="mono">${h.year}</span><span class="grow">${esc(h.champion)}${h.note ? ' · <span class="muted">' + esc(h.note) + '</span>' : ''}</span></div>`).join('')}
     ${c ? `<div class="grid4"><input id="chYear" type="number" placeholder="Year"><input id="chWho" placeholder="Champion"><input id="chNote" placeholder="Note"><button class="btn sm" onclick="addChampion()">Add</button></div>` : ''}
@@ -813,17 +817,62 @@ async function saveStart() {
   const standings = {}, usage = {};
   playersActive().forEach(p => { standings[p.id] = +($('sp_pts_' + p.id).value || 0); usage[p.id] = { _wild: $('sp_wild_' + p.id).value === '' ? s.wildcardsPer : +$('sp_wild_' + p.id).value }; (s.roster[p.id] || []).forEach(d => { const v = $('sp_' + p.id + '_' + d).value; usage[p.id][d] = v === '' ? s.drivesPer : +v; }); });
   const race = schedule.find(r => r.key === afterKey);
-  await adminSet(['seasons', seasonYear, 'start'], { afterKey, standings, usage, note: 'Entered by ' + pname(me.id) + ' as of after ' + (race ? race.name.replace(' Grand Prix', ' GP') : afterKey) + ', ' + new Date().toLocaleDateString() }, 'Starting point');
+  await adminSet(['seasons', seasonYear, 'start'], { afterKey, standings, usage, note: 'Entered by ' + pname(me.id) + ' as of after ' + (race ? race.name.replace(' Grand Prix', ' GP') : afterKey) + ', ' + new Date().toLocaleDateString() }, 'Starting point saved');
 }
-async function useSeedStart() { if (!isCommish()) { toast('Commissioner only'); return; } const st = JSON.parse(JSON.stringify(PITWALL_SEED.seasons[seasonYear].start)); await adminSet(['seasons', seasonYear, 'start'], st, 'Starting point from the group text'); }
+async function useSeedStart() { if (!isCommish()) { toast('Commissioner only'); return; } const st = JSON.parse(JSON.stringify(PITWALL_SEED.seasons[seasonYear].start)); await adminSet(['seasons', seasonYear, 'start'], st, 'Starting point saved from the group text'); }
 async function toggleCanceled(key, on) { const list = (season().canceled || []).filter(k => k !== key); if (on) list.push(key); await adminSet(['seasons', seasonYear, 'canceled'], list, on ? 'Race canceled' : 'Race restored'); }
-async function saveScoring() { const nums = v => v.split(/[,\s]+/).filter(Boolean).map(Number).filter(n => !isNaN(n)); const sc = { racePlace: nums($('scRace').value), rowPoints: nums($('scRow').value), fastestLapBonus: +$('scFL').value, sprintFastestLapBonus: +$('scSFL').value, sprintUsesRows: $('scSprint').value === 'rows', unclassifiedScoresZero: $('scDNF').value === 'zero', perRace: season().perRace || 2 }; await adminSet(['seasons', seasonYear, 'scoring'], sc, 'Scoring'); }
-async function setRoster(pid, i, val) { const r = (season().roster[pid] || []).slice(); r[i] = val; await adminSet(['seasons', seasonYear, 'roster', pid], r.filter(Boolean), 'Roster'); }
+async function saveScoring() { const nums = v => v.split(/[,\s]+/).filter(Boolean).map(Number).filter(n => !isNaN(n)); const sc = { racePlace: nums($('scRace').value), rowPoints: nums($('scRow').value), fastestLapBonus: +$('scFL').value, sprintFastestLapBonus: +$('scSFL').value, sprintUsesRows: $('scSprint').value === 'rows', unclassifiedScoresZero: $('scDNF').value === 'zero', perRace: season().perRace || 2 }; await adminSet(['seasons', seasonYear, 'scoring'], sc, 'Scoring saved'); }
+async function setRoster(pid, i, val) { const r = (season().roster[pid] || []).slice(); r[i] = val; await adminSet(['seasons', seasonYear, 'roster', pid], r.filter(Boolean), 'Roster saved'); }
+// Commissioner: fix one player's lineup for one weekend, straight from the race-by-race list.
+function editLineup(raceKey, pid) {
+  if (!isCommish() && !testMode()) { toast('Commissioner only'); return; }
+  const s = season(); const roster = (s.roster && s.roster[pid]) || []; const cur = (s.picks && s.picks[raceKey] && s.picks[raceKey][pid]) || null;
+  const R = computed.rounds[raceKey]; const shown = (R && R.lineups[pid]) || null;
+  const race = activeRaces().find(r => r.key === raceKey) || { name: raceKey };
+  const opts = i => `<option value="">—</option>` + roster.map(d => `<option value="${d}" ${cur && !cur.wildcard && (cur.drivers || [])[i] === d ? 'selected' : ''}>${esc(dname(d))}</option>`).join('');
+  modal(`<h2>${esc(pname(pid))} · ${esc(race.name.replace(' Grand Prix', ' GP'))}</h2>
+    <p class="small muted">${cur ? 'Recorded lineup. Change it to what was actually texted.' : shown && shown.auto ? 'Nothing was recorded, so the app auto-drafted ' + shown.drivers.map(d => esc(dname(d))).join(' and ') + '. Enter the real picks to replace it.' : 'Nothing recorded yet.'}</p>
+    <div class="grid2">${Array.from({ length: s.perRace || 2 }).map((_, i) => `<label class="f">Driver ${i + 1}<select id="elD${i}">${opts(i)}</select></label>`).join('')}</div>
+    <label class="row small" style="gap:6px;margin-top:8px"><input type="checkbox" id="elWild" style="width:auto" ${cur && cur.wildcard ? 'checked' : ''}> Wild card (all four, no drives used)</label>
+    <p class="small muted" style="margin-top:6px">Drives and points recalculate the moment you save.</p>
+    <div class="row" style="justify-content:space-between;margin-top:10px"><button class="btn sm ghost" onclick="saveLineup('${raceKey}','${pid}',true)">Clear</button><span><button class="btn ghost" onclick="closeModal()">Cancel</button> <button class="btn primary" onclick="saveLineup('${raceKey}','${pid}')">Save</button></span></div>`);
+}
+async function saveLineup(raceKey, pid, clear) {
+  const s = season(); let value = null;
+  if (!clear) {
+    if ($('elWild').checked) value = { wildcard: true, ts: new Date().toISOString(), fixed: true };
+    else {
+      const ds = Array.from({ length: s.perRace || 2 }).map((_, i) => $('elD' + i).value).filter(Boolean);
+      if (ds.length !== (s.perRace || 2)) { toast('Choose ' + (s.perRace || 2) + ' drivers, or tick wild card'); return; }
+      if (new Set(ds).size !== ds.length) { toast('Two different drivers, please'); return; }
+      value = { drivers: ds, ts: new Date().toISOString(), fixed: true };
+    }
+  }
+  closeModal();
+  await adminSet(['seasons', seasonYear, 'picks', raceKey, pid], value, clear ? 'Lineup cleared' : 'Lineup saved');
+}
+// Commissioner: force a driver's drives left (or wild cards left) to match the group's record.
+async function setDrivesLeft(pid, driver) {
+  if (!isCommish() && !testMode()) { toast('Commissioner only'); return; }
+  const s = season(); const u = computed.usage[pid] || {};
+  const now = driver === '_wild' ? Math.max(0, u._wild || 0) : (u[driver] == null ? s.drivesPer : u[driver]);
+  const label = driver === '_wild' ? 'wild cards' : dname(driver) + ' drives';
+  const want = prompt(pname(pid) + ' — ' + label + ' left?\n\nThe app counts ' + now + '. Type the number the group has.', String(now));
+  if (want === null) return;
+  const n = parseInt(want, 10);
+  if (isNaN(n) || n < 0) { toast('Whole number, please'); return; }
+  const cur = (s.driveAdj && s.driveAdj[pid] && +s.driveAdj[pid][driver]) || 0;
+  const delta = cur + (n - now);
+  const adj = JSON.parse(JSON.stringify(s.driveAdj || {})); adj[pid] = adj[pid] || {};
+  if (delta) adj[pid][driver] = delta; else delete adj[pid][driver];
+  if (!Object.keys(adj[pid]).length) delete adj[pid];
+  await adminSet(['seasons', seasonYear, 'driveAdj'], adj, 'Usage corrected');
+}
 async function backfill(clear) { const key = $('bfRace').value, pid = $('bfPlayer').value; if (!isCommish()) { toast('Commissioner only'); return; } let value = null; if (!clear) { if ($('bfWild').checked) value = { wildcard: true, ts: new Date().toISOString(), backfilled: true }; else { const ds = [$('bfD1').value, $('bfD2').value].filter(Boolean); if (ds.length !== (season().perRace || 2)) { toast('Choose ' + (season().perRace || 2) + ' drivers or tick wild card'); return; } value = { drivers: ds, ts: new Date().toISOString(), backfilled: true }; } } await adminSet(['seasons', seasonYear, 'picks', key, pid], value, clear ? 'Pick cleared' : 'Pick saved'); }
-async function renamePlayer(pid, name) { const i = state.players.findIndex(p => p.id === pid); await adminSet(['players', i, 'name'], name.trim() || pid, 'Name'); }
+async function renamePlayer(pid, name) { const i = state.players.findIndex(p => p.id === pid); await adminSet(['players', i, 'name'], name.trim() || pid, 'Name saved'); }
 async function addPlayer() { const name = $('newPlayer').value.trim(); if (!name) return; const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '') || ('p' + Date.now()); if (state.players.some(p => p.id === id)) { toast('Already here'); return; } await adminSet(['players', state.players.length], { id, name, active: true }, 'Player added'); }
 async function resetPin(pid) { if (!confirm('Reset ' + pname(pid) + "'s PIN? They set a new one next time they tap their name.")) return; await commit('resetpin', { target: pid }, st => { const p = st.players.find(x => x.id === pid); if (p) p.pin = ''; }); }
-async function addChampion() { const y = +$('chYear').value, w = $('chWho').value.trim(); if (!y || !w) return; const h = (state.history || []).filter(x => x.year !== y); h.push({ year: y, champion: w, note: $('chNote').value.trim() }); await adminSet(['history'], h, 'Champion'); }
+async function addChampion() { const y = +$('chYear').value, w = $('chWho').value.trim(); if (!y || !w) return; const h = (state.history || []).filter(x => x.year !== y); h.push({ year: y, champion: w, note: $('chNote').value.trim() }); await adminSet(['history'], h, 'Champion saved'); }
 async function switchSeason(y) { seasonYear = +y; schedule = null; render(); await refresh(); }
 async function newSeason() { const y = +prompt('Season year?', new Date().getFullYear() + 1); if (!y) return; if (state.seasons[y]) { switchSeason(y); return; } const prev = season(); const roster = {}; playersActive().forEach(p => roster[p.id] = []); await adminSet(['seasons', y], { year: y, driversPer: prev.driversPer, drivesPer: prev.drivesPer, wildcardsPer: prev.wildcardsPer, perRace: prev.perRace || 2, scoring: prev.scoring, roster, picks: {}, canceled: [], overrides: {} }, 'Season ' + y + ' created'); switchSeason(y); }
 async function refreshResults() { for (const k in apiCache) if (/results|qualifying|sprint|driverStandings/.test(k)) delete apiCache[k]; saveApiCache(); toast('Fetching fresh results…'); await refresh(); }
@@ -921,7 +970,7 @@ async function draftUndo() {
 async function draftReset() {
   if (!isCommish()) return;
   if (!confirm('Set up a new draft for ' + seasonYear + '? Current rosters stay until the new draft finishes.')) return;
-  await adminSet(['seasons', seasonYear, 'draft'], { status: 'setup', players: playersActive().map(p => p.id), picks: [] }, 'New draft');
+  await adminSet(['seasons', seasonYear, 'draft'], { status: 'setup', players: playersActive().map(p => p.id), picks: [] }, 'New draft ready');
 }
 
 /* ---------- misc ---------- */
@@ -947,7 +996,9 @@ async function refresh() {
   if (!state) { $('view').innerHTML = '<div class="card"><h2>No league data</h2></div>'; return; }
   // A device that is not on the group mailbox yet follows the newest seeded starting point (Steve's latest post), keeping its own picks and PIN.
   if (typeof PITWALL_SEED !== 'undefined' && (state.seedVersion || 1) < (PITWALL_SEED.seedVersion || 1) && !(state.league && state.league.mailboxUrl)) {
-    for (const y in PITWALL_SEED.seasons) { const src = PITWALL_SEED.seasons[y]; state.seasons[y] = state.seasons[y] || JSON.parse(JSON.stringify(src)); if (src.start) state.seasons[y].start = JSON.parse(JSON.stringify(src.start)); if (src.canceled) state.seasons[y].canceled = src.canceled.slice(); if (src.draft && !state.seasons[y].draft) state.seasons[y].draft = JSON.parse(JSON.stringify(src.draft)); }
+    for (const y in PITWALL_SEED.seasons) { const src = PITWALL_SEED.seasons[y]; state.seasons[y] = state.seasons[y] || JSON.parse(JSON.stringify(src)); if (src.start) state.seasons[y].start = JSON.parse(JSON.stringify(src.start)); if (src.canceled) state.seasons[y].canceled = src.canceled.slice(); if (src.draft && !state.seasons[y].draft) state.seasons[y].draft = JSON.parse(JSON.stringify(src.draft));
+      // Picks texted to the group and seeded later: fill in only the ones this device has never seen, never overwrite a pick made here.
+      if (src.picks) { const dst = state.seasons[y].picks = state.seasons[y].picks || {}; for (const k in src.picks) { dst[k] = dst[k] || {}; for (const pid in src.picks[k]) if (!dst[k][pid]) dst[k][pid] = JSON.parse(JSON.stringify(src.picks[k][pid])); } } }
     state.history = JSON.parse(JSON.stringify(PITWALL_SEED.history)); state.seedVersion = PITWALL_SEED.seedVersion; saveLocal();
   }
   seasonYear = state.league.currentSeason || Math.max.apply(null, Object.keys(state.seasons).map(Number));
