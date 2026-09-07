@@ -259,7 +259,7 @@ const APPS = {
    "The benefit: an hour with Compass and you can see your own life on one page.",
    "It's free. Try it below when you have a quiet evening."]},
 
- /* ── CHURCH & NONPROFIT SHELF (videos play via the same watch.html player; cat:'church' never renders on the main store shelves) ── */
+ /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 one-time', video:true,
   tag:'Your whole church in their pocket',
