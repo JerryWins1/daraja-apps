@@ -94,7 +94,7 @@
   <div style="margin-top:16px"><button onclick="soundCheck(this)" style="background:transparent;color:#EBD9A8;border:1.5px solid rgba(235,217,168,.5);font-size:15px;padding:10px 18px">🔊 Test the sound</button></div>
   <div id="scOut" style="display:none;max-width:340px;margin:12px auto 0;font-size:14.5px;line-height:1.5;padding:11px 14px;border-radius:12px"></div>
   <div id="wipe" style="display:none;margin-top:14px"><button onclick="R.reset()" style="background:transparent;color:#F3B6A2;border:1.5px solid rgba(243,182,162,.5);font-size:14px;padding:9px 16px">🧹 Start fresh — forget everything</button></div>
-  <div class="v">Rafiki v1.2c · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
+  <div class="v">Rafiki v1.3 · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
 </div>
 
 <div class="wrap">
@@ -103,7 +103,7 @@
     <div class="pills"><button onclick="R.voice()" title="choose my voice">🗣 voice</button><button onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.2c · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.3 · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -287,9 +287,11 @@ function ask(onAnswer, placeholder, chipList){
   clearTimeout(deadWatch);
   clearAsk();
   pending = onAnswer || null;
-  if(chipList && chipList.length){
+  var chips = (chipList||[]).slice();
+  if(setupMode) chips.push(['⏸ That’s enough for today', enough]);
+  if(chips.length){
     var c=document.createElement('div'); c.className='chips';
-    chipList.forEach(function(ch){
+    chips.forEach(function(ch){
       var b=document.createElement('button'); b.textContent=ch[0];
       if(ch[2]==='hot') b.className='hot'; if(ch[2]==='warn') b.className='warn';
       b.onclick=function(){ unlock(); pending=null; clearAsk(); bubME(ch[0]); setTimeout(ch[1],320); };
@@ -487,15 +489,38 @@ function brag(){
   offerMenu();
 }
 
+/* ── v1.3: the setup now LISTENS. Every question here used to work only if you tapped a
+   button; a typed or spoken "yes" fell through to the catch-all, got filed as a stray note,
+   and the interview quietly ended. These two readers fix that everywhere. ── */
+var setupMode = false;
+function yesno(t){
+  var l = String(t||'').toLowerCase().trim().replace(/[.!,]+$/,'');
+  if(/^(y|yes|yeah|yep|yup|sure|i am|i do|we do|i have|we have|correct|right|of course|certainly|indeed|please)\b/.test(l)) return 'yes';
+  if(/^(n|no|nope|nah|not really|never|none|i don.?t|i do not|we don.?t|i am not|i'?m not)\b/.test(l)) return 'no';
+  if(/(skip|later|not now|move on|next question|pass|rather not|prefer not)/.test(l)) return 'skip';
+  return null;
+}
+var NUMW={zero:0,none:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,a:1,an:1,couple:2,'few':3};
+function numOf(t){
+  var l=String(t||'').toLowerCase();
+  var m=l.match(/\d+/); if(m) return Math.max(0, Math.min(12, parseInt(m[0],10)));
+  for(var w in NUMW){ if(new RegExp('\\b'+w+'\\b').test(l)) return NUMW[w]; }
+  return null;
+}
+/* ── #5: a way out that is always on screen while we are getting acquainted ── */
+function enough(){
+  setupMode=false;
+  S.ch1=1; S.visits=Math.max(1,S.visits||0); S.lastSeen=Date.now(); save(S);
+  bubAI('Of course — that’s plenty for today. Friends don’t interview, they visit. 💛<br>I’ve kept every word of what you told me, and I’ll never ask those questions again. Whenever you want to tell me more, tap <b>🧡 Who do you know?</b> and I’ll pick up right where we stopped.');
+  offerMenu();
+}
+
 /* ── the getting-to-know-you conversation ── */
 /* FIX 2: I suggest a name, you can always pick your own */
 function chapter1(){
-  bubAI('So here’s the thing… I don’t have a name. May I make a suggestion? I’ve always thought I’d make a rather good <b>Fred</b>. But you’re the boss.');
-  setTimeout(function(){
-    ask(function(t){ named(t); }, 'or type the name you like',
-      [['Fred it is! 👍', function(){ named('Fred'); }, 'hot'],
-       ['Let me pick my own →', function(){ bubAI('Of course. What would you like to call me?'); ask(function(t){ named(t); }, 'my new name'); }]]);
-  }, 1100);
+  setupMode = true;
+  bubAI('So here’s the thing… I don’t have a name yet. That’s yours to give. <b>What would you like to call me?</b>');
+  setTimeout(function(){ ask(function(t){ named(t); }, 'type or say my new name'); }, 1100);
 }
 function named(n){
   n = String(n||'').trim().replace(/^\w/,function(c){return c.toUpperCase();}) || 'Fred';
@@ -540,35 +565,93 @@ function askUserName(){
 }
 function q_married(){
   bubAI('Now tell me about your people. Are you married?');
-  setTimeout(function(){ ask(understand, 'or just tell me…', [
-   ['Yes 💍', function(){ bubAI('What’s their name?');
-      ask(function(t){ S.p.spouse=String(t||'').trim(); save(S);
-        bubAI(esc(S.p.spouse)+' — noted, and lucky them. I’ll remember.'); q_kids(); }, 'their name'); }],
-   ['No', function(){ S.p.spouse=''; save(S); bubAI('Noted — and I’ll never ask again. Friends remember the answers.'); q_kids(); }],
-   ['It’s complicated 😄', function(){ S.p.spouse=''; save(S); bubAI('Say no more — everything worth having is a little complicated.'); q_kids(); }]
+  setTimeout(function(){ ask(function(t){
+     var a=yesno(t);
+     if(a==='yes') return askSpouse();
+     if(a==='no'||a==='skip') return noSpouse();
+     /* they skipped straight to the name — take it and thank them for it */
+     S.p.spouse=String(t||'').trim(); save(S);
+     bubAI(esc(S.p.spouse)+' — noted, and lucky them. I’ll remember.');
+     setTimeout(q_kids, 900);
+   }, 'yes or no — or just tell me their name', [
+   ['Yes 💍', askSpouse],
+   ['No', noSpouse],
+   ['It’s complicated 😄', function(){ S.p.spouse=''; save(S); bubAI('Say no more — everything worth having is a little complicated.'); setTimeout(q_kids, 900); }]
   ]); }, 900);
 }
-/* FIX 3: one name per box, "That's everyone" ends the round */
+function askSpouse(){
+  bubAI('Wonderful. What’s their name?');
+  setTimeout(function(){ ask(function(t){
+    S.p.spouse=String(t||'').trim(); save(S);
+    bubAI(esc(S.p.spouse)+' — noted, and lucky them. I’ll remember that name for as long as you keep me.');
+    setTimeout(q_kids, 900);
+  }, 'their name'); }, 800);
+}
+function noSpouse(){ S.p.spouse=''; save(S); bubAI('Noted — and I’ll never ask again. Friends remember the answers.'); setTimeout(q_kids, 900); }
+/* ── #4 (v1.3): ask IF, then ask HOW MANY, then hand over exactly that many numbered
+   boxes — so you can see the end of the job from the start, the way Jerry asked for it ── */
 var kidList=[];
 function q_kids(){
   kidList=[];
-  bubAI('Kids or grandkids in the picture? Tell me one name at a time — I want to know who I’m cheering for.');
-  setTimeout(function(){ askKid(true); }, 900);
+  bubAI('Do you have any kids or grandkids?');
+  setTimeout(function(){
+    ask(function(t){
+      var a=yesno(t);
+      if(a==='no'||a==='skip') return noKids();
+      var n=numOf(t);                       /* "yes, four" or just "four" both work */
+      if(n===0) return noKids();
+      if(n) return kidsCount(n);
+      howMany();
+    }, 'yes or no — or just say how many', [
+      ['Yes 👶', howMany],
+      ['No', noKids]
+    ]);
+  }, 900);
 }
-function askKid(first){
-  ask(function(t){
-    var n=String(t||'').trim(); if(!n){ askKid(false); return; }
-    kidList.push(n);
-    bubAI(esc(n)+' — got it. Who else?');
-    setTimeout(function(){ askKid(false); }, 700);
-  }, first?'first name…':'another name…',
-  [[ kidList.length?'That’s everyone ✓':'No kids — next question', function(){
-      S.p.kids = kidList.join(', '); save(S);
-      if(kidList.length){
-        bubAI('Wonderful — '+esc(S.p.kids)+'. '+(kidList.length>2?'A full house. ':'')+'I’ll keep every one of them in mind.');
-      } else { bubAI('More cake for us, then.'); }
-      q_pet();
-  }, 'hot' ]]);
+function howMany(){
+  bubAI('Wonderful. How many?');
+  setTimeout(function(){
+    ask(function(t){
+      var n=numOf(t);
+      if(n===null){ bubAI('Just the number is plenty — like 3.'); setTimeout(howMany, 900); return; }
+      if(n===0) return noKids();
+      kidsCount(n);
+    }, 'a number — like 3',
+    [['1',function(){kidsCount(1);}],['2',function(){kidsCount(2);}],['3',function(){kidsCount(3);}],
+     ['4',function(){kidsCount(4);}],['5',function(){kidsCount(5);}],['6 or more',function(){kidsCount(6);}]]);
+  }, 800);
+}
+function noKids(){ S.p.kids=''; save(S); bubAI('More cake for us, then. 😊'); setTimeout(q_pet, 900); }
+function kidsCount(n){
+  n = Math.max(1, Math.min(12, n));
+  bubAI(n===1 ? 'Just the one. What’s their name?'
+              : 'Perfect — '+n+' of them. What are their names? One to a box, and take your time.');
+  setTimeout(function(){ kidBoxes(n); }, 900);
+}
+function kidBoxes(n){
+  clearTimeout(deadWatch); clearAsk();
+  pending = null;
+  var d=document.createElement('div'); d.className='say'; d.id='askRow';
+  var rows='';
+  for(var i=1;i<=n;i++){
+    rows += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
+      + '<span style="flex:none;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.14);'
+      + 'border:1.5px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;'
+      + 'font-weight:800;font-size:13px">'+i+'</span>'
+      + '<input class="kidbox" id="kid'+i+'" placeholder="name '+i+'" autocomplete="off" '
+      + 'style="flex:1;min-width:0;font:inherit;font-size:16px;padding:11px 12px;border-radius:12px;'
+      + 'border:1.5px solid rgba(255,255,255,.28);background:rgba(20,22,30,.45);color:inherit">'
+      + '<button class="mic" onclick="R.kidMic('+i+',this)" style="flex:none">🎤</button>'
+      + '</div>';
+  }
+  d.innerHTML = rows
+    + '<div style="display:flex;gap:8px;margin-top:4px">'
+    + '<button class="send" style="flex:1" onclick="R.kidsSave('+n+')">Save these names</button>'
+    + '<button class="mic" onclick="R.kidsMore('+n+')">+ one more</button></div>'
+    + '<div class="hint" id="micHint">Tap the 🎤 beside a box to say that one out loud. Fill in what you can — you can always tell me the rest later.</div>';
+  chat.appendChild(d);
+  var f=document.getElementById('kid1'); if(f) f.focus();
+  scrollDown();
 }
 function q_pet(){
   setTimeout(function(){
@@ -585,6 +668,7 @@ function q_face(){
   }, 700);
 }
 function finish1(){
+  setupMode=false;
   S.ch1=1; S.visits=1; S.lastSeen=Date.now(); save(S);
   bubAI('That’s plenty for one day — friends don’t interview, they visit. 💛 I’m '+esc(S.name)+', I’m on your side, and I remember everything you just told me. Come back tomorrow and I’ll have your morning ready — the weather, your day, maybe a joke if you’ve earned it. Or stay a while now:');
   offerMenu();
@@ -677,6 +761,43 @@ window.R={
       try{ localStorage.removeItem(KEY); localStorage.removeItem('rafiki_aa'); }catch(e){}
       location.replace(location.pathname);
     }
+  },
+  kidMic:function(i, btn){
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    var box=document.getElementById('kid'+i), hint=document.getElementById('micHint');
+    if(!box) return;
+    box.focus();
+    if(!SR){ if(hint) hint.textContent='This browser keeps my ears closed — type the name, or use the \u{1F3A4} on your keyboard.'; return; }
+    if(rec){ try{ rec.stop(); }catch(e){} rec=null; return; }
+    rec=new SR(); rec.lang=navigator.language||'en-US'; rec.interimResults=true; rec.continuous=false;
+    if(btn) btn.classList.add('on');
+    if(hint) hint.textContent='Listening for name '+i+'… it goes straight in the box, nothing is sent.';
+    rec.onresult=function(e){ var t=''; for(var k=0;k<e.results.length;k++) t+=e.results[k][0].transcript;
+      box.value=t.trim().replace(/[.,!?]+$/,'').replace(/^\w/,function(c){return c.toUpperCase();}); };
+    rec.onend=function(){ rec=null; if(btn) btn.classList.remove('on');
+      if(hint) hint.textContent='Got it — read it over. Tap the next \u{1F3A4}, or Save when you’re done.'; };
+    rec.onerror=function(){ rec=null; if(btn) btn.classList.remove('on');
+      if(hint) hint.textContent='The microphone got shy — type this one instead.'; };
+    try{ rec.start(); }catch(e){ rec=null; if(btn) btn.classList.remove('on'); }
+  },
+  kidsMore:function(n){
+    var names=[]; for(var i=1;i<=n;i++){ var b=document.getElementById('kid'+i); if(b) names.push(b.value); }
+    kidBoxes(n+1);
+    setTimeout(function(){ names.forEach(function(v,ix){ var b=document.getElementById('kid'+(ix+1)); if(b) b.value=v; }); }, 30);
+  },
+  kidsSave:function(n){
+    if(rec){ try{ rec.stop(); }catch(e){} rec=null; }
+    var names=[];
+    for(var i=1;i<=n;i++){ var b=document.getElementById('kid'+i); var v=b?b.value.trim():'';
+      if(v) names.push(v.replace(/^\w/,function(c){return c.toUpperCase();})); }
+    if(!names.length){ var h=document.getElementById('micHint');
+      if(h) h.textContent='Pop at least one name in, or tap “That’s enough for today” below.'; return; }
+    kidList=names; S.p.kids=names.join(', '); save(S);
+    clearAsk(); bubME(names.join(', '));
+    setTimeout(function(){
+      bubAI('Wonderful — '+esc(S.p.kids)+'. '+(names.length>2?'A full house. ':'')+'I’ll keep every one of them in mind.');
+      setTimeout(q_pet, 900);
+    }, 400);
   },
   mute:function(){ muted=!muted; S.muted=muted; save(S); document.getElementById('muteB').textContent=muted?'🔇 off':'🔊 on'; if(muted) hush(); },
   aa:function(){ var b=document.body;
