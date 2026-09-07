@@ -11,11 +11,11 @@ const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
  nownext: {
-  name:'Now & Next', em:'🧭', sub:'one thing at a time', fresh:true, cat:'family', price:'$4.99', testing:true,
+  name:'My Productive Partner', em:'🧭', sub:'one thing at a time', fresh:true, cat:'family', price:'$4.99', testing:true,
   tag:'One thing at a time — for kids and grown-ups whose brains run fast',
   try:A+'nownext/', video:true,
   train:[
-   "Let's set up Now and Next — five minutes, then it runs your mornings forever.",
+   "Let's set up My Productive Partner — five minutes, then it runs your mornings forever.",
    "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
    {t:"Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.", js:"try{go('today')}catch(e){}"},
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
@@ -26,7 +26,7 @@ const APPS = {
    {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"},
    "You'll know it's set up right when the NOW card shows one thing with a timer — and somebody checks it off and gets the party."],
   lines:[
-   "This is Now and Next, made for kids, and grown-ups, whose brains run fast.",
+   "This is My Productive Partner, made for kids, and grown-ups, whose brains run fast.",
    "It solves a very particular ache: knowing exactly what needs doing, and still not being able to start. And for the parent, it solves saying hurry up eleven times before seven thirty.",
    "Here is the whole idea: the screen shows one thing. Not the long scary list, just the one thing to do now.",
    "A timer keeps the middle short, and when you finish, the app throws a little party, with high fives, coins, and a family leaderboard.",
@@ -459,7 +459,7 @@ const APPS = {
    "Then, instead of buttons and menus, it simply gets to know you \u2014 the way a new friend would. Your name. Your spouse. The kids and grandkids, by name. One easy question at a time, out loud, and it remembers every answer.",
    "And every morning after that, it speaks first. Good morning, Jerry. It\u2019s Saturday. Five things finished yesterday \u2014 you\u2019ve been working hard. I notice these things.",
    "It tells you the weather. It tells a genuinely decent joke. It asks how your heart is doing, and it means it.",
-   "Say remind me to pick the kids up at three \u2014 and it\u2019s remembered. If you use Now and Next, it lands right on your real list, with your friend\u2019s name on it.",
+   "Say remind me to pick the kids up at three \u2014 and it\u2019s remembered. If you use My Productive Partner, it lands right on your real list, with your friend\u2019s name on it.",
    "Everything it knows stays on your phone. No account, no cloud, nobody listening but your friend.",
    "Nineteen dollars, once, for the app your parents will actually talk to. Meet yours below \u2014 it\u2019s waiting to be named."],
   train:[
