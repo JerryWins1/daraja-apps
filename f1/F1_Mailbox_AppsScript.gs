@@ -18,6 +18,8 @@
  *  - Every player has a PIN. First PIN sent for a player is accepted and kept.
  *  - Picks after the deadline are rejected unless the commissioner sends them.
  *  - Only the commissioner can change settings, rosters, scoring, history, or other people's picks.
+ *  - Draft picks are accepted only from the player on the clock (or the commissioner picking for them),
+ *    never for a driver already taken; the last pick writes everyone's rosters.
  */
 
 var SHEET_NAME = 'state';
@@ -117,6 +119,32 @@ function doPost(e) {
       save_(key, st); return out_({ ok: true, state: publicState_(st) });
     }
 
+    if (action === 'draft') {
+      var ds = st.seasons && st.seasons[body.year]; var d = ds && ds.draft;
+      if (!d) return out_({ ok: false, error: 'No draft has been set up' });
+      if (d.status !== 'open') return out_({ ok: false, error: 'The draft is not open' });
+      var turn = draftTurn_(d); if (!turn) return out_({ ok: false, error: 'The draft is complete' });
+      var forWho = body.target || player.id;
+      if (forWho !== player.id && !isCommish) return out_({ ok: false, error: 'Only the commissioner can pick for someone else' });
+      if (turn.player !== forWho) return out_({ ok: false, error: 'Not your turn' });
+      if (!body.driver) return out_({ ok: false, error: 'Pick a driver' });
+      for (var q = 0; q < d.picks.length; q++) if (d.picks[q].driver === body.driver) return out_({ ok: false, error: 'Already taken' });
+      d.picks.push({ player: forWho, driver: body.driver, ts: new Date().toISOString() });
+      if (!draftTurn_(d)) {                       // last pick: the draft becomes the season's rosters
+        d.status = 'done'; d.finishedAt = new Date().toISOString();
+        var ro = {}; d.picks.forEach(function (p) { (ro[p.player] = ro[p.player] || []).push(p.driver); });
+        ds.roster = ds.roster || {}; for (var w in ro) ds.roster[w] = ro[w];
+      }
+      save_(key, st); return out_({ ok: true, state: publicState_(st) });
+    }
+    if (action === 'draftundo') {
+      if (!isCommish) return out_({ ok: false, error: 'Only the commissioner can undo a pick' });
+      var du = st.seasons && st.seasons[body.year] && st.seasons[body.year].draft;
+      if (!du || !du.picks || !du.picks.length) return out_({ ok: false, error: 'Nothing to undo' });
+      du.picks.pop(); du.status = 'open'; delete du.finishedAt;
+      save_(key, st); return out_({ ok: true, state: publicState_(st) });
+    }
+
     if (action === 'set') {
       if (!isCommish) return out_({ ok: false, error: 'Only the commissioner can change that' });
       var path = body.path || [];
@@ -168,6 +196,12 @@ function save_(key, st) {
   sh.getRange(row, 1, 1, Math.max(sh.getMaxColumns(), chunks.length + 1)).clearContent();
   sh.getRange(row, 1).setValue(key);
   sh.getRange(row, 2, 1, chunks.length).setValues([chunks]);
+}
+// Snake draft: who is on the clock given the picks so far; null when complete.
+function draftTurn_(d) {
+  var order = d.order || [], i = (d.picks || []).length;
+  for (var r = 0; r < order.length; r++) { if (i < order[r].length) return { round: r + 1, player: order[r][i] }; i -= order[r].length; }
+  return null;
 }
 function findPlayer_(st, id) { var ps = (st && st.players) || []; for (var i = 0; i < ps.length; i++) if (ps[i].id === id) return ps[i]; return null; }
 // Never send PINs back to the browser.
