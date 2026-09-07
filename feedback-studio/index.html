@@ -190,7 +190,7 @@
         Every comment is written down with its exact time — then one tap builds a full report for Claude.</p>
         <p style="margin:14px 0 2px; font-size:13px; color:#8a93a5; font-weight:700;">Quick picks — tap one to review it, or paste any app's address above:</p>
         <div class="quick">
-          <div class="chip" onclick="quick('https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/nownext/')">Now &amp; Next</div>
+          <div class="chip" onclick="quick('https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/nownext/')">My Productive Partner</div>
           <div class="chip" onclick="quick('https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/demo/')">Day Demo movie</div>
           <div class="chip" onclick="quick('https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/')">Daraja Apps home</div>
           <div class="chip" onclick="quick('https://jerrywins1.github.io/immanuel-app/')">Immanuel App</div>
@@ -273,7 +273,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v1.6 · 2026-09-01 · Daraja Studio</div>
+<div id="ver">Feedback Studio v1.7 · 2026-09-01 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -479,6 +479,24 @@ function render(){
 }
 
 /* ================== REPORT ================== */
+/* v1.7: read the tested app's own version line out of the frame, so a report can never again
+   leave Claude guessing which build was on the phone. Same origin, so this is allowed;
+   wrapped anyway because a cross-origin app would throw. */
+function appVersion(){
+  try{
+    const doc = document.getElementById('appframe').contentDocument;
+    if(!doc) return null;
+    const spots = ['.foot','#ver','.ver','.version','footer'];
+    for(const sel of spots){
+      for(const el of doc.querySelectorAll(sel)){
+        const m = (el.textContent||'').match(/v\s?\d+\.\d+[a-z]?(\s*·\s*[^·\n]{3,30})?/i);
+        if(m) return m[0].trim();
+      }
+    }
+    const m2 = (doc.body ? doc.body.innerText : '').match(/v\s?\d+\.\d+[a-z]?\s*·\s*[A-Za-z0-9 ,.-]{3,24}/);
+    return m2 ? m2[0].trim() : null;
+  }catch(e){ return null; }
+}
 function buildReport(){
   const d = new Date();
   const when = d.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})
@@ -492,7 +510,9 @@ function buildReport(){
   out += 'App reviewed : ' + (db.appUrl || '(none loaded)') + '\n';
   out += 'Date         : ' + when + '\n';
   out += 'Comments     : ' + db.notes.length + '\n';
-  out += 'Tool         : Feedback Studio v1.6 (Daraja Studio)\n';
+  const av = appVersion();
+  out += 'App version  : ' + (av || 'could not read it — check the line at the bottom of the app') + '\n';
+  out += 'Tool         : Feedback Studio v1.7 (Daraja Studio)\n';
   out += '------------------------------------------\n\n';
   if(isAI){
     out += 'INSTRUCTIONS FOR ' + who.toUpperCase() + ':\n';
@@ -513,6 +533,13 @@ function buildReport(){
     out += `\n${String(i+1).padStart(2,' ')}. [${n.t}] (${tag})\n    ${n.text}\n`;
   });
   out += '\n------------------------------------------\n';
+  const shots = db.notes.filter(n=>/\u{1F4F8}/u.test(n.text)).length;
+  if(shots){
+    out += '\u26a0\ufe0f  ' + shots + ' SCREENSHOT' + (shots>1?'S ARE':' IS') + ' STILL ON YOUR CLIPBOARD.\n';
+    out += '    Paste this text first, then paste the picture' + (shots>1?'s':'') + ' as a second message.\n';
+    out += '    Without them ' + who + ' is working from your words alone.\n';
+    out += '------------------------------------------\n';
+  }
   out += 'END OF SESSION\n';
   return out;
 }
