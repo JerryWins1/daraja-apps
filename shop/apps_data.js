@@ -450,7 +450,7 @@ const APPS = {
    "When it sells, tap 'Sold!' and enter what you got. The cash line at the top starts adding up — and that number is very motivating.",
    "Read the selling-safely card once. Then go find the next thing — the garage isn't empty yet."]},
  rafiki: {
-  name:'Rafiki', em:'💛', sub:'the friend who knows you', cat:'family', price:'$19', testing:true, fresh:true, video:true,
+  name:'Rafiki', em:'💛', sub:'the friend who knows you', cat:'family', price:'$19', testing:true, fresh:true, video:true, testmode:true,
   tag:'Give it a name, let it get to know you \u2014 then it runs your day out loud, like a friend would',
   try:'https://jerrywins1.github.io/daraja-apps/rafiki/',
   lines:[
