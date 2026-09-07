@@ -271,7 +271,7 @@ function armDeadWatch(){
   deadWatch=setTimeout(function(){
     if(!chat) return;
     if(document.getElementById('askRow')||document.querySelector('.chips')||document.querySelector('.faces')) return;
-    if(setupMode) return;                 /* mid-interview: the question owns the screen */
+    if(setupMode && window.__resume){ window.__resume(); return; }  /* put the question back */
     whatNow();                            /* otherwise always the plain "what now" answer */
   }, 2600);
 }
@@ -282,6 +282,7 @@ function clearAsk(){
   var oc=document.querySelectorAll('.chips, .faces'); oc.forEach(function(c){ c.remove(); });
 }
 function ask(onAnswer, placeholder, chipList){
+  window.__resume = null;
   clearTimeout(deadWatch);
   clearAsk();
   pending = onAnswer || null;
@@ -324,9 +325,17 @@ function faces(cb){
 function nnKey(){ try{ var P=JSON.parse(localStorage.getItem('now_next_profiles_v1')||'null');
   if(P&&P.cur) return 'now_next_v1_'+P.cur; }catch(e){}
   return localStorage.getItem('now_next_v1')?'now_next_v1':null; }
+/* make the shared list exist, so "it's on your list" is always the truth */
+function nnEnsure(){
+  var k=nnKey(); if(k) return k;
+  try{
+    localStorage.setItem('now_next_v1', JSON.stringify({tasks:[], regulars:[], history:{}, made_by:'rafiki'}));
+    return 'now_next_v1';
+  }catch(e){ return null; }
+}
 function nnDB(){ var k=nnKey(); if(!k) return null; try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
 function nnAdd(text){
-  var k=nnKey();
+  var k=nnEnsure();
   if(!k){ S.notes.push({t:text, at:Date.now()}); save(S); return 'note'; }
   try{ var d=JSON.parse(localStorage.getItem(k)); d.tasks=d.tasks||[];
     d.tasks.push({id:Date.now().toString(36), text:text, mins:10, done:false, from:S.name||'your friend', said:true});
@@ -716,7 +725,7 @@ function finish2(){
 }
 /* a repeating item, written straight onto the shared list */
 function nnAddRepeat(text, every){
-  var k=nnKey();
+  var k=nnEnsure();
   if(!k){ S.notes.push({t:text+' ('+every+')', at:Date.now()}); save(S); return 'note'; }
   try{ var d=JSON.parse(localStorage.getItem(k)); d.tasks=d.tasks||[]; d.regulars=d.regulars||[];
     d.regulars.push({id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), text:text, every:every, from:S.name||'your friend'});
@@ -746,6 +755,7 @@ function listBoxes(n, label, key, done){
     + '<div class="hint" id="micHint">Tap the \u{1F3A4} beside a box to say just that one. Leave any blank.</div>';
   chat.appendChild(d);
   window.__lbDone = done; window.__lbN = n;
+  window.__resume = function(){ listBoxes(n, label, key, done); };   /* the watchdog's way back in */
   var f=document.getElementById('lb1'); if(f) f.focus();
   scrollDown();
 }
@@ -928,7 +938,9 @@ window.R={
     clearAsk();
     if(items.length) bubME(items.join(', ')); else bubME('none');
     var f=window.__lbDone; window.__lbDone=null;
-    if(f) setTimeout(function(){ f(items); }, 350);
+    if(f){ window.__resume=null; setTimeout(function(){ f(items); }, 350); }
+    else { bubAI('Sorry — I lost my place there for a second. Let me put that question back up.');
+           setTimeout(function(){ if(window.__resume) window.__resume(); else whatNow(); }, 700); }
   },
   kidsMore:function(n){
     var names=[]; for(var i=1;i<=n;i++){ var b=document.getElementById('kid'+i); if(b) names.push(b.value); }
