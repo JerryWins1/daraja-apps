@@ -92,7 +92,7 @@
   <p id="helloTxt">I'm your new friend — I just don't have a name yet. Come say hi and we'll fix that together. I talk out loud, so turn your sound on.</p>
   <button onclick="begin()">Say hello →</button>
   <div id="wipe" style="display:none;margin-top:14px"><button onclick="R.reset()" style="background:transparent;color:#F3B6A2;border:1.5px solid rgba(243,182,162,.5);font-size:14px;padding:9px 16px">🧹 Start fresh — forget everything</button></div>
-  <div class="v">Rafiki v1.2b · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
+  <div class="v">Rafiki v1.2c · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
 </div>
 
 <div class="wrap">
@@ -101,7 +101,7 @@
     <div class="pills"><button onclick="R.voice()" title="my voice">🗣</button><button onclick="R.mute()" id="muteB">🔊</button><button onclick="R.aa()">Aa</button><button onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.2b · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.2c · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -183,15 +183,11 @@ function speak(text, isSample){
    3. anything spoken while the engine is sitting in a stuck "paused" state
    All three hit exactly when you restart the app or start over — so we guard all three. ── */
 var lastCancel = 0, unlocked = false;
-function unlock(){                     /* MUST be called straight from a tap, no timers in between */
-  if(unlocked || !window.speechSynthesis) return;
-  try{
-    var w = new SpeechSynthesisUtterance(' ');
-    w.volume = 0; w.rate = 2;
-    speechSynthesis.speak(w);
-    unlocked = true;
-  }catch(e){}
-}
+/* NEVER speak a blank/zero-volume "warm-up" utterance to unlock audio — Safari answers it
+   with an 'interrupted' error and then wedges: the engine reports speaking:true forever and
+   every real sentence queues behind it in silence. The rule is satisfied instead by speaking
+   the first REAL sentence synchronously inside the tap (see begin()). */
+function unlock(){ unlocked = true; try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){} }
 function pump(){
   if(vBusy || !vQueue.length || muted) return;
   var since = Date.now() - lastCancel;
@@ -217,20 +213,23 @@ function pump(){
       /* if it never actually started, the browser ate it — say it again, up to twice */
       setTimeout(function(){
         if(done || started) return;
-        var busy = false; try{ busy = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
-        if(busy) return;
-        if(tries++ < 2){ try{ speechSynthesis.cancel(); }catch(e){} lastCancel = 0; setTimeout(go, 140); }
+        /* not started after well over a second? the browser ate it or wedged — clear and retry.
+           we do NOT trust speechSynthesis.speaking here: a wedged engine lies and says true. */
+        if(tries++ < 2){ try{ speechSynthesis.cancel(); }catch(e){} lastCancel = 0; setTimeout(go, 160); }
         else fin();
-      }, 420);
+      }, 1500);
 
-      /* safety net only — never cut a voice off while it is still talking */
+      /* safety net: wait while it is genuinely talking, but NEVER forever — a wedged
+         engine must not be allowed to swallow the rest of the conversation */
+      var expect = 3000 + text.length*160, hardStop = Date.now() + expect + 20000;
       clearTimeout(guard);
       guard = setTimeout(function tick(){
         if(done) return;
         var busy = false; try{ busy = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
-        if(busy){ guard = setTimeout(tick, 900); return; }
+        if(busy && Date.now() < hardStop){ guard = setTimeout(tick, 700); return; }
+        if(busy){ try{ speechSynthesis.cancel(); }catch(e){} lastCancel = Date.now(); }  /* break the wedge */
         fin();
-      }, 4000 + text.length*160);
+      }, expect);
     }catch(e){ vBusy = false; }
   }
   go();
@@ -595,7 +594,9 @@ function morning(){
   var tod = hr<12?'morning':hr<17?'afternoon':'evening';
   var greet = (S.p.greet||('Hello, '+(S.p.userName||'friend')+'!'));
   if(tod!=='morning') greet = greet.replace(/morning/i, tod);
-  bubAI(greet+' It’s '+new Date().toLocaleDateString('en',{weekday:'long', month:'long', day:'numeric'})+'.');
+  var line = greet+' It’s '+new Date().toLocaleDateString('en',{weekday:'long', month:'long', day:'numeric'})+'.';
+  if(S.__saidGreet){ bubAI(line, true); speak('It’s '+new Date().toLocaleDateString('en',{weekday:'long', month:'long', day:'numeric'})+'.'); S.__saidGreet=null; }
+  else bubAI(line);
   var f=nnFacts();
   setTimeout(function(){
     if(f){
@@ -701,8 +702,19 @@ function begin(){
   if(h){ h.style.transition='opacity .4s'; h.style.opacity='0'; setTimeout(function(){ h.remove(); }, 450); }
   chat=document.getElementById('chat');
   paintHeader(); hush();
-  if(!S.ch1){ setTimeout(function(){ bubAI('Well hello! 👋 I’ve been hoping you’d come.'); setTimeout(chapter1, 1700); }, 300); }
-  else { setTimeout(function(){ if(!handoff()) morning(); }, 300); }
+  /* iPhone only allows a page to talk if the very first sentence leaves inside the tap itself —
+     no timers in between. So we say it here, now, and let the bubble catch up a moment later. */
+  if(!S.ch1){
+    speak('Well hello! I’ve been hoping you’d come.');
+    setTimeout(function(){ bubAI('Well hello! 👋 I’ve been hoping you’d come.', true); setTimeout(chapter1, 1700); }, 300);
+  } else {
+    var hr=new Date().getHours(), tod = hr<12?'morning':hr<17?'afternoon':'evening';
+    var g = (S.p.greet||('Hello, '+(S.p.userName||'friend')+'!'));
+    if(tod!=='morning') g = g.replace(/morning/i, tod);
+    S.__saidGreet = g;
+    speak(g);
+    setTimeout(function(){ if(!handoff()) morning(); }, 300);
+  }
 }
 window.begin=begin;
 (function(){
