@@ -91,6 +91,8 @@
   <h1>Well, <em style="color:var(--gold);font-style:normal">hello</em> there.</h1>
   <p id="helloTxt">I'm your new friend — I just don't have a name yet. Come say hi and we'll fix that together. I talk out loud, so turn your sound on.</p>
   <button onclick="begin()">Say hello →</button>
+  <div style="margin-top:16px"><button onclick="soundCheck(this)" style="background:transparent;color:#EBD9A8;border:1.5px solid rgba(235,217,168,.5);font-size:15px;padding:10px 18px">🔊 Test the sound</button></div>
+  <div id="scOut" style="display:none;max-width:340px;margin:12px auto 0;font-size:14.5px;line-height:1.5;padding:11px 14px;border-radius:12px"></div>
   <div id="wipe" style="display:none;margin-top:14px"><button onclick="R.reset()" style="background:transparent;color:#F3B6A2;border:1.5px solid rgba(243,182,162,.5);font-size:14px;padding:9px 16px">🧹 Start fresh — forget everything</button></div>
   <div class="v">Rafiki v1.2c · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
 </div>
@@ -98,7 +100,7 @@
 <div class="wrap">
   <header>
     <div class="who"><span class="face" id="hFace">🙂</span><div><b id="hName">Your friend</b><small id="hSub">getting to know you</small></div></div>
-    <div class="pills"><button onclick="R.voice()" title="my voice">🗣</button><button onclick="R.mute()" id="muteB">🔊</button><button onclick="R.aa()">Aa</button><button onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
+    <div class="pills"><button onclick="R.voice()" title="choose my voice">🗣 voice</button><button onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
   <div class="foot">Rafiki v1.2c · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
@@ -676,7 +678,7 @@ window.R={
       location.replace(location.pathname);
     }
   },
-  mute:function(){ muted=!muted; S.muted=muted; save(S); document.getElementById('muteB').textContent=muted?'🔇':'🔊'; if(muted) hush(); },
+  mute:function(){ muted=!muted; S.muted=muted; save(S); document.getElementById('muteB').textContent=muted?'🔇 off':'🔊 on'; if(muted) hush(); },
   aa:function(){ var b=document.body;
     if(b.classList.contains('huge')) b.classList.remove('huge','big');
     else if(b.classList.contains('big')){ b.classList.remove('big'); b.classList.add('huge'); }
@@ -684,7 +686,7 @@ window.R={
     try{ localStorage.setItem('rafiki_aa', b.className); }catch(e){} }
 };
 try{ document.body.className=localStorage.getItem('rafiki_aa')||''; }catch(e){}
-document.getElementById('muteB').textContent=muted?'🔇':'🔊';
+document.getElementById('muteB').textContent=muted?'🔇 off':'🔊 on';
 
 function paintHeader(){
   document.getElementById('hFace').textContent=S.face||'🙂';
@@ -696,6 +698,36 @@ function handoff(){
     if(t){ history.replaceState(null,'',location.pathname); setTimeout(function(){ bubME(t); captureTask(t); },1400); return true; }
   }catch(e){} return false;
 }
+/* ── v1.2c: a plain-English sound check, so the phone tells us what is wrong ── */
+function soundCheck(btn){
+  var out=document.getElementById('scOut');
+  var show=function(txt,good){ out.style.display='block'; out.innerHTML=txt;
+    out.style.background = good ? 'rgba(120,200,150,.16)' : 'rgba(240,140,110,.18)';
+    out.style.border = '1.5px solid ' + (good ? 'rgba(120,200,150,.6)' : 'rgba(240,140,110,.65)'); };
+  if(!window.speechSynthesis){ show('This browser cannot talk at all. Open Rafiki in <b>Safari</b> or <b>Chrome</b>.',false); return; }
+  btn.textContent='🔊 Listening for myself…';
+  var started=false, errored='';
+  try{
+    var u=new SpeechSynthesisUtterance('Hello. If you can hear me, the sound is working.');
+    u.rate=.9;
+    var vs=[]; try{ vs=speechSynthesis.getVoices()||[]; }catch(e){}
+    u.onstart=function(){ started=true; };
+    u.onerror=function(e){ errored=(e&&e.error)||'blocked'; };
+    speechSynthesis.speak(u);
+    setTimeout(function(){
+      btn.textContent='🔊 Test the sound again';
+      if(started){
+        show('<b>My voice is working.</b> 👍<br>If you did not hear it, it is the phone, not the app — check the <b>little switch on the left edge</b> of your iPhone (orange showing = silenced), then turn the volume up with the buttons <i>while this page is open</i>.', true);
+      } else if(errored){
+        show('<b>The phone stopped me.</b> (' + errored + ')<br>Close every other app that plays sound, then reopen Rafiki. If it keeps happening, tell Claude the word in the brackets.', false);
+      } else {
+        show('<b>I could not make a sound at all.</b><br>Voices found on this phone: <b>' + vs.length + '</b>.<br>Please screenshot this and send it to Claude — that number is the clue.', false);
+      }
+    }, 2600);
+  }catch(e){ show('Something went wrong starting the voice: '+e, false); }
+}
+window.soundCheck=soundCheck;
+
 function begin(){
   unlock();                       /* this runs inside the tap on “Say hello” */
   var h=document.getElementById('hello');
