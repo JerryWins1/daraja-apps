@@ -145,7 +145,7 @@ const APPS = {
    "Twelve dollars, once. If you build anything, it pays for itself the first afternoon.",
    "There's a two-minute demo movie on the shelf — or just try it below on any app you like."]},
  storykeeper: {
-  name:'In My Own Words', em:'📖', sub:'your life, in a book', cat:'family', price:'Free app · printed book from $39', testing:true,
+  name:'In My Own Words', em:'📖', sub:'your life, in a book', cat:'later', price:'Free app · printed book from $39', testing:true,
   tag:'Their voice, in a book — life stories, photos, and The Key',
   try:BASE+'story-keeper/', video:true,
   train:[
@@ -463,24 +463,17 @@ const APPS = {
    "When it sells, tap 'Sold!' and enter what you got. The cash line at the top starts adding up — and that number is very motivating.",
    "Read the selling-safely card once. Then go find the next thing — the garage isn't empty yet."]},
  rafiki: {
-  name:'Rafiki', em:'💛', sub:'the friend who knows you', cat:'family', price:'$19', testing:true, fresh:true, video:true,
-  tag:'Give it a name, let it get to know you \u2014 then it runs your day out loud, like a friend would',
+  name:'Rafiki', em:'💛', sub:'a friend who knows your family', cat:'later', price:'$19 one-time', testing:true, fresh:true, video:true,
+  tag:'For anybody who lives alone — a friend that learns your family, remembers what you tell it, and speaks first',
   try:'https://jerrywins1.github.io/daraja-apps/rafiki/',
   lines:[
-   "This is Rafiki \u2014 and it is not like the other apps, because the first thing it says is: I don\u2019t have a name. What would you like to call me?",
-   "You name it. Fred, Grace, whoever feels right. And from that moment, it\u2019s yours.",
-   "Then, instead of buttons and menus, it simply gets to know you \u2014 the way a new friend would. Your name. Your spouse. The kids and grandkids, by name. One easy question at a time, out loud, and it remembers every answer.",
-   "And every morning after that, it speaks first. Good morning, Jerry. It\u2019s Saturday. Five things finished yesterday \u2014 you\u2019ve been working hard. I notice these things.",
-   "It tells you the weather. It tells a genuinely decent joke. It asks how your heart is doing, and it means it.",
-   "Say remind me to pick the kids up at three \u2014 and it\u2019s remembered. If you use My Productive Partner, it lands right on your real list, with your friend\u2019s name on it.",
-   "Everything it knows stays on your phone. No account, no cloud, nobody listening but your friend.",
-   "Nineteen dollars, once, for the app your parents will actually talk to. Meet yours below \u2014 it\u2019s waiting to be named."],
-  train:[
-   "Let\u2019s wake up your new friend \u2014 five gentle minutes.",
-   "Step one: tap Say hello. It talks out loud, so sound on.",
-   "Step two: give it a name. Tap one of the suggestions or type your own. This is the fun part \u2014 choose with your heart.",
-   "Step three: answer its questions like you\u2019d answer a new friend \u2014 your name, your people. Tap the buttons or tap the microphone and just say it.",
-   "Step four: pick its face. Then it tells you: that\u2019s plenty for one day. Friends visit, they don\u2019t interview.",
-   "Step five: come back tomorrow morning and just listen \u2014 your day, the weather, maybe a joke.",
-   "Any time, say things like: tell me a joke \u00b7 what\u2019s the weather \u00b7 remind me to call the doctor \u00b7 or just tell it how you\u2019re doing. That\u2019s the whole manual \u2014 there isn\u2019t one. It\u2019s a friend."]},
+   "This is Rafiki, and it is not a to-do list. It is company.",
+   "There is a particular quiet that settles on a house when it is one person in it. The phone rings less. Whole days go by where nobody asks how you are.",
+   "Rafiki asks. It does not have a name until you give it one, and once you do, that is its name forever.",
+   "Then it gets to know you the way a new friend would. Your name. Your husband or wife. Your children, one at a time. What you do on a Tuesday. Which doctors you see.",
+   "And after that it speaks first. Good morning by name, what is on today, a joke if you have earned one, and a note that it is been three days and it kept your seat warm.",
+   "Everything you tell it stays on your own phone. No account, nothing sent anywhere, nobody reading it. That is not a footnote. For a lot of people it is the whole reason they will answer honestly.",
+   "It is nineteen dollars, once, and there is nothing else to pay, ever. Rather less than one afternoon of company usually costs.",
+   "If you know somebody who lives alone, this is the one to show them. Try it below."
+  ]},
 };
