@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Drumbeat — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
@@ -26,20 +26,20 @@ const APPS = {
    {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"},
    "You'll know it's set up right when the NOW card shows one thing with a timer — and somebody checks it off and gets the party."],
   lines:[
-   "This is My Productive Partner, made for kids, and grown-ups, whose brains run fast.",
-   "It solves a very particular ache: knowing exactly what needs doing, and still not being able to start. And for the parent, it solves saying hurry up eleven times before seven thirty.",
-   "Here is the whole idea: the screen shows one thing. Not the long scary list, just the one thing to do now.",
-   "A timer keeps the middle short, and when you finish, the app throws a little party, with high fives, coins, and a family leaderboard.",
-   "Mornings, homework, and bedtime run on routines that show up all by themselves, so nobody has to nag.",
-   "Everyone in the family gets their own list, their own coins, and their own cheering buddy, all on one phone.",
-   "It is getting genuinely smart, too. The week planner lets you empty your whole head, laundry, appointments, visits, and then it spreads the week onto sensible days for everyone with one tap.",
-   "It even notices things on its own, like four days in a row, don't break the chain, or two more finishes your best day ever. A helper on your shoulder, never a boss.",
-   "The result is simple: kids start, kids finish, and nobody yells. Calmer mornings are worth far more than five dollars.",
-   "It costs four ninety-nine, once. No account, no ads, it works offline, and nothing ever leaves your phone.",
-   "New this season: big jobs break themselves into little pieces you can actually start, so a six-hour garage becomes eight small wins.",
-   "And once a week, Horizons lets a grown-up's AI find gentle doors near you, like the open gym or the beginner chess night. No feed, and no pressure.",
-   "And the brand-new River look: your own family photo becomes the background, your day floats over it on glass, and there are three looks to choose from, including a game mode with X P for the teenagers.",
-   "Every new feature explains itself the first time you touch it, in plain words, out loud if you like. Try the whole thing right now with the button below."
+   "This is My Productive Partner. It is for anyone whose brain runs faster than their day — a child, a grown-up, either.",
+   "It answers a very particular ache: knowing exactly what needs doing, and still not being able to begin.",
+   "Here is the whole idea. The screen shows one thing. Not the long list, just the one thing to do now.",
+   "A timer keeps that one thing short, and when it is done the app makes a small fuss of you — high fives, coins, and a family board if you want one.",
+   "Mornings, homework and bedtime run on routines that appear by themselves, so everyone can see what is coming without being told twice.",
+   "That is the part parents notice. It shows a child what is ahead, so they start on their own — which builds their confidence, and quietly builds trust between you.",
+   "Everyone in the house gets their own list, their own coins and their own cheering buddy, all on one phone.",
+   "One main feature: big jobs break themselves into pieces you can actually start, so a six-hour garage becomes eight small wins.",
+   "The week planner lets you empty your head — laundry, appointments, visits — and spreads it over sensible days with one tap.",
+   "It notices things too. Four days in a row, do not break the chain. Two more and it is your best day yet. A helper on your shoulder, never a boss.",
+   "You can make it yours: your own family photo as the background, and three different looks — including a points-and-levels one that teenagers actually like.",
+   "Once a week it can also go looking for gentle things to do near you — the open gym, the beginner chess night. It uses a grown-up's A.I. to find them. No feed, no pressure.",
+   "Every new part of it explains itself the first time you touch it, in plain words, out loud if you like.",
+   "Four ninety-nine, once. No account, no adverts, it works with no signal, and nothing ever leaves your phone. Try the whole thing right now with the button below."
   ]},
  ahead: {
   name:'Ahead of It', em:'🧾', sub:'never miss a deadline', fresh:true, cat:'family', price:'$9', testing:true,
@@ -55,14 +55,16 @@ const APPS = {
    "You'll know you're set when the front page shows your next thirty days, with dates that are really yours — and nothing on it surprises you."],
   lines:[
    "This is Ahead of It — for whoever carries the household.",
-   "The problem: taxes, plate renewals, insurance, the dog's shots. Each one causes real problems if you miss it — and they all live in your head.",
-   "How it works: a library of twenty-seven things households forget, ready to add in one tap. Your real dates, your real stuff.",
-   "It shows you what's due in the next thirty days — and exactly what it costs you to miss each one, so you know what actually matters.",
-   "There's a year map so you can see the whole calendar of obligations at a glance.",
-   "And a hand-off list — so if you're ever not the one carrying the household, someone else can pick it up without detective work.",
-   "The benefit: nothing catches you off guard. No late fees, no lapsed insurance, no 'I thought YOU renewed it.'",
-   "Nine dollars, once. One missed late fee costs more.",
-   "Try it below — add three real things from your own house and feel the difference."]},
+   "Every house has its own list, and it is different in every house. The insurance renewal. The property tax. The car registration. The dentist. The dog's shots.",
+   "None of it is difficult. It is just that all of it lives in one person's head, and heads leak.",
+   "So you put your real ones in, with your real dates, and it holds them for you.",
+   "It shows what is due in the next thirty days, and what it actually costs you to miss each one — so you can tell what matters from what can wait.",
+   "There is a year map, the whole calendar on one page, which is the bit people print for the fridge.",
+   "Most of these dates are already in your phone's calendar, and it will put yours there too, so a reminder finds you even when the app is closed.",
+   "And there is a hand-off list, so if you are ever not the one carrying the household, somebody else can pick it up without detective work.",
+   "Nothing catches you off guard. No late fees, no lapsed insurance, no 'I thought you renewed it.'",
+   "Nine dollars, once. Try it below — put three real things from your own house in and see how it feels."
+  ]},
  nextstep: {
   name:'Next Step Board', em:'🗂', sub:'every project\'s next move', fresh:true, cat:'work', price:'$9', testing:true,
   tag:'Every project, its next step, whose turn — one screen',
@@ -261,17 +263,17 @@ const APPS = {
 
  /* ── WORK SHELF addition ── */
  drumbeat: {
-  name:'Drumbeat', em:'🥁', sub:'one message, every channel, on a schedule', cat:'work', price:'$19 one-time', video:true,
+  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', price:'$19 one-time', video:true,
   tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece',
   try:BASE+'drumbeat/',
   lines:[
-   "This is Drumbeat, and it is for anyone who has to tell the same news to a lot of people.",
+   "This is Message Assistant, and it is for anyone who has to tell the same news to a lot of people.",
    "A fundraiser, a rummage sale, a new service time, a grand opening. You know what you want to say. What wears you out is saying it eleven times — the email, the text, the Facebook post, the bulletin, the reminder, the last call.",
-   "With Drumbeat you tell it once. What is happening, when, and who needs to know.",
-   "Then it hands you a written question to paste into whichever AI you already use — ours, or ChatGPT, whatever you like. Paste the answer back, and Drumbeat has your whole campaign: every message, for every channel, in the right order.",
+   "With Message Assistant you tell it once. What is happening, when, and who needs to know.",
+   "Then it hands you a written question to paste into whichever A.I. you already use — Claude, or ChatGPT, whichever you like. Paste the answer back, and Message Assistant has your whole campaign: every message, for every channel, in the right order.",
    "It lays them out on a calendar, so you can see the drumbeat build — the announcement, the reminder, the day-before nudge, the thank you.",
-   "Download the calendar file and your phone buzzes when each piece is due. Open Drumbeat, tap the piece, and fire it.",
-   "And here is the part that matters: nothing sends itself. It goes from your own email, your own Messages, your own account — so there is no mailing service to sign up for and no monthly bill. Drumbeat plans and writes; you press send.",
+   "Download the calendar file and your phone buzzes when each piece is due. Open Message Assistant, tap the piece, and fire it.",
+   "And here is the part that matters: nothing sends itself. It goes from your own email, your own Messages, your own account — so there is no mailing service to sign up for and no monthly bill. Message Assistant plans and writes; you press send.",
    "Nineteen dollars, once. Try it below."]},
 
  /* ── FOR FANS & LEAGUES ── */
