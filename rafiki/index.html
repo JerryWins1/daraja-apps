@@ -1234,33 +1234,40 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
 </script>
 
 
-<style id="daraja-readable-v3-css">
-  /* ── nothing smaller than 13px, ever. This is an audience with reading glasses. ── */
-  body, p, li, td, label, span, small, .hint, .small, .sub { font-size: max(13px, 1em); }
-  small, .small, .hint { font-size: max(13.5px, .85em); }
 
-  /* ── a fingertip is about 44px. Links and dropdowns were missed the first time. ── */
-  button, .btn, a.btn, [role="button"], select, input[type="checkbox"], input[type="radio"] { min-height: 44px; }
-  select { min-height: 44px; }
-  nav button, .pills button, .chips button { min-height: 40px; }
 
-  /* ── iOS zooms the page whenever a box is under 16px. Some apps set it inline,
-     which beats a plain rule, so this one has to insist. ── */
+
+
+<style id="daraja-readable-v4-css">
+  /* ── nothing below 13px, and typing boxes never below 16px (iOS zoom) ── */
+  body, p, li, td, label, span, small, .hint, .small { font-size: max(13px, 1em); }
   input, textarea, select { font-size: max(16px, 1em) !important; }
 
-  /* ── the version line is how Jerry checks which copy he has; it was at 3.4:1 ── */
-  footer, .foot, #ver, .ver, .v, .version { opacity: 1; }
+  /* ── a fingertip is 44px. Links styled as buttons were still slipping through. ── */
+  button, .btn, a.btn, [role="button"], select,
+  input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="button"] {
+    min-height: 44px;
+  }
+  button, .btn, a.btn, [role="button"] {
+    padding-top: max(8px, var(--dj-pt, 0px));
+    padding-bottom: max(8px, var(--dj-pb, 0px));
+  }
+  /* small chips and nav items get 40px, which is still a comfortable target */
+  nav button, .pills button, .chips button, .tabs button { min-height: 40px !important; }
+
+  /* ── the floating helper must never share space with a header or a bar ── */
+  #djHelp { top: auto !important; bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+            right: 10px !important; z-index: 55 !important; }
 </style>
-<script id="daraja-readable-v3-js">
-/* ═══ Readability corrector ═══
-   Measured across 26 apps at iPhone size: 25 places where text sat below the readable
-   limit — the version line at 3.4:1 and the "daraja studio" footer at 2.0:1 in nearly
-   every app. Rather than hand-tune 26 palettes, this measures each piece of text against
-   what is actually behind it and lifts it until it passes. Hue is preserved, so nothing
-   changes character; only the ones that fail are touched.  4.5:1 for body text,
-   3:1 for large text — the published readable minimums. */
+<script id="daraja-readable-v4-js">
+/* ═══ Readability corrector v4 ═══
+   v3 had a bug of my own making: it decided which way to move a colour purely from the
+   background's lightness, so white text on a mid-blue button was pushed *whiter* — no help
+   at all. It now tries both directions and takes whichever actually reaches the target with
+   the smaller change. Also labels boxes that have nothing to announce, using the words
+   already sitting next to them. */
 (function(){
-  if(window.__djReadable) return; window.__djReadable = true;
+  if(window.__djReadable4) return; window.__djReadable4 = true;
 
   var rgb = function(c){ return (String(c).match(/[\d.]+/g)||[0,0,0]).slice(0,3).map(Number); };
   var lum = function(c){
@@ -1269,69 +1276,94 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
   };
   var ratio = function(a,b){ var l1=lum(a), l2=lum(b); return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05); };
 
-  /* what is really behind this text — gradients and images count as their parent's tone */
   function behind(el){
     var n = el;
     while(n && n !== document.documentElement){
-      var cs = getComputedStyle(n);
-      var c = cs.backgroundColor;
+      var cs = getComputedStyle(n), c = cs.backgroundColor;
       if(c && !/rgba?\(0,\s*0,\s*0,\s*0\)|transparent/.test(c)){
-        var a = rgb(c), al = (String(c).match(/[\d.]+/g)||[])[3];
-        if(al === undefined || parseFloat(al) > 0.55) return 'rgb('+a[0]+','+a[1]+','+a[2]+')';
+        var parts = (String(c).match(/[\d.]+/g)||[]);
+        if(parts[3] === undefined || parseFloat(parts[3]) > 0.55)
+          return 'rgb('+parts[0]+','+parts[1]+','+parts[2]+')';
       }
-      if(cs.backgroundImage && cs.backgroundImage !== 'none') return null;  /* can't measure a gradient safely */
+      if(cs.backgroundImage && cs.backgroundImage !== 'none') return null;
       n = n.parentElement;
     }
     return getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)';
   }
 
+  /* try darker AND lighter; keep whichever reaches the target with the least change */
   function lift(color, bg, need){
-    var c = rgb(color), b = rgb(bg);
-    var goingLighter = lum(bg) < 0.5;
-    for(var step = 1; step <= 24; step++){
-      var f = step / 24;
-      var nc = c.map(function(v){ return goingLighter ? v + (255-v)*f : v * (1-f); });
-      var s = 'rgb('+nc.map(Math.round).join(',')+')';
-      if(ratio(s, bg) >= need) return s;
-    }
-    return goingLighter ? 'rgb(255,255,255)' : 'rgb(0,0,0)';
+    var c = rgb(color);
+    var best = null, bestStep = 99;
+    [true, false].forEach(function(lighter){
+      for(var step = 1; step <= 24; step++){
+        var f = step/24;
+        var nc = c.map(function(v){ return lighter ? v + (255-v)*f : v*(1-f); });
+        var s = 'rgb('+nc.map(Math.round).join(',')+')';
+        if(ratio(s, bg) >= need){
+          if(step < bestStep){ bestStep = step; best = s; }
+          break;
+        }
+      }
+    });
+    return best || (lum(bg) > 0.5 ? 'rgb(0,0,0)' : 'rgb(255,255,255)');
   }
 
-  function pass(){
+  function fixContrast(){
     var fixed = 0;
     var nodes = document.querySelectorAll('p,span,li,td,label,small,h1,h2,h3,h4,div,a,button,strong,b,em,i');
     for(var i = 0; i < nodes.length && i < 900; i++){
       var el = nodes[i];
       if(el.children.length) continue;
-      var txt = (el.textContent||'').trim();
-      if(txt.length < 2) continue;
+      if((el.textContent||'').trim().length < 2) continue;
       var cs = getComputedStyle(el);
-      if(cs.display === 'none' || cs.visibility === 'hidden') continue;
-      var r = el.getBoundingClientRect();
-      if(!r.width || !r.height) continue;
-      var bg = behind(el);
-      if(!bg) continue;
+      if(cs.display==='none' || cs.visibility==='hidden') continue;
+      var r = el.getBoundingClientRect(); if(!r.width || !r.height) continue;
+      var bg = behind(el); if(!bg) continue;
       var size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight,10) >= 700;
       var need = (size >= 24 || (size >= 18.66 && bold)) ? 3 : 4.5;
       if(ratio(cs.color, bg) >= need) continue;
-      el.style.color = lift(cs.color, bg, need);
-      /* a faded parent can undo the correction */
+      el.style.setProperty('color', lift(cs.color, bg, need), 'important');
       var op = parseFloat(cs.opacity);
       if(op < 1 && op > 0) el.style.opacity = '1';
       fixed++;
     }
-    window.__djReadableFixed = (window.__djReadableFixed||0) + fixed;
     return fixed;
   }
 
+  /* a box with no label, given the words already beside it */
+  function fixLabels(){
+    var n = 0;
+    document.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]),textarea,select').forEach(function(el){
+      if(el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title')) return;
+      if(el.id && document.querySelector('label[for="'+CSS.escape(el.id)+'"]')) return;
+      if(el.closest('label')) return;
+      var txt = '';
+      var prev = el.previousElementSibling;
+      if(prev && /^(LABEL|SPAN|B|STRONG|DIV|P|H[1-6])$/.test(prev.tagName)) txt = (prev.textContent||'').trim();
+      if(!txt && el.parentElement){
+        var p = el.parentElement.cloneNode(true);
+        p.querySelectorAll('input,textarea,select,button').forEach(function(x){ x.remove(); });
+        txt = (p.textContent||'').trim();
+      }
+      if(!txt) txt = el.type === 'date' ? 'Date' : (el.name || 'Type here');
+      el.setAttribute('aria-label', txt.replace(/\s+/g,' ').slice(0, 60));
+      n++;
+    });
+    return n;
+  }
+
+  function pass(){
+    var a = fixContrast(), b = fixLabels();
+    window.__djFixed = { contrast:(window.__djFixed?window.__djFixed.contrast:0)+a,
+                         labels:(window.__djFixed?window.__djFixed.labels:0)+b };
+  }
   function boot(){
     pass();
-    /* apps redraw themselves constantly, so re-check after changes — cheaply */
-    var t = null;
-    new MutationObserver(function(){
-      clearTimeout(t); t = setTimeout(pass, 400);
-    }).observe(document.body, {childList:true, subtree:true});
-    window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(pass, 400); });
+    var t=null;
+    new MutationObserver(function(){ clearTimeout(t); t=setTimeout(pass, 350); })
+      .observe(document.body, {childList:true, subtree:true});
+    window.addEventListener('resize', function(){ clearTimeout(t); t=setTimeout(pass, 350); });
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
