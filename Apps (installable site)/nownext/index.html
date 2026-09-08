@@ -1857,12 +1857,51 @@ try{
       +(kept.length? '<div class="small" style="font-weight:800;color:var(--next);margin-top:8px">Doors we might open</div>'+kept.map(function(c,i){ return '<div class="small" style="padding:3px 0">'+esc(c.em)+' '+esc(c.title)+' <button onclick="HZ.unkeep('+i+')" style="font:inherit;font-size:11px;border:none;background:none;color:var(--faint);cursor:pointer">✕</button></div>'; }).join('') : '');
   }
   window.HZ={
+    /* v7.7 — was two stacked prompt() pop-ups, the second asking for a comma-separated
+       list. Jerry on that pattern: "it just gives me a box separated by commas."
+       Now it is one small sheet with real boxes and tappable interests. */
     setup:function(){
       var pr=jget(HZP,{town:'',interests:''});
-      var t=prompt('Your town or area (so the AI can find LOCAL doors):', pr.town||''); if(t===null) return;
-      var i=prompt('Interests, separated by commas (chess, animals, science, faith, art…):', pr.interests||''); if(i===null) return;
-      jset(HZP,{town:t.trim(),interests:i.trim()}); renderHZ();
-      if(window.toast) toast('✨ Saved — now tap 📋 prompt');
+      var IDEAS=['chess','animals','science','faith','art','music','sport','cooking','building things','reading','the outdoors','computers'];
+      var chosen=(pr.interests||'').split(',').map(function(x){return x.trim();}).filter(Boolean);
+      var ov=document.createElement('div');
+      ov.id='hzSetup';
+      ov.style.cssText='position:fixed;inset:0;z-index:9500;background:rgba(12,13,16,.62);display:flex;align-items:center;justify-content:center;padding:16px;font-family:inherit';
+      function chips(){
+        return IDEAS.map(function(w){
+          var on=chosen.indexOf(w)>=0;
+          return '<button type="button" onclick="HZ._tog(\''+w+'\')" style="font:inherit;font-size:14px;font-weight:700;padding:8px 13px;margin:0 6px 6px 0;border-radius:999px;cursor:pointer;border:1.5px solid '+(on?'#2F6E52':'rgba(128,128,128,.45)')+';background:'+(on?'#2F6E52':'transparent')+';color:'+(on?'#fff':'inherit')+'">'+w+'</button>';
+        }).join('');
+      }
+      function paint(){
+        ov.innerHTML='<div style="background:var(--surface,#fff);color:var(--ink,#222);border-radius:20px;padding:18px 16px;max-width:440px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.4)">'
+          +'<h3 style="margin:0 0 4px;font-size:19px">Where to look, and for what</h3>'
+          +'<p style="margin:0 0 14px;font-size:14px;opacity:.75;line-height:1.5">Two things, and the scout can go hunting for real opportunities near you.</p>'
+          +'<label style="display:block;font-size:12.5px;font-weight:700;opacity:.7;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Your town or area</label>'
+          +'<input id="hzTown" value="'+String(pr.town||'').replace(/"/g,"&quot;")+'" placeholder="Gurnee, Illinois" autocomplete="address-level2" style="width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1.5px solid rgba(128,128,128,.45);border-radius:11px;background:transparent;color:inherit;margin-bottom:14px">'
+          +'<label style="display:block;font-size:12.5px;font-weight:700;opacity:.7;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">What they are into — tap any</label>'
+          +'<div style="margin-bottom:10px">'+chips()+'</div>'
+          +'<input id="hzMore" placeholder="anything else? separate with commas" style="width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1.5px solid rgba(128,128,128,.45);border-radius:11px;background:transparent;color:inherit">'
+          +'<button onclick="HZ._save()" style="width:100%;font:inherit;font-weight:800;font-size:16px;padding:13px;border:none;border-radius:13px;background:#2F6E52;color:#fff;cursor:pointer;margin-top:14px">Save</button>'
+          +'<button onclick="HZ._close()" style="width:100%;font:inherit;font-weight:700;font-size:14px;padding:11px;border:1px solid rgba(128,128,128,.4);border-radius:12px;background:transparent;color:inherit;cursor:pointer;margin-top:8px">Never mind</button>'
+          +'</div>';
+      }
+      HZ._tog=function(w){
+        var t=document.getElementById('hzTown'); if(t) pr.town=t.value;
+        var ix=chosen.indexOf(w); if(ix>=0) chosen.splice(ix,1); else chosen.push(w);
+        paint();
+      };
+      HZ._close=function(){ var e=document.getElementById('hzSetup'); if(e) e.remove(); };
+      HZ._save=function(){
+        var t=(document.getElementById('hzTown')||{}).value||'';
+        var more=((document.getElementById('hzMore')||{}).value||'').split(',').map(function(x){return x.trim();}).filter(Boolean);
+        var all=chosen.concat(more);
+        jset(HZP,{town:t.trim(), interests:all.join(', ')});
+        HZ._close(); renderHZ();
+        if(window.toast) toast('✨ Saved — now tap 📋 prompt');
+      };
+      paint(); document.body.appendChild(ov);
+      setTimeout(function(){ var t=document.getElementById('hzTown'); if(t) t.focus(); }, 60);
     },
     copy:function(){
       navigator.clipboard.writeText(hzPrompt()).then(function(){ if(window.toast) toast('📋 Scout prompt copied — paste it to your AI, then bring back its answer'); });
