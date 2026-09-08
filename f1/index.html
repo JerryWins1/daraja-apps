@@ -1,6 +1,217 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script id="dj-house-v3">
+/* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
+(function(){
+  if(window.__djHouse) return; window.__djHouse = true;
+
+  /* ── 1 · the real local day ──────────────────────────────────────────────
+     toISOString() converts to UTC. At 7pm in Illinois that is already tomorrow,
+     so "today" landed on the wrong date and daily streaks broke overnight. */
+  window.djYMD = function(d){
+    d = d || new Date();
+    if(typeof d === 'string') d = new Date(d + (d.length === 10 ? 'T12:00:00' : ''));
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
+  };
+
+  /* ── 2 · saving must never fail silently ─────────────────────────────────
+     Every app writes with localStorage.setItem. If the phone refuses, the old
+     code threw, the save function stopped halfway, and nobody was told. */
+  try{
+    var proto = window.Storage && Storage.prototype;
+    if(proto && !proto.__djGuarded){
+      var realSet = proto.setItem;
+      proto.setItem = function(k, v){
+        try{ return realSet.call(this, k, v); }
+        catch(err){ djSaveFailed(err); return undefined; }
+      };
+      proto.__djGuarded = true;
+    }
+  }catch(e){}
+
+  var toldOnce = false;
+  function djSaveFailed(err){
+    if(toldOnce) return; toldOnce = true;
+    var full = err && (err.name === 'QuotaExceededError' ||
+               err.code === 22 || err.code === 1014);
+    djBanner(
+      full ? 'This phone is out of room, so that did not save.'
+           : 'This phone would not let the app save that.',
+      full ? 'Free up some space in Settings › General › iPhone Storage, then tap Try again. Nothing you can see on screen has been lost yet — but do not close the app until it saves.'
+           : 'This usually means private browsing, or Settings › Safari › Block All Cookies is switched on. Turn that off and tap Try again.',
+      [['Try again', function(){ location.reload(); }]]
+    );
+  }
+
+  /* ── 3 · nothing white-screens without a way out ─────────────────────────
+     A single bad record used to leave a blank page and no route back. */
+  var netShown = false;
+  function net(msg){
+    if(netShown) return; netShown = true;
+    djBanner('Something went wrong on this screen.',
+      'Your saved work is untouched. Reloading fixes almost everything.' +
+      (msg ? '\n\n(' + String(msg).slice(0,120) + ')' : ''),
+      [['Reload', function(){ location.reload(); }]]);
+  }
+  window.addEventListener('error', function(e){
+    if(e && e.target && e.target !== window && e.target.tagName) return; /* a missing image is not a crash */
+    net(e && e.message);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    net(e && e.reason && e.reason.message);
+  });
+
+  /* one calm bar, never an alert() the person cannot read at their own pace */
+  function djBanner(title, body, buttons){
+    if(!document.body){ document.addEventListener('DOMContentLoaded', function(){ djBanner(title, body, buttons); }); return; }
+    var old = document.getElementById('djBanner'); if(old) old.remove();
+    var w = document.createElement('div');
+    w.id = 'djBanner';
+    w.setAttribute('role','alert');
+    w.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483000;'
+      + 'background:#7A2E1E;color:#fff;padding:16px 16px calc(16px + env(safe-area-inset-bottom));'
+      + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -6px 26px rgba(0,0,0,.35)';
+    var h = document.createElement('div');
+    h.style.cssText = 'font-weight:800;font-size:16px;margin-bottom:4px'; h.textContent = title;
+    var p = document.createElement('div');
+    p.style.cssText = 'opacity:.94;white-space:pre-wrap'; p.textContent = body;
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap';
+    (buttons||[]).forEach(function(b){
+      var el = document.createElement('button');
+      el.textContent = b[0];
+      el.style.cssText = 'font:inherit;font-weight:800;min-height:44px;padding:10px 16px;border:none;'
+        + 'border-radius:12px;background:#fff;color:#7A2E1E;cursor:pointer';
+      el.onclick = b[1]; row.appendChild(el);
+    });
+    var x = document.createElement('button');
+    x.textContent = 'Dismiss';
+    x.setAttribute('aria-label','Dismiss this message');
+    x.style.cssText = 'font:inherit;font-weight:700;min-height:44px;padding:10px 16px;border:1px solid rgba(255,255,255,.55);'
+      + 'border-radius:12px;background:transparent;color:#fff;cursor:pointer';
+    x.onclick = function(){ w.remove(); };
+    row.appendChild(x);
+    w.appendChild(h); w.appendChild(p); w.appendChild(row);
+    document.body.appendChild(w);
+  }
+  window.djBanner = djBanner;
+
+  /* ── 4 · talk into any typing box ────────────────────────────────────────
+     Rafiki and Feedback Studio had this; twenty-one apps did not. The button
+     only appears once you tap into a box, so no screen changes until you want it. */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, micBtn = null, curBox = null;
+
+  function eligible(el){
+    if(!el || el.dataset.djMic === 'off') return false;
+    var t = (el.tagName||'').toLowerCase();
+    if(t === 'textarea') return true;
+    if(t !== 'input') return false;
+    var ty = (el.type||'text').toLowerCase();
+    if(['text','search','tel','url','email'].indexOf(ty) < 0) return false;
+    if(el.readOnly || el.disabled) return false;
+    /* Leave alone any box that already has its own microphone — Rafiki, Feedback
+       Studio and In My Own Words built their own and theirs are better placed.
+       Stop at <body>: once our own button is on the page its emoji is inside body's
+       text, which would make every box after the first one look already-served. */
+    var p = el.parentElement;
+    for(var i=0; i<3 && p && p !== document.body && p !== document.documentElement; i++, p = p.parentElement){
+      var t = p.textContent || '';
+      if(micBtn && p.contains(micBtn)) t = t.split('\u{1F3A4}').join('');
+      if(t.indexOf('\u{1F3A4}') >= 0) return false;
+    }
+    return true;
+  }
+
+  function place(box){
+    if(!micBtn){
+      micBtn = document.createElement('button');
+      micBtn.type = 'button';
+      micBtn.id = 'djMic';
+      micBtn.textContent = '\u{1F3A4}';
+      micBtn.setAttribute('aria-label','Say it instead of typing');
+      micBtn.title = 'Say it instead of typing';
+      /* every app has its own button styling — min-height:44px, padding, box-sizing —
+         so this one states its shape outright or it comes out the wrong size */
+      micBtn.style.cssText = 'position:absolute !important;z-index:2147482000;'
+        + 'box-sizing:border-box !important;width:40px !important;height:40px !important;'
+        + 'min-width:40px !important;min-height:40px !important;max-width:40px !important;'
+        + 'max-height:40px !important;padding:0 !important;margin:0 !important;'
+        + 'border-radius:50% !important;border:1px solid rgba(128,128,128,.4);background:#fff;'
+        + 'color:#1F2622;font-size:19px;line-height:1;cursor:pointer;'
+        + 'box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center';
+      micBtn.addEventListener('mousedown', function(e){ e.preventDefault(); });
+      micBtn.addEventListener('click', function(e){ e.preventDefault(); talk(); });
+      document.body.appendChild(micBtn);
+    }
+    var r = box.getBoundingClientRect();
+    /* scrolled out of sight — inside a sheet or off the page — so show nothing */
+    if(r.bottom < 4 || r.top > window.innerHeight - 4 || r.width < 60){ micBtn.hidden = true; return; }
+    micBtn.hidden = false;
+    /* measure what the browser actually made, rather than trusting the numbers above */
+    var m = micBtn.getBoundingClientRect();
+    var w = m.width  || 40, h = m.height || 40;
+    micBtn.style.top  = (window.scrollY + r.top + (r.height - h)/2) + 'px';
+    micBtn.style.left = (window.scrollX + r.right - w - 6) + 'px';
+    /* a short box would be swallowed by the button — sit just outside it instead */
+    if(r.width < w + 90) micBtn.style.left = (window.scrollX + r.right + 6) + 'px';
+  }
+  function hide(){ if(micBtn) micBtn.hidden = true; }
+
+  function talk(){
+    var box = curBox; if(!box) return;
+    if(rec){ try{ rec.stop(); }catch(e){} return; }
+    rec = new SR();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true;
+    rec.continuous = (box.tagName.toLowerCase() === 'textarea');
+    var base = (box.value || '').trim();
+    micBtn.textContent = '⏹';
+    micBtn.style.background = '#D96C4F';
+    micBtn.setAttribute('aria-label','Stop listening');
+    rec.onresult = function(e){
+      var t = '';
+      for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
+      box.value = (base ? base + ' ' : '') + t;
+      box.dispatchEvent(new Event('input', {bubbles:true}));
+    };
+    function done(){
+      rec = null;
+      if(micBtn){ micBtn.textContent = '\u{1F3A4}'; micBtn.style.background = '#fff';
+                  micBtn.setAttribute('aria-label','Say it instead of typing'); }
+      box.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+    rec.onend = done;
+    rec.onerror = done;
+    try{ rec.start(); }catch(e){ done(); }
+  }
+
+  function start(){
+    if(!SR) return;                                   /* no microphone here — show nothing */
+    document.addEventListener('focusin', function(e){
+      if(eligible(e.target)){ curBox = e.target; place(e.target); }
+      else if(e.target !== micBtn){ hide(); }
+    });
+    document.addEventListener('focusout', function(e){
+      setTimeout(function(){
+        if(document.activeElement !== curBox && document.activeElement !== micBtn){
+          if(rec){ try{ rec.stop(); }catch(err){} }
+          hide(); curBox = null;
+        }
+      }, 120);
+    });
+    /* capture, so a scroll inside a sheet or panel moves the button too */
+    window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
+    window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
+
 <meta charset="utf-8">
 <title>Pit Wall</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
