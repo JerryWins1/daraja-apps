@@ -99,7 +99,7 @@
   <div style="margin-top:16px"><button onclick="soundCheck(this)" style="background:transparent;color:#EBD9A8;border:1.5px solid rgba(235,217,168,.5);font-size:15px;padding:10px 18px">🔊 Test the sound</button></div>
   <div id="scOut" style="display:none;max-width:340px;margin:12px auto 0;font-size:14.5px;line-height:1.5;padding:11px 14px;border-radius:12px"></div>
   <div id="wipe" style="display:none;margin-top:14px"><button onclick="R.reset()" style="background:transparent;color:#F3B6A2;border:1.5px solid rgba(243,182,162,.5);font-size:14px;padding:9px 16px">🧹 Start fresh — forget everything</button></div>
-  <div class="v">Rafiki v1.4 · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
+  <div class="v">Rafiki v1.5 · Sep 6, 2026 · by Daraja Studio · everything you tell me stays on this device</div>
 </div>
 
 <div class="wrap">
@@ -108,7 +108,7 @@
     <div class="pills"><button onclick="R.voice()" title="choose my voice">🗣 voice</button><button onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.4 · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.5 · 2026-09-06 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -767,11 +767,88 @@ function listBoxes(n, label, key, done){
 
 /* ── v1.4: THE ANSWER TO "the screen just stops". Never a bare menu of verbs again —
    this says, in plain words, what there is to do right now, and offers exactly that. ── */
+/* ── v1.5 · the two apps become one thing ──────────────────────────────────────
+   Jerry: "is this app connected to Now & Next? ... connect it to then and now."
+   It was one-way and half-hearted: Rafiki could add a task and count them. Now it can
+   READ the list, TICK things off out loud, know what is overdue, and hand you back to
+   the other app on the exact task you were talking about. Same list, two front doors. ── */
+function nnTasks(){
+  var d=nnDB(); if(!d) return [];
+  return (d.tasks||[]).map(function(t,i){ t.__i=i; return t; });
+}
+function nnOpen(){ return nnTasks().filter(function(t){ return !t.done; }); }
+function nnWrite(fn){
+  var k=nnEnsure(); if(!k) return false;
+  try{ var d=JSON.parse(localStorage.getItem(k))||{}; d.tasks=d.tasks||[];
+    fn(d); localStorage.setItem(k, JSON.stringify(d)); return true; }catch(e){ return false; }
+}
+function nnDone(idx){
+  return nnWrite(function(d){
+    if(d.tasks[idx]){
+      d.tasks[idx].done = true;
+      d.tasks[idx].doneAt = Date.now();
+      var key = new Date().toISOString().slice(0,10);
+      d.history = d.history || {}; d.history[key] = (d.history[key]||0) + 1;
+    }
+  });
+}
+/* fuzzy match, because people say "the dentist" not "Check in with Dentist" */
+function findTask(said){
+  var q=String(said||'').toLowerCase().replace(/^(i )?(did|done|finished|completed)\s+/,'').replace(/^the\s+/,'').trim();
+  if(!q) return null;
+  var open=nnOpen(), best=null, score=0;
+  open.forEach(function(t){
+    var txt=String(t.text||'').toLowerCase();
+    var sc = txt===q ? 100 : (txt.indexOf(q)>=0 ? 70 : (q.indexOf(txt)>=0 ? 60 : 0));
+    if(!sc){ /* word overlap */
+      var qw=q.split(/\s+/).filter(function(w){return w.length>3;});
+      var hit=qw.filter(function(w){ return txt.indexOf(w)>=0; }).length;
+      if(qw.length) sc = Math.round(hit/qw.length*50);
+    }
+    if(sc>score){ score=sc; best=t; }
+  });
+  return score>=45 ? best : null;
+}
+/* the whole point: tick something off by saying it */
+function tickOff(said){
+  var t=findTask(said);
+  if(!t){
+    bubAI('I could not find that one on your list. Say it the way it is written, or tap <b>\u{1F4CB} Read me my list</b> and tell me the number.');
+    return whatNow();
+  }
+  if(nnDone(t.__i)){
+    var left=nnOpen().length;
+    bubAI('✓ <b>'+esc(t.text)+'</b> — ticked off. '+
+      (left? 'That leaves '+left+'. ' : 'And that was the last one. ')+
+      (left===0 ? 'Your list is clear, '+esc(S.p.userName||'friend')+'. Enjoy that.' : 'Nicely done.'));
+  } else {
+    bubAI('I could not reach your list just now — but I have written it down so nothing is lost.');
+    S.notes.push({t:'DONE: '+t.text, at:Date.now()}); save(S);
+  }
+  setTimeout(whatNow, 1200);
+}
+function overdueBits(){
+  var out=[];
+  nnOpen().forEach(function(t){
+    if(!t.due) return;
+    var d=new Date(t.due+'T12:00');
+    if(!isNaN(d) && d < new Date()) out.push(t.text);
+  });
+  return out;
+}
+/* hand back to the other app, on the very thing being discussed */
+function openPartner(taskText){
+  var url='../Apps%20(installable%20site)/nownext/';
+  if(taskText) url += '?add=' + encodeURIComponent(taskText);
+  window.open(url, '_blank');
+}
+window.openPartner = openPartner;
+
 function readList(){
   var d=nnDB();
   var open = d ? (d.tasks||[]).filter(function(t){return !t.done;}) : [];
   if(!open.length){ bubAI('Nothing on it at all — you are completely clear. Enjoy that.'); return whatNow(); }
-  bubAI('Here is what is waiting.');
+  bubAI('Here is what is waiting. Tap one to tick it off.');
   var i=0;
   (function next(){
     if(i>=open.length || i>=8){
@@ -781,7 +858,16 @@ function readList(){
       }, 700);
       return;
     }
-    bubAI('<b>'+(i+1)+'.</b> '+esc(open[i].text));
+    var t=open[i], n=i+1;
+    var el=bubAI('<b>'+n+'.</b> '+esc(t.text));
+    (function(task, node){
+      var b=document.createElement('button');
+      b.textContent='✓ done';
+      b.style.cssText='margin-left:9px;font:inherit;font-weight:800;font-size:12.5px;padding:4px 10px;'
+        +'border-radius:999px;border:1.5px solid rgba(255,255,255,.35);background:transparent;color:inherit;cursor:pointer';
+      b.onclick=function(){ b.disabled=true; b.textContent='✓'; tickOff(task.text); };
+      node.appendChild(b);
+    })(t, el);
     i++; setTimeout(next, 1500);
   })();
 }
@@ -793,12 +879,19 @@ function whatNow(){
     if(f && f.open > 0){
       line = '<b>So — what now?</b> Your list has '+f.open+' thing'+(f.open>1?'s':'')+' waiting'+(f.next?(', starting with “'+esc(f.next)+'”'):'')+'. Want me to read them out, or shall we add something?';
       chips.push(['\u{1F4CB} Read me my list', readList]);
+      chips.push(['\u2705 I finished something', function(){
+        bubAI('Good. Which one? Say it however you like — "the dentist" is plenty.');
+        setTimeout(function(){ ask(tickOff, 'what did you finish?', nnOpen().slice(0,4).map(function(t){
+          return [t.text.length>28? t.text.slice(0,26)+'\u2026' : t.text, function(){ tickOff(t.text); }];
+        })); }, 900);
+      }]);
       chips.push(['\u2795 Add something to it', remember]);
     } else {
       line = '<b>So — what now?</b> Your list is empty. Tell me one thing you have to do today and I will put it on there — say it out loud, or type it below.';
       chips.push(['\u2795 Put something on my list', remember]);
     }
-    chips.push(['\u{1F5D3} Tell me about my week', function(){ if(S.ch2) chapter2(); else chapter2(); }]);
+    chips.push(['\u{1F4F1} Open '+NN, function(){ openPartner(); bubAI('Opened it for you — it is the same list, so anything you tick there I will know about.'); setTimeout(whatNow, 1400); }]);
+    chips.push(['\u{1F5D3} Tell me about my week', chapter2]);
     chips.push(['\u{1F604} Tell me a joke', joke]);
     chips.push(['\u{1F9F9} Start over', startOver]);
     bubAI(line);
@@ -833,6 +926,8 @@ function morning(){
   var f=nnFacts();
   setTimeout(function(){
     if(f){
+      var od=overdueBits();
+      if(od.length) bubAI('First though — '+(od.length===1? 'one thing has slipped past its date: <b>'+esc(od[0])+'</b>.' : od.length+' things have slipped past their dates, starting with <b>'+esc(od[0])+'</b>.')+' Shall we deal with that one?');
       if(f.doneYesterday>=3) bubAI('And by the way — '+f.doneYesterday+' things finished yesterday? You’ve been working hard. I notice these things. ⭐');
       else if(f.doneToday>=2) bubAI(f.doneToday+' things done already today — look at you go. ⭐');
       if(f.open>0) bubAI('Your list has '+f.open+' thing'+(f.open>1?'s':'')+' waiting'+(f.next?(', and the next little one is “'+esc(f.next)+'”.'):'.')+' No rush — one at a time is how we do it.');
@@ -859,6 +954,9 @@ function understand(t){
   if(/weather|outside|temperature|rain|cold|hot/.test(low)) return weather(function(w){ bubAI(w?('☀️ '+w.t+'° and '+w.p+'.'):'I couldn’t peek outside — location may be off for me.'); offerMenu(); });
   if(/start over|forget everything|clear (my )?data|erase/.test(low)) return startOver();
   if(/how are you|how’s your|hows it going/.test(low)) { bubAI('Living my best life in your pocket, thanks for asking. Very few apps get asked that — you’re one of the good ones.'); return offerMenu(); }
+  if(/^(i )?(did|done|finished|completed)\b|^tick off|^cross off|^mark .* done/.test(low)) return tickOff(low);
+  if(/what.*(on )?my list|read (me )?my list|what do i have|what.s left/.test(low)) return readList();
+  if(/open (now|my productive|the other app|the list)/.test(low)){ openPartner(); bubAI('There you go — same list, both apps.'); return whatNow(); }
   if(/remind me|remember|don’t forget|dont forget|need to |i have to |pick up|appointment/.test(low)) return captureTask(String(t).replace(/^(hey\s+\w+[,:]?\s*)?(please\s+)?(remind me to|remember to|remember|don’t forget to|dont forget to)\s*/i,''));
   if(/sad|lonely|tired|overwhelmed|anxious|stressed|heavy|down\b/.test(low)) return checkin();
   if(/save (this|the) (spot|place)|next time (i’m|im|we’re) here/.test(low)) return savePlace();
