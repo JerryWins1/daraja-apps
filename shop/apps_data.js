@@ -367,7 +367,7 @@ const APPS = {
   tag:'How many complete sets can we hand out right now?',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   lines:[
-   "This is Operation Christmas Child Assistant — for food drives, coat drives, and shoebox season.",
+   "This is the Operation Christmas Child Assistant — built for shoebox season, and just as good for a food drive or a coat drive.",
    "The question that matters isn't 'how much stuff do we have.' It's 'how many complete sets can we hand out right now?'",
    "A food box needs rice AND beans AND oil. Ninety bags of rice and four bottles of oil is four boxes — not ninety.",
    "Operation Christmas Child Assistant does that math live, as donations come in. The big number is sets ready to give.",
