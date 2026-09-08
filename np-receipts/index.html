@@ -50,8 +50,17 @@
 
   <div class="card">
     <h2>2 · The gifts</h2>
-    <p class="hint">One gift per line: <b>Name, amount, date</b> — like:<br><code>Mary Smith, 250, 2026-03-14</code><br>For an in-kind gift, describe it instead of an amount: <code>Bill Jones, in-kind: used office desk, 2026-05-02</code></p>
-    <textarea id="gifts" placeholder="Mary Smith, 250, 2026-03-14&#10;Bill Jones, 1200, 2026-06-20"></textarea>
+    <p class="hint">One donor per row. Fill in as many as you need — the ✚ button adds another.</p>
+    <div id="giftRows"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn" type="button" onclick="addGift()" style="flex:1;min-width:150px">✚ Add another donor</button>
+      <button class="btn" type="button" onclick="togglePaste()" id="pasteBtn" style="flex:1;min-width:150px">📋 Paste a list instead</button>
+    </div>
+    <div id="pasteWrap" style="display:none;margin-top:10px">
+      <p class="hint">One gift per line: <b>Name, amount, date</b> — e.g. <code>Mary Smith, 250, 2026-03-14</code>. For an in-kind gift describe it instead of an amount: <code>Bill Jones, in-kind: used office desk, 2026-05-02</code></p>
+      <textarea id="gifts" placeholder="Mary Smith, 250, 2026-03-14&#10;Bill Jones, 1200, 2026-06-20"></textarea>
+      <button class="btn" type="button" onclick="pasteIntoRows()" style="margin-top:8px">↧ Put these into the boxes</button>
+    </div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;color:var(--ink)"><input type="checkbox" id="noGoods" checked style="width:auto"> No goods or services were provided in exchange for these gifts <span style="color:var(--soft)">(uncheck if a dinner/auction item was involved — then edit that letter by hand)</span></label>
   </div>
 
@@ -81,6 +90,7 @@ function fmtAmt(a){ const n=Number(String(a).replace(/[$,]/g,'')); return isNaN(
 function makeLetters(){
   const org={ name:$('orgName').value.trim(), ein:$('orgEin').value.trim(), addr:$('orgAddr').value.trim(), signer:$('orgSigner').value.trim() };
   if(!org.name){ alert('Fill in your organization name first.'); return; }
+  try{ syncGifts(); }catch(e){}
   const rows=$('gifts').value.split('\n').map(l=>l.trim()).filter(Boolean);
   if(!rows.length){ alert('Add at least one gift line.'); return; }
   const noGoods=$('noGoods').checked;
@@ -123,5 +133,196 @@ function makeLetters(){
   Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
   <span style="opacity:.8">Receipt Maker v1.0 · 2026-09-01 · Daraja Studio · every app helps a student in Kenya stay in school</span>
 </footer>
+<script>window.DJ_START = {"slug": "receipts", "em": "🧾", "title": "Welcome — this writes your donor letters.", "lede": "At the end of the year every donor needs a letter with their total and the words the IRS requires. This does all of them at once, so nobody spends January on it.", "cta": "Start with my details →", "firstSelector": "input, button", "dataKeys": ["receipts_v1", "np_receipts_v1"], "steps": ["<b>Put your organisation's details in</b> — name, address, EIN.", "<b>Add your gifts</b> — one donor, one amount, one date at a time.", "<b>Make the letters</b> and print or email the lot."]};</script>
+
+<!-- ═══════════ START HERE — first-run guide (v1.0 · 2026-09-07) ═══════════ -->
+<style>
+  #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; padding:18px;
+    font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif; }
+  #djStart .card{ background:#1C1E24; color:#EFEAE1; border:1.5px solid #3A3E48;
+    border-radius:22px; padding:22px 20px; max-width:430px; width:100%;
+    box-shadow:0 24px 60px rgba(0,0,0,.5); max-height:88vh; overflow:auto; }
+  #djStart .em{ font-size:40px; line-height:1; margin-bottom:8px; }
+  #djStart h2{ margin:0 0 6px; font-size:22px; line-height:1.2; font-weight:800; }
+  #djStart .lede{ color:#B9B2A6; font-size:15px; line-height:1.5; margin-bottom:16px; }
+  #djStart ol{ margin:0 0 18px; padding-left:0; list-style:none; counter-reset:dj; }
+  #djStart li{ counter-increment:dj; display:flex; gap:11px; align-items:flex-start;
+    margin-bottom:11px; font-size:15px; line-height:1.45; }
+  #djStart li::before{ content:counter(dj); flex:none; width:26px; height:26px;
+    border-radius:50%; background:#F2B134; color:#1C1E24; font-weight:800; font-size:14px;
+    display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  #djStart .go{ width:100%; font:inherit; font-weight:800; font-size:16px; padding:14px;
+    border:none; border-radius:14px; background:#F2B134; color:#1C1E24; cursor:pointer; }
+  #djStart .look{ width:100%; font:inherit; font-weight:700; font-size:14px; padding:11px;
+    margin-top:8px; border:1px solid #3A3E48; border-radius:12px;
+    background:transparent; color:#B9B2A6; cursor:pointer; }
+  #djHelp{ position:fixed; right:12px; top:12px; z-index:60; width:34px; height:34px;
+    border-radius:50%; border:1.5px solid rgba(255,255,255,.28); background:rgba(20,22,30,.62);
+    color:#EFEAE1; font:800 15px -apple-system,sans-serif; cursor:pointer; display:none; }
+</style>
+<script>
+(function(){
+  var CFG = window.DJ_START; if(!CFG) return;
+  var SEEN = 'dj_start_' + CFG.slug;
+
+  function framed(){ try{ return window.self !== window.top; }catch(e){ return true; } }
+  function seen(){ try{ return !!localStorage.getItem(SEEN); }catch(e){ return true; } }
+  function mark(){ try{ localStorage.setItem(SEEN,'1'); }catch(e){} }
+
+  /* "empty" means the owner genuinely has nothing yet — a returning user is never nagged */
+  function empty(){
+    try{
+      if(!CFG.dataKeys) return true;
+      for(var i=0;i<CFG.dataKeys.length;i++){
+        var raw = localStorage.getItem(CFG.dataKeys[i]);
+        if(!raw) continue;
+        var d = JSON.parse(raw);
+        if(!d) continue;
+        if(Array.isArray(d) && d.length) return false;
+        for(var k in d){ if(Array.isArray(d[k]) && d[k].length) return false; }
+      }
+    }catch(e){}
+    return true;
+  }
+
+  function close(){
+    var el=document.getElementById('djStart'); if(el) el.remove();
+    var h=document.getElementById('djHelp'); if(h) h.style.display='block';
+    mark();
+  }
+  window.djStartClose = close;
+
+  function firstStep(){
+    close();
+    setTimeout(function(){
+      if(CFG.firstAction){ try{ CFG.firstAction(); return; }catch(e){} }
+      if(CFG.firstSelector){
+        var t=document.querySelector(CFG.firstSelector);
+        if(t){ t.scrollIntoView({block:'center',behavior:'smooth'});
+          t.style.transition='box-shadow .3s';
+          t.style.boxShadow='0 0 0 4px rgba(242,177,52,.85)';
+          setTimeout(function(){ t.style.boxShadow=''; }, 2600);
+          if(CFG.firstClick) try{ t.click(); }catch(e){}
+        }
+      }
+    }, 260);
+  }
+  window.djStartGo = firstStep;
+
+  function show(){
+    if(document.getElementById('djStart')) return;
+    var d=document.createElement('div'); d.id='djStart';
+    d.innerHTML = '<div class="card">'
+      + '<div class="em">'+(CFG.em||'✨')+'</div>'
+      + '<h2>'+CFG.title+'</h2>'
+      + '<div class="lede">'+CFG.lede+'</div>'
+      + '<ol>'+CFG.steps.map(function(s){ return '<li><span>'+s+'</span></li>'; }).join('')+'</ol>'
+      + '<button class="go" onclick="djStartGo()">'+(CFG.cta||'Start with step 1')+'</button>'
+      + '<button class="look" onclick="djStartClose()">I’ll look around myself</button>'
+      + '</div>';
+    document.body.appendChild(d);
+  }
+  window.djStartShow = show;
+
+  function help(){
+    var b=document.createElement('button'); b.id='djHelp'; b.textContent='?';
+    b.title='What am I doing here?';
+    b.onclick=function(){ var el=document.getElementById('djStart'); if(el){ el.remove(); return; } show(); };
+    document.body.appendChild(b);
+    if(seen() || !empty() || framed()) b.style.display='block';
+  }
+
+  function boot(){
+    help();
+    /* inside the store's video player the tour does the explaining — don't photo-bomb it */
+    if(framed()) return;
+    if(seen()) return;
+    if(!empty()){ mark(); return; }
+    setTimeout(show, 500);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
+
+<script>
+/* v1.1 — Jerry: "I don't understand number two of the gifts... how are you supposed to type
+   something in there... make each entry its own little box." The comma-separated textarea is
+   still here behind "Paste a list instead", because pasting from a spreadsheet is genuinely
+   faster once you have fifty donors. But typing one is now three plain boxes. */
+function giftRowHTML(n, name, amt, date){
+  return '<div class="giftRow" style="display:flex;gap:6px;align-items:center;margin-bottom:7px;flex-wrap:wrap">'
+    + '<span style="flex:none;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.07);'
+    + 'display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">'+n+'</span>'
+    + '<input class="gName" placeholder="donor name" value="'+(name||'')+'" style="flex:2;min-width:130px">'
+    + '<input class="gAmt" placeholder="amount, or describe an in-kind gift" value="'+(amt||'')+'" style="flex:1.4;min-width:120px">'
+    + '<input class="gDate" type="date" value="'+(date||'')+'" style="flex:1;min-width:132px">'
+    + '<button type="button" class="gDel" onclick="delGift(this)" title="remove this row" '
+    + 'style="flex:none;border:none;background:transparent;color:#b44;font-size:19px;cursor:pointer;padding:0 6px">×</button>'
+    + '</div>';
+}
+function renumber(){
+  document.querySelectorAll('#giftRows .giftRow').forEach(function(r,i){ r.firstChild.textContent = i+1; });
+}
+function addGift(name, amt, date){
+  var w=document.getElementById('giftRows');
+  var n=w.querySelectorAll('.giftRow').length+1;
+  w.insertAdjacentHTML('beforeend', giftRowHTML(n, name, amt, date));
+  var rows=w.querySelectorAll('.giftRow');
+  var last=rows[rows.length-1]; var inp=last.querySelector('.gName');
+  if(inp && !name) inp.focus();
+  syncGifts();
+}
+function delGift(btn){
+  var w=document.getElementById('giftRows');
+  btn.closest('.giftRow').remove();
+  if(!w.querySelectorAll('.giftRow').length) addGift();
+  renumber(); syncGifts();
+}
+/* keep the hidden textarea in step, so every existing parser and save path still works */
+function syncGifts(){
+  var out=[];
+  document.querySelectorAll('#giftRows .giftRow').forEach(function(r){
+    var n=r.querySelector('.gName').value.trim();
+    var a=r.querySelector('.gAmt').value.trim();
+    var d=r.querySelector('.gDate').value.trim();
+    if(n && (a || d)) out.push([n,a,d].filter(Boolean).join(', '));
+  });
+  var ta=document.getElementById('gifts'); if(ta) ta.value = out.join('\n');
+}
+function togglePaste(){
+  var w=document.getElementById('pasteWrap'), b=document.getElementById('pasteBtn');
+  var open = w.style.display!=='none';
+  w.style.display = open ? 'none' : 'block';
+  b.textContent = open ? '📋 Paste a list instead' : '✕ Never mind, I’ll type them';
+}
+function pasteIntoRows(){
+  var ta=document.getElementById('gifts'); if(!ta) return;
+  var lines=ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  if(!lines.length) return;
+  document.getElementById('giftRows').innerHTML='';
+  lines.forEach(function(l){
+    var p=l.split(',').map(function(x){return x.trim();});
+    var name=p.shift()||'';
+    var date='', amt='';
+    var last=p[p.length-1]||'';
+    if(/^\d{4}-\d{2}-\d{2}$/.test(last)){ date=p.pop(); }
+    amt=p.join(', ');
+    addGift(name, amt, date);
+  });
+  renumber(); syncGifts(); togglePaste();
+}
+document.addEventListener('input', function(e){
+  if(e.target.closest && e.target.closest('#giftRows')) syncGifts();
+});
+(function(){
+  function boot(){ if(document.getElementById('giftRows') && !document.querySelector('#giftRows .giftRow')) addGift(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+
 </body>
 </html>
