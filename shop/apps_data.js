@@ -11,11 +11,11 @@ const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
  nownext: {
-  name:'Now & Next', em:'🧭', sub:'one thing at a time', fresh:true, cat:'family', price:'$4.99', testing:true,
+  name:'My Productive Partner', em:'🧭', sub:'one thing at a time', fresh:true, cat:'family', price:'$4.99', testing:true,
   tag:'One thing at a time — for kids and grown-ups whose brains run fast',
   try:A+'nownext/', video:true,
   train:[
-   "Let's set up Now and Next — five minutes, then it runs your mornings forever.",
+   "Let's set up My Productive Partner — five minutes, then it runs your mornings forever.",
    "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
    {t:"Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.", js:"try{go('today')}catch(e){}"},
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
@@ -26,7 +26,7 @@ const APPS = {
    {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"},
    "You'll know it's set up right when the NOW card shows one thing with a timer — and somebody checks it off and gets the party."],
   lines:[
-   "This is Now and Next, made for kids, and grown-ups, whose brains run fast.",
+   "This is My Productive Partner, made for kids, and grown-ups, whose brains run fast.",
    "It solves a very particular ache: knowing exactly what needs doing, and still not being able to start. And for the parent, it solves saying hurry up eleven times before seven thirty.",
    "Here is the whole idea: the screen shows one thing. Not the long scary list, just the one thing to do now.",
    "A timer keeps the middle short, and when you finish, the app throws a little party, with high fives, coins, and a family leaderboard.",
@@ -324,6 +324,19 @@ const APPS = {
   },
   docs:[{label:'📖 The rulebook: how the league works', href:BASE+'f1/rules.html'}]},
 
+ churchhq: {
+  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'church', price:'$29 one-time', video:true,
+  tag:'The app that keeps your church app up to date — no website, no web designer, no waiting',
+  try:BASE+'church-hq/',
+  lines:[
+   "This is Church HQ, and it answers the question every church asks about ten minutes after they see their new app: who keeps it up to date?",
+   "The answer used to be: whoever built it. That is a phone call, and a wait, and often a bill. So a service time changes in March and the app still says the old one in July.",
+   "Church HQ hands that job back to you. Everything the congregation sees lives on four simple pages: the basics, this week's news, your people, and your ministries.",
+   "Change a service time, type Sunday's announcement, add the new youth leader. Then tap Publish, and every phone in the congregation has it before the sun goes down.",
+   "You do not need a website. Plenty of churches have none, and this works exactly the same. Church HQ is where your information lives.",
+   "It publishes through a free mailbox on your own Google account — a five minute setup, once, that belongs to you. No account with us, no monthly fee, nothing that can be taken away.",
+   "And if the person who set it up ever leaves, the passphrase hands the whole thing to the next person in about a minute.",
+   "Twenty-nine dollars, once, for the church that would rather not phone anybody. Try it below."]},
  /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 one-time', video:true,
@@ -363,14 +376,14 @@ const APPS = {
    "And when it's set, print it for the bulletin board — because some of your best volunteers don't do phones, and that's fine.",
    "Nineteen dollars, once, for every ministry team you have. Try it below."]},
  churchdrive: {
-  name:'Drive Counter', em:'📦', sub:'count complete sets', cat:'church', price:'$19 one-time', video:true,
+  name:'Operation Christmas Child Assistant', em:'📦', sub:'every box, counted', cat:'church', price:'$19 one-time', video:true,
   tag:'How many complete sets can we hand out right now?',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   lines:[
-   "This is Drive Counter — for food drives, coat drives, and shoebox season.",
+   "This is the Operation Christmas Child Assistant — built for shoebox season, and just as good for a food drive or a coat drive.",
    "The question that matters isn't 'how much stuff do we have.' It's 'how many complete sets can we hand out right now?'",
    "A food box needs rice AND beans AND oil. Ninety bags of rice and four bottles of oil is four boxes — not ninety.",
-   "Drive Counter does that math live, as donations come in. The big number is sets ready to give.",
+   "Operation Christmas Child Assistant does that math live, as donations come in. The big number is sets ready to give.",
    "And it shows what runs out first, so Sunday's announcement writes itself: 'we need oil, friends. Just oil.'",
    "Nineteen dollars, once, for every drive you'll ever run. Try it below."]},
  churchclubhouse: {
@@ -405,13 +418,13 @@ const APPS = {
    "Fill it in once — it takes an evening — print two copies, and the building stops depending on any one memory.",
    "Nineteen dollars, once. It's insurance that costs less than lunch. Try it below."]},
  npgoodstanding: {
-  name:'Good Standing', em:'🕊', sub:'filings, never forgotten', cat:'church', price:'$29 one-time', video:true,
+  name:'Nonprofit Filings', em:'🕊', sub:'certifications and legal dates', cat:'church', price:'$29 one-time', video:true,
   tag:'The filings that quietly end small nonprofits — now they can\'t',
   try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
   lines:[
-   "This is Good Standing, built for the two-or-three-person nonprofit doing holy work with nobody in the office.",
+   "This is Nonprofit Filings, built for the two-or-three-person nonprofit doing holy work with nobody in the office.",
    "Here is the fact that keeps founders up at night: if a small nonprofit misses its IRS nine-ninety three years in a row, its tax-exempt status is revoked automatically, and that happens to thousands of good organizations every single year.",
-   "So Good Standing holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
+   "So Nonprofit Filings holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
    "It comes pre-loaded with the filings small nonprofits actually face, so you just tick what applies to you and enter your real dates.",
    "Twenty-nine dollars, one time. It may be the cheapest insurance a mission ever bought. Try it below."
   ]},
@@ -459,7 +472,7 @@ const APPS = {
    "Then, instead of buttons and menus, it simply gets to know you \u2014 the way a new friend would. Your name. Your spouse. The kids and grandkids, by name. One easy question at a time, out loud, and it remembers every answer.",
    "And every morning after that, it speaks first. Good morning, Jerry. It\u2019s Saturday. Five things finished yesterday \u2014 you\u2019ve been working hard. I notice these things.",
    "It tells you the weather. It tells a genuinely decent joke. It asks how your heart is doing, and it means it.",
-   "Say remind me to pick the kids up at three \u2014 and it\u2019s remembered. If you use Now and Next, it lands right on your real list, with your friend\u2019s name on it.",
+   "Say remind me to pick the kids up at three \u2014 and it\u2019s remembered. If you use My Productive Partner, it lands right on your real list, with your friend\u2019s name on it.",
    "Everything it knows stays on your phone. No account, no cloud, nobody listening but your friend.",
    "Nineteen dollars, once, for the app your parents will actually talk to. Meet yours below \u2014 it\u2019s waiting to be named."],
   train:[

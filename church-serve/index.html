@@ -25,6 +25,48 @@
   footer{ text-align:center; font-size:11.5px; color:var(--soft); margin-top:14px; padding:0 20px; line-height:1.6; }
   @media print{ header p, .hint, .btns, footer{ display:none; } .who{ border:none; } body{ background:#fff; } }
 </style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon.svg">
+
+<style id="daraja-house-css-v2">
+  /* ── iOS zooms the whole page in whenever you tap a box under 16px, then leaves you
+     scrolled sideways. It is the single most common reason an app feels broken to an
+     older person, and it never shows up on a laptop. 16px is the floor. ── */
+  input, textarea, select, button { font-size: max(16px, 1em); }
+
+  /* ── someone navigating by keyboard has to be able to see where they are ── */
+  :focus-visible { outline: 3px solid #C9982A; outline-offset: 2px; border-radius: 4px; }
+
+  /* ── a date box's picker button is a near-invisible grey square by default ── */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    opacity: 1; cursor: pointer; width: 26px; height: 26px; padding: 2px; margin-left: 6px;
+    border-radius: 7px; background: rgba(201,152,42,.22);
+  }
+
+  /* ── fingertips are about 44px across ── */
+  button, .btn, a.btn, [role="button"] { min-height: 44px; }
+
+  /* ── some people get queasy; the phone already knows, so listen to it ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important; scroll-behavior: auto !important;
+    }
+  }
+
+  /* ── things people print should print like documents, not screens ── */
+  @media print {
+    nav, footer button, .fab, #djFreshLink, #djHelp, #dTipDot, #introDot { display: none !important; }
+    body { background: #fff !important; color: #000 !important; }
+  }
+</style>
+
+<meta name="description" content="The month of volunteers on one page — Daraja Studio. Works on any phone, nothing to sign up for.">
+<meta name="theme-color" content="#1C2B29">
 </head>
 <body>
 <div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#F6F4EF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#26221C;font-family:-apple-system,sans-serif">
@@ -40,11 +82,11 @@
 </header>
 
 <main>
-  <p class="hint">Tap any slot to fill it from the roster (or type a name). <span style="color:var(--open);font-weight:700">Orange</span> = still needs someone. Print it for the bulletin board.</p>
+  <p class="hint">Tap any slot to fill it from your people (or type a name). <span style="color:var(--open);font-weight:700">Orange</span> = still needs someone. Print it for the bulletin board.</p>
   <div class="btns">
     <button class="btn solid" onclick="addWeek()">＋ Add a Sunday</button>
-    <button class="btn" onclick="editRoster()">👥 Roster</button>
-    <button class="btn" onclick="editRoles()">🧩 Roles</button>
+    <button class="btn" onclick="openPeople()">👥 My people</button>
+    <button class="btn" onclick="openRoles()">🧩 Roles &amp; requirements</button>
     <button class="btn" onclick="window.print()">🖨 Print</button>
     <button class="btn" onclick="resetAll()">↻ Start fresh</button>
   </div>
@@ -52,8 +94,8 @@
 </main>
 
 <footer>
-  Lives on this device — Print or screenshot to share. (Team sync is the next version.)<br><br>
-  <span style="opacity:.8">Serve Board v1.0 · 2026-09-01 · Daraja Studio · every app helps a student in Kenya stay in school</span>
+  Lives on this device — Print, or text each person straight from the board. (Team sync is the next version.)<br><br>
+  <span style="opacity:.8">Serve Board v1.1 · 2026-09-07 · Daraja Studio · every app helps a student in Kenya stay in school</span>
 </footer>
 
 <script>
@@ -63,10 +105,13 @@ const DEFAULT = {
   roster: ["", "— add your people in 👥 Roster —"],
   weeks: []
 };
+/* v1.1 fix: toISOString() converts to UTC, so any evening in the Americas rolled every
+   Sunday forward to Monday. Build the date from LOCAL parts instead. */
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function nextSundays(n){
   const out=[]; const d=new Date();
   d.setDate(d.getDate() + ((7-d.getDay())%7 || 7));
-  for(let i=0;i<n;i++){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+7); }
+  for(let i=0;i<n;i++){ out.push(ymd(d)); d.setDate(d.getDate()+7); }
   return out;
 }
 let db;
@@ -83,48 +128,191 @@ const $=s=>document.querySelector(s);
 function label(d){ return new Date(d+"T12:00").toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'}); }
 
 function render(){
+  try{ migrate(); }catch(e){}
   $('#board').innerHTML = db.weeks.map((w,wi)=>`
     <div class="week">
       <h3>☀️ ${label(w.date)}</h3>
-      ${db.roles.map(r=>{
+      ${db.roles.map(ro=>{
+        const r = (typeof ro==='string') ? ro : ro.n;
+        const req = (typeof ro==='string') ? '' : (ro.req||'');
         const who=w.slots[r]||'';
-        return `<div class="role"><span class="r">${r}</span>
+        return `<div class="role"><span class="r">${r}${req?`<small style="display:block;font-weight:600;font-size:11px;opacity:.65">needs: ${req}</small>`:''}</span>
           <button class="who ${who?'':'open'}" onclick="fill(${wi},'${r.replace(/'/g,"\\'")}')">${who||'needs someone'}</button></div>`;
       }).join('')}
     </div>`).join('');
 }
 
-window.fill=(wi,role)=>{
-  const w=db.weeks[wi];
-  const people=db.roster.filter(x=>x&&!x.startsWith('—'));
-  let pick;
-  if(people.length){
-    pick=prompt("Who's taking "+role+" on "+label(w.date)+"?\n\nRoster: "+people.join(', ')+"\n\n(Type a name — or leave blank to clear the slot)", w.slots[role]||'');
-  } else {
-    pick=prompt("Type a name for "+role+" ("+label(w.date)+") — and add your team in 👥 Roster so this gets faster:", w.slots[role]||'');
+/* ═══ v1.1 — rebuilt from Jerry's session ═══
+   "the roster should be more of a contact system that has the places they could potentially
+    work, their phone number, email"  ·  "the rolls button just gives me a box separated by
+    commas"  ·  "a role like a security person or a Sunday school teacher needs a background
+    check"  ·  "give you the first option of the roster, and if no one's on it type a name"
+    ·  "a way to know that they know they're supposed to be working that Sunday"
+    ·  "be nice if it had some import ability — maybe import a spreadsheet"
+   Everything below is that. Old comma-box prompts are gone. */
+
+/* people used to be plain strings; carry them across without losing anyone */
+function migrate(){
+  if(!Array.isArray(db.roster)) db.roster=[];
+  db.roster = db.roster.filter(function(x){ return x && !(typeof x==='string' && x.indexOf('—')===0); })
+    .map(function(p){ return (typeof p==='string') ? {n:p, ph:'', em:'', can:[]} : p; });
+  if(db.roles.length && typeof db.roles[0]==='string')
+    db.roles = db.roles.map(function(r){ return {n:r, req:''}; });
+  db.roles = db.roles.map(function(r){ return (typeof r==='string') ? {n:r, req:''} : r; });
+}
+function roleNames(){ return db.roles.map(function(r){ return r.n; }); }
+function roleOf(n){ return db.roles.filter(function(r){ return r.n===n; })[0] || {n:n, req:''}; }
+function esc2(x){ return String(x||'').replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+function sheet(title, inner, wide){
+  var ov=document.getElementById('svOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='svOv'; document.body.appendChild(ov); }
+  ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(12,13,16,.55);overflow:auto;padding:14px;font-family:inherit;';
+  ov.innerHTML='<div style="max-width:'+(wide?620:520)+'px;margin:0 auto;background:var(--card,#fff);color:var(--ink,#222);border-radius:20px;padding:18px 16px 22px;box-shadow:0 20px 50px rgba(0,0,0,.35)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<h2 style="margin:0;font-size:20px">'+title+'</h2>'
+    +'<button onclick="closeSheet()" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:#888" aria-label="Close" title="Close">✕</button></div>'
+    + inner + '</div>';
+  ov.style.display='block';
+}
+window.closeSheet=function(){ var o=document.getElementById('svOv'); if(o) o.remove(); save(); render(); };
+
+/* ── 👥 MY PEOPLE — a real contact card each ── */
+window.openPeople=function(){
+  migrate();
+  var rows = db.roster.map(function(p,i){
+    return '<div style="border:1px solid rgba(0,0,0,.12);border-radius:14px;padding:11px;margin-bottom:9px">'
+      +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+      +'<input value="'+esc2(p.n)+'" placeholder="name" oninput="setP('+i+',\'n\',this.value)" style="flex:1;font:inherit;font-size:16px;padding:9px;border:1px solid rgba(0,0,0,.18);border-radius:9px" autocomplete="name">'
+      +'<button aria-label="remove" onclick="delP('+i+')" title="remove" style="border:none;background:transparent;color:#b44;font-size:20px;cursor:pointer">×</button></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">'
+      +'<input type="tel" value="'+esc2(p.ph)+'" placeholder="phone" inputmode="tel" oninput="setP('+i+',\'ph\',this.value)" style="flex:1;min-width:130px;font:inherit;padding:8px;border:1px solid rgba(0,0,0,.18);border-radius:9px" autocomplete="tel">'
+      +'<input value="'+esc2(p.em)+'" placeholder="email" inputmode="email" oninput="setP('+i+',\'em\',this.value)" style="flex:1.4;min-width:150px;font:inherit;padding:8px;border:1px solid rgba(0,0,0,.18);border-radius:9px" autocomplete="email">'
+      +'</div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Can serve as — tap any that apply:</div><div style="display:flex;flex-wrap:wrap;gap:5px">'
+      + roleNames().map(function(r){
+          var on=(p.can||[]).indexOf(r)>=0;
+          return '<button onclick="togCan('+i+',\''+r.replace(/'/g,"\\'")+'\')" style="font:inherit;font-size:12.5px;font-weight:700;padding:6px 10px;border-radius:999px;cursor:pointer;border:1.5px solid '+(on?'#2F6E52':'rgba(0,0,0,.18)')+';background:'+(on?'#2F6E52':'transparent')+';color:'+(on?'#fff':'inherit')+'">'+esc2(r)+'</button>';
+        }).join('')
+      +'</div></div>';
+  }).join('');
+  sheet('👥 My people', (rows||'<p style="opacity:.7">Nobody yet — add your first person below.</p>')
+    +'<button onclick="addP()" style="width:100%;font:inherit;font-weight:800;padding:13px;border:none;border-radius:13px;background:#2F6E52;color:#fff;cursor:pointer;margin-top:4px">✚ Add a person</button>'
+    +'<button onclick="openImport()" style="width:100%;font:inherit;font-weight:700;padding:11px;border:1px solid rgba(0,0,0,.2);border-radius:12px;background:transparent;color:inherit;cursor:pointer;margin-top:8px">📥 Import from a spreadsheet</button>', true);
+};
+window.setP=function(i,k,v){ db.roster[i][k]=v; save(); };
+window.delP=function(i){ db.roster.splice(i,1); save(); openPeople(); };
+window.addP=function(){ db.roster.push({n:'',ph:'',em:'',can:[]}); save(); openPeople(); };
+window.togCan=function(i,r){
+  var p=db.roster[i]; p.can=p.can||[];
+  var ix=p.can.indexOf(r); if(ix>=0) p.can.splice(ix,1); else p.can.push(r);
+  save(); openPeople();
+};
+
+/* ── 📥 IMPORT — with the format shown, for the person who isn't technical ── */
+window.openImport=function(){
+  sheet('📥 Import your people', 
+    '<p style="font-size:14px;line-height:1.5;opacity:.85">In your spreadsheet make <b>four columns in this order</b>, then copy the rows and paste them here:</p>'
+    +'<div style="background:rgba(0,0,0,.06);border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;margin:8px 0 12px">'
+    +'Name, Phone, Email, Roles they can do<br>Mary Smith, 847-555-0142, mary@email.com, Greeters/Nursery<br>Bill Jones, 847-555-0199, bill@email.com, Ushers</div>'
+    +'<p style="font-size:13px;opacity:.75;margin-bottom:8px">Separate several roles with a slash. Phone, email and roles can all be left blank.</p>'
+    +'<textarea id="impBox" placeholder="paste your rows here" style="width:100%;min-height:130px;font:inherit;font-size:14px;padding:10px;border:1px solid rgba(0,0,0,.2);border-radius:10px"></textarea>'
+    +'<button onclick="doImport()" style="width:100%;font:inherit;font-weight:800;padding:13px;border:none;border-radius:13px;background:#2F6E52;color:#fff;cursor:pointer;margin-top:10px">Add these people</button>'
+    +'<button onclick="openPeople()" style="width:100%;font:inherit;font-weight:700;padding:11px;border:1px solid rgba(0,0,0,.2);border-radius:12px;background:transparent;color:inherit;cursor:pointer;margin-top:8px">← Back</button>', true);
+};
+window.doImport=function(){
+  var t=document.getElementById('impBox').value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  var added=0;
+  t.forEach(function(line,ix){
+    var p=line.split(/[,\t]/).map(function(x){return x.trim();});
+    if(!p[0]) return;
+    if(ix===0 && /^name$/i.test(p[0])) return;            /* skip a header row */
+    var can=(p[3]||'').split(/[\/;|]/).map(function(x){return x.trim();}).filter(Boolean);
+    can.forEach(function(r){ if(roleNames().indexOf(r)<0) db.roles.push({n:r, req:''}); });
+    db.roster.push({n:p[0], ph:p[1]||'', em:p[2]||'', can:can});
+    added++;
+  });
+  save();
+  alert(added ? ('Added '+added+' '+(added===1?'person':'people')+'.') : 'Nothing to add — check the format above.');
+  openPeople();
+};
+
+/* ── 🧩 ROLES, each with what it requires ── */
+window.openRoles=function(){
+  migrate();
+  var rows = db.roles.map(function(r,i){
+    return '<div style="border:1px solid rgba(0,0,0,.12);border-radius:14px;padding:11px;margin-bottom:9px">'
+      +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+      +'<input value="'+esc2(r.n)+'" placeholder="role name" oninput="setR('+i+',\'n\',this.value)" style="flex:1;font:inherit;font-size:16px;font-weight:700;padding:9px;border:1px solid rgba(0,0,0,.18);border-radius:9px" autocomplete="name">'
+      +'<button aria-label="remove" onclick="delR('+i+')" title="remove" style="border:none;background:transparent;color:#b44;font-size:20px;cursor:pointer">×</button></div>'
+      +'<input value="'+esc2(r.req)+'" placeholder="what this role requires — e.g. background check, first aid, sound desk training" oninput="setR('+i+',\'req\',this.value)" style="width:100%;font:inherit;font-size:14px;padding:9px;border:1px solid rgba(0,0,0,.18);border-radius:9px">'
+      +'</div>';
+  }).join('');
+  sheet('🧩 Roles &amp; requirements', rows
+    +'<p style="font-size:13px;opacity:.75;margin:2px 0 10px">Anything you type as a requirement is shown when you put someone in that slot — so a background check never gets forgotten.</p>'
+    +'<button onclick="addR()" style="width:100%;font:inherit;font-weight:800;padding:13px;border:none;border-radius:13px;background:#2F6E52;color:#fff;cursor:pointer">✚ Add a role</button>', true);
+};
+window.setR=function(i,k,v){
+  if(k==='n'){ var old=db.roles[i].n;
+    db.weeks.forEach(function(w){ if(w.slots[old]!==undefined){ w.slots[v]=w.slots[old]; delete w.slots[old]; } });
+    db.roster.forEach(function(p){ var ix=(p.can||[]).indexOf(old); if(ix>=0) p.can[ix]=v; });
   }
-  if(pick===null) return;
-  pick=pick.trim();
-  if(pick){ w.slots[role]=pick; if(!db.roster.includes(pick)&&!pick.startsWith('—')) db.roster.push(pick); }
-  else delete w.slots[role];
-  save(); render();
+  db.roles[i][k]=v; save();
 };
-window.addWeek=()=>{
-  const last=db.weeks[db.weeks.length-1];
-  const d=new Date((last?last.date:nextSundays(1)[0])+"T12:00"); d.setDate(d.getDate()+7);
-  db.weeks.push({date:d.toISOString().slice(0,10), slots:{}}); save(); render();
+window.delR=function(i){ db.roles.splice(i,1); save(); openRoles(); };
+window.addR=function(){ db.roles.push({n:'',req:''}); save(); openRoles(); };
+
+/* ── filling a slot: your people first, typing second ── */
+window.fill=function(wi,role){
+  migrate();
+  var w=db.weeks[wi], R=roleOf(role);
+  var able=db.roster.filter(function(p){ return p.n && (!(p.can||[]).length || p.can.indexOf(role)>=0); });
+  var others=db.roster.filter(function(p){ return p.n && able.indexOf(p)<0; });
+  var chip=function(p){ return '<button onclick="pick('+wi+',\''+role.replace(/'/g,"\\'")+'\',\''+String(p.n).replace(/'/g,"\\'")+'\')" style="font:inherit;font-size:15px;font-weight:700;padding:10px 14px;border-radius:999px;border:1.5px solid #2F6E52;background:transparent;color:inherit;cursor:pointer;margin:0 6px 6px 0">'+esc2(p.n)+'</button>'; };
+  sheet(esc2(role)+' — '+label(w.date),
+    (R.req? '<div style="background:rgba(242,177,52,.18);border:1.5px solid rgba(242,177,52,.6);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px"><b>This role requires:</b> '+esc2(R.req)+'</div>':'')
+    + (able.length? '<div style="font-size:13px;opacity:.75;margin-bottom:6px">Your people who can do this:</div><div style="margin-bottom:10px">'+able.map(chip).join('')+'</div>' : '<p style="opacity:.75;font-size:14px">Nobody in your people can do this yet — type a name below, or add people in 👥 My people.</p>')
+    + (others.length? '<div style="font-size:13px;opacity:.6;margin-bottom:6px">Everyone else:</div><div style="margin-bottom:10px;opacity:.8">'+others.map(chip).join('')+'</div>':'')
+    + '<div style="display:flex;gap:6px;margin-top:4px"><input id="svType" placeholder="or type a name" value="'+esc2(w.slots[role]||'')+'" style="flex:1;font:inherit;font-size:16px;padding:11px;border:1px solid rgba(0,0,0,.2);border-radius:11px" autocomplete="name">'
+    + '<button onclick="pick('+wi+',\''+role.replace(/'/g,"\\'")+'\',document.getElementById(\'svType\').value)" style="font:inherit;font-weight:800;padding:11px 16px;border:none;border-radius:11px;background:#2F6E52;color:#fff;cursor:pointer">Put them in</button></div>'
+    + (w.slots[role]? '<button onclick="pick('+wi+',\''+role.replace(/'/g,"\\'")+'\',\'\')" style="width:100%;font:inherit;font-weight:700;padding:11px;border:1px solid rgba(0,0,0,.2);border-radius:12px;background:transparent;color:#b44;cursor:pointer;margin-top:10px">Clear this slot</button>':''));
 };
-window.editRoster=()=>{
-  const cur=db.roster.filter(x=>x&&!x.startsWith('—')).join(', ');
-  const v=prompt("Your serving team — names separated by commas:", cur);
-  if(v===null) return;
-  db.roster=v.split(',').map(x=>x.trim()).filter(Boolean); save(); render();
+window.pick=function(wi,role,name){
+  var w=db.weeks[wi]; name=String(name||'').trim();
+  if(name){
+    w.slots[role]=name;
+    if(!db.roster.some(function(p){ return p.n===name; })) db.roster.push({n:name,ph:'',em:'',can:[role]});
+    save();
+    tellThem(wi, role, name);
+    return;
+  }
+  delete w.slots[role]; closeSheet();
 };
-window.editRoles=()=>{
-  const v=prompt("The roles to fill each Sunday — separated by commas:", db.roles.join(', '));
-  if(v===null) return;
-  const roles=v.split(',').map(x=>x.trim()).filter(Boolean);
-  if(roles.length){ db.roles=roles; save(); render(); }
+
+/* ── "a way to know that they know they're supposed to be working that Sunday" ── */
+window.tellThem=function(wi, role, name){
+  var w=db.weeks[wi];
+  var p=db.roster.filter(function(x){ return x.n===name; })[0] || {};
+  var R=roleOf(role);
+  var msg = "Hi "+name+" — you're on for "+role+" this "+label(w.date)+" at church. "
+          + (R.req? "(Just a reminder, this one needs: "+R.req+".) " : "")
+          + "Thanks for serving!";
+  var body = encodeURIComponent(msg);
+  sheet('✓ '+esc2(name)+' is in',
+    '<p style="font-size:15px;line-height:1.5">Now let them know — so nobody turns up on Sunday surprised.</p>'
+    + '<div style="background:rgba(0,0,0,.06);border-radius:12px;padding:11px;font-size:14px;line-height:1.5;margin:10px 0 14px">'+esc2(msg)+'</div>'
+    + (p.ph? '<a href="sms:'+encodeURIComponent(p.ph)+'?&body='+body+'" style="display:block;text-align:center;text-decoration:none;font-weight:800;font-size:16px;padding:13px;border-radius:13px;background:#2F6E52;color:#fff;margin-bottom:8px">💬 Text '+esc2(name)+'</a>'
+        : '<p style="font-size:13.5px;opacity:.75;margin-bottom:8px">No phone number for '+esc2(name)+' yet — add one in 👥 My people and this becomes one tap.</p>')
+    + (p.em? '<a href="mailto:'+encodeURIComponent(p.em)+'?subject='+encodeURIComponent('Serving this '+label(w.date))+'&body='+body+'" style="display:block;text-align:center;text-decoration:none;font-weight:800;font-size:15px;padding:12px;border-radius:13px;border:1.5px solid #2F6E52;color:inherit;margin-bottom:8px">✉️ Email '+esc2(name)+'</a>':'')
+    + '<button onclick="copyMsg(\''+msg.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\')" style="width:100%;font:inherit;font-weight:700;padding:12px;border:1px solid rgba(0,0,0,.2);border-radius:12px;background:transparent;color:inherit;cursor:pointer;margin-bottom:8px">📋 Copy the message</button>'
+    + '<button onclick="closeSheet()" style="width:100%;font:inherit;font-weight:700;padding:12px;border:none;border-radius:12px;background:rgba(0,0,0,.08);color:inherit;cursor:pointer">Done — back to the board</button>');
+};
+window.copyMsg=function(m){
+  if(navigator.clipboard) navigator.clipboard.writeText(m).then(function(){ alert('Copied — paste it into a text or email.'); }, function(){});
+};
+window.addWeek=function(){
+  var last=db.weeks[db.weeks.length-1];
+  var d=new Date((last?last.date:nextSundays(1)[0])+"T12:00"); d.setDate(d.getDate()+7);
+  db.weeks.push({date:ymd(d), slots:{}}); save(); render();
 };
 window.resetAll=()=>{
   if(!confirm("Clear the whole board and start fresh? (Roster and roles are kept.)")) return;
@@ -132,5 +320,390 @@ window.resetAll=()=>{
 };
 render();
 </script>
+<script>window.DJ_START = {"slug": "serve", "em": "🙋", "title": "Welcome — this is your volunteer schedule.", "lede": "The whole month of greeters, nursery, coffee and tech on one page — so you can see every empty slot weeks early instead of scrambling on Sunday morning.", "cta": "Start with my people →", "firstSelector": "button[onclick*='roster'], [data-v='roster'], nav button", "dataKeys": ["serve_v1", "church_serve_v1"], "steps": ["<b>Add your people</b> — names, and what each one is willing to do.", "<b>Set up your roles</b> — greeter, nursery, coffee, tech booth.", "<b>Fill the empty slots.</b> Orange means nobody is on it yet."]};</script>
+
+<!-- ═══════════ START HERE — first-run guide (v1.0 · 2026-09-07) ═══════════ -->
+<style>
+  #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; padding:18px;
+    font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif; }
+  #djStart .card{ background:#1C1E24; color:#EFEAE1; border:1.5px solid #3A3E48;
+    border-radius:22px; padding:22px 20px; max-width:430px; width:100%;
+    box-shadow:0 24px 60px rgba(0,0,0,.5); max-height:88vh; overflow:auto; }
+  #djStart .em{ font-size:40px; line-height:1; margin-bottom:8px; }
+  #djStart h2{ margin:0 0 6px; font-size:22px; line-height:1.2; font-weight:800; }
+  #djStart .lede{ color:#B9B2A6; font-size:15px; line-height:1.5; margin-bottom:16px; }
+  #djStart ol{ margin:0 0 18px; padding-left:0; list-style:none; counter-reset:dj; }
+  #djStart li{ counter-increment:dj; display:flex; gap:11px; align-items:flex-start;
+    margin-bottom:11px; font-size:15px; line-height:1.45; }
+  #djStart li::before{ content:counter(dj); flex:none; width:26px; height:26px;
+    border-radius:50%; background:#F2B134; color:#1C1E24; font-weight:800; font-size:14px;
+    display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  #djStart .go{ width:100%; font:inherit; font-weight:800; font-size:16px; padding:14px;
+    border:none; border-radius:14px; background:#F2B134; color:#1C1E24; cursor:pointer; }
+  #djStart .look{ width:100%; font:inherit; font-weight:700; font-size:14px; padding:11px;
+    margin-top:8px; border:1px solid #3A3E48; border-radius:12px;
+    background:transparent; color:#B9B2A6; cursor:pointer; }
+  #djHelp{ position:fixed; right:12px; top:12px; z-index:60; width:34px; height:34px;
+    border-radius:50%; border:1.5px solid rgba(255,255,255,.28); background:rgba(20,22,30,.62);
+    color:#EFEAE1; font:800 15px -apple-system,sans-serif; cursor:pointer; display:none; }
+</style>
+<script>
+(function(){
+  var CFG = window.DJ_START; if(!CFG) return;
+  var SEEN = 'dj_start_' + CFG.slug;
+
+  function framed(){ try{ return window.self !== window.top; }catch(e){ return true; } }
+  function seen(){ try{ return !!localStorage.getItem(SEEN); }catch(e){ return true; } }
+  function mark(){ try{ localStorage.setItem(SEEN,'1'); }catch(e){} }
+
+  /* "empty" means the owner genuinely has nothing yet — a returning user is never nagged */
+  function empty(){
+    try{
+      if(!CFG.dataKeys) return true;
+      for(var i=0;i<CFG.dataKeys.length;i++){
+        var raw = localStorage.getItem(CFG.dataKeys[i]);
+        if(!raw) continue;
+        var d = JSON.parse(raw);
+        if(!d) continue;
+        if(Array.isArray(d) && d.length) return false;
+        for(var k in d){ if(Array.isArray(d[k]) && d[k].length) return false; }
+      }
+    }catch(e){}
+    return true;
+  }
+
+  function close(){
+    var el=document.getElementById('djStart'); if(el) el.remove();
+    var h=document.getElementById('djHelp'); if(h) h.style.display='block';
+    mark();
+  }
+  window.djStartClose = close;
+
+  function firstStep(){
+    close();
+    setTimeout(function(){
+      if(CFG.firstAction){ try{ CFG.firstAction(); return; }catch(e){} }
+      if(CFG.firstSelector){
+        var t=document.querySelector(CFG.firstSelector);
+        if(t){ t.scrollIntoView({block:'center',behavior:'smooth'});
+          t.style.transition='box-shadow .3s';
+          t.style.boxShadow='0 0 0 4px rgba(242,177,52,.85)';
+          setTimeout(function(){ t.style.boxShadow=''; }, 2600);
+          if(CFG.firstClick) try{ t.click(); }catch(e){}
+        }
+      }
+    }, 260);
+  }
+  window.djStartGo = firstStep;
+
+  function show(){
+    if(document.getElementById('djStart')) return;
+    var d=document.createElement('div'); d.id='djStart';
+    d.innerHTML = '<div class="card">'
+      + '<div class="em">'+(CFG.em||'✨')+'</div>'
+      + '<h2>'+CFG.title+'</h2>'
+      + '<div class="lede">'+CFG.lede+'</div>'
+      + '<ol>'+CFG.steps.map(function(s){ return '<li><span>'+s+'</span></li>'; }).join('')+'</ol>'
+      + '<button class="go" onclick="djStartGo()">'+(CFG.cta||'Start with step 1')+'</button>'
+      + '<button class="look" onclick="djStartClose()">I’ll look around myself</button>'
+      + '</div>';
+    document.body.appendChild(d);
+  }
+  window.djStartShow = show;
+
+  function help(){
+    var b=document.createElement('button'); b.id='djHelp'; b.textContent='?';
+    b.title='What am I doing here?';
+    b.onclick=function(){ var el=document.getElementById('djStart'); if(el){ el.remove(); return; } show(); };
+    document.body.appendChild(b);
+    if(seen() || !empty() || framed()) b.style.display='block';
+  }
+
+  function boot(){
+    help();
+    /* inside the store's video player the tour does the explaining — don't photo-bomb it */
+    if(framed()) return;
+    if(seen()) return;
+    if(!empty()){ mark(); return; }
+    setTimeout(show, 500);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
+
+
+
+
+<script>if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }</script>
+
+
+
+
+
+<style id="daraja-readable-v4-css">
+  /* ── nothing below 13px, and typing boxes never below 16px (iOS zoom) ── */
+  body, p, li, td, label, span, small, .hint, .small { font-size: max(13px, 1em); }
+  input, textarea, select { font-size: max(16px, 1em) !important; }
+
+  /* ── a fingertip is 44px. Links styled as buttons were still slipping through. ── */
+  button, .btn, a.btn, [role="button"], select,
+  input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="button"] {
+    min-height: 44px;
+  }
+  button, .btn, a.btn, [role="button"] {
+    padding-top: max(8px, var(--dj-pt, 0px));
+    padding-bottom: max(8px, var(--dj-pb, 0px));
+  }
+  /* small chips and nav items get 40px, which is still a comfortable target */
+  nav button, .pills button, .chips button, .tabs button { min-height: 40px !important; }
+
+  /* ── the floating helper must never share space with a header or a bar ── */
+  #djHelp { top: auto !important; bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+            right: 10px !important; z-index: 55 !important; }
+</style>
+<script id="daraja-readable-v4-js">
+/* ═══ Readability corrector v4 ═══
+   v3 had a bug of my own making: it decided which way to move a colour purely from the
+   background's lightness, so white text on a mid-blue button was pushed *whiter* — no help
+   at all. It now tries both directions and takes whichever actually reaches the target with
+   the smaller change. Also labels boxes that have nothing to announce, using the words
+   already sitting next to them. */
+(function(){
+  if(window.__djReadable4) return; window.__djReadable4 = true;
+
+  var rgb = function(c){ return (String(c).match(/[\d.]+/g)||[0,0,0]).slice(0,3).map(Number); };
+  var lum = function(c){
+    var p = rgb(c).map(function(x){ x/=255; return x<=0.03928 ? x/12.92 : Math.pow((x+0.055)/1.055, 2.4); });
+    return 0.2126*p[0] + 0.7152*p[1] + 0.0722*p[2];
+  };
+  var ratio = function(a,b){ var l1=lum(a), l2=lum(b); return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05); };
+
+  function behind(el){
+    var n = el;
+    while(n && n !== document.documentElement){
+      var cs = getComputedStyle(n), c = cs.backgroundColor;
+      if(c && !/rgba?\(0,\s*0,\s*0,\s*0\)|transparent/.test(c)){
+        var parts = (String(c).match(/[\d.]+/g)||[]);
+        if(parts[3] === undefined || parseFloat(parts[3]) > 0.55)
+          return 'rgb('+parts[0]+','+parts[1]+','+parts[2]+')';
+      }
+      if(cs.backgroundImage && cs.backgroundImage !== 'none') return null;
+      n = n.parentElement;
+    }
+    return getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)';
+  }
+
+  /* try darker AND lighter; keep whichever reaches the target with the least change */
+  function lift(color, bg, need){
+    var c = rgb(color);
+    var best = null, bestStep = 99;
+    [true, false].forEach(function(lighter){
+      for(var step = 1; step <= 24; step++){
+        var f = step/24;
+        var nc = c.map(function(v){ return lighter ? v + (255-v)*f : v*(1-f); });
+        var s = 'rgb('+nc.map(Math.round).join(',')+')';
+        if(ratio(s, bg) >= need){
+          if(step < bestStep){ bestStep = step; best = s; }
+          break;
+        }
+      }
+    });
+    return best || (lum(bg) > 0.5 ? 'rgb(0,0,0)' : 'rgb(255,255,255)');
+  }
+
+  function fixContrast(){
+    var fixed = 0;
+    var nodes = document.querySelectorAll('p,span,li,td,label,small,h1,h2,h3,h4,div,a,button,strong,b,em,i');
+    for(var i = 0; i < nodes.length && i < 900; i++){
+      var el = nodes[i];
+      if(el.children.length) continue;
+      if((el.textContent||'').trim().length < 2) continue;
+      var cs = getComputedStyle(el);
+      if(cs.display==='none' || cs.visibility==='hidden') continue;
+      var r = el.getBoundingClientRect(); if(!r.width || !r.height) continue;
+      var bg = behind(el); if(!bg) continue;
+      var size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight,10) >= 700;
+      var need = (size >= 24 || (size >= 18.66 && bold)) ? 3 : 4.5;
+      if(ratio(cs.color, bg) >= need) continue;
+      el.style.setProperty('color', lift(cs.color, bg, need), 'important');
+      var op = parseFloat(cs.opacity);
+      if(op < 1 && op > 0) el.style.opacity = '1';
+      fixed++;
+    }
+    return fixed;
+  }
+
+  /* a box with no label, given the words already beside it */
+  function fixLabels(){
+    var n = 0;
+    document.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]),textarea,select').forEach(function(el){
+      if(el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title')) return;
+      if(el.id && document.querySelector('label[for="'+CSS.escape(el.id)+'"]')) return;
+      if(el.closest('label')) return;
+      var txt = '';
+      var prev = el.previousElementSibling;
+      if(prev && /^(LABEL|SPAN|B|STRONG|DIV|P|H[1-6])$/.test(prev.tagName)) txt = (prev.textContent||'').trim();
+      if(!txt && el.parentElement){
+        var p = el.parentElement.cloneNode(true);
+        p.querySelectorAll('input,textarea,select,button').forEach(function(x){ x.remove(); });
+        txt = (p.textContent||'').trim();
+      }
+      if(!txt) txt = el.type === 'date' ? 'Date' : (el.name || 'Type here');
+      el.setAttribute('aria-label', txt.replace(/\s+/g,' ').slice(0, 60));
+      n++;
+    });
+    return n;
+  }
+
+  function pass(){
+    var a = fixContrast(), b = fixLabels();
+    window.__djFixed = { contrast:(window.__djFixed?window.__djFixed.contrast:0)+a,
+                         labels:(window.__djFixed?window.__djFixed.labels:0)+b };
+  }
+  function boot(){
+    pass();
+    var t=null;
+    new MutationObserver(function(){ clearTimeout(t); t=setTimeout(pass, 350); })
+      .observe(document.body, {childList:true, subtree:true});
+    window.addEventListener('resize', function(){ clearTimeout(t); t=setTimeout(pass, 350); });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
+
+<style id="dj-dots-v1">
+  /* The help dots were sized by inline styles, which beat a stylesheet — so these have to
+     insist. They are the buttons an unsure person reaches for, so they of all things should
+     be easy to hit. */
+  #introDot, #djHelp, #dTipDot, .help-dot {
+    min-width: 44px !important; min-height: 44px !important;
+    width: 44px !important; height: 44px !important;
+    display: flex !important; align-items: center; justify-content: center;
+    font-size: 17px !important;
+  }
+</style>
+
+
+<script id="dj-clear-v2">
+/* ═══ Start fresh — v2 (safe) ═══ */
+(function(){
+  if(window.__djClear2) return; window.__djClear2 = true;
+
+  /* Who owns what. Every app on this address shares one storage area, so this list is
+     the only thing standing between "clear my data" and "clear everyone's data". */
+  var OWNERS = {
+    nownext:      ['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1'],
+    ahead:        ['ahead_v1','aheadofit_v1'],
+    nextstep:     ['nextstep_v1','next_step_v1'],
+    breakeven:    ['breakeven_v1'],
+    safety:       ['safety_v1','safetyplan_v1'],
+    occ:          ['occ_v1'],
+    zuri:         ['zuri_v1','zuri_ops_v1'],
+    compass:      ['compass_v1'],
+    feedback:     ['fbs_v1'],
+    storykeeper:  ['story_v1','storykeeper_v1'],
+    academy:      ['academy_v1'],
+    thekey:       ['thekey_v1','key_v1'],
+    drumbeat:     ['drumbeat_v1'],
+    flipkit:      ['flipkit_v1'],
+    rafiki:       ['rafiki_v1','rafiki_aa'],
+    pitwall:      ['f1_v1','pitwall_v1','f1league_v1'],
+    churchhq:     ['church_hq_v1'],
+    steward:      ['steward_v1'],
+    serve:        ['serveboard_v1','serve_v1'],
+    drive:        ['drive_v1','church_drive_v1'],
+    clubhouse:    ['clubhouse_v1','church_clubhouse_v1'],
+    gameday:      ['gameday_v1','church_gameday_v1'],
+    churchkey:    ['churchkey_v1','church_key_v1'],
+    goodstanding: ['goodstanding_v1'],
+    receipts:     ['receipts_v1','np_receipts_v1']
+  };
+
+  var SLUG = (window.DJ_START && window.DJ_START.slug) ||
+             (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || 'app');
+  SLUG = String(SLUG).toLowerCase().replace(/[^a-z0-9]/g,'');
+
+  function myKeys(){
+    var mine = (OWNERS[SLUG] || []).slice();
+    var declared = (window.DJ_START && window.DJ_START.dataKeys) || [];
+    declared.forEach(function(k){ if(mine.indexOf(k) < 0) mine.push(k); });
+
+    /* everything any OTHER app owns is off limits, whatever the patterns say */
+    var protectedKeys = {};
+    Object.keys(OWNERS).forEach(function(app){
+      if(app === SLUG) return;
+      OWNERS[app].forEach(function(k){ if(mine.indexOf(k) < 0) protectedKeys[k] = app; });
+    });
+
+    var out = [];
+    try{
+      for(var i = 0; i < localStorage.length; i++){
+        var k = localStorage.key(i);
+        if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(protectedKeys[k]) continue;                       /* another app's data */
+        if(mine.indexOf(k) >= 0){ out.push(k); continue; }
+        /* this app's own coach/progress keys, which are always slug-stamped */
+        if(k.indexOf('fs_coach_' + SLUG) === 0 || k.indexOf(SLUG + '_') === 0) out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  window.djStartFresh = function(){
+    var keys = myKeys();
+    if(!keys.length){
+      alert('There is nothing saved in this app yet — nothing to erase.');
+      return;
+    }
+    var msg = 'Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+              '\n\nYour other Daraja apps are not touched. This cannot be undone.';
+    if(!confirm(msg)) return;
+    if(!confirm('Last check — erase this app\'s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  };
+
+  function addLink(){
+    var old = document.getElementById('djFreshLink');
+    if(old) old.remove();                                    /* retire the unsafe one */
+    if(document.getElementById('djFreshLink2')) return;
+    var host = document.querySelector('footer') || document.body;
+    var w = document.createElement('div');
+    w.id = 'djFreshLink2';
+    w.style.cssText = 'text-align:center;padding:14px 12px 26px;font:13px -apple-system,system-ui,sans-serif;opacity:.75';
+    w.innerHTML = '<button onclick="djStartFresh()" style="font:inherit;font-weight:700;'
+      + 'border:1px solid rgba(128,128,128,.45);background:transparent;color:inherit;'
+      + 'border-radius:9px;padding:10px 14px;min-height:44px;cursor:pointer">'
+      + '\u{1F9F9} Start fresh — erase this app\u2019s data</button>';
+    host.appendChild(w);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addLink);
+  else addLink();
+})();
+</script>
+
+
+<style id="dj-frame-hide">
+  /* Jerry: a tester watching a video should not be looking at an erase-my-data button.
+     It stays for anyone using the real app; it just steps out of the demo frame. */
+  @media (display-mode:browser){}
+</style>
+<script>
+(function(){ try{
+  if(window.self === window.top) return;           /* only inside the store's video player */
+  var go=function(){ var el=document.getElementById('djFreshLink2')||document.getElementById('djFreshLink');
+    if(el) el.style.display='none'; };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go();
+  setTimeout(go, 1200);
+}catch(e){} })();
+</script>
+
 </body>
 </html>
