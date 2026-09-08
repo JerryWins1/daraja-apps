@@ -276,7 +276,7 @@ function next(){
   if(i >= LINES.length){ end(); return; }
   const l = LINES[i];
   direct(l);
-  $('capText').textContent = lineText(l);
+  $('capText').textContent = written(lineText(l));
   $('prog').style.width = Math.round(((i+1)/LINES.length)*100)+'%';
   speak(lineText(l), ()=>setTimeout(next, 950));
 }
@@ -359,6 +359,53 @@ if(window.speechSynthesis) speechSynthesis.getVoices();
       if(e) e.textContent='the app is taking a moment \u2014 it will appear here'; }, 6000);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+
+<script id="dj-money-caption">
+/* Jerry, 8 Sept: "when you have money and it's 29 — dollar sign 29 — you can apply this to
+   every app that we have." The narration is spelled out so the voice pronounces it properly;
+   the caption should show figures. The voice keeps the words, the caption gets the numbers. */
+(function(){
+  var ONES={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,
+            eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,
+            eighteen:18,nineteen:19};
+  var TENS={twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+  function toNum(words){
+    var t=String(words).toLowerCase().replace(/-/g,' ').replace(/\band\b/g,' ').split(/\s+/).filter(Boolean);
+    var total=0, cur=0, any=false;
+    for(var i=0;i<t.length;i++){
+      var w=t[i];
+      if(ONES[w]!==undefined){ cur+=ONES[w]; any=true; }
+      else if(TENS[w]!==undefined){ cur+=TENS[w]; any=true; }
+      else if(w==='hundred'){ cur=(cur||1)*100; any=true; }
+      else if(w==='thousand'){ total+=(cur||1)*1000; cur=0; any=true; }
+      else return null;
+    }
+    return any ? total+cur : null;
+  }
+  function money(n){ return '$' + (n % 1 ? n.toFixed(2) : String(n)); }
+  window.written = function(text){
+    if(!text) return text;
+    var s = String(text);
+    s = s.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-]+(ninety[\s-]?nine|forty[\s-]?nine|ninety[\s-]?five|fifty)\b(?!\s+dollar)/gi,
+      function(m,a,b){ var d=toNum(a), c=toNum(b);
+        return (d===null||c===null) ? m : money(d + c/100); });
+    /* grab up to five words before "dollars", then drop words off the front until what is
+       left is actually a number — otherwise "It is nineteen dollars" fails on "It" and the
+       whole phrase is left spelled out. */
+    s = s.replace(/((?:[a-z]+[\s-]){0,5})([a-z]+)\s+dollars?\b/gi, function(m,lead,last){
+      var words=(lead+last).trim().split(/[\s-]+/);
+      for(var k=0;k<words.length;k++){
+        var n=toNum(words.slice(k).join(' '));
+        if(n!==null && n<=100000){
+          return words.slice(0,k).join(' ') + (k?' ':'') + money(n);
+        }
+      }
+      return m; });
+    return s;
+  };
 })();
 </script>
 
