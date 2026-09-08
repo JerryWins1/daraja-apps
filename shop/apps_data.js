@@ -276,6 +276,43 @@ const APPS = {
    "And here is the part that matters: nothing sends itself. It goes from your own email, your own Messages, your own account — so there is no mailing service to sign up for and no monthly bill. Message Assistant plans and writes; you press send.",
    "Nineteen dollars, once. Try it below."]},
 
+
+ /* ── TEMPLATES & PLANS — the things you download rather than open.
+      Real, packaged products sitting in Daraja Studio/Business & Community Line/Products
+      and the Nourish Line, with the prices from their own listings. ── */
+ tplcashflow: {
+  name:'Cash Flow Tracker', em:'📈', sub:'know what is coming, and when', cat:'kit',
+  price:'$12', kind:'download', file:'Excel or Google Sheets',
+  tag:'Twelve months of money in and money out, adding itself up — with a break-even line so you know the number you have to hit'},
+ tplinvoice: {
+  name:'Invoice &amp; Estimate Pack', em:'🧾', sub:'send it, and get paid', cat:'kit',
+  price:'$9', kind:'download', file:'Excel or Google Sheets + email scripts',
+  tag:'A clean invoice, a matching estimate with deposit terms, a log that tracks who owes you what, and five chase-up emails already written'},
+ tplcontent: {
+  name:'Content &amp; Social Planner', em:'📅', sub:'a month of posts, planned', cat:'kit',
+  price:'$14', kind:'download', file:'Excel or Google Sheets',
+  tag:'Plan a month of posts in one sitting instead of panicking every morning'},
+ tplsop: {
+  name:'SOP Template Library', em:'📚', sub:'how we do things here', cat:'kit',
+  price:'$22', kind:'download', file:'Word + Excel',
+  tag:'Write down how the work is actually done, so the job can be handed over without it living in one person\u2019s head'},
+ tplonboard: {
+  name:'Client Onboarding Kit', em:'🤝', sub:'start every job the same way', cat:'kit',
+  price:'$18', kind:'download', file:'Word + Excel',
+  tag:'Welcome letter, questionnaire, agreement and checklist \u2014 so no new client ever starts with a blank page'},
+ tplbundle: {
+  name:'The Whole Toolkit', em:'🧰', sub:'all five, together', cat:'kit',
+  price:'$49 (worth $75)', kind:'download', file:'everything above',
+  tag:'All five business kits in one download \u2014 $75 of things for $49'},
+ nourishdairy: {
+  name:'Dairy-Free Family Dinners', em:'🥗', sub:'a fortnight of real dinners', cat:'kit',
+  price:'$12', kind:'download', file:'PDF \u2014 print or keep on your phone',
+  tag:'Two weeks of dinners the whole family eats, with the shopping list written for you \u2014 no dairy, no fuss, no separate meal for one child'},
+ nourishpeanut: {
+  name:'Peanut-Free Family Kitchen', em:'🥪', sub:'safe food, without the fear', cat:'kit',
+  price:'$12', kind:'download', file:'PDF \u2014 print or keep on your phone',
+  tag:'How to feed a peanut-allergic child without living in fear of the kitchen \u2014 meals, label-reading, and what to tell school and grandparents'},
+
  /* ── FOR FANS & LEAGUES ── */
  pitwall: {
   name:'Pit Wall', em:'🏁', sub:'your fantasy racing league, your rules', cat:'fans', price:'$9 / league season', testing:true, video:true,
