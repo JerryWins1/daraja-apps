@@ -305,8 +305,21 @@ function togglePause(){
   if(!playing) return;
   paused=!paused;
   $('pBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
-  if(window.speechSynthesis){ paused ? speechSynthesis.pause() : speechSynthesis.resume(); }
-  if(!paused && !(window.speechSynthesis&&speechSynthesis.speaking)) next();
+  if(!window.speechSynthesis){ if(!paused) next(); return; }
+  if(paused){ try{ speechSynthesis.pause(); }catch(e){} return; }
+  try{ speechSynthesis.resume(); }catch(e){}
+  /* Jerry, 8 Sept: "I put this on pause... you have to toggle the sound off and back on."
+     Both Safari and Chrome can leave a paused voice that resume() will not restart, while
+     still reporting speaking:true — so the old check never fired and the tour just sat there.
+     Now we look again a moment later, clear the stuck voice, and carry on regardless. */
+  setTimeout(function(){
+    if(paused) return;
+    var stillPaused=false, talking=false;
+    try{ stillPaused = speechSynthesis.paused; }catch(e){}
+    try{ talking = speechSynthesis.speaking && !speechSynthesis.paused; }catch(e){}
+    if(stillPaused){ try{ speechSynthesis.cancel(); }catch(e){} talking=false; }
+    if(!talking) next();
+  }, 600);
 }
 function tryHere(){
   $('ov').style.display='none';
