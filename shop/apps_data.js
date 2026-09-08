@@ -324,6 +324,19 @@ const APPS = {
   },
   docs:[{label:'📖 The rulebook: how the league works', href:BASE+'f1/rules.html'}]},
 
+ churchhq: {
+  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'church', price:'$29 one-time', video:true,
+  tag:'The app that keeps your church app up to date — no website, no web designer, no waiting',
+  try:BASE+'church-hq/',
+  lines:[
+   "This is Church HQ, and it answers the question every church asks about ten minutes after they see their new app: who keeps it up to date?",
+   "The answer used to be: whoever built it. That is a phone call, and a wait, and often a bill. So a service time changes in March and the app still says the old one in July.",
+   "Church HQ hands that job back to you. Everything the congregation sees lives on four simple pages: the basics, this week's news, your people, and your ministries.",
+   "Change a service time, type Sunday's announcement, add the new youth leader. Then tap Publish, and every phone in the congregation has it before the sun goes down.",
+   "You do not need a website. Plenty of churches have none, and this works exactly the same. Church HQ is where your information lives.",
+   "It publishes through a free mailbox on your own Google account — a five minute setup, once, that belongs to you. No account with us, no monthly fee, nothing that can be taken away.",
+   "And if the person who set it up ever leaves, the passphrase hands the whole thing to the next person in about a minute.",
+   "Twenty-nine dollars, once, for the church that would rather not phone anybody. Try it below."]},
  /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 one-time', video:true,
