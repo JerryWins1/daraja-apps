@@ -273,7 +273,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v1.7 · 2026-09-01 · Daraja Studio</div>
+<div id="ver">Feedback Studio v1.8 · 2026-09-01 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -408,8 +408,8 @@ function setMicUI(on){
 }
 
 /* ================== NOTES ================== */
-function addNote(kind, text){
-  db.notes.push({ kind, text, t: nowStamp(), where: db.appUrl || '(no app loaded)', at: Date.now() });
+function addNote(kind, text, screen){
+  db.notes.push({ kind, text, t: nowStamp(), where: db.appUrl || '(no app loaded)', at: Date.now() , screen: screen||null });
   save(); render();
 }
 function addTyped(){
@@ -422,11 +422,101 @@ function addTyped(){
 document.getElementById('typeIn').addEventListener('keydown', e=>{
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); addTyped(); }
 });
+
+/* ═══ v1.8 — "the screen, in words" ═══
+   Three sessions running, Jerry's screenshots stayed on the clipboard and only the text
+   reached Claude. Pictures are the wrong thing to be carrying by hand. The app under review
+   is same-origin, so we can simply READ the screen and write down what is on it — which
+   travels inside the report automatically and never gets lost.
+   It also catches the thing a picture only hints at: what is sitting on top of what. */
+function appDoc(){
+  try{ const f=document.getElementById('appframe');
+    return (f && f.style.display!=='none') ? f.contentDocument : null; }catch(e){ return null; }
+}
+function vis(el, cs, r){
+  if(cs.display==='none' || cs.visibility==='hidden' || parseFloat(cs.opacity)===0) return false;
+  return r.width>1 && r.height>1;
+}
+function floaters(doc){
+  const win=doc.defaultView, vw=doc.documentElement.clientWidth, vh=doc.documentElement.clientHeight;
+  const out=[];
+  const all=doc.querySelectorAll('body *');
+  for(let i=0;i<all.length && out.length<12;i++){
+    const el=all[i]; let cs;
+    try{ cs=win.getComputedStyle(el); }catch(e){ continue; }
+    if(cs.position!=='fixed' && cs.position!=='sticky' && cs.position!=='absolute') continue;
+    const z=parseInt(cs.zIndex,10);
+    if(isNaN(z) || z<20) continue;
+    const r=el.getBoundingClientRect();
+    if(!vis(el,cs,r)) continue;
+    if(r.bottom<0 || r.top>vh || r.right<0 || r.left>vw) continue;
+    const name = el.id ? ('#'+el.id) : (el.className && typeof el.className==='string' ? '.'+el.className.trim().split(/\s+/)[0] : el.tagName.toLowerCase());
+    const label = (el.textContent||'').trim().replace(/\s+/g,' ').slice(0,40);
+    out.push({ name, z, r,
+      cover: Math.round((Math.min(r.width,vw)*Math.min(r.height,vh))/(vw*vh)*100),
+      label });
+  }
+  out.sort((a,b)=>b.z-a.z);
+  return out;
+}
+function overlapNotes(fl){
+  const bad=[];
+  for(let i=0;i<fl.length;i++) for(let j=i+1;j<fl.length;j++){
+    const a=fl[i], b=fl[j];
+    if(a.cover>60 || b.cover>60) continue;              /* a full sheet is meant to cover */
+    const ov = !(a.r.right<b.r.left || a.r.left>b.r.right || a.r.bottom<b.r.top || a.r.top>b.r.bottom);
+    if(ov) bad.push(a.name+' (z'+a.z+') is sitting on top of '+b.name+' (z'+b.z+')');
+  }
+  return bad.slice(0,3);
+}
+function describeScreen(){
+  const doc=appDoc(); if(!doc) return null;
+  try{
+    const win=doc.defaultView, vw=doc.documentElement.clientWidth, vh=doc.documentElement.clientHeight;
+    const L=[];
+    L.push('screen: '+vw+'×'+vh);
+
+    const heads=[...doc.querySelectorAll('h1,h2,h3')].filter(h=>{
+      const r=h.getBoundingClientRect(); return vis(h,win.getComputedStyle(h),r) && r.top<vh && r.bottom>0;
+    }).map(h=>h.textContent.trim().replace(/\s+/g,' ').slice(0,60)).filter(Boolean).slice(0,4);
+    if(heads.length) L.push('showing: '+heads.join(' | '));
+
+    const fl=floaters(doc);
+    const covering=fl.filter(x=>x.cover>60);
+    if(covering.length) L.push('a panel is covering the screen: '+covering.map(x=>x.name+' (z'+x.z+')').join(', '));
+    const small=fl.filter(x=>x.cover<=60);
+    if(small.length) L.push('floating on top: '+small.map(x=>x.name+' z'+x.z+(x.label?' "'+x.label+'"':'')).join(', '));
+    const bad=overlapNotes(fl);
+    bad.forEach(b=>L.push('⚠ OVERLAP: '+b));
+
+    const btns=[...doc.querySelectorAll('button,a.btn,[role=button]')].filter(b=>{
+      const r=b.getBoundingClientRect(); return vis(b,win.getComputedStyle(b),r) && r.top<vh && r.bottom>0 && r.left<vw;
+    }).map(b=>b.textContent.trim().replace(/\s+/g,' ')).filter(Boolean);
+    if(btns.length) L.push('buttons on screen: '+[...new Set(btns)].slice(0,14).join(' · '));
+
+    const ins=[...doc.querySelectorAll('input,textarea,select')].filter(x=>{
+      const r=x.getBoundingClientRect(); return vis(x,win.getComputedStyle(x),r) && r.top<vh && r.bottom>0;
+    });
+    if(ins.length){
+      L.push('boxes to fill: '+ins.slice(0,8).map(x=>{
+        const n=(x.placeholder||x.getAttribute('aria-label')||x.name||x.id||x.type||'box');
+        return n+(x.value? '="'+String(x.value).slice(0,18)+'"' : ' (empty)');
+      }).join(' · '));
+    }
+    const act=doc.activeElement;
+    if(act && act!==doc.body) L.push('cursor is in: '+(act.placeholder||act.id||act.tagName.toLowerCase()));
+    const emptyish = !heads.length && btns.length<2 && !ins.length;
+    if(emptyish) L.push('⚠ this screen is nearly empty — nothing obvious to do');
+    return L.join('\n');
+  }catch(e){ return 'could not read the screen ('+(e.message||e)+')'; }
+}
+
 async function snapShot(){
   const f=document.getElementById('appframe');
   let doc=null; try{ doc=f&&f.style.display!=='none'&&f.contentDocument; }catch(e){}
   if(!doc||!window.html2canvas){ alert(doc? 'Screenshot engine still loading — try again in a second.' : 'Open an app first, then 📸.'); return; }
   const stamp=nowStamp();
+  const screenText=describeScreen();
   try{
     const canvas=await html2canvas(doc.body,{logging:false,useCORS:true,windowWidth:doc.documentElement.clientWidth,windowHeight:doc.documentElement.clientHeight});
     const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
@@ -439,13 +529,13 @@ async function snapShot(){
       a.download='feedback_'+stamp.replace(':','m')+'s.png'; a.click();
       how='downloaded as '+a.download+' — attach it with your report';
     }
-    addNote('marker','📸 Screenshot taken at '+stamp+' ('+how+'). It shows the screen being discussed.');
+    addNote('marker','📸 Screenshot at '+stamp+' ('+how+'). The screen is also written out below, so nothing is lost if the picture does not travel.', screenText);
   }catch(e){
-    addNote('marker','📸 (screenshot failed on this app — '+(e.message||'blocked')+')');
+    addNote('marker','📸 (the picture failed — '+(e.message||'blocked')+' — but the screen is written out below)', screenText);
   }
 }
 function addMarker(){
-  addNote('marker','🚩 Look at the screen right here — this spot matters.');
+  addNote('marker','🚩 Look at the screen right here — this spot matters.', describeScreen());
 }
 function delNote(i){
   db.notes.splice(i,1); save(); render();
@@ -512,7 +602,7 @@ function buildReport(){
   out += 'Comments     : ' + db.notes.length + '\n';
   const av = appVersion();
   out += 'App version  : ' + (av || 'could not read it — check the line at the bottom of the app') + '\n';
-  out += 'Tool         : Feedback Studio v1.7 (Daraja Studio)\n';
+  out += 'Tool         : Feedback Studio v1.8 (Daraja Studio)\n';
   out += '------------------------------------------\n\n';
   if(isAI){
     out += 'INSTRUCTIONS FOR ' + who.toUpperCase() + ':\n';
@@ -531,6 +621,11 @@ function buildReport(){
   db.notes.forEach((n,i)=>{
     const tag = n.kind==='voice'?'SPOKEN':n.kind==='typed'?'TYPED ':'MARKER';
     out += `\n${String(i+1).padStart(2,' ')}. [${n.t}] (${tag})\n    ${n.text}\n`;
+    if(n.screen){
+      out += '    ┌─ WHAT WAS ON SCREEN ─────────────────\n';
+      String(n.screen).split('\n').forEach(l=>{ out += '    │ ' + l + '\n'; });
+      out += '    └──────────────────────────────────────\n';
+    }
   });
   out += '\n------------------------------------------\n';
   const shots = db.notes.filter(n=>/\u{1F4F8}/u.test(n.text)).length;
