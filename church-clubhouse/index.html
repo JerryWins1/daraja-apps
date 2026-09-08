@@ -293,53 +293,7 @@ function doChallenge(){
 </script>
 
 
-<!-- ═══ Start fresh — every app gets one (v1.0 · 2026-09-07) ═══
-     Jerry asked for this weeks ago and it only ever landed in Rafiki. Wiping your own
-     data should never require knowing which app stores what: this finds every key this
-     app owns and clears them, but only after a plain-English confirmation. -->
-<script>
-(function(){
-  if(window.__djClear) return; window.__djClear = true;
-  var SLUG = (window.DJ_START && window.DJ_START.slug) ||
-             (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || 'app');
-  function mine(){
-    var keys = [];
-    try{
-      for(var i=0;i<localStorage.length;i++){
-        var k = localStorage.key(i);
-        if(!k) continue;
-        if(k.indexOf('dj_') === 0) continue;              /* our own housekeeping */
-        keys.push(k);
-      }
-    }catch(e){}
-    return keys;
-  }
-  window.djStartFresh = function(){
-    var keys = mine();
-    var msg = 'Start fresh?\n\nThis erases everything you have put into this app on this '
-            + 'device — ' + (keys.length ? keys.length + ' saved item' + (keys.length>1?'s':'') : 'nothing yet')
-            + '. It cannot be undone, and it does not touch your other apps\' data.';
-    if(!confirm(msg)) return;
-    if(!confirm('Really sure? Everything in this app goes.')) return;
-    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
-    try{ if(window.caches) caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }); }catch(e){}
-    location.replace(location.pathname);
-  };
-  function addLink(){
-    if(document.getElementById('djFreshLink')) return;
-    var foot = document.querySelector('footer') || document.body;
-    var wrap = document.createElement('div');
-    wrap.id = 'djFreshLink';
-    wrap.style.cssText = 'text-align:center;padding:14px 12px 26px;font:13px -apple-system,system-ui,sans-serif;opacity:.75';
-    wrap.innerHTML = '<button onclick="djStartFresh()" style="font:inherit;font-weight:700;'
-      + 'border:1px solid rgba(128,128,128,.45);background:transparent;color:inherit;'
-      + 'border-radius:9px;padding:7px 14px;cursor:pointer">🧹 Start fresh — erase my data</button>';
-    foot.appendChild(wrap);
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', addLink);
-  else addLink();
-})();
-</script>
+
 
 
 <script>if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }</script>
@@ -509,6 +463,106 @@ function doChallenge(){
   /* every scrap of readable prose, whatever element it happens to live in */
   div, .lbl, .cap, .note, .meta, .byline, .tag, .foot, figcaption { font-size: max(13px, 1em); }
 </style>
+
+
+<script id="dj-clear-v2">
+/* ═══ Start fresh — v2 (safe) ═══ */
+(function(){
+  if(window.__djClear2) return; window.__djClear2 = true;
+
+  /* Who owns what. Every app on this address shares one storage area, so this list is
+     the only thing standing between "clear my data" and "clear everyone's data". */
+  var OWNERS = {
+    nownext:      ['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1'],
+    ahead:        ['ahead_v1','aheadofit_v1'],
+    nextstep:     ['nextstep_v1','next_step_v1'],
+    breakeven:    ['breakeven_v1'],
+    safety:       ['safety_v1','safetyplan_v1'],
+    occ:          ['occ_v1'],
+    zuri:         ['zuri_v1','zuri_ops_v1'],
+    compass:      ['compass_v1'],
+    feedback:     ['fbs_v1'],
+    storykeeper:  ['story_v1','storykeeper_v1'],
+    academy:      ['academy_v1'],
+    thekey:       ['thekey_v1','key_v1'],
+    drumbeat:     ['drumbeat_v1'],
+    flipkit:      ['flipkit_v1'],
+    rafiki:       ['rafiki_v1','rafiki_aa'],
+    pitwall:      ['f1_v1','pitwall_v1','f1league_v1'],
+    churchhq:     ['church_hq_v1'],
+    steward:      ['steward_v1'],
+    serve:        ['serveboard_v1','serve_v1'],
+    drive:        ['drive_v1','church_drive_v1'],
+    clubhouse:    ['clubhouse_v1','church_clubhouse_v1'],
+    gameday:      ['gameday_v1','church_gameday_v1'],
+    churchkey:    ['churchkey_v1','church_key_v1'],
+    goodstanding: ['goodstanding_v1'],
+    receipts:     ['receipts_v1','np_receipts_v1']
+  };
+
+  var SLUG = (window.DJ_START && window.DJ_START.slug) ||
+             (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || 'app');
+  SLUG = String(SLUG).toLowerCase().replace(/[^a-z0-9]/g,'');
+
+  function myKeys(){
+    var mine = (OWNERS[SLUG] || []).slice();
+    var declared = (window.DJ_START && window.DJ_START.dataKeys) || [];
+    declared.forEach(function(k){ if(mine.indexOf(k) < 0) mine.push(k); });
+
+    /* everything any OTHER app owns is off limits, whatever the patterns say */
+    var protectedKeys = {};
+    Object.keys(OWNERS).forEach(function(app){
+      if(app === SLUG) return;
+      OWNERS[app].forEach(function(k){ if(mine.indexOf(k) < 0) protectedKeys[k] = app; });
+    });
+
+    var out = [];
+    try{
+      for(var i = 0; i < localStorage.length; i++){
+        var k = localStorage.key(i);
+        if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(protectedKeys[k]) continue;                       /* another app's data */
+        if(mine.indexOf(k) >= 0){ out.push(k); continue; }
+        /* this app's own coach/progress keys, which are always slug-stamped */
+        if(k.indexOf('fs_coach_' + SLUG) === 0 || k.indexOf(SLUG + '_') === 0) out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  window.djStartFresh = function(){
+    var keys = myKeys();
+    if(!keys.length){
+      alert('There is nothing saved in this app yet — nothing to erase.');
+      return;
+    }
+    var msg = 'Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+              '\n\nYour other Daraja apps are not touched. This cannot be undone.';
+    if(!confirm(msg)) return;
+    if(!confirm('Last check — erase this app\'s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  };
+
+  function addLink(){
+    var old = document.getElementById('djFreshLink');
+    if(old) old.remove();                                    /* retire the unsafe one */
+    if(document.getElementById('djFreshLink2')) return;
+    var host = document.querySelector('footer') || document.body;
+    var w = document.createElement('div');
+    w.id = 'djFreshLink2';
+    w.style.cssText = 'text-align:center;padding:14px 12px 26px;font:13px -apple-system,system-ui,sans-serif;opacity:.75';
+    w.innerHTML = '<button onclick="djStartFresh()" style="font:inherit;font-weight:700;'
+      + 'border:1px solid rgba(128,128,128,.45);background:transparent;color:inherit;'
+      + 'border-radius:9px;padding:10px 14px;min-height:44px;cursor:pointer">'
+      + '\u{1F9F9} Start fresh — erase this app\u2019s data</button>';
+    host.appendChild(w);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addLink);
+  else addLink();
+})();
+</script>
 
 </body>
 </html>
