@@ -120,7 +120,7 @@
   <button class="cbtn" onclick="restart()">↻ Start over</button>
   <button class="cbtn" id="sndBtn" onclick="toggleSound()">🔊 Sound on</button>
 </div>
-<div id="ver">Daraja Store video player v2.1 · 2026-09-05 — watch the tour, then use the real app right here</div>
+<div id="ver">Daraja Store video player v2.2 · 2026-09-07 — one sentence at a time, slower — watch the tour, then use the real app right here</div>
 
 <script>document.write('<scr'+'ipt src="apps_data.js?v='+Date.now()+'"></scr'+'ipt>')</script>
 <script>
@@ -153,24 +153,52 @@ if(MODE==='train'){
 }
 
 let i=-1, playing=false, paused=false, soundOn=true;
+/* v2.2 — narration used to hand the whole caption to the voice as ONE utterance, so it
+   barrelled through the full stops and ran sentences together; the safety timer could also
+   cut in while it was still talking. Now: one sentence at a time, with a breath between,
+   and the timer never interrupts a voice that is genuinely speaking. */
+function sentences(t){
+  const raw = String(t).match(/[^.!?…]+[.!?…]*/g) || [String(t)];
+  const out = [];
+  raw.forEach(x=>{ x=x.trim(); if(!x) return;
+    if(out.length && x.replace(/[^A-Za-z]/g,'').length < 12) out[out.length-1] += ' ' + x;
+    else out.push(x);
+  });
+  return out.length ? out : [String(t)];
+}
 function speak(text, cb){
-  if(!soundOn || !window.speechSynthesis){ setTimeout(cb, Math.max(2600, text.length*60)); return; }
-  /* smooth-talk pass: dashes and dots become natural beats, not run-ons */
-  const spoken = text.replace(/\s+\u2014\s+/g, '\u2026 ').replace(/\s+\u00b7\s+/g, '\u2026 ').replace(/\u2014/g, ',');
-  const u = new SpeechSynthesisUtterance(spoken);
-  u.rate=.95; u.pitch=1;
+  const spoken = String(text).replace(/\s+—\s+/g,'… ').replace(/\s+·\s+/g,'… ').replace(/—/g,',');
+  if(!soundOn || !window.speechSynthesis){ setTimeout(cb, Math.max(2600, spoken.length*60)); return; }
+  const parts = sentences(spoken);
   const vs = speechSynthesis.getVoices();
   const v = vs.find(x=>/Samantha/i.test(x.name))
-        || vs.find(x=>/Google US English/i.test(x.name))
+        || vs.find(x=>/^Google US English$/i.test(x.name))
         || vs.find(x=>/Aria|Jenny|Michelle|Natural/i.test(x.name))
         || vs.find(x=>/^en[-_]US/i.test(x.lang||''));
-  if(v) u.voice=v;
-  let done=false;
-  const fin=()=>{ if(done) return; done=true; cb(); };
-  u.onend=fin; u.onerror=fin;
-  speechSynthesis.speak(u);
-  /* safety net only \u2014 generous, and it silences a stuck line instead of talking over it */
-  setTimeout(function(){ if(!done){ try{ speechSynthesis.cancel(); }catch(e){} fin(); } }, 4000 + spoken.length*130);
+  let k = 0;
+  (function next(){
+    if(k >= parts.length){ cb(); return; }
+    const line = parts[k++];
+    let done=false, guard=null;
+    const fin=()=>{ if(done) return; done=true; clearTimeout(guard);
+      setTimeout(next, 480); };            /* the breath between sentences */
+    try{
+      if(speechSynthesis.paused) speechSynthesis.resume();
+      const u = new SpeechSynthesisUtterance(line);
+      u.rate=.88; u.pitch=1;               /* a notch slower — Jerry asked for it twice */
+      if(v) u.voice=v;
+      u.onend=fin; u.onerror=fin;
+      speechSynthesis.speak(u);
+      const expect = 3000 + line.length*170, hardStop = Date.now() + expect + 15000;
+      guard = setTimeout(function tick(){
+        if(done) return;
+        let busy=false; try{ busy = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
+        if(busy && Date.now() < hardStop){ guard=setTimeout(tick, 700); return; }
+        if(busy){ try{ speechSynthesis.cancel(); }catch(e){} }
+        fin();
+      }, expect);
+    }catch(e){ fin(); }
+  })();
 }
 function play(){
   $('ov').style.display='none'; $('cap').style.display='block';
