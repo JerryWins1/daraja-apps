@@ -55,20 +55,29 @@ function audit(doc, win){
   const rgb=c=>(String(c).match(/[\d.]+/g)||[0,0,0]).slice(0,3).map(Number);
   const lum=c=>{const[r,g,b]=rgb(c).map(x=>{x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)});return .2126*r+.7152*g+.0722*b};
   const ra=(a,b)=>{const l1=lum(a),l2=lum(b);return(Math.max(l1,l2)+.05)/(Math.min(l1,l2)+.05)};
-  const bgOf=e=>{let n=e;while(n&&n!==doc.documentElement){const c=cs(n).backgroundColor;if(c&&!/rgba?\(0, 0, 0, 0\)|transparent/.test(c))return c;n=n.parentElement}return cs(doc.body).backgroundColor||'rgb(255,255,255)'};
+  /* A gradient or image behind the text cannot be measured from a single colour. The first
+     version walked straight past #phaseBanner's dark gradient to the cream body and reported
+     1.0:1 for text that reads perfectly well — 10 false alarms out of 10. Now it says so. */
+  const bgOf=e=>{let n=e;while(n&&n!==doc.documentElement){const s2=cs(n);const c=s2.backgroundColor;
+    if(c&&!/rgba?\(0, 0, 0, 0\)|transparent/.test(c))return c;
+    if(s2.backgroundImage&&s2.backgroundImage!=='none')return null;
+    n=n.parentElement}return cs(doc.body).backgroundColor||'rgb(255,255,255)'};
 
   if(doc.documentElement.scrollWidth>vw+2)
     add(1,'scrolls sideways', (doc.documentElement.scrollWidth-vw)+'px too wide');
 
   const sm=[...doc.querySelectorAll('button,a,[role=button],select')].filter(seen)
-    .filter(e=>{const r=e.getBoundingClientRect();return (r.height<40||r.width<32)&&(e.textContent||'').trim().length<30});
+        .filter(e=>{const r=e.getBoundingClientRect(); const d=cs(e).display;
+      if(e.tagName==='A' && d.indexOf('inline')===0) return false;   /* an inline link in a sentence is not a button */
+      return (r.height<40||r.width<32)&&(e.textContent||'').trim().length<30});
   if(sm.length) add(2,'tap target too small', sm.length+' · '+sm.slice(0,3).map(e=>'"'+((e.textContent||e.getAttribute('aria-label')||'?').trim().slice(0,12))+'" '+Math.round(e.getBoundingClientRect().height)+'px').join(', '));
 
   const lc=[];
   [...doc.querySelectorAll('p,span,li,td,label,small,h1,h2,h3,div,a,button')]
     .filter(e=>seen(e)&&!e.children.length&&(e.textContent||'').trim().length>3).slice(0,500)
     .forEach(e=>{const s=cs(e),sz=parseFloat(s.fontSize),bd=+s.fontWeight>=700;
-      const need=(sz>=24||(sz>=18.66&&bd))?3:4.5, r=ra(s.color,bgOf(e));
+      const bb=bgOf(e); if(!bb) return;
+      const need=(sz>=24||(sz>=18.66&&bd))?3:4.5, r=ra(s.color,bb);
       if(r<need) lc.push('"'+(e.textContent||'').trim().slice(0,18)+'" '+r.toFixed(1)+':1')});
   if(lc.length) add(1,'text too faint to read', lc.length+' · '+lc.slice(0,3).join(' · '));
 
