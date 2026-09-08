@@ -363,14 +363,14 @@ const APPS = {
    "And when it's set, print it for the bulletin board — because some of your best volunteers don't do phones, and that's fine.",
    "Nineteen dollars, once, for every ministry team you have. Try it below."]},
  churchdrive: {
-  name:'Drive Counter', em:'📦', sub:'count complete sets', cat:'church', price:'$19 one-time', video:true,
+  name:'Operation Christmas Child Assistant', em:'📦', sub:'every box, counted', cat:'church', price:'$19 one-time', video:true,
   tag:'How many complete sets can we hand out right now?',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   lines:[
-   "This is Drive Counter — for food drives, coat drives, and shoebox season.",
+   "This is Operation Christmas Child Assistant — for food drives, coat drives, and shoebox season.",
    "The question that matters isn't 'how much stuff do we have.' It's 'how many complete sets can we hand out right now?'",
    "A food box needs rice AND beans AND oil. Ninety bags of rice and four bottles of oil is four boxes — not ninety.",
-   "Drive Counter does that math live, as donations come in. The big number is sets ready to give.",
+   "Operation Christmas Child Assistant does that math live, as donations come in. The big number is sets ready to give.",
    "And it shows what runs out first, so Sunday's announcement writes itself: 'we need oil, friends. Just oil.'",
    "Nineteen dollars, once, for every drive you'll ever run. Try it below."]},
  churchclubhouse: {
@@ -405,13 +405,13 @@ const APPS = {
    "Fill it in once — it takes an evening — print two copies, and the building stops depending on any one memory.",
    "Nineteen dollars, once. It's insurance that costs less than lunch. Try it below."]},
  npgoodstanding: {
-  name:'Good Standing', em:'🕊', sub:'filings, never forgotten', cat:'church', price:'$29 one-time', video:true,
+  name:'Nonprofit Filings', em:'🕊', sub:'certifications and legal dates', cat:'church', price:'$29 one-time', video:true,
   tag:'The filings that quietly end small nonprofits — now they can\'t',
   try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
   lines:[
-   "This is Good Standing, built for the two-or-three-person nonprofit doing holy work with nobody in the office.",
+   "This is Nonprofit Filings, built for the two-or-three-person nonprofit doing holy work with nobody in the office.",
    "Here is the fact that keeps founders up at night: if a small nonprofit misses its IRS nine-ninety three years in a row, its tax-exempt status is revoked automatically, and that happens to thousands of good organizations every single year.",
-   "So Good Standing holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
+   "So Nonprofit Filings holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
    "It comes pre-loaded with the filings small nonprofits actually face, so you just tick what applies to you and enter your real dates.",
    "Twenty-nine dollars, one time. It may be the cheapest insurance a mission ever bought. Try it below."
   ]},
