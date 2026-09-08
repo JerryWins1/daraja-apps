@@ -1114,6 +1114,144 @@ function openQow(){
 }catch(e){} })();
 </script>
 
+
+<!-- ═══════════ ASK MODE — "it's me, for my dad" (v1.0 · 2026-09-08) ═══════════
+     Jerry, 8 Sept: "maybe the person buying it is for a loved one... let's build an option
+     for the one that's going to receive the information, and let them build all the questions
+     they want answered... so the one being interviewed gets asked those questions."
+     Exactly that, and with no accounts and no server: the questions travel inside the link. -->
+<style id="dj-ask-css">
+  #askWrap{ position:fixed; inset:0; z-index:800; background:#14181A; color:#ECEAE3;
+    overflow:auto; padding:20px 16px 40px; font:16px/1.5 -apple-system,system-ui,sans-serif; display:none; }
+  #askWrap.on{ display:block; }
+  #askWrap .box{ max-width:560px; margin:0 auto; }
+  #askWrap h2{ font-size:23px; margin:0 0 6px; }
+  #askWrap p{ color:#B4BBB5; margin:0 0 14px; }
+  #askWrap .qrow{ display:grid; grid-template-columns:26px 1fr auto; gap:9px; align-items:start; margin-bottom:9px; }
+  #askWrap .qnum{ width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.14);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;margin-top:8px; }
+  #askWrap textarea{ width:100%; font:inherit; font-size:16px; padding:11px 12px; border-radius:11px;
+    border:1.5px solid rgba(255,255,255,.28); background:rgba(20,22,30,.5); color:inherit; min-height:58px; }
+  #askWrap .k{ border:none;background:transparent;color:#E8886A;font-size:20px;cursor:pointer;margin-top:6px; }
+  #askWrap .btn{ width:100%; font:inherit; font-weight:800; font-size:16px; padding:14px; min-height:48px;
+    border-radius:13px; border:1.5px solid rgba(255,255,255,.25); background:transparent; color:inherit;
+    cursor:pointer; margin-top:9px; }
+  #askWrap .btn.go{ background:#2F6E52; border-color:#2F6E52; color:#fff; }
+  #askWrap .link{ background:rgba(255,255,255,.08); border-radius:11px; padding:11px;
+    font:13px ui-monospace,Menlo,monospace; word-break:break-all; margin-top:10px; }
+</style>
+<div id="askWrap"><div class="box" id="askBox"></div></div>
+<script id="dj-ask-js">
+(function(){
+  var KEY='story_ask_v1';
+  function enc(o){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }catch(e){ return ''; } }
+  function dec(s){ try{ return JSON.parse(decodeURIComponent(escape(atob(s)))); }catch(e){ return null; } }
+  function el(id){ return document.getElementById(id); }
+  function show(html){ el('askBox').innerHTML=html; el('askWrap').classList.add('on'); window.scrollTo(0,0); }
+  window.askClose=function(){ el('askWrap').classList.remove('on'); };
+
+  var draft = { from:'', to:'', qs:[''] };
+
+  window.askStart=function(){
+    show('<h2>\u{1F381} This one is a gift</h2>'
+      + '<p>If you are setting this up so somebody else can tell <i>their</i> story, you can choose '
+      + 'the questions yourself. They will be asked exactly what you want to know.</p>'
+      + '<label style="font-size:12.5px;font-weight:700;opacity:.75">WHO IS IT FOR?</label>'
+      + '<textarea id="aTo" style="min-height:44px" placeholder="Dad">'+(draft.to||'')+'</textarea>'
+      + '<label style="font-size:12.5px;font-weight:700;opacity:.75;display:block;margin-top:10px">AND WHO IS ASKING?</label>'
+      + '<textarea id="aFrom" style="min-height:44px" placeholder="Jerry">'+(draft.from||'')+'</textarea>'
+      + '<button class="btn go" onclick="askQs()">Next — write my questions →</button>'
+      + '<button class="btn" onclick="askClose()">Never mind</button>');
+  };
+
+  window.askQs=function(){
+    draft.to=(el('aTo')||{}).value||draft.to; draft.from=(el('aFrom')||{}).value||draft.from;
+    paintQs();
+  };
+  function paintQs(){
+    var rows = draft.qs.map(function(q,i){
+      return '<div class="qrow"><span class="qnum">'+(i+1)+'</span>'
+        + '<textarea oninput="askSet('+i+',this.value)" placeholder="'+ (i===0?'What do you remember about the war?':'another question') +'">'+(q||'')+'</textarea>'
+        + '<button class="k" onclick="askDel('+i+')" aria-label="remove">×</button></div>';
+    }).join('');
+    show('<h2>What do you want to ask '+(draft.to? esc(draft.to):'them')+'?</h2>'
+      + '<p>Ask the things only they can answer. One per box — five or six is plenty to start.</p>'
+      + rows
+      + '<button class="btn" onclick="askAdd()">➕ Another question</button>'
+      + '<button class="btn go" onclick="askMake()">Make the link to send them →</button>'
+      + '<button class="btn" onclick="askStart()">‹ Back</button>');
+  }
+  function esc(x){ return String(x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  window.askSet=function(i,v){ draft.qs[i]=v; };
+  window.askAdd=function(){ draft.qs.push(''); paintQs(); };
+  window.askDel=function(i){ draft.qs.splice(i,1); if(!draft.qs.length) draft.qs=['']; paintQs(); };
+
+  window.askMake=function(){
+    var qs=draft.qs.map(function(q){ return String(q||'').trim(); }).filter(Boolean);
+    if(!qs.length){ alert('Write at least one question first.'); return; }
+    var payload=enc({f:draft.from, t:draft.to, q:qs});
+    var url=location.origin+location.pathname+'?ask='+payload;
+    var msg=(draft.to? draft.to+', ' : '')+'I set something up so you can tell your story in your own voice — it asks you a few questions and writes down what you say. No account, nothing to sign up for. Here it is: '+url;
+    show('<h2>✓ Ready to send</h2>'
+      + '<p>Send this to '+(draft.to?esc(draft.to):'them')+'. When they open it, they will be asked <b>your</b> '+qs.length+' question'+(qs.length>1?'s':'')+' — nothing else to set up at their end.</p>'
+      + '<div class="link">'+esc(url)+'</div>'
+      + '<button class="btn go" onclick="askCopy('+JSON.stringify(msg).replace(/"/g,'&quot;')+')">\u{1F4CB} Copy the message to send</button>'
+      + '<button class="btn" onclick="askQs()">‹ Change the questions</button>'
+      + '<button class="btn" onclick="askClose()">Done</button>');
+  };
+  window.askCopy=function(msg){
+    if(navigator.clipboard) navigator.clipboard.writeText(msg).then(
+      function(){ alert('Copied. Paste it into a text or an email.'); },
+      function(){ alert('Select the link above and copy it.'); });
+  };
+
+  /* the person receiving it */
+  function incoming(){
+    try{
+      var u=new URL(location.href), a=u.searchParams.get('ask');
+      if(!a) return null;
+      return dec(a);
+    }catch(e){ return null; }
+  }
+  function boot(){
+    var got=incoming();
+    if(got && got.q && got.q.length){
+      try{ localStorage.setItem(KEY, JSON.stringify(got)); }catch(e){}
+      show('<h2>\u{1F49B} '+(got.f?esc(got.f):'Someone')+' has some questions for you</h2>'
+        + '<p>They would like to hear these in your own voice. You just talk — it writes down what you say, '
+        + 'and it stays on this phone. There is nothing to sign up for.</p>'
+        + '<ol style="padding-left:20px;line-height:1.7">'+got.q.map(function(q){ return '<li>'+esc(q)+'</li>'; }).join('')+'</ol>'
+        + '<button class="btn go" onclick="askBegin()">Start with the first one →</button>'
+        + '<button class="btn" onclick="askClose()">I will look around first</button>');
+      return;
+    }
+    /* offer the gift route on the way in */
+    var host=document.querySelector('footer') || document.body;
+    if(!document.getElementById('askEntry')){
+      var d=document.createElement('div'); d.id='askEntry';
+      d.style.cssText='text-align:center;padding:10px 14px 0';
+      d.innerHTML='<button onclick="askStart()" style="font:inherit;font-weight:700;font-size:14px;'
+        + 'padding:11px 16px;min-height:44px;border-radius:11px;border:1.5px dashed rgba(128,128,128,.5);'
+        + 'background:transparent;color:inherit;cursor:pointer">\u{1F381} Setting this up for someone else?</button>';
+      host.parentNode.insertBefore(d, host);
+    }
+  }
+  window.askBegin=function(){
+    askClose();
+    var st=null; try{ st=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){}
+    if(st && st.q && window.CHAPTERS){
+      /* put their questions at the front, as their own chapter */
+      try{
+        CHAPTERS.unshift({id:'asked', em:'\u{1F49B}', name:(st.f? st.f+"'s questions" : 'Questions for you'), qs:st.q});
+        if(typeof render==='function') render();
+        else location.hash='#asked';
+      }catch(e){}
+    }
+  };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+
 </body>
 </html>
 <script>
