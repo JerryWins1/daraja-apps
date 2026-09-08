@@ -14,6 +14,16 @@
   #pwaInstall.show { display:inline-flex; gap:8px; align-items:center; }
   #pwaTip { position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:9999; background:#1C2B29; color:#F5F1EA; border-radius:14px; padding:12px 14px; font:14px -apple-system,system-ui,sans-serif; display:none; box-shadow:0 8px 24px rgba(0,0,0,.3); }
   #pwaTip.show { display:block; } #pwaTip b { color:#E58A6E; } #pwaTip button { float:right; background:none; border:none; color:#F5F1EA; font-size:18px; cursor:pointer; margin:-4px -4px 0 8px; }
+
+  /* Jerry: "the calendar needs to be a calendar" — the native picker button was a tiny
+     grey square nobody could see. Now it is a full-size, high-contrast calendar. */
+  input[type="date"]{ position:relative; }
+  input[type="date"]::-webkit-calendar-picker-indicator{
+    opacity:1; cursor:pointer; width:26px; height:26px; padding:2px; margin-left:6px;
+    border-radius:7px; background:rgba(242,177,52,.22);
+    filter:invert(74%) sepia(56%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%);
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover{ background:rgba(242,177,52,.42); }
 </style>
 <title>Steward</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
@@ -392,7 +402,11 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
 try{
   if(typeof LIB==='undefined') return;
   function uid2(){ return 'qs'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
-  function readDb(){ try{ return JSON.parse(localStorage.getItem('steward_v1')||'null'); }catch(e){ return null; } }
+  function readDb(){ /* v1.1 fix: on a brand-new phone the app has never written its record,
+     so Quick setup read null and refused to save — the first button a new owner presses.
+     Now it starts an empty record instead of turning them away. */
+    try{ var d=JSON.parse(localStorage.getItem('steward_v1')||'null'); if(d) return d; }catch(e){}
+    return { items:[], owner:'', tell:'' }; }
 
   function ensureBtn(){
     if(document.getElementById('qsBtn')) return;
@@ -405,7 +419,17 @@ try{
   }
   setInterval(ensureBtn, 3000); setTimeout(ensureBtn, 1200);
 
+  /* v1.1: while the full-screen Quick setup sheet is open, everything behind it gets out
+     of the way — the coach bar, the gold button and the ＋. Jerry: "quick setup on top of
+     the show me — it's just kind of messy." */
+  function qsChrome(hide){
+    ['fsBar','qsBtn'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.visibility = hide?'hidden':''; });
+    var fab=document.querySelector('.fab'); if(fab) fab.style.visibility = hide?'hidden':'';
+  }
+  function closeQS(){ var ov=document.getElementById('qsOv'); if(ov) ov.style.display='none'; qsChrome(false); }
+  window.closeQS = closeQS;
   function openQS(){
+    qsChrome(true);
     let ov=document.getElementById('qsOv');
     if(!ov){
       ov=document.createElement('div'); ov.id='qsOv';
@@ -418,7 +442,7 @@ try{
     let h='<div style="max-width:600px;margin:0 auto;padding:16px 14px 80px;">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
       +'<div style="font-size:21px;font-weight:800;">⚡ Quick setup</div>'
-      +'<button onclick="document.getElementById(\'qsOv\').style.display=\'none\'" style="background:#1F2126;border:1px solid #31343B;color:#B7AFA2;border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;font-family:inherit;">✕ Close</button></div>';
+      +'<button onclick=\"closeQS()\" style="background:#1F2126;border:1px solid #31343B;color:#B7AFA2;border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;font-family:inherit;">✕ Close</button></div>';
     h+='<div style="color:#B7AFA2;font-size:14px;margin-bottom:14px;line-height:1.5;">Everything on <b style="color:#F5C25C;">one screen</b>. Tick what your house has, fix a date if you know it, tap Save. <b>Two is plenty — there’s no magic number.</b> Already-added items are marked ✓.</div>';
     Object.keys(cats).forEach(cat=>{
       h+='<div style="font-size:12px;font-weight:800;letter-spacing:.1em;color:#F5C25C;margin:14px 0 6px;text-transform:uppercase;">'+cat+'</div>';
@@ -443,7 +467,7 @@ try{
 
   window.__qsSave=function(){
     try{
-      const d=readDb(); if(!d){ alert('Hmm — open the app once first, then try again.'); return; }
+      const d=readDb() || { items:[], owner:'', tell:'' };
       d.items=d.items||[];
       let n=0;
       document.querySelectorAll('input[data-qs]:checked').forEach(cb=>{
