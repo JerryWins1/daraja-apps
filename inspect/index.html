@@ -58,10 +58,30 @@ function audit(doc, win){
   /* A gradient or image behind the text cannot be measured from a single colour. The first
      version walked straight past #phaseBanner's dark gradient to the cream body and reported
      1.0:1 for text that reads perfectly well — 10 false alarms out of 10. Now it says so. */
-  const bgOf=e=>{let n=e;while(n&&n!==doc.documentElement){const s2=cs(n);const c=s2.backgroundColor;
-    if(c&&!/rgba?\(0, 0, 0, 0\)|transparent/.test(c))return c;
-    if(s2.backgroundImage&&s2.backgroundImage!=='none')return null;
-    n=n.parentElement}return cs(doc.body).backgroundColor||'rgb(255,255,255)'};
+  /* Three things a naive reading gets wrong, all found by checking its own complaints:
+     · a gradient behind the text cannot be reduced to one colour — say so instead of guessing
+     · a translucent pill (white at 16%) is not white; it must be composited over what is under it
+     · an inline link inside a sentence is not a button and should not be measured like one   */
+  const blend=(fg,a,bg)=>fg.map((v,i)=>Math.round(v*a + bg[i]*(1-a)));
+  const bgOf=e=>{
+    let n=e, stack=[];
+    while(n && n!==doc.documentElement){
+      const s2=cs(n), c=s2.backgroundColor;
+      if(s2.backgroundImage && s2.backgroundImage!=='none') return null;
+      if(c && !/rgba?\(0, 0, 0, 0\)|transparent/.test(c)){
+        const parts=(String(c).match(/[\d.]+/g)||[]).map(Number);
+        const a = parts.length>3 ? parts[3] : 1;
+        if(a >= 0.995) { let out=parts.slice(0,3);
+          for(let i=stack.length-1;i>=0;i--) out=blend(stack[i].c, stack[i].a, out);
+          return 'rgb('+out.join(',')+')'; }
+        stack.push({c:parts.slice(0,3), a:a});
+      }
+      n=n.parentElement;
+    }
+    let base=(String(cs(doc.body).backgroundColor).match(/[\d.]+/g)||[255,255,255]).map(Number).slice(0,3);
+    for(let i=stack.length-1;i>=0;i--) base=blend(stack[i].c, stack[i].a, base);
+    return 'rgb('+base.join(',')+')';
+  };
 
   if(doc.documentElement.scrollWidth>vw+2)
     add(1,'scrolls sideways', (doc.documentElement.scrollWidth-vw)+'px too wide');
