@@ -11,6 +11,7 @@ const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
  nownext: {
+  buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
   name:'My Productive Partner', em:'🧭', sub:'one thing at a time', fresh:true, cat:'family', price:'$4.99', testing:true,
   tag:'One thing at a time — for kids and grown-ups whose brains run fast',
   try:A+'nownext/', video:true,
