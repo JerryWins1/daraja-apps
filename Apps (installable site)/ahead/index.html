@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v9">
+<script id="dj-house-v10">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -318,11 +318,28 @@
     window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
     window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
   }
-  /* the 💡 is built about two seconds in, so look more than once */
+  /* Each app builds its 💡 on its own timer, so a fixed list of delays always loses
+     the race in some app — Steward's arrived after the last pass and stayed on
+     screen. Watch for it instead of guessing when it turns up. */
   function dockPasses(){
-    [0, 400, 1200, 2400, 4200].forEach(function(ms){ setTimeout(function(){ try{ dock(); }catch(e){} }, ms); });
-    window.addEventListener('resize', function(){ try{ dock(); }catch(e){} });
-    window.addEventListener('orientationchange', function(){ setTimeout(function(){ try{ dock(); }catch(e){} }, 300); });
+    var run = function(){ try{ dock(); }catch(e){} };
+    [0, 400, 1200, 2400].forEach(function(ms){ setTimeout(run, ms); });
+    try{
+      var mo = new MutationObserver(function(recs){
+        for(var i=0; i<recs.length; i++){
+          var added = recs[i].addedNodes;
+          for(var j=0; j<added.length; j++){
+            var n = added[j];
+            if(n.nodeType !== 1) continue;
+            if(dockEl && dockEl.contains(n)) continue;
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays'){ run(); return; }
+          }
+        }
+      });
+      if(document.body) mo.observe(document.body, {childList:true, subtree:true});
+    }catch(e){}
+    window.addEventListener('resize', run);
+    window.addEventListener('orientationchange', function(){ setTimeout(run, 300); });
   }
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
