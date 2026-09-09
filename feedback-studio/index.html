@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v3">
+<script id="dj-house-v10">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -189,6 +189,117 @@
     try{ rec.start(); }catch(e){ done(); }
   }
 
+
+  /* ── 5 · the floating helpers must not sit on the words ──────────────────
+     The ? and the 💡 were each pinned to the right edge about 150px up from the
+     bottom. On a 5.4" phone that is the middle of the screen, so both sat on top
+     of whatever was written there — and in The Key they landed on exactly the same
+     spot as each other, which hid one of them completely. They now share one dock
+     in the bottom-right corner, stacked, and the dock lifts itself above whatever
+     bottom bar the app has so it never covers a menu. */
+  function occupied(){
+    /* How far up the bottom edge is already spoken for — by a bottom bar across the
+       screen, OR by another floating button already parked in the bottom-right.
+       Without the second test the dock lands straight on top of an app's own round
+       button, which is exactly what happened to My Productive Partner's calendar. */
+    var bar = 0, right = 0;
+    var all = document.body ? document.body.getElementsByTagName('*') : [];
+    var VH = window.innerHeight, VW = window.innerWidth;
+    for(var i=0; i<all.length; i++){
+      var el = all[i];
+      if(el.id === 'djDock' || (dockEl && dockEl.contains(el))) continue;
+      var cs = getComputedStyle(el);
+      if(cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+      if(cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      var r = el.getBoundingClientRect();
+      if(r.height < 20 || r.width < 20) continue;
+      if(r.height > VH * 0.5) continue;                 /* a full-screen overlay is not a bar */
+      if(r.bottom < VH * 0.45) continue;                /* only the lower half matters */
+      if(r.width > VW * 0.5 && r.bottom > VH - 8){
+        bar = Math.max(bar, r.height);                  /* a bottom bar spanning the screen */
+      } else if(VW - r.right < 92){
+        right = Math.max(right, VH - r.top);            /* something already in our corner */
+      }
+    }
+    return Math.max(bar, right);
+  }
+
+  var dockEl = null;
+  function dock(){
+    var wanted = ['djHelp', 'dTipDot', 'djDays'];  /* the days-left badge sat on the app title */
+    var found = [];
+    for(var i=0; i<wanted.length; i++){
+      var el = document.getElementById(wanted[i]);
+      if(el) found.push(el);
+    }
+    if(!found.length || !document.body) return;
+    if(!dockEl){
+      dockEl = document.createElement('div');
+      dockEl.id = 'djDock';
+      dockEl.style.cssText = 'position:fixed;z-index:2147481000;display:flex;'
+        + 'flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none';
+      document.body.appendChild(dockEl);
+    }
+    for(var j=0; j<found.length; j++){
+      var b = found[j];
+      if(b.parentElement === dockEl) continue;
+      b.style.setProperty('position','static','important');
+      ['top','bottom','left','right','margin'].forEach(function(p){ b.style.setProperty(p,'',''); });
+      b.style.setProperty('margin','0','important');
+      b.style.setProperty('pointer-events','auto','');
+      b.style.setProperty('flex','0 0 auto','');
+      dockEl.appendChild(b);
+    }
+    var lift = occupied();
+    dockEl.style.right  = 'calc(10px + env(safe-area-inset-right))';
+    dockEl.style.bottom = 'calc(' + (lift + 10) + 'px + env(safe-area-inset-bottom))';
+
+    /* On a 5.4" phone three floating helpers stacked up the right-hand edge still
+       sit on the words underneath. Below 560px they fold into ONE button that opens
+       them, so nothing covers the page until the person asks for it. */
+    var narrow = window.innerWidth <= 560;
+    if(narrow && !toggleBtn){
+      toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.id = 'djDockToggle';
+      toggleBtn.textContent = '?';
+      toggleBtn.setAttribute('aria-label', 'Help and settings');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.style.cssText = 'pointer-events:auto;width:44px;height:44px;min-height:44px;'
+        + 'padding:0;margin:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);'
+        + 'background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;'
+        + 'cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);flex:0 0 auto';
+      toggleBtn.onclick = function(){
+        openDock = !openDock;
+        toggleBtn.textContent = openDock ? '\u2715' : '?';
+        toggleBtn.setAttribute('aria-label', openDock ? 'Close help' : 'Help and settings');
+        toggleBtn.setAttribute('aria-expanded', openDock ? 'true' : 'false');
+        paint();
+      };
+      dockEl.appendChild(toggleBtn);
+    }
+    if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
+    paint();
+  }
+
+  var toggleBtn = null, openDock = false;
+  function show(el, on){
+    /* The hidden attribute is only a UA rule, and several apps set display on these
+       very elements, which beats it. State it outright instead. */
+    if(on) el.style.setProperty('display', '', '');
+    else   el.style.setProperty('display', 'none', 'important');
+    el.hidden = !on;
+  }
+  function paint(){
+    if(!dockEl) return;
+    var narrow = window.innerWidth <= 560;
+    for(var i=0; i<dockEl.children.length; i++){
+      var c = dockEl.children[i];
+      if(c === toggleBtn){ show(c, narrow); continue; }
+      show(c, !narrow || openDock);
+    }
+  }
+
   function start(){
     if(!SR) return;                                   /* no microphone here — show nothing */
     document.addEventListener('focusin', function(e){
@@ -207,8 +318,42 @@
     window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
     window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
   }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
+  /* Each app builds its 💡 on its own timer, so a fixed list of delays always loses
+     the race in some app — Steward's arrived after the last pass and stayed on
+     screen. Watch for it instead of guessing when it turns up. */
+  function dockPasses(){
+    var run = function(){ try{ dock(); }catch(e){} };
+    [0, 400, 1200, 2400].forEach(function(ms){ setTimeout(run, ms); });
+    try{
+      var mo = new MutationObserver(function(recs){
+        for(var i=0; i<recs.length; i++){
+          var added = recs[i].addedNodes;
+          for(var j=0; j<added.length; j++){
+            var n = added[j];
+            if(n.nodeType !== 1) continue;
+            if(dockEl && dockEl.contains(n)) continue;
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays'){ run(); return; }
+          }
+        }
+      });
+      if(document.body) mo.observe(document.body, {childList:true, subtree:true});
+    }catch(e){}
+    window.addEventListener('resize', run);
+    window.addEventListener('orientationchange', function(){ setTimeout(run, 300); });
+  }
+  /* Inside Feedback Studio the app runs in a window within a page that already has
+     its own help button and its own microphone. Running ours too put a second "?"
+     on top of the app's Wins tab, and a second microphone on every box. */
+  var embedded = false;
+  try{ embedded = window.top !== window.self; }catch(e){ embedded = true; }
+
+  /* Inside Feedback Studio the surrounding page already has its own microphone, so
+     ours would be a second one on every box. The dock still runs: tidying the app's
+     own scattered helpers into one corner button matters more in a small window,
+     not less. */
+  function boot(){ if(!embedded) start(); dockPasses(); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 </script>
 
@@ -441,6 +586,70 @@
     :root:not([data-theme="light"]) img:not([src*=".svg"]) { filter: brightness(.92); }
   }
 </style>
+
+<style id="dj-narrow-v4">
+/* ═══ 5.4" phones (iPhone 12/13 mini is 360px) ═══ */
+@media (max-width:560px){
+  html, body{ height:auto; overflow-y:auto; }
+
+  /* one column you scroll, not two panels fighting over 360px */
+  #wrap{ display:block !important; height:auto !important; }
+
+  /* the address box gets its own line instead of being crushed by the logo */
+  #topbar{ flex-wrap:wrap; gap:8px; padding:10px 12px; position:sticky; top:0; z-index:40; }
+  #logo{ font-size:15px; flex:0 0 auto; }
+  #urlbox{ flex:1 1 100%; min-width:0; order:3; }
+  #urlin{ min-width:0; flex:1 1 auto; }
+
+  /* The app being reviewed keeps a proper slice of the screen. #stage is a flex
+     column, and a flex item's own height loses to flex sizing — which is why the
+     first attempt left the app squeezed into a 150px letterbox. Turn the flex off
+     here and state the height outright. */
+  #stage{ display:block !important; height:auto !important; }
+  #frameHolder{ flex:0 0 auto !important; height:70vh !important;
+                min-height:360px !important; position:relative; }
+  #appframe{ height:100% !important; width:100% !important; display:block; }
+  #welcome{ padding:18px 14px 26px; gap:10px; overflow-y:auto; justify-content:flex-start; }
+  #welcome h1{ font-size:20px; }
+  #welcome p{ font-size:14px; }
+  #welcome .quick{ gap:8px; }
+  .chip{ font-size:14px; padding:10px 14px; }
+
+  /* the record bar wraps onto two rows rather than running off the edge */
+  #recbar{ flex-wrap:wrap; gap:8px; padding:10px 12px; position:sticky; bottom:0; z-index:35; }
+  #micBtn{ width:52px; height:52px; font-size:21px; }
+  #micState{ flex:1 1 150px; min-width:0; }
+  #micLabel{ font-size:14px; }
+  #micHint{ font-size:12.5px; }
+  #timer{ font-size:18px; margin-left:auto; }
+  #recbar .btn{ flex:1 1 auto; padding:9px 10px; font-size:13px; }
+
+  /* comments sit underneath, in the normal flow, so nothing is trapped */
+  #side{ width:100% !important; height:auto !important; min-width:0 !important; }
+  #comments{ max-height:none; overflow:visible; }
+  #empty{ padding:26px 16px; }
+  #actions{ flex-wrap:wrap; }
+  #typeRow{ flex-wrap:wrap; }
+  #typeIn{ flex:1 1 100%; min-width:0; }
+
+  /* the version line was pinned over the last line of text */
+  #ver{ position:static !important; display:block; text-align:center;
+        padding:10px 0 18px; font-size:11.5px; }
+
+  /* The studio's own help dock landed on top of the app being reviewed — its
+     bottom-right corner is inside the app window on a phone. The app inside has
+     its own, and the studio's controls are all on screen and labelled already. */
+  #djDock{ display:none !important; }
+
+  /* the report sheet had 30px of padding on a 360px screen */
+  #reportOv{ padding:12px; }
+  #reportBox{ max-height:92vh; }
+  #reportBox header{ padding:12px 14px; }
+  #reportTxt{ padding:14px; }
+  #reportBox footer{ flex-wrap:wrap; gap:8px; padding:12px 14px; }
+}
+</style>
+
 </head>
 <body>
 <div id="wrap">
