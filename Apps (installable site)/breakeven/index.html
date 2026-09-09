@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v3">
+<script id="dj-house-v4">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -189,6 +189,62 @@
     try{ rec.start(); }catch(e){ done(); }
   }
 
+
+  /* ── 5 · the floating helpers must not sit on the words ──────────────────
+     The ? and the 💡 were each pinned to the right edge about 150px up from the
+     bottom. On a 5.4" phone that is the middle of the screen, so both sat on top
+     of whatever was written there — and in The Key they landed on exactly the same
+     spot as each other, which hid one of them completely. They now share one dock
+     in the bottom-right corner, stacked, and the dock lifts itself above whatever
+     bottom bar the app has so it never covers a menu. */
+  function bottomBarHeight(){
+    var h = 0;
+    var all = document.body ? document.body.getElementsByTagName('*') : [];
+    for(var i=0; i<all.length; i++){
+      var el = all[i];
+      if(el.id === 'djDock' || (dockEl && dockEl.contains(el))) continue;
+      var cs = getComputedStyle(el);
+      if(cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+      if(cs.display === 'none' || cs.visibility === 'hidden') continue;
+      var r = el.getBoundingClientRect();
+      if(r.height < 24 || r.height > window.innerHeight * 0.4) continue;
+      if(r.width < window.innerWidth * 0.5) continue;
+      if(r.bottom > window.innerHeight - 6 && r.bottom < window.innerHeight + 60) h = Math.max(h, r.height);
+    }
+    return h;
+  }
+
+  var dockEl = null;
+  function dock(){
+    var wanted = ['djHelp', 'dTipDot'];
+    var found = [];
+    for(var i=0; i<wanted.length; i++){
+      var el = document.getElementById(wanted[i]);
+      if(el) found.push(el);
+    }
+    if(!found.length || !document.body) return;
+    if(!dockEl){
+      dockEl = document.createElement('div');
+      dockEl.id = 'djDock';
+      dockEl.style.cssText = 'position:fixed;z-index:2147481000;display:flex;'
+        + 'flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none';
+      document.body.appendChild(dockEl);
+    }
+    for(var j=0; j<found.length; j++){
+      var b = found[j];
+      if(b.parentElement === dockEl) continue;
+      b.style.setProperty('position','static','important');
+      ['top','bottom','left','right','margin'].forEach(function(p){ b.style.setProperty(p,'',''); });
+      b.style.setProperty('margin','0','important');
+      b.style.setProperty('pointer-events','auto','');
+      b.style.setProperty('flex','0 0 auto','');
+      dockEl.appendChild(b);
+    }
+    var lift = bottomBarHeight();
+    dockEl.style.right  = 'calc(10px + env(safe-area-inset-right))';
+    dockEl.style.bottom = 'calc(' + (lift + 10) + 'px + env(safe-area-inset-bottom))';
+  }
+
   function start(){
     if(!SR) return;                                   /* no microphone here — show nothing */
     document.addEventListener('focusin', function(e){
@@ -207,8 +263,15 @@
     window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
     window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
   }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
+  /* the 💡 is built about two seconds in, so look more than once */
+  function dockPasses(){
+    [0, 400, 1200, 2400, 4200].forEach(function(ms){ setTimeout(function(){ try{ dock(); }catch(e){} }, ms); });
+    window.addEventListener('resize', function(){ try{ dock(); }catch(e){} });
+    window.addEventListener('orientationchange', function(){ setTimeout(function(){ try{ dock(); }catch(e){} }, 300); });
+  }
+  function boot(){ start(); dockPasses(); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 </script>
 
