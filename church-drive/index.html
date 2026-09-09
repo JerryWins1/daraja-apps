@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v4">
+<script id="dj-house-v5">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -197,26 +197,36 @@
      spot as each other, which hid one of them completely. They now share one dock
      in the bottom-right corner, stacked, and the dock lifts itself above whatever
      bottom bar the app has so it never covers a menu. */
-  function bottomBarHeight(){
-    var h = 0;
+  function occupied(){
+    /* How far up the bottom edge is already spoken for — by a bottom bar across the
+       screen, OR by another floating button already parked in the bottom-right.
+       Without the second test the dock lands straight on top of an app's own round
+       button, which is exactly what happened to My Productive Partner's calendar. */
+    var bar = 0, right = 0;
     var all = document.body ? document.body.getElementsByTagName('*') : [];
+    var VH = window.innerHeight, VW = window.innerWidth;
     for(var i=0; i<all.length; i++){
       var el = all[i];
       if(el.id === 'djDock' || (dockEl && dockEl.contains(el))) continue;
       var cs = getComputedStyle(el);
       if(cs.position !== 'fixed' && cs.position !== 'sticky') continue;
-      if(cs.display === 'none' || cs.visibility === 'hidden') continue;
+      if(cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
       var r = el.getBoundingClientRect();
-      if(r.height < 24 || r.height > window.innerHeight * 0.4) continue;
-      if(r.width < window.innerWidth * 0.5) continue;
-      if(r.bottom > window.innerHeight - 6 && r.bottom < window.innerHeight + 60) h = Math.max(h, r.height);
+      if(r.height < 20 || r.width < 20) continue;
+      if(r.height > VH * 0.5) continue;                 /* a full-screen overlay is not a bar */
+      if(r.bottom < VH * 0.45) continue;                /* only the lower half matters */
+      if(r.width > VW * 0.5 && r.bottom > VH - 8){
+        bar = Math.max(bar, r.height);                  /* a bottom bar spanning the screen */
+      } else if(VW - r.right < 92){
+        right = Math.max(right, VH - r.top);            /* something already in our corner */
+      }
     }
-    return h;
+    return Math.max(bar, right);
   }
 
   var dockEl = null;
   function dock(){
-    var wanted = ['djHelp', 'dTipDot'];
+    var wanted = ['djHelp', 'dTipDot', 'djDays'];  /* the days-left badge sat on the app title */
     var found = [];
     for(var i=0; i<wanted.length; i++){
       var el = document.getElementById(wanted[i]);
@@ -240,7 +250,7 @@
       b.style.setProperty('flex','0 0 auto','');
       dockEl.appendChild(b);
     }
-    var lift = bottomBarHeight();
+    var lift = occupied();
     dockEl.style.right  = 'calc(10px + env(safe-area-inset-right))';
     dockEl.style.bottom = 'calc(' + (lift + 10) + 'px + env(safe-area-inset-bottom))';
   }
