@@ -2043,6 +2043,7 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
 
 
 
+
 <style id="dj-onestep-css">
   /* ── A · one question at a time ─────────────────────────────── */
   #v-routines .dj-pane{ display:none; }
@@ -2078,7 +2079,7 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
   }
   #djDidIt button.main{ background:var(--ok,#2F6E52); color:#fff; border-color:transparent; }
 </style>
-<script id="dj-onestep-v2">
+<script id="dj-onestep-v3">
 (function(){
   if(window.__djOneStep) return; window.__djOneStep = true;
   function ready(fn){ document.readyState==='loading'
@@ -2248,20 +2249,41 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
     var r = el.getBoundingClientRect();
     return r.height > 4 && r.width > 4;
   }
+  var busy = false, pending = false;
+  function put(el, y){
+    /* only write when it would actually move, or the style change wakes the
+       observer, which calls stack again, which writes again — a loop */
+    var now = el.getBoundingClientRect(),
+        want = window.innerHeight - y;
+    if(Math.abs(now.bottom - want) < 2) return;
+    el.style.setProperty('bottom', 'calc(' + Math.round(y) + 'px + env(safe-area-inset-bottom))', 'important');
+  }
   function stack(){
-    var nav = document.querySelector('nav'), navH = 0;
-    if(nav && getComputedStyle(nav).position==='fixed') navH = nav.getBoundingClientRect().height;
-    var y = navH + 8;
-    /* full-width bars first, bottom upwards, so neither can cover the other */
-    ['fsBar','r7Tip'].forEach(function(id){
-      var el = document.getElementById(id);
-      if(!vis(el)) return;
-      el.style.setProperty('bottom', 'calc(' + Math.round(y) + 'px + env(safe-area-inset-bottom))', 'important');
-      y += el.getBoundingClientRect().height + 8;
-    });
-    /* then the corner button, clear of whatever is stacked below it */
-    var wk = document.getElementById('wkBtn');
-    if(vis(wk)) wk.style.setProperty('bottom', 'calc(' + Math.round(y) + 'px + env(safe-area-inset-bottom))', 'important');
+    if(busy){ pending = true; return; }
+    busy = true;
+    try{
+      var nav = document.querySelector('nav'), navH = 0;
+      if(nav && getComputedStyle(nav).position === 'fixed') navH = nav.getBoundingClientRect().height;
+      var y = navH + 8;
+      /* full-width bars first, bottom upwards, so neither can cover the other */
+      ['fsBar','r7Tip'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!vis(el)) return;
+        put(el, y);
+        y += el.getBoundingClientRect().height + 8;
+      });
+      /* then the round corner buttons — the help dock included. The house layer
+         places the dock on its own, and it has no idea these bars exist, so it
+         landed on top of the tip. Above the stack is the only safe place. */
+      ['wkBtn','djDock'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!vis(el)) return;
+        put(el, y);
+        y += el.getBoundingClientRect().height + 8;
+      });
+    }catch(e){}
+    busy = false;
+    if(pending){ pending = false; requestAnimationFrame(stack); }
   }
   window.djStack = stack;
 
