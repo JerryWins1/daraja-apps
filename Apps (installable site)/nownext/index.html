@@ -2041,6 +2041,247 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
 }catch(e){} })();
 </script>
 
+
+<style id="dj-onestep-css">
+  /* ── A · one question at a time ─────────────────────────────── */
+  #v-routines .dj-pane{ display:none; }
+  #v-routines .dj-pane.on{ display:block; }
+  #djAsk h3{ margin-bottom:2px; }
+  #djAsk .djOpts{ display:grid; gap:10px; margin-top:12px; }
+  #djAsk .djOpts button{
+    display:block; width:100%; text-align:left; font:inherit; cursor:pointer;
+    border:1.5px solid var(--line-strong); background:var(--surface);
+    color:var(--ink); border-radius:16px; padding:15px 16px; min-height:60px;
+  }
+  #djAsk .djOpts b{ display:block; font-size:16.5px; font-weight:800; }
+  #djAsk .djOpts span{ display:block; font-size:13.5px; color:var(--soft); margin-top:2px; }
+  .djBack{
+    display:inline-flex; align-items:center; gap:6px; font:inherit; font-weight:800;
+    font-size:14.5px; background:none; border:none; color:var(--soft);
+    cursor:pointer; padding:10px 4px; min-height:44px; margin-bottom:2px;
+  }
+  /* ── B · what just happened ─────────────────────────────────── */
+  #djDidIt{
+    background:var(--ok-soft,rgba(47,110,82,.12)); border:2px solid var(--ok,#2F6E52);
+    border-radius:18px; padding:16px; margin:0 0 12px;
+  }
+  #djDidIt h3{ margin:0 0 4px; font-size:17px; color:var(--ok,#2F6E52); }
+  #djDidIt p{ margin:0 0 12px; font-size:15.5px; }
+  #djDidIt .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  #djDidIt button{
+    flex:1 1 auto; font:inherit; font-weight:800; font-size:15px; min-height:46px;
+    border-radius:12px; cursor:pointer; padding:0 14px;
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  }
+  #djDidIt button.main{ background:var(--ok,#2F6E52); color:#fff; border-color:transparent; }
+</style>
+<script id="dj-onestep-v1">
+(function(){
+  if(window.__djOneStep) return; window.__djOneStep = true;
+  function ready(fn){ document.readyState==='loading'
+    ? document.addEventListener('DOMContentLoaded',fn) : fn(); }
+
+  /* ══ A · Routines, one question at a time ══════════════════════ */
+  var PANES = [
+    {key:'routine',  match:'Routines — tap one',   title:'Which routine?',
+     help:'Tap one and its steps land on Today, in order. Same steps every time on purpose — the brain does not have to decide, just do.'},
+    {key:'regular',  match:'Regulars — one thing', title:'What repeats, and on which day?',
+     help:'A regular shows up on Today by itself on its day — karate on Mondays, bins on Thursdays. Set it once.'},
+    {key:'upcoming', match:'Coming up',            title:'What is happening, and when?',
+     help:'One thing on one date. It lands on Today by itself that morning, so you can stop holding it in your head.'},
+    {key:'calendar', match:'Calendar (import',     title:'Bring in a calendar file',
+     help:'Export from Apple or Google Calendar as an .ics file and load it here. It is a copy, not a live link.'},
+    {key:'editor',   match:'My routines',          title:'Change the steps',
+     help:'One step per line. Put minutes after a bar, like Brush teeth | 3.'}
+  ];
+  var view, cards = [], chooser;
+
+  function cardFor(text){
+    for(var i=0;i<cards.length;i++){
+      var h = cards[i].querySelector('h3');
+      if(h && h.textContent.indexOf(text) >= 0) return cards[i];
+    }
+    return null;
+  }
+
+  function show(key){
+    view.querySelectorAll('.dj-pane').forEach(function(p){ p.classList.toggle('on', p.dataset.djPane===key); });
+    chooser.classList.toggle('on', key==='ask');
+    try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+    stack();
+  }
+  window.djRoutineStep = show;
+
+  function buildA(){
+    view = document.getElementById('v-routines');
+    if(!view || document.getElementById('djAsk')) return;
+    cards = [].slice.call(view.querySelectorAll(':scope > .card'));
+    if(!cards.length) return;
+
+    /* the old chooser only scrolled, and the explainer table taught nothing in
+       advance — both are replaced by asking one question and explaining in place */
+    var old = cardFor('What do you want to do'); if(old) old.style.display='none';
+    var tbl = cardFor('Set once');              if(tbl) tbl.style.display='none';
+
+    var found = [];
+    PANES.forEach(function(p){
+      var c = cardFor(p.match);
+      if(!c) return;
+      c.classList.add('dj-pane'); c.dataset.djPane = p.key;
+      var back = document.createElement('button');
+      back.className='djBack'; back.type='button';
+      back.innerHTML='‹ Back';
+      back.onclick=function(){ show('ask'); };
+      c.insertBefore(back, c.firstChild);
+      var h = c.querySelector('h3');
+      if(h){ h.textContent = p.title; }
+      var help = document.createElement('p');
+      help.className='small'; help.style.marginTop='2px'; help.textContent = p.help;
+      if(h) h.parentNode.insertBefore(help, h.nextSibling);
+      found.push(p);
+    });
+
+    chooser = document.createElement('div');
+    chooser.className='card dj-pane on'; chooser.id='djAsk';
+    var opts = found.filter(function(p){ return p.key!=='editor'; });
+    chooser.innerHTML = '<h3>What do you want to set up?</h3>'
+      + '<p class="small" style="margin-top:2px">One at a time. You can come back for the others.</p>'
+      + '<div class="djOpts">'
+      + opts.map(function(p){
+          var label = {routine:['🌅 A routine','a set of steps you do together — morning, bedtime'],
+                       regular:['🔁 Something that repeats','same thing, same day, every week'],
+                       upcoming:['📅 Something coming up','one thing, on one date'],
+                       calendar:['📅 A calendar file','load an .ics you exported']}[p.key];
+          return '<button type="button" onclick="djRoutineStep(\''+p.key+'\')"><b>'+label[0]+'</b><span>'+label[1]+'</span></button>';
+        }).join('')
+      + '</div>';
+    view.insertBefore(chooser, view.firstChild);
+    show('ask');
+
+    /* "Change the steps" is its own question, not a sixth thing on the page */
+    var ed = view.querySelector('[data-dj-pane="editor"]');
+    if(ed) ed.style.display='';
+    var realEdit = window.editRoutines;
+    if(typeof realEdit === 'function'){
+      window.editRoutines = function(){
+        var r = realEdit.apply(this, arguments);
+        var box = document.getElementById('routineEditor');
+        if(box) box.style.display='block';
+        show('editor');
+        return r;
+      };
+    }
+  }
+
+  /* ══ B · say what just happened, and mean the Undo ══════════════ */
+  function snap(){
+    var o = {};
+    try{
+      for(var i=0;i<localStorage.length;i++){
+        var k = localStorage.key(i);
+        if(k && k.indexOf('now_next_v1') === 0) o[k] = localStorage.getItem(k);
+      }
+    }catch(e){}
+    return o;
+  }
+  function tasksIn(str){
+    try{ var d = JSON.parse(str); return (d && d.tasks) ? d.tasks : []; }catch(e){ return []; }
+  }
+
+  function wrapLoad(){
+    var real = window.loadRoutine;
+    if(typeof real !== 'function' || real.__djWrapped) return;
+    var wrapped = function(key){
+      var before = snap();
+      var out = real.apply(this, arguments);
+      setTimeout(function(){
+        var after = snap(), added = [], changedKey = null;
+        Object.keys(after).forEach(function(k){
+          if(before[k] === after[k]) return;
+          changedKey = k;
+          var b = tasksIn(before[k] || '{}'), a = tasksIn(after[k]);
+          var seen = {}; b.forEach(function(t){ seen[t.id] = 1; });
+          a.forEach(function(t){ if(!seen[t.id]) added.push(t); });
+        });
+        if(added.length) told(key, added, before, changedKey);
+      }, 60);
+      return out;
+    };
+    wrapped.__djWrapped = true;
+    window.loadRoutine = wrapped;
+  }
+
+  function told(key, added, before, changedKey){
+    var host = document.getElementById('v-today');
+    if(!host) return;
+    var old = document.getElementById('djDidIt'); if(old) old.remove();
+    var name = ({morning:'Morning', school:'After school', homework:'Homework',
+                 bed:'Bedtime', reset:'Quick reset'})[key] || 'That routine';
+    var box = document.createElement('div');
+    box.id = 'djDidIt';
+    box.innerHTML =
+      '<h3>✓ Done — ' + name + ' is on Today</h3>'
+      + '<p>' + added.length + (added.length===1?' step':' steps') + ' added. '
+      + 'First one: <b>' + (added[0].text||'').replace(/[<>&]/g,'') + '</b>.</p>'
+      + '<div class="row"><button type="button" class="main" id="djSeeIt">Show me</button>'
+      + '<button type="button" id="djUndo">Undo</button></div>';
+    host.insertBefore(box, host.firstChild);
+    document.getElementById('djSeeIt').onclick = function(){ box.remove(); stack(); };
+    document.getElementById('djUndo').onclick = function(){
+      try{
+        Object.keys(before).forEach(function(k){ localStorage.setItem(k, before[k]); });
+        if(changedKey && !(changedKey in before)) localStorage.removeItem(changedKey);
+      }catch(e){}
+      location.reload();
+    };
+    stack();
+  }
+
+  /* ══ C · one strip, one thing in it ════════════════════════════ */
+  function vis(el){
+    if(!el) return false;
+    var cs = getComputedStyle(el);
+    if(cs.display==='none' || cs.visibility==='hidden' || +cs.opacity===0) return false;
+    var r = el.getBoundingClientRect();
+    return r.height > 4 && r.width > 4;
+  }
+  function stack(){
+    var nav = document.querySelector('nav'), navH = 0;
+    if(nav && getComputedStyle(nav).position==='fixed') navH = nav.getBoundingClientRect().height;
+    var y = navH + 8;
+    /* full-width bars first, bottom upwards, so neither can cover the other */
+    ['fsBar','r7Tip'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(!vis(el)) return;
+      el.style.setProperty('bottom', 'calc(' + Math.round(y) + 'px + env(safe-area-inset-bottom))', 'important');
+      y += el.getBoundingClientRect().height + 8;
+    });
+    /* then the corner button, clear of whatever is stacked below it */
+    var wk = document.getElementById('wkBtn');
+    if(vis(wk)) wk.style.setProperty('bottom', 'calc(' + Math.round(y) + 'px + env(safe-area-inset-bottom))', 'important');
+  }
+  window.djStack = stack;
+
+  ready(function(){
+    setTimeout(function(){
+      try{ buildA(); }catch(e){}
+      try{ wrapLoad(); }catch(e){}
+      stack();
+    }, 80);
+    [400, 1200, 2600, 4200].forEach(function(ms){
+      setTimeout(function(){ try{ wrapLoad(); }catch(e){} stack(); }, ms);
+    });
+    window.addEventListener('resize', stack);
+    window.addEventListener('orientationchange', function(){ setTimeout(stack, 300); });
+    try{
+      new MutationObserver(function(){ stack(); })
+        .observe(document.body, {childList:true, subtree:true, attributes:true,
+                                 attributeFilter:['style','class','hidden']});
+    }catch(e){}
+  });
+})();
+</script>
+
 </body>
 </html>
 <script>
