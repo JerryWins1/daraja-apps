@@ -12,7 +12,7 @@ const A = BASE + 'Apps%20(installable%20site)/';
 const APPS = {
  nownext: {
   buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
-  name:'My Productive Partner', em:'🧭', sub:'one thing at a time', fresh:true, cat:'family', price:'$4.99', testing:true,
+  name:'My Productive Partner', em:'🧭', sub:'one thing at a time', fresh:true, cat:'home', price:'$4.99', testing:true,
   tag:'One thing at a time — for kids and grown-ups whose brains run fast',
   try:A+'nownext/', video:true,
   train:[
@@ -43,7 +43,7 @@ const APPS = {
    "Four ninety-nine, once. No account, no adverts, it works with no signal, and nothing ever leaves your phone. Try the whole thing right now with the button below."
   ]},
  ahead: {
-  name:'Ahead of It', em:'🧾', sub:'never miss a deadline', fresh:true, cat:'family', price:'$9', testing:true,
+  name:'Ahead of It', em:'🧾', sub:'never miss a deadline', fresh:true, cat:'home', price:'$9', testing:true,
   tag:'Taxes, renewals, the dog\'s shots — know what it costs you to miss one',
   try:A+'ahead/', video:true,
   train:[
@@ -171,7 +171,7 @@ const APPS = {
    "The app is free. The printed book starts at thirty-nine dollars — and it's the gift nobody ever forgets getting.",
    "Try it below. Ask someone you love one question tonight."]},
  academy: {
-  name:'Daraja Academy', em:'🌉', sub:'learn AI, gently', cat:'family', price:'Lesson 1 free · course $19', testing:true,
+  name:'Daraja Academy', em:'🌉', sub:'learn AI, gently', cat:'free', price:'Lesson 1 free · course $19', testing:true,
   tag:'AI for Grandparents — learn to use AI, the patient way',
   try:BASE+'academy/', video:true,
   train:[
@@ -191,7 +191,7 @@ const APPS = {
    "Lesson one is free. The full course will be nineteen dollars — and it's a beautiful gift for a parent or grandparent.",
    "Try lesson one below. It only takes ten minutes to feel ten years younger."]},
  thekey: {
-  name:'The Key', em:'🔑', sub:'where everything is', cat:'free', price:'Free forever', testing:false,
+  name:'The Key', em:'🔑', sub:'where everything is', cat:'home', price:'Free forever', testing:false,
   try:BASE+'thekey/', video:true,
   train:[
    "Filling out The Key — five minutes for a lifetime of relief.",
@@ -211,7 +211,7 @@ const APPS = {
    "When the day comes, your family won't have to be detectives. They'll have The Key.",
    "It's free. Fill yours out tonight — and send this to your parents while you're at it."]},
  occ: {
-  name:'OCC Box Counter', em:'📦', sub:'count what\'s ready', cat:'free', price:'Free', testing:false,
+  name:'OCC Box Counter', em:'📦', sub:'count what\'s ready', cat:'off', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
   try:A+'occ/', video:true,
   train:[
@@ -229,7 +229,7 @@ const APPS = {
    "Made for Operation Christmas Child packing parties, church tables, and garage inventories.",
    "It's free. Try it below — your next packing day will thank you."]},
  zuri: {
-  name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'work', price:'Ask us', testing:false,
+  name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'off', price:'Ask us', testing:false,
   tag:'Field operations for a small ISP — works with no signal',
   try:A+'zuri/', video:true,
   train:[
@@ -282,41 +282,41 @@ const APPS = {
       Real, packaged products sitting in Daraja Studio/Business & Community Line/Products
       and the Nourish Line, with the prices from their own listings. ── */
  tplcashflow: {
-  name:'Cash Flow Tracker', em:'📈', sub:'know what is coming, and when', cat:'kit',
+  name:'Cash Flow Tracker', em:'📈', sub:'know what is coming, and when', cat:'work',
   price:'$12', kind:'download', file:'Excel or Google Sheets',
   tag:'Twelve months of money in and money out, adding itself up — with a break-even line so you know the number you have to hit'},
  tplinvoice: {
-  name:'Invoice &amp; Estimate Pack', em:'🧾', sub:'send it, and get paid', cat:'kit',
+  name:'Invoice &amp; Estimate Pack', em:'🧾', sub:'send it, and get paid', cat:'work',
   price:'$9', kind:'download', file:'Excel or Google Sheets + email scripts',
   tag:'A clean invoice, a matching estimate with deposit terms, a log that tracks who owes you what, and five chase-up emails already written'},
  tplcontent: {
-  name:'Content &amp; Social Planner', em:'📅', sub:'a month of posts, planned', cat:'kit',
+  name:'Content &amp; Social Planner', em:'📅', sub:'a month of posts, planned', cat:'work',
   price:'$14', kind:'download', file:'Excel or Google Sheets',
   tag:'Plan a month of posts in one sitting instead of panicking every morning'},
  tplsop: {
-  name:'SOP Template Library', em:'📚', sub:'how we do things here', cat:'kit',
+  name:'SOP Template Library', em:'📚', sub:'how we do things here', cat:'work',
   price:'$22', kind:'download', file:'Word + Excel',
   tag:'Write down how the work is actually done, so the job can be handed over without it living in one person\u2019s head'},
  tplonboard: {
-  name:'Client Onboarding Kit', em:'🤝', sub:'start every job the same way', cat:'kit',
+  name:'Client Onboarding Kit', em:'🤝', sub:'start every job the same way', cat:'work',
   price:'$18', kind:'download', file:'Word + Excel',
   tag:'Welcome letter, questionnaire, agreement and checklist \u2014 so no new client ever starts with a blank page'},
  tplbundle: {
-  name:'The Whole Toolkit', em:'🧰', sub:'all five, together', cat:'kit',
+  name:'The Whole Toolkit', em:'🧰', sub:'all five, together', cat:'work',
   price:'$49 (worth $75)', kind:'download', file:'everything above',
   tag:'All five business kits in one download \u2014 $75 of things for $49'},
  nourishdairy: {
-  name:'Dairy-Free Family Dinners', em:'🥗', sub:'a fortnight of real dinners', cat:'kit',
+  name:'Dairy-Free Family Dinners', em:'🥗', sub:'a fortnight of real dinners', cat:'home',
   price:'$12', kind:'download', file:'PDF \u2014 print or keep on your phone',
   tag:'Two weeks of dinners the whole family eats, with the shopping list written for you \u2014 no dairy, no fuss, no separate meal for one child'},
  nourishpeanut: {
-  name:'Peanut-Free Family Kitchen', em:'🥪', sub:'safe food, without the fear', cat:'kit',
+  name:'Peanut-Free Family Kitchen', em:'🥪', sub:'safe food, without the fear', cat:'home',
   price:'$12', kind:'download', file:'PDF \u2014 print or keep on your phone',
   tag:'How to feed a peanut-allergic child without living in fear of the kitchen \u2014 meals, label-reading, and what to tell school and grandparents'},
 
  /* ── FOR FANS & LEAGUES ── */
  pitwall: {
-  name:'Pit Wall', em:'🏁', sub:'your fantasy racing league, your rules', cat:'fans', price:'$9 / league season', testing:true, video:true,
+  name:'Pit Wall', em:'🏁', sub:'your fantasy racing league, your rules', cat:'home', price:'$9 / league season', testing:true, video:true,
   tag:'Picks, deadlines, auto-draft, scoring and standings for a homegrown fantasy racing league — the commissioner finally gets to just watch the race',
   try:BASE+'f1/?test=1',
   lines:[
@@ -365,7 +365,7 @@ const APPS = {
   docs:[{label:'📖 The rulebook: how the league works', href:BASE+'f1/rules.html'}]},
 
  churchhq: {
-  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'church', price:'$29 one-time', video:true,
+  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'off', price:'$29 one-time', video:true,
   tag:'The app that keeps your church app up to date — no website, no web designer, no waiting',
   try:BASE+'church-hq/',
   lines:[
@@ -392,7 +392,7 @@ const APPS = {
    "It is one hundred forty-nine dollars, once, with setup included, and it grows with you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
   ]},
  churchsteward: {
-  name:'Steward', em:'🧾', sub:'never miss an inspection', cat:'church', price:'$29 one-time', video:true,
+  name:'Ahead of It · Church', em:'🧾', sub:'never miss an inspection', cat:'church', price:'$29 one-time', video:true,
   tag:'Nothing catches the trustees by surprise',
   try:'https://jerrywins1.github.io/daraja-apps/church-steward/',
   lines:[
@@ -458,7 +458,7 @@ const APPS = {
    "Fill it in once — it takes an evening — print two copies, and the building stops depending on any one memory.",
    "Nineteen dollars, once. It's insurance that costs less than lunch. Try it below."]},
  npgoodstanding: {
-  name:'Nonprofit Filings', em:'🕊', sub:'certifications and legal dates', cat:'church', price:'$29 one-time', video:true,
+  name:'Ahead of It · Nonprofit', em:'🕊', sub:'certifications and legal dates', cat:'work', price:'$29 one-time', video:true,
   tag:'The filings that quietly end small nonprofits — now they can\'t',
   try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
   lines:[
@@ -479,7 +479,7 @@ const APPS = {
    "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
    "Nineteen dollars, once. Your treasurer will hug you. Try it below."]},
  flipkit: {
-  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'family', price:'$9', testing:true, fresh:true, video:true,
+  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
   lines:[
