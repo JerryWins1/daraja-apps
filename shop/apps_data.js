@@ -12,11 +12,11 @@ const A = BASE + 'Apps%20(installable%20site)/';
 const APPS = {
  nownext: {
   buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
-  name:'My Productive Partner', em:'🧭', sub:'one thing at a time', fresh:true, cat:'home', price:'$4.99', testing:true,
-  tag:'One thing at a time — for kids and grown-ups whose brains run fast',
+  name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'home', price:'$4.99', testing:true,
+  tag:'Your whole list is in there — it just shows one step at a time, so the day stops looking like a pile. For kids and grown-ups whose brains run fast.',
   try:A+'nownext/', video:true,
   train:[
-   "Let's set up My Productive Partner — five minutes, then it runs your mornings forever.",
+   "Let's set up One Thing — five minutes, then it runs your mornings forever.",
    "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
    {t:"Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.", js:"try{go('today')}catch(e){}"},
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
@@ -27,7 +27,7 @@ const APPS = {
    {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"},
    "You'll know it's set up right when the NOW card shows one thing with a timer — and somebody checks it off and gets the party."],
   lines:[
-   "This is My Productive Partner. It is for anyone whose brain runs faster than their day — a child, a grown-up, either.",
+   "This is One Thing. It is for anyone whose brain runs faster than their day — a child, a grown-up, either.",
    "It answers a very particular ache: knowing exactly what needs doing, and still not being able to begin.",
    "Here is the whole idea. The screen shows one thing. Not the long list, just the one thing to do now.",
    "A timer keeps that one thing short, and when it is done the app makes a small fuss of you — high fives, coins, and a family board if you want one.",
