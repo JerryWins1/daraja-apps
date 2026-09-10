@@ -211,7 +211,7 @@ const APPS = {
    "When the day comes, your family won't have to be detectives. They'll have The Key.",
    "It's free. Fill yours out tonight — and send this to your parents while you're at it."]},
  occ: {
-  name:'OCC Box Counter', em:'📦', sub:'count what\'s ready', cat:'off', price:'Free', testing:false,
+  name:'OCC Box Counter', em:'📦', sub:'count what\'s ready', cat:'off', off:'absorbed — OCC Assistant is the same app, and this free twin competed with it', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
   try:A+'occ/', video:true,
   train:[
@@ -229,7 +229,7 @@ const APPS = {
    "Made for Operation Christmas Child packing parties, church tables, and garage inventories.",
    "It's free. Try it below — your next packing day will thank you."]},
  zuri: {
-  name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'off', price:'Ask us', testing:false,
+  name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'off', off:'private — the tool for running the ISP in Maai Mahiu, not for sale', price:'Ask us', testing:false,
   tag:'Field operations for a small ISP — works with no signal',
   try:A+'zuri/', video:true,
   train:[
@@ -365,7 +365,7 @@ const APPS = {
   docs:[{label:'📖 The rulebook: how the league works', href:BASE+'f1/rules.html'}]},
 
  churchhq: {
-  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'off', price:'$29 one-time', video:true,
+  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'off', off:'folded into The Church App — it is how you keep the one you bought current', price:'$29 one-time', video:true,
   tag:'The app that keeps your church app up to date — no website, no web designer, no waiting',
   try:BASE+'church-hq/',
   lines:[
@@ -479,7 +479,7 @@ const APPS = {
    "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
    "Nineteen dollars, once. Your treasurer will hug you. Try it below."]},
  flipkit: {
-  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', price:'$9', testing:true, fresh:true, video:true,
+  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', off:'parked — Meta has never allowed an outside app to create a Marketplace listing', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
   lines:[
