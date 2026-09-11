@@ -2311,6 +2311,172 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
 })();
 </script>
 
+
+<style id="dj-guide-css">
+  #nnGuide{
+    background:var(--surface,#1D2224); border:2px solid var(--now,#D96C4F);
+    border-radius:20px; padding:16px 16px 14px; margin:0 0 12px;
+  }
+  #nnGuide .step{ font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    font-weight:800; color:var(--now,#D96C4F); display:flex; justify-content:space-between; }
+  #nnGuide .bar{ height:6px; background:rgba(128,128,128,.25); border-radius:99px; margin:8px 0 12px; overflow:hidden; }
+  #nnGuide .bar i{ display:block; height:100%; background:var(--now,#D96C4F); transition:width .3s; }
+  #nnGuide h2{ margin:0 0 4px; font-size:21px; line-height:1.2; }
+  #nnGuide p{ margin:0 0 12px; color:var(--soft,#B2B8B2); font-size:15px; line-height:1.45; }
+  #nnGuide .opts{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  #nnGuide .opts button{ font:inherit; font-weight:800; font-size:15px; min-height:56px; border-radius:14px;
+    border:1.5px solid rgba(128,128,128,.4); background:rgba(128,128,128,.12); color:inherit; cursor:pointer; padding:8px; }
+  #nnGuide .opts button.done{ opacity:.55; border-style:dashed; }
+  #nnGuide .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  #nnGuide .row button{ font:inherit; font-weight:800; font-size:15px; min-height:48px; border-radius:12px;
+    cursor:pointer; padding:0 16px; border:1px solid rgba(128,128,128,.4); background:transparent; color:inherit; flex:1 1 auto; }
+  #nnGuide .row button.main{ background:var(--now,#D96C4F); color:#fff; border-color:transparent; }
+  #nnGuide .again{ display:block; margin-top:10px; font-size:13px; color:var(--soft,#B2B8B2);
+    background:none; border:none; cursor:pointer; text-decoration:underline; padding:6px 0; min-height:36px; }
+  /* while a guide card is up, the old bottom coach steps aside */
+  body.nn-guiding #fsBar, body.nn-guiding #fsPill{ display:none !important; }
+</style>
+<script id="dj-guide-v1">
+(function(){
+  if(window.__nnGuide) return; window.__nnGuide = true;
+  var KEY = 'nn_guide_v1';
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ return {}; } }
+  function save(g){ try{ localStorage.setItem(KEY, JSON.stringify(g)); }catch(e){} }
+  function today(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function ready(fn){ document.readyState==='loading' ? document.addEventListener('DOMContentLoaded',fn) : fn(); }
+  function esc(t){ return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  var ROUTINES = [['morning','🌅 Morning'],['school','🏫 After school'],['homework','📚 Homework'],['bed','🌙 Bedtime']];
+
+  /* ── the four questions, in Jerry's order ─────────────────────────── */
+  var SETUP = [
+    { h:'Let’s start with what you do every day.',
+      p:'Pick the routine that fits right now. Its steps land on Today, in order — same steps every time, so the brain doesn’t have to decide.',
+      opts:'routines', next:'Next →', skip:'None of these fit — skip' },
+    { h:'Now, something that repeats on a day.',
+      p:'Karate on Mondays. Bins on Thursdays. Set it once and it shows up by itself on its day.',
+      go:'regular', act:'Add one →', skip:'Nothing repeats — skip' },
+    { h:'Anything coming up on a date?',
+      p:'The dentist. The trip. One thing on one date — it lands on Today that morning, so you can stop holding it in your head.',
+      go:'upcoming', act:'Add one →', skip:'Nothing yet — skip' },
+    { h:'Last: what’s the one thing on your mind right now?',
+      p:'Just one. Small is fine — “put shoes on” counts. That’s your first thing.',
+      focus:'newTask', act:'I’ve typed it — done ✓', skip:'Nothing right now — done' }
+  ];
+
+  /* ── every day after: the same three taps, same order ─────────────── */
+  var DAILY = [
+    ['routine','🌅 Load today’s routine'],
+    ['look','📅 Glance at what’s coming'],
+    ['one','🎯 Pick the one thing']
+  ];
+
+  var card = null;
+  function host(){ return document.getElementById('v-today'); }
+  function mount(){
+    var h = host(); if(!h) return null;
+    if(!card){ card = document.createElement('div'); card.id='nnGuide'; }
+    if(card.parentNode !== h) h.insertBefore(card, h.firstChild);
+    document.body.classList.add('nn-guiding');
+    return card;
+  }
+  function unmount(){
+    if(card && card.parentNode) card.parentNode.removeChild(card);
+    document.body.classList.remove('nn-guiding');
+  }
+
+  function renderSetup(g){
+    var c = mount(); if(!c) return;
+    var i = g.step||0, S = SETUP[i]; if(!S){ finish(g); return; }
+    var pct = Math.round((i)/SETUP.length*100);
+    var html = '<div class="step"><span>Setting up · step '+(i+1)+' of '+SETUP.length+'</span><span>one at a time</span></div>'
+      + '<div class="bar"><i style="width:'+pct+'%"></i></div>'
+      + '<h2>'+esc(S.h)+'</h2><p>'+esc(S.p)+'</p>';
+    if(S.opts==='routines'){
+      html += '<div class="opts">' + ROUTINES.map(function(r){
+        var done = (g.loaded||[]).indexOf(r[0])>=0;
+        return '<button type="button" class="'+(done?'done':'')+'" onclick="nnGuide.routine(\''+r[0]+'\')">'+r[1]+(done?' ✓':'')+'</button>';
+      }).join('') + '</div>';
+      html += '<div class="row">' + ((g.loaded||[]).length ? '<button type="button" class="main" onclick="nnGuide.next()">'+esc(S.next)+'</button>' : '')
+        + '<button type="button" onclick="nnGuide.next()">'+esc(S.skip)+'</button></div>';
+    } else if(S.go){
+      html += '<div class="row"><button type="button" class="main" onclick="nnGuide.open(\''+S.go+'\')">'+esc(S.act)+'</button>'
+        + '<button type="button" onclick="nnGuide.next()">'+esc(S.skip)+'</button></div>'
+        + (g.visited===S.go ? '<p style="margin:10px 0 0;font-size:14px">Added it? <button type="button" class="main" style="font:inherit;font-weight:800;min-height:44px;border:none;border-radius:12px;padding:0 14px;background:var(--now,#D96C4F);color:#fff;cursor:pointer" onclick="nnGuide.next()">Yes — next →</button></p>' : '');
+    } else if(S.focus){
+      html += '<div class="row"><button type="button" class="main" onclick="nnGuide.focus()">Type it now ↓</button>'
+        + '<button type="button" onclick="nnGuide.next()">'+esc(S.act)+'</button></div>'
+        + '<div class="row" style="margin-top:8px"><button type="button" onclick="nnGuide.next()">'+esc(S.skip)+'</button></div>';
+    }
+    c.innerHTML = html;
+    try{ c.scrollIntoView({block:'start',behavior:'smooth'}); }catch(e){}
+  }
+
+  function renderDaily(g){
+    var c = mount(); if(!c) return;
+    var d = g.daily||{};
+    var html = '<div class="step"><span>Start your day</span><span>same three taps, every day</span></div>'
+      + '<div class="bar"><i style="width:'+Math.round(Object.keys(d).length/DAILY.length*100)+'%"></i></div>'
+      + '<h2>Good '+part()+'. Let’s set up today.</h2>'
+      + '<p>Three taps, in order. Then it gets out of your way until tomorrow.</p>'
+      + '<div class="opts" style="grid-template-columns:1fr">'
+      + DAILY.map(function(x){ return '<button type="button" class="'+(d[x[0]]?'done':'')+'" onclick="nnGuide.daily(\''+x[0]+'\')">'+x[1]+(d[x[0]]?' ✓':'')+'</button>'; }).join('')
+      + '</div>'
+      + '<div class="row"><button type="button" class="main" onclick="nnGuide.dayDone()">Done — that’s today ✓</button></div>'
+      + '<button type="button" class="again" onclick="nnGuide.again()">↻ Walk me through the full setup again</button>';
+    c.innerHTML = html;
+  }
+  function part(){ var h=new Date().getHours(); return h<12?'morning':h<17?'afternoon':'evening'; }
+
+  function finish(g){
+    g.done = true; g.step = SETUP.length; g.day = today(); g.daily = {routine:1,look:1,one:1}; save(g);
+    var c = mount(); if(!c) return;
+    c.innerHTML = '<div class="step"><span>Set up</span><span>✓</span></div><div class="bar"><i style="width:100%"></i></div>'
+      + '<h2>Your day is set.</h2><p>From now on, every time you open this it will ask for the same three taps — routine, what’s coming, the one thing — and then get out of your way.</p>'
+      + '<div class="row"><button type="button" class="main" onclick="nnGuide.close()">Show me my one thing →</button></div>';
+  }
+
+  window.nnGuide = {
+    routine: function(k){
+      var g = load(); g.loaded = g.loaded||[]; if(g.loaded.indexOf(k)<0) g.loaded.push(k); save(g);
+      try{ if(typeof loadRoutine==='function') loadRoutine(k); }catch(e){}
+      setTimeout(function(){ renderSetup(load()); }, 200);
+    },
+    next: function(){ var g=load(); g.step=(g.step||0)+1; g.visited=null; save(g); if(g.step>=SETUP.length) finish(g); else renderSetup(g); },
+    open: function(pane){
+      var g=load(); g.visited=pane; save(g);
+      try{ if(typeof go==='function') go('routines'); }catch(e){}
+      setTimeout(function(){ try{ if(typeof djRoutineStep==='function') djRoutineStep(pane); }catch(e){} }, 150);
+    },
+    focus: function(){ var el=document.getElementById('newTask'); if(el){ try{ el.scrollIntoView({block:'center'}); }catch(e){} el.focus(); } },
+    daily: function(k){
+      var g=load(); g.daily=g.daily||{}; g.daily[k]=1; save(g);
+      if(k==='routine'){ try{ go('routines'); setTimeout(function(){ djRoutineStep('routine'); },150); }catch(e){} }
+      if(k==='look'){ try{ go('routines'); setTimeout(function(){ djRoutineStep('upcoming'); },150); }catch(e){} }
+      if(k==='one'){ nnGuide.focus(); }
+      renderDaily(load());
+    },
+    dayDone: function(){ var g=load(); g.day=today(); g.daily={}; save(g); unmount(); },
+    close: function(){ var g=load(); g.day=today(); save(g); unmount(); },
+    again: function(){ var g=load(); g.done=false; g.step=0; g.loaded=[]; g.visited=null; save(g); renderSetup(g); }
+  };
+
+  function show(){
+    var g = load();
+    if(!g.done){ renderSetup(g); return; }
+    if(g.day !== today()){ renderDaily(g); return; }
+    unmount();
+  }
+  /* coming back to Today mid-setup should show the next question, not lose it */
+  function watchTab(){
+    var h = host(); if(!h) return;
+    try{ new MutationObserver(function(){ if(h.classList.contains('on') && !load().done) renderSetup(load()); })
+           .observe(h, {attributes:true, attributeFilter:['class']}); }catch(e){}
+  }
+  ready(function(){ setTimeout(function(){ show(); watchTab(); }, 250); });
+})();
+</script>
+
 </body>
 </html>
 <script>
