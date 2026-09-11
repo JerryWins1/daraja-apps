@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v18">
+<script id="dj-house-v20">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -25,7 +25,7 @@
     if(proto && !proto.__djGuarded){
       var realSet = proto.setItem;
       proto.setItem = function(k, v){
-        try{ return realSet.call(this, k, v); }
+        try{ var r = realSet.call(this, k, v); if(String(k).indexOf('dj_')!==0) savedPulse(); return r; }
         catch(err){ djSaveFailed(err); return undefined; }
       };
       proto.__djGuarded = true;
@@ -466,7 +466,7 @@
 
   var dockEl = null;
   function dock(){
-    var wanted = ['djHelp', 'dTipDot', 'djDays'];  /* the days-left badge sat on the app title */
+    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa'];  /* the days-left badge sat on the app title */
     var found = [];
     for(var i=0; i<wanted.length; i++){
       var el = document.getElementById(wanted[i]);
@@ -584,7 +584,7 @@
             var n = added[j];
             if(n.nodeType !== 1) continue;
             if(dockEl && dockEl.contains(n)) continue;
-            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays'){ run(); return; }
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa'){ run(); return; }
           }
         }
       });
@@ -593,6 +593,116 @@
     window.addEventListener('resize', run);
     window.addEventListener('orientationchange', function(){ setTimeout(run, 300); });
   }
+  /* ── 9 · what the research said seniors need (10 Sep 2026) ───────────────
+     Toptal / Springer 2025: unmistakable feedback after every action; adjustable
+     text; new features introduced with a word of explanation, never silently. */
+  var pulseEl = null, pulseLast = 0;
+  function savedPulse(){
+    try{
+      var now = Date.now(); if(now - pulseLast < 2500 || !document.body) return; pulseLast = now;
+      if(!pulseEl){
+        pulseEl = document.createElement('div'); pulseEl.id = 'djSaved'; pulseEl.setAttribute('role','status'); pulseEl.setAttribute('aria-live','polite');
+        pulseEl.textContent = 'Saved ✓';
+        pulseEl.style.cssText = 'position:fixed;left:calc(12px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));z-index:2147481001;'
+          + 'background:#2F6E52;color:#fff;font:700 14px/1 -apple-system,system-ui,sans-serif;padding:9px 12px;border-radius:999px;'
+          + 'box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .25s';
+        document.body.appendChild(pulseEl);
+      }
+      pulseEl.style.opacity = '1';
+      setTimeout(function(){ if(pulseEl) pulseEl.style.opacity = '0'; }, 1100);
+    }catch(e){}
+  }
+
+  /* one text-size setting for every app: they share an address, so they share this */
+  var SIZES = [1, 1.15, 1.3];
+  function textSize(){ var v = parseFloat(localStorage.getItem('dj_textsize') || '1'); return SIZES.indexOf(v) >= 0 ? v : 1; }
+  function applyTextSize(){ try{ var v = textSize(); if(document.body){ if(v === 1) document.body.style.removeProperty('zoom'); else document.body.style.setProperty('zoom', String(v)); } }catch(e){} }
+  function aaButton(){
+    if(document.getElementById('djAa') || !document.body) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'djAa';
+    b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);'
+      + 'background:rgba(250,246,238,.94);color:#25303a;font:800 15px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    function label(){ var v = textSize(); var w = (v===1?'normal':v===1.15?'larger':'largest'); b.textContent = 'Aa'; b.title = 'Text size: ' + w; b.setAttribute('aria-label', 'Text size, now ' + w + '. Tap to change'); }
+    b.onclick = function(){ var i = (SIZES.indexOf(textSize()) + 1) % SIZES.length; try{ localStorage.setItem('dj_textsize', String(SIZES[i])); }catch(e){} applyTextSize(); label(); };
+    label(); document.body.appendChild(b);
+  }
+
+  /* offline: say so once, calmly — the app keeps working, everything saves on the phone */
+  function offlineNote(){
+    var bar = null;
+    function paintNet(){
+      var off = (navigator.onLine === false);
+      if(off && !bar && document.body){
+        bar = document.createElement('div'); bar.id = 'djOffline'; bar.setAttribute('role','status');
+        bar.textContent = 'No connection right now — the app still works and saves on this phone.';
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147481002;background:#5A4A12;color:#fff;font:600 14px/1.3 -apple-system,system-ui,sans-serif;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;text-align:center';
+        document.body.appendChild(bar);
+      }
+      if(!off && bar){ bar.remove(); bar = null; }
+    }
+    window.addEventListener('online', paintNet); window.addEventListener('offline', paintNet); paintNet();
+  }
+
+  /* updated since last visit: one line, one tap, then it is gone */
+  function updatedNote(){
+    try{
+      var els = document.querySelectorAll('#ver, .foot, footer, .footer, .stamp, p'); var stamp = null;
+      for(var i = els.length - 1; i >= 0 && !stamp; i--){ var m = /v\d+\.\d+[^\n]{0,40}?20\d\d-\d\d-\d\d/.exec(els[i].textContent || ''); if(m) stamp = m[0].split(' ')[0]; }
+      if(!stamp) return;
+      var key = 'dj_seen_' + slugOf(), seen = localStorage.getItem(key);
+      if(seen === stamp) return;
+      localStorage.setItem(key, stamp);
+      if(!seen || embedded) return;                     /* first visit: nothing to announce */
+      var n = document.createElement('div'); n.id = 'djUpdated';
+      n.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481001;background:#1C2B29;color:#fff;border-radius:14px;padding:10px 12px;font:600 15px/1.3 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.3)';
+      var t = document.createElement('span'); t.style.flex = '1'; t.textContent = '✨ Updated to ' + stamp;
+      var a = document.createElement('a'); a.href = 'https://jerrywins1.github.io/daraja-apps/whats-new/'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'What changed'; a.style.cssText = 'color:#F2B134;font-weight:800;min-height:44px;display:inline-flex;align-items:center;padding:0 6px;white-space:nowrap';
+      var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label','Dismiss'); x.style.cssText = 'font:800 16px/1 system-ui;min-width:44px;min-height:44px;border:0;background:transparent;color:#fff;cursor:pointer';
+      x.onclick = function(){ n.remove(); };
+      n.append(t, a, x); document.body.appendChild(n);
+      setTimeout(function(){ if(n.parentNode) n.remove(); }, 20000);
+    }catch(e){}
+  }
+  /* ── 10 · the Home Screen guide (research patrol, 10 Sep 2026) ─────────────
+     iOS never offers to install a web app; the person must find Share → Add to
+     Home Screen on their own, and most never do. So on the second visit in Safari
+     — not the first, not while installed, not inside Feedback Studio — one card
+     shows the three taps, with a real arrow to where the Share button lives. */
+  function homeScreenGuide(){
+    try{
+      var ua = navigator.userAgent || '';
+      var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      var force = /[?&]dj_a2hs=1/.test(location.search);
+      if(embedded || (!force && (!ios || navigator.standalone))) return;
+      var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
+      if(st === 'done' || st === 'no') return;
+      var visits = parseInt(st || '0', 10) || 0;
+      if(!force && visits < 1){ localStorage.setItem(key, String(visits + 1)); return; }   /* first visit: just count */
+      var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
+      var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
+      var w = document.createElement('div'); w.id = 'djA2HS'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Put this app on your Home Screen');
+      w.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
+        + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
+        + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+      w.innerHTML = '<div style="font-weight:800;font-size:17px;margin-bottom:6px">Keep ' + name.replace(/[<>&]/g,'') + ' on your Home Screen</div>'
+        + '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+        + '<li>Scroll the list and tap <b>Add to Home Screen</b></li><li>Tap <b>Add</b>. It opens like any other app, full screen.</li></ol>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer">I did it</button>'
+        + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
+        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>'
+        + (shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
+      w.addEventListener('click', function(e){
+        var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
+        var a = b.getAttribute('data-a');
+        if(a === 'done' || a === 'no') localStorage.setItem(key, a); else localStorage.setItem(key, '0');   /* later: ask again in two visits */
+        w.remove();
+      });
+      document.body.appendChild(w);
+    }catch(e){}
+  }
+
+  function seniorsPass(){ applyTextSize(); if(!embedded) aaButton(); offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
+
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
      on top of the app's Wins tab, and a second microphone on every box. */
@@ -603,7 +713,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); auditFixes();
+  function boot(){ if(!embedded) start(); try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
     try{ new MutationObserver(function(){ stayLabels(); nameButtons(); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
     window.addEventListener('resize', fabLift); floorsSoon();
