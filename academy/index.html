@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v13">
+<script id="dj-house-v14">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -292,11 +292,93 @@
     setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
   }
 
+
+  /* ── 7 · the 425-things audit (10 Sep 2026, every page at 360×780) ────────
+     257 pieces of text under 13px · 49 tap targets under 40px · 36 typing boxes
+     whose only label is a placeholder that vanishes the moment you type · 10 boxes
+     under 40px tall. Fixed here for every app at once. */
+  function auditFixCSS(){
+    if(document.getElementById('djAuditCSS') || !document.head) return;
+    var st = document.createElement('style'); st.id = 'djAuditCSS';
+    st.textContent =
+      /* nothing a person reads may be under 13px — the earlier floor missed div, button, headings */
+      'div,button,a,h1,h2,h3,h4,h5,h6,th,strong,b,em,i,time,summary,figcaption,dt,dd,legend,option,' +
+      'blockquote,cite,q,code,pre,address,caption{font-size:max(13px,1em);}' +
+      /* a box you type in is at least a fingertip tall */
+      'input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),' +
+      'select,textarea{min-height:44px;}' +
+      /* the label that stays: shown above a box once it has words in it, from its placeholder */
+      '.dj-stay{display:block;font-size:12.5px;font-weight:700;letter-spacing:.04em;opacity:.75;margin:6px 0 2px;line-height:1.2;}' +
+      /* store cards: the little links under the buttons were 21px tall */
+      '.app > a,.app .row a{display:flex;align-items:center;justify-content:center;min-height:44px;padding:8px 10px;}';
+    document.head.appendChild(st);
+  }
+
+  /* placeholder-only boxes get (a) a spoken name and (b) a label that appears above
+     them the moment there are words inside, so what the box is for never disappears */
+  function stayLabels(){
+    var boxes = document.querySelectorAll('input[placeholder],textarea[placeholder]');
+    for(var i=0;i<boxes.length;i++){
+      var b = boxes[i];
+      if(b.__djStay) continue;
+      if(/^(hidden|button|submit|checkbox|radio)$/.test(b.type||'')) continue;
+      var id = b.id;
+      var has = (id && document.querySelector('label[for="'+id.replace(/"/g,'')+'"]')) || b.closest('label') || b.getAttribute('aria-label') || b.getAttribute('aria-labelledby');
+      if(has) continue;
+      var words = (b.placeholder||'').replace(/^e\.g\.\s*/i,'').replace(/…|\.\.\.$/,'').trim();
+      if(!words) continue;
+      b.setAttribute('aria-label', words);
+      b.__djStay = true;
+      (function(box, text){
+        var lab = null;
+        function sync(){
+          var on = !!box.value;
+          if(on && !lab){
+            lab = document.createElement('span'); lab.className='dj-stay'; lab.textContent = text;
+            box.parentNode.insertBefore(lab, box);
+          } else if(!on && lab){ lab.remove(); lab = null; }
+        }
+        box.addEventListener('input', sync); box.addEventListener('change', sync); sync();
+      })(b, words.length > 48 ? words.slice(0,45) + '…' : words);
+    }
+  }
+
+  /* buttons that are only an emoji get a name a screen reader can say */
+  var NAMES = {wkBtn:'Week view', sermonNotesBtn:'Sermon notes', fab:'Add', qsBtn:'Quick setup'};
+  function nameButtons(){
+    var els = document.querySelectorAll('button,a,[role="button"]');
+    for(var i=0;i<els.length;i++){
+      var e = els[i];
+      if(e.getAttribute('aria-label') || e.getAttribute('title')) continue;
+      var t = (e.textContent||'').trim();
+      if(!t || /[A-Za-z0-9]/.test(t)) continue;               /* has real words already */
+      var guess = NAMES[e.id] || (e.className && typeof e.className==='string' && NAMES[e.className.split(' ')[0]]) || null;
+      if(guess) e.setAttribute('aria-label', guess);
+    }
+  }
+
+  /* Ahead of It family: the round ＋ sat on top of the Quick setup button */
+  function fabLift(){
+    var fab = document.querySelector('button.fab'), qs = document.getElementById('qsBtn');
+    if(!fab || !qs) return;
+    var q = qs.getBoundingClientRect(), f = fab.getBoundingClientRect();
+    if(f.right<=q.left||q.right<=f.left||f.bottom<=q.top||q.bottom<=f.top) return;
+    var lift = (window.innerHeight - q.top) + 10;
+    fab.style.setProperty('bottom', 'calc(' + Math.round(lift) + 'px + env(safe-area-inset-bottom))', 'important');
+  }
+
+  function auditFixes(){
+    try{ auditFixCSS(); }catch(e){}
+    try{ stayLabels(); }catch(e){}
+    try{ nameButtons(); }catch(e){}
+    try{ fabLift(); }catch(e){}
+  }
+
   function occupied(){
     /* How far up the bottom edge is already spoken for — by a bottom bar across the
        screen, OR by another floating button already parked in the bottom-right.
        Without the second test the dock lands straight on top of an app's own round
-       button, which is exactly what happened to One Thing's calendar. */
+       button, which is exactly what happened to My Productive Partner's calendar. */
     var bar = 0, right = 0;
     var all = document.body ? document.body.getElementsByTagName('*') : [];
     var VH = window.innerHeight, VW = window.innerWidth;
@@ -458,7 +540,10 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); }
+  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); auditFixes();
+    [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
+    try{ new MutationObserver(function(){ stayLabels(); nameButtons(); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+    window.addEventListener('resize', fabLift); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
