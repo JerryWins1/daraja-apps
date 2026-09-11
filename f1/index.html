@@ -1299,10 +1299,10 @@ function rStandings() {
 function rUsage() {
   const s = season(); const last = lastScored();
   const nr0 = nextRace(); const pending = nr0 && s.picks && s.picks[nr0.key] && Object.keys(s.picks[nr0.key]).length;
-  let html = `<div class="card"><h2>Driver usage <span class="sub">${last ? 'after ' + esc(last.race.name.replace(' Grand Prix', ' GP')) : 'season start'}</span></h2><p class="small muted">Drives left of ${s.drivesPer} for each driver, and wild cards left of ${s.wildcardsPer}. Wild card weekends don't use drives.${pending ? ' Picks already in for the ' + esc(nr0.name.replace(' Grand Prix', ' GP')) + ' are counted as used.' : ''}</p><div class="usage">
+  let html = `<div class="card"><h2>Driver usage <span class="sub">${last ? 'after ' + esc(last.race.name.replace(' Grand Prix', ' GP')) : 'season start'}</span></h2><p class="small muted">Each driver gets <b>${s.drivesPer} drives</b> a season, and each player <b>${s.wildcardsPer} wild cards</b>. The number is what is <b>left</b>. Wild card weekends don't use drives.${(isCommish() || testMode()) ? ' Commissioner: type the number in the box, tab down to the next — it saves as you go.' : ''}${pending ? ' Picks already in for the ' + esc(nr0.name.replace(' Grand Prix', ' GP')) + ' are counted as used.' : ''}</p><div class="usage">
     ${playersActive().map(p => { const u = computed.usage[p.id] || {}; const roster = (s.roster && s.roster[p.id]) || []; return `<div class="u-p"><h3><span>${esc(p.name)}</span><span class="pill ${u._wild > 0 ? 'acc' : ''}">wild card ${Math.max(0, u._wild || 0)}/${s.wildcardsPer}</span></h3>
-      ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; const adj = (s.driveAdj && s.driveAdj[p.id] && s.driveAdj[p.id][d]) || 0; return `<div class="u-d ${left <= 0 ? 'out' : ''}"><span>${esc(dname(d))}${adj ? ' <span class="pill" style="font-size:10px">corrected</span>' : ''}</span><span class="n">${left}/${s.drivesPer}${(isCommish() || testMode()) ? ` <button class="btn sm ghost" style="padding:1px 6px;font-size:11px" onclick="setDrivesLeft('${p.id}','${d}')">set</button>` : ''}</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}
-      ${(isCommish() || testMode()) ? `<div class="row" style="margin-top:6px"><span class="lab" style="flex:1">Wild cards left</span><b>${Math.max(0, u._wild || 0)}</b><button class="btn sm ghost" style="padding:1px 6px;font-size:11px" onclick="setDrivesLeft('${p.id}','_wild')">set</button></div>` : ''}</div>`; }).join('')}
+      ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; const adj = (s.driveAdj && s.driveAdj[p.id] && s.driveAdj[p.id][d]) || 0; const edit = (isCommish() || testMode()); return `<div class="u-d ${edit ? 'edit' : ''} ${left <= 0 ? 'out' : ''}">${edit ? `<input class="uin" type="number" inputmode="numeric" min="0" max="${s.drivesPer}" value="${left}" data-p="${p.id}" data-d="${d}" aria-label="${esc(dname(d))} — drives left for ${esc(p.name)}" oninput="usageBar(this)" onchange="usageType(this)">` : ''}<span>${esc(dname(d))}${adj ? ' <span class="pill" style="font-size:10px">corrected</span>' : ''}</span>${edit ? '' : `<span class="n">${left} left</span>`}<div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}
+      ${(isCommish() || testMode()) ? `<div class="u-d edit"><input class="uin" type="number" inputmode="numeric" min="0" max="${s.wildcardsPer}" value="${Math.max(0, u._wild || 0)}" data-p="${p.id}" data-d="_wild" aria-label="Wild cards left for ${esc(p.name)}" onchange="usageType(this)"><span>Wild cards left</span></div>` : ''}</div>`; }).join('')}
   </div>
   <button class="btn sm" style="margin-top:12px" onclick="copyText(usagePost())">📋 Copy Steve's usage post</button></div>`;
   // race by race: who ran which drivers, every weekend the app has scored
@@ -1794,7 +1794,7 @@ async function refresh() {
 </script>
 <script>window.DJ_START = {"slug": "pitwall", "em": "🏁", "title": "Welcome — your league, run for you.", "lede": "Picks, deadlines, scoring and standings for a homegrown racing league. The commissioner stops doing maths by hand on a Sunday night and gets to just watch the race.", "cta": "Set up the league →", "firstSelector": "button", "dataKeys": ["f1_v1", "pitwall_v1", "f1league_v1"], "steps": ["<b>Add your players</b> — everyone in the group text.", "<b>Check the scoring</b> matches how your league has always done it.", "<b>Make your picks</b> before the deadline. It does the rest."]};</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.0 · 2026-09-07) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.1 · 2026-09-11) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
@@ -2201,5 +2201,35 @@ async function refresh() {
 }catch(e){} })();
 </script>
 
+<style id="dj-usage-css">
+  .u-d.edit{ grid-template-columns:72px 1fr; }
+  .u-d.edit .bar{ grid-column:1 / -1; }
+  .u-d .uin{ width:72px; min-height:44px; font:700 18px "IBM Plex Mono", ui-monospace, monospace; text-align:center; border-radius:10px;
+    border:1.5px solid var(--line-strong,#555); background:var(--surface-2,rgba(128,128,128,.12)); color:inherit; padding:4px 6px; }
+  .u-d .uin:focus{ outline:3px solid var(--acc,#B48CFF); outline-offset:1px; }
+</style>
+<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v1.1 · 2026-09-11 · Daraja Studio</p>
+<script id="dj-usage-v1">
+/* 11 Sep 2026, Jerry: "just do this like a table — the number in a box on the left, change it,
+   tab down to the next one, done." The old way was one question box per driver, twenty taps. */
+window.usageBar = function(inp){ try{ var d = inp.closest('.u-d'); var i = d && d.querySelector('.bar i'); var max = +inp.max || 12; var n = Math.max(0, Math.min(max, parseInt(inp.value,10)||0)); if(i) i.style.width = (n/max*100)+'%'; d.classList.toggle('out', n<=0); }catch(e){} };
+window.usageType = async function(inp){
+  if (!isCommish() && !testMode()) { toast('Commissioner only'); return; }
+  var pid = inp.dataset.p, driver = inp.dataset.d; var n = parseInt(inp.value, 10);
+  if (isNaN(n) || n < 0) { toast('Whole number, please'); return; }
+  var s = season(); var u = computed.usage[pid] || {};
+  var now = driver === '_wild' ? Math.max(0, u._wild || 0) : (u[driver] == null ? s.drivesPer : u[driver]);
+  if (n === now) return;
+  /* remember where the finger is going next, so the redraw does not drop it */
+  var nx = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('uin') && document.activeElement !== inp ? {p:document.activeElement.dataset.p, d:document.activeElement.dataset.d} : null;
+  var cur = (s.driveAdj && s.driveAdj[pid] && +s.driveAdj[pid][driver]) || 0;
+  var delta = cur + (n - now);
+  var adj = JSON.parse(JSON.stringify(s.driveAdj || {})); adj[pid] = adj[pid] || {};
+  if (delta) adj[pid][driver] = delta; else delete adj[pid][driver];
+  if (!Object.keys(adj[pid]).length) delete adj[pid];
+  await adminSet(['seasons', seasonYear, 'driveAdj'], adj, 'Saved ✓');
+  if (nx) setTimeout(function(){ var el = document.querySelector('.uin[data-p="'+nx.p+'"][data-d="'+nx.d+'"]'); if (el) { el.focus(); el.select && el.select(); } }, 80);
+};
+</script>
 </body>
 </html>
