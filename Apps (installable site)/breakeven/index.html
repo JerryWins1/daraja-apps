@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v14">
+<script id="dj-house-v15">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -367,6 +367,52 @@
     fab.style.setProperty('bottom', 'calc(' + Math.round(lift) + 'px + env(safe-area-inset-bottom))', 'important');
   }
 
+
+  /* ── 8 · the floors that actually hold ───────────────────────────────────
+     v14 set font-size:max(13px,1em) on div/button/etc. It measured almost no
+     change: an app's own ".lbl{font-size:12px}" is a class selector and outranks
+     an element selector, so the app won every time. Reading the computed size and
+     writing an inline value is the only thing that beats every stylesheet. Same
+     for tap targets: buttons and links the app styled at 21px tall. */
+  function floors(){
+    var MIN_FONT = 13, MIN_TAP = 44, n = 0;
+    var all = document.body ? document.body.getElementsByTagName('*') : [];
+    for(var i=0; i<all.length; i++){
+      var el = all[i];
+      if(el.__djFloored) continue;
+      var tag = el.tagName;
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='SVG'||tag==='PATH') continue;
+      var cs = getComputedStyle(el);
+      if(cs.display==='none') continue;
+      /* text: only elements that carry their own words */
+      var own = false;
+      for(var c = el.firstChild; c; c = c.nextSibling){ if(c.nodeType===3 && c.textContent.trim().length>1){ own = true; break; } }
+      if(own){
+        var fs = parseFloat(cs.fontSize);
+        if(fs && fs < MIN_FONT){
+          el.style.setProperty('font-size', MIN_FONT+'px', 'important');
+          var lh = parseFloat(cs.lineHeight);
+          if(lh && lh < MIN_FONT*1.2) el.style.setProperty('line-height', '1.25', 'important');
+          n++;
+        }
+      }
+      /* taps: real controls that were styled too small to hit */
+      var isCtl = tag==='BUTTON' || tag==='SELECT' || el.getAttribute('role')==='button' ||
+                  (tag==='A' && el.getAttribute('href') && cs.display!=='inline');
+      if(isCtl){
+        var r = el.getBoundingClientRect();
+        if(r.height>0 && r.height < 40){
+          el.style.setProperty('min-height', MIN_TAP+'px', 'important');
+          if(cs.display==='inline-block' || cs.display==='block') { el.style.setProperty('display','inline-flex','important'); el.style.setProperty('align-items','center','important'); }
+          n++;
+        }
+      }
+      el.__djFloored = true;
+    }
+    return n;
+  }
+  function floorsSoon(){ [0, 700, 2200, 4500].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} }, ms); }); }
+
   function auditFixes(){
     try{ auditFixCSS(); }catch(e){}
     try{ stayLabels(); }catch(e){}
@@ -543,7 +589,8 @@
   function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); auditFixes();
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
     try{ new MutationObserver(function(){ stayLabels(); nameButtons(); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
-    window.addEventListener('resize', fabLift); }
+    window.addEventListener('resize', fabLift); floorsSoon();
+    try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
