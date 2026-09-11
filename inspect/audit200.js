@@ -1,6 +1,6 @@
 (async()=>{
 const S=ms=>new Promise(r=>setTimeout(r,ms));
-await S(2800);
+await S(3200);
 const VW=innerWidth, VH=innerHeight;
 /* get past a splash so we measure the real screens */
 for(let pass=0;pass<3;pass++){
@@ -8,7 +8,7 @@ for(let pass=0;pass<3;pass++){
   if(!cov.length) break;
   const top=cov[cov.length-1];
   const btn=[...top.querySelectorAll('button,a')].find(b=>/start|begin|got it|skip|look around|continue|let|open|ok|close|show me|no thanks|enter|go\b/i.test((b.textContent||'').trim()))||top.querySelector('button');
-  if(!btn) break; btn.click(); await S(600);
+  if(!btn) break; btn.click(); await S(1500);
 }
 const F=[]; const add=(cat,sev,el,detail)=>F.push({cat,sev,el:name(el),detail});
 function name(el){ if(!el||!el.tagName) return '?'; let n=el.tagName.toLowerCase(); if(el.id) n+='#'+el.id; else if(typeof el.className==='string'&&el.className.trim()) n+='.'+el.className.trim().split(/\s+/)[0]; const t=(el.textContent||'').trim().replace(/\s+/g,' ').slice(0,28); return t? n+' “'+t+'”' : n; }

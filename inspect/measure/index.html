@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Measure the apps</title>
+<style>
+  :root{ color-scheme:light dark; --bg:#F7F4EC; --surface:#fff; --ink:#1F2622; --soft:#55605B; --line:#E2DCCF; --brand:#23504F; --ok:#2F6E52; --bad:#B4352E; }
+  @media (prefers-color-scheme:dark){ :root{ --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336; --brand:#7FB4B1; --ok:#6DC296; --bad:#E8886A; } }
+  body{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap{ max-width:760px; margin:0 auto; padding:18px 16px 60px; }
+  h1{ font-size:24px; margin:0 0 4px; } p{ color:var(--soft); margin:0 0 12px; }
+  button{ font:inherit; font-weight:700; min-height:44px; padding:10px 18px; border-radius:12px; border:1px solid var(--line); background:var(--brand); color:#fff; cursor:pointer; }
+  button.ghost{ background:var(--surface); color:var(--ink); }
+  .bar{ height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:12px 0; } .bar i{ display:block; height:100%; background:var(--ok); width:0; transition:width .3s; }
+  table{ width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; font-variant-numeric:tabular-nums; }
+  th,td{ text-align:left; padding:9px 10px; border-top:1px solid var(--line); font-size:15px; } th{ background:var(--bg); font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--soft); }
+  td.n{ text-align:right; font-weight:800; } .up{ color:var(--bad); } .down{ color:var(--ok); }
+  .cats{ color:var(--soft); font-size:13px; }
+  #stage{ position:fixed; left:-9999px; top:0; width:360px; height:780px; border:0; }
+  .big{ font-size:40px; font-weight:900; margin:6px 0; }
+  pre{ white-space:pre-wrap; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📐 Measure the apps</h1>
+  <p>Opens every app at iPhone 12 mini size and counts what a senior would trip on: text under 13px, buttons under 44px, colours you can’t read, boxes with no label. About four minutes. Leave this page open.</p>
+  <div><button id="go" onclick="run()">Measure everything now</button> <button class="ghost" id="copy" onclick="copyReport()" style="display:none">Copy the report</button></div>
+  <div class="bar"><i id="prog"></i></div>
+  <div id="status" style="color:var(--soft)"></div>
+  <div class="big" id="total"></div>
+  <table id="tbl" style="display:none"><thead><tr><th>App</th><th>Faults</th><th>Last time</th><th>What kind</th></tr></thead><tbody></tbody></table>
+  <pre id="report" style="display:none"></pre>
+</div>
+<iframe id="stage" title="measuring"></iframe>
+<script>
+const LASTK='dj_measure_last'; let results=[], auditSrc='';
+async function run(){
+  document.getElementById('go').disabled=true; results=[];
+  const pages = await (await fetch('pages.json?cb='+Date.now())).json();
+  auditSrc = await (await fetch('../audit200.js?cb='+Date.now())).text();
+  const last = JSON.parse(localStorage.getItem(LASTK)||'{}');
+  const tb = document.querySelector('#tbl tbody'); tb.innerHTML=''; document.getElementById('tbl').style.display='';
+  for(let i=0;i<pages.length;i++){
+    const p=pages[i]; document.getElementById('status').textContent=`Measuring ${p.key} (${i+1} of ${pages.length})…`;
+    document.getElementById('prog').style.width=Math.round(i/pages.length*100)+'%';
+    let r;
+    try{ r = await measure(p.url); }catch(e){ r={app:p.key,total:-1,cats:{},err:String(e)}; }
+    r.key=p.key; results.push(r);
+    const tr=document.createElement('tr'); const prev=last[p.key];
+    const d = (prev===undefined||r.total<0)?'' : (r.total>prev?`<span class="up">▲ ${prev}</span>`: r.total<prev?`<span class="down">▼ ${prev}</span>`:`= ${prev}`);
+    tr.innerHTML=`<td>${r.app||p.key}</td><td class="n">${r.total<0?'—':r.total}</td><td>${d}</td><td class="cats">${Object.entries(r.cats||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')||(r.err?'could not load':'clean')}</td>`;
+    tb.appendChild(tr);
+  }
+  document.getElementById('prog').style.width='100%';
+  const sum=results.reduce((a,r)=>a+Math.max(0,r.total),0);
+  document.getElementById('total').textContent=sum+' faults across '+results.length+' pages';
+  const lastSum = Object.values(last).reduce((a,b)=>a+b,0);
+  document.getElementById('status').textContent = lastSum? `Last time: ${lastSum}. Say the number to Claude and he takes it from there.` : 'First measurement saved — next time you will see the change.';
+  const save={}; results.forEach(r=>{ if(r.total>=0) save[r.key]=r.total; }); localStorage.setItem(LASTK, JSON.stringify(save));
+  document.getElementById('copy').style.display=''; document.getElementById('go').disabled=false;
+}
+function measure(url){
+  return new Promise((res,rej)=>{
+    const f=document.getElementById('stage'); const t=setTimeout(()=>rej('timeout'),45000);
+    f.onload=async()=>{ try{ const r = await f.contentWindow.eval(auditSrc); clearTimeout(t); res(r); }catch(e){ clearTimeout(t); rej(e); } };
+    f.src=url+(url.includes('?')?'&':'?')+'cb='+Date.now();
+  });
+}
+function copyReport(){
+  const lines=['MEASURE — '+new Date().toLocaleString()+' — 360×780', ...results.map(r=>`${r.app||r.key}: ${r.total<0?'could not load':r.total} ${Object.entries(r.cats||{}).map(([k,v])=>k+' '+v).join(', ')}`)];
+  const txt=lines.join('\n'); document.getElementById('report').textContent=txt; document.getElementById('report').style.display='';
+  navigator.clipboard&&navigator.clipboard.writeText(txt).then(()=>{ document.getElementById('status').textContent='Copied. Paste it to Claude.'; });
+}
+</script>
+</body>
+</html>

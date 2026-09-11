@@ -1,6 +1,618 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script id="dj-house-v18">
+/* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
+(function(){
+  if(window.__djHouse) return; window.__djHouse = true;
+
+  /* ── 1 · the real local day ──────────────────────────────────────────────
+     toISOString() converts to UTC. At 7pm in Illinois that is already tomorrow,
+     so "today" landed on the wrong date and daily streaks broke overnight. */
+  window.djYMD = function(d){
+    d = d || new Date();
+    if(typeof d === 'string') d = new Date(d + (d.length === 10 ? 'T12:00:00' : ''));
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
+  };
+
+  /* ── 2 · saving must never fail silently ─────────────────────────────────
+     Every app writes with localStorage.setItem. If the phone refuses, the old
+     code threw, the save function stopped halfway, and nobody was told. */
+  try{
+    var proto = window.Storage && Storage.prototype;
+    if(proto && !proto.__djGuarded){
+      var realSet = proto.setItem;
+      proto.setItem = function(k, v){
+        try{ return realSet.call(this, k, v); }
+        catch(err){ djSaveFailed(err); return undefined; }
+      };
+      proto.__djGuarded = true;
+    }
+  }catch(e){}
+
+  var toldOnce = false;
+  function djSaveFailed(err){
+    if(toldOnce) return; toldOnce = true;
+    var full = err && (err.name === 'QuotaExceededError' ||
+               err.code === 22 || err.code === 1014);
+    djBanner(
+      full ? 'This phone is out of room, so that did not save.'
+           : 'This phone would not let the app save that.',
+      full ? 'Free up some space in Settings › General › iPhone Storage, then tap Try again. Nothing you can see on screen has been lost yet — but do not close the app until it saves.'
+           : 'This usually means private browsing, or Settings › Safari › Block All Cookies is switched on. Turn that off and tap Try again.',
+      [['Try again', function(){ location.reload(); }]]
+    );
+  }
+
+  /* ── 3 · nothing white-screens without a way out ─────────────────────────
+     A single bad record used to leave a blank page and no route back. */
+  var netShown = false;
+  function net(msg){
+    if(netShown) return; netShown = true;
+    djBanner('Something went wrong on this screen.',
+      'Your saved work is untouched. Reloading fixes almost everything.' +
+      (msg ? '\n\n(' + String(msg).slice(0,120) + ')' : ''),
+      [['Reload', function(){ location.reload(); }]]);
+  }
+  window.addEventListener('error', function(e){
+    if(e && e.target && e.target !== window && e.target.tagName) return; /* a missing image is not a crash */
+    net(e && e.message);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    net(e && e.reason && e.reason.message);
+  });
+
+  /* one calm bar, never an alert() the person cannot read at their own pace */
+  function djBanner(title, body, buttons){
+    if(!document.body){ document.addEventListener('DOMContentLoaded', function(){ djBanner(title, body, buttons); }); return; }
+    var old = document.getElementById('djBanner'); if(old) old.remove();
+    var w = document.createElement('div');
+    w.id = 'djBanner';
+    w.setAttribute('role','alert');
+    w.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483000;'
+      + 'background:#7A2E1E;color:#fff;padding:16px 16px calc(16px + env(safe-area-inset-bottom));'
+      + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -6px 26px rgba(0,0,0,.35)';
+    var h = document.createElement('div');
+    h.style.cssText = 'font-weight:800;font-size:16px;margin-bottom:4px'; h.textContent = title;
+    var p = document.createElement('div');
+    p.style.cssText = 'opacity:.94;white-space:pre-wrap'; p.textContent = body;
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap';
+    (buttons||[]).forEach(function(b){
+      var el = document.createElement('button');
+      el.textContent = b[0];
+      el.style.cssText = 'font:inherit;font-weight:800;min-height:44px;padding:10px 16px;border:none;'
+        + 'border-radius:12px;background:#fff;color:#7A2E1E;cursor:pointer';
+      el.onclick = b[1]; row.appendChild(el);
+    });
+    var x = document.createElement('button');
+    x.textContent = 'Dismiss';
+    x.setAttribute('aria-label','Dismiss this message');
+    x.style.cssText = 'font:inherit;font-weight:700;min-height:44px;padding:10px 16px;border:1px solid rgba(255,255,255,.55);'
+      + 'border-radius:12px;background:transparent;color:#fff;cursor:pointer';
+    x.onclick = function(){ w.remove(); };
+    row.appendChild(x);
+    w.appendChild(h); w.appendChild(p); w.appendChild(row);
+    document.body.appendChild(w);
+  }
+  window.djBanner = djBanner;
+
+  /* ── 4 · talk into any typing box ────────────────────────────────────────
+     Rafiki and Feedback Studio had this; twenty-one apps did not. The button
+     only appears once you tap into a box, so no screen changes until you want it. */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, micBtn = null, curBox = null;
+
+  function eligible(el){
+    if(!el || el.dataset.djMic === 'off') return false;
+    var t = (el.tagName||'').toLowerCase();
+    if(t === 'textarea') return true;
+    if(t !== 'input') return false;
+    var ty = (el.type||'text').toLowerCase();
+    if(['text','search','tel','url','email'].indexOf(ty) < 0) return false;
+    if(el.readOnly || el.disabled) return false;
+    /* Leave alone any box that already has its own microphone — Rafiki, Feedback
+       Studio and In My Own Words built their own and theirs are better placed.
+       Stop at <body>: once our own button is on the page its emoji is inside body's
+       text, which would make every box after the first one look already-served. */
+    var p = el.parentElement;
+    for(var i=0; i<3 && p && p !== document.body && p !== document.documentElement; i++, p = p.parentElement){
+      var t = p.textContent || '';
+      if(micBtn && p.contains(micBtn)) t = t.split('\u{1F3A4}').join('');
+      if(t.indexOf('\u{1F3A4}') >= 0) return false;
+    }
+    return true;
+  }
+
+  function place(box){
+    if(!micBtn){
+      micBtn = document.createElement('button');
+      micBtn.type = 'button';
+      micBtn.id = 'djMic';
+      micBtn.textContent = '\u{1F3A4}';
+      micBtn.setAttribute('aria-label','Say it instead of typing');
+      micBtn.title = 'Say it instead of typing';
+      /* every app has its own button styling — min-height:44px, padding, box-sizing —
+         so this one states its shape outright or it comes out the wrong size */
+      micBtn.style.cssText = 'position:absolute !important;z-index:2147482000;'
+        + 'box-sizing:border-box !important;width:40px !important;height:40px !important;'
+        + 'min-width:40px !important;min-height:40px !important;max-width:40px !important;'
+        + 'max-height:40px !important;padding:0 !important;margin:0 !important;'
+        + 'border-radius:50% !important;border:1px solid rgba(128,128,128,.4);background:#fff;'
+        + 'color:#1F2622;font-size:19px;line-height:1;cursor:pointer;'
+        + 'box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center';
+      micBtn.addEventListener('mousedown', function(e){ e.preventDefault(); });
+      micBtn.addEventListener('click', function(e){ e.preventDefault(); talk(); });
+      document.body.appendChild(micBtn);
+    }
+    var r = box.getBoundingClientRect();
+    /* scrolled out of sight — inside a sheet or off the page — so show nothing */
+    if(r.bottom < 4 || r.top > window.innerHeight - 4 || r.width < 60){ micBtn.hidden = true; return; }
+    micBtn.hidden = false;
+    /* measure what the browser actually made, rather than trusting the numbers above */
+    var m = micBtn.getBoundingClientRect();
+    var w = m.width  || 40, h = m.height || 40;
+    micBtn.style.top  = (window.scrollY + r.top + (r.height - h)/2) + 'px';
+    micBtn.style.left = (window.scrollX + r.right - w - 6) + 'px';
+    /* a short box would be swallowed by the button — sit just outside it instead */
+    if(r.width < w + 90) micBtn.style.left = (window.scrollX + r.right + 6) + 'px';
+  }
+  function hide(){ if(micBtn) micBtn.hidden = true; }
+
+  function talk(){
+    var box = curBox; if(!box) return;
+    if(rec){ try{ rec.stop(); }catch(e){} return; }
+    rec = new SR();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true;
+    rec.continuous = (box.tagName.toLowerCase() === 'textarea');
+    var base = (box.value || '').trim();
+    micBtn.textContent = '⏹';
+    micBtn.style.background = '#D96C4F';
+    micBtn.setAttribute('aria-label','Stop listening');
+    rec.onresult = function(e){
+      var t = '';
+      for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
+      box.value = (base ? base + ' ' : '') + t;
+      box.dispatchEvent(new Event('input', {bubbles:true}));
+    };
+    function done(){
+      rec = null;
+      if(micBtn){ micBtn.textContent = '\u{1F3A4}'; micBtn.style.background = '#fff';
+                  micBtn.setAttribute('aria-label','Say it instead of typing'); }
+      box.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+    rec.onend = done;
+    rec.onerror = done;
+    try{ rec.start(); }catch(e){ done(); }
+  }
+
+
+  /* ── 5 · the floating helpers must not sit on the words ──────────────────
+     The ? and the 💡 were each pinned to the right edge about 150px up from the
+     bottom. On a 5.4" phone that is the middle of the screen, so both sat on top
+     of whatever was written there — and in The Key they landed on exactly the same
+     spot as each other, which hid one of them completely. They now share one dock
+     in the bottom-right corner, stacked, and the dock lifts itself above whatever
+     bottom bar the app has so it never covers a menu. */
+
+  /* ── 6 · "Start fresh" must actually clear this app, and only this app ───────
+     The first registry I shipped listed key names I had assumed rather than read.
+     Against what the apps really write, 21 of 26 were wrong: The Key saves under
+     'daraja_thekey_v1', so a person who had filled in their whole will-and-papers
+     page was told "there is nothing saved in this app yet". These names were read
+     out of each app's own source. Anything belonging to another app is protected
+     even when a pattern would otherwise match it. */
+  var OWNS = {
+    nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
+                      'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
+    compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
+    nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
+    occ:          {k:['occ_counter_v1','occTipSeen'], p:['occ_']},
+    drive:        {k:['occ_counter_v1','occTipSeen'], p:['drive_','church_drive_']},
+    safety:       {k:['my_safety_plan_v1'], p:['safety_']},
+    zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
+    academy:      {k:['daraja_academy_v1'], p:['academy_']},
+    feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    churchkey:    {k:['daraja_churchkey_v1'], p:[]},
+    drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
+    flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
+    rafiki:       {k:['rafiki_v1','rafiki_aa'], p:['rafiki_']},
+    pitwall:      {k:['pitwall_state_v1'], p:['pitwall_','f1_']},
+    churchhq:     {k:['church_hq_v1'], p:['church_hq_']},
+    steward:      {k:['steward_v1'], p:['steward_']},
+    serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
+    clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
+    gameday:      {k:[], p:['gameday_','church_gameday_']},
+    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+  };
+
+  function slugOf(){
+    var s = (window.DJ_START && window.DJ_START.slug) ||
+            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
+                 churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
+                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+    return alias[s] || s;
+  }
+
+  function myKeys(){
+    var me = slugOf(), mine = OWNS[me];
+    if(!mine) return null;                            /* unknown app — do not guess */
+    var guard = {};
+    Object.keys(OWNS).forEach(function(a){
+      if(a === me) return;
+      OWNS[a].k.forEach(function(x){ guard[x] = a; });
+    });
+    /* two apps genuinely share the shoebox count, so neither may erase it */
+    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    var out = [];
+    try{
+      for(var i=0; i<localStorage.length; i++){
+        var k = localStorage.key(i); if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(shared[k]) continue;
+        var owned = mine.k.indexOf(k) >= 0;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        if(!owned) continue;
+        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  function startFresh(){
+    var keys = myKeys();
+    if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
+    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    if(!confirm('Last check — erase this app’s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  }
+
+  /* The older erase layer sits at the end of the page, so it assigns AFTER this one
+     and its guessed key names win. Claim the name again once the page is built. */
+  window.djStartFresh = startFresh;
+  function claimStartFresh(){
+    window.djStartFresh = startFresh;
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 300);
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
+  }
+
+
+  /* ── 7 · the 425-things audit (10 Sep 2026, every page at 360×780) ────────
+     257 pieces of text under 13px · 49 tap targets under 40px · 36 typing boxes
+     whose only label is a placeholder that vanishes the moment you type · 10 boxes
+     under 40px tall. Fixed here for every app at once. */
+  function auditFixCSS(){
+    if(document.getElementById('djAuditCSS') || !document.head) return;
+    var st = document.createElement('style'); st.id = 'djAuditCSS';
+    st.textContent =
+      /* nothing a person reads may be under 13px — the earlier floor missed div, button, headings */
+      'div,button,a,h1,h2,h3,h4,h5,h6,th,strong,b,em,i,time,summary,figcaption,dt,dd,legend,option,' +
+      'blockquote,cite,q,code,pre,address,caption{font-size:max(13px,1em);}' +
+      /* a box you type in is at least a fingertip tall */
+      'input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),' +
+      'select,textarea{min-height:44px;}' +
+      /* the label that stays: shown above a box once it has words in it, from its placeholder */
+      '.dj-stay{display:block;font-size:12.5px;font-weight:700;letter-spacing:.04em;opacity:.75;margin:6px 0 2px;line-height:1.2;}' +
+      /* store cards: the little links under the buttons were 21px tall */
+      '.app > a,.app .row a{display:flex;align-items:center;justify-content:center;min-height:44px;padding:8px 10px;}';
+    document.head.appendChild(st);
+  }
+
+  /* placeholder-only boxes get (a) a spoken name and (b) a label that appears above
+     them the moment there are words inside, so what the box is for never disappears */
+  function stayLabels(){
+    var boxes = document.querySelectorAll('input[placeholder],textarea[placeholder]');
+    for(var i=0;i<boxes.length;i++){
+      var b = boxes[i];
+      if(b.__djStay) continue;
+      if(/^(hidden|button|submit|checkbox|radio)$/.test(b.type||'')) continue;
+      var id = b.id;
+      var has = (id && document.querySelector('label[for="'+id.replace(/"/g,'')+'"]')) || b.closest('label') || b.getAttribute('aria-label') || b.getAttribute('aria-labelledby');
+      if(has) continue;
+      var words = (b.placeholder||'').replace(/^e\.g\.\s*/i,'').replace(/…|\.\.\.$/,'').trim();
+      if(!words) continue;
+      b.setAttribute('aria-label', words);
+      b.__djStay = true;
+      (function(box, text){
+        var lab = null;
+        function sync(){
+          var on = !!box.value;
+          if(on && !lab){
+            lab = document.createElement('span'); lab.className='dj-stay'; lab.textContent = text;
+            box.parentNode.insertBefore(lab, box);
+          } else if(!on && lab){ lab.remove(); lab = null; }
+        }
+        box.addEventListener('input', sync); box.addEventListener('change', sync); sync();
+      })(b, words.length > 48 ? words.slice(0,45) + '…' : words);
+    }
+  }
+
+  /* buttons that are only an emoji get a name a screen reader can say */
+  var NAMES = {wkBtn:'Week view', sermonNotesBtn:'Sermon notes', fab:'Add', qsBtn:'Quick setup'};
+  function nameButtons(){
+    var els = document.querySelectorAll('button,a,[role="button"]');
+    for(var i=0;i<els.length;i++){
+      var e = els[i];
+      if(e.getAttribute('aria-label') || e.getAttribute('title')) continue;
+      var t = (e.textContent||'').trim();
+      if(!t || /[A-Za-z0-9]/.test(t)) continue;               /* has real words already */
+      var guess = NAMES[e.id] || (e.className && typeof e.className==='string' && NAMES[e.className.split(' ')[0]]) || null;
+      if(guess) e.setAttribute('aria-label', guess);
+    }
+  }
+
+  /* Ahead of It family: the round ＋ sat on top of the Quick setup button */
+  function fabLift(){
+    var fab = document.querySelector('button.fab'); if(!fab) return;
+    var f = fab.getBoundingClientRect(), top = null;
+    /* anything else parked in the bottom corner: the app's own quick-start, our dock */
+    [document.getElementById('qsBtn'), document.getElementById('djDock')].forEach(function(o){
+      if(!o) return; var q = o.getBoundingClientRect(); if(!q.width) return;
+      if(f.right<=q.left||q.right<=f.left||f.bottom<=q.top||q.bottom<=f.top) return;
+      if(top===null || q.top<top) top = q.top;
+    });
+    if(top===null) return;
+    var lift = (window.innerHeight - top) + 10;
+    fab.style.setProperty('bottom', 'calc(' + Math.round(lift) + 'px + env(safe-area-inset-bottom))', 'important');
+  }
+
+
+  /* ── 8 · the floors that actually hold ───────────────────────────────────
+     v14 set font-size:max(13px,1em) on div/button/etc. It measured almost no
+     change: an app's own ".lbl{font-size:12px}" is a class selector and outranks
+     an element selector, so the app won every time. Reading the computed size and
+     writing an inline value is the only thing that beats every stylesheet. Same
+     for tap targets: buttons and links the app styled at 21px tall. */
+  function floors(){
+    var MIN_FONT = 13, MIN_TAP = 44, n = 0;
+    var all = document.body ? document.body.getElementsByTagName('*') : [];
+    for(var i=0; i<all.length; i++){
+      var el = all[i];
+      if(el.__djFloored) continue;
+      var tag = el.tagName;
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='SVG'||tag==='PATH') continue;
+      var cs = getComputedStyle(el);
+      if(cs.display==='none') continue;
+      /* text: only elements that carry their own words */
+      var own = false;
+      for(var c = el.firstChild; c; c = c.nextSibling){ if(c.nodeType===3 && c.textContent.trim().length>1){ own = true; break; } }
+      if(own){
+        var fs = parseFloat(cs.fontSize);
+        if(fs && fs < MIN_FONT){
+          el.style.setProperty('font-size', MIN_FONT+'px', 'important');
+          var lh = parseFloat(cs.lineHeight);
+          if(lh && lh < MIN_FONT*1.2) el.style.setProperty('line-height', '1.25', 'important');
+          n++;
+        }
+      }
+      /* taps: real controls that were styled too small to hit */
+      var isCtl = tag==='BUTTON' || tag==='SELECT' || el.getAttribute('role')==='button' ||
+                  (tag==='A' && el.getAttribute('href') && cs.display!=='inline');
+      if(isCtl){
+        var r = el.getBoundingClientRect();
+        if(r.height>0 && r.height < 40){
+          el.style.setProperty('min-height', MIN_TAP+'px', 'important');
+          if(cs.display==='inline-block' || cs.display==='block') { el.style.setProperty('display','inline-flex','important'); el.style.setProperty('align-items','center','important'); }
+          n++;
+        }
+        /* a 23px-wide arrow button is as hard to hit as a 23px-tall one */
+        if(tag==='BUTTON' && r.width>0 && r.width < 32){
+          el.style.setProperty('min-width', MIN_TAP+'px', 'important');
+          el.style.setProperty('justify-content', 'center', 'important');
+          n++;
+        }
+      }
+      /* the browser's 13px checkbox is the smallest thing on any screen */
+      if(tag==='INPUT' && (el.type==='checkbox' || el.type==='radio')){
+        var rc = el.getBoundingClientRect();
+        if(rc.width>0 && rc.width < 22){ el.style.setProperty('width','22px','important'); el.style.setProperty('height','22px','important'); n++; }
+      }
+      el.__djFloored = true;
+    }
+    return n;
+  }
+  /* the dock and the app's own bars keep moving for a few seconds after load, so the + button is re-checked on the same schedule */
+  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
+
+  function auditFixes(){
+    try{ auditFixCSS(); }catch(e){}
+    try{ stayLabels(); }catch(e){}
+    try{ nameButtons(); }catch(e){}
+    try{ fabLift(); }catch(e){}
+  }
+
+  function occupied(){
+    /* How far up the bottom edge is already spoken for — by a bottom bar across the
+       screen, OR by another floating button already parked in the bottom-right.
+       Without the second test the dock lands straight on top of an app's own round
+       button, which is exactly what happened to My Productive Partner's calendar. */
+    var bar = 0, right = 0;
+    var all = document.body ? document.body.getElementsByTagName('*') : [];
+    var VH = window.innerHeight, VW = window.innerWidth;
+    for(var i=0; i<all.length; i++){
+      var el = all[i];
+      if(el.id === 'djDock' || (dockEl && dockEl.contains(el))) continue;
+      var cs = getComputedStyle(el);
+      if(cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+      if(cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      var r = el.getBoundingClientRect();
+      if(r.height < 20 || r.width < 20) continue;
+      if(r.height > VH * 0.5) continue;                 /* a full-screen overlay is not a bar */
+      if(r.bottom < VH * 0.45) continue;                /* only the lower half matters */
+      if(r.width > VW * 0.5 && r.bottom > VH - 8){
+        bar = Math.max(bar, r.height);                  /* a bottom bar spanning the screen */
+      } else if(VW - r.right < 92){
+        right = Math.max(right, VH - r.top);            /* something already in our corner */
+      }
+    }
+    return Math.max(bar, right);
+  }
+
+  var dockEl = null;
+  function dock(){
+    var wanted = ['djHelp', 'dTipDot', 'djDays'];  /* the days-left badge sat on the app title */
+    var found = [];
+    for(var i=0; i<wanted.length; i++){
+      var el = document.getElementById(wanted[i]);
+      if(el) found.push(el);
+    }
+    if(!found.length || !document.body) return;
+    if(!dockEl){
+      dockEl = document.createElement('div');
+      dockEl.id = 'djDock';
+      dockEl.style.cssText = 'position:fixed;z-index:2147481000;display:flex;'
+        + 'flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none';
+      document.body.appendChild(dockEl);
+    }
+    for(var j=0; j<found.length; j++){
+      var b = found[j];
+      if(b.parentElement === dockEl) continue;
+      b.style.setProperty('position','static','important');
+      ['top','bottom','left','right','margin'].forEach(function(p){ b.style.setProperty(p,'',''); });
+      b.style.setProperty('margin','0','important');
+      b.style.setProperty('pointer-events','auto','');
+      b.style.setProperty('flex','0 0 auto','');
+      dockEl.appendChild(b);
+    }
+    var lift = occupied();
+    dockEl.style.right  = 'calc(10px + env(safe-area-inset-right))';
+    dockEl.style.bottom = 'calc(' + (lift + 10) + 'px + env(safe-area-inset-bottom))';
+
+    /* On a 5.4" phone three floating helpers stacked up the right-hand edge still
+       sit on the words underneath. Below 560px they fold into ONE button that opens
+       them, so nothing covers the page until the person asks for it. */
+    var narrow = window.innerWidth <= 560;
+    if(narrow && !toggleBtn){
+      toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.id = 'djDockToggle';
+      toggleBtn.textContent = '?';
+      toggleBtn.setAttribute('aria-label', 'Help and settings');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.style.cssText = 'pointer-events:auto;width:44px;height:44px;min-height:44px;'
+        + 'padding:0;margin:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);'
+        + 'background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;'
+        + 'cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);flex:0 0 auto';
+      toggleBtn.onclick = function(){
+        openDock = !openDock;
+        toggleBtn.textContent = openDock ? '\u2715' : '?';
+        toggleBtn.setAttribute('aria-label', openDock ? 'Close help' : 'Help and settings');
+        toggleBtn.setAttribute('aria-expanded', openDock ? 'true' : 'false');
+        paint();
+      };
+      dockEl.appendChild(toggleBtn);
+    }
+    if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
+    paint();
+  }
+
+  var toggleBtn = null, openDock = false;
+
+  /* Steward and Nonprofit Filings both carry a rule of their own —
+     "#introDot, #djHelp, #dTipDot { display:flex !important }" — so neither the
+     hidden attribute nor an inline style could put these buttons away. A rule with
+     more specific aim than a bare id wins, and this one is aimed at our dock. */
+  function hideRule(){
+    if(document.getElementById('djDockCSS') || !document.head) return;
+    var st = document.createElement('style');
+    st.id = 'djDockCSS';
+    st.textContent = '#djDock > [data-dj-hide], #djDock > [data-dj-hide]:hover' +
+                     '{ display:none !important; visibility:hidden !important; }';
+    document.head.appendChild(st);
+  }
+  function show(el, on){
+    hideRule();
+    if(on) el.removeAttribute('data-dj-hide');
+    else   el.setAttribute('data-dj-hide', '');
+    el.hidden = !on;
+  }
+  function paint(){
+    if(!dockEl) return;
+    var narrow = window.innerWidth <= 560;
+    for(var i=0; i<dockEl.children.length; i++){
+      var c = dockEl.children[i];
+      if(c === toggleBtn){ show(c, narrow); continue; }
+      show(c, !narrow || openDock);
+    }
+  }
+
+  function start(){
+    if(!SR) return;                                   /* no microphone here — show nothing */
+    document.addEventListener('focusin', function(e){
+      if(eligible(e.target)){ curBox = e.target; place(e.target); }
+      else if(e.target !== micBtn){ hide(); }
+    });
+    document.addEventListener('focusout', function(e){
+      setTimeout(function(){
+        if(document.activeElement !== curBox && document.activeElement !== micBtn){
+          if(rec){ try{ rec.stop(); }catch(err){} }
+          hide(); curBox = null;
+        }
+      }, 120);
+    });
+    /* capture, so a scroll inside a sheet or panel moves the button too */
+    window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
+    window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
+  }
+  /* Each app builds its 💡 on its own timer, so a fixed list of delays always loses
+     the race in some app — Steward's arrived after the last pass and stayed on
+     screen. Watch for it instead of guessing when it turns up. */
+  function dockPasses(){
+    var run = function(){ try{ dock(); }catch(e){} };
+    [0, 400, 1200, 2400].forEach(function(ms){ setTimeout(run, ms); });
+    try{
+      var mo = new MutationObserver(function(recs){
+        for(var i=0; i<recs.length; i++){
+          var added = recs[i].addedNodes;
+          for(var j=0; j<added.length; j++){
+            var n = added[j];
+            if(n.nodeType !== 1) continue;
+            if(dockEl && dockEl.contains(n)) continue;
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays'){ run(); return; }
+          }
+        }
+      });
+      if(document.body) mo.observe(document.body, {childList:true, subtree:true});
+    }catch(e){}
+    window.addEventListener('resize', run);
+    window.addEventListener('orientationchange', function(){ setTimeout(run, 300); });
+  }
+  /* Inside Feedback Studio the app runs in a window within a page that already has
+     its own help button and its own microphone. Running ours too put a second "?"
+     on top of the app's Wins tab, and a second microphone on every box. */
+  var embedded = false;
+  try{ embedded = window.top !== window.self; }catch(e){ embedded = true; }
+
+  /* Inside Feedback Studio the surrounding page already has its own microphone, so
+     ours would be a second one on every box. The dock still runs: tidying the app's
+     own scattered helpers into one corner button matters more in a small window,
+     not less. */
+  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); auditFixes();
+    [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
+    try{ new MutationObserver(function(){ stayLabels(); nameButtons(); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+    window.addEventListener('resize', fabLift); floorsSoon();
+    try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Tiny apps that install like real apps — pay once, own forever. No accounts, no subscriptions, works offline. Every purchase helps a student in Kenya stay in school.">
