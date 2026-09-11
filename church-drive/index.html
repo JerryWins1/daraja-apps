@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v11">
+<script id="dj-house-v13">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -197,11 +197,106 @@
      spot as each other, which hid one of them completely. They now share one dock
      in the bottom-right corner, stacked, and the dock lifts itself above whatever
      bottom bar the app has so it never covers a menu. */
+
+  /* ── 6 · "Start fresh" must actually clear this app, and only this app ───────
+     The first registry I shipped listed key names I had assumed rather than read.
+     Against what the apps really write, 21 of 26 were wrong: The Key saves under
+     'daraja_thekey_v1', so a person who had filled in their whole will-and-papers
+     page was told "there is nothing saved in this app yet". These names were read
+     out of each app's own source. Anything belonging to another app is protected
+     even when a pattern would otherwise match it. */
+  var OWNS = {
+    nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
+                      'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
+    compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
+    nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
+    occ:          {k:['occ_counter_v1','occTipSeen'], p:['occ_']},
+    drive:        {k:['occ_counter_v1','occTipSeen'], p:['drive_','church_drive_']},
+    safety:       {k:['my_safety_plan_v1'], p:['safety_']},
+    zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
+    academy:      {k:['daraja_academy_v1'], p:['academy_']},
+    feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    churchkey:    {k:['daraja_churchkey_v1'], p:[]},
+    drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
+    flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
+    rafiki:       {k:['rafiki_v1','rafiki_aa'], p:['rafiki_']},
+    pitwall:      {k:['pitwall_state_v1'], p:['pitwall_','f1_']},
+    churchhq:     {k:['church_hq_v1'], p:['church_hq_']},
+    steward:      {k:['steward_v1'], p:['steward_']},
+    serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
+    clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
+    gameday:      {k:[], p:['gameday_','church_gameday_']},
+    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+  };
+
+  function slugOf(){
+    var s = (window.DJ_START && window.DJ_START.slug) ||
+            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
+                 churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
+                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+    return alias[s] || s;
+  }
+
+  function myKeys(){
+    var me = slugOf(), mine = OWNS[me];
+    if(!mine) return null;                            /* unknown app — do not guess */
+    var guard = {};
+    Object.keys(OWNS).forEach(function(a){
+      if(a === me) return;
+      OWNS[a].k.forEach(function(x){ guard[x] = a; });
+    });
+    /* two apps genuinely share the shoebox count, so neither may erase it */
+    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    var out = [];
+    try{
+      for(var i=0; i<localStorage.length; i++){
+        var k = localStorage.key(i); if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(shared[k]) continue;
+        var owned = mine.k.indexOf(k) >= 0;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        if(!owned) continue;
+        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  function startFresh(){
+    var keys = myKeys();
+    if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
+    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    if(!confirm('Last check — erase this app’s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  }
+
+  /* The older erase layer sits at the end of the page, so it assigns AFTER this one
+     and its guessed key names win. Claim the name again once the page is built. */
+  window.djStartFresh = startFresh;
+  function claimStartFresh(){
+    window.djStartFresh = startFresh;
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 300);
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
+  }
+
   function occupied(){
     /* How far up the bottom edge is already spoken for — by a bottom bar across the
        screen, OR by another floating button already parked in the bottom-right.
        Without the second test the dock lands straight on top of an app's own round
-       button, which is exactly what happened to My Productive Partner's calendar. */
+       button, which is exactly what happened to One Thing's calendar. */
     var bar = 0, right = 0;
     var all = document.body ? document.body.getElementsByTagName('*') : [];
     var VH = window.innerHeight, VW = window.innerWidth;
@@ -363,7 +458,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); dockPasses(); }
+  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
@@ -961,6 +1056,238 @@ render();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go();
   setTimeout(go, 1200);
 }catch(e){} })();
+</script>
+
+
+<style id="dj-occshare-css">
+  #occShare{margin:14px 0 4px;}
+  #occShareBtn{
+    width:100%; font:inherit; font-weight:800; font-size:16px; min-height:52px;
+    border:none; border-radius:14px; cursor:pointer;
+    background:var(--green,#2F6E52); color:#fff;
+  }
+  #occShareBtn:disabled{opacity:.45; cursor:default;}
+  #occPreview{
+    margin-top:10px; background:var(--s2,#f1ece1); border:1px solid var(--lineS,#ddd6c6);
+    border-radius:14px; padding:14px; display:none;
+  }
+  #occPreview.show{display:block;}
+  #occText{
+    width:100%; min-height:190px; font:inherit; font-size:15px; line-height:1.5;
+    border:1px solid var(--lineS,#ddd6c6); border-radius:10px; padding:10px;
+    background:var(--surface,#fff); color:var(--ink,#222); resize:vertical;
+  }
+  #occActions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  #occActions a, #occActions button{
+    flex:1 1 auto; font:inherit; font-weight:800; font-size:15px; min-height:48px;
+    border-radius:12px; border:1px solid var(--lineS,#ddd6c6);
+    background:var(--surface,#fff); color:var(--ink,#222);
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    text-decoration:none; cursor:pointer; padding:0 12px;
+  }
+  #occActions .primary{background:var(--green,#2F6E52); color:#fff; border-color:transparent;}
+  #occHint{font-size:13.5px; color:var(--faint,#7d7565); margin-top:8px;}
+  .occFact{margin-top:12px; border:1px solid var(--lineS,#ddd6c6); border-radius:14px; overflow:hidden;}
+  /* on a narrow phone a long date pushed the label onto its own line and left
+     the word "week" stranded — stack them deliberately instead */
+  .occFactRow{display:flex; flex-direction:column; gap:1px;
+    padding:10px 13px; border-bottom:1px solid var(--lineS,#ddd6c6); font-size:15px;}
+  .occFactRow span{color:var(--faint,#7d7565); font-size:13.5px;}
+  .occFactRow b{font-size:16px;}
+  @media (min-width:460px){
+    .occFactRow{flex-direction:row; justify-content:space-between; align-items:baseline; gap:10px;}
+    .occFactRow span{font-size:15px;}
+    .occFactRow b{text-align:right;}
+  }
+  .occNo{padding:10px 13px;}
+  .occNo summary{font-weight:800; cursor:pointer; font-size:15px; min-height:28px;}
+  .occNo p{margin:8px 0 0; font-size:14.5px; line-height:1.55; color:var(--faint,#7d7565);}
+  .occNo p b{color:var(--red,#8C3A2B);}
+  .occSrc{font-size:13px !important; opacity:.85;}
+</style>
+<script id="dj-occshare-v4">
+/* ═══ what we still need to buy, and out to the group ═══ */
+(function(){
+  if(window.__occShare) return; window.__occShare = true;
+
+  /* Samaritan's Purse's own rules, checked 10 Sep 2026 against
+     samaritanspurse.org/operation-christmas-child/what-goes-in-my-shoebox-suggestions/
+     Soap and toothpaste were staples for years and are now BANNED — the single most
+     expensive thing a group of volunteers can get wrong. */
+  var NOT_ALLOWED = ['soap','toothpaste','candy','gum','chocolate','food','fruit snacks',
+    'drink mixes','seeds','liquids','lotions','medicines','vitamins','used or damaged items',
+    'anything breakable or glass','aerosol cans','alcohol wipes',
+    'toy guns, knives or military figures'];
+  var SHIP_PER_BOX = 10;                    /* the shipping donation per shoebox */
+  var COLLECTION = {from:'16 November', to:'23 November 2026', iso:'2026-11-16'};
+
+  function daysLeft(){
+    var d = Math.ceil((new Date(COLLECTION.iso + 'T12:00:00') - new Date()) / 86400000);
+    return d;
+  }
+
+  function ready(fn){
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+
+  function shortages(){
+    /* The app keeps its record in a script-local `db`, which is not on window — so
+       read the saved copy instead. Read only; the app owns this record. */
+    var d = null;
+    try{ d = JSON.parse(localStorage.getItem('occ_counter_v1') || 'null'); }catch(e){}
+    if(!d || !d.items) return null;
+    var goal = d.goal || 0, short = [], plenty = [];
+    d.items.forEach(function(it){
+      if(it.plenty){ plenty.push(it.n); return; }
+      if(!it.box) return;                       /* only the every-box items gate a set */
+      var need = goal - (it.q || 0);
+      if(need > 0) short.push({name:it.n, need:need, have:it.q || 0});
+    });
+    short.sort(function(a,b){ return b.need - a.need; });   /* worst first */
+    return {goal:goal, short:short, plenty:plenty};
+  }
+
+  function compose(){
+    var s = shortages();
+    if(!s) return '';
+    var lines = [];
+    /* the heading carries a <small> strapline; take only the name itself */
+    var h1 = document.querySelector('header h1'), title = 'Our drive';
+    if(h1){
+      var first = '';
+      for(var i=0; i<h1.childNodes.length; i++){
+        var n = h1.childNodes[i];
+        if(n.nodeType === 3) first += n.textContent; else break;
+      }
+      title = (first || h1.textContent).replace(/\s+/g,' ').replace(/^[^\w]*/,'').trim();
+      title = title.replace(/\s+Assistant$/,'');
+    }
+    lines.push(title + ' — we are building ' + s.goal + ' boxes.');
+    lines.push('');
+    if(!s.short.length){
+      lines.push('Every item is covered for all ' + s.goal + ' boxes. Thank you — nothing more needed!');
+    } else {
+      lines.push('Still to buy:');
+      s.short.forEach(function(i){
+        lines.push('• ' + i.name + ' — ' + i.need + ' more' + (i.have ? ' (we have ' + i.have + ')' : ''));
+      });
+      lines.push('');
+      lines.push('Anything you can pick up helps. Tell me what you are getting so we do not double up.');
+    }
+    if(s.plenty.length){
+      lines.push('');
+      lines.push('We have plenty of: ' + s.plenty.join(', ') + ' — no need for more.');
+    }
+    lines.push('');
+    lines.push('Please do NOT buy: ' + NOT_ALLOWED.join(', ') + '.');
+    lines.push('(Soap and toothpaste used to be fine — they are not allowed any more.)');
+    lines.push('');
+    var dl = daysLeft();
+    lines.push('Drop-off week is ' + COLLECTION.from + '–' + COLLECTION.to
+               + (dl > 0 ? ' — ' + dl + ' days away.' : '.'));
+    lines.push('Each box also needs a $' + SHIP_PER_BOX + ' shipping donation, so '
+               + s.goal + ' boxes is $' + (s.goal * SHIP_PER_BOX).toLocaleString() + ' altogether.');
+    return lines.join('\n');
+  }
+
+  function refresh(){
+    var s = shortages(), btn = document.getElementById('occShareBtn');
+    if(!btn || !s) return;
+    btn.disabled = false;
+    btn.textContent = s.short.length
+      ? '📤 Send the group what we still need (' + s.short.length + ' items)'
+      : '📤 Send the group the good news — everything is covered';
+  }
+
+  function build(){
+    if(document.getElementById('occShare')) return;
+    var goalrow = document.querySelector('.goalrow');
+    if(!goalrow) return;
+
+    var wrap = document.createElement('div');
+    wrap.id = 'occShare';
+    wrap.innerHTML =
+      '<button id="occShareBtn" type="button">📤 Send the group what we still need</button>'
+      + '<div id="occPreview">'
+      + '<label for="occText" style="display:block;font-weight:800;font-size:14px;margin-bottom:6px">'
+      + 'Here is the message — change any of it before you send</label>'
+      + '<textarea id="occText" aria-label="The message to send"></textarea>'
+      + '<div id="occActions">'
+      + '<a class="primary" id="occSms" href="#">💬 Text it</a>'
+      + '<a id="occMail" href="#">✉️ Email it</a>'
+      + '<button type="button" id="occCopy">📋 Copy</button>'
+      + '</div>'
+      + '<p id="occHint">It opens your own Messages or Mail with the words already in. '
+      + 'Nobody needs to install anything, and nothing is sent until you tap send.</p>'
+      + '</div>'
+      + '<div id="occFacts"></div>';
+    goalrow.insertAdjacentElement('afterend', wrap);
+
+    var btn = document.getElementById('occShareBtn'),
+        pv  = document.getElementById('occPreview'),
+        ta  = document.getElementById('occText');
+
+    btn.addEventListener('click', function(){
+      if(pv.classList.contains('show')){ pv.classList.remove('show'); return; }
+      ta.value = compose();
+      pv.classList.add('show');
+      wire();
+      ta.focus();
+    });
+
+    function wire(){
+      var t = encodeURIComponent(ta.value);
+      var subject = encodeURIComponent('What we still need for the boxes');
+      document.getElementById('occSms').href  = 'sms:&body=' + t;
+      document.getElementById('occMail').href = 'mailto:?subject=' + subject + '&body=' + t;
+    }
+    ta.addEventListener('input', wire);
+
+    document.getElementById('occCopy').addEventListener('click', function(){
+      ta.select();
+      var done = false;
+      try{ done = document.execCommand('copy'); }catch(e){}
+      if(navigator.clipboard && !done){
+        navigator.clipboard.writeText(ta.value).then(function(){ said('Copied'); });
+      } else said(done ? 'Copied' : 'Select the words and copy');
+    });
+
+    function said(m){
+      var t = document.getElementById('toast');
+      if(t){ t.textContent = m; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 1800); }
+    }
+
+    facts();
+    refresh();
+    /* the count changes as boxes come in — keep the button honest */
+    if(typeof window.render === 'function'){
+      var real = window.render;
+      window.render = function(){ var r = real.apply(this, arguments); try{ refresh(); }catch(e){} return r; };
+    }
+  }
+
+  function facts(){
+    var host = document.getElementById('occFacts');
+    if(!host) return;
+    var s = shortages(); if(!s) return;
+    var dl = daysLeft();
+    host.innerHTML =
+      '<div class="occFact">'
+      + '<div class="occFactRow"><span>🗓 Drop-off week</span><b>' + COLLECTION.from + '–' + COLLECTION.to
+      + (dl > 0 ? ' · ' + dl + ' days' : '') + '</b></div>'
+      + '<div class="occFactRow"><span>💵 Shipping at $' + SHIP_PER_BOX + ' a box</span><b>$'
+      + (s.goal * SHIP_PER_BOX).toLocaleString() + ' for ' + s.goal + '</b></div>'
+      + '<details class="occNo"><summary>🚫 What is not allowed any more</summary>'
+      + '<p><b>Soap and toothpaste were fine for years and are banned now.</b> The full list: '
+      + NOT_ALLOWED.join(', ') + '.</p>'
+      + '<p class="occSrc">Samaritan\u2019s Purse, checked 10 September 2026. '
+      + 'Worth re-checking their site before a big shop.</p></details>'
+      + '</div>';
+  }
+
+  ready(function(){ setTimeout(build, 60); });
+})();
 </script>
 
 </body>

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v11">
+<script id="dj-house-v13">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -197,11 +197,106 @@
      spot as each other, which hid one of them completely. They now share one dock
      in the bottom-right corner, stacked, and the dock lifts itself above whatever
      bottom bar the app has so it never covers a menu. */
+
+  /* ── 6 · "Start fresh" must actually clear this app, and only this app ───────
+     The first registry I shipped listed key names I had assumed rather than read.
+     Against what the apps really write, 21 of 26 were wrong: The Key saves under
+     'daraja_thekey_v1', so a person who had filled in their whole will-and-papers
+     page was told "there is nothing saved in this app yet". These names were read
+     out of each app's own source. Anything belonging to another app is protected
+     even when a pattern would otherwise match it. */
+  var OWNS = {
+    nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
+                      'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
+    compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
+    nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
+    occ:          {k:['occ_counter_v1','occTipSeen'], p:['occ_']},
+    drive:        {k:['occ_counter_v1','occTipSeen'], p:['drive_','church_drive_']},
+    safety:       {k:['my_safety_plan_v1'], p:['safety_']},
+    zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
+    academy:      {k:['daraja_academy_v1'], p:['academy_']},
+    feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    churchkey:    {k:['daraja_churchkey_v1'], p:[]},
+    drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
+    flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
+    rafiki:       {k:['rafiki_v1','rafiki_aa'], p:['rafiki_']},
+    pitwall:      {k:['pitwall_state_v1'], p:['pitwall_','f1_']},
+    churchhq:     {k:['church_hq_v1'], p:['church_hq_']},
+    steward:      {k:['steward_v1'], p:['steward_']},
+    serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
+    clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
+    gameday:      {k:[], p:['gameday_','church_gameday_']},
+    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+  };
+
+  function slugOf(){
+    var s = (window.DJ_START && window.DJ_START.slug) ||
+            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
+                 churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
+                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+    return alias[s] || s;
+  }
+
+  function myKeys(){
+    var me = slugOf(), mine = OWNS[me];
+    if(!mine) return null;                            /* unknown app — do not guess */
+    var guard = {};
+    Object.keys(OWNS).forEach(function(a){
+      if(a === me) return;
+      OWNS[a].k.forEach(function(x){ guard[x] = a; });
+    });
+    /* two apps genuinely share the shoebox count, so neither may erase it */
+    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    var out = [];
+    try{
+      for(var i=0; i<localStorage.length; i++){
+        var k = localStorage.key(i); if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(shared[k]) continue;
+        var owned = mine.k.indexOf(k) >= 0;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        if(!owned) continue;
+        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  function startFresh(){
+    var keys = myKeys();
+    if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
+    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    if(!confirm('Last check — erase this app’s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  }
+
+  /* The older erase layer sits at the end of the page, so it assigns AFTER this one
+     and its guessed key names win. Claim the name again once the page is built. */
+  window.djStartFresh = startFresh;
+  function claimStartFresh(){
+    window.djStartFresh = startFresh;
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 300);
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
+  }
+
   function occupied(){
     /* How far up the bottom edge is already spoken for — by a bottom bar across the
        screen, OR by another floating button already parked in the bottom-right.
        Without the second test the dock lands straight on top of an app's own round
-       button, which is exactly what happened to My Productive Partner's calendar. */
+       button, which is exactly what happened to One Thing's calendar. */
     var bar = 0, right = 0;
     var all = document.body ? document.body.getElementsByTagName('*') : [];
     var VH = window.innerHeight, VW = window.innerWidth;
@@ -363,7 +458,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); dockPasses(); }
+  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
@@ -375,7 +470,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="My Partner">
+<meta name="apple-mobile-web-app-title" content="One Thing">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   #pwaInstall { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(84px + env(safe-area-inset-bottom)); z-index:9999; background:#D96C4F; color:#fff; border:none; border-radius:999px; padding:11px 18px; font:600 14px -apple-system,system-ui,sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.25); display:none; cursor:pointer; }
@@ -384,7 +479,7 @@
   #pwaTip.show { display:block; } #pwaTip b { color:#E58A6E; } #pwaTip button { float:right; background:none; border:none; color:#F5F1EA; font-size:18px; cursor:pointer; margin:-4px -4px 0 8px; }
 </style>
 
-<title>My Productive Partner</title>
+<title>One Thing</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
   :root { --bg:#FBF7EF; --surface:#FFFFFF; --surface-2:#F2ECE0; --ink:#25221C; --soft:#5E574C; --faint:#948C7E; --now:#E0653C; --now-soft:#E0653C1C; --next:#3B7EA1; --next-soft:#3B7EA11A; --win:#3E9B6A; --win-soft:#3E9B6A1E; --sun:#F2B134; --line:#E6DECF; --line-strong:#CFC4B0; }
@@ -682,7 +777,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="pwaTip"><button onclick="this.parentNode.classList.remove('show');localStorage.setItem('pwaTipSeen','1')" aria-label="Remove" title="Remove">×</button><b>Install on iPhone:</b> tap the Share button <span style="font-size:16px">&#x2B06;&#xFE0E;</span>, then <b>“Add to Home Screen”</b>. It becomes an app icon and works offline.</div>
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
-  <div style="font-size:26px;font-weight:800;line-height:1.15">My <span style="color:var(--now)">Productive</span> Partner</div>
+  <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
   <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.6 River · Sep 5</div>
 </div>
 <script>(function(){
@@ -700,7 +795,7 @@ input, textarea, select{ background:var(--surface-2); }
     document.getElementById('spSkip').onclick=function(){ go(); try{ FS.explore(); }catch(e){} };
   } else { setTimeout(go,1300); }
 })();</script>
-<header><h1 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:19px">My <span style="color:var(--now)">Productive</span> Partner <span class="whoami" id="whoami" onclick="openPicker()" title="switch person"><span class="pem" id="wEm">🙂</span><span id="wName"></span></span></h1><span style="display:flex;gap:10px;align-items:baseline"><a class="fs" href="#" onclick="FS.replay();return false" title="First Steps — set it up with me" style="text-decoration:none;font-weight:800;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--next-soft);color:var(--next);border:1px solid var(--line)">?</a><button aria-label="Show what each button does" id="helpBtn" onclick="document.body.classList.toggle('help');toast(document.body.classList.contains('help')?'Help is on — little captions under the buttons. Tap ⓘ again to hide.':'Help off',2600)" title="Show what each button does">ⓘ</button><span class="coin" id="coins" onclick="go('wins')" title="Your coins — 1 coin = 1 minute of earned fun. Tap to see rewards">🪙 0</span><span class="pts" id="pts">⭐ 0 today</span></span></header>
+<header><h1 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:19px">One <span style="color:var(--now)">Thing</span> <span class="whoami" id="whoami" onclick="openPicker()" title="switch person"><span class="pem" id="wEm">🙂</span><span id="wName"></span></span></h1><span style="display:flex;gap:10px;align-items:baseline"><a class="fs" href="#" onclick="FS.replay();return false" title="First Steps — set it up with me" style="text-decoration:none;font-weight:800;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--next-soft);color:var(--next);border:1px solid var(--line)">?</a><button aria-label="Show what each button does" id="helpBtn" onclick="document.body.classList.toggle('help');toast(document.body.classList.contains('help')?'Help is on — little captions under the buttons. Tap ⓘ again to hide.':'Help off',2600)" title="Show what each button does">ⓘ</button><span class="coin" id="coins" onclick="go('wins')" title="Your coins — 1 coin = 1 minute of earned fun. Tap to see rewards">🪙 0</span><span class="pts" id="pts">⭐ 0 today</span></span></header>
 <main>
   <!-- ===== TODAY ===== -->
   <section id="v-today" class="view on">
@@ -831,7 +926,7 @@ input, textarea, select{ background:var(--surface-2); }
       <input type="tel" id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)" autocomplete="tel">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">My Productive Partner <b>v7.6 River</b> · 2026-09-03 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">One Thing <b>v7.6 River</b> · 2026-09-03 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -1378,7 +1473,7 @@ function finale(){ db.finaleDay=today(); (db.fullDays=db.fullDays||{})[today()]=
   try{ navigator.vibrate&&navigator.vibrate([120,60,120,60,240]); }catch(e){}
   try{ const ac=new (window.AudioContext||window.webkitAudioContext)(); [392,523,659,784,1047,1319].forEach((f,i)=>{ const o=ac.createOscillator(), g=ac.createGain(); o.connect(g); g.connect(ac.destination); o.frequency.value=f; g.gain.value=.09; o.start(ac.currentTime+i*.12); o.stop(ac.currentTime+i*.12+.22); }); setTimeout(()=>ac.close(),1600); }catch(e){}
 }
-window.tellGrownup=()=>{ const done=db.tasks.filter(t=>t.done).length + (db.history[today()]||0); const msg='I finished my WHOLE list today — '+done+' things! 🏆🪙 (sent from My Productive Partner)';
+window.tellGrownup=()=>{ const done=db.tasks.filter(t=>t.done).length + (db.history[today()]||0); const msg='I finished my WHOLE list today — '+done+' things! 🏆🪙 (sent from One Thing)';
   if(db.phone){ location.href='sms:'+db.phone+'?&body='+encodeURIComponent(msg); }
   else if(navigator.share){ navigator.share({text:msg}).catch(()=>{}); }
   else { toast('Set a grown-up\'s phone in Wins → Family settings'); } };
@@ -1495,7 +1590,7 @@ window.rgDay=i=>{ rgDaysV=rgDaysV.includes(i)?rgDaysV.filter(x=>x!==i):[...rgDay
     if(!open.length) return;
     last=Date.now();
     toast('\ud83d\udc4b Your list is waiting \u2014 '+open.length+' small thing'+(open.length>1?'s':'')+'. Just start one.', 6000);
-    if(Notification && Notification.permission==='granted') new Notification('My Productive Partner', {body:'Your list is waiting \u2014 one small thing?'});
+    if(Notification && Notification.permission==='granted') new Notification('One Thing', {body:'Your list is waiting \u2014 one small thing?'});
   }catch(e){} }, 60000);
 })();
 window.addRegular=()=>{ const t=$('rgText').value.trim(); if(!t){ toast('Give it a name'); return; } if(rgKindV==='weekly'&&!rgDaysV.length){ toast('Tick at least one day of the week'); return; } const _rt=($('rgTime')&&$('rgTime').value)||''; const _rtl=_rt?(' · '+(function(x){var h=+x.slice(0,2),m=x.slice(3,5);var ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m+' '+ap;})(_rt)):''; const r={id:uid(),text:t+_rtl,mins:Number($('rgMins').value)||15,kind:rgKindV,days:rgKindV==='weekly'?rgDaysV.slice():[],dom:rgKindV==='monthly'?Number($('rgDom').value)||1:null}; (db.regulars=db.regulars||[]).push(r); $('rgText').value=''; save(); pullRegulars(); render(); (function(){ var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; var when = r.kind==='weekly' ? (r.days&&r.days.length? 'every '+r.days.map(function(x){return dn[x];}).join(' & ') : 'weekly') : r.kind==='monthly' ? ('the '+r.dom+' of each month') : 'daily'; toast('\u2713 '+r.text+' saved \u2014 it will appear '+when, 4200); var el=document.getElementById('regList'); if(el){ try{ el.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} } })(); };
@@ -1506,7 +1601,7 @@ window.addUpcoming=()=>{ const t=$('upText').value.trim(); const d=$('upDate').v
   const n0=($('upNote')&&$('upNote').value.trim())||''; (db.upcoming=db.upcoming||[]).push({id:uid(),text:t,mins:Number($('upMins').value)||15,date:d,notes:n0?[{t:n0,at:new Date().toLocaleDateString('en',{month:'short',day:'numeric'})}]:[]}); $('upText').value=''; if($('upNote')) $('upNote').value=''; save(); pullUpcoming(); render();
   if(d<=today()) toast('That\'s today — it\'s on your list now'); else toast('Got it — it\'ll show up on '+dlabel(d)); };
 window.upIcs=id=>{ const u=(db.upcoming||[]).find(x=>x.id===id); if(!u) return; const d=u.date.replace(/-/g,''); const desc=[(u.notes||[]).map(n=>n.t).join(' | '), (u.att&&u.att.place)?'Where: '+u.att.place:'', (u.att&&u.att.links||[]).map(l=>l.u).join(' ')].filter(Boolean).join(' | ').replace(/,/g,'\\,');
-  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja Studio//My Productive Partner//EN','BEGIN:VEVENT','UID:'+u.id+'@nownext','DTSTART;VALUE=DATE:'+d,'SUMMARY:'+u.text.replace(/,/g,'\\,'),'DESCRIPTION:'+desc,(u.att&&u.att.place)?'LOCATION:'+u.att.place.replace(/,/g,'\\,'):'','END:VEVENT','END:VCALENDAR'].filter(Boolean).join('\r\n');
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja Studio//One Thing//EN','BEGIN:VEVENT','UID:'+u.id+'@nownext','DTSTART;VALUE=DATE:'+d,'SUMMARY:'+u.text.replace(/,/g,'\\,'),'DESCRIPTION:'+desc,(u.att&&u.att.place)?'LOCATION:'+u.att.place.replace(/,/g,'\\,'):'','END:VEVENT','END:VCALENDAR'].filter(Boolean).join('\r\n');
   download((u.text.replace(/[^a-z0-9]+/gi,'-').toLowerCase()||'event')+'.ics',ics); toast('Calendar file saved — open it to add the event'); };
 window.rmUpcoming=id=>{ db.upcoming=(db.upcoming||[]).filter(u=>u.id!==id); save(); render(); };
 window.upNow=id=>{ const u=(db.upcoming||[]).find(x=>x.id===id); if(!u) return; db.tasks.push({id:uid(),text:u.text,mins:u.mins,done:false,up:u.id,notes:u.notes||[],att:u.att||null}); db.upcoming=db.upcoming.filter(x=>x.id!==id); save(); go('today'); toast('Added to today'); };
@@ -1525,7 +1620,7 @@ window.editRoutines=()=>{ const ed=$('routineEditor'); ed.style.display=ed.style
 window.saveRoutines=()=>{ document.querySelectorAll('#routineForms textarea').forEach(t=>{ db.routines[t.dataset.r]=t.value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{ const [a,b]=l.split('|').map(x=>x.trim()); return [a,Number(b)||10]; }); }); save(); $('routineEditor').style.display='none'; toast('Routines saved'); };
 async function download(name,text){ let dl=null; try{ if(window.claude&&claude.use) dl=await claude.use('downloads'); }catch(e){} if(dl){ try{ await dl.save({filename:name,data:text}); return; }catch(e){ toast(e&&e.code==='declined'?'Cancelled':'Open the app file directly to export'); return; } } const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
 window.exportAll=()=>download('now-next-backup.json',JSON.stringify(db,null,1));
-window.importAll=ev=>{ const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.tasks) throw 0; db=d; save(); render(); toast('Restored'); }catch(e){ toast('Not a My Productive Partner backup'); } }; r.readAsText(f); };
+window.importAll=ev=>{ const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.tasks) throw 0; db=d; save(); render(); toast('Restored'); }catch(e){ toast('Not a One Thing backup'); } }; r.readAsText(f); };
 window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=>t.done)||(db.history[today()]||0)>0, regs:(db.regulars||[]).length});
 render(); applyMode(); renderWho(); renderInbox(); renderSendWho(); urlHandoff(); renderFam(); setTimeout(()=>famSync(false),1500); setInterval(()=>famSync(false),300000);
 if(!PROF.cur){ openPicker(true); }
@@ -1944,6 +2039,445 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go();
   setTimeout(go, 1200);
 }catch(e){} })();
+</script>
+
+
+
+
+
+<style id="dj-onestep-css">
+  /* ── A · one question at a time ─────────────────────────────── */
+  #v-routines .dj-pane{ display:none; }
+  #v-routines .dj-pane.on{ display:block; }
+  #djAsk h3{ margin-bottom:2px; }
+  #djAsk .djOpts{ display:grid; gap:10px; margin-top:12px; }
+  #djAsk .djOpts button{
+    display:block; width:100%; text-align:left; font:inherit; cursor:pointer;
+    border:1.5px solid var(--line-strong); background:var(--surface);
+    color:var(--ink); border-radius:16px; padding:15px 16px; min-height:60px;
+  }
+  #djAsk .djOpts b{ display:block; font-size:16.5px; font-weight:800; }
+  #djAsk .djOpts span{ display:block; font-size:13.5px; color:var(--soft); margin-top:2px; }
+  .djBack{
+    display:inline-flex; align-items:center; gap:6px; font:inherit; font-weight:800;
+    font-size:14.5px; background:none; border:none; color:var(--soft);
+    cursor:pointer; padding:10px 4px; min-height:44px; margin-bottom:2px;
+  }
+  /* ── B · what just happened ─────────────────────────────────── */
+  #djDidIt{
+    background:var(--ok-soft,rgba(47,110,82,.12)); border:2px solid var(--ok,#2F6E52);
+    border-radius:18px; padding:16px; margin:0 0 12px;
+  }
+  /* green on a green wash was washed out — keep the accent on the border only */
+  #djDidIt h3{ margin:0 0 4px; font-size:17px; color:var(--ink); }
+  #djDidIt h3 .tick{ color:var(--ok,#2F6E52); }
+  #djDidIt p{ margin:0 0 12px; font-size:15.5px; }
+  #djDidIt .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  #djDidIt button{
+    flex:1 1 auto; font:inherit; font-weight:800; font-size:15px; min-height:46px;
+    border-radius:12px; cursor:pointer; padding:0 14px;
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  }
+  #djDidIt button.main{ background:var(--ok,#2F6E52); color:#fff; border-color:transparent; }
+</style>
+<script id="dj-onestep-v4">
+(function(){
+  if(window.__djOneStep) return; window.__djOneStep = true;
+  function ready(fn){ document.readyState==='loading'
+    ? document.addEventListener('DOMContentLoaded',fn) : fn(); }
+
+  /* ══ A · Routines, one question at a time ══════════════════════ */
+  var PANES = [
+    {key:'routine',  match:'Routines — tap one',   title:'Which routine?',
+     help:'Tap one and its steps land on Today, in order.'},
+    {key:'regular',  match:'Regulars — one thing', title:'What repeats, and on which day?',
+     help:'A regular shows up on Today by itself on its day — karate on Mondays, bins on Thursdays. Set it once.'},
+    {key:'upcoming', match:'Coming up',            title:'What is happening, and when?',
+     help:'One thing on one date. It lands on Today by itself that morning, so you can stop holding it in your head.'},
+    {key:'calendar', match:'Calendar (import',     title:'Bring in a calendar file',
+     help:'Export from Apple or Google Calendar as an .ics file and load it here. It is a copy, not a live link.'},
+    {key:'editor',   match:'My routines',          title:'Change the steps',
+     help:'One step per line. Put minutes after a bar, like Brush teeth | 3.'}
+  ];
+  var view, cards = [], chooser;
+
+  function cardFor(text){
+    for(var i=0;i<cards.length;i++){
+      var h = cards[i].querySelector('h3');
+      if(h && h.textContent.indexOf(text) >= 0) return cards[i];
+    }
+    return null;
+  }
+
+  function show(key){
+    view.querySelectorAll('.dj-pane').forEach(function(p){ p.classList.toggle('on', p.dataset.djPane===key); });
+    chooser.classList.toggle('on', key==='ask');
+    try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+    stack();
+  }
+  window.djRoutineStep = show;
+
+  function buildA(){
+    view = document.getElementById('v-routines');
+    if(!view || document.getElementById('djAsk')) return;
+    cards = [].slice.call(view.querySelectorAll(':scope > .card'));
+    if(!cards.length) return;
+
+    /* the old chooser only scrolled, and the explainer table taught nothing in
+       advance — both are replaced by asking one question and explaining in place */
+    var old = cardFor('What do you want to do'); if(old) old.style.display='none';
+    var tbl = cardFor('Set once');              if(tbl) tbl.style.display='none';
+
+    var found = [];
+    PANES.forEach(function(p){
+      var c = cardFor(p.match);
+      if(!c) return;
+      c.classList.add('dj-pane'); c.dataset.djPane = p.key;
+      var back = document.createElement('button');
+      back.className='djBack'; back.type='button';
+      back.innerHTML='‹ Back';
+      back.onclick=function(){ show('ask'); };
+      c.insertBefore(back, c.firstChild);
+      var h = c.querySelector('h3');
+      if(h){ h.textContent = p.title; }
+      var help = document.createElement('p');
+      help.className='small'; help.style.marginTop='2px'; help.textContent = p.help;
+      if(h) h.parentNode.insertBefore(help, h.nextSibling);
+      found.push(p);
+    });
+
+    chooser = document.createElement('div');
+    chooser.className='card dj-pane on'; chooser.id='djAsk';
+    var opts = found.filter(function(p){ return p.key!=='editor'; });
+    chooser.innerHTML = '<h3>What do you want to set up?</h3>'
+      + '<p class="small" style="margin-top:2px">One at a time. You can come back for the others.</p>'
+      + '<div class="djOpts">'
+      + opts.map(function(p){
+          var label = {routine:['🌅 A routine','a set of steps you do together — morning, bedtime'],
+                       regular:['🔁 Something that repeats','same thing, same day, every week'],
+                       upcoming:['📅 Something coming up','one thing, on one date'],
+                       calendar:['📅 A calendar file','load an .ics you exported']}[p.key];
+          return '<button type="button" onclick="djRoutineStep(\''+p.key+'\')"><b>'+label[0]+'</b><span>'+label[1]+'</span></button>';
+        }).join('')
+      + '</div>';
+    view.insertBefore(chooser, view.firstChild);
+    show('ask');
+
+    /* "Change the steps" is its own question, not a sixth thing on the page */
+    var ed = view.querySelector('[data-dj-pane="editor"]');
+    if(ed) ed.style.display='';
+    var realEdit = window.editRoutines;
+    if(typeof realEdit === 'function'){
+      window.editRoutines = function(){
+        var r = realEdit.apply(this, arguments);
+        var box = document.getElementById('routineEditor');
+        if(box) box.style.display='block';
+        show('editor');
+        return r;
+      };
+    }
+  }
+
+  /* ══ B · say what just happened, and mean the Undo ══════════════ */
+  function snap(){
+    var o = {};
+    try{
+      for(var i=0;i<localStorage.length;i++){
+        var k = localStorage.key(i);
+        if(k && k.indexOf('now_next_v1') === 0) o[k] = localStorage.getItem(k);
+      }
+    }catch(e){}
+    return o;
+  }
+  function tasksIn(str){
+    try{ var d = JSON.parse(str); return (d && d.tasks) ? d.tasks : []; }catch(e){ return []; }
+  }
+
+  function wrapLoad(){
+    var real = window.loadRoutine;
+    if(typeof real !== 'function' || real.__djWrapped) return;
+    var wrapped = function(key){
+      var before = snap();
+      var out = real.apply(this, arguments);
+      setTimeout(function(){
+        var after = snap(), added = [], changedKey = null;
+        Object.keys(after).forEach(function(k){
+          if(before[k] === after[k]) return;
+          changedKey = k;
+          var b = tasksIn(before[k] || '{}'), a = tasksIn(after[k]);
+          var seen = {}; b.forEach(function(t){ seen[t.id] = 1; });
+          a.forEach(function(t){ if(!seen[t.id]) added.push(t); });
+        });
+        if(added.length) told(key, added, before, changedKey);
+      }, 60);
+      return out;
+    };
+    wrapped.__djWrapped = true;
+    window.loadRoutine = wrapped;
+  }
+
+  function told(key, added, before, changedKey){
+    var host = document.getElementById('v-today');
+    if(!host) return;
+    var old = document.getElementById('djDidIt'); if(old) old.remove();
+    var name = ({morning:'Morning', school:'After school', homework:'Homework',
+                 bed:'Bedtime', reset:'Quick reset'})[key] || 'That routine';
+    var box = document.createElement('div');
+    box.id = 'djDidIt';
+    box.innerHTML =
+      '<h3><span class="tick">✓</span> Done — ' + name + ' is on Today</h3>'
+      + '<p>' + added.length + (added.length===1?' step':' steps') + ' added. '
+      + 'First one: <b>' + (added[0].text||'').replace(/[<>&]/g,'') + '</b>.</p>'
+      + '<div class="row"><button type="button" class="main" id="djSeeIt">Show me</button>'
+      + '<button type="button" id="djUndo">Undo</button></div>';
+    host.insertBefore(box, host.firstChild);
+    document.getElementById('djSeeIt').onclick = function(){ box.remove(); stack(); };
+    document.getElementById('djUndo').onclick = function(){
+      try{
+        Object.keys(before).forEach(function(k){ localStorage.setItem(k, before[k]); });
+        if(changedKey && !(changedKey in before)) localStorage.removeItem(changedKey);
+      }catch(e){}
+      location.reload();
+    };
+    stack();
+  }
+
+  /* ══ C · one strip, one thing in it ════════════════════════════ */
+  function vis(el){
+    if(!el) return false;
+    var cs = getComputedStyle(el);
+    if(cs.display==='none' || cs.visibility==='hidden' || +cs.opacity===0) return false;
+    var r = el.getBoundingClientRect();
+    return r.height > 4 && r.width > 4;
+  }
+  var busy = false, pending = false;
+  function put(el, y){
+    /* only write when it would actually move, or the style change wakes the
+       observer, which calls stack again, which writes again — a loop */
+    var now = el.getBoundingClientRect(),
+        want = window.innerHeight - y;
+    if(Math.abs(now.bottom - want) < 2) return;
+    el.style.setProperty('bottom', 'calc(' + Math.round(y) + 'px + env(safe-area-inset-bottom))', 'important');
+  }
+  function stack(){
+    if(busy){ pending = true; return; }
+    busy = true;
+    try{
+      var nav = document.querySelector('nav'), navH = 0;
+      if(nav && getComputedStyle(nav).position === 'fixed') navH = nav.getBoundingClientRect().height;
+      var y = navH + 8;
+      /* full-width bars first, bottom upwards, so neither can cover the other */
+      ['fsBar','r7Tip'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!vis(el)) return;
+        put(el, y);
+        y += el.getBoundingClientRect().height + 8;
+      });
+      /* then the round corner buttons — the help dock included. The house layer
+         places the dock on its own, and it has no idea these bars exist, so it
+         landed on top of the tip. Above the stack is the only safe place.
+         fsPill ("Finish setup") is here too — it sits bottom-LEFT, so it never
+         collided with the round buttons, but it printed straight through the
+         full-width coach bar. */
+      ['fsPill','wkBtn','djDock'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!vis(el)) return;
+        put(el, y);
+        y += el.getBoundingClientRect().height + 8;
+      });
+    }catch(e){}
+    busy = false;
+    if(pending){ pending = false; requestAnimationFrame(stack); }
+  }
+  window.djStack = stack;
+
+  ready(function(){
+    setTimeout(function(){
+      try{ buildA(); }catch(e){}
+      try{ wrapLoad(); }catch(e){}
+      stack();
+    }, 80);
+    [400, 1200, 2600, 4200].forEach(function(ms){
+      setTimeout(function(){ try{ wrapLoad(); }catch(e){} stack(); }, ms);
+    });
+    window.addEventListener('resize', stack);
+    window.addEventListener('orientationchange', function(){ setTimeout(stack, 300); });
+    try{
+      new MutationObserver(function(){ stack(); })
+        .observe(document.body, {childList:true, subtree:true, attributes:true,
+                                 attributeFilter:['style','class','hidden']});
+    }catch(e){}
+  });
+})();
+</script>
+
+
+
+<style id="dj-guide-css">
+  #nnGuide{
+    background:var(--surface,#1D2224); border:2px solid var(--now,#D96C4F);
+    border-radius:20px; padding:16px 16px 14px; margin:0 0 12px;
+  }
+  /* on a 390px phone the two labels wrapped into a clumsy block — keep the right one short and on one line */
+  #nnGuide .step{ font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    font-weight:800; color:var(--now,#D96C4F); display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+  #nnGuide .step span:last-child{ font-size:10.5px; white-space:nowrap; opacity:.85; }
+  #nnGuide .bar{ height:6px; background:rgba(128,128,128,.25); border-radius:99px; margin:8px 0 12px; overflow:hidden; }
+  #nnGuide .bar i{ display:block; height:100%; background:var(--now,#D96C4F); transition:width .3s; }
+  #nnGuide h2{ margin:0 0 4px; font-size:21px; line-height:1.2; }
+  #nnGuide p{ margin:0 0 12px; color:var(--soft,#B2B8B2); font-size:15px; line-height:1.45; }
+  #nnGuide .opts{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  #nnGuide .opts button{ font:inherit; font-weight:800; font-size:15px; min-height:56px; border-radius:14px;
+    border:1.5px solid rgba(128,128,128,.4); background:rgba(128,128,128,.12); color:inherit; cursor:pointer; padding:8px; }
+  #nnGuide .opts button.done{ opacity:.55; border-style:dashed; }
+  #nnGuide .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  #nnGuide .row button{ font:inherit; font-weight:800; font-size:15px; min-height:48px; border-radius:12px;
+    cursor:pointer; padding:0 16px; border:1px solid rgba(128,128,128,.4); background:transparent; color:inherit; flex:1 1 auto; }
+  #nnGuide .row button.main{ background:var(--now,#D96C4F); color:#fff; border-color:transparent; }
+  #nnGuide .again{ display:block; margin-top:10px; font-size:13px; color:var(--soft,#B2B8B2);
+    background:none; border:none; cursor:pointer; text-decoration:underline; padding:6px 0; min-height:36px; }
+  /* while a guide card is up, the old bottom coach steps aside */
+  body.nn-guiding #fsBar, body.nn-guiding #fsPill{ display:none !important; }
+</style>
+<script id="dj-guide-v2">
+(function(){
+  if(window.__nnGuide) return; window.__nnGuide = true;
+  var KEY = 'nn_guide_v1';
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ return {}; } }
+  function save(g){ try{ localStorage.setItem(KEY, JSON.stringify(g)); }catch(e){} }
+  function today(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function ready(fn){ document.readyState==='loading' ? document.addEventListener('DOMContentLoaded',fn) : fn(); }
+  function esc(t){ return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  var ROUTINES = [['morning','🌅 Morning'],['school','🏫 After school'],['homework','📚 Homework'],['bed','🌙 Bedtime']];
+
+  /* ── the four questions, in Jerry's order ─────────────────────────── */
+  var SETUP = [
+    { h:'Let’s start with what you do every day.',
+      p:'Pick the routine that fits right now. Its steps land on Today, in order — same steps every time, so the brain doesn’t have to decide.',
+      opts:'routines', next:'Next →', skip:'None of these fit — skip' },
+    { h:'Now, something that repeats on a day.',
+      p:'Karate on Mondays. Bins on Thursdays. Set it once and it shows up by itself on its day.',
+      go:'regular', act:'Add one →', skip:'Nothing repeats — skip' },
+    { h:'Anything coming up on a date?',
+      p:'The dentist. The trip. One thing on one date — it lands on Today that morning, so you can stop holding it in your head.',
+      go:'upcoming', act:'Add one →', skip:'Nothing yet — skip' },
+    { h:'Last: what’s the one thing on your mind right now?',
+      p:'Just one. Small is fine — “put shoes on” counts. That’s your first thing.',
+      focus:'newTask', act:'I’ve typed it — done ✓', skip:'Nothing right now — done' }
+  ];
+
+  /* ── every day after: the same three taps, same order ─────────────── */
+  var DAILY = [
+    ['routine','🌅 Load today’s routine'],
+    ['look','📅 Glance at what’s coming'],
+    ['one','🎯 Pick the one thing']
+  ];
+
+  var card = null;
+  function host(){ return document.getElementById('v-today'); }
+  function mount(){
+    var h = host(); if(!h) return null;
+    if(!card){ card = document.createElement('div'); card.id='nnGuide'; }
+    if(card.parentNode !== h) h.insertBefore(card, h.firstChild);
+    document.body.classList.add('nn-guiding');
+    return card;
+  }
+  function unmount(){
+    if(card && card.parentNode) card.parentNode.removeChild(card);
+    document.body.classList.remove('nn-guiding');
+  }
+
+  function renderSetup(g){
+    var c = mount(); if(!c) return;
+    var i = g.step||0, S = SETUP[i]; if(!S){ finish(g); return; }
+    var pct = Math.round((i)/SETUP.length*100);
+    var html = '<div class="step"><span>Setting up · '+(i+1)+' of '+SETUP.length+'</span><span>one at a time</span></div>'
+      + '<div class="bar"><i style="width:'+pct+'%"></i></div>'
+      + '<h2>'+esc(S.h)+'</h2><p>'+esc(S.p)+'</p>';
+    if(S.opts==='routines'){
+      html += '<div class="opts">' + ROUTINES.map(function(r){
+        var done = (g.loaded||[]).indexOf(r[0])>=0;
+        return '<button type="button" class="'+(done?'done':'')+'" onclick="nnGuide.routine(\''+r[0]+'\')">'+r[1]+(done?' ✓':'')+'</button>';
+      }).join('') + '</div>';
+      html += '<div class="row">' + ((g.loaded||[]).length ? '<button type="button" class="main" onclick="nnGuide.next()">'+esc(S.next)+'</button>' : '')
+        + '<button type="button" onclick="nnGuide.next()">'+esc(S.skip)+'</button></div>';
+    } else if(S.go){
+      html += '<div class="row"><button type="button" class="main" onclick="nnGuide.open(\''+S.go+'\')">'+esc(S.act)+'</button>'
+        + '<button type="button" onclick="nnGuide.next()">'+esc(S.skip)+'</button></div>'
+        + (g.visited===S.go ? '<p style="margin:10px 0 0;font-size:14px">Added it? <button type="button" class="main" style="font:inherit;font-weight:800;min-height:44px;border:none;border-radius:12px;padding:0 14px;background:var(--now,#D96C4F);color:#fff;cursor:pointer" onclick="nnGuide.next()">Yes — next →</button></p>' : '');
+    } else if(S.focus){
+      html += '<div class="row"><button type="button" class="main" onclick="nnGuide.focus()">Type it now ↓</button>'
+        + '<button type="button" onclick="nnGuide.next()">'+esc(S.act)+'</button></div>'
+        + '<div class="row" style="margin-top:8px"><button type="button" onclick="nnGuide.next()">'+esc(S.skip)+'</button></div>';
+    }
+    c.innerHTML = html;
+    try{ c.scrollIntoView({block:'start',behavior:'smooth'}); }catch(e){}
+  }
+
+  function renderDaily(g){
+    var c = mount(); if(!c) return;
+    var d = g.daily||{};
+    var html = '<div class="step"><span>Start your day</span><span>same 3 taps</span></div>'
+      + '<div class="bar"><i style="width:'+Math.round(Object.keys(d).length/DAILY.length*100)+'%"></i></div>'
+      + '<h2>Good '+part()+'. Let’s set up today.</h2>'
+      + '<p>Three taps, in order. Then it gets out of your way until tomorrow.</p>'
+      + '<div class="opts" style="grid-template-columns:1fr">'
+      + DAILY.map(function(x){ return '<button type="button" class="'+(d[x[0]]?'done':'')+'" onclick="nnGuide.daily(\''+x[0]+'\')">'+x[1]+(d[x[0]]?' ✓':'')+'</button>'; }).join('')
+      + '</div>'
+      + '<div class="row"><button type="button" class="main" onclick="nnGuide.dayDone()">Done — that’s today ✓</button></div>'
+      + '<button type="button" class="again" onclick="nnGuide.again()">↻ Walk me through the full setup again</button>';
+    c.innerHTML = html;
+  }
+  function part(){ var h=new Date().getHours(); return h<12?'morning':h<17?'afternoon':'evening'; }
+
+  function finish(g){
+    g.done = true; g.step = SETUP.length; g.day = today(); g.daily = {routine:1,look:1,one:1}; save(g);
+    var c = mount(); if(!c) return;
+    c.innerHTML = '<div class="step"><span>Set up</span><span>✓</span></div><div class="bar"><i style="width:100%"></i></div>'
+      + '<h2>Your day is set.</h2><p>From now on, every time you open this it will ask for the same three taps — routine, what’s coming, the one thing — and then get out of your way.</p>'
+      + '<div class="row"><button type="button" class="main" onclick="nnGuide.close()">Show me my one thing →</button></div>';
+  }
+
+  window.nnGuide = {
+    routine: function(k){
+      var g = load(); g.loaded = g.loaded||[]; if(g.loaded.indexOf(k)<0) g.loaded.push(k); save(g);
+      try{ if(typeof loadRoutine==='function') loadRoutine(k); }catch(e){}
+      setTimeout(function(){ renderSetup(load()); }, 200);
+    },
+    next: function(){ var g=load(); g.step=(g.step||0)+1; g.visited=null; save(g); if(g.step>=SETUP.length) finish(g); else renderSetup(g); },
+    open: function(pane){
+      var g=load(); g.visited=pane; save(g);
+      try{ if(typeof go==='function') go('routines'); }catch(e){}
+      setTimeout(function(){ try{ if(typeof djRoutineStep==='function') djRoutineStep(pane); }catch(e){} }, 150);
+    },
+    focus: function(){ var el=document.getElementById('newTask'); if(el){ try{ el.scrollIntoView({block:'center'}); }catch(e){} el.focus(); } },
+    daily: function(k){
+      var g=load(); g.daily=g.daily||{}; g.daily[k]=1; save(g);
+      if(k==='routine'){ try{ go('routines'); setTimeout(function(){ djRoutineStep('routine'); },150); }catch(e){} }
+      if(k==='look'){ try{ go('routines'); setTimeout(function(){ djRoutineStep('upcoming'); },150); }catch(e){} }
+      if(k==='one'){ nnGuide.focus(); }
+      renderDaily(load());
+    },
+    dayDone: function(){ var g=load(); g.day=today(); g.daily={}; save(g); unmount(); },
+    close: function(){ var g=load(); g.day=today(); save(g); unmount(); },
+    again: function(){ var g=load(); g.done=false; g.step=0; g.loaded=[]; g.visited=null; save(g); renderSetup(g); }
+  };
+
+  function show(){
+    var g = load();
+    if(!g.done){ renderSetup(g); return; }
+    if(g.day !== today()){ renderDaily(g); return; }
+    unmount();
+  }
+  /* coming back to Today mid-setup should show the next question, not lose it */
+  function watchTab(){
+    var h = host(); if(!h) return;
+    try{ new MutationObserver(function(){ if(h.classList.contains('on') && !load().done) renderSetup(load()); })
+           .observe(h, {attributes:true, attributeFilter:['class']}); }catch(e){}
+  }
+  ready(function(){ setTimeout(function(){ show(); watchTab(); }, 250); });
+})();
 </script>
 
 </body>
@@ -2974,7 +3508,7 @@ function showGate(expired){
    +(expired
      ? '<h2>Your '+((CODES[s.code]||{}).days||30)+' days are <span>done</span> — thank you!</h2>'
        +'<p>Everything you made is saved and waiting right here. To keep going, email Jerry about buying it — or enter a new code if he gave you one.</p>'
-     : '<h2>Welcome to <span>My Productive Partner</span></h2>'
+     : '<h2>Welcome to <span>One Thing</span></h2>'
        +'<p>This app starts with a code — it came with your invitation. Type it below and you\'re in.</p>')
    +'<input id="djCode" placeholder="type your code here" autocomplete="off">'
    +'<button class="go" onclick="DJKEY.enter()">Start &rarr;</button>'
@@ -2992,7 +3526,7 @@ window.DJKEY={
   enter:function(){
     var v=(document.getElementById('djCode').value||'').trim().toUpperCase().replace(/\s+/g,'');
     if(CODES[v]&&v!=='GRANDFATHER'&&v!=='LOOKAROUND'){ sv({code:v, at:Date.now()}); hideGate(); paint();
-      try{ toast('Welcome in! '+(CODES[v].days?CODES[v].days+' days of My Productive Partner — enjoy every one.':'It\'s yours. Welcome home.'),3600); }catch(e){}
+      try{ toast('Welcome in! '+(CODES[v].days?CODES[v].days+' days of One Thing — enjoy every one.':'It\'s yours. Welcome home.'),3600); }catch(e){}
       return; }
     var e=document.getElementById('djErr'); if(e) e.textContent='Hmm — that code isn\'t one of ours. Check the letters and try again.';
   },

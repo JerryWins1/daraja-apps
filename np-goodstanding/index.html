@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v11">
+<script id="dj-house-v13">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -197,11 +197,106 @@
      spot as each other, which hid one of them completely. They now share one dock
      in the bottom-right corner, stacked, and the dock lifts itself above whatever
      bottom bar the app has so it never covers a menu. */
+
+  /* ── 6 · "Start fresh" must actually clear this app, and only this app ───────
+     The first registry I shipped listed key names I had assumed rather than read.
+     Against what the apps really write, 21 of 26 were wrong: The Key saves under
+     'daraja_thekey_v1', so a person who had filled in their whole will-and-papers
+     page was told "there is nothing saved in this app yet". These names were read
+     out of each app's own source. Anything belonging to another app is protected
+     even when a pattern would otherwise match it. */
+  var OWNS = {
+    nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
+                      'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
+    compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
+    nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
+    occ:          {k:['occ_counter_v1','occTipSeen'], p:['occ_']},
+    drive:        {k:['occ_counter_v1','occTipSeen'], p:['drive_','church_drive_']},
+    safety:       {k:['my_safety_plan_v1'], p:['safety_']},
+    zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
+    academy:      {k:['daraja_academy_v1'], p:['academy_']},
+    feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    churchkey:    {k:['daraja_churchkey_v1'], p:[]},
+    drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
+    flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
+    rafiki:       {k:['rafiki_v1','rafiki_aa'], p:['rafiki_']},
+    pitwall:      {k:['pitwall_state_v1'], p:['pitwall_','f1_']},
+    churchhq:     {k:['church_hq_v1'], p:['church_hq_']},
+    steward:      {k:['steward_v1'], p:['steward_']},
+    serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
+    clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
+    gameday:      {k:[], p:['gameday_','church_gameday_']},
+    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+  };
+
+  function slugOf(){
+    var s = (window.DJ_START && window.DJ_START.slug) ||
+            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
+                 churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
+                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+    return alias[s] || s;
+  }
+
+  function myKeys(){
+    var me = slugOf(), mine = OWNS[me];
+    if(!mine) return null;                            /* unknown app — do not guess */
+    var guard = {};
+    Object.keys(OWNS).forEach(function(a){
+      if(a === me) return;
+      OWNS[a].k.forEach(function(x){ guard[x] = a; });
+    });
+    /* two apps genuinely share the shoebox count, so neither may erase it */
+    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    var out = [];
+    try{
+      for(var i=0; i<localStorage.length; i++){
+        var k = localStorage.key(i); if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(shared[k]) continue;
+        var owned = mine.k.indexOf(k) >= 0;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        if(!owned) continue;
+        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  function startFresh(){
+    var keys = myKeys();
+    if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
+    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    if(!confirm('Last check — erase this app’s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  }
+
+  /* The older erase layer sits at the end of the page, so it assigns AFTER this one
+     and its guessed key names win. Claim the name again once the page is built. */
+  window.djStartFresh = startFresh;
+  function claimStartFresh(){
+    window.djStartFresh = startFresh;
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 300);
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
+  }
+
   function occupied(){
     /* How far up the bottom edge is already spoken for — by a bottom bar across the
        screen, OR by another floating button already parked in the bottom-right.
        Without the second test the dock lands straight on top of an app's own round
-       button, which is exactly what happened to My Productive Partner's calendar. */
+       button, which is exactly what happened to One Thing's calendar. */
     var bar = 0, right = 0;
     var all = document.body ? document.body.getElementsByTagName('*') : [];
     var VH = window.innerHeight, VW = window.innerWidth;
@@ -284,7 +379,7 @@
 
   var toggleBtn = null, openDock = false;
 
-  /* Steward and Nonprofit Filings both carry a rule of their own —
+  /* Steward and Ahead of It · Nonprofit both carry a rule of their own —
      "#introDot, #djHelp, #dTipDot { display:flex !important }" — so neither the
      hidden attribute nor an inline style could put these buttons away. A rule with
      more specific aim than a bare id wins, and this one is aimed at our dock. */
@@ -363,7 +458,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); dockPasses(); }
+  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
@@ -375,7 +470,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Now&Next">
+<meta name="apple-mobile-web-app-title" content="Ahead·NP">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   #pwaInstall { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(84px + env(safe-area-inset-bottom)); z-index:9999; background:#D96C4F; color:#fff; border:none; border-radius:999px; padding:11px 18px; font:600 14px -apple-system,system-ui,sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.25); display:none; cursor:pointer; }
@@ -393,7 +488,7 @@
   }
   input[type="date"]::-webkit-calendar-picker-indicator:hover{ background:rgba(242,177,52,.42); }
 </style>
-<title>Nonprofit Filings</title>
+<title>Ahead of It · Nonprofit</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
   :root { --bg:#F7F4EC; --surface:#FFFFFF; --surface-2:#EFEAE0; --ink:#1F2622; --soft:#55605B; --faint:#8C958F; --brand:#23504F; --brand-soft:#23504F14; --accent:#D96C4F; --accent-soft:#D96C4F1A; --ok:#2F6E52; --ok-soft:#2F6E521C; --warn:#C98A12; --warn-soft:#C98A1222; --bad:#B4352E; --bad-soft:#B4352E1C; --line:#E2DCCF; --line-strong:#C9C1AE; }
@@ -503,11 +598,11 @@
 <meta name="description" content="The filings that quietly end small nonprofits — now they can't — Daraja Studio. Works on any phone, nothing to sign up for.">
 </head>
 <body>
-<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🕊</div><div style="font-size:28px;font-weight:800">Nonprofit Filings</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.0 · born Sep 1</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🕊</div><div style="font-size:28px;font-weight:800">Ahead of It · Nonprofit</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.0 · born Sep 1</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
 
 <button id="pwaInstall">⬇ Install app</button>
 <div id="pwaTip"><button onclick="this.parentNode.classList.remove('show');localStorage.setItem('pwaTipSeen','1')" aria-label="Remove" title="Remove">×</button><b>Install on iPhone:</b> tap the Share button <span style="font-size:16px">&#x2B06;&#xFE0E;</span>, then <b>“Add to Home Screen”</b>. It becomes an app icon and works offline.</div>
-<header><h1>Nonprofit Filings <small>the little nonprofit's compliance keeper</small></h1><span style="display:flex;gap:6px;align-items:center"><a class="fs" href="#" onclick="FS.replay();return false" title="First Steps — set it up with me" style="text-decoration:none;font-weight:800;font-size:14px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--brand-soft);color:var(--brand);border:1px solid var(--line)">?</a><button aria-label="Show what each button does" id="helpBtn" onclick="document.body.classList.toggle('help');toast(document.body.classList.contains('help')?'Help is on — captions under every button. Tap ⓘ again to hide.':'Help off',2600)" title="Show what each button does">ⓘ</button><span class="calm" id="calm" title="All clear = nothing overdue. Otherwise: how many are overdue, and how many of those cost money">all clear</span></span></header>
+<header><h1>Ahead of It · Nonprofit <small>the little nonprofit's compliance keeper</small></h1><span style="display:flex;gap:6px;align-items:center"><a class="fs" href="#" onclick="FS.replay();return false" title="First Steps — set it up with me" style="text-decoration:none;font-weight:800;font-size:14px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--brand-soft);color:var(--brand);border:1px solid var(--line)">?</a><button aria-label="Show what each button does" id="helpBtn" onclick="document.body.classList.toggle('help');toast(document.body.classList.contains('help')?'Help is on — captions under every button. Tap ⓘ again to hide.':'Help off',2600)" title="Show what each button does">ⓘ</button><span class="calm" id="calm" title="All clear = nothing overdue. Otherwise: how many are overdue, and how many of those cost money">all clear</span></span></header>
 <main>
   <section id="v-next" class="view on">
     <div class="welcome" id="welcome" style="display:none"><h2>Everything that costs you if you forget it — on one calm page.</h2><p>Taxes, renewals, filings, the dog's shots. Each one knows <b>what happens if you miss it</b>, what to do <b>30 days out</b>, and <b>who else needs to know</b>. Start with the library — most people find 8–12 they'd forgotten.</p><button onclick="go('lib')">Pick from the library →</button> <a href="#" onclick="FS.replay();return false" style="color:#fff;font-weight:800;font-size:14px;margin-left:8px">▶ Set it up with me (6 min)</a></div>
@@ -529,9 +624,9 @@
   <section id="v-more" class="view">
     <div class="card"><h3>Hand-off</h3><p class="small" style="margin-top:0">If you're ever not around, whoever picks this up needs this list. Copy it into <b>In Good Order</b> (our family binder app) or print it.</p><div class="row"><button class="ghost" onclick="copyHandoff()">📋 Copy hand-off summary</button><button class="ghost" onclick="window.print()">🖨 Print everything</button></div></div>
     <div class="card"><h3>Backup</h3><p class="small" style="margin-top:0">Everything lives only on this device. Back it up like you'd back up photos.</p><div class="row"><button class="ghost" onclick="exportJson()">⬇ Save backup file</button><label class="ghost" style="cursor:pointer">⬆ Restore backup<input type="file" accept=".json" style="display:none" onchange="importJson(event)"></label></div></div>
-    <div class="card"><h3>🎯 My Productive Partner</h3><p class="small" style="margin-top:0">Got our My Productive Partner app too? Each item has a <b>🎯 →</b> button that puts it on today's list with its notes. Or let it happen by itself:</p><label class="small" style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" id="nnAuto" onchange="nnAutoSel()" style="width:18px;height:18px;accent-color:var(--brand)"> Put each reminder step on My Productive Partner the day it's due</label><div class="small" id="nnStatus" style="margin-top:6px"></div></div>
+    <div class="card"><h3>🎯 One Thing</h3><p class="small" style="margin-top:0">Got our One Thing app too? Each item has a <b>🎯 →</b> button that puts it on today's list with its notes. Or let it happen by itself:</p><label class="small" style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" id="nnAuto" onchange="nnAutoSel()" style="width:18px;height:18px;accent-color:var(--brand)"> Put each reminder step on One Thing the day it's due</label><div class="small" id="nnStatus" style="margin-top:6px"></div></div>
     <div class="card"><h3>Household</h3><div class="field"><label>Whose list is this?</label><input id="owner" placeholder="e.g. Jerry & Diane" onchange="db.owner=this.value;save()"></div><div class="field"><label>Default person to tell</label><input type="tel" id="tell" placeholder="e.g. Diane" onchange="db.tell=this.value;save()" inputmode="tel" autocomplete="tel"></div></div>
-    <p class="foot">Nonprofit Filings <b>v1.4</b> · 2026-08-22 · by Daraja Studio · private by design — no account, no cloud, nothing leaves your phone.</p>
+    <p class="foot">Ahead of It · Nonprofit <b>v1.4</b> · 2026-08-22 · by Daraja Studio · private by design — no account, no cloud, nothing leaves your phone.</p>
   </section>
 </main>
 <button aria-label="Add something of your own" class="fab" onclick="openEdit()" title="Add something of your own">＋</button>
@@ -617,7 +712,7 @@ function sevChip(s){ return s==='h'?'<span class="chip bad" title="Missing this 
 function stepNow(it){ const d=daysUntil(it.due); const steps=(it.lad||[]).slice().sort((a,b)=>b[0]-a[0]); let cur=null; for(const s of steps){ if(d<=s[0] && !(it.stepsDone||[]).includes(s[0])) { cur=s; } } return cur; }
 function whenText(it){ const d=daysUntil(it.due); if(d<0) return `${-d} day${d===-1?'':'s'} overdue · was ${fmtD(it.due)}`; if(d===0) return 'due TODAY'; if(d===1) return 'due tomorrow'; return `in ${d} days · ${fmtD(it.due)}`; }
 function rowHtml(it){ const st=stepNow(it); const d=daysUntil(it.due);
-  return `<div class="item"><div class="sev ${it.sev}"></div><div class="body" onclick="openEdit('${it.id}')"><b>${esc(it.n)}</b><div class="when">${whenText(it)} ${it.amt?'· $'+esc(it.amt):''}</div>${st?`<div class="step ${d<=st[0]?'now':''}">${st[0]>1?st[0]+' days out':'last call'} → ${esc(st[1])}</div>`:(d<=0?`<div class="step now">Do it now</div>`:'')}<div style="margin-top:5px">${sevChip(it.sev)}${it.who?`<span class="chip">tell: ${esc(it.who)}</span>`:''}</div></div><div class="acts">${st?`<button aria-label="Tick this reminder step (the item itself isn" onclick="stepDone('${it.id}',${st[0]})" data-help="this reminder step is done" title="Tick this reminder step (the item itself isn't done yet)">step ✓</button>`:''}<button aria-label="The whole thing is handled — it moves to next time" class="ok" onclick="cycleDone('${it.id}')" data-help="paid / renewed / filed" title="The whole thing is handled — it moves to next time">done ✓</button><button aria-label="Send this (with its notes) to My Productive Partner" onclick="toNowNext('${it.id}')" data-help="put it on today's list" title="Send this (with its notes) to My Productive Partner's list for today">🎯 →</button></div></div>`; }
+  return `<div class="item"><div class="sev ${it.sev}"></div><div class="body" onclick="openEdit('${it.id}')"><b>${esc(it.n)}</b><div class="when">${whenText(it)} ${it.amt?'· $'+esc(it.amt):''}</div>${st?`<div class="step ${d<=st[0]?'now':''}">${st[0]>1?st[0]+' days out':'last call'} → ${esc(st[1])}</div>`:(d<=0?`<div class="step now">Do it now</div>`:'')}<div style="margin-top:5px">${sevChip(it.sev)}${it.who?`<span class="chip">tell: ${esc(it.who)}</span>`:''}</div></div><div class="acts">${st?`<button aria-label="Tick this reminder step (the item itself isn" onclick="stepDone('${it.id}',${st[0]})" data-help="this reminder step is done" title="Tick this reminder step (the item itself isn't done yet)">step ✓</button>`:''}<button aria-label="The whole thing is handled — it moves to next time" class="ok" onclick="cycleDone('${it.id}')" data-help="paid / renewed / filed" title="The whole thing is handled — it moves to next time">done ✓</button><button aria-label="Send this (with its notes) to One Thing" onclick="toNowNext('${it.id}')" data-help="put it on today's list" title="Send this (with its notes) to One Thing's list for today">🎯 →</button></div></div>`; }
 function render(){ const items=db.items.slice().sort((a,b)=>a.due<b.due?-1:1);
   const over=items.filter(i=>daysUntil(i.due)<0), now=items.filter(i=>daysUntil(i.due)>=0&&stepNow(i)), n90=items.filter(i=>{const d=daysUntil(i.due); return d>=0&&d<=90&&!stepNow(i);}), later=items.filter(i=>daysUntil(i.due)>90);
   $('nOver').textContent=over.length; $('lOver').innerHTML=over.map(rowHtml).join('')||'<div class="empty">Nothing overdue. That is the whole point.</div>';
@@ -633,7 +728,7 @@ function render(){ const items=db.items.slice().sort((a,b)=>a.due<b.due?-1:1);
   y.innerHTML=h;
   // library
   const cats=[...new Set(LIB.map(l=>l.cat))]; $('lib').innerHTML=cats.map(c=>`<div class="card"><h3>${c}</h3><div class="lib">${LIB.filter(l=>l.cat===c).map(l=>{const have=db.items.some(i=>i.n===l.n); return `<button class="${have?'have':''}" onclick="addLib(${LIB.indexOf(l)})">${esc(l.n)}<small>${l.rep===365?'yearly':l.rep===91?'quarterly':l.rep===182?'twice a year':l.rep>=3650?'every 10 yrs':l.rep>=730?'every few yrs':'monthly'} · ${l.sev==='h'?'🔴':l.sev==='m'?'🟡':'🟢'}${have?' · added':''}</small></button>`;}).join('')}</div></div>`).join('');
-  $('owner').value=db.owner||''; $('tell').value=db.tell||''; const na=$('nnAuto'); if(na){ na.checked=!!db.nnAuto; const P=nnLocal(); $('nnStatus').textContent=P?'My Productive Partner found on this device — sends go straight onto the list.':'My Productive Partner isn\'t installed on this address yet — sends open it with the task filled in (from the Daraja apps page both live together and it\'s instant).'; }
+  $('owner').value=db.owner||''; $('tell').value=db.tell||''; const na=$('nnAuto'); if(na){ na.checked=!!db.nnAuto; const P=nnLocal(); $('nnStatus').textContent=P?'One Thing found on this device — sends go straight onto the list.':'One Thing isn\'t installed on this address yet — sends open it with the task filled in (from the Daraja apps page both live together and it\'s instant).'; }
 }
 window.addLib=i=>{ const l=LIB[i]; if(db.items.some(x=>x.n===l.n)){ toast('Already on your list'); return; } db.items.push({id:uid(),n:l.n,cat:l.cat,due:l.due(),rep:l.rep,sev:l.sev,bite:l.bite,lad:l.lad.map(s=>s.slice()),who:l.who||db.tell||'',amt:'',where:'',stepsDone:[],hist:[]}); save(); render(); toast('Added — tap it to fix the date'); };
 window.stepDone=(id,day)=>{ const it=db.items.find(x=>x.id===id); (it.stepsDone=it.stepsDone||[]).push(day); save(); render(); toast('Step done ✓'); };
@@ -656,28 +751,28 @@ window.saveItem=()=>{ window.__fs=window.__fs||{}; const n=$('fName').value.trim
   if(editId){ Object.assign(db.items.find(x=>x.id===editId),data); window.__fs.saved=1; } else { db.items.push({id:uid(),cat:'Mine',stepsDone:[],hist:[],...data}); window.__fs.own=1; }
   save(); render(); closeSheet(); toast(editId?'Saved':'Added — the organization is watched'); };
 window.delItem=()=>{ if(!editId) return; if(!confirm('Remove this from the list?')) return; db.items=db.items.filter(x=>x.id!==editId); save(); render(); closeSheet(); };
-// ---- bridge to My Productive Partner (same address = shared storage; otherwise a hand-off link) ----
+// ---- bridge to One Thing (same address = shared storage; otherwise a hand-off link) ----
 const NN_ART='../nownext/index.html';
 function nnLocal(){ try{ const P=JSON.parse(localStorage.getItem('now_next_profiles_v1')); if(P&&P.cur&&localStorage.getItem('now_next_v1_'+P.cur)) return P; }catch(e){} return null; }
-function nnNotes(it){ const n=[]; if(it.bite) n.push({t:'If missed: '+it.bite,at:today(),by:'Nonprofit Filings'}); if(it.who) n.push({t:'Tell: '+it.who,at:today(),by:'Nonprofit Filings'}); if(it.where) n.push({t:'Papers / login: '+it.where,at:today(),by:'Nonprofit Filings'}); return n; }
+function nnNotes(it){ const n=[]; if(it.bite) n.push({t:'If missed: '+it.bite,at:today(),by:'Ahead of It · Nonprofit'}); if(it.who) n.push({t:'Tell: '+it.who,at:today(),by:'Ahead of It · Nonprofit'}); if(it.where) n.push({t:'Papers / login: '+it.where,at:today(),by:'Ahead of It · Nonprofit'}); return n; }
 function nnText(it,step){ return step? it.n+' — '+step[1] : it.n; }
 function nnPush(it,step,date){ const P=nnLocal(); const text=nnText(it,step); const mins=step?15:30; const notes=nnNotes(it);
   if(P){ const k='now_next_v1_'+P.cur; const d=JSON.parse(localStorage.getItem(k)); const stamp=today();
     if(date&&date>stamp){ (d.upcoming=d.upcoming||[]).push({id:'ah'+uid(),text,mins,date,notes}); }
-    else { if((d.tasks||[]).some(t=>!t.done&&t.text===text)) return 'dup'; d.tasks.push({id:'ah'+uid(),text,mins,done:false,from:'Nonprofit Filings',fromEm:'🧭',unseen:true,notes}); }
+    else { if((d.tasks||[]).some(t=>!t.done&&t.text===text)) return 'dup'; d.tasks.push({id:'ah'+uid(),text,mins,done:false,from:'Ahead of It · Nonprofit',fromEm:'🧭',unseen:true,notes}); }
     localStorage.setItem(k,JSON.stringify(d)); return 'ok'; }
-  // different address: open My Productive Partner with the task in the link
+  // different address: open One Thing with the task in the link
   const base=(location.pathname.includes('/ahead/')? location.pathname.replace(/\/ahead\/.*$/,'/nownext/index.html') : NN_ART);
-  const q='?add='+encodeURIComponent([text].concat(notes.map(n=>n.t)).join('||'))+(date&&date>today()?'&date='+date:'')+'&by='+encodeURIComponent('Nonprofit Filings');
+  const q='?add='+encodeURIComponent([text].concat(notes.map(n=>n.t)).join('||'))+(date&&date>today()?'&date='+date:'')+'&by='+encodeURIComponent('Ahead of It · Nonprofit');
   window.open(base+q,'_blank'); return 'link'; }
 window.toNowNext=id=>{ const it=db.items.find(x=>x.id===id); if(!it) return; const st=stepNow(it); const r=nnPush(it,st,null);
-  toast(r==='ok'?'Sent to My Productive Partner ✓ — it\'s on today\'s list':r==='dup'?'Already on My Productive Partner':'Opening My Productive Partner with it…',2600); };
-function autoPush(){ if(!db.nnAuto) return; const P=nnLocal(); if(!P) return; let n=0; db.items.forEach(it=>{ const st=stepNow(it); if(!st) return; it.pushed=it.pushed||{}; const key=it.due+':'+st[0]; if(it.pushed[key]) return; if(nnPush(it,st,null)!=='link'){ it.pushed[key]=1; n++; } }); if(n){ save(); toast(n+' reminder step'+(n>1?'s':'')+' sent to My Productive Partner ✓',2800); } }
-window.nnAutoSel=()=>{ db.nnAuto=$('nnAuto').checked; save(); if(db.nnAuto) autoPush(); toast(db.nnAuto?'On — reminder steps will appear on My Productive Partner the day they\'re due':'Off'); };
+  toast(r==='ok'?'Sent to One Thing ✓ — it\'s on today\'s list':r==='dup'?'Already on One Thing':'Opening One Thing with it…',2600); };
+function autoPush(){ if(!db.nnAuto) return; const P=nnLocal(); if(!P) return; let n=0; db.items.forEach(it=>{ const st=stepNow(it); if(!st) return; it.pushed=it.pushed||{}; const key=it.due+':'+st[0]; if(it.pushed[key]) return; if(nnPush(it,st,null)!=='link'){ it.pushed[key]=1; n++; } }); if(n){ save(); toast(n+' reminder step'+(n>1?'s':'')+' sent to One Thing ✓',2800); } }
+window.nnAutoSel=()=>{ db.nnAuto=$('nnAuto').checked; save(); if(db.nnAuto) autoPush(); toast(db.nnAuto?'On — reminder steps will appear on One Thing the day they\'re due':'Off'); };
 // ---- export ----
 async function dl(name,text,type){ try{ if(window.claude&&claude.use){ const d=await claude.use('downloads'); if(d){ await d.save({filename:name,data:text}); return; } } }catch(e){}
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500); }
-window.exportIcs=()=>{ const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja Studio//Nonprofit Filings//EN']; db.items.forEach(it=>{ const d=it.due.replace(/-/g,''); lines.push('BEGIN:VEVENT','UID:'+it.id+'@aheadofit','DTSTART;VALUE=DATE:'+d,'SUMMARY:'+it.n.replace(/,/g,'\\,'),'DESCRIPTION:'+('If missed: '+(it.bite||'')+(it.who?' | Tell: '+it.who:'')).replace(/\n/g,' ').replace(/,/g,'\\,'),'END:VEVENT'); (it.lad||[]).forEach(s=>{ lines.push('BEGIN:VEVENT','UID:'+it.id+'-'+s[0]+'@aheadofit','DTSTART;VALUE=DATE:'+addDays(it.due,-s[0]).replace(/-/g,''),'SUMMARY:'+(it.n+' — '+s[1]).replace(/,/g,'\\,'),'END:VEVENT'); }); }); lines.push('END:VCALENDAR'); dl('ahead-of-it.ics',lines.join('\r\n'),'text/calendar'); toast('Calendar file saved — open it to add'); };
+window.exportIcs=()=>{ const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja Studio//Ahead of It · Nonprofit//EN']; db.items.forEach(it=>{ const d=it.due.replace(/-/g,''); lines.push('BEGIN:VEVENT','UID:'+it.id+'@aheadofit','DTSTART;VALUE=DATE:'+d,'SUMMARY:'+it.n.replace(/,/g,'\\,'),'DESCRIPTION:'+('If missed: '+(it.bite||'')+(it.who?' | Tell: '+it.who:'')).replace(/\n/g,' ').replace(/,/g,'\\,'),'END:VEVENT'); (it.lad||[]).forEach(s=>{ lines.push('BEGIN:VEVENT','UID:'+it.id+'-'+s[0]+'@aheadofit','DTSTART;VALUE=DATE:'+addDays(it.due,-s[0]).replace(/-/g,''),'SUMMARY:'+(it.n+' — '+s[1]).replace(/,/g,'\\,'),'END:VEVENT'); }); }); lines.push('END:VCALENDAR'); dl('ahead-of-it.ics',lines.join('\r\n'),'text/calendar'); toast('Calendar file saved — open it to add'); };
 window.exportJson=()=>{ dl('goodstanding-backup.json',JSON.stringify(db,null,1),'application/json'); toast('Backup saved'); };
 window.importJson=ev=>{ const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.items) throw 0; db=d; save(); render(); toast('Restored'); }catch(e){ toast('That file did not look right'); } }; r.readAsText(f); };
 window.copyHandoff=()=>{ const t=['GOOD STANDING — nonprofit hand-off list'+(db.owner?' for '+db.owner:''),'(as of '+today()+')',''].concat(db.items.slice().sort((a,b)=>a.due<b.due?-1:1).map(it=>`• ${it.n} — due ${it.due}${it.rep?' (repeats)':''}${it.amt?' · $'+it.amt:''}\n   If missed: ${it.bite||'—'}\n   Tell: ${it.who||'—'} · Papers: ${it.where||'—'}`)).join('\n'); navigator.clipboard?.writeText(t).then(()=>toast('Copied — paste into In Good Order'),()=>toast('Could not copy on this browser')); };

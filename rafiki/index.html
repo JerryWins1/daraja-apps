@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v11">
+<script id="dj-house-v13">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -197,11 +197,106 @@
      spot as each other, which hid one of them completely. They now share one dock
      in the bottom-right corner, stacked, and the dock lifts itself above whatever
      bottom bar the app has so it never covers a menu. */
+
+  /* ── 6 · "Start fresh" must actually clear this app, and only this app ───────
+     The first registry I shipped listed key names I had assumed rather than read.
+     Against what the apps really write, 21 of 26 were wrong: The Key saves under
+     'daraja_thekey_v1', so a person who had filled in their whole will-and-papers
+     page was told "there is nothing saved in this app yet". These names were read
+     out of each app's own source. Anything belonging to another app is protected
+     even when a pattern would otherwise match it. */
+  var OWNS = {
+    nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
+                      'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
+    compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
+    nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
+    occ:          {k:['occ_counter_v1','occTipSeen'], p:['occ_']},
+    drive:        {k:['occ_counter_v1','occTipSeen'], p:['drive_','church_drive_']},
+    safety:       {k:['my_safety_plan_v1'], p:['safety_']},
+    zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
+    academy:      {k:['daraja_academy_v1'], p:['academy_']},
+    feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    churchkey:    {k:['daraja_churchkey_v1'], p:[]},
+    drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
+    flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
+    rafiki:       {k:['rafiki_v1','rafiki_aa'], p:['rafiki_']},
+    pitwall:      {k:['pitwall_state_v1'], p:['pitwall_','f1_']},
+    churchhq:     {k:['church_hq_v1'], p:['church_hq_']},
+    steward:      {k:['steward_v1'], p:['steward_']},
+    serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
+    clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
+    gameday:      {k:[], p:['gameday_','church_gameday_']},
+    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+  };
+
+  function slugOf(){
+    var s = (window.DJ_START && window.DJ_START.slug) ||
+            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
+                 churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
+                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+    return alias[s] || s;
+  }
+
+  function myKeys(){
+    var me = slugOf(), mine = OWNS[me];
+    if(!mine) return null;                            /* unknown app — do not guess */
+    var guard = {};
+    Object.keys(OWNS).forEach(function(a){
+      if(a === me) return;
+      OWNS[a].k.forEach(function(x){ guard[x] = a; });
+    });
+    /* two apps genuinely share the shoebox count, so neither may erase it */
+    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    var out = [];
+    try{
+      for(var i=0; i<localStorage.length; i++){
+        var k = localStorage.key(i); if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(shared[k]) continue;
+        var owned = mine.k.indexOf(k) >= 0;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        if(!owned) continue;
+        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  function startFresh(){
+    var keys = myKeys();
+    if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
+    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    if(!confirm('Last check — erase this app’s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  }
+
+  /* The older erase layer sits at the end of the page, so it assigns AFTER this one
+     and its guessed key names win. Claim the name again once the page is built. */
+  window.djStartFresh = startFresh;
+  function claimStartFresh(){
+    window.djStartFresh = startFresh;
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 300);
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
+  }
+
   function occupied(){
     /* How far up the bottom edge is already spoken for — by a bottom bar across the
        screen, OR by another floating button already parked in the bottom-right.
        Without the second test the dock lands straight on top of an app's own round
-       button, which is exactly what happened to My Productive Partner's calendar. */
+       button, which is exactly what happened to One Thing's calendar. */
     var bar = 0, right = 0;
     var all = document.body ? document.body.getElementsByTagName('*') : [];
     var VH = window.innerHeight, VW = window.innerWidth;
@@ -363,7 +458,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); dockPasses(); }
+  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
@@ -764,7 +859,7 @@ function faces(cb){
   chat.appendChild(d); scrollDown();
 }
 
-/* ── My Productive Partner bridge ── */
+/* ── One Thing bridge ── */
 function nnKey(){ try{ var P=JSON.parse(localStorage.getItem('now_next_profiles_v1')||'null');
   if(P&&P.cur) return 'now_next_v1_'+P.cur; }catch(e){}
   return localStorage.getItem('now_next_v1')?'now_next_v1':null; }
@@ -896,7 +991,7 @@ function remember(){
 }
 function captureTask(t){
   var kind=nnAdd(t);
-  bubAI('Got it. “'+esc(t)+'” — '+(kind==='task'?'it’s on your My Productive Partner list too, with my name on it.':'I’ve written it in my own notebook.')+' Consider it remembered.');
+  bubAI('Got it. “'+esc(t)+'” — '+(kind==='task'?'it’s on your One Thing list too, with my name on it.':'I’ve written it in my own notebook.')+' Consider it remembered.');
   offerMenu();
 }
 
@@ -943,7 +1038,7 @@ function brag(){
    button; a typed or spoken "yes" fell through to the catch-all, got filed as a stray note,
    and the interview quietly ended. These two readers fix that everywhere. ── */
 var setupMode = false;
-var NN = 'My Productive Partner';   /* the app we share a list with (was "My Productive Partner") */
+var NN = 'One Thing';   /* the app we share a list with (was "One Thing") */
 function yesno(t){
   var l = String(t||'').toLowerCase().trim().replace(/[.!,]+$/,'');
   if(/^(y|yes|yeah|yep|yup|sure|i am|i do|we do|i have|we have|correct|right|of course|certainly|indeed|please)\b/.test(l)) return 'yes';
@@ -1206,7 +1301,7 @@ function listBoxes(n, label, key, done){
 /* ── v1.4: THE ANSWER TO "the screen just stops". Never a bare menu of verbs again —
    this says, in plain words, what there is to do right now, and offers exactly that. ── */
 /* ── v1.5 · the two apps become one thing ──────────────────────────────────────
-   Jerry: "is this app connected to My Productive Partner? ... connect it to then and now."
+   Jerry: "is this app connected to One Thing? ... connect it to then and now."
    It was one-way and half-hearted: Rafiki could add a task and count them. Now it can
    READ the list, TICK things off out loud, know what is overdue, and hand you back to
    the other app on the exact task you were talking about. Same list, two front doors. ── */

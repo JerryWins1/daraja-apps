@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v11">
+<script id="dj-house-v13">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -197,11 +197,106 @@
      spot as each other, which hid one of them completely. They now share one dock
      in the bottom-right corner, stacked, and the dock lifts itself above whatever
      bottom bar the app has so it never covers a menu. */
+
+  /* ── 6 · "Start fresh" must actually clear this app, and only this app ───────
+     The first registry I shipped listed key names I had assumed rather than read.
+     Against what the apps really write, 21 of 26 were wrong: The Key saves under
+     'daraja_thekey_v1', so a person who had filled in their whole will-and-papers
+     page was told "there is nothing saved in this app yet". These names were read
+     out of each app's own source. Anything belonging to another app is protected
+     even when a pattern would otherwise match it. */
+  var OWNS = {
+    nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
+                      'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
+    compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
+    nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
+    occ:          {k:['occ_counter_v1','occTipSeen'], p:['occ_']},
+    drive:        {k:['occ_counter_v1','occTipSeen'], p:['drive_','church_drive_']},
+    safety:       {k:['my_safety_plan_v1'], p:['safety_']},
+    zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
+    academy:      {k:['daraja_academy_v1'], p:['academy_']},
+    feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    churchkey:    {k:['daraja_churchkey_v1'], p:[]},
+    drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
+    flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
+    rafiki:       {k:['rafiki_v1','rafiki_aa'], p:['rafiki_']},
+    pitwall:      {k:['pitwall_state_v1'], p:['pitwall_','f1_']},
+    churchhq:     {k:['church_hq_v1'], p:['church_hq_']},
+    steward:      {k:['steward_v1'], p:['steward_']},
+    serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
+    clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
+    gameday:      {k:[], p:['gameday_','church_gameday_']},
+    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+  };
+
+  function slugOf(){
+    var s = (window.DJ_START && window.DJ_START.slug) ||
+            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
+                 churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
+                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+    return alias[s] || s;
+  }
+
+  function myKeys(){
+    var me = slugOf(), mine = OWNS[me];
+    if(!mine) return null;                            /* unknown app — do not guess */
+    var guard = {};
+    Object.keys(OWNS).forEach(function(a){
+      if(a === me) return;
+      OWNS[a].k.forEach(function(x){ guard[x] = a; });
+    });
+    /* two apps genuinely share the shoebox count, so neither may erase it */
+    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    var out = [];
+    try{
+      for(var i=0; i<localStorage.length; i++){
+        var k = localStorage.key(i); if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(shared[k]) continue;
+        var owned = mine.k.indexOf(k) >= 0;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        if(!owned) continue;
+        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  function startFresh(){
+    var keys = myKeys();
+    if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
+    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    if(!confirm('Last check — erase this app’s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  }
+
+  /* The older erase layer sits at the end of the page, so it assigns AFTER this one
+     and its guessed key names win. Claim the name again once the page is built. */
+  window.djStartFresh = startFresh;
+  function claimStartFresh(){
+    window.djStartFresh = startFresh;
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 300);
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
+  }
+
   function occupied(){
     /* How far up the bottom edge is already spoken for — by a bottom bar across the
        screen, OR by another floating button already parked in the bottom-right.
        Without the second test the dock lands straight on top of an app's own round
-       button, which is exactly what happened to My Productive Partner's calendar. */
+       button, which is exactly what happened to One Thing's calendar. */
     var bar = 0, right = 0;
     var all = document.body ? document.body.getElementsByTagName('*') : [];
     var VH = window.innerHeight, VW = window.innerWidth;
@@ -363,7 +458,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); dockPasses(); }
+  function boot(){ if(!embedded) start(); dockPasses(); claimStartFresh(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
@@ -685,24 +780,15 @@
         Open any app in this window, press the red button, and just talk while you tap around.
         Every comment is written down with its exact time — then one tap builds a full report for Claude.</p>
         <p style="margin:14px 0 2px; font-size:13px; color:#8a93a5; font-weight:700;">Quick picks — tap one to review it, or paste any app's address above:</p>
-        <div class="quick">
-          <div class="chip" onclick="quick('https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/nownext/')">My Productive Partner</div>
-          <div class="chip" onclick="quick('https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/demo/')">Day Demo movie</div>
-          <div class="chip" onclick="quick('https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/')">Daraja Apps home</div>
-          <div class="chip" onclick="quick('https://jerrywins1.github.io/immanuel-app/')">Immanuel App</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="recbar">
+        <div class="quick" id="quickList"></div></div></div><div id="recbar">
       <button aria-label="Start / stop talking" id="micBtn" onclick="toggleMic()" title="Start / stop talking">🎙</button>
       <div id="micState">
         <div id="micLabel">Press the red button and talk</div>
         <div id="micHint">Your words become comments automatically. Pause between thoughts.</div>
         <div id="liveText"></div>
       </div>
-      <button aria-label="Drop a flag at this moment" class="btn gold" onclick="addMarker()" title="Drop a flag at this moment">🚩 Mark this spot</button>
-      <button aria-label="Capture what" class="btn" style="background:#7a5ea8" onclick="snapShot()" title="Capture what's on screen right now — copied for pasting + saved as a comment">📸 Screenshot</button>
+      <button aria-label="Point at something on the screen" class="btn" id="pointBtn" onclick="togglePoint()" title="Tap anything in the app, then say what you think about it">👆 Point</button><button aria-label="Drop a flag at this moment" class="btn gold" onclick="addMarker()" title="Drop a flag at this moment">🚩 Mark</button>
+      <button aria-label="Capture what" class="btn" style="background:#7a5ea8" onclick="phoneShot()" title="Mark this moment, then take a screenshot with your phone">📸 Screenshot</button>
       <div id="timer">0:00</div>
     </div>
   </div>
@@ -769,7 +855,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v1.8 · 2026-09-01 · Daraja Studio</div>
+<div id="ver">Feedback Studio v2.0 · 2026-09-01 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -1055,9 +1141,9 @@ function render(){
     <div class="note ${n.kind}">
       <div class="meta">
         <span class="t">${n.t}</span>
-        <span class="kind">${n.kind==='voice'?'🎙 spoken':n.kind==='typed'?'⌨ typed':'🚩 marker'}</span>
+        <span class="kind">${n.kind==='voice'?'🎙 spoken':n.kind==='typed'?'⌨ typed':n.kind==='step'?'👣 step':n.kind==='point'?'👆 pointed':'🚩 marker'}</span>
       </div>
-      <div class="txt">${esc(n.text)}</div>
+      ${n.about?`<div class="about">👆 ${esc(n.about)}</div>`:''}<div class="txt">${esc(n.text)}</div>
       <div class="where">${esc(n.where)}</div>
       <button aria-label="Delete" class="del" onclick="delNote(${i})" title="Delete">✕</button>
     </div>`).join('');
@@ -1098,7 +1184,7 @@ function buildReport(){
   out += 'Comments     : ' + db.notes.length + '\n';
   const av = appVersion();
   out += 'App version  : ' + (av || 'could not read it — check the line at the bottom of the app') + '\n';
-  out += 'Tool         : Feedback Studio v1.8 (Daraja Studio)\n';
+  out += 'Tool         : Feedback Studio v2.0 (Daraja Studio)\n';
   out += '------------------------------------------\n\n';
   if(isAI){
     out += 'INSTRUCTIONS FOR ' + who.toUpperCase() + ':\n';
@@ -1106,7 +1192,7 @@ function buildReport(){
     out += 'actually using the app above. Timestamps are minutes:seconds\n';
     out += 'from the start of the session. Read them in order, group them\n';
     out += 'into themes, restate what you understood, then propose the\n';
-    out += 'changes as a numbered plan BEFORE building anything.\n\n';
+    out += 'changes as a numbered plan BEFORE building anything.\n';out += 'STEP lines are taps the owner made (the path they walked).\n';out += 'A comment with an ABOUT line was made while pointing at that\n';out += 'exact thing on screen — treat it as being about that, not the page.\n\n';
   } else {
     out += 'NOTE FOR THE DEVELOPER:\n';
     out += 'These are timestamped comments made while actually using\n';
@@ -1115,8 +1201,8 @@ function buildReport(){
   }
   out += '------------------------------------------\n';
   db.notes.forEach((n,i)=>{
-    const tag = n.kind==='voice'?'SPOKEN':n.kind==='typed'?'TYPED ':'MARKER';
-    out += `\n${String(i+1).padStart(2,' ')}. [${n.t}] (${tag})\n    ${n.text}\n`;
+    const tag = n.kind==='voice'?'SPOKEN':n.kind==='typed'?'TYPED ':n.kind==='step'?'STEP  ':n.kind==='point'?'POINT ':'MARKER';
+    out += `\n${String(i+1).padStart(2,' ')}. [${n.t}] (${tag})\n`; if(n.about){ out += '    ABOUT: ' + n.about + '\n'; } out += `    ${n.text}\n`;
     if(n.screen){
       out += '    ┌─ WHAT WAS ON SCREEN ─────────────────\n';
       String(n.screen).split('\n').forEach(l=>{ out += '    │ ' + l + '\n'; });
@@ -1608,6 +1694,193 @@ function downloadReport(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go();
   setTimeout(go, 1200);
 }catch(e){} })();
+</script>
+
+
+<style id="dj-fs2-css">
+  #pointBtn.on{ background:#D96C4F; color:#fff; box-shadow:0 0 0 3px rgba(217,108,79,.35); }
+  .note .about{ font-size:13px; font-weight:800; color:#e5b453; margin-bottom:4px; }
+  .note.step{ border-left:3px solid #4a5568; opacity:.8; }
+  .note.step .txt{ font-size:13px; color:var(--dim); }
+  .note.point{ border-left:3px solid #e5b453; }
+  #pointCard{
+    display:none; background:#2b2620; color:#faf6ee; border:2px solid #e5b453;
+    border-radius:14px; padding:12px 14px; margin:10px 12px 0; font-size:14.5px; line-height:1.45;
+  }
+  #pointCard.show{ display:block; }
+  #pointCard b{ color:#e5b453; }
+  #shotCard{
+    display:none; background:#1f2a3a; color:#f2ede2; border:2px solid #7a5ea8;
+    border-radius:14px; padding:12px 14px; margin:10px 12px 0; font-size:14.5px; line-height:1.5;
+  }
+  #shotCard.show{ display:block; }
+  #shotCard button{ font:inherit; font-weight:800; margin-top:8px; padding:9px 14px; border-radius:10px;
+    border:none; background:#7a5ea8; color:#fff; cursor:pointer; min-height:44px; }
+  .quick .chip.group{ opacity:.6; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    background:none; border:none; cursor:default; padding:6px 4px 0; width:100%; text-align:left; }
+</style>
+<script id="dj-fs2">
+/* ═══ Feedback Studio v2.0 — steps, pointing, the phone's own screenshot ═══ */
+(function(){
+  if(window.__fs2) return; window.__fs2 = true;
+
+  /* ── name the thing under a finger ────────────────────────────────────── */
+  function labelOf(el){
+    if(!el || el.nodeType!==1) return null;
+    var t = el.closest('button, a, [role="button"], input, select, textarea, label, summary, li, h1, h2, h3, h4, .chip, .card, .tile') || el;
+    var kind = {BUTTON:'button', A:'link', INPUT:'box', SELECT:'menu', TEXTAREA:'box',
+                LABEL:'label', SUMMARY:'section', LI:'item', H1:'heading', H2:'heading', H3:'heading', H4:'heading'}[t.tagName] || 'part';
+    if(t.tagName==='INPUT' && (t.type==='checkbox'||t.type==='radio')) kind='switch';
+    var text = t.getAttribute('aria-label') || t.getAttribute('title') || '';
+    if(!text) text = (t.tagName==='INPUT'||t.tagName==='TEXTAREA') ? (t.placeholder || t.value || '') : (t.textContent || '');
+    text = text.replace(/\s+/g,' ').trim();
+    if(text.length > 70) text = text.slice(0,67) + '…';
+    /* the nearest heading above it — "which part of the screen" */
+    var sec = '';
+    var doc = t.ownerDocument;
+    var heads = [].slice.call(doc.querySelectorAll('h1,h2,h3,h4'));
+    var top = t.getBoundingClientRect().top + (doc.defaultView.scrollY||0);
+    for(var i=heads.length-1;i>=0;i--){
+      var h = heads[i];
+      var ht = h.getBoundingClientRect().top + (doc.defaultView.scrollY||0);
+      if(ht <= top && h.offsetParent !== null){ sec = h.textContent.replace(/\s+/g,' ').trim().slice(0,50); break; }
+    }
+    return { text: text || '(no words on it)', kind: kind, section: sec, el: t };
+  }
+  function phrase(L){
+    return '“' + L.text + '” (a ' + L.kind + (L.section ? ', under “' + L.section + '”' : '') + ')';
+  }
+
+  /* ── state ────────────────────────────────────────────────────────────── */
+  var pointMode = false, pointed = null, outlined = null, hookedDoc = null;
+
+  function outline(el){
+    clearOutline();
+    if(!el) return;
+    outlined = el;
+    el.__fsOld = el.style.cssText;
+    el.style.outline = '4px solid #e5b453';
+    el.style.outlineOffset = '3px';
+    el.style.boxShadow = '0 0 0 8px rgba(229,180,83,.28)';
+    try{ el.scrollIntoView({block:'center', behavior:'smooth'}); }catch(e){}
+  }
+  function clearOutline(){
+    if(outlined){ try{ outlined.style.cssText = outlined.__fsOld || ''; }catch(e){} outlined = null; }
+  }
+
+  function card(){
+    var c = document.getElementById('pointCard');
+    if(!c){
+      c = document.createElement('div'); c.id = 'pointCard';
+      var rb = document.getElementById('recbar');
+      rb.parentNode.insertBefore(c, rb);
+    }
+    return c;
+  }
+  function showPoint(){
+    var c = card();
+    if(pointMode && pointed){
+      c.innerHTML = 'You are pointing at <b>' + esc(pointed.text) + '</b> — ' + esc(pointed.kind)
+        + (pointed.section ? ', under <b>' + esc(pointed.section) + '</b>' : '')
+        + '.<br>Now say what you think about it. Tap something else to point at that instead.';
+      c.classList.add('show');
+    } else if(pointMode){
+      c.innerHTML = '<b>Point mode is on.</b> Tap anything in the app — it will be outlined, and what you say next is about that thing. Taps do not open anything while this is on.';
+      c.classList.add('show');
+    } else {
+      c.classList.remove('show');
+    }
+    var b = document.getElementById('pointBtn');
+    if(b){ b.classList.toggle('on', pointMode); b.textContent = pointMode ? '👆 Pointing' : '👆 Point'; }
+  }
+  window.togglePoint = function(){
+    pointMode = !pointMode;
+    if(!pointMode){ pointed = null; clearOutline(); }
+    showPoint();
+  };
+
+  /* ── every tap in the app becomes a step; in point mode it becomes the anchor ── */
+  function onTap(e){
+    var L = labelOf(e.target);
+    if(!L) return;
+    if(pointMode){
+      e.preventDefault(); e.stopPropagation();
+      pointed = L; outline(L.el); showPoint();
+      if(typeof addNote==='function') addNote('point', 'Pointed at ' + phrase(L), null);
+      return;
+    }
+    if(L.kind==='part' && !L.text) return;             /* a tap on blank space is not a step */
+    if(typeof addNote==='function') addNote('step', 'Tapped ' + phrase(L), null);
+  }
+  function hook(){
+    var f = document.getElementById('appframe'); if(!f) return;
+    var doc = null;
+    try{ doc = f.contentDocument; }catch(e){ doc = null; }
+    if(!doc || doc === hookedDoc) return;
+    hookedDoc = doc;
+    try{ doc.addEventListener('click', onTap, true); }catch(e){}
+  }
+  var f0 = document.getElementById('appframe');
+  if(f0){ f0.addEventListener('load', function(){ hookedDoc = null; clearOutline(); pointed = null; showPoint(); setTimeout(hook, 200); }); }
+  setInterval(hook, 1500);
+
+  /* ── what you say while pointing is ABOUT that thing ─────────────────── */
+  var realAdd = window.addNote;
+  if(typeof realAdd === 'function'){
+    window.addNote = function(kind, text, screen){
+      realAdd.apply(this, arguments);
+      if(pointMode && pointed && (kind==='voice' || kind==='typed')){
+        var n = db.notes[db.notes.length-1];
+        if(n){ n.about = phrase(pointed); save(); render(); }
+      }
+    };
+  }
+
+  /* ── 📸 the phone takes the picture; the studio marks the moment ──────── */
+  window.phoneShot = function(){
+    var stamp = (typeof nowStamp==='function') ? nowStamp() : '';
+    var doc = null, f = document.getElementById('appframe'), other = false;
+    try{ doc = (f && f.style.display!=='none') ? f.contentDocument : null; }catch(e){ other = true; }
+    var screenText = (!other && typeof describeScreen==='function') ? describeScreen() : null;
+    var txt = '📸 Screenshot moment at ' + stamp + ' — the picture is on your phone; paste it after the report.';
+    if(other) txt = '📸 Screenshot moment at ' + stamp + ' — you are on another website here (not one of ours), so the studio cannot read the screen. Your phone screenshot is the record.';
+    else if(!screenText) txt = '📸 Screenshot moment at ' + stamp + '. Open an app first if you meant to capture one.';
+    if(typeof addNote==='function') addNote('marker', txt, screenText);
+    var c = document.getElementById('shotCard');
+    if(!c){ c = document.createElement('div'); c.id='shotCard'; var rb=document.getElementById('recbar'); rb.parentNode.insertBefore(c, rb); }
+    c.innerHTML = '<b>Now take the picture with your phone:</b> press the <b>side button</b> and <b>volume up</b> together. '
+      + 'It saves to Photos. After you paste the report to Claude, paste the photos as a second message.<br>'
+      + '<button onclick="document.getElementById(\'shotCard\').classList.remove(\'show\')">Got it</button>';
+    c.classList.add('show');
+  };
+
+  /* ── quick picks from the store, so the list is never stale ───────────── */
+  function chips(){
+    var host = document.getElementById('quickList'); if(!host) return;
+    var extra = [['Immanuel App','https://jerrywins1.github.io/immanuel-app/'],
+                 ['Day Demo movie','https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/demo/']];
+    var groups = {home:'Your household', later:'Later life', church:'Your church', work:'Business & nonprofit', free:'Free'};
+    var html = '';
+    if(typeof APPS === 'object'){
+      Object.keys(groups).forEach(function(cat){
+        var rows = Object.keys(APPS).filter(function(k){ var a=APPS[k]; return a.cat===cat && (a.kind||'app')==='app' && a.try; });
+        if(!rows.length) return;
+        html += '<div class="chip group">' + groups[cat] + '</div>';
+        rows.forEach(function(k){ var a=APPS[k]; html += '<div class="chip" onclick="quick(\'' + a.try.replace(/'/g,'%27') + '\')">' + esc(a.name.replace(/&amp;/g,'&')) + '</div>'; });
+      });
+    }
+    html += '<div class="chip group">Also</div>';
+    extra.forEach(function(x){ html += '<div class="chip" onclick="quick(\'' + x[1] + '\')">' + x[0] + '</div>'; });
+    host.innerHTML = html;
+  }
+  var sc = document.createElement('script');
+  sc.src = '../shop/apps_data.js?v=' + Date.now();
+  sc.onload = chips; sc.onerror = chips;
+  document.head.appendChild(sc);
+
+  function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  showPoint();
+})();
 </script>
 
 </body>
