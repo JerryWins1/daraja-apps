@@ -75,5 +75,8 @@ const sideScroll=Math.max(document.documentElement.scrollWidth,document.body.scr
 const fixed=all.filter(e=>vis(e)&&getComputedStyle(e).position==='fixed').map(e=>({e,r:e.getBoundingClientRect()})).filter(x=>x.r.width>20&&x.r.height>20&&x.r.width<VW*.95);
 for(let i=0;i<fixed.length;i++)for(let j=i+1;j<fixed.length;j++){const a=fixed[i].r,b=fixed[j].r; if(!(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)&&!fixed[i].e.contains(fixed[j].e)&&!fixed[j].e.contains(fixed[i].e)) add('float-overlap','warn',fixed[i].e,'sits on '+name(fixed[j].e));}
 const cats={}; F.forEach(f=>{cats[f.cat]=(cats[f.cat]||0)+1;});
-return {app:document.title.slice(0,40), url:location.pathname, total:F.length, cats, findings:F.slice(0,400)};
+const result={app:document.title.slice(0,40), url:location.pathname, total:F.length, cats, findings:F.slice(0,400)};
+/* every app shares one origin, so one page can read all the results at the end */
+try{ localStorage.setItem('dj_audit_'+location.pathname.replace(/[^a-z0-9]+/gi,'_'), JSON.stringify(result)); }catch(e){}
+return {app:result.app, total:F.length, cats};
 })()
