@@ -1059,7 +1059,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.6 River · Sep 5</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.7 · 2026-09-11</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -2594,6 +2594,8 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
 
 
 
+
+
 <style id="dj-guide-css">
   #nnGuide{
     background:var(--surface,#1D2224); border:2px solid var(--now,#D96C4F);
@@ -2619,8 +2621,18 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
     background:none; border:none; cursor:pointer; text-decoration:underline; padding:6px 0; min-height:36px; }
   /* while a guide card is up, the old bottom coach steps aside */
   body.nn-guiding #fsBar, body.nn-guiding #fsPill{ display:none !important; }
+  /* 11 Sep: "set up, THEN go to the operation" — while setting up, the Today tab shows the
+     guide card and nothing else: no timer, no list, no prompts, no morning panel. */
+  body.nn-setup #v-today > *:not(#nnGuide):not([data-nn-keep]){ display:none !important; }
+  body.nn-setup #wkBtn, body.nn-setup #morning, body.nn-setup #suggest, body.nn-setup #offer{ display:none !important; }
+  body.nn-setup #nnGuide{ box-shadow:0 0 0 4px rgba(217,108,79,.25); }
+  /* the morning panel used to float half-see-through over the cards behind it — "you can't
+     tell one from the other". It is a solid sheet now, and the sheet is the only thing lit. */
+  #morning.show{ background:rgba(8,10,12,.94) !important; }
+  body #morning.show .mbox{ background:#1B1F26 !important; color:#ECEAE3 !important; backdrop-filter:none !important; border:2px solid var(--sun,#F2B134) !important; box-shadow:0 24px 70px rgba(0,0,0,.7) !important; opacity:1 !important; }
+  #morning .mbox > *{ opacity:1 !important; }
 </style>
-<script id="dj-guide-v2">
+<script id="dj-guide-v3">
 (function(){
   if(window.__nnGuide) return; window.__nnGuide = true;
   var KEY = 'nn_guide_v1';
@@ -2666,12 +2678,19 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
   }
   function unmount(){
     if(card && card.parentNode) card.parentNode.removeChild(card);
-    document.body.classList.remove('nn-guiding');
+    document.body.classList.remove('nn-guiding'); setupMode(false);
+  }
+  /* the add row (box + minutes + mic) is the only piece of the operation the last question needs */
+  function addRow(){ var el = document.getElementById('newTask'), h = host(); while(el && el.parentElement && el.parentElement !== h) el = el.parentElement; return el && el.parentElement === h ? el : null; }
+  function setupMode(on, keepAdd){
+    document.body.classList.toggle('nn-setup', !!on);
+    var r = addRow(); if(r){ if(on && keepAdd) r.setAttribute('data-nn-keep',''); else r.removeAttribute('data-nn-keep'); }
   }
 
   function renderSetup(g){
     var c = mount(); if(!c) return;
     var i = g.step||0, S = SETUP[i]; if(!S){ finish(g); return; }
+    setupMode(true, !!S.focus);
     var pct = Math.round((i)/SETUP.length*100);
     var html = '<div class="step"><span>Setting up · '+(i+1)+' of '+SETUP.length+'</span><span>one at a time</span></div>'
       + '<div class="bar"><i style="width:'+pct+'%"></i></div>'
@@ -2681,6 +2700,8 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
         var done = (g.loaded||[]).indexOf(r[0])>=0;
         return '<button type="button" class="'+(done?'done':'')+'" onclick="nnGuide.routine(\''+r[0]+'\')">'+r[1]+(done?' ✓':'')+'</button>';
       }).join('') + '</div>';
+      html += '<div class="row" style="margin-bottom:10px"><button type="button" onclick="nnGuide.own()">✍️ Make my own routine</button></div>'
+        + (g.visited==='own' ? '<p style="margin:0 0 10px;font-size:14px">Made it? <button type="button" class="main" style="font:inherit;font-weight:800;min-height:44px;border:none;border-radius:12px;padding:0 14px;background:var(--now,#D96C4F);color:#fff;cursor:pointer" onclick="nnGuide.next()">Yes — next →</button></p>' : '');
       html += '<div class="row">' + ((g.loaded||[]).length ? '<button type="button" class="main" onclick="nnGuide.next()">'+esc(S.next)+'</button>' : '')
         + '<button type="button" onclick="nnGuide.next()">'+esc(S.skip)+'</button></div>';
     } else if(S.go){
@@ -2697,7 +2718,7 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
   }
 
   function renderDaily(g){
-    var c = mount(); if(!c) return;
+    var c = mount(); if(!c) return; setupMode(false);
     var d = g.daily||{};
     var html = '<div class="step"><span>Start your day</span><span>same 3 taps</span></div>'
       + '<div class="bar"><i style="width:'+Math.round(Object.keys(d).length/DAILY.length*100)+'%"></i></div>'
@@ -2714,7 +2735,7 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
 
   function finish(g){
     g.done = true; g.step = SETUP.length; g.day = today(); g.daily = {routine:1,look:1,one:1}; save(g);
-    var c = mount(); if(!c) return;
+    var c = mount(); if(!c) return; setupMode(true, false);
     c.innerHTML = '<div class="step"><span>Set up</span><span>✓</span></div><div class="bar"><i style="width:100%"></i></div>'
       + '<h2>Your day is set.</h2><p>From now on, every time you open this it will ask for the same three taps — routine, what’s coming, the one thing — and then get out of your way.</p>'
       + '<div class="row"><button type="button" class="main" onclick="nnGuide.close()">Show me my one thing →</button></div>';
@@ -2731,6 +2752,11 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
       var g=load(); g.visited=pane; save(g);
       try{ if(typeof go==='function') go('routines'); }catch(e){}
       setTimeout(function(){ try{ if(typeof djRoutineStep==='function') djRoutineStep(pane); }catch(e){} }, 150);
+    },
+    own: function(){
+      var g=load(); g.visited='own'; save(g);
+      try{ if(typeof go==='function') go('routines'); }catch(e){}
+      setTimeout(function(){ try{ if(typeof djRoutineStep==='function') djRoutineStep('routine'); }catch(e){} var ed=document.getElementById('routineEditor'); if(ed){ try{ ed.scrollIntoView({block:'start',behavior:'smooth'}); }catch(e){} } }, 150);
     },
     focus: function(){ var el=document.getElementById('newTask'); if(el){ try{ el.scrollIntoView({block:'center'}); }catch(e){} el.focus(); } },
     daily: function(k){
@@ -2757,7 +2783,25 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
     try{ new MutationObserver(function(){ if(h.classList.contains('on') && !load().done) renderSetup(load()); })
            .observe(h, {attributes:true, attributeFilter:['class']}); }catch(e){}
   }
-  ready(function(){ setTimeout(function(){ show(); watchTab(); }, 250); });
+  /* plain words on the morning sheet, and a straight answer when there is nothing to switch to */
+  function words(){
+    try{
+      var r = document.querySelector('#morning .rest'); if(r && /Rest them all/.test(r.textContent)) r.textContent = 'Not today — park them in the Brain Dump 🧠';
+      var b = document.querySelector('#morning .bring'); if(b && /Bring the checked/.test(b.textContent)) b.textContent = '▶ Yes — put the ticked ones on today';
+      [].forEach.call(document.querySelectorAll('#mCarry .mins'), function(m){ if(/undefined|NaN/.test(m.textContent)) m.textContent = ''; });
+    }catch(e){}
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('button'); if(!b || !/pick a different task/.test(b.textContent||'')) return;
+    var list = document.getElementById('todayList'); var open = list ? [].filter.call(list.children, function(li){ return !/\bdone\b/.test(li.className||''); }).length : 0;
+    if(open <= 1){ e.stopImmediatePropagation(); e.preventDefault();
+      var t = document.getElementById('toast'); var msg = 'That’s the only thing on your list. Add another below, or park this one in the Brain Dump.';
+      if(t){ t.textContent = msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 3200); } else alert(msg);
+      var nt = document.getElementById('newTask'); if(nt){ try{ nt.scrollIntoView({block:'center',behavior:'smooth'}); }catch(err){} }
+    }
+  }, true);
+  ready(function(){ setTimeout(function(){ show(); watchTab(); words(); }, 250); setTimeout(words, 2000);
+    var m = document.getElementById('morning'); if(m){ try{ new MutationObserver(words).observe(m, {attributes:true, attributeFilter:['class']}); }catch(e){} } });
 })();
 </script>
 
@@ -3137,7 +3181,7 @@ try{
 </script>
 
 <script>
-/* ===== 🧩 Break It Down (phased tasks) + ✨ Horizons — v5.7, 2026-09-02, from Jerry's scripts =====
+/* ===== 🧩 Break It Down (phased tasks) + ✨ Horizons — v5.8, 2026-09-11, from Jerry's scripts =====
    Additive & guarded: wraps the app from outside, touches no core logic. */
 (function(){
 try{
