@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v21">
+<script id="dj-house-v22">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -466,7 +466,7 @@
 
   var dockEl = null;
   function dock(){
-    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa'];  /* the days-left badge sat on the app title */
+    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa', 'djAsk'];  /* the days-left badge sat on the app title */
     var found = [];
     for(var i=0; i<wanted.length; i++){
       var el = document.getElementById(wanted[i]);
@@ -584,7 +584,7 @@
             var n = added[j];
             if(n.nodeType !== 1) continue;
             if(dockEl && dockEl.contains(n)) continue;
-            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa'){ run(); return; }
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa' || n.id === 'djAsk'){ run(); return; }
           }
         }
       });
@@ -722,7 +722,114 @@
     document.head.appendChild(st);
   }
 
-  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded) aaButton(); offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
+  /* ── 12 · AI Bridge: one door for every app (12 Sep 2026) ───────────────────
+     Jerry, after Meta's Muse: "put as much AI into all these systems as we can… so it
+     can be used as AI gets smarter." One call, djAI.ask(), and three engines behind it:
+       1. a model built into the browser, when there is one (private, instant, free)
+       2. the assistant the person already uses — Claude, ChatGPT, Gemini, Copilot,
+          Meta AI — opened with the question in it, and a paste-back sheet for the answer
+       3. later, a key or the Daraja proxy — same call, nothing in the apps changes.
+     Nothing leaves the phone unless the person taps Ask, and they see the exact words
+     before anything opens. */
+  var AI_KEY = 'dj_ai_choice';
+  var ASSISTANTS = {
+    claude:  { name:'Claude',   url:function(q){ return 'https://claude.ai/new?q=' + encodeURIComponent(q); } },
+    chatgpt: { name:'ChatGPT',  url:function(q){ return 'https://chatgpt.com/?q=' + encodeURIComponent(q); } },
+    gemini:  { name:'Gemini',   url:function(){ return 'https://gemini.google.com/app'; } },
+    copilot: { name:'Copilot',  url:function(){ return 'https://copilot.microsoft.com/'; } },
+    meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
+  };
+  function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  function sheet(html){
+    var old = document.getElementById('djAISheet'); if(old) old.remove();
+    var w = document.createElement('div'); w.id = 'djAISheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Ask an AI');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
+    box.innerHTML = html; w.appendChild(box);
+    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    document.body.appendChild(w); return box;
+  }
+  var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
+  var BTNM = BTN + ';background:#23504F;color:#fff;border-color:transparent';
+  function pickAssistant(then){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Which AI do you use?</div><p style="margin:0 0 12px;color:#55605B;font-size:15px">Pick once. Every Daraja app will open that one with the question already typed. Change it any time from the ? button.</p><div id="djAIPick" style="display:grid;gap:8px"></div>');
+    var g = b.querySelector('#djAIPick');
+    Object.keys(ASSISTANTS).forEach(function(k){ var x = document.createElement('button'); x.type='button'; x.style.cssText = BTN + ';text-align:left;font-size:17px'; x.textContent = ASSISTANTS[k].name + (k==='gemini'||k==='copilot'||k==='meta' ? '  (copies the question — paste it there)' : ''); x.onclick = function(){ try{ localStorage.setItem(AI_KEY, k); }catch(e){} document.getElementById('djAISheet').remove(); if(then) then(k); }; g.appendChild(x); });
+    var n = document.createElement('button'); n.type='button'; n.style.cssText = BTN + ';color:#55605B'; n.textContent = 'I don’t use one'; n.onclick = function(){ try{ localStorage.setItem(AI_KEY, 'none'); }catch(e){} document.getElementById('djAISheet').remove(); }; g.appendChild(n);
+  }
+  function extractJSON(t){
+    var s = String(t||''); var i = s.indexOf('{'), j = s.lastIndexOf('}');
+    if(i < 0 || j <= i){ i = s.indexOf('['); j = s.lastIndexOf(']'); }
+    if(i < 0 || j <= i) return null;
+    try{ return JSON.parse(s.slice(i, j+1)); }catch(e){ return null; }
+  }
+  async function builtIn(prompt){
+    try{
+      if(!window.LanguageModel || !LanguageModel.availability) return null;
+      var a = await LanguageModel.availability(); if(a !== 'available') return null;
+      var s = await LanguageModel.create(); var out = await s.prompt(prompt); try{ s.destroy(); }catch(e){} return out;
+    }catch(e){ return null; }
+  }
+  function pasteBack(o){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">' + esc(o.title || 'The answer') + '</div><p style="margin:0 0 10px;color:#55605B;font-size:15px">Copy the answer from ' + esc(o.who) + ', come back here, and paste it below.</p><textarea id="djAIIn" aria-label="Paste the answer" style="width:100%;min-height:140px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622"></textarea><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button type="button" id="djAIUse" style="' + BTNM + ';flex:1">Use this answer</button><button type="button" id="djAIAgain" style="' + BTN + '">Open ' + esc(o.who) + ' again</button><button type="button" id="djAINo" style="' + BTN + ';color:#55605B">Cancel</button></div>');
+    b.querySelector('#djAIUse').onclick = function(){ var t = b.querySelector('#djAIIn').value.trim(); if(!t) return; document.getElementById('djAISheet').remove(); deliver(o, t); };
+    b.querySelector('#djAIAgain').onclick = function(){ openAssistant(o); };
+    b.querySelector('#djAINo').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    setTimeout(function(){ try{ b.querySelector('#djAIIn').focus(); }catch(e){} }, 300);
+  }
+  function deliver(o, text){
+    var v = text;
+    if(o.want === 'json'){ v = extractJSON(text); if(!v){ alert('That did not look like the answer I expected. Try “Open again” and ask it to answer in JSON only.'); pasteBack(o); return; } }
+    try{ o.onResult && o.onResult(v, text); }catch(e){}
+  }
+  function openAssistant(o){
+    var k = aiChoice(); var A = ASSISTANTS[k]; if(!A) return;
+    try{ navigator.clipboard && navigator.clipboard.writeText(o.prompt); }catch(e){}
+    var u = A.url(o.prompt);
+    var w = window.open(u, '_blank', 'noopener'); if(!w) location.href = u;
+  }
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  /* the one public call */
+  window.djAI = {
+    ask: async function(o){
+      o = o || {}; if(!o.prompt) return;
+      var local = await builtIn(o.prompt);
+      if(local){ deliver(o, local); return; }
+      var k = aiChoice();
+      if(!k){ pickAssistant(function(){ djAI.ask(o); }); return; }
+      if(k === 'none'){ alert('Pick an AI first — tap the ? button, then “Which AI do you use?”'); pickAssistant(function(){ djAI.ask(o); }); return; }
+      var who = ASSISTANTS[k].name;
+      /* show the exact words first — nothing leaves the phone before the person says so */
+      var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">' + esc(o.title || 'Ask ' + who) + '</div><p style="margin:0 0 8px;color:#55605B;font-size:14px">This is exactly what will be sent to ' + esc(who) + '. Change anything you like.</p><textarea id="djAIQ" aria-label="The question" style="width:100%;min-height:120px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622"></textarea><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button type="button" id="djAIGo" style="' + BTNM + ';flex:1">Open ' + esc(who) + ' →</button><button type="button" id="djAISw" style="' + BTN + '">Different AI</button><button type="button" id="djAIX" style="' + BTN + ';color:#55605B">Cancel</button></div>');
+      b.querySelector('#djAIQ').value = o.prompt;
+      b.querySelector('#djAIGo').onclick = function(){ o.prompt = b.querySelector('#djAIQ').value; o.who = who; document.getElementById('djAISheet').remove(); openAssistant(o); if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); };
+      b.querySelector('#djAISw').onclick = function(){ document.getElementById('djAISheet').remove(); pickAssistant(function(){ djAI.ask(o); }); };
+      b.querySelector('#djAIX').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    },
+    choose: function(){ pickAssistant(); },
+    which: aiChoice,
+    extractJSON: extractJSON
+  };
+  /* ✨ Ask — free help with whatever is on the screen, in every app, today */
+  function screenWords(){
+    var t = (document.body && document.body.innerText || '').replace(/\s+/g,' ').trim();
+    return t.length > 1400 ? t.slice(0, 1400) + ' …' : t;
+  }
+  function askButton(){
+    if(document.getElementById('djAsk') || !document.body) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'djAsk'; b.textContent = '✨';
+    b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
+    b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    b.onclick = function(){
+      var app = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
+      var custom = (window.DJ_AI && typeof DJ_AI.prompt === 'function') ? DJ_AI.prompt() : null;
+      djAI.ask({ title:'Ask about ' + app, prompt: custom || ('I am using an app called "' + app + '" on my phone. Here is what is on my screen right now:\n\n' + screenWords() + '\n\nExplain what I am looking at in plain words, and tell me the one most useful thing to do next. Keep it short. I am not a computer person.') });
+    };
+    document.body.appendChild(b);
+  }
+
+  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
