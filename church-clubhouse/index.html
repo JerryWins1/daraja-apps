@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v23">
+<script id="dj-house-v24">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -753,7 +753,7 @@
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
   var BTNM = BTN + ';background:#23504F;color:#fff;border-color:transparent';
   function pickAssistant(then){
-    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Which AI do you use?</div><p style="margin:0 0 12px;color:#55605B;font-size:15px">Pick once. Change it any time from the ? button.</p><div id="djAIPick" style="display:grid;gap:8px"></div><button type="button" id="djAIMore" style="' + BTN + ';margin-top:8px;width:100%;color:#55605B;border-style:dashed">Something else…</button>');
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Which AI do you use?</div><p style="margin:0 0 12px;color:#55605B;font-size:15px">Pick once. Change it any time from the ? button. <b>Don’t have one?</b> Claude is free — tap it, make an account with your email, and you are in.</p><div id="djAIPick" style="display:grid;gap:8px"></div><button type="button" id="djAIMore" style="' + BTN + ';margin-top:8px;width:100%;color:#55605B;border-style:dashed">Something else…</button>');
     var g = b.querySelector('#djAIPick');
     function add(k, label){ var x = document.createElement('button'); x.type='button'; x.style.cssText = BTN + ';text-align:left;font-size:17px;min-height:52px'; x.textContent = label; x.onclick = function(){ try{ localStorage.setItem(AI_KEY, k); }catch(e){} document.getElementById('djAISheet').remove(); if(then && k !== 'none') then(k); }; g.appendChild(x); }
     add('claude','Claude'); add('chatgpt','ChatGPT');
@@ -764,6 +764,23 @@
     if(i < 0 || j <= i){ i = s.indexOf('['); j = s.lastIndexOf(']'); }
     if(i < 0 || j <= i) return null;
     try{ return JSON.parse(s.slice(i, j+1)); }catch(e){ return null; }
+  }
+  var AI_CFG = null;
+  async function aiConfig(){
+    if(AI_CFG) return AI_CFG;
+    try{ var r = await fetch('https://jerrywins1.github.io/daraja-apps/control/ai.json?cb=' + Math.floor(Date.now()/600000)); AI_CFG = await r.json(); }catch(e){ AI_CFG = {}; }
+    return AI_CFG || {};
+  }
+  /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
+  async function viaDaraja(o){
+    var c = await aiConfig(); if(!c.endpoint) return null;
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
+    try{
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var j = await r.json();
+      if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
+      document.getElementById('djAISheet').remove(); return j.text;
+    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
   async function builtIn(prompt){
     try{
@@ -797,6 +814,8 @@
       o = o || {}; if(!o.prompt) return;
       var local = await builtIn(o.prompt);
       if(local){ deliver(o, local); return; }
+      var viaD = await viaDaraja(o);
+      if(viaD){ deliver(o, viaD); return; }
       var k = aiChoice();
       if(!k){ pickAssistant(function(){ djAI.ask(o); }); return; }
       if(k === 'none'){ alert('Pick an AI first — tap the ? button, then “Which AI do you use?”'); pickAssistant(function(){ djAI.ask(o); }); return; }
