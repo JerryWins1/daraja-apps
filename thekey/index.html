@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v21">
+<script id="dj-house-v23">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -466,7 +466,7 @@
 
   var dockEl = null;
   function dock(){
-    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa'];  /* the days-left badge sat on the app title */
+    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa', 'djAsk'];  /* the days-left badge sat on the app title */
     var found = [];
     for(var i=0; i<wanted.length; i++){
       var el = document.getElementById(wanted[i]);
@@ -584,7 +584,7 @@
             var n = added[j];
             if(n.nodeType !== 1) continue;
             if(dockEl && dockEl.contains(n)) continue;
-            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa'){ run(); return; }
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa' || n.id === 'djAsk'){ run(); return; }
           }
         }
       });
@@ -722,7 +722,131 @@
     document.head.appendChild(st);
   }
 
-  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded) aaButton(); offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
+  /* ── 12 · AI Bridge: one door for every app (12 Sep 2026) ───────────────────
+     Jerry, after Meta's Muse: "put as much AI into all these systems as we can… so it
+     can be used as AI gets smarter." One call, djAI.ask(), and three engines behind it:
+       1. a model built into the browser, when there is one (private, instant, free)
+       2. the assistant the person already uses — Claude, ChatGPT, Gemini, Copilot,
+          Meta AI — opened with the question in it, and a paste-back sheet for the answer
+       3. later, a key or the Daraja proxy — same call, nothing in the apps changes.
+     Nothing leaves the phone unless the person taps Ask, and they see the exact words
+     before anything opens. */
+  var AI_KEY = 'dj_ai_choice';
+  var ASSISTANTS = {
+    claude:  { name:'Claude',   url:function(q){ return 'https://claude.ai/new?q=' + encodeURIComponent(q); } },
+    chatgpt: { name:'ChatGPT',  url:function(q){ return 'https://chatgpt.com/?q=' + encodeURIComponent(q); } },
+    gemini:  { name:'Gemini',   url:function(){ return 'https://gemini.google.com/app'; } },
+    copilot: { name:'Copilot',  url:function(){ return 'https://copilot.microsoft.com/'; } },
+    meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
+  };
+  function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  function sheet(html){
+    var old = document.getElementById('djAISheet'); if(old) old.remove();
+    var w = document.createElement('div'); w.id = 'djAISheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Ask an AI');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
+    box.innerHTML = html; w.appendChild(box);
+    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    document.body.appendChild(w); return box;
+  }
+  var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
+  var BTNM = BTN + ';background:#23504F;color:#fff;border-color:transparent';
+  function pickAssistant(then){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Which AI do you use?</div><p style="margin:0 0 12px;color:#55605B;font-size:15px">Pick once. Change it any time from the ? button.</p><div id="djAIPick" style="display:grid;gap:8px"></div><button type="button" id="djAIMore" style="' + BTN + ';margin-top:8px;width:100%;color:#55605B;border-style:dashed">Something else…</button>');
+    var g = b.querySelector('#djAIPick');
+    function add(k, label){ var x = document.createElement('button'); x.type='button'; x.style.cssText = BTN + ';text-align:left;font-size:17px;min-height:52px'; x.textContent = label; x.onclick = function(){ try{ localStorage.setItem(AI_KEY, k); }catch(e){} document.getElementById('djAISheet').remove(); if(then && k !== 'none') then(k); }; g.appendChild(x); }
+    add('claude','Claude'); add('chatgpt','ChatGPT');
+    b.querySelector('#djAIMore').onclick = function(){ this.remove(); add('gemini','Gemini'); add('copilot','Copilot'); add('meta','Meta AI'); add('none','I don’t use one'); };
+  }
+  function extractJSON(t){
+    var s = String(t||''); var i = s.indexOf('{'), j = s.lastIndexOf('}');
+    if(i < 0 || j <= i){ i = s.indexOf('['); j = s.lastIndexOf(']'); }
+    if(i < 0 || j <= i) return null;
+    try{ return JSON.parse(s.slice(i, j+1)); }catch(e){ return null; }
+  }
+  async function builtIn(prompt){
+    try{
+      if(!window.LanguageModel || !LanguageModel.availability) return null;
+      var a = await LanguageModel.availability(); if(a !== 'available') return null;
+      var s = await LanguageModel.create(); var out = await s.prompt(prompt); try{ s.destroy(); }catch(e){} return out;
+    }catch(e){ return null; }
+  }
+  function pasteBack(o){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Paste the answer</div><p style="margin:0 0 8px;color:#55605B;font-size:14.5px">Copy what ' + esc(o.who) + ' said, come back, paste it here.</p><textarea id="djAIIn" aria-label="Paste the answer" style="width:100%;min-height:96px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622"></textarea><button type="button" id="djAIUse" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Use this answer</button><div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAIAgain" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">open ' + esc(o.who) + ' again</button><button type="button" id="djAINo" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
+    b.querySelector('#djAIUse').onclick = function(){ var t = b.querySelector('#djAIIn').value.trim(); if(!t) return; document.getElementById('djAISheet').remove(); deliver(o, t); };
+    b.querySelector('#djAIAgain').onclick = function(){ openAssistant(o); };
+    b.querySelector('#djAINo').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    setTimeout(function(){ try{ b.querySelector('#djAIIn').focus(); }catch(e){} }, 300);
+  }
+  function deliver(o, text){
+    var v = text;
+    if(o.want === 'json'){ v = extractJSON(text); if(!v){ alert('That did not look like the answer I expected. Try “Open again” and ask it to answer in JSON only.'); pasteBack(o); return; } }
+    try{ o.onResult && o.onResult(v, text); }catch(e){}
+  }
+  function openAssistant(o){
+    var k = aiChoice(); var A = ASSISTANTS[k]; if(!A) return;
+    try{ navigator.clipboard && navigator.clipboard.writeText(o.prompt); }catch(e){}
+    var u = A.url(o.prompt);
+    var w = window.open(u, '_blank', 'noopener'); if(!w) location.href = u;
+  }
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  /* the one public call */
+  window.djAI = {
+    ask: async function(o){
+      o = o || {}; if(!o.prompt) return;
+      var local = await builtIn(o.prompt);
+      if(local){ deliver(o, local); return; }
+      var k = aiChoice();
+      if(!k){ pickAssistant(function(){ djAI.ask(o); }); return; }
+      if(k === 'none'){ alert('Pick an AI first — tap the ? button, then “Which AI do you use?”'); pickAssistant(function(){ djAI.ask(o); }); return; }
+      var who = ASSISTANTS[k].name;
+      /* show what will be sent, in one line — the full words only if asked for */
+      var short = String(o.prompt).replace(/\s+/g,' ').trim(); if(short.length > 110) short = short.slice(0, 108) + '…';
+      var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Ask ' + who) + '</div>'
+        + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(who) + '</b>: <span id="djAIShort">“' + esc(short) + '”</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+        + '<button type="button" id="djAIGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Open ' + esc(who) + ' →</button>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAISw" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">different AI</button><button type="button" id="djAIX" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
+      b.querySelector('#djAIQ').value = o.prompt;
+      b.querySelector('#djAIShow').onclick = function(){ var t = b.querySelector('#djAIQ'); t.style.display = ''; this.style.display = 'none'; };
+      b.querySelector('#djAIGo').onclick = function(){ o.prompt = b.querySelector('#djAIQ').value; o.who = who; document.getElementById('djAISheet').remove(); openAssistant(o); if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); };
+      b.querySelector('#djAISw').onclick = function(){ document.getElementById('djAISheet').remove(); pickAssistant(function(){ djAI.ask(o); }); };
+      b.querySelector('#djAIX').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    },
+    choose: function(){ pickAssistant(); },
+    which: aiChoice,
+    extractJSON: extractJSON
+  };
+  /* ✨ Ask — free help with whatever is on the screen, in every app, today */
+  function screenWords(){
+    var t = (document.body && document.body.innerText || '').replace(/\s+/g,' ').trim();
+    return t.length > 1400 ? t.slice(0, 1400) + ' …' : t;
+  }
+  function showAnswer(app, text){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(app) + ' — the answer</div><div id="djAIAns" style="white-space:pre-wrap;font-size:16px;line-height:1.5;max-height:34vh;overflow:auto;padding:10px;border-radius:12px;background:#F7F4EC"></div><button type="button" id="djAIOk" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Done</button><div style="text-align:center;margin-top:6px"><button type="button" id="djAICp" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">copy it</button></div>');
+    b.querySelector('#djAIAns').textContent = text;
+    b.querySelector('#djAIOk').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    b.querySelector('#djAICp').onclick = function(){ try{ navigator.clipboard.writeText(text); this.textContent = 'copied ✓'; }catch(e){} };
+  }
+  window.djAI && (window.djAI.showAnswer = showAnswer);
+  function askButton(){
+    if(document.getElementById('djAsk') || !document.body) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'djAsk'; b.textContent = '✨';
+    b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
+    b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    b.onclick = function(){
+      var app = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
+      var D = window.DJ_AI || {};
+      var custom = (typeof D.prompt === 'function') ? D.prompt() : null;
+      djAI.ask({ title: D.title || ('Ask about ' + app), want: D.want || 'text',
+        prompt: custom || ('I am using an app called "' + app + '" on my phone. Here is what is on my screen right now:\n\n' + screenWords() + '\n\nExplain what I am looking at in plain words, and tell me the one most useful thing to do next. Keep it short. I am not a computer person.'),
+        onResult: function(v, raw){ if(typeof D.onResult === 'function'){ D.onResult(v, raw); return; } showAnswer(app, raw); } });
+    };
+    document.body.appendChild(b);
+  }
+
+  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
@@ -959,7 +1083,7 @@
   <div class="foot">Made with The Key · a free gift from Daraja Studio · every app helps a student in Kenya stay in school</div>
 </div>
 
-<div id="ver">The Key v1.4 · 2026-09-10 · free forever · Daraja Studio</div>
+<div id="ver">The Key v1.5 · 2026-09-11 · free forever · Daraja Studio</div>
 
 <script>
 const LS='daraja_thekey_v1';
@@ -999,7 +1123,7 @@ load();
 <script>if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }</script>
 <script>window.DJ_START = {"slug": "thekey", "em": "🔑", "title": "Welcome — one page, so nobody has to guess.", "lede": "Where things are, who to call, what matters. The page your family would give anything for one day, and that takes you one sitting to fill in now.", "cta": "Start with the people →", "firstSelector": "input, button", "dataKeys": ["thekey_v1", "key_v1"], "steps": ["<b>Start with the people</b> — who gets called first.", "<b>Then the papers</b> — where they live, not what they say.", "<b>Print two copies.</b> One for the safe, one for someone you trust."]};</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.4 · 2026-09-10) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.5 · 2026-09-11) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
@@ -1448,6 +1572,18 @@ load();
   var t; function soon(){ clearTimeout(t); t=setTimeout(paint, 250); }
   document.addEventListener('input', soon, true); document.addEventListener('change', soon, true);
   [600, 2000, 5000].forEach(function(ms){ setTimeout(paint, ms); });
+})();
+</script>
+<script id="dj-ai-thekey-v1">
+/* The Key — what have I forgotten? — one question through the AI Bridge (12 Sep 2026) */
+(function(){
+function _ls(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
+function _lines(a){ return (a||[]).filter(Boolean).map(function(x){ return '- ' + x; }).join('\n'); }
+
+window.DJ_AI = { title:'What have I forgotten to write down?',
+  prompt:function(){ var d=_ls('daraja_thekey_v1')||{}; var filled=Object.keys(d).filter(function(k){ return String(d[k]||'').trim(); }).length;
+    var txt=Object.keys(d).map(function(k){ return String(d[k]||'').trim(); }).filter(Boolean).join('\n---\n').slice(0,1500);
+    return 'I am filling in a one-page "where everything is" sheet for my family, in case something happens to me. ' + (filled ? 'Here is what I have so far:\n' + txt + '\n\n' : 'It is still empty. ') + 'What are the 5 most important things people forget to write down on a page like this? Short list, plain words, no legal advice.'; } };
 })();
 </script>
 </body>
