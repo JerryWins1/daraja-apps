@@ -1115,8 +1115,12 @@
     </header>
     <pre id="reportTxt"></pre>
     <footer>
-      <button class="btn green" onclick="copyReport()">Copy to clipboard</button>
+      <button class="btn green" onclick="sendToClaude()">📨 Send to Claude</button>
+      <button class="btn ghost" onclick="pickPics()">📎 Add my pictures <span id="picN"></span></button>
+      <button class="btn ghost" onclick="copyReport()">Copy to clipboard</button>
       <button class="btn ghost" onclick="downloadReport()">Download .txt</button>
+      <div class="small" style="flex-basis:100%;opacity:.8;margin-top:4px">📨 sends the report + your pictures in one go. Pick <b>Save to Files → Claude Cowork → Feedback inbox</b> (or Messages, to yourself). Then say “read my feedback”.</div>
+      <input type="file" id="picIn" accept="image/*" multiple style="display:none" aria-label="Pictures to send with the report">
       <button aria-label="Clears these comments so your next session starts clean" class="btn ghost" onclick="freshAfterReport()" title="Clears these comments so your next session starts clean">🗑 Report sent — start fresh</button>
       <span id="copied">✓ Copied — paste it to Claude</span>
     </footer>
@@ -1136,7 +1140,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v2.1 · 2026-09-10 · Daraja Studio</div>
+<div id="ver">Feedback Studio v2.2 · 2026-09-11 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -2170,6 +2174,38 @@ function downloadReport(){
   function go(){ var b=document.getElementById('urlin'); if(!b||typeof loadApp!=='function') return setTimeout(go,200); b.value=p; loadApp(); history.replaceState(null,'',location.pathname); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(go,300); }); else setTimeout(go,300);
 })();
+</script>
+<script id="dj-fs-send-v1">
+/* 11 Sep 2026, Jerry: "connect the feedback studio to the claude chat box directly… the
+   screenshots too." A web page cannot type into the Claude app, but it can hand the report
+   and the pictures to Messages in ONE share — sent to yourself — and Claude reads Messages
+   on this Mac the moment Jerry says "read my feedback". Same result, two taps. */
+window.__fsPics = window.__fsPics || [];
+window.pickPics = function(){ var i = document.getElementById('picIn'); if(i) i.click(); };
+document.addEventListener('change', function(e){
+  if(!e.target || e.target.id !== 'picIn') return;
+  var fs = [].slice.call(e.target.files || []); if(!fs.length) return;
+  window.__fsPics = window.__fsPics.concat(fs);
+  var n = document.getElementById('picN'); if(n) n.textContent = '(' + window.__fsPics.length + ')';
+  e.target.value = '';
+});
+window.sendToClaude = async function(){
+  var txt = buildReport();
+  var app = ((db.appUrl||'app').replace(/\/+$/,'').split('/').pop() || 'app').replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+  var d = new Date(), stamp = d.toISOString().slice(0,10) + '-' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+  var name = 'daraja-feedback-' + app + '-' + stamp + '.txt';
+  var files = [];
+  try{ files.push(new File([txt], name, {type:'text/plain'})); }catch(e){}
+  files = files.concat(window.__fsPics || []);
+  var payload = { title: 'Feedback for Claude — ' + app, text: txt };
+  if(files.length && navigator.canShare && navigator.canShare({files:files})) payload.files = files;
+  if(!navigator.share){ copyReport(); alert('This browser cannot share. The report is copied — paste it to Claude.'); return; }
+  try{
+    await navigator.share(payload);
+    window.__fsPics = []; var n = document.getElementById('picN'); if(n) n.textContent = '';
+    setTimeout(function(){ alert('Now tell Claude: “read my feedback”.\n\nSave to Files → iCloud Drive → Claude Cowork → Feedback inbox, or Messages to yourself — Claude reads either one straight off the Mac, text and pictures together.'); }, 300);
+  }catch(e){ /* cancelled the share sheet — nothing to do */ }
+};
 </script>
 </body>
 </html>
