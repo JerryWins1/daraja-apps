@@ -401,12 +401,12 @@ const APPS = {
   tag:'Nothing catches the trustees by surprise',
   try:'https://jerrywins1.github.io/daraja-apps/church-steward/',
   lines:[
-   "This is Ahead of It · Church, and it exists for one person: whoever keeps your church building alive.",
+   "This is Ahead of It, church edition, and it exists for one person: whoever keeps your church building alive.",
    "Because a church building is really a stack of dates. The fire inspection is due in October, the boiler certificate in January, the van registration in March, and the nursery background checks somewhere in between.",
    "When one of those dates slips past quietly, it costs real money, and sometimes it shuts a ministry down for a season.",
-   "Ahead of It · Church gathers every one of those dates onto one calm page, and starts whispering thirty days before anything comes due.",
+   "Ahead of It gathers every one of those dates onto one calm page, and starts whispering thirty days before anything comes due.",
    "It arrives already loaded with the twenty-four things churches most often forget, so setup is just ticking the ones your building actually has and typing in your real dates.",
-   "And here is the part trustees love: when the role changes hands, and it always does, Ahead of It · Church prints a complete hand-off list, so nothing lives in only one person's head anymore.",
+   "And here is the part trustees love: when the role changes hands, and it always does, it prints a complete hand-off list, so nothing lives in only one person's head anymore.",
    "It costs twenty-nine dollars, once, which is a good deal less than one missed inspection fine. Go ahead and try it below."
   ]},
  churchserve: {
@@ -467,9 +467,9 @@ const APPS = {
   tag:'The filings that quietly end small nonprofits — now they can\'t',
   try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
   lines:[
-   "This is Ahead of It · Nonprofit, built for the two-or-three-person nonprofit doing holy work with nobody in the office.",
+   "This is Ahead of It, nonprofit edition, built for the two-or-three-person nonprofit doing holy work with nobody in the office.",
    "Here is the fact that keeps founders up at night: if a small nonprofit misses its IRS nine-ninety three years in a row, its tax-exempt status is revoked automatically, and that happens to thousands of good organizations every single year.",
-   "So Ahead of It · Nonprofit holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
+   "So it holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
    "It comes pre-loaded with the filings small nonprofits actually face, so you just tick what applies to you and enter your real dates.",
    "Twenty-nine dollars, one time. It may be the cheapest insurance a mission ever bought. Try it below."
   ]},
