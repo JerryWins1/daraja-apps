@@ -6,6 +6,11 @@
    Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps). */
 const PHASE = 'testing';
 
+/* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
+   to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
+   these by default (the switch on the store turns the rest back on). Say "test these: …" */
+const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep'];
+
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
