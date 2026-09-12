@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v24">
+<script id="dj-house-v26">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -423,12 +423,13 @@
         var rc = el.getBoundingClientRect();
         if(rc.width>0 && rc.width < 22){ el.style.setProperty('width','22px','important'); el.style.setProperty('height','22px','important'); n++; }
       }
-      el.__djFloored = true;
+      /* a box that was empty at first (a version line filled in later) is measured again when its words arrive */
+      if(own || isCtl) el.__djFloored = true;
     }
     return n;
   }
   /* the dock and the app's own bars keep moving for a few seconds after load, so the + button is re-checked on the same schedule */
-  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
+  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ contrastFloor(); }catch(e){} try{ nameButtons(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
 
   function auditFixes(){
     try{ auditFixCSS(); }catch(e){}
@@ -863,6 +864,32 @@
         onResult: function(v, raw){ if(typeof D.onResult === 'function'){ D.onResult(v, raw); return; } showAnswer(app, raw); } });
     };
     document.body.appendChild(b);
+  }
+
+  /* ── 13 · the contrast floor (12 Sep 2026) ──────────────────────────────────
+     Measured in light mode, a dozen apps had grey helper lines at 3.8–4.1:1 — each set
+     by its own stylesheet, each just under the readable line. Like the text floor,
+     this reads what the browser actually painted and darkens only greys (never a
+     coloured accent), only when the words sit under 4.5:1. */
+  function lum(c){ var m = /\d+(\.\d+)?/g, v = (c||'').match(m); if(!v || v.length < 3) return null; if(v[3] !== undefined && +v[3] < 0.5) return null;
+    var f = function(x){ x = +x/255; return x <= .03928 ? x/12.92 : Math.pow((x+.055)/1.055, 2.4); }; return .2126*f(v[0]) + .7152*f(v[1]) + .0722*f(v[2]); }
+  function isGrey(c){ var v = (c||'').match(/\d+/g); if(!v || v.length < 3) return false; var mx = Math.max(+v[0],+v[1],+v[2]), mn = Math.min(+v[0],+v[1],+v[2]); return (mx - mn) < 40; }
+  function bgOf(el){ var e = el; while(e && e !== document.documentElement){ var c = getComputedStyle(e).backgroundColor; var v = (c||'').match(/\d+(\.\d+)?/g); if(v && v.length >= 3 && (v[3] === undefined || +v[3] >= .5)) return c; e = e.parentElement; } return getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)'; }
+  function contrastFloor(){
+    var all = document.body ? document.body.getElementsByTagName('*') : [], n = 0;
+    for(var i = 0; i < all.length; i++){
+      var el = all[i]; if(el.__djContrast) continue;
+      var tag = el.tagName; if(tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A') continue;
+      var own = false; for(var c = el.firstChild; c; c = c.nextSibling){ if(c.nodeType === 3 && c.textContent.trim().length > 1){ own = true; break; } }
+      if(!own) continue;
+      var cs = getComputedStyle(el); if(cs.display === 'none' || +cs.opacity === 0) continue;
+      var fg = cs.color; if(!isGrey(fg)) { el.__djContrast = true; continue; }
+      var L1 = lum(fg), L2 = lum(bgOf(el)); if(L1 === null || L2 === null){ el.__djContrast = true; continue; }
+      var ratio = (Math.max(L1,L2) + .05) / (Math.min(L1,L2) + .05);
+      if(ratio < 4.5){ el.style.setProperty('color', L2 > 0.4 ? '#3B453F' : '#C9CFCB', 'important'); n++; }
+      el.__djContrast = true;
+    }
+    return n;
   }
 
   function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
