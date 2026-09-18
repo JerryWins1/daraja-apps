@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v26">
+<script id="dj-house-v29">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -467,7 +467,7 @@
 
   var dockEl = null;
   function dock(){
-    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa', 'djAsk'];  /* the days-left badge sat on the app title */
+    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa', 'djAsk', 'djMore'];  /* the days-left badge sat on the app title */
     var found = [];
     for(var i=0; i<wanted.length; i++){
       var el = document.getElementById(wanted[i]);
@@ -892,7 +892,71 @@
     return n;
   }
 
-  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
+
+  /* ── 14 · More from Daraja (18 Sep 2026) ──────────────────────────────────────
+     Jerry: "if you downloaded any of the household apps, you would then get links to
+     the other ones — show them, let them see the video, and buy it if they wanted."
+     One 🌉 in the dock. Tap it and the other apps on the SAME shelf slide up, each
+     with its one line, its 2-minute video and Try it (Get it once the store is live).
+     It reads the store's own list, so a new app shows up here the day it is shelved. */
+  function moreButton(){
+    if(document.getElementById('djMore') || !document.body) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks)\//.test(location.pathname)) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'djMore'; b.textContent = '\u{1F309}';
+    b.title = 'More from Daraja'; b.setAttribute('aria-label', 'More from Daraja — the other apps');
+    b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    b.onclick = openMore;
+    document.body.appendChild(b);
+  }
+  function loadApps(cb){
+    if(typeof APPS !== 'undefined'){ cb(false); return; }
+    var sc = document.createElement('script');
+    sc.src = 'https://jerrywins1.github.io/daraja-apps/shop/apps_data.js?h=' + Math.floor(Date.now()/36e5);   /* hourly key: a store change reaches the sheet within the hour, not the day */
+    sc.onload = function(){ cb(typeof APPS === 'undefined'); }; sc.onerror = function(){ cb(true); };
+    document.head.appendChild(sc);
+  }
+  function myStoreKey(){
+    var pp = decodeURIComponent(location.pathname).replace(/index\.html$/,''), best = null, bl = 0;
+    Object.keys(APPS).forEach(function(k){ var t = APPS[k].try; if(!t) return;
+      try{ var u = new URL(t, location.href); if(u.host !== location.host) return;
+        var tp = decodeURIComponent(u.pathname).replace(/index\.html$/,'');
+        if(pp.indexOf(tp) === 0 && tp.length > bl){ best = k; bl = tp.length; } }catch(e){} });
+    return best;
+  }
+  function openMore(){
+    var old = document.getElementById('djMoreSheet'); if(old){ old.remove(); return; }
+    loadApps(function(err){
+      if(err){ location.href = 'https://jerrywins1.github.io/daraja-apps/home/'; return; }
+      var shelfOf = function(k){ return (typeof DOOR !== 'undefined' && DOOR[k]) || APPS[k].cat; };
+      var me = myStoreKey(), cat = me ? shelfOf(me) : null;
+      var NAMES = (typeof DOOR_SHELF !== 'undefined') ? DOOR_SHELF : {home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun'};
+      var live = (typeof PHASE !== 'undefined' && PHASE === 'live');
+      var keys = Object.keys(APPS).filter(function(k){ var a = APPS[k]; return k !== me && k !== 'home' && a.cat && a.cat !== 'off' && (a.try || a.kind === 'download') && (!cat || shelfOf(k) === cat); });
+      var dark = false; try{ dark = matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.getAttribute('data-theme') !== 'light'; }catch(e){}
+      var paper = dark ? '#1D2224' : '#FAF6EE', ink = dark ? '#ECEAE3' : '#1F2622', soft = dark ? '#B0B7B1' : '#55605B', line = dark ? '#3A4245' : '#E2DCCF', card = dark ? '#262C2E' : '#FFFFFF', brand = dark ? '#7FB4B1' : '#23504F';
+      var esc = function(x){ return String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+      var wrap = document.createElement('div'); wrap.id = 'djMoreSheet'; wrap.setAttribute('role','dialog'); wrap.setAttribute('aria-label','More from Daraja');
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:2147482500;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;font:16px/1.45 -apple-system,system-ui,sans-serif';
+      wrap.addEventListener('click', function(e){ if(e.target === wrap) wrap.remove(); });
+      var btn = function(label, href, primary){ return '<a href="' + esc(href) + '" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 14px;border-radius:12px;font-weight:800;font-size:15px;text-decoration:none;' + (primary ? 'background:' + brand + ';color:#fff;' : 'background:' + card + ';color:' + ink + ';border:1.5px solid ' + line + ';') + '">' + label + '</a>'; };
+      var rows = keys.map(function(k){ var a = APPS[k]; var acts = '';
+        if(a.video) acts += btn('▶ 2 min', 'https://jerrywins1.github.io/daraja-apps/shop/watch.html?app=' + k, false) + ' ';
+        if(live && a.buy) acts += btn('Get it · ' + esc(a.price || ''), a.buy, true);
+        else if(a.try) acts += btn(live ? 'Try it' : 'Try it free', a.try, true);
+        else acts += btn('See it · ' + esc(a.price || ''), 'https://jerrywins1.github.io/daraja-apps/shop/#' + k, true);
+        return '<div style="display:flex;gap:12px;align-items:flex-start;background:' + card + ';border:1.5px solid ' + line + ';border-radius:16px;padding:12px;margin-bottom:10px"><div style="font-size:34px;line-height:1;flex:none;width:44px;text-align:center">' + (a.em || '\u{1F4F1}') + '</div><div style="flex:1;min-width:0"><div style="font-weight:900;font-size:17px;color:' + ink + '">' + esc(a.name) + (a.fresh ? ' <span style="font-size:11px;background:#C9982A;color:#1F2622;border-radius:999px;padding:2px 7px;vertical-align:middle">NEW</span>' : '') + '</div><div style="font-size:14.5px;color:' + soft + ';margin:2px 0 8px">' + esc(a.sub || a.tag || '') + '</div><div style="display:flex;gap:8px;flex-wrap:wrap">' + acts + '</div></div></div>'; }).join('');
+      if(!rows) rows = '<p style="color:' + soft + '">Nothing else on this shelf yet.</p>';
+      wrap.innerHTML = '<div style="background:' + paper + ';color:' + ink + ';width:100%;max-width:640px;margin:0 auto;max-height:86vh;overflow:auto;border-radius:22px 22px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)">'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><div style="font-size:26px">\u{1F309}</div><div style="flex:1"><div style="font-weight:900;font-size:19px">More from Daraja</div><div style="font-size:14px;color:' + soft + '">' + (cat ? esc(NAMES[cat] || '') + ' · the other apps on this shelf' : 'the whole family of apps') + '</div></div><button type="button" id="djMoreClose" aria-label="Close" style="width:44px;height:44px;min-height:44px;border-radius:50%;border:1.5px solid ' + line + ';background:' + card + ';color:' + ink + ';font:800 18px/1 sans-serif;cursor:pointer">✕</button></div>'
+        + '<p style="font-size:14px;color:' + soft + ';margin:6px 0 12px">Same idea as this one: one price, no subscription, no account, your data stays on your phone. Every purchase keeps a student in Kenya in school.</p>'
+        + rows
+        + '<div style="text-align:center;margin-top:12px">' + btn('\u{1F309} Every shelf — the Daraja door', 'https://jerrywins1.github.io/daraja-apps/home/', false) + '</div></div>';
+      document.body.appendChild(wrap);
+      document.getElementById('djMoreClose').onclick = function(){ wrap.remove(); };
+    });
+  }
+
+  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
@@ -913,7 +977,6 @@
   else boot();
 })();
 </script>
-
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
