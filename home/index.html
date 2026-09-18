@@ -951,7 +951,7 @@
   .app .new{ position:absolute; top:8px; right:10px; font-size:10.5px; font-weight:900; background:var(--gold); color:#1F2622; border-radius:999px; padding:2px 7px; letter-spacing:.04em; }
   .pickShelf{ display:grid; gap:10px; margin-top:10px; } .pickShelf button{ text-align:left; min-height:60px; font-size:17px; display:flex; gap:12px; align-items:center; } .pickShelf button span{ font-size:28px; }
   nav{ position:fixed; left:0; right:0; bottom:0; display:flex; background:var(--surface); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); z-index:20; }
-  nav button{ flex:1; border:0; border-radius:0; background:transparent; font-size:11px; font-weight:800; color:var(--soft); min-height:58px; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 2px; }
+  nav button{ flex:1; border:0; border-radius:0; background:transparent; font-size:10.5px; font-weight:800; color:var(--soft); min-height:58px; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 2px; }
   nav button span{ font-size:22px; } nav button.on{ color:var(--brand); }
   .foot{ color:var(--soft); font-size:13px; text-align:center; margin-top:22px; } .foot a{ color:var(--brand); font-weight:800; }
   /* the app runs inside, with a slim bar to come back */
@@ -983,13 +983,16 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 function load(){ try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch(e){ return {}; } }
 function save(){ localStorage.setItem(LS,JSON.stringify(db)); }
 let db=load();
-const SHELF={ home:{em:'🏠',name:'Your household',sub:'The day, the dates, and where everything is.'}, later:{em:'🌷',name:'Later life & the people we love',sub:'Company, stories, and learning at your own pace.'}, church:{em:'⛪',name:'Your church',sub:'For the people who keep a church running.'}, work:{em:'💼',name:'Your business or nonprofit',sub:'The back office, for people who do not have one.'}, free:{em:'🎁',name:'Free, and for good',sub:'The ones that were never about money.'} };
-const ORDER=['home','later','church','work','free'];
+const SHELF={ home:{em:'🏠',name:'Your household',sub:'The day, the dates, and where everything is.'}, later:{em:'🌷',name:'Later life & the people we love',sub:'Company, stories, and learning at your own pace.'}, church:{em:'⛪',name:'Your church',sub:'For the people who keep a church running.'}, work:{em:'💼',name:'Your business or nonprofit',sub:'The back office, for people who do not have one.'}, free:{em:'🎁',name:'Free, and for good',sub:'The ones that were never about money.'}, fun:{em:'🏁',name:'Just for fun',sub:'The league, and whatever comes next.'} };
+const ORDER=['home','later','church','work','free','fun'];
+/* Jerry’s sort for the door, 18 Sep — the store keeps its own shelves for selling */
+const DOOR={ pitwall:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
+const shelfOf=k=>DOOR[k]||APPS[k].cat;
 /* what each app saves under, so the door knows which ones you already use */
 const USES={ nownext:['now_next_v1','now_next_profiles_v1'], ahead:['ahead_v1'], thekey:['daraja_thekey_v1'], pitwall:['pitwall_state_v1'], rafiki:['rafiki_v1'], storykeeper:['story_keeper_v1'], churchkey:['daraja_churchkey_v1'], churchserve:['serveboard_v1'], churchdrive:['occ_counter_v1'], occ:['occ_counter_v1'], npreceipts:['receiptmaker_org_v1'], nextstep:['nextstep_board_v1'], academy:['daraja_academy_v1'], whoscoming:['dj_whoscoming_v1'], ourtable:['dj_ourtable_v1'], everyday:['dj_everyday_v1'], safety:['my_safety_plan_v1'], breakeven:['breakeven_v1'], compass:['daraja_compass_v1'], drumbeat:['drumbeat_v1'], flipkit:['flipkit_v1'], zuri:['zuri_ops_v1'], churchhq:['church_hq_v1'], churchsteward:['steward_v1'], churchclubhouse:['clubhouse_stars'], npgoodstanding:['goodstanding_v1'], feedback:['feedback_studio_v1'] };
 const inUse=k=>(USES[k]||[]).some(x=>{ try{ return !!localStorage.getItem(x); }catch(e){ return false; } });
-const APPLIST=Object.keys(typeof APPS==='object'?APPS:{}).filter(k=>k!=='home'&&APPS[k].try&&APPS[k].cat&&APPS[k].cat!=='off');
-const url=k=>APPS[k].try;
+const APPLIST=Object.keys(typeof APPS==='object'?APPS:{}).filter(k=>k!=='home'&&(APPS[k].try||APPS[k].kind==='download')&&APPS[k].cat&&APPS[k].cat!=='off');
+const url=k=>APPS[k].try||('https://jerrywins1.github.io/daraja-apps/shop/#'+k);
 const j=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };
 const ymd=d=>{ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 
@@ -1014,9 +1017,9 @@ function setShelf(s){ db.shelf=s; save(); if(!db.name){ const n=prompt('And what
 
 /* ── shelves ─────────────────────────────────────────────────── */
 let cur='';
-function showShelf(s){ cur=s; db.last=s; save(); const S=SHELF[s]; const apps=APPLIST.filter(k=>APPS[k].cat===s).sort((a,b)=>(inUse(b)-inUse(a))||((APPS[b].fresh?1:0)-(APPS[a].fresh?1:0)));
-  $('shelfView').innerHTML=`<h2 class="shelf">${S.em} ${S.name}</h2><p class="shelfSub">${S.sub}${s===db.shelf?' · your shelf':''}</p><div class="grid">${apps.map(k=>{ const a=APPS[k]; const u=inUse(k); return `<button class="app ${u?'use':'try'}" onclick="openApp('${k}')" aria-label="${esc(a.name)}, ${u?'you use this':'try it'}">${a.fresh?'<span class="new">NEW</span>':''}<div class="em">${a.em||'📱'}</div><div class="nm">${esc(a.name)}</div><div class="sub">${esc(a.sub||a.tag||'')}</div><div class="st">${u?'you use this':(typeof PHASE!=='undefined'&&PHASE==='testing')?'try it · free while testing':(a.price==='Free'?'free':'try it · '+esc(a.price||''))}</div></button>`; }).join('')||'<p class="small">Nothing on this shelf yet.</p>'}</div>`;
-  $('nav').innerHTML=ORDER.map(x=>`<button class="${x===s?'on':''}" onclick="showShelf('${x}')"><span>${SHELF[x].em}</span>${x==='home'?'Household':x==='later'?'Later life':x==='church'?'Church':x==='work'?'Business':'Free'}</button>`).join('');
+function showShelf(s){ cur=s; db.last=s; save(); const S=SHELF[s]; const apps=APPLIST.filter(k=>shelfOf(k)===s).sort((a,b)=>(inUse(b)-inUse(a))||((APPS[b].fresh?1:0)-(APPS[a].fresh?1:0)));
+  $('shelfView').innerHTML=`<h2 class="shelf">${S.em} ${S.name}</h2><p class="shelfSub">${S.sub}${s===db.shelf?' · your shelf':''}</p><div class="grid">${apps.map(k=>{ const a=APPS[k]; const u=inUse(k); return `<button class="app ${u?'use':'try'}" onclick="openApp('${k}')" aria-label="${esc(a.name)}, ${u?'you use this':'try it'}">${a.fresh?'<span class="new">NEW</span>':''}<div class="em">${a.em||'📱'}</div><div class="nm">${esc(a.name)}</div><div class="sub">${esc(a.sub||a.tag||'')}</div><div class="st">${u?'you use this':a.kind==='download'?'a book · '+esc(a.price||''):(typeof PHASE!=='undefined'&&PHASE==='testing')?'try it · free while testing':(a.price==='Free'?'free':'try it · '+esc(a.price||''))}</div></button>`; }).join('')||'<p class="small">Nothing on this shelf yet.</p>'}</div>`;
+  $('nav').innerHTML=ORDER.map(x=>`<button class="${x===s?'on':''}" onclick="showShelf('${x}')"><span>${SHELF[x].em}</span>${x==='home'?'Household':x==='later'?'Later life':x==='church'?'Church':x==='work'?'Business':x==='free'?'Free':'Fun'}</button>`).join('');
   window.scrollTo({top:0}); }
 
 /* ── open an app inside the door ────────────────────────────── */
