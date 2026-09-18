@@ -9,7 +9,7 @@ const PHASE = 'testing';
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
-const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep'];
+const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','ourtable','everyday','academy'];
 
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
@@ -191,7 +191,7 @@ const APPS = {
    "The app is free. The printed book starts at thirty-nine dollars — and it's the gift nobody ever forgets getting.",
    "Try it below. Ask someone you love one question tonight."]},
  academy: {
-  name:'Daraja Academy', em:'🌉', sub:'learn AI, gently', cat:'free', price:'Lesson 1 free · course $19', testing:true,
+  name:'Daraja Academy', em:'🌉', sub:'six lessons · AI for Grandparents', cat:'free', price:'Lesson 1 free · course $19', testing:true,
   tag:'AI for Grandparents — learn to use AI, the patient way',
   try:BASE+'academy/', video:true,
   train:[
