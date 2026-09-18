@@ -15,6 +15,11 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ whoscoming: {
+  name:'Who’s Coming', em:'🙋', sub:'ask the group, collect the answers', fresh:true, cat:'home', price:'Free', testing:true,
+  tag:'ask the group, collect the answers',
+  try:BASE+'whoscoming/', video:false
+ },
  nownext: {
   buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
   name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'home', price:'$4.99', testing:true,
