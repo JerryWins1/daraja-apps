@@ -20,6 +20,26 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ tester: {
+  name:'How to be a tester', em:'🧪', sub:'three minutes, then you know what you are looking at', cat:'off', price:'', testing:true, video:true,
+  tag:'The tester video — what the store is, what Feedback Studio does, and how a report gets to Claude',
+  try:BASE+'feedback-studio/?app='+encodeURIComponent(BASE+'ourtable/'),
+  lines:[
+   "Hello, and thank you for testing. This is three minutes on what you are looking at, and what we need from you.",
+   "Daraja Studio makes small phone apps for households, for churches, and for later life. One price, no subscription, no account. Your data stays on your phone.",
+   "The store shows the apps we are testing right now. Each card has a two-minute video and a Try it button. Nothing costs anything while we test.",
+   "You do not have to understand an app before you try it. The whole point is to watch what happens when a normal person opens it cold.",
+   "Here is the trick that makes your job easy. We open every app inside a wrapper called Feedback Studio. That is what you are looking at now — Our Table, running inside it.",
+   {t:"Just use the app the way you would at home. Every tap is written down for us automatically, so you never have to remember what you did.", point:"#appframe"},
+   {t:"When something is wrong — too small, wrong words, you do not know what to do next — tap Point, then tap the thing on the screen. That marks it.", point:"#pointBtn"},
+   {t:"Then tap the microphone and say what bothered you, in your own words. Talking is better than typing. Short is fine. Grumpy is fine.", point:"#micBtn"},
+   "Three or four things per app is plenty. If nothing is wrong, say that too — it is just as useful.",
+   {t:"When you are done, tap I am done. It builds a report from your taps and your words.", point:"[data-a=done]"},
+   "Then tap Send to Claude and choose Messages. Send it to Jerry. Claude reads it the next morning and fixes what he can that day.",
+   "One more thing. There is a Testers' List — a shared page where you can see what the other testers found, add your own ideas, and see what got fixed. Jerry will text you the link.",
+   "That is all there is. Open an app, use it, point at what is wrong, say why, send it. You are not being tested. The app is.",
+   "Thank you. Every app that gets better because of you helps a student in Kenya stay in school."]
+ },
  home: {
   name:'Daraja', em:'🌉', sub:'your family of apps, one front door', fresh:true, cat:'free', price:'Free', testing:true,
   tag:'your family of apps, one front door',
