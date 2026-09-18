@@ -15,6 +15,11 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ home: {
+  name:'Daraja', em:'🌉', sub:'your family of apps, one front door', fresh:true, cat:'free', price:'Free', testing:true,
+  tag:'your family of apps, one front door',
+  try:BASE+'home/', video:false
+ },
  everyday: {
   name:'Every Day', em:'🌱', sub:'six small things, every day, a streak you can see', fresh:true, cat:'later', price:'Free', testing:true,
   tag:'six small things, every day, a streak you can see',
