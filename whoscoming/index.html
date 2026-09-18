@@ -908,8 +908,11 @@
     b.onclick = openMore;
     document.body.appendChild(b);
   }
+  var appsLoading = false;
   function loadApps(cb){
     if(typeof APPS !== 'undefined'){ cb(false); return; }
+    if(appsLoading) return;                              /* a quick double tap must not load the list twice */
+    appsLoading = true;
     var sc = document.createElement('script');
     sc.src = 'https://jerrywins1.github.io/daraja-apps/shop/apps_data.js?h=' + Math.floor(Date.now()/36e5);   /* hourly key: a store change reaches the sheet within the hour, not the day */
     sc.onload = function(){ cb(typeof APPS === 'undefined'); }; sc.onerror = function(){ cb(true); };
@@ -997,12 +1000,12 @@
   :root[data-theme="dark"]{ --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336; --brand:#7FB4B1; --accent:#E8886A; --ok:#6DC296; --gold:#E0B04A; --felt:#173F31; --blue:#8FB4D0; }
   *{ box-sizing:border-box; } html{ -webkit-text-size-adjust:100%; }
   body{ margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .wrap{ max-width:620px; margin:0 auto; padding:14px 14px calc(90px + env(safe-area-inset-bottom)); }
+  .wrap{ max-width:620px; margin:0 auto; padding:14px 14px calc(120px + env(safe-area-inset-bottom)); }
   header{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
   header h1{ font-size:24px; margin:0; line-height:1.15; } header p{ margin:0; color:var(--soft); font-size:14px; }
   .host{ background:var(--felt); color:#fff; border-radius:18px; padding:14px 16px; margin-bottom:12px; box-shadow:0 8px 24px rgba(0,0,0,.18); }
   .host b{ display:block; font-size:17px; margin-bottom:4px; } .host p{ margin:0 0 10px; font-size:15px; opacity:.95; }
-  .host .row button{ background:#fff; color:#1F2622; border:0; }
+  .host .row button{ background:#fff; color:#1F2622; border:0; } .host .row input{ background:#fff; color:#1F2622; }
   .card{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; }
   .card h2{ font-size:19px; margin:0 0 8px; } .card p{ margin:0 0 8px; color:var(--soft); font-size:15px; }
   button, .btn{ font:inherit; font-weight:800; min-height:46px; padding:10px 16px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
@@ -1030,6 +1033,9 @@
   .reply{ background:var(--surface); border:2px solid var(--gold); border-radius:20px; padding:18px; }
   .reply h2{ font-size:24px; margin:0 0 6px; } .reply .opts button{ width:100%; min-height:58px; font-size:19px; margin-bottom:8px; }
   .small{ font-size:13px; color:var(--soft); }
+  .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:40; } .sheet.on{ display:flex; }
+  .sheet .in{ background:var(--surface); width:100%; max-height:88vh; overflow:auto; border-radius:22px 22px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .sheet h3{ margin:0 0 8px; font-size:20px; } .sheet textarea{ min-height:120px; }
   .sr{ position:absolute; left:-9999px; }
 </style>
 </head>
@@ -1084,9 +1090,11 @@
     </section>
   </div>
 
-  <p class="foot">Who’s Coming v1.1 · 2026-09-17 · Daraja Studio · nothing is sent unless you tap Send</p>
+  <p class="foot">Who’s Coming v1.2 · 2026-09-18 · Daraja Studio · nothing is sent unless you tap Send</p>
 </div>
 
+<input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
+<div class="sheet" id="wcSheet" onclick="if(event.target===this)this.classList.remove('on')"><div class="in" id="wcSheetIn"></div></div>
 <nav>
   <button class="on" data-p="ask" onclick="go('ask')"><span>❓</span>Asks</button>
   <button data-p="people" onclick="go('people')"><span>👥</span>People</button>
@@ -1116,7 +1124,8 @@ function hostLine(){
   const open=db.asks.filter(a=>!a.closed);
   const waiting=open.map(a=>({a, n:peopleOf(a.groupId).filter(p=>!(a.answers||{})[p.id]).length})).filter(x=>x.n>0);
   let b='', p='', act='';
-  if(!db.me.phone){ b=g+'.'; p='Before the first question: what number should answers come back to?'; act='<button onclick="go(\'people\');document.getElementById(\'myPhone\').focus()">Put in my number</button>'; }
+  if(!db.me.phone){ b=g+'. One thing before the first question.'; p='What number should answers come back to? (Your name too, so people know who’s asking.)';
+    act='<input id="hostName" placeholder="Your name" aria-label="Your name" value="'+esc(db.me.name||'')+'" style="flex:1;min-width:120px;border:0"><input id="hostPhone" inputmode="tel" placeholder="Your mobile" aria-label="Your mobile number" style="flex:1.4;min-width:150px;border:0"><button onclick="saveMe(document.getElementById(\'hostName\').value,document.getElementById(\'hostPhone\').value)">Save ✓</button>'; }
   else if(!open.length){ b=g+(db.me.name?', '+db.me.name:'')+'.'; p='Nothing is being asked right now. Want to ask a group something?'; act='<button onclick="toggleNew(true)">Ask something</button>'; }
   else if(waiting.length){ const w=waiting[0]; b=g+'.'; p=`“${esc(w.a.q)}” — ${w.n} ${w.n===1?'person hasn’t':'people haven’t'} answered yet. Nudge them, or record what they told you?`; act=`<button onclick="sendAsk('${w.a.id}',true)">Nudge the ${w.n}</button> <button onclick="openAsk('${w.a.id}')">Record answers</button>`; }
   else { const a=open[0]; b='Everyone has answered.'; p=`“${esc(a.q)}” — ${tallyText(a)}. Close it?`; act=`<button onclick="closeAsk('${a.id}')">Close it ✓</button>`; }
@@ -1168,14 +1177,40 @@ function addPerson(gid){ const n=$('pn-'+gid).value.trim(), ph=$('pp-'+gid).valu
 function rmPerson(gid,pid){ const g=db.groups.find(x=>x.id===gid); g.people=g.people.filter(p=>p.id!==pid); save(); render(); }
 function rmGroup(gid){ if(!confirm('Remove this group? Its questions stay.')) return; db.groups=db.groups.filter(g=>g.id!==gid); save(); render(); }
 function renameGroup(gid){ const g=db.groups.find(x=>x.id===gid); const n=prompt('Group name', g.name); if(n&&n.trim()){ g.name=n.trim(); save(); render(); } }
-function saveMe(){ db.me={name:$('myName').value.trim(), phone:$('myPhone').value.trim()}; save(); render(); toast('Saved ✓'); }
+function saveMe(n,ph){ const name=(n!=null?n:$('myName').value).trim(), phone=(ph!=null?ph:$('myPhone').value).trim(); if(!phone){ toast('Type your mobile number first'); return; } db.me={name,phone}; save(); render(); toast('Saved ✓'); }
 function renderPeople(){
   $('groupList').innerHTML=db.groups.map(g=>`<div class="card"><h2>${esc(g.name)} <button class="ghost" style="min-height:36px;padding:4px 10px;font-size:13px" onclick="renameGroup('${g.id}')">rename</button></h2>
     ${g.people.map(p=>`<div class="person"><div class="nm">${esc(p.name)}<small>${p.phone?esc(p.phone):'no number — copy & paste to send'}</small></div><button class="ghost" aria-label="Remove ${esc(p.name)}" onclick="rmPerson('${g.id}','${p.id}')">✕</button></div>`).join('')||'<div class="empty">Nobody in it yet.</div>'}
     <div class="row" style="margin-top:8px"><input id="pn-${g.id}" placeholder="Name" aria-label="Name" style="flex:2;min-width:120px"><input id="pp-${g.id}" inputmode="tel" placeholder="Mobile (optional)" aria-label="Mobile number" style="flex:2;min-width:140px"><button class="ok" onclick="addPerson('${g.id}')">Add</button></div>
-    <div class="row" style="margin-top:8px"><button class="ghost" onclick="rmGroup('${g.id}')">Remove group</button></div></div>`).join('')||'';
+    <div class="row" style="margin-top:8px"><button onclick="fromContacts('${g.id}')">📇 From contacts</button><button onclick="pasteList('${g.id}')">📋 Paste a list</button><button class="ghost" onclick="rmGroup('${g.id}')">Remove group</button></div></div>`).join('')||'';
   $('myName').value=db.me.name||''; $('myPhone').value=db.me.phone||'';
 }
+
+
+/* ── people from the phone: Android picker · iPhone via a saved contact card · or paste ── */
+function sheet(html){ $('wcSheetIn').innerHTML=html; $('wcSheet').classList.add('on'); }
+function closeSheet(){ $('wcSheet').classList.remove('on'); }
+function addMany(gid, people){ const g=db.groups.find(x=>x.id===gid); if(!g) return 0; let n=0;
+  people.forEach(p=>{ const name=String(p.name||'').trim(), phone=String(p.phone||'').trim(); if(!name) return; const key=phone.replace(/\D/g,'');
+    if(g.people.some(x=>(key&&x.phone.replace(/\D/g,'')===key)||x.name.toLowerCase()===name.toLowerCase())) return; g.people.push({id:uid(),name,phone}); n++; });
+  save(); render(); toast(n?n+' added':'Already in the group'); return n; }
+async function fromContacts(gid){
+  if(navigator.contacts && navigator.contacts.select){
+    try{ const cs=await navigator.contacts.select(['name','tel'],{multiple:true}); addMany(gid, cs.map(c=>({name:(c.name||[])[0]||'', phone:(c.tel||[])[0]||''}))); }catch(e){}
+    return; }
+  sheet(`<h3>📇 From your contacts</h3><p>This phone won’t let an app open Contacts directly (Apple’s rule, not ours). The two-step that works:</p>
+    <p><b>1.</b> Open <b>Contacts</b> → the person → scroll down → <b>Share Contact</b> → <b>Save to Files</b>. Do that for each person you want.</p>
+    <p><b>2.</b> Come back here and tap the button below, then pick the saved cards (you can pick several at once).</p>
+    <div class="row"><button class="primary" style="flex:1" onclick="closeSheet();const f=document.getElementById('vcf');f.dataset.gid='${gid}';f.value='';f.click()">Pick the saved cards</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>
+    <p class="small" style="margin-top:10px">Quicker for a whole group: tap <b>📋 Paste a list</b> instead and type names and numbers, one per line.</p>`);
+}
+function parseVcf(text){ const out=[]; text.split(/BEGIN:VCARD/i).slice(1).forEach(card=>{ const fn=(card.match(/^FN[^:]*:(.+)$/im)||[])[1]||''; const n=(card.match(/^N[^:]*:([^;]*);([^;]*)/im)||[]); const name=(fn||((n[2]||'')+' '+(n[1]||''))).replace(/\\,/g,',').trim(); const tel=(card.match(/^TEL[^:]*:(.+)$/im)||[])[1]||''; if(name) out.push({name, phone:tel.replace(/[^\d+]/g,'')}); }); return out; }
+function readVcf(inp){ const gid=inp.dataset.gid; const files=[...(inp.files||[])]; if(!files.length) return; let all=[]; let left=files.length;
+  files.forEach(f=>{ const r=new FileReader(); r.onload=()=>{ all=all.concat(parseVcf(String(r.result||''))); if(--left===0){ if(!all.length) toast('No names found in those files'); else addMany(gid, all); } }; r.onerror=()=>{ if(--left===0 && all.length) addMany(gid, all); }; r.readAsText(f); }); }
+function pasteList(gid){ sheet(`<h3>📋 Paste a list</h3><p class="small">One person per line — a name, then the mobile if you have it. Say it into the box if you like.</p>
+    <textarea id="pasteBox" placeholder="Emma 847 555 0100&#10;Jack 847 555 0101&#10;Pastor Mike"></textarea>
+    <div class="row" style="margin-top:10px"><button class="primary" style="flex:1" onclick="addPasted('${gid}')">Add them all</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>`); setTimeout(()=>{ const x=$('pasteBox'); if(x) x.focus(); },100); }
+function addPasted(gid){ const lines=$('pasteBox').value.split(/\n|;/).map(l=>l.trim()).filter(Boolean); const people=lines.map(l=>{ const m=l.match(/(\+?[\d][\d\s().-]{6,}\d)/); const phone=m?m[1].replace(/[^\d+]/g,''):''; const name=l.replace(m?m[1]:'','').trim().replace(/[,\-–:]+$/,'').replace(/^[,\-–:]+/,'').trim(); return {name, phone}; }); closeSheet(); addMany(gid, people); }
 
 /* ── the reply page: what the person you asked sees ───────────── */
 function replyMode(){
