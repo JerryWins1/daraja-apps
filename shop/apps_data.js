@@ -15,6 +15,21 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ everyday: {
+  name:'Every Day', em:'🌱', sub:'six small things, every day, a streak you can see', fresh:true, cat:'later', price:'Free', testing:true,
+  tag:'six small things, every day, a streak you can see',
+  try:BASE+'everyday/', video:false
+ },
+ ourtable: {
+  name:'Our Table', em:'🍽', sub:'your recipes, your week, your list', fresh:true, cat:'home', price:'Free', testing:true,
+  tag:'your recipes, your week, your list',
+  try:BASE+'ourtable/', video:false
+ },
+ whoscoming: {
+  name:'Who’s Coming', em:'🙋', sub:'ask the group, collect the answers', fresh:true, cat:'home', price:'Free', testing:true,
+  tag:'ask the group, collect the answers',
+  try:BASE+'whoscoming/', video:false
+ },
  nownext: {
   buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
   name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'home', price:'$4.99', testing:true,
