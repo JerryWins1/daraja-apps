@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Who’s Coming</title>
+<meta name="description" content="ask the group, collect the answers">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Who’s Coming">
+<meta name="theme-color" content="#1C2B29">
+<style>
+  /* Daraja house tokens — same family as every other app. Light first, dark follows. */
+  :root{ color-scheme:light dark;
+    --bg:#F7F4EC; --surface:#FFFFFF; --ink:#1F2622; --soft:#55605B; --line:#E2DCCF;
+    --brand:#23504F; --accent:#D96C4F; --ok:#2F6E52; --gold:#C9982A; }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336;
+    --brand:#7FB4B1; --accent:#E8886A; --ok:#6DC296; --gold:#E0B04A; } }
+  :root[data-theme="dark"]{ --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336; --brand:#7FB4B1; --accent:#E8886A; --ok:#6DC296; --gold:#E0B04A; }
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap{ max-width:620px; margin:0 auto; padding:18px 16px calc(40px + env(safe-area-inset-bottom)); }
+  header{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  header h1{ font-size:26px; margin:0; line-height:1.15; }
+  header p{ margin:0; color:var(--soft); font-size:15px; }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
+  .card h2{ font-size:19px; margin:0 0 8px; }
+  .card p{ margin:0 0 8px; color:var(--soft); font-size:16px; }
+  .first ol{ margin:0; padding-left:22px; } .first li{ margin:6px 0; }
+  button, .btn{ font:inherit; font-weight:700; min-height:44px; padding:10px 16px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
+  button.primary{ background:var(--brand); color:#fff; border-color:var(--brand); }
+  button.ok{ background:var(--ok); color:#fff; border-color:var(--ok); }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  label{ display:block; font-weight:700; font-size:15px; margin:8px 0 4px; }
+  input, textarea, select{ font:inherit; width:100%; min-height:44px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); }
+  ul.items{ list-style:none; padding:0; margin:0; }
+  ul.items li{ display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  ul.items li:first-child{ border-top:0; }
+  ul.items li span{ flex:1; }
+  ul.items li.done span{ text-decoration:line-through; color:var(--soft); }
+  .empty{ color:var(--soft); text-align:center; padding:14px 0; }
+  .foot{ color:var(--soft); font-size:13px; text-align:center; margin-top:22px; }
+  .sr{ position:absolute; left:-9999px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="font-size:34px" aria-hidden="true">🙋</div>
+    <div><h1>Who’s Coming</h1><p>ask the group, collect the answers</p></div>
+  </header>
+
+  <!-- First time here: three sentences, one button. Hidden after the first save. -->
+  <section class="card first" id="first">
+    <h2>First time here? Three things.</h2>
+    <ol>
+      <li>Type one thing in the box and tap <b>Add</b>.</li>
+      <li>Tap the circle when it is done.</li>
+      <li>Everything stays on this phone. Nothing is sent anywhere.</li>
+    </ol>
+    <p><button class="primary" onclick="firstDone()">Got it</button></p>
+  </section>
+
+  <section class="card">
+    <label for="newItem">Add something</label>
+    <div class="row">
+      <input id="newItem" placeholder="e.g. call the pharmacy" aria-label="Add something" style="flex:1">
+      <button class="ok" onclick="addItem()">Add</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 id="listHead">Your list</h2>
+    <ul class="items" id="list" aria-labelledby="listHead"></ul>
+    <p class="empty" id="empty">Nothing yet — add the first one above.</p>
+  </section>
+
+  <p class="foot">Who’s Coming v1.0 · 2026-09-17 · Daraja Studio</p>
+</div>
+
+<script>
+/* ── data: one record on this phone, healed on load so old copies never break ── */
+const LS = 'dj_whoscoming_v1';
+window.DJ_OWNS = [LS];               /* tells the house layer what "Start fresh" may erase */
+function load(){ try{ const d = JSON.parse(localStorage.getItem(LS)||'{}'); return { first:!!d.first, items:Array.isArray(d.items)?d.items:[] }; }catch(e){ return {first:false, items:[]}; } }
+function save(){ localStorage.setItem(LS, JSON.stringify(db)); }
+let db = load();
+
+function firstDone(){ db.first = true; save(); render(); }
+function addItem(){
+  const box = document.getElementById('newItem'); const t = box.value.trim(); if(!t) return;
+  db.items.unshift({ t, done:false, on: (window.djYMD ? djYMD() : new Date().toISOString().slice(0,10)) });
+  box.value = ''; save(); render();
+}
+function toggle(i){ db.items[i].done = !db.items[i].done; save(); render(); }
+function render(){
+  document.getElementById('first').style.display = db.first ? 'none' : '';
+  const ul = document.getElementById('list'); ul.innerHTML = '';
+  db.items.forEach((it, i) => {
+    const li = document.createElement('li'); if(it.done) li.className = 'done';
+    const b = document.createElement('button'); b.textContent = it.done ? '✓' : '○'; b.setAttribute('aria-label', (it.done?'Mark not done: ':'Mark done: ')+it.t); b.onclick = () => toggle(i);
+    const s = document.createElement('span'); s.textContent = it.t;
+    li.append(b, s); ul.append(li);
+  });
+  document.getElementById('empty').style.display = db.items.length ? 'none' : '';
+}
+render();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
