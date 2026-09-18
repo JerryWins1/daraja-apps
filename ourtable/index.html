@@ -1,112 +1,1164 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script id="dj-house-v26">
+/* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
+(function(){
+  if(window.__djHouse) return; window.__djHouse = true;
+
+  /* ── 1 · the real local day ──────────────────────────────────────────────
+     toISOString() converts to UTC. At 7pm in Illinois that is already tomorrow,
+     so "today" landed on the wrong date and daily streaks broke overnight. */
+  window.djYMD = function(d){
+    d = d || new Date();
+    if(typeof d === 'string') d = new Date(d + (d.length === 10 ? 'T12:00:00' : ''));
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
+  };
+
+  /* ── 2 · saving must never fail silently ─────────────────────────────────
+     Every app writes with localStorage.setItem. If the phone refuses, the old
+     code threw, the save function stopped halfway, and nobody was told. */
+  try{
+    var proto = window.Storage && Storage.prototype;
+    if(proto && !proto.__djGuarded){
+      var realSet = proto.setItem;
+      proto.setItem = function(k, v){
+        try{ var r = realSet.call(this, k, v); if(String(k).indexOf('dj_')!==0) savedPulse(); return r; }
+        catch(err){ djSaveFailed(err); return undefined; }
+      };
+      proto.__djGuarded = true;
+    }
+  }catch(e){}
+
+  var toldOnce = false;
+  function djSaveFailed(err){
+    if(toldOnce) return; toldOnce = true;
+    var full = err && (err.name === 'QuotaExceededError' ||
+               err.code === 22 || err.code === 1014);
+    djBanner(
+      full ? 'This phone is out of room, so that did not save.'
+           : 'This phone would not let the app save that.',
+      full ? 'Free up some space in Settings › General › iPhone Storage, then tap Try again. Nothing you can see on screen has been lost yet — but do not close the app until it saves.'
+           : 'This usually means private browsing, or Settings › Safari › Block All Cookies is switched on. Turn that off and tap Try again.',
+      [['Try again', function(){ location.reload(); }]]
+    );
+  }
+
+  /* ── 3 · nothing white-screens without a way out ─────────────────────────
+     A single bad record used to leave a blank page and no route back. */
+  var netShown = false;
+  function net(msg){
+    if(netShown) return; netShown = true;
+    djBanner('Something went wrong on this screen.',
+      'Your saved work is untouched. Reloading fixes almost everything.' +
+      (msg ? '\n\n(' + String(msg).slice(0,120) + ')' : ''),
+      [['Reload', function(){ location.reload(); }]]);
+  }
+  window.addEventListener('error', function(e){
+    if(e && e.target && e.target !== window && e.target.tagName) return; /* a missing image is not a crash */
+    net(e && e.message);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    net(e && e.reason && e.reason.message);
+  });
+
+  /* one calm bar, never an alert() the person cannot read at their own pace */
+  function djBanner(title, body, buttons){
+    if(!document.body){ document.addEventListener('DOMContentLoaded', function(){ djBanner(title, body, buttons); }); return; }
+    var old = document.getElementById('djBanner'); if(old) old.remove();
+    var w = document.createElement('div');
+    w.id = 'djBanner';
+    w.setAttribute('role','alert');
+    w.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483000;'
+      + 'background:#7A2E1E;color:#fff;padding:16px 16px calc(16px + env(safe-area-inset-bottom));'
+      + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -6px 26px rgba(0,0,0,.35)';
+    var h = document.createElement('div');
+    h.style.cssText = 'font-weight:800;font-size:16px;margin-bottom:4px'; h.textContent = title;
+    var p = document.createElement('div');
+    p.style.cssText = 'opacity:.94;white-space:pre-wrap'; p.textContent = body;
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap';
+    (buttons||[]).forEach(function(b){
+      var el = document.createElement('button');
+      el.textContent = b[0];
+      el.style.cssText = 'font:inherit;font-weight:800;min-height:44px;padding:10px 16px;border:none;'
+        + 'border-radius:12px;background:#fff;color:#7A2E1E;cursor:pointer';
+      el.onclick = b[1]; row.appendChild(el);
+    });
+    var x = document.createElement('button');
+    x.textContent = 'Dismiss';
+    x.setAttribute('aria-label','Dismiss this message');
+    x.style.cssText = 'font:inherit;font-weight:700;min-height:44px;padding:10px 16px;border:1px solid rgba(255,255,255,.55);'
+      + 'border-radius:12px;background:transparent;color:#fff;cursor:pointer';
+    x.onclick = function(){ w.remove(); };
+    row.appendChild(x);
+    w.appendChild(h); w.appendChild(p); w.appendChild(row);
+    document.body.appendChild(w);
+  }
+  window.djBanner = djBanner;
+
+  /* ── 4 · talk into any typing box ────────────────────────────────────────
+     Rafiki and Feedback Studio had this; twenty-one apps did not. The button
+     only appears once you tap into a box, so no screen changes until you want it. */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, micBtn = null, curBox = null;
+
+  function eligible(el){
+    if(!el || el.dataset.djMic === 'off') return false;
+    var t = (el.tagName||'').toLowerCase();
+    if(t === 'textarea') return true;
+    if(t !== 'input') return false;
+    var ty = (el.type||'text').toLowerCase();
+    if(['text','search','tel','url','email'].indexOf(ty) < 0) return false;
+    if(el.readOnly || el.disabled) return false;
+    /* Leave alone any box that already has its own microphone — Rafiki, Feedback
+       Studio and In My Own Words built their own and theirs are better placed.
+       Stop at <body>: once our own button is on the page its emoji is inside body's
+       text, which would make every box after the first one look already-served. */
+    var p = el.parentElement;
+    for(var i=0; i<3 && p && p !== document.body && p !== document.documentElement; i++, p = p.parentElement){
+      var t = p.textContent || '';
+      if(micBtn && p.contains(micBtn)) t = t.split('\u{1F3A4}').join('');
+      if(t.indexOf('\u{1F3A4}') >= 0) return false;
+    }
+    return true;
+  }
+
+  function place(box){
+    if(!micBtn){
+      micBtn = document.createElement('button');
+      micBtn.type = 'button';
+      micBtn.id = 'djMic';
+      micBtn.textContent = '\u{1F3A4}';
+      micBtn.setAttribute('aria-label','Say it instead of typing');
+      micBtn.title = 'Say it instead of typing';
+      /* every app has its own button styling — min-height:44px, padding, box-sizing —
+         so this one states its shape outright or it comes out the wrong size */
+      micBtn.style.cssText = 'position:absolute !important;z-index:2147482000;'
+        + 'box-sizing:border-box !important;width:40px !important;height:40px !important;'
+        + 'min-width:40px !important;min-height:40px !important;max-width:40px !important;'
+        + 'max-height:40px !important;padding:0 !important;margin:0 !important;'
+        + 'border-radius:50% !important;border:1px solid rgba(128,128,128,.4);background:#fff;'
+        + 'color:#1F2622;font-size:19px;line-height:1;cursor:pointer;'
+        + 'box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center';
+      micBtn.addEventListener('mousedown', function(e){ e.preventDefault(); });
+      micBtn.addEventListener('click', function(e){ e.preventDefault(); talk(); });
+      document.body.appendChild(micBtn);
+    }
+    var r = box.getBoundingClientRect();
+    /* scrolled out of sight — inside a sheet or off the page — so show nothing */
+    if(r.bottom < 4 || r.top > window.innerHeight - 4 || r.width < 60){ micBtn.hidden = true; return; }
+    micBtn.hidden = false;
+    /* measure what the browser actually made, rather than trusting the numbers above */
+    var m = micBtn.getBoundingClientRect();
+    var w = m.width  || 40, h = m.height || 40;
+    micBtn.style.top  = (window.scrollY + r.top + (r.height - h)/2) + 'px';
+    micBtn.style.left = (window.scrollX + r.right - w - 6) + 'px';
+    /* a short box would be swallowed by the button — sit just outside it instead */
+    if(r.width < w + 90) micBtn.style.left = (window.scrollX + r.right + 6) + 'px';
+  }
+  function hide(){ if(micBtn) micBtn.hidden = true; }
+
+  function talk(){
+    var box = curBox; if(!box) return;
+    if(rec){ try{ rec.stop(); }catch(e){} return; }
+    rec = new SR();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true;
+    rec.continuous = (box.tagName.toLowerCase() === 'textarea');
+    var base = (box.value || '').trim();
+    micBtn.textContent = '⏹';
+    micBtn.style.background = '#D96C4F';
+    micBtn.setAttribute('aria-label','Stop listening');
+    rec.onresult = function(e){
+      var t = '';
+      for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
+      box.value = (base ? base + ' ' : '') + t;
+      box.dispatchEvent(new Event('input', {bubbles:true}));
+    };
+    function done(){
+      rec = null;
+      if(micBtn){ micBtn.textContent = '\u{1F3A4}'; micBtn.style.background = '#fff';
+                  micBtn.setAttribute('aria-label','Say it instead of typing'); }
+      box.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+    rec.onend = done;
+    rec.onerror = done;
+    try{ rec.start(); }catch(e){ done(); }
+  }
+
+
+  /* ── 5 · the floating helpers must not sit on the words ──────────────────
+     The ? and the 💡 were each pinned to the right edge about 150px up from the
+     bottom. On a 5.4" phone that is the middle of the screen, so both sat on top
+     of whatever was written there — and in The Key they landed on exactly the same
+     spot as each other, which hid one of them completely. They now share one dock
+     in the bottom-right corner, stacked, and the dock lifts itself above whatever
+     bottom bar the app has so it never covers a menu. */
+
+  /* ── 6 · "Start fresh" must actually clear this app, and only this app ───────
+     The first registry I shipped listed key names I had assumed rather than read.
+     Against what the apps really write, 21 of 26 were wrong: The Key saves under
+     'daraja_thekey_v1', so a person who had filled in their whole will-and-papers
+     page was told "there is nothing saved in this app yet". These names were read
+     out of each app's own source. Anything belonging to another app is protected
+     even when a pattern would otherwise match it. */
+  var OWNS = {
+    nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
+                      'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
+    compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
+    nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
+    occ:          {k:['occ_counter_v1','occTipSeen'], p:['occ_']},
+    drive:        {k:['occ_counter_v1','occTipSeen'], p:['drive_','church_drive_']},
+    safety:       {k:['my_safety_plan_v1'], p:['safety_']},
+    zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
+    academy:      {k:['daraja_academy_v1'], p:['academy_']},
+    feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    churchkey:    {k:['daraja_churchkey_v1'], p:[]},
+    drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
+    flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
+    rafiki:       {k:['rafiki_v1','rafiki_aa'], p:['rafiki_']},
+    pitwall:      {k:['pitwall_state_v1'], p:['pitwall_','f1_']},
+    churchhq:     {k:['church_hq_v1'], p:['church_hq_']},
+    steward:      {k:['steward_v1'], p:['steward_']},
+    serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
+    clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
+    gameday:      {k:[], p:['gameday_','church_gameday_']},
+    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+  };
+
+  function slugOf(){
+    var s = (window.DJ_START && window.DJ_START.slug) ||
+            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
+                 churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
+                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+    return alias[s] || s;
+  }
+
+  function myKeys(){
+    var me = slugOf(), mine = OWNS[me];
+    if(!mine) return null;                            /* unknown app — do not guess */
+    var guard = {};
+    Object.keys(OWNS).forEach(function(a){
+      if(a === me) return;
+      OWNS[a].k.forEach(function(x){ guard[x] = a; });
+    });
+    /* two apps genuinely share the shoebox count, so neither may erase it */
+    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    var out = [];
+    try{
+      for(var i=0; i<localStorage.length; i++){
+        var k = localStorage.key(i); if(!k) continue;
+        if(k.indexOf('dj_') === 0) continue;
+        if(shared[k]) continue;
+        var owned = mine.k.indexOf(k) >= 0;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        if(!owned) continue;
+        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        out.push(k);
+      }
+    }catch(e){}
+    return out;
+  }
+
+  function startFresh(){
+    var keys = myKeys();
+    if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
+    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    if(!confirm('Last check — erase this app’s data?')) return;
+    try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+    location.replace(location.pathname);
+  }
+
+  /* The older erase layer sits at the end of the page, so it assigns AFTER this one
+     and its guessed key names win. Claim the name again once the page is built. */
+  window.djStartFresh = startFresh;
+  function claimStartFresh(){
+    window.djStartFresh = startFresh;
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 300);
+    setTimeout(function(){ window.djStartFresh = startFresh; }, 1500);
+  }
+
+
+  /* ── 7 · the 425-things audit (10 Sep 2026, every page at 360×780) ────────
+     257 pieces of text under 13px · 49 tap targets under 40px · 36 typing boxes
+     whose only label is a placeholder that vanishes the moment you type · 10 boxes
+     under 40px tall. Fixed here for every app at once. */
+  function auditFixCSS(){
+    if(document.getElementById('djAuditCSS') || !document.head) return;
+    var st = document.createElement('style'); st.id = 'djAuditCSS';
+    st.textContent =
+      /* nothing a person reads may be under 13px — the earlier floor missed div, button, headings */
+      'div,button,a,h1,h2,h3,h4,h5,h6,th,strong,b,em,i,time,summary,figcaption,dt,dd,legend,option,' +
+      'blockquote,cite,q,code,pre,address,caption{font-size:max(13px,1em);}' +
+      /* a box you type in is at least a fingertip tall */
+      'input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),' +
+      'select,textarea{min-height:44px;}' +
+      /* the label that stays: shown above a box once it has words in it, from its placeholder */
+      '.dj-stay{display:block;font-size:12.5px;font-weight:700;letter-spacing:.04em;opacity:.75;margin:6px 0 2px;line-height:1.2;}' +
+      /* store cards: the little links under the buttons were 21px tall */
+      '.app > a,.app .row a{display:flex;align-items:center;justify-content:center;min-height:44px;padding:8px 10px;}';
+    document.head.appendChild(st);
+  }
+
+  /* placeholder-only boxes get (a) a spoken name and (b) a label that appears above
+     them the moment there are words inside, so what the box is for never disappears */
+  function stayLabels(){
+    var boxes = document.querySelectorAll('input[placeholder],textarea[placeholder]');
+    for(var i=0;i<boxes.length;i++){
+      var b = boxes[i];
+      if(b.__djStay) continue;
+      if(/^(hidden|button|submit|checkbox|radio)$/.test(b.type||'')) continue;
+      var id = b.id;
+      var has = (id && document.querySelector('label[for="'+id.replace(/"/g,'')+'"]')) || b.closest('label') || b.getAttribute('aria-label') || b.getAttribute('aria-labelledby');
+      if(has) continue;
+      var words = (b.placeholder||'').replace(/^e\.g\.\s*/i,'').replace(/…|\.\.\.$/,'').trim();
+      if(!words) continue;
+      b.setAttribute('aria-label', words);
+      b.__djStay = true;
+      (function(box, text){
+        var lab = null;
+        function sync(){
+          var on = !!box.value;
+          if(on && !lab){
+            lab = document.createElement('span'); lab.className='dj-stay'; lab.textContent = text;
+            box.parentNode.insertBefore(lab, box);
+          } else if(!on && lab){ lab.remove(); lab = null; }
+        }
+        box.addEventListener('input', sync); box.addEventListener('change', sync); sync();
+      })(b, words.length > 48 ? words.slice(0,45) + '…' : words);
+    }
+  }
+
+  /* buttons that are only an emoji get a name a screen reader can say */
+  var NAMES = {wkBtn:'Week view', sermonNotesBtn:'Sermon notes', fab:'Add', qsBtn:'Quick setup'};
+  function nameButtons(){
+    var els = document.querySelectorAll('button,a,[role="button"]');
+    for(var i=0;i<els.length;i++){
+      var e = els[i];
+      if(e.getAttribute('aria-label') || e.getAttribute('title')) continue;
+      var t = (e.textContent||'').trim();
+      if(!t || /[A-Za-z0-9]/.test(t)) continue;               /* has real words already */
+      var guess = NAMES[e.id] || (e.className && typeof e.className==='string' && NAMES[e.className.split(' ')[0]]) || null;
+      if(guess) e.setAttribute('aria-label', guess);
+    }
+  }
+
+  /* Ahead of It family: the round ＋ sat on top of the Quick setup button */
+  function fabLift(){
+    var fab = document.querySelector('button.fab'); if(!fab) return;
+    var f = fab.getBoundingClientRect(), top = null;
+    /* anything else parked in the bottom corner: the app's own quick-start, our dock */
+    [document.getElementById('qsBtn'), document.getElementById('djDock')].forEach(function(o){
+      if(!o) return; var q = o.getBoundingClientRect(); if(!q.width) return;
+      if(f.right<=q.left||q.right<=f.left||f.bottom<=q.top||q.bottom<=f.top) return;
+      if(top===null || q.top<top) top = q.top;
+    });
+    if(top===null) return;
+    var lift = (window.innerHeight - top) + 10;
+    fab.style.setProperty('bottom', 'calc(' + Math.round(lift) + 'px + env(safe-area-inset-bottom))', 'important');
+  }
+
+
+  /* ── 8 · the floors that actually hold ───────────────────────────────────
+     v14 set font-size:max(13px,1em) on div/button/etc. It measured almost no
+     change: an app's own ".lbl{font-size:12px}" is a class selector and outranks
+     an element selector, so the app won every time. Reading the computed size and
+     writing an inline value is the only thing that beats every stylesheet. Same
+     for tap targets: buttons and links the app styled at 21px tall. */
+  function floors(){
+    var MIN_FONT = 13, MIN_TAP = 44, n = 0;
+    var all = document.body ? document.body.getElementsByTagName('*') : [];
+    for(var i=0; i<all.length; i++){
+      var el = all[i];
+      if(el.__djFloored) continue;
+      var tag = el.tagName;
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='SVG'||tag==='PATH') continue;
+      var cs = getComputedStyle(el);
+      if(cs.display==='none') continue;
+      /* text: only elements that carry their own words */
+      var own = false;
+      for(var c = el.firstChild; c; c = c.nextSibling){ if(c.nodeType===3 && c.textContent.trim().length>1){ own = true; break; } }
+      if(own){
+        var fs = parseFloat(cs.fontSize);
+        if(fs && fs < MIN_FONT){
+          el.style.setProperty('font-size', MIN_FONT+'px', 'important');
+          var lh = parseFloat(cs.lineHeight);
+          if(lh && lh < MIN_FONT*1.2) el.style.setProperty('line-height', '1.25', 'important');
+          n++;
+        }
+      }
+      /* taps: real controls that were styled too small to hit */
+      var isCtl = tag==='BUTTON' || tag==='SELECT' || el.getAttribute('role')==='button' ||
+                  (tag==='A' && el.getAttribute('href') && cs.display!=='inline');
+      if(isCtl){
+        var r = el.getBoundingClientRect();
+        if(r.height>0 && r.height < 40){
+          el.style.setProperty('min-height', MIN_TAP+'px', 'important');
+          if(cs.display==='inline-block' || cs.display==='block') { el.style.setProperty('display','inline-flex','important'); el.style.setProperty('align-items','center','important'); }
+          n++;
+        }
+        /* a 23px-wide arrow button is as hard to hit as a 23px-tall one */
+        if(tag==='BUTTON' && r.width>0 && r.width < 32){
+          el.style.setProperty('min-width', MIN_TAP+'px', 'important');
+          el.style.setProperty('justify-content', 'center', 'important');
+          n++;
+        }
+      }
+      /* the browser's 13px checkbox is the smallest thing on any screen */
+      if(tag==='INPUT' && (el.type==='checkbox' || el.type==='radio')){
+        var rc = el.getBoundingClientRect();
+        if(rc.width>0 && rc.width < 22){ el.style.setProperty('width','22px','important'); el.style.setProperty('height','22px','important'); n++; }
+      }
+      /* a box that was empty at first (a version line filled in later) is measured again when its words arrive */
+      if(own || isCtl) el.__djFloored = true;
+    }
+    return n;
+  }
+  /* the dock and the app's own bars keep moving for a few seconds after load, so the + button is re-checked on the same schedule */
+  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ contrastFloor(); }catch(e){} try{ nameButtons(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
+
+  function auditFixes(){
+    try{ auditFixCSS(); }catch(e){}
+    try{ stayLabels(); }catch(e){}
+    try{ nameButtons(); }catch(e){}
+    try{ fabLift(); }catch(e){}
+  }
+
+  function occupied(){
+    /* How far up the bottom edge is already spoken for — by a bottom bar across the
+       screen, OR by another floating button already parked in the bottom-right.
+       Without the second test the dock lands straight on top of an app's own round
+       button, which is exactly what happened to My Productive Partner's calendar. */
+    var bar = 0, right = 0;
+    var all = document.body ? document.body.getElementsByTagName('*') : [];
+    var VH = window.innerHeight, VW = window.innerWidth;
+    for(var i=0; i<all.length; i++){
+      var el = all[i];
+      if(el.id === 'djDock' || (dockEl && dockEl.contains(el))) continue;
+      var cs = getComputedStyle(el);
+      if(cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+      if(cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      var r = el.getBoundingClientRect();
+      if(r.height < 20 || r.width < 20) continue;
+      if(r.height > VH * 0.5) continue;                 /* a full-screen overlay is not a bar */
+      if(r.bottom < VH * 0.45) continue;                /* only the lower half matters */
+      if(r.width > VW * 0.5 && r.bottom > VH - 8){
+        bar = Math.max(bar, r.height);                  /* a bottom bar spanning the screen */
+      } else if(VW - r.right < 92){
+        right = Math.max(right, VH - r.top);            /* something already in our corner */
+      }
+    }
+    return Math.max(bar, right);
+  }
+
+  var dockEl = null;
+  function dock(){
+    var wanted = ['djHelp', 'dTipDot', 'djDays', 'djAa', 'djAsk'];  /* the days-left badge sat on the app title */
+    var found = [];
+    for(var i=0; i<wanted.length; i++){
+      var el = document.getElementById(wanted[i]);
+      if(el) found.push(el);
+    }
+    if(!found.length || !document.body) return;
+    if(!dockEl){
+      dockEl = document.createElement('div');
+      dockEl.id = 'djDock';
+      dockEl.style.cssText = 'position:fixed;z-index:2147481000;display:flex;'
+        + 'flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none';
+      document.body.appendChild(dockEl);
+    }
+    for(var j=0; j<found.length; j++){
+      var b = found[j];
+      if(b.parentElement === dockEl) continue;
+      b.style.setProperty('position','static','important');
+      ['top','bottom','left','right','margin'].forEach(function(p){ b.style.setProperty(p,'',''); });
+      b.style.setProperty('margin','0','important');
+      b.style.setProperty('pointer-events','auto','');
+      b.style.setProperty('flex','0 0 auto','');
+      dockEl.appendChild(b);
+    }
+    var lift = occupied();
+    dockEl.style.right  = 'calc(10px + env(safe-area-inset-right))';
+    dockEl.style.bottom = 'calc(' + (lift + 10) + 'px + env(safe-area-inset-bottom))';
+
+    /* On a 5.4" phone three floating helpers stacked up the right-hand edge still
+       sit on the words underneath. Below 560px they fold into ONE button that opens
+       them, so nothing covers the page until the person asks for it. */
+    var narrow = window.innerWidth <= 560;
+    if(narrow && !toggleBtn){
+      toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.id = 'djDockToggle';
+      toggleBtn.textContent = '?';
+      toggleBtn.setAttribute('aria-label', 'Help and settings');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.style.cssText = 'pointer-events:auto;width:44px;height:44px;min-height:44px;'
+        + 'padding:0;margin:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);'
+        + 'background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;'
+        + 'cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);flex:0 0 auto';
+      toggleBtn.onclick = function(){
+        openDock = !openDock;
+        toggleBtn.textContent = openDock ? '\u2715' : '?';
+        toggleBtn.setAttribute('aria-label', openDock ? 'Close help' : 'Help and settings');
+        toggleBtn.setAttribute('aria-expanded', openDock ? 'true' : 'false');
+        paint();
+      };
+      dockEl.appendChild(toggleBtn);
+    }
+    if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
+    paint();
+  }
+
+  var toggleBtn = null, openDock = false;
+
+  /* Steward and Nonprofit Filings both carry a rule of their own —
+     "#introDot, #djHelp, #dTipDot { display:flex !important }" — so neither the
+     hidden attribute nor an inline style could put these buttons away. A rule with
+     more specific aim than a bare id wins, and this one is aimed at our dock. */
+  function hideRule(){
+    if(document.getElementById('djDockCSS') || !document.head) return;
+    var st = document.createElement('style');
+    st.id = 'djDockCSS';
+    st.textContent = '#djDock > [data-dj-hide], #djDock > [data-dj-hide]:hover' +
+                     '{ display:none !important; visibility:hidden !important; }';
+    document.head.appendChild(st);
+  }
+  function show(el, on){
+    hideRule();
+    if(on) el.removeAttribute('data-dj-hide');
+    else   el.setAttribute('data-dj-hide', '');
+    el.hidden = !on;
+  }
+  function paint(){
+    if(!dockEl) return;
+    var narrow = window.innerWidth <= 560;
+    for(var i=0; i<dockEl.children.length; i++){
+      var c = dockEl.children[i];
+      if(c === toggleBtn){ show(c, narrow); continue; }
+      show(c, !narrow || openDock);
+    }
+  }
+
+  function start(){
+    if(!SR) return;                                   /* no microphone here — show nothing */
+    document.addEventListener('focusin', function(e){
+      if(eligible(e.target)){ curBox = e.target; place(e.target); }
+      else if(e.target !== micBtn){ hide(); }
+    });
+    document.addEventListener('focusout', function(e){
+      setTimeout(function(){
+        if(document.activeElement !== curBox && document.activeElement !== micBtn){
+          if(rec){ try{ rec.stop(); }catch(err){} }
+          hide(); curBox = null;
+        }
+      }, 120);
+    });
+    /* capture, so a scroll inside a sheet or panel moves the button too */
+    window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
+    window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
+  }
+  /* Each app builds its 💡 on its own timer, so a fixed list of delays always loses
+     the race in some app — Steward's arrived after the last pass and stayed on
+     screen. Watch for it instead of guessing when it turns up. */
+  function dockPasses(){
+    var run = function(){ try{ dock(); }catch(e){} };
+    [0, 400, 1200, 2400].forEach(function(ms){ setTimeout(run, ms); });
+    try{
+      var mo = new MutationObserver(function(recs){
+        for(var i=0; i<recs.length; i++){
+          var added = recs[i].addedNodes;
+          for(var j=0; j<added.length; j++){
+            var n = added[j];
+            if(n.nodeType !== 1) continue;
+            if(dockEl && dockEl.contains(n)) continue;
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa' || n.id === 'djAsk'){ run(); return; }
+          }
+        }
+      });
+      if(document.body) mo.observe(document.body, {childList:true, subtree:true});
+    }catch(e){}
+    window.addEventListener('resize', run);
+    window.addEventListener('orientationchange', function(){ setTimeout(run, 300); });
+  }
+  /* ── 9 · what the research said seniors need (10 Sep 2026) ───────────────
+     Toptal / Springer 2025: unmistakable feedback after every action; adjustable
+     text; new features introduced with a word of explanation, never silently. */
+  var pulseEl = null, pulseLast = 0;
+  function savedPulse(){
+    try{
+      var now = Date.now(); if(now - pulseLast < 2500 || !document.body) return; pulseLast = now;
+      if(!pulseEl){
+        pulseEl = document.createElement('div'); pulseEl.id = 'djSaved'; pulseEl.setAttribute('role','status'); pulseEl.setAttribute('aria-live','polite');
+        pulseEl.textContent = 'Saved ✓';
+        pulseEl.style.cssText = 'position:fixed;left:calc(12px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));z-index:2147481001;'
+          + 'background:#2F6E52;color:#fff;font:700 14px/1 -apple-system,system-ui,sans-serif;padding:9px 12px;border-radius:999px;'
+          + 'box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .25s';
+        document.body.appendChild(pulseEl);
+      }
+      pulseEl.style.opacity = '1';
+      setTimeout(function(){ if(pulseEl) pulseEl.style.opacity = '0'; }, 1100);
+    }catch(e){}
+  }
+
+  /* one text-size setting for every app: they share an address, so they share this */
+  var SIZES = [1, 1.15, 1.3];
+  function textSize(){ var v = parseFloat(localStorage.getItem('dj_textsize') || '1'); return SIZES.indexOf(v) >= 0 ? v : 1; }
+  function applyTextSize(){ try{ var v = textSize(); if(document.body){ if(v === 1) document.body.style.removeProperty('zoom'); else document.body.style.setProperty('zoom', String(v)); } }catch(e){} }
+  function aaButton(){
+    if(document.getElementById('djAa') || !document.body) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'djAa';
+    b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);'
+      + 'background:rgba(250,246,238,.94);color:#25303a;font:800 15px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    function label(){ var v = textSize(); var w = (v===1?'normal':v===1.15?'larger':'largest'); b.textContent = 'Aa'; b.title = 'Text size: ' + w; b.setAttribute('aria-label', 'Text size, now ' + w + '. Tap to change'); }
+    b.onclick = function(){ var i = (SIZES.indexOf(textSize()) + 1) % SIZES.length; try{ localStorage.setItem('dj_textsize', String(SIZES[i])); }catch(e){} applyTextSize(); label(); };
+    label(); document.body.appendChild(b);
+  }
+
+  /* offline: say so once, calmly — the app keeps working, everything saves on the phone */
+  function offlineNote(){
+    var bar = null;
+    function paintNet(){
+      var off = (navigator.onLine === false);
+      if(off && !bar && document.body){
+        bar = document.createElement('div'); bar.id = 'djOffline'; bar.setAttribute('role','status');
+        bar.textContent = 'No connection right now — the app still works and saves on this phone.';
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147481002;background:#5A4A12;color:#fff;font:600 14px/1.3 -apple-system,system-ui,sans-serif;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;text-align:center';
+        document.body.appendChild(bar);
+      }
+      if(!off && bar){ bar.remove(); bar = null; }
+    }
+    window.addEventListener('online', paintNet); window.addEventListener('offline', paintNet); paintNet();
+  }
+
+  /* updated since last visit: one line, one tap, then it is gone */
+  function updatedNote(){
+    try{
+      var els = document.querySelectorAll('#ver, .foot, footer, .footer, .stamp, p'); var stamp = null;
+      for(var i = els.length - 1; i >= 0 && !stamp; i--){ var m = /v\d+\.\d+[^\n]{0,40}?20\d\d-\d\d-\d\d/.exec(els[i].textContent || ''); if(m) stamp = m[0].split(' ')[0]; }
+      if(!stamp) return;
+      var key = 'dj_seen_' + slugOf(), seen = localStorage.getItem(key);
+      if(seen === stamp) return;
+      localStorage.setItem(key, stamp);
+      if(!seen || embedded) return;                     /* first visit: nothing to announce */
+      var n = document.createElement('div'); n.id = 'djUpdated';
+      n.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481001;background:#1C2B29;color:#fff;border-radius:14px;padding:10px 12px;font:600 15px/1.3 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.3)';
+      var t = document.createElement('span'); t.style.flex = '1'; t.textContent = '✨ Updated to ' + stamp;
+      var a = document.createElement('a'); a.href = 'https://jerrywins1.github.io/daraja-apps/whats-new/'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'What changed'; a.style.cssText = 'color:#F2B134;font-weight:800;min-height:44px;display:inline-flex;align-items:center;padding:0 6px;white-space:nowrap';
+      var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label','Dismiss'); x.style.cssText = 'font:800 16px/1 system-ui;min-width:44px;min-height:44px;border:0;background:transparent;color:#fff;cursor:pointer';
+      x.onclick = function(){ n.remove(); };
+      n.append(t, a, x); document.body.appendChild(n);
+      setTimeout(function(){ if(n.parentNode) n.remove(); }, 20000);
+    }catch(e){}
+  }
+  /* ── 10 · the Home Screen guide (research patrol, 10 Sep 2026) ─────────────
+     iOS never offers to install a web app; the person must find Share → Add to
+     Home Screen on their own, and most never do. So on the second visit in Safari
+     — not the first, not while installed, not inside Feedback Studio — one card
+     shows the three taps, with a real arrow to where the Share button lives. */
+  function homeScreenGuide(){
+    try{
+      var ua = navigator.userAgent || '';
+      var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      var force = /[?&]dj_a2hs=1/.test(location.search);
+      if(embedded || (!force && (!ios || navigator.standalone))) return;
+      var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
+      if(st === 'done' || st === 'no') return;
+      var visits = parseInt(st || '0', 10) || 0;
+      if(!force && visits < 1){ localStorage.setItem(key, String(visits + 1)); return; }   /* first visit: just count */
+      var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
+      var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
+      var w = document.createElement('div'); w.id = 'djA2HS'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Put this app on your Home Screen');
+      w.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
+        + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
+        + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+      w.innerHTML = '<div style="font-weight:800;font-size:17px;margin-bottom:6px">Keep ' + name.replace(/[<>&]/g,'') + ' on your Home Screen</div>'
+        + '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+        + '<li>Scroll the list and tap <b>Add to Home Screen</b></li><li>Tap <b>Add</b>. It opens like any other app, full screen.</li></ol>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer">I did it</button>'
+        + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
+        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>'
+        + (shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
+      w.addEventListener('click', function(e){
+        var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
+        var a = b.getAttribute('data-a');
+        if(a === 'done' || a === 'no') localStorage.setItem(key, a); else localStorage.setItem(key, '0');   /* later: ask again in two visits */
+        w.remove();
+      });
+      document.body.appendChild(w);
+    }catch(e){}
+  }
+
+  /* ── 11 · printing (research patrol #4, 10 Sep 2026) ────────────────────
+     The Key is meant to be printed and put in a drawer; the story book too. On
+     paper: black on white, nothing of ours (dock, mic, banners), no buttons, no
+     zoom, sensible margins, and a card never split across two pages. */
+  function printCSS(){
+    if(document.getElementById('djPrintCSS') || !document.head) return;
+    var st = document.createElement('style'); st.id = 'djPrintCSS';
+    st.textContent = '@media print{'
+      + '@page{margin:16mm 14mm;}'
+      + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
+      + '#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + 'a{color:#000 !important;text-decoration:none !important;}'
+      + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
+      + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
+      + 'input,textarea,select{border:1px solid #888 !important;background:#fff !important;color:#000 !important;box-shadow:none !important;}'
+      + 'textarea{min-height:0 !important;height:auto !important;overflow:visible !important;}'
+      + '*{text-shadow:none !important;box-shadow:none !important;}'
+      + '}';
+    document.head.appendChild(st);
+  }
+
+  /* ── 12 · AI Bridge: one door for every app (12 Sep 2026) ───────────────────
+     Jerry, after Meta's Muse: "put as much AI into all these systems as we can… so it
+     can be used as AI gets smarter." One call, djAI.ask(), and three engines behind it:
+       1. a model built into the browser, when there is one (private, instant, free)
+       2. the assistant the person already uses — Claude, ChatGPT, Gemini, Copilot,
+          Meta AI — opened with the question in it, and a paste-back sheet for the answer
+       3. later, a key or the Daraja proxy — same call, nothing in the apps changes.
+     Nothing leaves the phone unless the person taps Ask, and they see the exact words
+     before anything opens. */
+  var AI_KEY = 'dj_ai_choice';
+  var ASSISTANTS = {
+    claude:  { name:'Claude',   url:function(q){ return 'https://claude.ai/new?q=' + encodeURIComponent(q); } },
+    chatgpt: { name:'ChatGPT',  url:function(q){ return 'https://chatgpt.com/?q=' + encodeURIComponent(q); } },
+    gemini:  { name:'Gemini',   url:function(){ return 'https://gemini.google.com/app'; } },
+    copilot: { name:'Copilot',  url:function(){ return 'https://copilot.microsoft.com/'; } },
+    meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
+  };
+  function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  function sheet(html){
+    var old = document.getElementById('djAISheet'); if(old) old.remove();
+    var w = document.createElement('div'); w.id = 'djAISheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Ask an AI');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
+    box.innerHTML = html; w.appendChild(box);
+    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    document.body.appendChild(w); return box;
+  }
+  var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
+  var BTNM = BTN + ';background:#23504F;color:#fff;border-color:transparent';
+  function pickAssistant(then){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Which AI do you use?</div><p style="margin:0 0 12px;color:#55605B;font-size:15px">Pick once. Change it any time from the ? button. <b>Don’t have one?</b> Claude is free — tap it, make an account with your email, and you are in.</p><div id="djAIPick" style="display:grid;gap:8px"></div><button type="button" id="djAIMore" style="' + BTN + ';margin-top:8px;width:100%;color:#55605B;border-style:dashed">Something else…</button>');
+    var g = b.querySelector('#djAIPick');
+    function add(k, label){ var x = document.createElement('button'); x.type='button'; x.style.cssText = BTN + ';text-align:left;font-size:17px;min-height:52px'; x.textContent = label; x.onclick = function(){ try{ localStorage.setItem(AI_KEY, k); }catch(e){} document.getElementById('djAISheet').remove(); if(then && k !== 'none') then(k); }; g.appendChild(x); }
+    add('claude','Claude'); add('chatgpt','ChatGPT');
+    b.querySelector('#djAIMore').onclick = function(){ this.remove(); add('gemini','Gemini'); add('copilot','Copilot'); add('meta','Meta AI'); add('none','I don’t use one'); };
+  }
+  function extractJSON(t){
+    var s = String(t||''); var i = s.indexOf('{'), j = s.lastIndexOf('}');
+    if(i < 0 || j <= i){ i = s.indexOf('['); j = s.lastIndexOf(']'); }
+    if(i < 0 || j <= i) return null;
+    try{ return JSON.parse(s.slice(i, j+1)); }catch(e){ return null; }
+  }
+  var AI_CFG = null;
+  async function aiConfig(){
+    if(AI_CFG) return AI_CFG;
+    try{ var r = await fetch('https://jerrywins1.github.io/daraja-apps/control/ai.json?cb=' + Math.floor(Date.now()/600000)); AI_CFG = await r.json(); }catch(e){ AI_CFG = {}; }
+    return AI_CFG || {};
+  }
+  /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
+  async function viaDaraja(o){
+    var c = await aiConfig(); if(!c.endpoint) return null;
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
+    try{
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var j = await r.json();
+      if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
+      document.getElementById('djAISheet').remove(); return j.text;
+    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
+  }
+  async function builtIn(prompt){
+    try{
+      if(!window.LanguageModel || !LanguageModel.availability) return null;
+      var a = await LanguageModel.availability(); if(a !== 'available') return null;
+      var s = await LanguageModel.create(); var out = await s.prompt(prompt); try{ s.destroy(); }catch(e){} return out;
+    }catch(e){ return null; }
+  }
+  function pasteBack(o){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Paste the answer</div><p style="margin:0 0 8px;color:#55605B;font-size:14.5px">Copy what ' + esc(o.who) + ' said, come back, paste it here.</p><textarea id="djAIIn" aria-label="Paste the answer" style="width:100%;min-height:96px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622"></textarea><button type="button" id="djAIUse" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Use this answer</button><div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAIAgain" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">open ' + esc(o.who) + ' again</button><button type="button" id="djAINo" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
+    b.querySelector('#djAIUse').onclick = function(){ var t = b.querySelector('#djAIIn').value.trim(); if(!t) return; document.getElementById('djAISheet').remove(); deliver(o, t); };
+    b.querySelector('#djAIAgain').onclick = function(){ openAssistant(o); };
+    b.querySelector('#djAINo').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    setTimeout(function(){ try{ b.querySelector('#djAIIn').focus(); }catch(e){} }, 300);
+  }
+  function deliver(o, text){
+    var v = text;
+    if(o.want === 'json'){ v = extractJSON(text); if(!v){ alert('That did not look like the answer I expected. Try “Open again” and ask it to answer in JSON only.'); pasteBack(o); return; } }
+    try{ o.onResult && o.onResult(v, text); }catch(e){}
+  }
+  function openAssistant(o){
+    var k = aiChoice(); var A = ASSISTANTS[k]; if(!A) return;
+    try{ navigator.clipboard && navigator.clipboard.writeText(o.prompt); }catch(e){}
+    var u = A.url(o.prompt);
+    var w = window.open(u, '_blank', 'noopener'); if(!w) location.href = u;
+  }
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  /* the one public call */
+  window.djAI = {
+    ask: async function(o){
+      o = o || {}; if(!o.prompt) return;
+      var local = await builtIn(o.prompt);
+      if(local){ deliver(o, local); return; }
+      var viaD = await viaDaraja(o);
+      if(viaD){ deliver(o, viaD); return; }
+      var k = aiChoice();
+      if(!k){ pickAssistant(function(){ djAI.ask(o); }); return; }
+      if(k === 'none'){ alert('Pick an AI first — tap the ? button, then “Which AI do you use?”'); pickAssistant(function(){ djAI.ask(o); }); return; }
+      var who = ASSISTANTS[k].name;
+      /* show what will be sent, in one line — the full words only if asked for */
+      var short = String(o.prompt).replace(/\s+/g,' ').trim(); if(short.length > 110) short = short.slice(0, 108) + '…';
+      var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Ask ' + who) + '</div>'
+        + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(who) + '</b>: <span id="djAIShort">“' + esc(short) + '”</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+        + '<button type="button" id="djAIGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Open ' + esc(who) + ' →</button>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAISw" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">different AI</button><button type="button" id="djAIX" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
+      b.querySelector('#djAIQ').value = o.prompt;
+      b.querySelector('#djAIShow').onclick = function(){ var t = b.querySelector('#djAIQ'); t.style.display = ''; this.style.display = 'none'; };
+      b.querySelector('#djAIGo').onclick = function(){ o.prompt = b.querySelector('#djAIQ').value; o.who = who; document.getElementById('djAISheet').remove(); openAssistant(o); if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); };
+      b.querySelector('#djAISw').onclick = function(){ document.getElementById('djAISheet').remove(); pickAssistant(function(){ djAI.ask(o); }); };
+      b.querySelector('#djAIX').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    },
+    choose: function(){ pickAssistant(); },
+    which: aiChoice,
+    extractJSON: extractJSON
+  };
+  /* ✨ Ask — free help with whatever is on the screen, in every app, today */
+  function screenWords(){
+    var t = (document.body && document.body.innerText || '').replace(/\s+/g,' ').trim();
+    return t.length > 1400 ? t.slice(0, 1400) + ' …' : t;
+  }
+  function showAnswer(app, text){
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(app) + ' — the answer</div><div id="djAIAns" style="white-space:pre-wrap;font-size:16px;line-height:1.5;max-height:34vh;overflow:auto;padding:10px;border-radius:12px;background:#F7F4EC"></div><button type="button" id="djAIOk" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Done</button><div style="text-align:center;margin-top:6px"><button type="button" id="djAICp" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">copy it</button></div>');
+    b.querySelector('#djAIAns').textContent = text;
+    b.querySelector('#djAIOk').onclick = function(){ document.getElementById('djAISheet').remove(); };
+    b.querySelector('#djAICp').onclick = function(){ try{ navigator.clipboard.writeText(text); this.textContent = 'copied ✓'; }catch(e){} };
+  }
+  window.djAI && (window.djAI.showAnswer = showAnswer);
+  function askButton(){
+    if(document.getElementById('djAsk') || !document.body) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'djAsk'; b.textContent = '✨';
+    b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
+    b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    b.onclick = function(){
+      var app = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
+      var D = window.DJ_AI || {};
+      var custom = (typeof D.prompt === 'function') ? D.prompt() : null;
+      djAI.ask({ title: D.title || ('Ask about ' + app), want: D.want || 'text',
+        prompt: custom || ('I am using an app called "' + app + '" on my phone. Here is what is on my screen right now:\n\n' + screenWords() + '\n\nExplain what I am looking at in plain words, and tell me the one most useful thing to do next. Keep it short. I am not a computer person.'),
+        onResult: function(v, raw){ if(typeof D.onResult === 'function'){ D.onResult(v, raw); return; } showAnswer(app, raw); } });
+    };
+    document.body.appendChild(b);
+  }
+
+  /* ── 13 · the contrast floor (12 Sep 2026) ──────────────────────────────────
+     Measured in light mode, a dozen apps had grey helper lines at 3.8–4.1:1 — each set
+     by its own stylesheet, each just under the readable line. Like the text floor,
+     this reads what the browser actually painted and darkens only greys (never a
+     coloured accent), only when the words sit under 4.5:1. */
+  function lum(c){ var m = /\d+(\.\d+)?/g, v = (c||'').match(m); if(!v || v.length < 3) return null; if(v[3] !== undefined && +v[3] < 0.5) return null;
+    var f = function(x){ x = +x/255; return x <= .03928 ? x/12.92 : Math.pow((x+.055)/1.055, 2.4); }; return .2126*f(v[0]) + .7152*f(v[1]) + .0722*f(v[2]); }
+  function isGrey(c){ var v = (c||'').match(/\d+/g); if(!v || v.length < 3) return false; var mx = Math.max(+v[0],+v[1],+v[2]), mn = Math.min(+v[0],+v[1],+v[2]); return (mx - mn) < 40; }
+  function bgOf(el){ var e = el; while(e && e !== document.documentElement){ var c = getComputedStyle(e).backgroundColor; var v = (c||'').match(/\d+(\.\d+)?/g); if(v && v.length >= 3 && (v[3] === undefined || +v[3] >= .5)) return c; e = e.parentElement; } return getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)'; }
+  function contrastFloor(){
+    var all = document.body ? document.body.getElementsByTagName('*') : [], n = 0;
+    for(var i = 0; i < all.length; i++){
+      var el = all[i]; if(el.__djContrast) continue;
+      var tag = el.tagName; if(tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A') continue;
+      var own = false; for(var c = el.firstChild; c; c = c.nextSibling){ if(c.nodeType === 3 && c.textContent.trim().length > 1){ own = true; break; } }
+      if(!own) continue;
+      var cs = getComputedStyle(el); if(cs.display === 'none' || +cs.opacity === 0) continue;
+      var fg = cs.color; if(!isGrey(fg)) { el.__djContrast = true; continue; }
+      var L1 = lum(fg), L2 = lum(bgOf(el)); if(L1 === null || L2 === null){ el.__djContrast = true; continue; }
+      var ratio = (Math.max(L1,L2) + .05) / (Math.min(L1,L2) + .05);
+      if(ratio < 4.5){ el.style.setProperty('color', L2 > 0.4 ? '#3B453F' : '#C9CFCB', 'important'); n++; }
+      el.__djContrast = true;
+    }
+    return n;
+  }
+
+  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); }
+
+  /* Inside Feedback Studio the app runs in a window within a page that already has
+     its own help button and its own microphone. Running ours too put a second "?"
+     on top of the app's Wins tab, and a second microphone on every box. */
+  var embedded = false;
+  try{ embedded = window.top !== window.self; }catch(e){ embedded = true; }
+
+  /* Inside Feedback Studio the surrounding page already has its own microphone, so
+     ours would be a second one on every box. The dock still runs: tidying the app's
+     own scattered helpers into one corner button matters more in a small window,
+     not less. */
+  function boot(){ if(!embedded) start(); try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
+    [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
+    try{ new MutationObserver(function(){ stayLabels(); nameButtons(); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+    window.addEventListener('resize', fabLift); floorsSoon();
+    try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Our Table</title>
-<meta name="description" content="your recipes, your week, your list">
+<meta name="description" content="Recipes you love, a week of dinners, one shopping list.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Our Table">
-<meta name="theme-color" content="#1C2B29">
+<meta name="theme-color" content="#1F5C45">
 <style>
-  /* Daraja house tokens — same family as every other app. Light first, dark follows. */
   :root{ color-scheme:light dark;
-    --bg:#F7F4EC; --surface:#FFFFFF; --ink:#1F2622; --soft:#55605B; --line:#E2DCCF;
-    --brand:#23504F; --accent:#D96C4F; --ok:#2F6E52; --gold:#C9982A; }
+    --bg:#F6F3EA; --surface:#FFFFFF; --ink:#1F2622; --soft:#55605B; --line:#E2DCCF;
+    --brand:#23504F; --accent:#D96C4F; --ok:#2F6E52; --gold:#C9982A; --felt:#1F5C45; --card:#FFFDF7; }
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
     --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336;
-    --brand:#7FB4B1; --accent:#E8886A; --ok:#6DC296; --gold:#E0B04A; } }
-  :root[data-theme="dark"]{ --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336; --brand:#7FB4B1; --accent:#E8886A; --ok:#6DC296; --gold:#E0B04A; }
-  *{ box-sizing:border-box; }
-  html{ -webkit-text-size-adjust:100%; }
+    --brand:#7FB4B1; --accent:#E8886A; --ok:#6DC296; --gold:#E0B04A; --felt:#173F31; --card:#22282A; } }
+  :root[data-theme="dark"]{ --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336; --brand:#7FB4B1; --accent:#E8886A; --ok:#6DC296; --gold:#E0B04A; --felt:#173F31; --card:#22282A; }
+  *{ box-sizing:border-box; } html{ -webkit-text-size-adjust:100%; }
   body{ margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .wrap{ max-width:620px; margin:0 auto; padding:18px 16px calc(40px + env(safe-area-inset-bottom)); }
-  header{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
-  header h1{ font-size:26px; margin:0; line-height:1.15; }
-  header p{ margin:0; color:var(--soft); font-size:15px; }
-  .card{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
-  .card h2{ font-size:19px; margin:0 0 8px; }
-  .card p{ margin:0 0 8px; color:var(--soft); font-size:16px; }
-  .first ol{ margin:0; padding-left:22px; } .first li{ margin:6px 0; }
-  button, .btn{ font:inherit; font-weight:700; min-height:44px; padding:10px 16px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
-  button.primary{ background:var(--brand); color:#fff; border-color:var(--brand); }
-  button.ok{ background:var(--ok); color:#fff; border-color:var(--ok); }
+  .wrap{ max-width:620px; margin:0 auto; padding:14px 14px calc(90px + env(safe-area-inset-bottom)); }
+  header{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  header h1{ font-size:24px; margin:0; line-height:1.15; } header p{ margin:0; color:var(--soft); font-size:14px; }
+  .host{ background:var(--felt); color:#fff; border-radius:18px; padding:14px 16px; margin-bottom:12px; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+  .host b{ display:block; font-size:17px; margin-bottom:4px; } .host p{ margin:0 0 10px; font-size:15px; opacity:.95; }
+  .host .row button{ background:#fff; color:#1F2622; border:0; }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; }
+  .card h2{ font-size:19px; margin:0 0 8px; } .card p{ margin:0 0 8px; color:var(--soft); font-size:15px; }
+  button, .btn{ font:inherit; font-weight:800; min-height:46px; padding:10px 16px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
+  button.primary{ background:var(--brand); color:#fff; border-color:transparent; } button.ok{ background:var(--ok); color:#fff; border-color:transparent; }
+  button.accent{ background:var(--accent); color:#fff; border-color:transparent; } button.ghost{ background:transparent; }
+  button.big{ width:100%; min-height:54px; font-size:18px; }
   .row{ display:flex; gap:8px; flex-wrap:wrap; }
-  label{ display:block; font-weight:700; font-size:15px; margin:8px 0 4px; }
-  input, textarea, select{ font:inherit; width:100%; min-height:44px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); }
-  ul.items{ list-style:none; padding:0; margin:0; }
-  ul.items li{ display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
-  ul.items li:first-child{ border-top:0; }
-  ul.items li span{ flex:1; }
-  ul.items li.done span{ text-decoration:line-through; color:var(--soft); }
+  label{ display:block; font-weight:800; font-size:14.5px; margin:10px 0 4px; }
+  input, textarea, select{ font:inherit; width:100%; min-height:46px; padding:10px 12px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink); }
+  textarea{ min-height:90px; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; } .chip{ border:1.5px solid var(--line); border-radius:999px; padding:9px 14px; font-weight:800; cursor:pointer; min-height:44px; display:inline-flex; align-items:center; background:var(--surface); }
+  .chip.on{ background:var(--brand); color:#fff; border-color:transparent; }
+  /* recipe cards — big white cards, bold coloured number (Play Nine cue) */
+  .recipe{ display:flex; gap:12px; align-items:center; background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:12px; margin-bottom:10px; box-shadow:0 3px 10px rgba(0,0,0,.06); }
+  .recipe .em{ font-size:38px; width:56px; text-align:center; flex:none; } .recipe .t{ flex:1; min-width:0; } .recipe .t b{ font-size:18px; display:block; } .recipe .t small{ color:var(--soft); font-size:13.5px; }
+  .recipe .made{ font-size:26px; font-weight:900; color:var(--accent); font-variant-numeric:tabular-nums; text-align:center; line-height:1; } .recipe .made span{ display:block; font-size:11px; color:var(--soft); font-weight:800; }
+  /* week */
+  .day{ display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
+  .day:first-child{ border-top:0; } .day .dn{ width:52px; font-weight:900; font-size:15px; color:var(--brand); flex:none; } .day .dn small{ display:block; font-weight:400; color:var(--soft); font-size:12px; }
+  .day .pick{ flex:1; min-width:150px; min-height:48px; border-radius:14px; border:1.5px dashed var(--line); background:var(--surface); display:flex; align-items:center; gap:8px; padding:6px 12px; font-weight:800; cursor:pointer; text-align:left; }
+  .day .pick.set{ border-style:solid; background:var(--card); } .day .pick .em{ font-size:24px; }
+  .day .pick .who{ font-size:12.5px; color:var(--soft); font-weight:400; display:block; }
+  /* shopping */
+  .aisle{ margin:12px 0 4px; font-weight:900; color:var(--gold); text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; }
+  .item{ display:flex; align-items:center; gap:10px; min-height:46px; padding:6px 0; border-top:1px solid var(--line); }
+  .item input[type=checkbox]{ width:24px; height:24px; min-height:0; flex:none; } .item.done label{ text-decoration:line-through; color:var(--soft); }
+  .item label{ margin:0; flex:1; font-weight:600; font-size:16px; } .item small{ color:var(--soft); font-size:13px; }
+  .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:40; } .sheet.on{ display:flex; }
+  .sheet .in{ background:var(--surface); width:100%; max-height:88vh; overflow:auto; border-radius:22px 22px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .sheet h3{ margin:0 0 10px; font-size:20px; }
+  nav{ position:fixed; left:0; right:0; bottom:0; display:flex; background:var(--surface); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); z-index:20; }
+  nav button{ flex:1; border:0; border-radius:0; background:transparent; font-size:12px; font-weight:800; color:var(--soft); min-height:56px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  nav button span{ font-size:22px; } nav button.on{ color:var(--brand); }
+  .pane{ display:none; } .pane.on{ display:block; }
   .empty{ color:var(--soft); text-align:center; padding:14px 0; }
   .foot{ color:var(--soft); font-size:13px; text-align:center; margin-top:22px; }
-  .sr{ position:absolute; left:-9999px; }
+  .small{ font-size:13px; color:var(--soft); }
+  @media print{ nav,.host,button{ display:none !important; } .pane{ display:block !important; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div style="font-size:34px" aria-hidden="true">🍽</div>
-    <div><h1>Our Table</h1><p>your recipes, your week, your list</p></div>
-  </header>
+  <header><div style="font-size:34px" aria-hidden="true">🍽️</div><div><h1>Our Table</h1><p>recipes you love · a week of dinners · one shopping list</p></div></header>
+  <div class="host" id="host"></div>
 
-  <!-- First time here: three sentences, one button. Hidden after the first save. -->
-  <section class="card first" id="first">
-    <h2>First time here? Three things.</h2>
-    <ol>
-      <li>Type one thing in the box and tap <b>Add</b>.</li>
-      <li>Tap the circle when it is done.</li>
-      <li>Everything stays on this phone. Nothing is sent anywhere.</li>
-    </ol>
-    <p><button class="primary" onclick="firstDone()">Got it</button></p>
+  <!-- RECIPES -->
+  <section class="pane on" id="p-recipes">
+    <div class="row" style="margin-bottom:10px"><input id="search" placeholder="Find a recipe…" aria-label="Find a recipe" style="flex:1;min-width:160px" oninput="renderRecipes()"><button class="accent" onclick="openEdit()">＋ New</button></div>
+    <div class="chips" id="tagChips" style="margin-bottom:10px"></div>
+    <div id="recipeList"></div>
   </section>
 
-  <section class="card">
-    <label for="newItem">Add something</label>
-    <div class="row">
-      <input id="newItem" placeholder="e.g. call the pharmacy" aria-label="Add something" style="flex:1">
-      <button class="ok" onclick="addItem()">Add</button>
+  <!-- THIS WEEK -->
+  <section class="pane" id="p-week">
+    <div class="card">
+      <h2 id="weekTitle">This week</h2>
+      <p>Tap a night to choose a dinner. Leave a night blank for leftovers or eating out.</p>
+      <div id="weekList"></div>
+      <div class="row" style="margin-top:12px"><button class="primary" onclick="buildList()">🧺 Build the shopping list</button><button onclick="fillWeek()">✨ Fill the blanks for me</button><button class="ghost" onclick="clearWeek()">Clear the week</button></div>
+    </div>
+    <div class="card"><h2>Send the week</h2><p>One message with the seven dinners, so the family knows what’s coming.</p>
+      <div class="row"><button onclick="shareWeek('sms')">💬 Text it</button><button onclick="shareWeek('share')">📤 Share…</button><button onclick="sendToOneThing()">📌 Put dinners on One Thing</button></div></div>
+  </section>
+
+  <!-- SHOPPING -->
+  <section class="pane" id="p-shop">
+    <div class="card">
+      <h2>Shopping list</h2>
+      <p id="shopNote">Built from this week’s dinners. Tick things off in the store; add anything else below.</p>
+      <div id="shopList"></div>
+      <div class="row" style="margin-top:10px"><input id="extraItem" placeholder="Add: milk, bananas…" aria-label="Add an item" style="flex:1;min-width:160px" onkeydown="if(event.key==='Enter')addExtra()"><button class="ok" onclick="addExtra()">Add</button></div>
+      <div class="row" style="margin-top:12px"><button onclick="shareList('sms')">💬 Text the list</button><button onclick="shareList('share')">📤 Share…</button><button onclick="window.print()">🖨 Print</button><button class="ghost" onclick="clearTicks()">Untick all</button></div>
     </div>
   </section>
 
-  <section class="card">
-    <h2 id="listHead">Your list</h2>
-    <ul class="items" id="list" aria-labelledby="listHead"></ul>
-    <p class="empty" id="empty">Nothing yet — add the first one above.</p>
-  </section>
-
-  <p class="foot">Our Table v1.0 · 2026-09-17 · Daraja Studio</p>
+  <p class="foot">Our Table v1.1 · 2026-09-17 · Daraja Studio · everything stays on this phone</p>
 </div>
 
-<script>
-/* ── data: one record on this phone, healed on load so old copies never break ── */
-const LS = 'dj_ourtable_v1';
-window.DJ_OWNS = [LS];               /* tells the house layer what "Start fresh" may erase */
-function load(){ try{ const d = JSON.parse(localStorage.getItem(LS)||'{}'); return { first:!!d.first, items:Array.isArray(d.items)?d.items:[] }; }catch(e){ return {first:false, items:[]}; } }
-function save(){ localStorage.setItem(LS, JSON.stringify(db)); }
-let db = load();
+<nav>
+  <button class="on" data-p="recipes" onclick="go('recipes')"><span>📖</span>Recipes</button>
+  <button data-p="week" onclick="go('week')"><span>📅</span>This week</button>
+  <button data-p="shop" onclick="go('shop')"><span>🧺</span>Shopping</button>
+</nav>
 
-function firstDone(){ db.first = true; save(); render(); }
-function addItem(){
-  const box = document.getElementById('newItem'); const t = box.value.trim(); if(!t) return;
-  db.items.unshift({ t, done:false, on: (window.djYMD ? djYMD() : new Date().toISOString().slice(0,10)) });
-  box.value = ''; save(); render();
+<!-- pick a dinner sheet -->
+<div class="sheet" id="pickSheet" onclick="if(event.target===this)closePick()"><div class="in"><h3 id="pickTitle">Pick a dinner</h3><div id="pickList"></div><div class="row" style="margin-top:10px"><button class="ghost" onclick="setDay(pickDay,null);closePick()">Leave blank</button><button class="ghost" onclick="closePick()">Cancel</button></div></div></div>
+
+<!-- recipe editor sheet -->
+<div class="sheet" id="editSheet" onclick="if(event.target===this)closeEdit()"><div class="in">
+  <h3 id="editTitle">New recipe</h3>
+  <label for="rName">Name</label><input id="rName" placeholder="Diane’s chicken pot pie">
+  <label>Picture (tap one)</label><div class="chips" id="emChips"></div>
+  <label for="rTags">Tags — what kind of night?</label><div class="chips" id="tagPick"></div>
+  <label for="rIng">Ingredients — one per line (what to buy)</label><textarea id="rIng" placeholder="2 chicken breasts&#10;1 onion&#10;frozen peas&#10;pie crust"></textarea>
+  <label for="rSteps">How to make it (optional)</label><textarea id="rSteps" placeholder="Brown the chicken… "></textarea>
+  <label for="rTime">Time on the table (optional)</label><input id="rTime" placeholder="45 min">
+  <div class="row" style="margin-top:12px"><button class="ok" style="flex:1" onclick="saveRecipe()">Save</button><button class="ghost" onclick="closeEdit()">Cancel</button><button class="ghost" id="delBtn" style="display:none" onclick="delRecipe()">🗑 Delete</button></div>
+</div></div>
+
+<!-- view recipe sheet -->
+<div class="sheet" id="viewSheet" onclick="if(event.target===this)closeView()"><div class="in" id="viewIn"></div></div>
+
+<script>
+const LS='dj_ourtable_v1'; window.DJ_OWNS=[LS];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+const EMS=['🍗','🥘','🍝','🌮','🍲','🥗','🍕','🐟','🥩','🍛','🥪','🍳','🥧','🍜','🫕','🍔'];
+const TAGS=['Quick','Sunday','Comfort','Light','Grandkids','Company','Slow cooker','Leftovers-friendly'];
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const AISLES=[['Produce',/apple|banana|lettuce|onion|garlic|tomato|potato|carrot|celery|pepper|lemon|lime|broccoli|spinach|cabbage|cucumber|mushroom|avocado|berries|orange|corn|beans?$|herb|parsley|cilantro|ginger|squash|zucchini/i],['Meat & fish',/chicken|beef|pork|turkey|ham|bacon|sausage|steak|ground|salmon|fish|shrimp|tuna|cod|lamb|ribs|brisket/i],['Dairy & eggs',/milk|cheese|butter|egg|yogurt|cream|parmesan|cheddar|mozzarella/i],['Bakery',/bread|bun|roll|tortilla|crust|pita|bagel|naan/i],['Frozen',/frozen|ice cream|peas/i],['Pantry',/rice|pasta|noodle|flour|sugar|oil|salt|pepper|spice|sauce|broth|stock|can|beans|lentil|cereal|oats|honey|vinegar|soy|ketchup|mustard|mayo|paprika|cumin|oregano|basil|chili|cinnamon|vanilla|baking|crackers|chips|nuts|peanut/i]];
+function load(){ try{ const d=JSON.parse(localStorage.getItem(LS)||'{}'); return { recipes:Array.isArray(d.recipes)?d.recipes:[], week:d.week||{}, weekOf:d.weekOf||'', shop:Array.isArray(d.shop)?d.shop:[], extras:Array.isArray(d.extras)?d.extras:[] }; }catch(e){ return {recipes:[],week:{},weekOf:'',shop:[],extras:[]}; } }
+function save(){ localStorage.setItem(LS,JSON.stringify(db)); }
+let db=load();
+function mondayOf(d){ d=new Date(d); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; }
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+/* new week? roll it */
+(function(){ const mon=ymd(mondayOf(new Date())); if(db.weekOf!==mon){ db.weekOf=mon; db.week={}; save(); } })();
+
+/* starter recipes so the shelf isn't empty (marked as examples; easy to delete) */
+if(!db.recipes.length && !localStorage.getItem('dj_ourtable_seen')){
+  db.recipes=[
+    {id:uid(),name:'Sunday roast chicken (example)',em:'🍗',tags:['Sunday','Company'],ing:['1 whole chicken','potatoes','carrots','1 onion','butter','rosemary'],steps:'Rub the chicken with butter and rosemary. Roast at 425° for 1 hr 15. Vegetables in the pan for the last 45 min.',time:'1 hr 30',made:0},
+    {id:uid(),name:'Taco night (example)',em:'🌮',tags:['Quick','Grandkids'],ing:['1 lb ground beef','taco seasoning','tortillas','lettuce','tomato','cheddar','sour cream'],steps:'Brown the beef, add seasoning and a splash of water. Everyone builds their own.',time:'25 min',made:0},
+    {id:uid(),name:'Slow-cooker chili (example)',em:'🍲',tags:['Slow cooker','Comfort','Leftovers-friendly'],ing:['1 lb ground beef','2 cans kidney beans','1 can crushed tomatoes','1 onion','chili powder','cumin'],steps:'Brown beef and onion. Everything in the slow cooker on low for 6 hrs.',time:'6 hrs (hands-off)',made:0}
+  ];
+  localStorage.setItem('dj_ourtable_seen','1'); save();
 }
-function toggle(i){ db.items[i].done = !db.items[i].done; save(); render(); }
-function render(){
-  document.getElementById('first').style.display = db.first ? 'none' : '';
-  const ul = document.getElementById('list'); ul.innerHTML = '';
-  db.items.forEach((it, i) => {
-    const li = document.createElement('li'); if(it.done) li.className = 'done';
-    const b = document.createElement('button'); b.textContent = it.done ? '✓' : '○'; b.setAttribute('aria-label', (it.done?'Mark not done: ':'Mark done: ')+it.t); b.onclick = () => toggle(i);
-    const s = document.createElement('span'); s.textContent = it.t;
-    li.append(b, s); ul.append(li);
-  });
-  document.getElementById('empty').style.display = db.items.length ? 'none' : '';
+
+/* ── host: one nudge at a time ─────────────────────────────── */
+function hostLine(){
+  const h=new Date().getHours(); const g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const todayIdx=(new Date().getDay()+6)%7; const tonight=db.week[DAYS[todayIdx]]; const r=tonight&&db.recipes.find(x=>x.id===tonight);
+  const planned=DAYS.filter(d=>db.week[d]).length; const unticked=db.shop.filter(x=>!x.done).length;
+  let b,p,act;
+  if(!db.recipes.length){ b=g+'.'; p='Let’s start with one dinner you actually make. What is it?'; act='<button onclick="openEdit()">Add a recipe</button>'; }
+  else if(r && h<16){ b=g+'. Tonight is '+r.em+' '+esc(r.name)+'.'; p=(r.time?'About '+esc(r.time)+'. ':'')+'Got everything, or should I show the list?'; act=`<button onclick="openView('${r.id}')">Show me how</button> <button onclick="go('shop')">Shopping list</button>`; }
+  else if(planned<4 && todayIdx<5){ b=g+'.'; p=planned?`Only ${planned} of 7 nights planned. Want me to fill in the rest from your favourites?`:'No dinners planned this week yet. Want me to fill the week from your favourites?'; act='<button onclick="fillWeek()">Fill the week</button> <button onclick="go(\'week\')">I’ll pick</button>'; }
+  else if(planned>=4 && !db.shop.length){ b='The week looks good.'; p='Shall I build the shopping list from those dinners?'; act='<button onclick="buildList()">Build the list</button>'; }
+  else if(unticked){ b=g+'.'; p=`${unticked} things still on the shopping list. Text it to whoever’s going to the store?`; act='<button onclick="shareList(\'sms\')">Text the list</button> <button onclick="go(\'shop\')">See it</button>'; }
+  else { b=g+'.'; p='All set. Anything new you cooked lately worth keeping?'; act='<button onclick="openEdit()">Add a recipe</button>'; }
+  $('host').innerHTML=`<b>${b}</b><p>${p}</p><div class="row">${act}</div>`;
 }
+
+/* ── recipes ──────────────────────────────────────────────── */
+let tagFilter='';
+function renderRecipes(){
+  const q=($('search').value||'').toLowerCase();
+  $('tagChips').innerHTML=['All',...TAGS].map(t=>`<span class="chip ${(t==='All'?'':t)===tagFilter?'on':''}" onclick="tagFilter='${t==='All'?'':t}';renderRecipes()">${t}</span>`).join('');
+  const list=db.recipes.filter(r=>(!q||r.name.toLowerCase().includes(q)||(r.ing||[]).join(' ').toLowerCase().includes(q))&&(!tagFilter||(r.tags||[]).includes(tagFilter)));
+  $('recipeList').innerHTML=list.map(r=>`<div class="recipe" onclick="openView('${r.id}')" role="button" tabindex="0"><div class="em">${r.em||'🍽️'}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')||'no tags'}${r.time?' · '+esc(r.time):''}</small></div><div class="made">${r.made||0}<span>made</span></div></div>`).join('')||'<div class="empty">No recipes match. Tap ＋ New to add one.</div>';
+}
+let editId=null, editEm='🍗', editTags=[];
+function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?r.em:'🍗'; editTags=r?[...(r.tags||[])]:[];
+  $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('delBtn').style.display=r?'':'none';
+  drawEmChips(); drawTagPick(); $('editSheet').classList.add('on'); closeView(); setTimeout(()=>$('rName').focus(),100); }
+function drawEmChips(){ $('emChips').innerHTML=EMS.map(e=>`<span class="chip ${e===editEm?'on':''}" style="font-size:22px" onclick="editEm='${e}';drawEmChips()">${e}</span>`).join(''); }
+function drawTagPick(){ $('tagPick').innerHTML=TAGS.map(t=>`<span class="chip ${editTags.includes(t)?'on':''}" onclick="toggleTag('${t}')">${t}</span>`).join(''); }
+function toggleTag(t){ editTags=editTags.includes(t)?editTags.filter(x=>x!==t):[...editTags,t]; drawTagPick(); }
+function closeEdit(){ $('editSheet').classList.remove('on'); }
+function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName').focus(); return; }
+  const rec={ name, em:editEm, tags:editTags, ing:$('rIng').value.split('\n').map(s=>s.trim()).filter(Boolean), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() };
+  if(editId){ Object.assign(db.recipes.find(x=>x.id===editId),rec); } else db.recipes.unshift({id:uid(),made:0,...rec});
+  save(); closeEdit(); render(); toast('Saved ✓'); }
+function delRecipe(){ if(!confirm('Delete this recipe?')) return; db.recipes=db.recipes.filter(x=>x.id!==editId); DAYS.forEach(d=>{ if(db.week[d]===editId) delete db.week[d]; }); save(); closeEdit(); render(); }
+function openView(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return;
+  $('viewIn').innerHTML=`<h3>${r.em} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}</p>
+    <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
+    ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
+    <div class="row" style="margin-top:8px"><button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button><button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button><button onclick="openEdit('${r.id}')">✏️ Edit</button><button class="ghost" onclick="closeView()">Close</button></div>`;
+  $('viewSheet').classList.add('on'); }
+function closeView(){ $('viewSheet').classList.remove('on'); }
+function madeIt(id){ const r=db.recipes.find(x=>x.id===id); r.made=(r.made||0)+1; r.last=ymd(new Date()); save(); closeView(); render(); toast('Nice — '+r.made+' times now'); }
+function pickNightFor(id){ closeView(); go('week'); const free=DAYS.find(d=>!db.week[d])||DAYS[0]; setDay(free,id); toast('Put on '+free); }
+
+/* ── week ─────────────────────────────────────────────────── */
+let pickDay='';
+function renderWeek(){ const mon=new Date(db.weekOf+'T12:00:00'); $('weekTitle').textContent='Week of '+mon.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  $('weekList').innerHTML=DAYS.map((d,i)=>{ const dt=new Date(mon); dt.setDate(mon.getDate()+i); const r=db.week[d]&&db.recipes.find(x=>x.id===db.week[d]);
+    return `<div class="day"><div class="dn">${d}<small>${dt.getDate()}</small></div><button class="pick ${r?'set':''}" onclick="openPick('${d}')">${r?`<span class="em">${r.em}</span><span>${esc(r.name)}${r.time?`<span class="who">${esc(r.time)}</span>`:''}</span>`:'<span class="small">tap to choose…</span>'}</button></div>`; }).join(''); }
+function openPick(d){ pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=db.recipes.map(r=>`<div class="recipe" onclick="setDay('${d}','${r.id}');closePick()" role="button" tabindex="0"><div class="em">${r.em}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')}</small></div></div>`).join('')||'<div class="empty">Add a recipe first.</div>'; $('pickSheet').classList.add('on'); }
+function closePick(){ $('pickSheet').classList.remove('on'); }
+function setDay(d,id){ if(id) db.week[d]=id; else delete db.week[d]; save(); render(); }
+function fillWeek(){ if(!db.recipes.length){ openEdit(); return; } const used=new Set(Object.values(db.week)); const pool=db.recipes.slice().sort((a,b)=>(b.made||0)-(a.made||0)); let k=0;
+  DAYS.forEach(d=>{ if(db.week[d]) return; if(d==='Fri'||d==='Sat'){ if(Math.random()<.35) return; } let r=pool.find(x=>!used.has(x.id)); if(!r) r=pool[k++%pool.length]; if(r){ db.week[d]=r.id; used.add(r.id); } });
+  save(); render(); go('week'); toast('Week filled — swap any night'); }
+function clearWeek(){ if(!confirm('Clear all seven nights?')) return; db.week={}; save(); render(); }
+function weekText(){ const mon=new Date(db.weekOf+'T12:00:00'); return 'Dinners, week of '+mon.toLocaleDateString(undefined,{month:'short',day:'numeric'})+'\n'+DAYS.map(d=>{ const r=db.week[d]&&db.recipes.find(x=>x.id===db.week[d]); return d+': '+(r?r.em+' '+r.name:'—'); }).join('\n'); }
+function shareWeek(how){ shareText(weekText(),how); }
+function sendToOneThing(){ /* One Thing / Now & Next reads now_next_v1 on the same origin */
+  try{ const K='now_next_v1'; const d=JSON.parse(localStorage.getItem(K)||'{}'); d.tasks=Array.isArray(d.tasks)?d.tasks:[]; const mon=new Date(db.weekOf+'T12:00:00'); let n=0;
+    DAYS.forEach((d0,i)=>{ const r=db.week[d0]&&db.recipes.find(x=>x.id===db.week[d0]); if(!r) return; const dt=new Date(mon); dt.setDate(mon.getDate()+i); const title='Dinner: '+r.name; if(d.tasks.some(t=>t.title===title&&t.date===ymd(dt))) return; d.tasks.push({id:uid(),title,date:ymd(dt),done:false,from:'ourtable'}); n++; });
+    localStorage.setItem(K,JSON.stringify(d)); toast(n?n+' dinners sent to One Thing':'Already there'); }catch(e){ toast('Couldn’t reach One Thing'); } }
+
+/* ── shopping ─────────────────────────────────────────────── */
+function aisleOf(s){ for(const [a,re] of AISLES){ if(re.test(s)) return a; } return 'Other'; }
+function norm(s){ return s.toLowerCase().replace(/^\d+[\d\/.\s]*(lb|lbs|oz|cups?|tbsp|tsp|cans?|cloves?|whole|large|small|bunch|pkg|bag|box)?\s*(of\s+)?/,'').trim(); }
+function buildList(){ const seen={}; const out=[];
+  DAYS.forEach(d=>{ const r=db.week[d]&&db.recipes.find(x=>x.id===db.week[d]); if(!r) return; (r.ing||[]).forEach(i=>{ const k=norm(i); if(!k) return; if(seen[k]){ seen[k].for.push(d); if(seen[k].text!==i) seen[k].text+=' + '+i; return; } const o={id:uid(),text:i,key:k,for:[d],aisle:aisleOf(i),done:false}; seen[k]=o; out.push(o); }); });
+  const oldDone=new Set(db.shop.filter(x=>x.done).map(x=>x.key)); out.forEach(o=>{ if(oldDone.has(o.key)) o.done=true; });
+  db.shop=out; save(); render(); go('shop'); toast(out.length+' things on the list'); }
+function addExtra(){ const t=$('extraItem').value.trim(); if(!t) return; db.extras.push({id:uid(),text:t,aisle:aisleOf(t),done:false}); $('extraItem').value=''; save(); renderShop(); }
+function tick(kind,id){ const arr=kind==='s'?db.shop:db.extras; const o=arr.find(x=>x.id===id); o.done=!o.done; save(); renderShop(); hostLine(); }
+function rmExtra(id){ db.extras=db.extras.filter(x=>x.id!==id); save(); renderShop(); }
+function clearTicks(){ db.shop.forEach(x=>x.done=false); db.extras.forEach(x=>x.done=false); save(); renderShop(); }
+function renderShop(){ const all=[...db.shop.map(x=>({...x,kind:'s'})),...db.extras.map(x=>({...x,kind:'e'}))]; if(!all.length){ $('shopList').innerHTML='<div class="empty">Nothing yet. Plan the week, then tap “Build the shopping list”.</div>'; return; }
+  const order=['Produce','Meat & fish','Dairy & eggs','Bakery','Frozen','Pantry','Other']; const by={}; all.forEach(x=>{ (by[x.aisle]=by[x.aisle]||[]).push(x); });
+  $('shopList').innerHTML=order.filter(a=>by[a]).map(a=>`<div class="aisle">${a}</div>`+by[a].map(x=>`<div class="item ${x.done?'done':''}"><input type="checkbox" id="c-${x.id}" ${x.done?'checked':''} onchange="tick('${x.kind}','${x.id}')"><label for="c-${x.id}">${esc(x.text)}${x.for?` <small>(${x.for.join(', ')})</small>`:''}</label>${x.kind==='e'?`<button class="ghost" style="min-height:36px;padding:4px 10px" aria-label="Remove" onclick="rmExtra('${x.id}')">✕</button>`:''}</div>`).join('')).join('');
+  const done=all.filter(x=>x.done).length; $('shopNote').textContent=`${all.length-done} to get · ${done} in the trolley`; }
+function listText(){ const all=[...db.shop,...db.extras].filter(x=>!x.done); const by={}; all.forEach(x=>{ (by[x.aisle]=by[x.aisle]||[]).push(x.text); }); return 'Shopping list\n'+Object.entries(by).map(([a,xs])=>a.toUpperCase()+'\n'+xs.map(t=>'☐ '+t).join('\n')).join('\n\n'); }
+function shareList(how){ shareText(listText(),how); }
+function shareText(t,how){ if(how==='share'&&navigator.share){ navigator.share({text:t}).catch(()=>{}); return; } if(how==='sms'){ location.href=`sms:${IOS?'&':'?'}body=${encodeURIComponent(t)}`; return; } navigator.clipboard&&navigator.clipboard.writeText(t).then(()=>toast('Copied')); }
+
+/* ── shell ─────────────────────────────────────────────────── */
+function go(p){ document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('on',x.id==='p-'+p)); document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); window.scrollTo({top:0}); }
+function toast(t){ let e=document.getElementById('toast'); if(!e){ e=document.createElement('div'); e.id='toast'; e.style.cssText='position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ok);color:#fff;font-weight:800;padding:10px 16px;border-radius:999px;z-index:50;white-space:nowrap'; document.body.appendChild(e); } e.textContent=t; e.style.display=''; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none',1800); }
+function render(){ hostLine(); renderRecipes(); renderWeek(); renderShop(); }
+/* ✨ AI door: bring in a recipe from anywhere (a photo of a card, a website, memory) */
+window.DJ_AI={ title:'Bring in a recipe', prompt:function(){ const hint=($('search').value||'').trim(); return 'Give me a simple home recipe'+(hint?' for "'+hint+'"':' a grandparent would cook for family')+'. Answer ONLY as JSON: {"name":"…","time":"…","ing":["one ingredient per entry, with amount"],"steps":"short paragraph","tags":["Quick|Sunday|Comfort|Light|Grandkids|Company|Slow cooker"]}'; }, onResult:function(v){ if(!v||!v.name) return; db.recipes.unshift({id:uid(),name:v.name,em:'🍽️',tags:(v.tags||[]).filter(t=>TAGS.includes(t)),ing:v.ing||[],steps:v.steps||'',time:v.time||'',made:0}); save(); render(); go('recipes'); toast('Added '+v.name); } };
 render();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
