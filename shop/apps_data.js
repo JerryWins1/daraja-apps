@@ -15,6 +15,11 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ ourtable: {
+  name:'Our Table', em:'🍽', sub:'your recipes, your week, your list', fresh:true, cat:'home', price:'Free', testing:true,
+  tag:'your recipes, your week, your list',
+  try:BASE+'ourtable/', video:false
+ },
  whoscoming: {
   name:'Who’s Coming', em:'🙋', sub:'ask the group, collect the answers', fresh:true, cat:'home', price:'Free', testing:true,
   tag:'ask the group, collect the answers',
