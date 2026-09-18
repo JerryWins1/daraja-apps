@@ -11,6 +11,11 @@ const PHASE = 'testing';
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
 const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','ourtable','everyday','academy'];
 
+/* ══ THE DOOR'S SORT ══ Jerry, 18 Sep: the Daraja door (home/) and the 🌉 More-from-Daraja sheet
+   group apps this way; the store shelves above stay as they are for selling. */
+const DOOR = { pitwall:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
+const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun' };
+
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
