@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v30">
+<script id="dj-house-v31">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -980,6 +980,13 @@
     var nm = djName(); var seed = 0; for(var i = 0; i < today.length; i++) seed += today.charCodeAt(i) * (i + 3);
     var line = HELLO[(seed + slug.length) % HELLO.length];
     var back = run >= 3 ? ' Day ' + run + ' in a row here.' : (rec.days >= 2 && run === 1 ? ' Welcome back.' : '');
+    /* "we missed you": the last time ANY Daraja app was opened on this phone. Three days or more
+       away, and the hello says so kindly and asks for the smallest thing — never a guilt trip. */
+    var lastAny = ''; try{ lastAny = localStorage.getItem('dj_lastopen') || ''; localStorage.setItem('dj_lastopen', today); }catch(e){}
+    if(lastAny && lastAny !== today){
+      var gap = Math.round((new Date(today + 'T12:00:00') - new Date(lastAny + 'T12:00:00')) / 864e5);
+      if(gap >= 3){ back = ' It has been ' + gap + ' days. That is completely fine.'; line = 'Nothing here was counting. Start with the smallest thing on the screen, and let that be enough for today.'; }
+    }
     var w = document.createElement('div'); w.id = 'djHello'; w.setAttribute('role', 'status');
     w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481200;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 8px 24px rgba(0,0,0,.28);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s';
     w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
@@ -1111,7 +1118,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.1 · 2026-09-18 · Daraja Studio · everything stays on this phone</p>
+  <p class="foot">Our Table v1.1 · 2026-09-20 · Daraja Studio · everything stays on this phone</p>
 </div>
 
 <nav>
@@ -1261,6 +1268,63 @@ function render(){ hostLine(); renderRecipes(); renderWeek(); renderShop(); }
 window.DJ_AI={ title:'Bring in a recipe', prompt:function(){ const hint=($('search').value||'').trim(); return 'Give me a simple home recipe'+(hint?' for "'+hint+'"':' a grandparent would cook for family')+'. Answer ONLY as JSON: {"name":"…","time":"…","ing":["one ingredient per entry, with amount"],"steps":"short paragraph","tags":["Quick|Sunday|Comfort|Light|Grandkids|Company|Slow cooker"]}'; }, onResult:function(v){ if(!v||!v.name) return; db.recipes.unshift({id:uid(),name:v.name,em:'🍽️',tags:(v.tags||[]).filter(t=>TAGS.includes(t)),ing:v.ing||[],steps:v.steps||'',time:v.time||'',made:0}); save(); render(); go('recipes'); toast('Added '+v.name); } };
 render();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+<script id="dj-levels-ourtable-v1">
+/* Daraja levels — the generic engine (20 Sep 2026). One Thing got the hand-made version; this is the
+   same idea for any app: Level 1 shows the heart of it, 2 adds the middle, 3 is everything. New people
+   choose on first open; existing people keep everything; the app asks to move up only after real use. */
+window.djLevels = function(C){
+  if(window['__djLv_'+C.key]) return; window['__djLv_'+C.key] = true;
+  var K = 'dj_level_' + C.key;
+  function ls(k){ try{ return JSON.parse(localStorage.getItem(k) || 'null'); }catch(e){ return null; } }
+  function st(){ return ls(K) || {}; } function save(o){ try{ localStorage.setItem(K, JSON.stringify(o)); }catch(e){} }
+  function today(){ return window.djYMD ? djYMD() : new Date().toISOString().slice(0,10); }
+  function stats(){ try{ return C.stats(ls(C.data) || {}) || {score:0, days:0}; }catch(e){ return {score:0, days:0}; } }
+  function level(){ var s = st(); if(s.level) return s.level; var x = stats(); var L = (x.score > 0) ? 3 : 1; save({level:L, since:today(), auto:true, nudge:true}); return L; }
+  function setLevel(L, quiet){ var s = st(); var was = s.level || level(); s.level = L; s.since = today(); s.askedOn = ''; s.next = 0; save(s); apply(); if(!quiet){ try{ (window.toast||function(){})(L > was ? 'Level ' + L + ' — ' + C.levels[L].name + '. New things are on the screen now.' : 'Level ' + L + ' — ' + C.levels[L].name + '. Simpler.', 3200); }catch(e){} } }
+  function setVis(sel, on){ document.querySelectorAll(sel).forEach(function(e){ if(on) e.style.removeProperty('display'); else e.style.setProperty('display','none','important'); }); }
+  function apply(){ var L = level(); [1,2,3].forEach(function(n){ (C.hideBelow[n] || []).forEach(function(sel){ setVis(sel, L >= n); }); }); try{ if(C.fallback) C.fallback(L); }catch(e){} pill(L); }
+  function pill(L){ var p = document.getElementById('djLevelPill'); var h = document.querySelector(C.anchor || 'header');
+    if(!p && h){ p = document.createElement('button'); p.id = 'djLevelPill'; p.type = 'button';
+      p.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;max-width:640px;margin:0 auto 6px;font:inherit;font-size:13.5px;font-weight:800;min-height:44px;padding:6px 14px;border-radius:999px;border:1px solid var(--line,#E2DCCF);background:var(--card,var(--surface,#fff));color:var(--ink,#1F2622);cursor:pointer;text-align:left';
+      p.setAttribute('aria-label','Your level — tap to change how much the app shows'); p.onclick = function(){ sheet(); }; h.insertAdjacentElement('afterend', p); }
+    if(p) p.innerHTML = '<span>' + C.levels[L].em + '</span><span style="flex:1">Level ' + L + ' · ' + C.levels[L].name + '</span><span style="font-weight:800">change ›</span>'; }
+  var BTN = 'font:inherit;font-weight:800;min-height:48px;padding:10px 14px;border-radius:14px;cursor:pointer;';
+  function box(html){ var old = document.getElementById('djLevelSheet'); if(old) old.remove(); var w = document.createElement('div'); w.id = 'djLevelSheet'; w.setAttribute('role','dialog');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147481400;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
+    w.innerHTML = '<div style="background:var(--card,var(--surface,#fff));color:var(--ink,#1F2622);width:100%;max-width:640px;max-height:86vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35);font:16px/1.45 -apple-system,system-ui,sans-serif">' + html + '</div>';
+    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); }); document.body.appendChild(w); return w; }
+  function row(n, on){ return '<button type="button" data-l="' + n + '" style="' + BTN + 'display:flex;gap:12px;align-items:center;width:100%;text-align:left;margin-bottom:8px;border:2px solid ' + (on ? 'var(--accent,var(--now,#D96C4F))' : 'var(--line,#E2DCCF)') + ';background:' + (on ? 'rgba(217,108,79,.12)' : 'var(--surface,#fff)') + ';color:inherit"><span style="font-size:28px">' + C.levels[n].em + '</span><span style="flex:1"><b>Level ' + n + ' · ' + C.levels[n].name + '</b><span style="display:block;font-weight:600;font-size:14px;opacity:.85">' + C.levels[n].what + '</span></span>' + (on ? '<span style="font-weight:900">now</span>' : '') + '</button>'; }
+  function sheet(){ var L = level(); var s = st();
+    var w = box('<div style="font-weight:900;font-size:19px;margin-bottom:4px">How much do you want on the screen?</div><div style="font-size:14px;opacity:.85;margin-bottom:12px">Start simple. Move up when you like — nothing is lost at a lower level, it is just out of sight.</div>' + [1,2,3].map(function(n){ return row(n, n === L); }).join('') +
+      '<label style="display:flex;gap:10px;align-items:center;font-size:14.5px;margin:8px 0 12px;min-height:44px"><input type="checkbox" id="djLvNudge" ' + (s.nudge !== false ? 'checked' : '') + ' style="width:22px;height:22px"> Ask me about moving up, once I have used it a while</label><button type="button" id="djLvClose" style="' + BTN + 'width:100%;border:0;background:var(--brand,#23504F);color:#fff">Done</button>');
+    w.querySelectorAll('[data-l]').forEach(function(b){ b.onclick = function(){ setLevel(+b.getAttribute('data-l')); w.remove(); }; });
+    w.querySelector('#djLvNudge').onchange = function(e){ var s2 = st(); s2.nudge = !!e.target.checked; save(s2); }; w.querySelector('#djLvClose').onclick = function(){ w.remove(); }; }
+  function busy(){ if(document.querySelector('#djLevelSheet, #djStart, #fsIntro.show, #fsFin.show')) return true; return C.busy ? !!C.busy() : false; }
+  function nudge(){ var s = st(); var L = level(); if(L >= 3 || s.nudge === false || s.askedOn === today() || busy()) return;
+    var x = stats(); var need = C.need[L]; if(!need || x.score < Math.max(need.score, s.next || 0) || x.days < need.days) return;
+    s.askedOn = today(); save(s); var n = L + 1;
+    var w = box('<div style="font-weight:900;font-size:19px;margin-bottom:4px">' + (C.praise ? C.praise(x) : 'You have been using this a while. 👏') + '</div><div style="font-size:15px;opacity:.9;margin-bottom:12px">Ready for <b>Level ' + n + ' · ' + C.levels[n].name + '</b>? ' + C.levels[n].what + ' You can always come back down.</div>' +
+      '<button type="button" id="djLvUp" style="' + BTN + 'width:100%;border:0;background:var(--brand,#23504F);color:#fff;margin-bottom:8px">Yes — Level ' + n + '</button><button type="button" id="djLvNot" style="' + BTN + 'width:100%;border:1.5px solid var(--line,#E2DCCF);background:var(--surface,#fff);color:inherit;margin-bottom:8px">Not yet</button><button type="button" id="djLvNever" style="' + BTN + 'width:100%;border:0;background:transparent;color:inherit;opacity:.8;font-weight:700;min-height:40px">Don’t ask again — I’ll use the Level line</button>');
+    w.querySelector('#djLvUp').onclick = function(){ w.remove(); setLevel(n); }; w.querySelector('#djLvNot').onclick = function(){ var s2 = st(); s2.next = x.score * 2; save(s2); w.remove(); }; w.querySelector('#djLvNever').onclick = function(){ var s2 = st(); s2.nudge = false; save(s2); w.remove(); }; }
+  function intro(){ var s = st(); if(!s.auto || s.level !== 1 || s.intro) return; if(busy()){ setTimeout(intro, 2000); return; } s.intro = 1; save(s);
+    var w = box('<div style="font-weight:900;font-size:19px;margin-bottom:4px">How much do you want to see?</div><div style="font-size:15px;opacity:.9;margin-bottom:12px">Your choice. Start simple and grow into it — the app will ask once you have used it a while — or have everything from the first day. Change it any time from the Level line.</div>' + [1,2,3].map(function(n){ return row(n, n === 1); }).join(''));
+    w.querySelectorAll('[data-l]').forEach(function(b){ b.onclick = function(){ var n = +b.getAttribute('data-l'); w.remove(); var s2 = st(); s2.auto = false; save(s2); setLevel(n, n === 1); }; }); }
+  function boot(){ apply(); setTimeout(intro, 2600); [1500,4000,9000].forEach(function(ms){ setTimeout(apply, ms); }); setInterval(function(){ apply(); nudge(); }, 2500);
+    try{ new MutationObserver(function(){ clearTimeout(window.__djLvT); window.__djLvT = setTimeout(apply, 120); }).observe(document.body, {childList:true, subtree:true}); }catch(e){} }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+};
+
+djLevels({ key:'ourtable', data:'dj_ourtable_v1', anchor:'header',
+  levels:{ 1:{em:'🌱',name:'Recipes and the week',what:'Your recipes, and a night for each one. Nothing else.'}, 2:{em:'🌿',name:'The shopping list',what:'Adds the Shopping tab — the list built from the week, sorted by aisle.'}, 3:{em:'🌳',name:'Sharing',what:'Adds sending the week and the list — text, share, print, and dinners onto One Thing.'} },
+  hideBelow:{ 2:['nav button[data-p="shop"]','button[onclick="buildList()"]'], 3:['#p-week .card:nth-of-type(2)','#p-shop .row:last-of-type','#tagChips'] },
+  fallback:function(L){ var v=document.querySelector('.pane.on'); if(v&&L<2&&v.id==='p-shop') try{ go('recipes'); }catch(e){} },
+  stats:function(d){ var nights=Object.keys(d.week||{}).length; var made=0; (d.recipes||[]).forEach(function(r){ made+=r.made||0; }); var s=(function(){ try{ return JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}'); }catch(e){ return {}; } })(); var days=s.since?Math.round((new Date()-new Date(s.since+'T12:00:00'))/864e5):0; return {score: nights + made + ((d.shop||[]).length?3:0), days: days}; },
+  need:{ 1:{score:3, days:0}, 2:{score:8, days:4} },
+  praise:function(x){ return 'The week has dinners on it. 👏'; },
+  busy:function(){ return !!document.querySelector('.sheet.on'); }
+});
+
 </script>
 </body>
 </html>
