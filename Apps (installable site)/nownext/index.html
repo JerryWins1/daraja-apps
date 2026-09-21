@@ -1366,7 +1366,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.9 · 2026-09-20</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.10 · 2026-09-21</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -3234,6 +3234,72 @@ window.DJ_AI = { title:'Break my one thing into three small pieces', want:'json'
   }
   function boot(){ apply(); setTimeout(intro, 2600); [1500, 4000, 9000].forEach(function(ms){ setTimeout(apply, ms); }); setInterval(function(){ apply(); nudge(); }, 2500);
     try{ new MutationObserver(function(){ clearTimeout(window.__nnLvT); window.__nnLvT = setTimeout(apply, 120); }).observe(document.body, { childList: true }); }catch(e){} }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+
+<script id="dj-fresh-v1">
+/* One Thing — “start today over” (21 Sep 2026). Jerry: “I just started One Thing up from the start
+   screen. It didn’t ask me if I want to restart — should it have?” Answer we agreed: not a question
+   every time, but the app should SAY what came with it, and there should always be a way to start the
+   day clean. So: a quiet line above the list when yesterday’s unfinished things are still here, and a
+   plain “Start today over” under the list. The app’s db is closure-scoped, so this writes to storage
+   and reloads. */
+(function(){
+  if(window.__nnFresh) return; window.__nnFresh = true;
+  function ls(k){ try{ return JSON.parse(localStorage.getItem(k) || 'null'); }catch(e){ return null; } }
+  function today(){ return window.djYMD ? djYMD() : new Date().toISOString().slice(0,10); }
+  function key(){ var P = ls('now_next_profiles_v1'); return (P && P.cur) ? 'now_next_v1_' + P.cur : 'now_next_v1'; }
+  function read(){ return ls(key()) || null; }
+  function write(d){ try{ localStorage.setItem(key(), JSON.stringify(d)); return true; }catch(e){ return false; } }
+  function dayName(k){ try{ var p = String(k).split('-'); var dt = new Date(+p[0], +p[1]-1, +p[2]);
+      var t = today(), y = new Date(); y.setDate(y.getDate()-1);
+      if(k === (window.djYMD ? djYMD(y) : '')) return 'yesterday';
+      return dt.toLocaleDateString(undefined, { weekday:'long' }); }catch(e){ return 'before'; } }
+  /* stamp the day a task arrived — only from now on, so nothing old is mislabelled */
+  function stamp(){ var d = read(); if(!d || !Array.isArray(d.tasks)) return; var t = today(), n = 0;
+    d.tasks.forEach(function(x){ if(!x.bday){ x.bday = t; n++; } }); if(n) write(d); }
+  function carried(){ var d = read(); if(!d || !Array.isArray(d.tasks)) return [];
+    var t = today(); return d.tasks.filter(function(x){ return !x.done && x.bday && x.bday < t; }); }
+  function clearCarried(){ var d = read(); if(!d) return; var t = today();
+    d.tasks = d.tasks.filter(function(x){ return !(!x.done && x.bday && x.bday < t); });
+    write(d); location.reload(); }
+  function startOver(){
+    var d = read(); if(!d){ return; }
+    var open = (d.tasks || []).filter(function(x){ return !x.done; }).length;
+    if(!open){ try{ toast('Today is already clear'); }catch(e){} return; }
+    if(!confirm('Start today over?\n\nThis clears the ' + open + ' thing' + (open===1?'':'s') + ' still on today’s list. Your routines, your wins and everything you have finished stay exactly as they are.')) return;
+    d.tasks = (d.tasks || []).filter(function(x){ return x.done; });
+    write(d); location.reload();
+  }
+  window.djStartTodayOver = startOver;
+  var BTN = 'font:inherit;font-weight:800;min-height:44px;padding:9px 14px;border-radius:12px;cursor:pointer;';
+  function paint(){
+    var view = document.getElementById('v-today'); if(!view) return;
+    var list = carried(), skip = (read() || {}).freshKeep === today();
+    /* the line: what came with you */
+    var line = document.getElementById('djCarry');
+    if(list.length && !skip){
+      if(!line){ line = document.createElement('div'); line.id = 'djCarry';
+        line.style.cssText = 'background:var(--brand-soft,#23504F14);border:1px dashed var(--brand,#23504F);border-radius:14px;padding:10px 12px;margin:0 0 10px;font-size:14.5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+        var host = document.getElementById('inbox') || document.getElementById('nowCard');
+        if(host && host.parentNode) host.parentNode.insertBefore(line, host); else view.insertBefore(line, view.firstChild); }
+      line.innerHTML = '<span style="flex:1"><b>' + list.length + ' thing' + (list.length===1?'':'s') + '</b> came with you from ' + dayName(list[0].bday) + '.</span>'
+        + '<button type="button" id="djCarryClear" style="' + BTN + 'border:0;background:var(--brand,#23504F);color:#fff">Clear them</button>'
+        + '<button type="button" id="djCarryKeep" style="' + BTN + 'border:1px solid var(--line-strong,#C9C1AE);background:transparent;color:inherit">Keep them</button>';
+      line.querySelector('#djCarryClear').onclick = clearCarried;
+      line.querySelector('#djCarryKeep').onclick = function(){ var d = read(); if(d){ d.freshKeep = today(); write(d); } line.remove(); };
+    } else if(line){ line.remove(); }
+    /* the button: always there, under the day */
+    if(!document.getElementById('djFreshBtn')){
+      var b = document.createElement('button'); b.type = 'button'; b.id = 'djFreshBtn'; b.textContent = '↻ Start today over';
+      b.title = 'Clear what is still on today’s list. Routines and finished things stay.';
+      b.style.cssText = 'display:block;margin:14px auto 4px;' + BTN + 'border:1px solid var(--line-strong,#C9C1AE);background:transparent;color:var(--soft,#55605B);font-size:14px';
+      b.onclick = startOver;
+      view.appendChild(b);
+    }
+  }
+  function boot(){ stamp(); paint(); [1200, 3000, 6000].forEach(function(ms){ setTimeout(paint, ms); }); setInterval(paint, 4000); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
