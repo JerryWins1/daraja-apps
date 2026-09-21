@@ -1447,7 +1447,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v2.3 · 2026-09-21 · Daraja Studio</div>
+<div id="ver">Feedback Studio v2.4 · 2026-09-21 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -2482,38 +2482,6 @@ function downloadReport(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(go,300); }); else setTimeout(go,300);
 })();
 </script>
-<script id="dj-fs-send-v1">
-/* 11 Sep 2026, Jerry: "connect the feedback studio to the claude chat box directly… the
-   screenshots too." A web page cannot type into the Claude app, but it can hand the report
-   and the pictures to Messages in ONE share — sent to yourself — and Claude reads Messages
-   on this Mac the moment Jerry says "read my feedback". Same result, two taps. */
-window.__fsPics = window.__fsPics || [];
-window.pickPics = function(){ var i = document.getElementById('picIn'); if(i) i.click(); };
-document.addEventListener('change', function(e){
-  if(!e.target || e.target.id !== 'picIn') return;
-  var fs = [].slice.call(e.target.files || []); if(!fs.length) return;
-  window.__fsPics = window.__fsPics.concat(fs);
-  var n = document.getElementById('picN'); if(n) n.textContent = '(' + window.__fsPics.length + ')';
-  e.target.value = '';
-});
-window.sendToClaude = async function(){
-  var txt = buildReport();
-  var app = ((db.appUrl||'app').replace(/\/+$/,'').split('/').pop() || 'app').replace(/[^a-z0-9]+/gi,'-').toLowerCase();
-  var d = new Date(), stamp = d.toISOString().slice(0,10) + '-' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
-  var name = 'daraja-feedback-' + app + '-' + stamp + '.txt';
-  var files = [];
-  try{ files.push(new File([txt], name, {type:'text/plain'})); }catch(e){}
-  files = files.concat(window.__fsPics || []);
-  var payload = { title: 'Feedback for Claude — ' + app, text: txt };
-  if(files.length && navigator.canShare && navigator.canShare({files:files})) payload.files = files;
-  if(!navigator.share){ copyReport(); alert('This browser cannot share. The report is copied — paste it to Claude.'); return; }
-  try{
-    await navigator.share(payload);
-    window.__fsPics = []; var n = document.getElementById('picN'); if(n) n.textContent = '';
-    setTimeout(function(){ alert('Now tell Claude: “read my feedback”.\n\nSave to Files → iCloud Drive → Claude Cowork → Feedback inbox, or Messages to yourself — Claude reads either one straight off the Mac, text and pictures together.'); }, 300);
-  }catch(e){ /* cancelled the share sheet — nothing to do */ }
-};
-</script>
 </body>
 </html>
 <script>
@@ -2636,6 +2604,45 @@ try{
       if(typeof oldShot === 'function'){ try{ oldShot(); return; }catch(e3){} }
       card(phone ? '<b>Take it with your phone:</b> press the <b>side button</b> and <b>volume up</b> together, then add it with 📎 Add my pictures.' : '<b>Take it with the Mac:</b> press <b>⌘ ⇧ 4</b>, drag over the app, then add it with 📎 Add my pictures.');
     }
+  };
+})();
+</script>
+<script id="dj-fs-send-v1">
+/* 📨 Send to Claude on a computer (21 Sep 2026). Jerry pressed it on the Mac and nothing reached
+   Claude: Chrome on macOS has no share sheet, so the old code only copied the report to the
+   clipboard. Now, where there is no sharing, the report and every picture are SAVED to Downloads
+   as daraja-feedback-….txt and daraja-shot-….png — which is exactly where “read my feedback”
+   looks. The phone keeps the share sheet it already had. */
+(function(){
+  var oldSend = window.sendToClaude;
+  function save(blob, name){ var u = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(u); }, 4000); }
+  function card(html){
+    var c = document.getElementById('shotCard');
+    if(!c){ c = document.createElement('div'); c.id = 'shotCard'; var rb = document.getElementById('recbar'); if(rb && rb.parentNode) rb.parentNode.insertBefore(c, rb); else document.body.appendChild(c); }
+    c.innerHTML = html + '<br><button onclick="document.getElementById(\'shotCard\').classList.remove(\'show\')">Got it</button>';
+    c.classList.add('show');
+    try{ c.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+  }
+  window.sendToClaude = async function(){
+    var canShare = false;
+    try{ canShare = !!navigator.share; }catch(e){}
+    if(canShare && typeof oldSend === 'function') return oldSend();     /* the phone: unchanged */
+
+    var txt = buildReport();
+    var app = ((window.db && db.appUrl) || 'app').replace(/\/+$/,'').split('/').pop().replace(/[^a-z0-9]+/gi,'-').toLowerCase() || 'app';
+    var d = new Date(), p = function(n){ return String(n).padStart(2,'0'); };
+    var stamp = d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+    var name = 'daraja-feedback-' + app + '-' + stamp + '.txt';
+    save(new Blob([txt], {type:'text/plain'}), name);
+
+    var pics = (window.__fsPics || []).slice();
+    pics.forEach(function(f, i){ setTimeout(function(){ save(f, f.name || ('daraja-shot-' + app + '-' + stamp + '-' + (i+1) + '.png')); }, 400 * (i+1)); });
+
+    try{ copyReport(); }catch(e){}
+    window.__fsPics = []; var n = document.getElementById('picN'); if(n) n.textContent = '';
+    card('<b>📨 Saved to your Downloads.</b> The report <b>' + name + '</b>' + (pics.length ? ' and ' + pics.length + ' picture' + (pics.length===1?'':'s') : '') +
+         '.<br><br>Now say to Claude: <b>“read my feedback”</b>. He reads them straight off this Mac.' +
+         '<br><span style="opacity:.8">(It is also on your clipboard, if you would rather paste it.)</span>');
   };
 })();
 </script>
