@@ -2678,3 +2678,40 @@ try{
   };
 })();
 </script>
+<script id="dj-fs-fresh-v1">
+/* Testers must never test yesterday's app (21 Sep 2026). Jerry reported a bug that had already been
+   fixed: his copy was the one his phone had kept. Now Feedback Studio asks for a fresh copy every
+   time it opens an app (a cache-buster on the address), tells any service worker to update, and
+   prints the version it actually loaded next to the app's name. */
+(function(){
+  var oldLoad = window.loadApp;
+  function bust(u){
+    try{
+      var x = new URL(u, location.href);
+      x.searchParams.set('fs', Date.now());      /* a fresh copy, every session */
+      return x.toString();
+    }catch(e){ return u + (u.indexOf('?') < 0 ? '?' : '&') + 'fs=' + Date.now(); }
+  }
+  window.loadApp = function(){
+    var el = document.getElementById('urlin');
+    if(el && el.value){ el.value = bust(el.value.trim()); }
+    var r = oldLoad ? oldLoad.apply(this, arguments) : undefined;
+    /* the saved address stays clean, so the report still names the app properly */
+    try{ if(window.db && db.appUrl){ db.appUrl = String(db.appUrl).replace(/([?&])fs=\d+(&|$)/, function(m,a,b){ return b ? a : ''; }).replace(/[?&]$/,''); save(); } }catch(e){}
+    /* nudge the app's own service worker to fetch the new files for next time */
+    try{ if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations) navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(x){ try{ x.update(); }catch(e){} }); }); }catch(e){}
+    /* show which version actually loaded, so a stale copy is visible at a glance */
+    setTimeout(function(){
+      var v = null; try{ v = appVersion(); }catch(e){}
+      var host = document.getElementById('topbar') || document.body;
+      var tag = document.getElementById('djVerTag');
+      if(!tag){ tag = document.createElement('span'); tag.id = 'djVerTag';
+        tag.style.cssText = 'font:700 12px/1 -apple-system,system-ui,sans-serif;color:#8C958F;border:1px solid rgba(140,149,143,.5);border-radius:999px;padding:5px 9px;margin-left:8px;white-space:nowrap';
+        host.appendChild(tag); }
+      tag.textContent = v ? ('testing ' + v) : 'version not shown';
+    }, 2600);
+    return r;
+  };
+})();
+</script>
+
