@@ -1171,7 +1171,7 @@
     </div>
   </section>
 
-  <p class="foot">Testers’ List v1.1 · 2026-09-21 · Daraja Studio · <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">the store</a> · <a href="https://jerrywins1.github.io/daraja-apps/home/" style="color:var(--brand);font-weight:800">the door</a> · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Testers’ List v1.2 · 2026-09-21 · Daraja Studio · <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">the store</a> · <a href="https://jerrywins1.github.io/daraja-apps/home/" style="color:var(--brand);font-weight:800">the door</a> · every app helps a student in Kenya stay in school</p>
 </div>
 
 <nav>
@@ -1189,7 +1189,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const B='https://jerrywins1.github.io/daraja-apps/';
 const FS=B+'feedback-studio/?app=';
-function load(){ try{ const d=JSON.parse(localStorage.getItem(LS)||'{}'); return { name:d.name||'', tried:d.tried||{}, posts:Array.isArray(d.posts)?d.posts:[], likes:d.likes||{} }; }catch(e){ return {name:'',tried:{},posts:[],likes:{}}; } }
+function load(){ try{ const d=JSON.parse(localStorage.getItem(LS)||'{}'); return { name:d.name||'', tried:d.tried||{}, posts:Array.isArray(d.posts)?d.posts:[], likes:d.likes||{}, seenVideo:d.seenVideo||0 }; }catch(e){ return {name:'',tried:{},posts:[],likes:{}}; } }
 function save(){ localStorage.setItem(LS,JSON.stringify(db)); }
 let db=load(); try{ if(!db.name&&localStorage.getItem('dj_name')) db.name=localStorage.getItem('dj_name'); }catch(e){}
 let cfg={mailbox:''}, board={posts:[],tried:{}}, fixed=[], online=false;
@@ -1216,7 +1216,7 @@ const allPosts=()=> online ? board.posts : db.posts;
 function hostLine(){
   const h=new Date().getHours(); const g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
   if(!db.name){ $('host').innerHTML=`<b>${g}, and thank you for testing.</b><p>What should we call you? Your name goes on what you post, so Jerry knows who found what.</p><div class="row"><input id="nm" placeholder="Your first name" aria-label="Your first name" style="flex:1;min-width:140px"><button onclick="setName()">That’s me ›</button></div>`; return; }
-  const tried=Object.keys(myTried()).length, total=APPKEYS.length;
+  const t=myTried(); const tried=APPKEYS.filter(k=>t[k]).length, total=APPKEYS.length;
   const open=allPosts().filter(p=>p.kind==='problem'&&!p.fixed).length;
   let b,p,act='';
   if(!db.seenVideo){ b=g+', '+esc(db.name)+'.'; p='Three minutes first: the tester video shows what you are looking at and how a report reaches Claude.'; act=`<a class="btn" href="${$('videoLink').href}" target="_blank" rel="noopener" onclick="db.seenVideo=1;save()">▶ Watch it</a> <button class="ghost" style="color:#fff" onclick="db.seenVideo=1;save();render()">Seen it</button>`; }
@@ -1243,7 +1243,12 @@ async function post(){ if(!db.name){ toast('Add your name first'); go('try'); wi
   if(!r){ db.posts.unshift(p); save(); }
   $('postText').value=''; render(); go('board'); toast(r?'Posted for everyone':'Kept on this phone — text it to Jerry too');
   if(!r) textJerry(p); }
-function textJerry(p){ const body=`Tester note from ${p.name} · ${appName(p.app)} · ${p.kind}: ${p.text}`; location.href='sms:'+(/iPhone|iPad/.test(navigator.userAgent)?'&':'?')+'body='+encodeURIComponent(body); }
+/* the shared board is not connected yet, so a post has nowhere to go. It used to open a text
+   message with no recipient — an empty message to nobody. Now it is copied, ready to paste. */
+function textJerry(p){ const body=`Tester note from ${p.name} · ${appName(p.app)} · ${p.kind}: ${p.text}`;
+  try{ const c=navigator.clipboard && navigator.clipboard.writeText(body); if(c&&c.then) c.then(()=>toast('Copied — paste it to Jerry'),()=>{}); }catch(e){}
+  sheet(`<h3>Kept on this phone</h3><p>The shared board is not switched on yet, so this is saved here and copied ready to send.</p><div class="post"><div class="txt">${esc(body)}</div></div><div class="row"><button class="primary" style="flex:1" onclick="this.closest('.sheet').classList.remove('on')">Got it</button></div>`); }
+function sheet(html){ let w=document.getElementById('tlSheet'); if(!w){ w=document.createElement('div'); w.id='tlSheet'; w.className='sheet'; w.innerHTML='<div class="in"></div>'; w.addEventListener('click',e=>{ if(e.target===w) w.classList.remove('on'); }); document.body.appendChild(w); } w.querySelector('.in').innerHTML=html; w.classList.add('on'); }
 async function like(id){ if(!db.name) return; if(online){ await send({action:'like',id,name:db.name}); } else { db.likes[id]=1; save(); } render(); }
 function renderBoard(){
   $('postApp').innerHTML='<option value="general">About the whole thing</option>'+APPKEYS.map(k=>`<option value="${k}">${esc(appName(k))}</option>`).join('');
@@ -1257,11 +1262,14 @@ function renderFixed(){ $('fixedList').innerHTML=(fixed||[]).slice(0,40).map(f=>
 
 /* ── shell ──────────────────────────────────────────────────── */
 function go(p){ document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('on',x.id==='p-'+p)); document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); window.scrollTo({top:0}); }
-function toast(t){ let e=document.getElementById('toast'); if(!e){ e=document.createElement('div'); e.id='toast'; e.style.cssText='position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ok);color:#fff;font-weight:800;padding:10px 16px;border-radius:999px;z-index:2147481600;white-space:nowrap'; document.body.appendChild(e); } e.textContent=t; e.style.display=''; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none',1800); }
+function toast(t){ let e=document.getElementById('toast'); if(!e){ e=document.createElement('div'); e.id='toast'; e.style.cssText='position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ok);color:#fff;font-weight:800;padding:10px 16px;border-radius:999px;z-index:2147481600;max-width:92vw;text-align:center;line-height:1.3'; document.body.appendChild(e); } e.textContent=t; e.style.display=''; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none',1800); }
 function render(){ hostLine(); renderApps(); renderBoard(); renderFixed(); }
 window.DJ_AI={ title:'Help me say what’s wrong', prompt:function(){ return 'I am testing a phone app called '+appName($('postApp').value)+' for a small studio. Here is what bothered me, in rough words: "'+($('postText').value||'…')+'". Rewrite it as two clear sentences a developer can act on. Keep my tone.'; }, onResult:function(v,raw){ $('postText').value=String(raw).trim(); go('board'); } };
 render(); loadAll();
-setInterval(()=>{ if(cfg.mailbox && !document.hidden) loadAll(); }, 60000);
+setInterval(()=>{ if(!cfg.mailbox || document.hidden) return;
+  const a=document.activeElement; if(a && /INPUT|TEXTAREA/.test(a.tagName)) return;          /* they are typing */
+  const t=$('postText'); if(t && t.value.trim()) return;                                      /* a draft is waiting */
+  loadAll(); }, 60000);
 </script>
 </body>
 </html>
