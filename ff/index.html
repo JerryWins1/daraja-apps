@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Scores">
+<meta name="theme-color" content="#0b1220">
+<title>My Scores</title>
+<style>
+  :root{
+    --bg:#0b1220; --card:#131c2e; --line:#223049; --ink:#f3f6fb; --dim:#8b9bb4;
+    --me:#4ade80; --them:#f87171; --accent:#3b82f6; --gold:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  body{padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));
+    max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:14px}
+  header{display:flex;align-items:baseline;justify-content:space-between;padding:4px 2px 0}
+  header h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em}
+  header .wk{color:var(--dim);font-size:14px;font-weight:600}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px 12px;
+    box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .card h2{margin:0 0 10px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);
+    display:flex;justify-content:space-between;align-items:center}
+  .card h2 .status{font-size:11px;padding:3px 8px;border-radius:999px;background:#1f2a40;color:var(--dim);
+    text-transform:none;letter-spacing:0;font-weight:600}
+  .card h2 .status.live{background:#14532d;color:#86efac}
+  .card h2 .status.live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+    background:#4ade80;margin-right:6px;vertical-align:1px;animation:blink 1.2s infinite}
+  @keyframes blink{50%{opacity:.25}}
+
+  .vs{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+  .side{min-width:0;text-align:center}
+  .side .logo{width:44px;height:44px;border-radius:50%;background:#1f2a40;object-fit:cover;margin:0 auto 6px;display:block}
+  .side .name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side .rec{font-size:12px;color:var(--dim);margin-top:2px}
+  .side .pts{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin-top:6px;
+    font-variant-numeric:tabular-nums}
+  .side .proj{font-size:12px;color:var(--dim);margin-top:4px;font-variant-numeric:tabular-nums}
+  .side.me .name{color:var(--me)}
+  .side.lead .pts{color:var(--gold)}
+  .mid{color:var(--dim);font-size:12px;font-weight:700;text-align:center}
+  .foot{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);display:flex;justify-content:space-between;
+    font-size:12px;color:var(--dim)}
+  .foot b{color:var(--ink)}
+
+  .msg{color:var(--dim);font-size:14px;line-height:1.5;padding:6px 0}
+  .msg.err{color:#fca5a5}
+  .msg a{color:#93c5fd}
+
+  button#update{margin-top:auto;width:100%;border:0;border-radius:16px;padding:18px;font-size:19px;font-weight:800;
+    background:var(--accent);color:#fff;letter-spacing:.01em;box-shadow:0 8px 20px rgba(59,130,246,.35);
+    -webkit-tap-highlight-color:transparent}
+  button#update:active{transform:scale(.98)}
+  button#update[disabled]{opacity:.6}
+  .stamp{text-align:center;color:var(--dim);font-size:12px}
+  .stamp small{opacity:.7}
+</style>
+</head>
+<body>
+<header>
+  <h1>My Scores</h1>
+  <div class="wk" id="week">&nbsp;</div>
+</header>
+
+<div id="cards"></div>
+
+<button id="update" type="button">Update scores</button>
+<div class="stamp"><span id="updated">Tap Update to get today's scores</span><br><small>v1.0 · 2026-09-21</small></div>
+
+<script>
+// ---- Jerry's two teams (change here if a league or team ever changes) ----
+const LEAGUES = [
+  { key:"shockwaves", label:"Shockwaves",   leagueId:1580058143, teamId:1  },
+  { key:"cove",       label:"Newport Cove", leagueId:75576161,   teamId:16 },
+];
+const API = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/";
+
+function season(){ const d=new Date(); return d.getMonth()>=7 ? d.getFullYear() : d.getFullYear()-1; }
+function n1(x){ return (Math.round((x||0)*100)/100).toFixed(2); }
+function teamName(t){ return t.name || ((t.location||"")+" "+(t.nickname||"")).trim() || ("Team "+t.id); }
+function rec(t){ const r=(t.record&&t.record.overall)||{}; return (r.wins||0)+"-"+(r.losses||0)+((r.ties)?"-"+r.ties:""); }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function getLeague(id){
+  const url = API + season() + "/segments/0/leagues/" + id + "?view=mTeam&view=mMatchupScore&view=mSettings&_=" + Date.now();
+  // Try with the ESPN login cookie first (works in Chrome on the Mac for private leagues), then plain.
+  let res;
+  try { res = await fetch(url, {credentials:"include", cache:"no-store"}); } catch(e){ res = null; }
+  if(!res || !res.ok){ res = await fetch(url, {cache:"no-store"}); }
+  if(res.status===401) throw new Error("PRIVATE");
+  if(!res.ok) throw new Error("ESPN said "+res.status);
+  return res.json();
+}
+
+function pick(d, cfg){
+  const teams = {}; (d.teams||[]).forEach(t=>teams[t.id]=t);
+  const me = teams[cfg.teamId];
+  const wk = (d.status && d.status.currentMatchupPeriod) || d.scoringPeriodId;
+  const sp = d.scoringPeriodId;
+  const m = (d.schedule||[]).find(x => x.matchupPeriodId===wk &&
+      ((x.home&&x.home.teamId===cfg.teamId)||(x.away&&x.away.teamId===cfg.teamId)));
+  if(!me) throw new Error("Team "+cfg.teamId+" not in this league");
+  if(!m) return {leagueName:d.settings&&d.settings.name, wk, me, bye:true};
+  const mine = (m.home&&m.home.teamId===cfg.teamId)? m.home : m.away;
+  const theirs = (mine===m.home)? m.away : m.home;
+  const pts = s => (s.totalPointsLive!=null) ? s.totalPointsLive
+             : (s.totalPoints || ((s.pointsByScoringPeriod||{})[sp]) || 0);
+  const proj = s => (s.totalProjectedPointsLive!=null) ? s.totalProjectedPointsLive : (s.totalProjectedPoints||0);
+  const opp = theirs ? teams[theirs.teamId] : null;
+  return {
+    leagueName: d.settings && d.settings.name, wk,
+    me, opp, final: m.winner && m.winner!=="UNDECIDED",
+    myPts: pts(mine), oppPts: theirs? pts(theirs):0,
+    myProj: proj(mine), oppProj: theirs? proj(theirs):0,
+    winProb: mine.winProbability,
+    started: pts(mine)>0 || (theirs && pts(theirs)>0)
+  };
+}
+
+function sideHTML(t, p, proj, cls){
+  return `<div class="side ${cls}">
+    <img class="logo" src="${esc(t.logo||'')}" alt="" onerror="this.style.visibility='hidden'">
+    <div class="name">${esc(teamName(t))}</div>
+    <div class="rec">${rec(t)}</div>
+    <div class="pts">${n1(p)}</div>
+    <div class="proj">proj ${n1(proj)}</div>
+  </div>`;
+}
+
+function cardHTML(cfg, r, err){
+  const title = esc((r&&r.leagueName) || cfg.label);
+  if(err){
+    const body = err.message==="PRIVATE"
+      ? `<div class="msg err">ESPN keeps this league private, so it can't be read without a login.<br>
+         <b>Fix (one time):</b> League Manager → League Settings → Basic Settings →
+         <b>Make League Viewable to Public: Yes</b>. Then tap Update.</div>`
+      : `<div class="msg err">Couldn't reach ESPN (${esc(err.message)}). Check the connection and tap Update again.</div>`;
+    return `<div class="card"><h2>${title}<span class="status">no data</span></h2>${body}</div>`;
+  }
+  if(r.bye) return `<div class="card"><h2>${title}<span class="status">Week ${r.wk}</span></h2>
+     <div class="msg">${esc(teamName(r.me))} has no matchup this week (bye). Record ${rec(r.me)}.</div></div>`;
+  const status = r.final ? '<span class="status">Final</span>'
+               : r.started ? '<span class="status live">Live</span>'
+               : '<span class="status">Not started</span>';
+  const lead = r.myPts===r.oppPts ? "" : (r.myPts>r.oppPts ? "me" : "opp");
+  const verdict = r.final ? (r.myPts>r.oppPts ? "You won" : r.myPts<r.oppPts ? "You lost" : "Tie")
+                : r.started ? (r.myPts>r.oppPts ? "You're ahead" : r.myPts<r.oppPts ? "You're behind" : "Tied")
+                : "Kickoff pending";
+  const odds = (!r.final && r.winProb!=null) ? `Win odds <b>${Math.round(r.winProb*100)}%</b>` : "";
+  return `<div class="card">
+    <h2>${title} ${status}</h2>
+    <div class="vs">
+      ${sideHTML(r.me, r.myPts, r.myProj, "me"+(lead==="me"?" lead":""))}
+      <div class="mid">VS</div>
+      ${sideHTML(r.opp, r.oppPts, r.oppProj, lead==="opp"?"lead":"")}
+    </div>
+    <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.myPts-r.oppPts))}</span><span>${odds}</span></div>
+  </div>`;
+}
+
+const $cards=document.getElementById("cards"), $btn=document.getElementById("update"),
+      $upd=document.getElementById("updated"), $wk=document.getElementById("week");
+
+let busy=false;
+async function update(){
+  if(busy) return; busy=true;
+  $btn.disabled=true; $btn.textContent="Getting scores…";
+  const results = await Promise.all(LEAGUES.map(async cfg=>{
+    try { return {cfg, r: pick(await getLeague(cfg.leagueId), cfg)}; }
+    catch(e){ return {cfg, err:e}; }
+  }));
+  $cards.innerHTML = results.map(x=>cardHTML(x.cfg, x.r, x.err)).join("");
+  const wk = results.map(x=>x.r&&x.r.wk).find(Boolean);
+  $wk.textContent = wk ? "Week "+wk : "";
+  const t=new Date();
+  $upd.textContent = "Updated " + t.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+  $btn.disabled=false; $btn.textContent="Update scores"; busy=false;
+}
+$btn.addEventListener("click", update);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) update(); });
+update();
+</script>
+</body>
+</html>
