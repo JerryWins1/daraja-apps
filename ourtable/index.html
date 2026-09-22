@@ -1096,7 +1096,9 @@
   .day{ display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
   .day:first-child{ border-top:0; } .day .dn{ width:52px; font-weight:900; font-size:15px; color:var(--brand); flex:none; } .day .dn small{ display:block; font-weight:400; color:var(--soft); font-size:12px; }
   .day .pick{ flex:1; min-width:150px; min-height:48px; border-radius:14px; border:1.5px dashed var(--line); background:var(--surface); display:flex; align-items:center; gap:8px; padding:6px 12px; font-weight:800; cursor:pointer; text-align:left; }
-  .day .pick.set{ border-style:solid; background:var(--card); } .day .pick .em{ font-size:24px; }
+  .day .pick.set{ border-style:solid; background:var(--card); }
+  @keyframes djFlash{ 0%,100%{ box-shadow:0 0 0 0 rgba(217,108,79,0); } 30%,70%{ box-shadow:0 0 0 5px rgba(217,108,79,.45); } }
+  .day .pick.flashme{ animation:djFlash 1.3s ease 2; border-color:var(--accent); border-style:solid; } .day .pick .em{ font-size:24px; }
   .day .pick .who{ font-size:12.5px; color:var(--soft); font-weight:400; display:block; }
   /* shopping */
   .aisle{ margin:12px 0 4px; font-weight:900; color:var(--gold); text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; }
@@ -1123,8 +1125,15 @@
 
   <!-- RECIPES -->
   <section class="pane on" id="p-recipes">
-    <div class="row" style="margin-bottom:10px"><input id="search" placeholder="Find a recipe…" aria-label="Find a recipe" style="flex:1;min-width:160px" oninput="renderRecipes()"><button class="accent" onclick="openEdit()">＋ New</button></div>
+    <div class="row" style="margin-bottom:10px"><input id="search" placeholder="Find a recipe…" aria-label="Find a recipe" style="flex:1;min-width:160px" oninput="renderRecipes()"><button class="accent" onclick="openEdit()" style="font-size:16px">＋ New recipe</button></div>
     <div class="chips" id="tagChips" style="margin-bottom:10px"></div>
+    <div class="card" id="quickAdd" style="display:none;border:1.5px solid var(--gold)">
+      <h2>Put your own dinners in</h2>
+      <p>Just the names, for now. The ones you actually cook. Type one and press return, then the next. You can fill in the rest later.</p>
+      <div class="row"><input id="qaName" placeholder="Sunday roast · Meatloaf · Tacos…" aria-label="A dinner you cook" style="flex:1;min-width:150px" onkeydown="if(event.key==='Enter')quickAdd()"><button class="ok" onclick="quickAdd()">Add</button></div>
+      <div id="qaList" class="small" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:10px"><button class="ghost" onclick="dropExamples()">🗑 Remove the three examples</button><button class="ghost" onclick="hideQuickAdd()">Done for now</button></div>
+    </div>
     <div id="recipeList"></div>
   </section>
 
@@ -1151,7 +1160,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.1 · 2026-09-21 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Our Table v1.3 · 2026-09-21 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
 </div>
 
 <nav>
@@ -1166,7 +1175,8 @@
 <!-- recipe editor sheet -->
 <div class="sheet" id="editSheet" onclick="if(event.target===this)closeEdit()"><div class="in">
   <h3 id="editTitle">New recipe</h3>
-  <label for="rName">Name</label><input id="rName" placeholder="Diane’s chicken pot pie">
+  <label for="rName">Name</label><input id="rName" placeholder="Diane’s chicken pot pie" oninput="if(!editPhoto){ const g=guessEm(this.value); if(g && !editEm){ editEm=g; drawEmChips(); } }">
+      <input type="file" id="photoIn" accept="image/*" style="display:none" onchange="readPhoto(this)" aria-label="A photo for this recipe">
   <label>Picture (tap one)</label><div class="chips" id="emChips"></div>
   <label for="rTags">Tags — what kind of night?</label><div class="chips" id="tagPick"></div>
   <label for="rIng">Ingredients — one per line (what to buy)</label><textarea id="rIng" placeholder="2 chicken breasts&#10;1 onion&#10;frozen peas&#10;pie crust"></textarea>
@@ -1182,9 +1192,12 @@
 const LS='dj_ourtable_v1'; window.DJ_OWNS=[LS];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pic=(r,size)=> r.photo ? `<img src="${r.photo}" alt="" style="width:${size||38}px;height:${size||38}px;object-fit:cover;border-radius:9px;vertical-align:middle">` : (r.em||'🍽️');
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
-const EMS=['🍗','🥘','🍝','🌮','🍲','🥗','🍕','🐟','🥩','🍛','🥪','🍳','🥧','🍜','🫕','🍔'];
+const EMS=[['🍗','chicken'],['🥩','beef'],['🍖','ribs'],['🐟','fish'],['🍲','stew'],['🍝','pasta'],['🍕','pizza'],['🌮','tacos'],['🥘','one pan'],['🍛','curry'],['🥗','salad'],['🥪','sandwich'],['🍳','eggs'],['🥧','pie'],['🍜','soup'],['🍔','burger'],['🦃','turkey'],['🥓','pork'],['🍚','rice'],['🫕','cheese']];
+const EMGUESS=[[/chicken|hen|wing|nugget/i,'🍗'],[/turkey/i,'🦃'],[/rib|brisket|bbq|barbecue/i,'🍖'],[/steak|beef|roast|pot roast|meatloaf/i,'🥩'],[/pork|bacon|ham|chop/i,'🥓'],[/fish|salmon|tuna|cod|shrimp|tilapia/i,'🐟'],[/pasta|spaghetti|lasagn|noodle|mac/i,'🍝'],[/pizza/i,'🍕'],[/taco|burrito|enchilada|fajita/i,'🌮'],[/chili|stew|goulash|casserole|slow.?cook/i,'🍲'],[/soup|broth|chowder/i,'🍜'],[/curry|tikka|masala/i,'🍛'],[/salad|greens|slaw/i,'🥗'],[/sandwich|sub|wrap|panini|grilled cheese/i,'🥪'],[/egg|omelet|frittata|breakfast/i,'🍳'],[/pie|quiche|pot pie/i,'🥧'],[/burger/i,'🍔'],[/rice|risotto|pilaf|stir.?fry/i,'🍚'],[/fondue|cheese/i,'🫕']];
+function guessEm(name){ for(const [rx,em] of EMGUESS){ if(rx.test(name||'')) return em; } return ''; }
 const TAGS=['Quick','Sunday','Comfort','Light','Grandkids','Company','Slow cooker','Leftovers-friendly'];
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const AISLES=[['Produce',/apple|banana|lettuce|onion|garlic|tomato|potato|carrot|celery|pepper|lemon|lime|broccoli|spinach|cabbage|cucumber|mushroom|avocado|berries|orange|corn|beans?$|herb|parsley|cilantro|ginger|squash|zucchini/i],['Meat & fish',/chicken|beef|pork|turkey|ham|bacon|sausage|steak|ground|salmon|fish|shrimp|tuna|cod|lamb|ribs|brisket/i],['Dairy & eggs',/milk|cheese|butter|egg|yogurt|cream|parmesan|cheddar|mozzarella/i],['Bakery',/bread|bun|roll|tortilla|crust|pita|bagel|naan/i],['Frozen',/frozen|ice cream|peas/i],['Pantry',/rice|pasta|noodle|flour|sugar|oil|salt|pepper|spice|sauce|broth|stock|can|beans|lentil|cereal|oats|honey|vinegar|soy|ketchup|mustard|mayo|paprika|cumin|oregano|basil|chili|cinnamon|vanilla|baking|crackers|chips|nuts|peanut/i]];
@@ -1212,38 +1225,66 @@ function hostLine(){
   const todayIdx=(new Date().getDay()+6)%7; const tonight=db.week[DAYS[todayIdx]]; const r=tonight&&db.recipes.find(x=>x.id===tonight);
   const planned=DAYS.filter(d=>db.week[d]).length; const unticked=db.shop.filter(x=>!x.done).length;
   let b,p,act;
-  if(!db.recipes.length){ b=g+'.'; p='Let’s start with one dinner you actually make. What is it?'; act='<button onclick="openEdit()">Add a recipe</button>'; }
+  if(!db.recipes.length){ b=g+'.'; p='Let’s start with one dinner you actually make. What is it?'; act='<button onclick="go(\'recipes\');openEdit()">Add a recipe</button>'; }
   else if(r && h<16){ b=g+'. Tonight is '+r.em+' '+esc(r.name)+'.'; p=(r.time?'About '+esc(r.time)+'. ':'')+'Got everything, or should I show the list?'; act=`<button onclick="openView('${r.id}')">Show me how</button> <button onclick="go('shop')">Shopping list</button>`; }
-  else if(planned<4 && todayIdx<5){ b=g+'.'; p=planned?`Only ${planned} of 7 nights planned. Want me to fill in the rest from your favourites?`:'No dinners planned this week yet. Want me to fill the week from your favourites?'; act='<button onclick="fillWeek()">Fill the week</button> <button onclick="go(\'week\')">I’ll pick</button>'; }
+  else if(planned<4 && todayIdx<5){ b=g+'.'; p=planned?`Only ${planned} of 7 nights planned. Want me to fill in the rest from your favourites?`:'No dinners planned this week yet. Want me to fill the week from your favourites?'; act='<button onclick="fillWeek()">Fill the week</button> <button onclick="pickFirstNight()">I’ll pick</button>'; }
   else if(planned>=4 && !db.shop.length){ b='The week looks good.'; p='Shall I build the shopping list from those dinners?'; act='<button onclick="buildList()">Build the list</button>'; }
   else if(unticked){ b=g+'.'; p=`${unticked} things still on the shopping list. Text it to whoever’s going to the store?`; act='<button onclick="shareList(\'sms\')">Text the list</button> <button onclick="go(\'shop\')">See it</button>'; }
-  else { b=g+'.'; p='All set. Anything new you cooked lately worth keeping?'; act='<button onclick="openEdit()">Add a recipe</button>'; }
+  else { b=g+'.'; p='All set. Anything new you cooked lately worth keeping?'; act='<button onclick="go(\'recipes\');openEdit()">Add a recipe</button>'; }
   $('host').innerHTML=`<b>${b}</b><p>${p}</p><div class="row">${act}</div>`;
 }
 
 /* ── recipes ──────────────────────────────────────────────── */
 let tagFilter='';
+const isExample=r=>/\(example\)\s*$/.test(r.name||'');
+window.quickAdd=function(){ const n=$('qaName').value.trim(); if(!n) return;
+  db.recipes.unshift({id:uid(),name:n,em:guessEm(n),tags:[],ing:[],steps:'',time:'',made:0});
+  save(); $('qaName').value=''; render(); $('qaName').focus();
+  const mine=db.recipes.filter(r=>!isExample(r)).length;
+  $('qaList').textContent=mine+' of your own so far'+(mine>=3?' — that is plenty to start.':''); };
+window.dropExamples=function(){ const ex=db.recipes.filter(isExample); if(!ex.length){ toast('The examples are already gone'); return; }
+  if(!confirm('Remove the '+ex.length+' example recipes? Your own stay.')) return;
+  const ids=new Set(ex.map(r=>r.id)); db.recipes=db.recipes.filter(r=>!ids.has(r.id));
+  DAYS.forEach(d=>{ if(ids.has(db.week[d])) delete db.week[d]; });
+  save(); render(); toast('Examples removed'); };
+window.hideQuickAdd=function(){ db.qaDone=1; save(); render(); };
 function renderRecipes(){
   const q=($('search').value||'').toLowerCase();
+  const mine=db.recipes.filter(r=>!isExample(r)).length;
+  $('quickAdd').style.display=(!db.qaDone && mine<3) ? '' : 'none';
   $('tagChips').innerHTML=['All',...TAGS].map(t=>`<span class="chip ${(t==='All'?'':t)===tagFilter?'on':''}" onclick="tagFilter='${t==='All'?'':t}';renderRecipes()">${t}</span>`).join('');
   const list=db.recipes.filter(r=>(!q||r.name.toLowerCase().includes(q)||(r.ing||[]).join(' ').toLowerCase().includes(q))&&(!tagFilter||(r.tags||[]).includes(tagFilter)));
-  $('recipeList').innerHTML=list.map(r=>`<div class="recipe" onclick="openView('${r.id}')" role="button" tabindex="0"><div class="em">${r.em||'🍽️'}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')||'no tags'}${r.time?' · '+esc(r.time):''}</small></div><div class="made">${r.made||0}<span>made</span></div></div>`).join('')||'<div class="empty">No recipes match. Tap ＋ New to add one.</div>';
+  $('recipeList').innerHTML=list.map(r=>`<div class="recipe" onclick="openView('${r.id}')" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')||'no tags'}${r.time?' · '+esc(r.time):''}</small></div><div class="made">${r.made||0}<span>made</span></div></div>`).join('')||'<div class="empty">No recipes match. Tap ＋ New to add one.</div>';
 }
-let editId=null, editEm='🍗', editTags=[];
-function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?r.em:'🍗'; editTags=r?[...(r.tags||[])]:[];
+let editId=null, editEm='', editPhoto='', editTags=[];
+function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?(r.em||''):''; editPhoto=r?(r.photo||''):''; editTags=r?[...(r.tags||[])]:[];
   $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('delBtn').style.display=r?'':'none';
   drawEmChips(); drawTagPick(); $('editSheet').classList.add('on'); closeView(); setTimeout(()=>$('rName').focus(),100); }
-function drawEmChips(){ $('emChips').innerHTML=EMS.map(e=>`<span class="chip ${e===editEm?'on':''}" style="font-size:22px" onclick="editEm='${e}';drawEmChips()">${e}</span>`).join(''); }
+/* Jerry, 21 Sep, pointing at the 🍗 while typing “Ribs”: “what if I don’t want a picture, or
+   those pictures don’t resemble what I’m trying to do… have the user add one if they wanted to.” */
+function drawEmChips(){
+  const own = editPhoto ? `<span class="chip on" style="padding:4px 8px" onclick="setPhoto('')" title="Remove this photo"><img src="${editPhoto}" alt="your photo" style="width:34px;height:34px;object-fit:cover;border-radius:8px;margin-right:6px">your photo ✕</span>` : '';
+  $('emChips').innerHTML = own
+    + `<span class="chip ${!editEm&&!editPhoto?'on':''}" onclick="editEm='';setPhoto('')">No picture</span>`
+    + `<span class="chip" onclick="document.getElementById('photoIn').click()">📷 Use a photo</span>`
+    + EMS.map(([e,label])=>`<span class="chip ${(!editPhoto&&e===editEm)?'on':''}" style="flex-direction:column;line-height:1.1;padding:6px 10px" onclick="editEm='${e}';setPhoto('');drawEmChips()"><span style="font-size:22px">${e}</span><span style="font-size:10.5px;font-weight:700;opacity:.75">${label}</span></span>`).join('');
+}
+window.setPhoto=function(d){ editPhoto=d; if(d) editEm=''; drawEmChips(); };
+window.readPhoto=function(inp){ const f=(inp.files||[])[0]; if(!f) return; const img=new Image(); const fr=new FileReader();
+  fr.onload=()=>{ img.onload=()=>{ const max=160, sc=Math.min(max/img.width, max/img.height, 1); const c=document.createElement('canvas');
+      c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc); c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      setPhoto(c.toDataURL('image/jpeg',0.8)); }; img.src=fr.result; };
+  fr.readAsDataURL(f); inp.value=''; };
 function drawTagPick(){ $('tagPick').innerHTML=TAGS.map(t=>`<span class="chip ${editTags.includes(t)?'on':''}" onclick="toggleTag('${t}')">${t}</span>`).join(''); }
 function toggleTag(t){ editTags=editTags.includes(t)?editTags.filter(x=>x!==t):[...editTags,t]; drawTagPick(); }
 function closeEdit(){ $('editSheet').classList.remove('on'); }
 function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName').focus(); return; }
-  const rec={ name, em:editEm, tags:editTags, ing:$('rIng').value.split('\n').map(s=>s.trim()).filter(Boolean), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() };
+  const rec={ name, em:(editPhoto?'':(editEm||guessEm(name))), photo:editPhoto, tags:editTags, ing:$('rIng').value.split('\n').map(s=>s.trim()).filter(Boolean), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() };
   if(editId){ Object.assign(db.recipes.find(x=>x.id===editId),rec); } else db.recipes.unshift({id:uid(),made:0,...rec});
   save(); closeEdit(); render(); toast('Saved ✓'); }
 function delRecipe(){ if(!confirm('Delete this recipe?')) return; db.recipes=db.recipes.filter(x=>x.id!==editId); DAYS.forEach(d=>{ if(db.week[d]===editId) delete db.week[d]; }); save(); closeEdit(); render(); }
 function openView(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return;
-  $('viewIn').innerHTML=`<h3>${r.em} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}</p>
+  $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}</p>
     <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
     ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
     <div class="row" style="margin-top:8px"><button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button><button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button><button onclick="openEdit('${r.id}')">✏️ Edit</button><button class="ghost" onclick="closeView()">Close</button></div>`;
@@ -1256,10 +1297,20 @@ function pickNightFor(id){ closeView(); go('week'); const free=DAYS.find(d=>!db.
 let pickDay='';
 function renderWeek(){ const mon=new Date(db.weekOf+'T12:00:00'); $('weekTitle').textContent='Week of '+mon.toLocaleDateString(undefined,{month:'short',day:'numeric'});
   $('weekList').innerHTML=DAYS.map((d,i)=>{ const dt=new Date(mon); dt.setDate(mon.getDate()+i); const r=db.week[d]&&db.recipes.find(x=>x.id===db.week[d]);
-    return `<div class="day"><div class="dn">${d}<small>${dt.getDate()}</small></div><button class="pick ${r?'set':''}" onclick="openPick('${d}')">${r?`<span class="em">${r.em}</span><span>${esc(r.name)}${r.time?`<span class="who">${esc(r.time)}</span>`:''}</span>`:'<span class="small">tap to choose…</span>'}</button></div>`; }).join(''); }
-function openPick(d){ pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=db.recipes.map(r=>`<div class="recipe" onclick="setDay('${d}','${r.id}');closePick()" role="button" tabindex="0"><div class="em">${r.em}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')}</small></div></div>`).join('')||'<div class="empty">Add a recipe first.</div>'; $('pickSheet').classList.add('on'); }
+    return `<div class="day"><div class="dn">${d}<small>${dt.getDate()}</small></div><button class="pick ${r?'set':''}" onclick="openPick('${d}')">${r?`<span class="em">${pic(r,24)}</span><span>${esc(r.name)}${r.time?`<span class="who">${esc(r.time)}</span>`:''}</span>`:'<span class="small">tap to choose…</span>'}</button></div>`; }).join(''); }
+function openPick(d){ pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=db.recipes.map(r=>`<div class="recipe" onclick="setDay('${d}','${r.id}');closePick()" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')}</small></div></div>`).join('')||'<div class="empty">Add a recipe first.</div>'; $('pickSheet').classList.add('on'); }
 function closePick(){ $('pickSheet').classList.remove('on'); }
 function setDay(d,id){ if(id) db.week[d]=id; else delete db.week[d]; save(); render(); }
+/* Jerry, 21 Sep: tapped “I’ll pick” while already on This week and nothing happened.
+   Now it walks you to the first empty night and lights it up. */
+window.pickFirstNight=function(){ go('week');
+  const empty=DAYS.find(d=>!db.week[d]);
+  if(!empty){ toast('Every night has a dinner — tap one to change it'); return; }
+  setTimeout(()=>{ const i=DAYS.indexOf(empty); const btn=document.querySelectorAll('#weekList .day .pick')[i];
+    if(!btn) return;
+    try{ btn.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
+    btn.classList.add('flashme'); setTimeout(()=>btn.classList.remove('flashme'), 2600);
+  }, 260); };
 function fillWeek(){ if(!db.recipes.length){ openEdit(); return; } const used=new Set(Object.values(db.week)); const pool=db.recipes.slice().sort((a,b)=>(b.made||0)-(a.made||0)); let k=0;
   DAYS.forEach(d=>{ if(db.week[d]) return; if(d==='Fri'||d==='Sat'){ if(Math.random()<.35) return; } let r=pool.find(x=>!used.has(x.id)); if(!r) r=pool[k++%pool.length]; if(r){ db.week[d]=r.id; used.add(r.id); } });
   save(); render(); go('week'); toast('Week filled — swap any night'); }
