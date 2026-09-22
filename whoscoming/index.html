@@ -1110,6 +1110,8 @@
   .chips{ display:flex; gap:8px; flex-wrap:wrap; } .chip{ border:1.5px solid var(--line); border-radius:999px; padding:9px 14px; font-weight:800; cursor:pointer; min-height:44px; display:inline-flex; align-items:center; background:var(--surface); }
   .chip.on{ background:var(--brand); color:#fff; border-color:transparent; }
   .ask{ border-left:5px solid var(--gold); }
+  @keyframes wcFlash{ 0%,100%{ box-shadow:none; } 35%,65%{ box-shadow:0 0 0 5px rgba(201,152,42,.45); } }
+  .ask.flash{ animation:wcFlash 1.4s ease 2; }
   .tally{ display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:8px; margin:8px 0; }
   .tile{ background:var(--bg); border:1.5px solid var(--line); border-radius:14px; padding:10px; text-align:center; }
   .tile b{ display:block; font-size:34px; line-height:1; font-variant-numeric:tabular-nums; } .tile span{ font-size:13px; color:var(--soft); font-weight:800; }
@@ -1182,7 +1184,7 @@
     </section>
   </div>
 
-  <p class="foot">Who’s Coming v1.2 · 2026-09-21 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Who’s Coming v1.4 · 2026-09-21 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -1214,13 +1216,15 @@ if(!db.groups.length && !localStorage.getItem('dj_whoscoming_seen')){
 function hostLine(){
   const h=new Date().getHours(); const g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
   const open=db.asks.filter(a=>!a.closed);
-  const waiting=open.map(a=>({a, n:peopleOf(a.groupId).filter(p=>!(a.answers||{})[p.id]).length})).filter(x=>x.n>0);
+  const live=open.filter(a=>peopleOf(a.groupId).length>0);     /* a deleted group can never answer */
+  const waiting=live.map(a=>({a, n:peopleOf(a.groupId).filter(p=>!(a.answers||{})[p.id]).length})).filter(x=>x.n>0);
   let b='', p='', act='';
   if(!db.me.phone){ b=g+'. One thing before the first question.'; p='What number should answers come back to? (Your name too, so people know who’s asking.)';
     act='<input id="hostName" placeholder="Your name" aria-label="Your name" value="'+esc(db.me.name||'')+'" style="flex:1;min-width:120px;border:0"><input id="hostPhone" inputmode="tel" placeholder="Your mobile" aria-label="Your mobile number" style="flex:1.4;min-width:150px;border:0"><button onclick="saveMe(document.getElementById(\'hostName\').value,document.getElementById(\'hostPhone\').value)">Save ✓</button>'; }
   else if(!open.length){ b=g+(db.me.name?', '+db.me.name:'')+'.'; p='Nothing is being asked right now. Want to ask a group something?'; act='<button onclick="toggleNew(true)">Ask something</button>'; }
   else if(waiting.length){ const w=waiting[0]; b=g+'.'; p=`“${esc(w.a.q)}” — ${w.n} ${w.n===1?'person hasn’t':'people haven’t'} answered yet. Nudge them, or record what they told you?`; act=`<button onclick="sendAsk('${w.a.id}',true)">Nudge the ${w.n}</button> <button onclick="openAsk('${w.a.id}')">Record answers</button>`; }
-  else { const a=open[0]; b='Everyone has answered.'; p=`“${esc(a.q)}” — ${tallyText(a)}. Close it?`; act=`<button onclick="closeAsk('${a.id}')">Close it ✓</button>`; }
+  else if(live.length){ const a=live[0]; b='Everyone has answered.'; p=`“${esc(a.q)}” — ${tallyText(a)}. Close it?`; act=`<button onclick="closeAsk('${a.id}')">Close it ✓</button>`; }
+  else { b=g+'.'; p='One of your questions has no group any more — the people were removed. Open it and pick a group, or close it.'; act='<button onclick="go(\'ask\')">See it</button>'; }
   $('host').innerHTML=`<b>${b}</b><p>${p}</p><div class="row">${act}</div>`;
 }
 function peopleOf(gid){ const g=db.groups.find(x=>x.id===gid); return g?g.people:[]; }
@@ -1250,7 +1254,7 @@ function sendAsk(id,nudge){
   toast(`Opening one group text to ${nums.length} ${nums.length===1?'person':'people'}`);
   location.href=url;
 }
-function openAsk(id){ const el=document.getElementById('ask-'+id); if(el){ el.scrollIntoView({behavior:'smooth',block:'start'}); el.classList.add('flash'); } }
+function openAsk(id){ const el=document.getElementById('ask-'+id); if(el){ el.scrollIntoView({behavior:'smooth',block:'start'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'), 3000); } }
 function setAnswer(aid,pid,val){ const a=db.asks.find(x=>x.id===aid); a.answers=a.answers||{}; if(val===null){ delete a.answers[pid]; } else { const note = a.kind==='free' ? prompt('What did they say?', (a.answers[pid]||{}).a||'') : null; if(a.kind==='free'){ if(note===null) return; a.answers[pid]={a:note.trim()||'(said something)',at:today()}; } else a.answers[pid]={a:val,at:today()}; } save(); render(); }
 function closeAsk(id){ const a=db.asks.find(x=>x.id===id); a.closed=!a.closed; save(); render(); }
 function delAsk(id){ if(!confirm('Delete this question and its answers?')) return; db.asks=db.asks.filter(x=>x.id!==id); save(); render(); }
@@ -1262,7 +1266,7 @@ function renderAsks(){
     const tally={}; a.options.forEach(o=>tally[o]=0); Object.values(a.answers||{}).forEach(x=>{ tally[x.a]=(tally[x.a]||0)+1; });
     return `<div class="card ask" id="ask-${a.id}" style="${a.closed?'opacity:.7':''}"><h2>${esc(a.q)}</h2><p>${esc(g?g.name:'(group gone)')} · ${answered} of ${ppl.length} answered${a.when?' · by '+esc(a.when):''}${a.closed?' · closed':''}</p>
       ${a.options.length?`<div class="tally">${a.options.map(o=>`<div class="tile"><b>${tally[o]||0}</b><span>${esc(o)}</span></div>`).join('')}</div>`:''}
-      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+' · '+esc(ans.at):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" onclick="setAnswer('${a.id}','${p.id}','${esc(o).replace(/'/g,'&#39;')}')">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'edit':'record what they said'}</button>`}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
+      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+' · '+esc(ans.at):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'edit':'record what they said'}</button>`}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
       <div class="row" style="margin-top:10px"><button class="primary" onclick="sendAsk('${a.id}',false)">📨 Send to the group</button><button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button><button onclick="copyTally('${a.id}')">📋 Copy the tally</button><button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
 }
 
