@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v43">
+<script id="dj-house-v44">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -56,13 +56,27 @@
       (msg ? '\n\n(' + String(msg).slice(0,120) + ')' : ''),
       [['Reload', function(){ location.reload(); }]]);
   }
+  /* v44 (22 Sep 2026): a service worker that fails to update is a leftover from a page that moved
+     (the old store under Apps (installable site)/store/, archived 12 Sep) — not this app's fault.
+     Jerry could not get rid of the bar it raised. Never show it for that; throw the leftover away. */
+  function swNoise(m){ return /ServiceWorker|service worker/i.test(String(m || '')); }
   window.addEventListener('error', function(e){
     if(e && e.target && e.target !== window && e.target.tagName) return; /* a missing image is not a crash */
+    if(swNoise(e && e.message)) return;
     net(e && e.message);
   });
   window.addEventListener('unhandledrejection', function(e){
-    net(e && e.reason && e.reason.message);
+    var m = e && e.reason && e.reason.message;
+    if(swNoise(m)){ try{ e.preventDefault(); }catch(_){} return; }
+    net(m);
   });
+  function tidyWorkers(){
+    try{ if(!navigator.serviceWorker || !navigator.serviceWorker.getRegistrations) return;
+      navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){
+        try{ fetch(r.scope, {method:'HEAD', cache:'no-store'}).then(function(x){ if(x.status === 404) r.unregister(); }, function(){}); }catch(e){}
+      }); }, function(){}); }catch(e){}
+  }
+  setTimeout(tidyWorkers, 4000);
 
   /* one calm bar, never an alert() the person cannot read at their own pace */
   function djBanner(title, body, buttons){
@@ -1503,7 +1517,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v2.7 · 2026-09-22 · Daraja Studio</div>
+<div id="ver">Feedback Studio v2.8 · 2026-09-22 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -2755,7 +2769,7 @@ try{
     /* the saved address stays clean, so the report still names the app properly */
     try{ if(window.db && db.appUrl){ db.appUrl = String(db.appUrl).replace(/([?&])fs=\d+(&|$)/, function(m,a,b){ return b ? a : ''; }).replace(/[?&]$/,''); save(); } }catch(e){}
     /* nudge the app's own service worker to fetch the new files for next time */
-    try{ if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations) navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(x){ try{ x.update(); }catch(e){} }); }); }catch(e){}
+    try{ if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations) navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(x){ try{ var u = x.update(); if(u && u.catch) u.catch(function(){ try{ x.unregister(); }catch(e){} }); }catch(e){} }); }); }catch(e){}
     /* show which version actually loaded, so a stale copy is visible at a glance */
     setTimeout(function(){
       var v = null; try{ v = appVersion(); }catch(e){}
