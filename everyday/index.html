@@ -1141,7 +1141,7 @@
   <div class="score"><div><b id="sToday">0/6</b><span>today</span></div><div><b id="sBest">0</b><span>best run</span></div><div><b id="sWeek">0</b><span>perfect this week</span></div></div>
   <div class="weekrow" id="weekrow"></div>
   <div class="hand" id="hand"></div>
-  <p class="foot">Every Day v1.1 · 2026-09-21 · Daraja Studio · a missed day just means start again tomorrow · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Every Day v1.2 · 2026-09-21 · Daraja Studio · a missed day just means start again tomorrow · every app helps a student in Kenya stay in school</p>
 </div>
 
 <div class="sheet" id="editSheet" onclick="if(event.target===this)closeEdit()"><div class="in">
@@ -1189,7 +1189,8 @@ function hostLine(){
   const atRisk=left.filter(x=>streak(x)>=3).sort((a,b)=>streak(b)-streak(a));
   let b,p,act='';
   if(!db.habits.length){ b=g+'.'; p='What’s one small thing worth doing every day? Let’s make it a card.'; act='<button onclick="openEdit()">Make a card</button>'; }
-  else if(!left.length){ b='All six done. That’s a perfect day.'; p='Nothing more to do here — go enjoy it.'; }
+  else if(!due.length){ b=g+(db.name?', '+esc(db.name):'')+'.'; p='Nothing is due today. Enjoy the day off — the cards come back tomorrow.'; act='<button onclick="openEdit()">Add a card</button>'; }
+  else if(!left.length){ b='All '+due.length+' done. That’s a perfect day.'; p='Nothing more to do here — go enjoy it.'; }
   else if(h>=18 && atRisk.length){ const x=atRisk[0]; b='Evening check.'; p=`“${esc(x.name)}” has a ${streak(x)}-day run going. Still time to keep it.`; act=`<button onclick="toggle('${x.id}')">Done ✓</button>`; }
   else if(left.length===1){ b='One card left.'; p=`Just “${esc(left[0].name)}” and today is perfect.`; act=`<button onclick="toggle('${left[0].id}')">Done ✓</button>`; }
   else if(h<12){ b=g+'.'; p=`${left.length} cards to turn over today. Which one first?`; }
@@ -1202,11 +1203,18 @@ function render(){
   hostLine(); const t=today(); const due=dueToday(); const done=due.filter(h=>doneOn(h,t)).length;
   $('sToday').textContent=done+'/'+due.length; $('sBest').textContent=db.habits.length?Math.max(0,...db.habits.map(bestStreak)):0;
   const mon=addDays(t,-dayIdx(t)); let perf=0; $('weekrow').innerHTML=DN.map((n,i)=>{ const d=addDays(mon,i); const fut=d>t; const p=!fut&&perfect(d); if(p) perf++; const some=!fut&&!p&&db.habits.some(h=>doneOn(h,d)); return `<div class="${p?'all':some?'some':''}" title="${d}">${n}${d===t?' •':''}</div>`; }).join(''); $('sWeek').textContent=perf;
-  $('hand').innerHTML=db.habits.map(h=>{ const isDue=dueOn(h,t), d=doneOn(h,t), s=streak(h); return `<button class="cardh ${d?'done':''}" onclick="toggle('${h.id}')" oncontextmenu="event.preventDefault();openView('${h.id}')" aria-pressed="${d}" aria-label="${esc(h.name)}, ${d?'done':'not yet'}, ${s} day run">${d?'<span class="tick">✅</span>':''}${!d&&isDue&&s>=3&&new Date().getHours()>=17?'<span class="risk">keep it</span>':''}<div class="em">${h.em}</div><div class="nm">${esc(h.name)}</div><div class="num">${s}<small>DAY RUN${isDue?'':' · not today'}</small></div></button>`; }).join('')+(db.habits.length<8?`<button class="cardh addcard" onclick="openEdit()"><div class="em">＋</div><div class="nm">Add a card</div><div class="small" style="color:#fff;opacity:.8">long-press a card for its history</div></button>`:'');
+  $('hand').innerHTML=db.habits.map(h=>{ const isDue=dueOn(h,t), d=doneOn(h,t), s=streak(h); return `<button class="cardh ${d?'done':''}" onclick="toggle('${h.id}')" oncontextmenu="event.preventDefault();openView('${h.id}')" aria-pressed="${d}" aria-label="${esc(h.name)}, ${d?'done':'not yet'}, ${s} day run">${d?'<span class="tick">✅</span>':''}${!d&&isDue&&s>=3&&new Date().getHours()>=17?'<span class="risk">keep it</span>':''}<div class="em">${h.em}</div><div class="nm">${esc(h.name)}</div><div class="num">${s}<small>DAY RUN${isDue?'':' · not today'}</small></div></button>`; }).join('')+`<button class="cardh addcard" style="min-height:0;padding:10px;grid-column:1 / -1;flex-direction:row;gap:10px" onclick="editList()"><span class="em" style="font-size:20px">✏️</span><span class="nm" style="font-size:15px">Change or remove a card</span></button>`
+    +(db.habits.length<8?`<button class="cardh addcard" onclick="openEdit()"><div class="em">＋</div><div class="nm">Add a card</div><div class="small" style="color:#fff;opacity:.8">long-press a card for its history</div></button>`:'');
 }
 function toggle(id){ const t=today(); db.log[t]=db.log[t]||{}; if(db.log[t][id]) delete db.log[t][id]; else db.log[t][id]=1; save(); render(); if(perfect(t)) celebrate(); }
 
 /* view / history */
+/* every card in a list, each with its own Change button — a long-press is invisible to most people */
+window.editList=function(){ $('viewIn').innerHTML='<h3>Change or remove a card</h3><p class="small">Tap one to change its name, its picture, or the days it belongs to.</p>'
+  + db.habits.map(h=>`<button class="b" style="display:flex;gap:12px;align-items:center;width:100%;text-align:left;margin-bottom:8px"><span style="font-size:24px">${h.em}</span><span style="flex:1">${esc(h.name)}</span><span style="opacity:.6">change ›</span></button>`).join('')
+  + '<div class="row" style="margin-top:8px"><button class="b ghost" onclick="closeView()">Close</button></div>';
+  [...$('viewIn').querySelectorAll('button.b')].forEach((b,i)=>{ if(i<db.habits.length) b.onclick=()=>openEdit(db.habits[i].id); });
+  $('viewSheet').classList.add('on'); };
 function openView(id){ const h=db.habits.find(x=>x.id===id); if(!h) return; const t=today(); const cells=[]; for(let i=27;i>=0;i--){ const d=addDays(t,-i); cells.push(`<i class="${doneOn(h,d)?'y':''} ${d===t?'t':''}" title="${d}"></i>`); }
   $('viewIn').innerHTML=`<h3>${h.em} ${esc(h.name)}</h3><p class="small">Run: ${streak(h)} days · best ever: ${bestStreak(h)} · ${(h.days||[]).length===7?'every day':(h.days||[]).map(i=>DN[i]).join(' ')}</p><div class="small">Last 4 weeks</div><div class="strip">${cells.join('')}</div>
     <div class="row" style="margin-top:12px"><button class="b" onclick="openEdit('${h.id}')">✏️ Change it</button><button class="b ghost" onclick="closeView()">Close</button></div>`; $('viewSheet').classList.add('on'); }
@@ -1228,6 +1236,14 @@ function celebrate(){ if(matchMedia('(prefers-reduced-motion: reduce)').matches)
 /* ✨ AI door: suggest a card */
 window.DJ_AI={ title:'Suggest a card', prompt:function(){ return 'I am a senior keeping a short list of daily habits: '+db.habits.map(h=>h.name).join(', ')+'. Suggest ONE more small daily habit that fits, good for health or connection. Answer ONLY as JSON: {"name":"3-4 words","emoji":"one emoji"}'; }, onResult:function(v){ if(!v||!v.name) return; db.habits.push({id:uid(),name:v.name,em:v.emoji||'🌱',days:[0,1,2,3,4,5,6]}); save(); render(); } };
 render();
+/* Coming back the next morning used to show yesterday's gold cards until you tapped one.
+   The day now turns over the moment the app is looked at again. (22 Sep 2026) */
+let shownDay = today();
+function dayWatch(){ if(document.hidden) return; if(shownDay !== today()){ shownDay = today(); render(); } }
+document.addEventListener('visibilitychange', dayWatch);
+window.addEventListener('pageshow', dayWatch);
+window.addEventListener('focus', dayWatch);
+setInterval(dayWatch, 60000);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
