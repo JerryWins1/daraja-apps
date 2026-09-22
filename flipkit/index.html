@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v43">
+<script id="dj-house-v44">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -56,13 +56,27 @@
       (msg ? '\n\n(' + String(msg).slice(0,120) + ')' : ''),
       [['Reload', function(){ location.reload(); }]]);
   }
+  /* v44 (22 Sep 2026): a service worker that fails to update is a leftover from a page that moved
+     (the old store under Apps (installable site)/store/, archived 12 Sep) — not this app's fault.
+     Jerry could not get rid of the bar it raised. Never show it for that; throw the leftover away. */
+  function swNoise(m){ return /ServiceWorker|service worker/i.test(String(m || '')); }
   window.addEventListener('error', function(e){
     if(e && e.target && e.target !== window && e.target.tagName) return; /* a missing image is not a crash */
+    if(swNoise(e && e.message)) return;
     net(e && e.message);
   });
   window.addEventListener('unhandledrejection', function(e){
-    net(e && e.reason && e.reason.message);
+    var m = e && e.reason && e.reason.message;
+    if(swNoise(m)){ try{ e.preventDefault(); }catch(_){} return; }
+    net(m);
   });
+  function tidyWorkers(){
+    try{ if(!navigator.serviceWorker || !navigator.serviceWorker.getRegistrations) return;
+      navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){
+        try{ fetch(r.scope, {method:'HEAD', cache:'no-store'}).then(function(x){ if(x.status === 404) r.unregister(); }, function(){}); }catch(e){}
+      }); }, function(){}); }catch(e){}
+  }
+  setTimeout(tidyWorkers, 4000);
 
   /* one calm bar, never an alert() the person cannot read at their own pace */
   function djBanner(title, body, buttons){
