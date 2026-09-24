@@ -187,6 +187,11 @@
     <h2 class="big-h">Which team is yours?</h2>
     <p id="w2sub"></p>
     <div id="findteams" class="teams"></div>
+    <div id="w2confirm" hidden>
+      <p id="w2cmsg" class="msg"></p>
+      <button type="button" id="w2cBoth" class="big">Yes — I manage a second team here</button>
+      <button type="button" id="w2cReplace" class="big secondary" style="margin-top:10px">No — replace my other pick</button>
+    </div>
   </div>
 
   <div class="card" id="wStep3" hidden>
@@ -200,7 +205,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.0 · 2026-09-23</small></div>
+<div class="stamp"><small id="stamp">v3.1 · 2026-09-23</small></div>
 
 <script>
 /* =========================================================================
@@ -582,8 +587,11 @@ function wizStep(n){
   $("wStep3").hidden = n!==3;
   if(n===1){ $("lurl").value=""; $("findmsg").hidden=true; }
 }
+// Dedupe on the exact (league, team) pair — NOT on league alone. Someone can legitimately manage
+// two different teams in the same league (a family multi-team setup); keying by league only was
+// silently overwriting the first pick with the second. See proposeAdd() for the ambiguous case.
 function addPick(entry){
-  const i = PICKS.findIndex(p=>p.platform===entry.platform && String(p.leagueId)===String(entry.leagueId));
+  const i = PICKS.findIndex(p=>p.platform===entry.platform && String(p.leagueId)===String(entry.leagueId) && String(p.teamId)===String(entry.teamId));
   if(i>=0) PICKS[i]=entry; else PICKS.push(entry);
   savePicks(PICKS);
 }
@@ -592,12 +600,45 @@ function enterStep2(platform, leagueId, leagueName, teams){
   const grid = $("findteams");
   grid.innerHTML = teams.map(t=>`<button type="button" data-t="${esc(String(t.id))}">${esc(t.name)}</button>`).join("");
   grid.dataset.platform = platform; grid.dataset.league = String(leagueId); grid.dataset.leagueName = leagueName;
+  grid.hidden = false; $("w2confirm").hidden = true;
   wizStep(2);
 }
 function enterStep3(teamName, leagueName){
   $("w3msg").innerHTML = `Added <b>${esc(teamName)}</b> from <b>${esc(leagueName)}</b>.`;
   wizStep(3);
 }
+
+// A team was tapped (or arrived pre-known from a pasted link). If this league already has exactly
+// one saved pick and it's a DIFFERENT team, ask rather than guess — that's exactly the case that
+// used to silently overwrite the first team.
+let pendingPick=null, pendingReplace=null;
+function proposeAdd(platform, leagueId, teamId, leagueName, teamName){
+  const existing = PICKS.filter(p=>p.platform===platform && String(p.leagueId)===String(leagueId));
+  const already = existing.find(p=>String(p.teamId)===String(teamId));
+  if(already){ enterStep3(teamName, leagueName); return; }   // exact same pick — nothing to do
+  if(existing.length===1){
+    pendingPick = {platform, leagueId, teamId, leagueName, teamName};
+    pendingReplace = existing[0];
+    $("w2cmsg").innerHTML = `You already have <b>${esc(existing[0].teamName)}</b> from this league. Is <b>${esc(teamName)}</b> a second team you manage, or should it replace that pick?`;
+    $("findteams").hidden = true; $("w2confirm").hidden = false;
+    wizStep(2);
+    return;
+  }
+  addPick({platform, leagueId, teamId, leagueName, teamName});
+  enterStep3(teamName, leagueName);
+}
+$("w2cBoth").addEventListener("click", ()=>{
+  addPick(pendingPick);
+  enterStep3(pendingPick.teamName, pendingPick.leagueName);
+  pendingPick=null; pendingReplace=null;
+});
+$("w2cReplace").addEventListener("click", ()=>{
+  const i = PICKS.findIndex(p=>p===pendingReplace);
+  if(i>=0) PICKS.splice(i,1);
+  addPick(pendingPick);
+  enterStep3(pendingPick.teamName, pendingPick.leagueName);
+  pendingPick=null; pendingReplace=null;
+});
 
 document.querySelectorAll("[data-quick]").forEach(btn=>{
   btn.addEventListener("click", async ()=>{
@@ -622,8 +663,7 @@ $("findteams").addEventListener("click", e=>{
   const leagueId = platform==="espn" ? +grid.dataset.league : grid.dataset.league;
   const teamId = platform==="espn" ? +b.dataset.t : b.dataset.t;
   const leagueName = grid.dataset.leagueName, teamName = b.textContent;
-  addPick({ platform, leagueId, teamId, leagueName, teamName });
-  enterStep3(teamName, leagueName);
+  proposeAdd(platform, leagueId, teamId, leagueName, teamName);
 });
 
 $("find").addEventListener("click", async ()=>{
@@ -640,8 +680,7 @@ $("find").addEventListener("click", async ()=>{
     const info = await adapter.listTeams(parsed.leagueId);
     if(parsed.teamId!=null){
       const t = info.teams.find(x=>String(x.id)===String(parsed.teamId));
-      if(t){ addPick({platform:adapter.key, leagueId:parsed.leagueId, teamId:t.id, leagueName:info.leagueName, teamName:t.name});
-        enterStep3(t.name, info.leagueName); return; }
+      if(t){ proposeAdd(adapter.key, parsed.leagueId, t.id, info.leagueName, t.name); return; }
     }
     enterStep2(adapter.key, parsed.leagueId, info.leagueName, info.teams);
   }catch(e){
