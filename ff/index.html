@@ -47,6 +47,7 @@
   .side{min-width:0;text-align:center}
   .side .logo{width:40px;height:40px;border-radius:50%;background:#1f2a40;object-fit:cover;margin:0 auto 6px;display:block}
   .side .name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side .owner{font-size:11px;color:var(--dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .side .rec{font-size:12px;color:var(--dim);margin-top:2px}
   .side .pts{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin-top:6px;font-variant-numeric:tabular-nums}
   .side .proj{font-size:12px;color:var(--dim);margin-top:2px;font-variant-numeric:tabular-nums}
@@ -64,6 +65,19 @@
   .foot{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);display:flex;justify-content:space-between;
     font-size:12px;color:var(--dim)}
   .foot b{color:var(--ink)}
+
+  .rosterToggle{display:block;width:100%;text-align:center;margin-top:10px;background:none;border:1px dashed var(--line);
+    color:var(--dim);border-radius:10px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .rosterToggle:active{background:#0e1626}
+  .roster{margin-top:8px;text-align:left}
+  .roster .rrow{display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12.5px;border-top:1px solid var(--line)}
+  .roster .rrow:first-child{border-top:0}
+  .roster .rpos{flex:none;width:28px;color:var(--dim);font-weight:700;font-size:10.5px;text-transform:uppercase}
+  .roster .rname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .roster .rdot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dim)}
+  .roster .rdot.live{background:var(--live)}
+  .roster .rdot.wait{background:var(--wait)}
+  .roster .rpts{flex:none;font-variant-numeric:tabular-nums;font-weight:700;min-width:34px;text-align:right}
 
   /* density tiers — more teams than fit comfortably means smaller cards, not endless scrolling */
   #cards.tier-medium .card{padding:10px 14px 8px;margin-bottom:10px}
@@ -205,7 +219,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.1 · 2026-09-23</small></div>
+<div class="stamp"><small id="stamp">v3.2 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -214,7 +228,7 @@
      parseUrl(url) -> {leagueId, teamId?} | null      (best-effort from a pasted link)
      listTeams(leagueId) -> {leagueName, teams:[{id,name,logo,record}]}
      getMatchup(pick) -> { leagueName, wk, final, started,
-                            me:{name,logo,record,pts,proj,starters:[{teamAbbr}]},
+                            me:{name,owner,logo,record,pts,proj,starters:[{name,pos,pts,teamAbbr}]},
                             opp:{...same...}, winProb, bye:bool }
    pick = {platform, leagueId, teamId, leagueName, teamName}
    ========================================================================= */
@@ -280,6 +294,18 @@ async function espnGetLeague(id){
 }
 function espnTeamName(t){ return t.name || ((t.location||"")+" "+(t.nickname||"")).trim() || ("Team "+t.id); }
 function espnRec(t){ const r=(t.record&&t.record.overall)||{}; return (r.wins||0)+"-"+(r.losses||0)+((r.ties)?"-"+r.ties:""); }
+// The team's own name is never the manager's real name — that lives in the league's separate
+// "members" list (already included whenever view=mTeam is fetched, no extra call needed), joined
+// to the team by primaryOwner. firstName+lastName is a real name; displayName is usually a junk
+// ESPN-issued handle, so it's only the last resort.
+function espnOwnerName(d, team){
+  const byId = {}; (d.members||[]).forEach(m=>{ byId[m.id]=m; });
+  const oid = team.primaryOwner || (team.owners && team.owners[0]);
+  const m = oid && byId[oid]; if(!m) return "";
+  return ((m.firstName||"")+" "+(m.lastName||"")).trim() || m.displayName || "";
+}
+const ESPN_POS = {1:"QB",2:"RB",3:"WR",4:"TE",5:"K",16:"D/ST"};
+const ESPN_SLOT_ORDER = {0:0,2:1,4:2,6:3,16:4,17:5,23:6};   // QB,RB,WR,TE,D/ST,K,FLEX — a sensible read order
 
 const ESPN = {
   key:"espn", label:"ESPN",
@@ -290,7 +316,7 @@ const ESPN = {
   async listTeams(leagueId){
     const d = await espnGetLeague(leagueId);
     return { leagueName:(d.settings&&d.settings.name)||("League "+leagueId),
-      teams:(d.teams||[]).map(t=>({id:t.id, name:espnTeamName(t), logo:t.logo, record:espnRec(t)})) };
+      teams:(d.teams||[]).map(t=>({id:t.id, name:espnTeamName(t), owner:espnOwnerName(d,t), logo:t.logo, record:espnRec(t)})) };
   },
   async getMatchup(pick){
     const d = await espnGetLeague(pick.leagueId);
@@ -310,11 +336,14 @@ const ESPN = {
     const proj = s => (s.totalProjectedPointsLive!=null) ? s.totalProjectedPointsLive : (s.totalProjectedPoints||0);
     function side(teamObj, entrySide){
       const roster = ((teamObj.roster||{}).entries)||[];
-      const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21).map(e=>{
-        const pid = e.playerPoolEntry.player.proTeamId;
-        return {teamAbbr: proAbbr[pid]};
-      });
-      return { name:espnTeamName(teamObj), logo:teamObj.logo, record:espnRec(teamObj),
+      const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21)
+        .sort((a,b)=>(ESPN_SLOT_ORDER[a.lineupSlotId]??9)-(ESPN_SLOT_ORDER[b.lineupSlotId]??9))
+        .map(e=>{
+          const p = e.playerPoolEntry.player;
+          const actual = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
+          return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId] };
+        });
+      return { name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
         pts:pts(entrySide), proj:proj(entrySide), starters };
     }
     const meT = teams[mineSide.teamId], oppT = teams[theirSide.teamId];
@@ -338,7 +367,7 @@ async function sleeperPlayers(){
   }catch(e){}
   const res = await fetch(SLEEPER_API + "/players/nfl", {cache:"no-store"});
   const d = await res.json();
-  const slim = {}; Object.keys(d).forEach(id=>{ const p=d[id]; slim[id]={name:(p.full_name||((p.first_name||"")+" "+(p.last_name||""))).trim(), team:p.team}; });
+  const slim = {}; Object.keys(d).forEach(id=>{ const p=d[id]; slim[id]={name:(p.full_name||((p.first_name||"")+" "+(p.last_name||""))).trim(), team:p.team, pos:p.position||""}; });
   SLEEPER_PLAYERS = slim;
   try{ sessionStorage.setItem("sleeper.players.cache", JSON.stringify({at:Date.now(), data:slim})); }catch(e){}
   return slim;
@@ -367,7 +396,7 @@ const SLEEPER = {
       const name = (u.metadata && u.metadata.team_name) || u.display_name || ("Roster "+r.roster_id);
       const avatar = u.avatar ? "https://sleepercdn.com/avatars/thumbs/"+u.avatar : "";
       const rec = (r.settings||{});
-      return { id:r.roster_id, name, logo:avatar, record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:"") };
+      return { id:r.roster_id, name, owner:u.display_name||"", logo:avatar, record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:"") };
     });
     return { leagueName: league.name || ("League "+leagueId), teams };
   },
@@ -391,12 +420,16 @@ const SLEEPER = {
       const name = (u.metadata && u.metadata.team_name) || u.display_name || ("Roster "+rosterId);
       const avatar = u.avatar ? "https://sleepercdn.com/avatars/thumbs/"+u.avatar : "";
       const rec = r.settings||{};
-      return { name, logo:avatar, record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:"") };
+      return { name, owner:u.display_name||"", logo:avatar, record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:"") };
     }
     function side(m){
       if(!m) return null;
       const meta = teamMeta(m.roster_id);
-      const starters = (m.starters||[]).map(pid=>({teamAbbr: (players[pid]||{}).team}));
+      const pp = m.players_points || {};
+      const starters = (m.starters||[]).map(pid=>{
+        const pl = players[pid]||{};
+        return { name: pl.name||pid, pos: pl.pos||"", pts: pp[pid]||0, teamAbbr: pl.team };
+      });
       return Object.assign({}, meta, { pts:m.points||0, proj:0, starters });
     }
     const meSide = side(mine), oppSide = side(opp);
@@ -464,14 +497,33 @@ function sideHTML(t, cls, statusMap){
       ${counts.wait?`<span class="chip wait">${counts.wait} waiting</span>`:""}
       ${!counts.live&&!counts.done&&!counts.wait?`<span class="chip">${counts.total} starters</span>`:""}
     </div>` : "";
+  // the team name is what the league calls it; the owner line is who you're actually playing —
+  // only shown when it says something the team name doesn't already.
+  const ownerLine = (t.owner && t.owner!==t.name) ? `<div class="owner">${esc(t.owner)}</div>` : "";
   return `<div class="side ${cls}">
     ${t.logo?`<img class="logo" src="${esc(t.logo)}" alt="" onerror="this.style.visibility='hidden'">`:'<div class="logo"></div>'}
     <div class="name">${esc(t.name)}</div>
+    ${ownerLine}
     <div class="rec">${esc(t.record||"")}</div>
     <div class="pts">${n1(t.pts)}</div>
     ${t.proj?`<div class="proj">proj ${n1(t.proj)}</div>`:""}
     ${chips}
   </div>`;
+}
+function playerStatus(teamAbbr, statusMap){
+  const st = teamAbbr ? statusMap[teamAbbr] : null;
+  if(!st) return "bye"; if(st==="in") return "live"; if(st==="post") return "done"; return "wait";
+}
+// The full per-player breakdown for one team — a plain list, position first, so the "who's still
+// out there" question has a real answer instead of just a live/done/waiting count.
+function rosterRowsHTML(starters, statusMap){
+  if(!starters || !starters.length) return `<div class="msg" style="padding:4px 0">No roster detail for this league.</div>`;
+  return starters.map(s=>`<div class="rrow">
+      <span class="rpos">${esc(s.pos||"")}</span>
+      <span class="rname">${esc(s.name||"—")}</span>
+      <span class="rdot ${playerStatus(s.teamAbbr, statusMap)}"></span>
+      <span class="rpts">${n1(s.pts)}</span>
+    </div>`).join("");
 }
 function cardHTML(cfg, r, err, statusMap){
   const platBadge = `<span class="plat">${cfg.platform}</span>`;
@@ -492,6 +544,9 @@ function cardHTML(cfg, r, err, statusMap){
                 : r.started ? (r.me.pts>r.opp.pts ? "You're ahead" : r.me.pts<r.opp.pts ? "You're behind" : "Tied")
                 : "Kickoff pending";
   const odds = (!r.final && r.winProb!=null) ? `Win odds <b>${Math.round(r.winProb*100)}%</b>` : "";
+  const rosterSec = (r.me.starters && r.me.starters.length) ? `
+    <button class="rosterToggle" type="button">👥 Show my players ▾</button>
+    <div class="roster" hidden>${rosterRowsHTML(r.me.starters, statusMap)}</div>` : "";
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
     <div class="vs">
@@ -500,6 +555,7 @@ function cardHTML(cfg, r, err, statusMap){
       ${sideHTML(r.opp, lead==="opp"?"lead":"", statusMap)}
     </div>
     <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.me.pts-r.opp.pts))}</span><span>${odds}</span></div>
+    ${rosterSec}
   </div>`;
 }
 // Five or more teams: one compact row each instead of a full card, so a full slate still fits one screen.
@@ -700,6 +756,16 @@ $("teamsBtn").addEventListener("click", ()=> $("main").hidden ? goMain() : goHom
 $("addBottom").addEventListener("click", goHome);
 $("update").addEventListener("click", update);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !$("main").hidden) update(); });
+
+// Roster detail: one toggle per card, drops down in place and back up — attached to #cards itself
+// (not the buttons) so it keeps working after every re-render replaces the cards' innerHTML.
+$("cards").addEventListener("click", e=>{
+  const b = e.target.closest(".rosterToggle"); if(!b) return;
+  const box = b.nextElementSibling; if(!box) return;
+  const opening = box.hidden;
+  box.hidden = !opening;
+  b.textContent = opening ? "👥 Hide my players ▴" : "👥 Show my players ▾";
+});
 
 // First run with nothing set up yet: go straight into the wizard, one question at a time.
 // Once at least one team is saved, always land straight on the scores.
