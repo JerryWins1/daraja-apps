@@ -250,7 +250,7 @@
   </div>
 </div>
 
-<div class="stamp"><small id="stamp">v3.3 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v3.4 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -338,6 +338,25 @@ function espnOwnerName(d, team){
 const ESPN_POS = {1:"QB",2:"RB",3:"WR",4:"TE",5:"K",16:"D/ST"};
 const ESPN_SLOT_ORDER = {0:0,2:1,4:2,6:3,16:4,17:5,23:6};   // QB,RB,WR,TE,D/ST,K,FLEX — a sensible read order
 
+// One team's full summary — name, owner, score, projection, and per-player roster detail. Used by
+// BOTH getMatchup() and getLeagueScoreboard() so every screen in the app shows the same information
+// about a team, not a stripped-down version for "other people's" matchups.
+function espnSideSummary(d, proAbbr, teamObj, entrySide){
+  const sp = d.scoringPeriodId;
+  const pts = s => (s.totalPointsLive!=null) ? s.totalPointsLive : (s.totalPoints || ((s.pointsByScoringPeriod||{})[sp]) || 0);
+  const proj = s => (s.totalProjectedPointsLive!=null) ? s.totalProjectedPointsLive : (s.totalProjectedPoints||0);
+  const roster = ((teamObj.roster||{}).entries)||[];
+  const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21)
+    .sort((a,b)=>(ESPN_SLOT_ORDER[a.lineupSlotId]??9)-(ESPN_SLOT_ORDER[b.lineupSlotId]??9))
+    .map(e=>{
+      const p = e.playerPoolEntry.player;
+      const actual = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
+      return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId] };
+    });
+  return { name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
+    pts:pts(entrySide), proj:proj(entrySide), starters };
+}
+
 const ESPN = {
   key:"espn", label:"ESPN",
   parseUrl(url){
@@ -364,40 +383,25 @@ const ESPN = {
     const mineSide = (m.home.teamId===pick.teamId)? m.home : m.away;
     const theirSide = (mineSide===m.home)? m.away : m.home;
     const pts = s => (s.totalPointsLive!=null) ? s.totalPointsLive : (s.totalPoints || ((s.pointsByScoringPeriod||{})[sp]) || 0);
-    const proj = s => (s.totalProjectedPointsLive!=null) ? s.totalProjectedPointsLive : (s.totalProjectedPoints||0);
-    function side(teamObj, entrySide){
-      const roster = ((teamObj.roster||{}).entries)||[];
-      const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21)
-        .sort((a,b)=>(ESPN_SLOT_ORDER[a.lineupSlotId]??9)-(ESPN_SLOT_ORDER[b.lineupSlotId]??9))
-        .map(e=>{
-          const p = e.playerPoolEntry.player;
-          const actual = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
-          return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId] };
-        });
-      return { name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
-        pts:pts(entrySide), proj:proj(entrySide), starters };
-    }
     const meT = teams[mineSide.teamId], oppT = teams[theirSide.teamId];
     return {
       leagueName, wk, final: m.winner && m.winner!=="UNDECIDED",
-      me: side(meT, mineSide), opp: side(oppT, theirSide),
+      me: espnSideSummary(d, proAbbr, meT, mineSide), opp: espnSideSummary(d, proAbbr, oppT, theirSide),
       winProb: mineSide.winProbability,
       started: pts(mineSide)>0 || pts(theirSide)>0
     };
   },
-  // Every matchup in the league for the current week — not just the one team being followed.
-  // The same league fetch already carries the full schedule and every team, so this is one call.
+  // Every matchup in the league for the current week — not just the one team being followed. Each
+  // side gets the exact same summary (score, projection, full roster) as the team you follow, since
+  // the same league fetch already carries the full schedule, every team's roster, and its owners.
   async getLeagueScoreboard(leagueId){
     const d = await espnGetLeague(leagueId);
+    const proAbbr = await espnProTeamAbbrs();
     const teams = {}; (d.teams||[]).forEach(t=>teams[t.id]=t);
     const wk = (d.status && d.status.currentMatchupPeriod) || d.scoringPeriodId;
-    const sp = d.scoringPeriodId;
-    const pts = s => (s.totalPointsLive!=null) ? s.totalPointsLive : (s.totalPoints || ((s.pointsByScoringPeriod||{})[sp]) || 0);
-    const side = (teamObj, entrySide) => ({ name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj),
-      logo:teamObj.logo, record:espnRec(teamObj), pts:pts(entrySide) });
     const games = (d.schedule||[]).filter(m=>m.matchupPeriodId===wk && m.home && m.away).map(m=>({
-      home: side(teams[m.home.teamId], m.home),
-      away: side(teams[m.away.teamId], m.away),
+      home: espnSideSummary(d, proAbbr, teams[m.home.teamId], m.home),
+      away: espnSideSummary(d, proAbbr, teams[m.away.teamId], m.away),
       final: m.winner && m.winner!=="UNDECIDED"
     }));
     return { leagueName:(d.settings&&d.settings.name)||("League "+leagueId), wk, games };
@@ -423,6 +427,22 @@ async function sleeperPlayers(){
 async function sleeperState(){
   const res = await fetch(SLEEPER_API + "/state/nfl?_="+Date.now(), {cache:"no-store"});
   return res.json();
+}
+// One roster's full summary — same shape as espnSideSummary — used by BOTH getMatchup() and
+// getLeagueScoreboard() so every screen shows the same information about a team.
+function sleeperSideSummary(m, byRoster, byUser, players){
+  if(!m) return null;
+  const r = byRoster[m.roster_id]||{}; const u = byUser[r.owner_id]||{};
+  const name = (u.metadata && u.metadata.team_name) || u.display_name || ("Roster "+m.roster_id);
+  const avatar = u.avatar ? "https://sleepercdn.com/avatars/thumbs/"+u.avatar : "";
+  const rec = r.settings||{};
+  const pp = m.players_points || {};
+  const starters = (m.starters||[]).map(pid=>{
+    const pl = players[pid]||{};
+    return { name: pl.name||pid, pos: pl.pos||"", pts: pp[pid]||0, teamAbbr: pl.team };
+  });
+  return { name, owner:u.display_name||"", logo:avatar,
+    record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:""), pts:m.points||0, proj:0, starters };
 }
 const SLEEPER = {
   key:"sleeper", label:"Sleeper",
@@ -463,34 +483,19 @@ const SLEEPER = {
     const mine = (matchups||[]).find(m=>m.roster_id===pick.teamId);
     if(!mine) return { leagueName:pick.leagueName, wk, bye:true, me:rosterSide(byRoster[pick.teamId], byUser) };
     const opp = (matchups||[]).find(m=>m.matchup_id===mine.matchup_id && m.roster_id!==pick.teamId);
-    function teamMeta(rosterId){
-      const r = byRoster[rosterId]||{}; const u = byUser[r.owner_id]||{};
-      const name = (u.metadata && u.metadata.team_name) || u.display_name || ("Roster "+rosterId);
-      const avatar = u.avatar ? "https://sleepercdn.com/avatars/thumbs/"+u.avatar : "";
-      const rec = r.settings||{};
-      return { name, owner:u.display_name||"", logo:avatar, record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:"") };
-    }
-    function side(m){
-      if(!m) return null;
-      const meta = teamMeta(m.roster_id);
-      const pp = m.players_points || {};
-      const starters = (m.starters||[]).map(pid=>{
-        const pl = players[pid]||{};
-        return { name: pl.name||pid, pos: pl.pos||"", pts: pp[pid]||0, teamAbbr: pl.team };
-      });
-      return Object.assign({}, meta, { pts:m.points||0, proj:0, starters });
-    }
-    const meSide = side(mine), oppSide = side(opp);
+    const meSide = sleeperSideSummary(mine, byRoster, byUser, players);
+    const oppSide = sleeperSideSummary(opp, byRoster, byUser, players);
     return {
       leagueName: pick.leagueName, wk, final:false,
       me: meSide, opp: oppSide || {name:"Bye", logo:"", record:"", pts:0, proj:0, starters:[]},
       started: (meSide.pts>0) || (oppSide && oppSide.pts>0)
     };
   },
-  // Every matchup in the league for the current week — pairs rosters by Sleeper's own matchup_id.
+  // Every matchup in the league for the current week — pairs rosters by Sleeper's own matchup_id,
+  // each side getting the exact same summary (score, full roster) as the team you follow.
   async getLeagueScoreboard(leagueId){
-    const [state, uRes, rRes, lRes] = await Promise.all([
-      sleeperState(),
+    const [state, players, uRes, rRes, lRes] = await Promise.all([
+      sleeperState(), sleeperPlayers(),
       fetch(SLEEPER_API+"/league/"+leagueId+"/users", {cache:"no-store"}),
       fetch(SLEEPER_API+"/league/"+leagueId+"/rosters", {cache:"no-store"}),
       fetch(SLEEPER_API+"/league/"+leagueId, {cache:"no-store"}),
@@ -502,17 +507,9 @@ const SLEEPER = {
     const mres = await fetch(SLEEPER_API+"/league/"+leagueId+"/matchups/"+wk+"?_="+Date.now(), {cache:"no-store"});
     const matchups = await mres.json();
     const byMid = {}; (matchups||[]).forEach(m=>{ (byMid[m.matchup_id]=byMid[m.matchup_id]||[]).push(m); });
-    function meta(rosterId, points){
-      const r = byRoster[rosterId]||{}; const u = byUser[r.owner_id]||{};
-      const name = (u.metadata && u.metadata.team_name) || u.display_name || ("Roster "+rosterId);
-      const avatar = u.avatar ? "https://sleepercdn.com/avatars/thumbs/"+u.avatar : "";
-      const rec = r.settings||{};
-      return { name, owner:u.display_name||"", logo:avatar,
-        record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:""), pts: points||0 };
-    }
     const games = Object.values(byMid).filter(pair=>pair.length===2).map(pair=>({
-      home: meta(pair[0].roster_id, pair[0].points),
-      away: meta(pair[1].roster_id, pair[1].points),
+      home: sleeperSideSummary(pair[0], byRoster, byUser, players),
+      away: sleeperSideSummary(pair[1], byRoster, byUser, players),
       final: false
     }));
     return { leagueName: league.name || ("League "+leagueId), wk, games };
@@ -707,25 +704,31 @@ function goHome(){ show("setupHome"); }
 function goWizard(){ show("wizard"); }
 
 /* --------------------------- browse a whole league --------------------------- */
+// Every slide reuses sideHTML() and rosterRowsHTML() — the exact same rendering as the main
+// scoreboard card — so a matchup you're browsing shows the same information as your own: score,
+// projection, live/done/waiting chips, and an expandable full roster for EITHER team (there's no
+// "my team" here, so both sides get their own toggle instead of just one).
 let LEAGUE_GAMES = [];
-function miniSideHTML(t, leading){
-  const ownerLine = (t.owner && t.owner!==t.name) ? `<div class="owner">${esc(t.owner)}</div>` : "";
-  return `<div class="side${leading?" lead":""}">
-    ${t.logo?`<img class="logo" src="${esc(t.logo)}" alt="" onerror="this.style.visibility='hidden'">`:'<div class="logo"></div>'}
-    <div class="name">${esc(t.name)}</div>
-    ${ownerLine}
-    <div class="rec">${esc(t.record||"")}</div>
-    <div class="pts">${n1(t.pts)}</div>
-  </div>`;
-}
-function leagueSlideHTML(g){
+function leagueSlideHTML(g, statusMap){
+  const started = g.home.pts>0 || g.away.pts>0;
+  const status = g.final ? '<span class="status">Final</span>' : started ? '<span class="status live">Live</span>' : '<span class="status">Not started</span>';
   const lead = g.home.pts===g.away.pts ? "" : (g.home.pts>g.away.pts ? "home" : "away");
+  const diff = n1(Math.abs(g.home.pts-g.away.pts));
+  const leader = lead==="home" ? g.home : lead==="away" ? g.away : null;
+  const verdict = leader ? `<b>${esc(leader.owner||leader.name)}</b> leads by ${diff}` : (started ? "Tied" : "Kickoff pending");
+  const rosterFor = (side) => (side.starters && side.starters.length) ? `
+      <button class="rosterToggle" type="button">👥 Show ${esc(side.owner||side.name)}'s players ▾</button>
+      <div class="roster" hidden>${rosterRowsHTML(side.starters, statusMap)}</div>` : "";
   return `<div class="slide"><div class="card">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:2px">${status}</div>
     <div class="vs">
-      ${miniSideHTML(g.home, lead==="home")}
+      ${sideHTML(g.home, lead==="home"?"lead":"", statusMap)}
       <div class="mid">VS</div>
-      ${miniSideHTML(g.away, lead==="away")}
+      ${sideHTML(g.away, lead==="away"?"lead":"", statusMap)}
     </div>
+    <div class="foot"><span>${verdict}</span></div>
+    ${rosterFor(g.home)}
+    ${rosterFor(g.away)}
   </div></div>`;
 }
 async function openLeagueView(platform, leagueId, leagueName){
@@ -739,10 +742,11 @@ async function openLeagueView(platform, leagueId, leagueName){
     LEAGUE_GAMES = info.games || [];
     $("leagueTitle").textContent = info.leagueName || leagueName;
     $("leagueWeek").textContent = info.wk ? "Week "+info.wk : "";
+    const sm = info.wk ? await nflGameStatus(info.wk) : {};
     if(!LEAGUE_GAMES.length){
       $("leagueSlides").innerHTML = `<div class="slide"><div class="msg">No matchups found for this week.</div></div>`;
     }else{
-      $("leagueSlides").innerHTML = LEAGUE_GAMES.map(leagueSlideHTML).join("");
+      $("leagueSlides").innerHTML = LEAGUE_GAMES.map(g=>leagueSlideHTML(g, sm)).join("");
       $("leagueCount").textContent = "1 of "+LEAGUE_GAMES.length;
       $("leagueSlides").scrollLeft = 0;
     }
@@ -751,6 +755,15 @@ async function openLeagueView(platform, leagueId, leagueName){
     $("leagueSlides").innerHTML = `<div class="slide"><div class="msg err">Couldn't load this league (${esc(e.message)}). Tap Back and try again.</div></div>`;
   }
 }
+// Roster toggles inside the league-browse slides use the same delegated pattern as the main cards.
+$("leagueSlides").addEventListener("click", e=>{
+  const b = e.target.closest(".rosterToggle"); if(!b) return;
+  const box = b.nextElementSibling; if(!box) return;
+  const opening = box.hidden;
+  box.hidden = !opening;
+  const label = b.textContent.replace(/^👥 (Show|Hide) /, "").replace(/ ▾$| ▴$/, "");
+  b.textContent = opening ? `👥 Hide ${label} ▴` : `👥 Show ${label} ▾`;
+});
 $("leagueSlides").addEventListener("scroll", ()=>{
   if(!LEAGUE_GAMES.length) return;
   const box = $("leagueSlides");
