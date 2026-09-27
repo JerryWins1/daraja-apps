@@ -1469,7 +1469,7 @@ My pictures live in three places —
   <button id="nBook" onclick="openBook()"><span class="em">📖</span>Your book</button>
 </div>
 
-<div id="ver">In My Own Words v1.7 · 2026-09-21 · formerly Story Keeper · Daraja Studio — every copy helps a student in Kenya stay in school</div>
+<div id="ver">In My Own Words v1.8 · 2026-09-27 · now keeps your voice too · formerly Story Keeper · Daraja Studio — every copy helps a student in Kenya stay in school</div>
 
 <script>
 /* ================= DATA ================= */
@@ -2436,6 +2436,87 @@ window.DJ_AI = { title:'What should I ask next?',
     return 'I am recording ' + who + '\'s life stories, one question at a time, to print as a book. ' + (told ? 'So far ' + told + ' stories are told. The last one was:\n"' + last.slice(0,600) + '"\n\n' : '') + 'Give me the ONE next question to ask that would open up a story worth keeping — warm, specific, easy to answer out loud. Just the question, then one sentence on why.'; } };
 })();
 </script>
+<style id="dj-voice-css">
+  #skClips{ margin-top:10px; } #skClips .clip{ display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--line,#E2DCCF); font-size:15px; }
+  #skClips .clip b{ flex:1; font-weight:700; } #skClips .clip button{ font:inherit; font-weight:800; font-size:14px; min-height:40px; padding:6px 12px; border-radius:10px; border:1.5px solid var(--line,#E2DCCF); background:transparent; color:var(--ink,#1F2622); cursor:pointer; }
+  #skClips .clip button.play{ background:var(--warm,#B85A3F); color:#fff; border-color:transparent; }
+  #skClips .clip button.play.on{ background:#2F6E52; }
+  .bq .voice{ font-size:14px; color:var(--soft,#55605B); font-style:italic; margin-top:4px; }
+</style>
+<script id="dj-voice-v1">
+/* ═══ In My Own Words — keep the voice (27 Sep 2026) ═══
+   From the Remento study: their book plays the parent's real voice. Ours kept only the words.
+   Now, whenever the red button is down, the phone also RECORDS — the recording is saved next to the
+   story, on this phone only (IndexedDB), and plays back under the answer. The book notes where a
+   recording exists; "Save my recordings" hands the family the actual files. */
+(function(){
+  if(window.__skVoice) return; window.__skVoice = true;
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var DBN = 'story_voice', ST = 'clips', idb = null;
+  function open(){ return new Promise(function(ok, no){ if(idb) return ok(idb); if(!window.indexedDB) return no(new Error('no store')); var r = indexedDB.open(DBN, 1); r.onupgradeneeded = function(){ r.result.createObjectStore(ST); }; r.onsuccess = function(){ idb = r.result; ok(idb); }; r.onerror = function(){ no(r.error); }; }); }
+  function put(id, blob){ return open().then(function(d){ return new Promise(function(ok, no){ var t = d.transaction(ST, 'readwrite'); t.objectStore(ST).put(blob, id); t.oncomplete = ok; t.onerror = function(){ no(t.error); }; }); }); }
+  function get(id){ return open().then(function(d){ return new Promise(function(ok, no){ var r = d.transaction(ST).objectStore(ST).get(id); r.onsuccess = function(){ ok(r.result); }; r.onerror = function(){ no(r.error); }; }); }); }
+  function del(id){ return open().then(function(d){ return new Promise(function(ok){ var t = d.transaction(ST, 'readwrite'); t.objectStore(ST).delete(id); t.oncomplete = ok; t.onerror = ok; }); }).catch(function(){}); }
+  var MR = window.MediaRecorder, canRec = !!(MR && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  var mr = null, stream = null, chunks = [], t0 = 0, keyAt = null;
+  function mime(){ var c = ['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg']; for(var i=0;i<c.length;i++){ try{ if(MR.isTypeSupported(c[i])) return c[i]; }catch(e){} } return ''; }
+  function beginRec(){
+    if(!canRec || mr) return;
+    keyAt = (typeof aKey === 'function' && typeof CUR !== 'undefined' && CUR) ? aKey() : null;   /* CUR is a top-level let — not on window */ if(!keyAt) return;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(s){
+      stream = s; chunks = []; t0 = Date.now(); var m = mime();
+      try{ mr = m ? new MR(s, { mimeType: m }) : new MR(s); }catch(e){ mr = new MR(s); }
+      mr.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = finishRec; mr.start(1000);
+    }).catch(function(){ /* no mic permission for recording — the words still come through */ });
+  }
+  function finishRec(){
+    var secs = Math.round((Date.now() - t0)/1000), blob = chunks.length ? new Blob(chunks, { type: (mr && mr.mimeType) || chunks[0].type || 'audio/webm' }) : null;
+    try{ stream && stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
+    var k = keyAt; mr = null; stream = null; chunks = []; keyAt = null;
+    if(!blob || secs < 2 || !k) return;                     /* a tap by mistake is not a story */
+    var id = 'vc' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    put(id, blob).then(function(){
+      var a = db.ans[k] || { text:'', people:[], photos:[] }; (a.voice = a.voice||[]).push({ id: id, secs: secs, at: new Date().toISOString().slice(0,10), size: blob.size, type: blob.type }); db.ans[k] = a; save(); list();
+      try{ toast && toast('Your voice is kept ✓ ' + fmtS(secs)); }catch(e){}
+    }).catch(function(){});
+  }
+  function fmtS(s){ return s >= 60 ? Math.floor(s/60) + ' min ' + (s%60) + ' s' : s + ' s'; }
+  var _start = window.startRec, _stop = window.stopRec;
+  window.startRec = function(){ _start(); beginRec();
+    /* the words matter more than the recording: if speech-to-text complains while we record (iPhone can
+       share the microphone badly), stop recording and let the words keep coming */
+    try{ if(typeof rec !== 'undefined' && rec){ var oe = rec.onerror; rec.onerror = function(e){ if(mr){ try{ mr.stop(); }catch(_){} } if(oe) oe(e); }; } }catch(e){} };
+  window.stopRec  = function(){ _stop(); try{ if(mr && mr.state !== 'inactive') mr.stop(); }catch(e){} };
+
+  /* the clips under the answer */
+  var playing = null, audio = null;
+  function list(){ var host = $('skClips'); if(!host){ var ans = $('answer'); if(!ans) return; host = document.createElement('div'); host.id = 'skClips'; ans.insertAdjacentElement('afterend', host); }
+    if(typeof CUR === 'undefined' || !CUR){ host.innerHTML = ''; return; }
+    var a = (typeof getA === 'function') ? getA() : {}; var vs = a.voice || [];
+    host.innerHTML = vs.length ? '<div class="soft" style="font-size:14px;margin-bottom:2px">🔊 Your voice, kept on this phone</div>' + vs.map(function(v){ return '<div class="clip"><button type="button" class="play' + (playing === v.id ? ' on' : '') + '" onclick="skPlay(\'' + v.id + '\')">' + (playing === v.id ? '■ Stop' : '▶ Play') + '</button><b>' + fmtS(v.secs) + ' · ' + esc(v.at) + '</b><button type="button" onclick="skSave(\'' + v.id + '\')" aria-label="Save this recording">⬇</button><button type="button" onclick="skDrop(\'' + v.id + '\')" aria-label="Remove">✕</button></div>'; }).join('')
+      : (canRec ? '<div class="soft" style="font-size:14px">🔊 When you talk, your real voice is kept too — it appears here.</div>' : '');
+  }
+  window.skPlay = function(id){ if(playing === id){ try{ audio.pause(); }catch(e){} playing = null; list(); return; }
+    get(id).then(function(blob){ if(!blob){ try{ toast('That recording is not on this phone any more.'); }catch(e){} return; } try{ audio && audio.pause(); }catch(e){} audio = new Audio(URL.createObjectURL(blob)); playing = id; list(); audio.onended = function(){ playing = null; list(); }; audio.play().catch(function(){ playing = null; list(); }); }); };
+  window.skSave = function(id){ get(id).then(function(blob){ if(!blob) return; var ext = /mp4/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : 'webm'; var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = ((db.name||'story') + '-' + id + '.' + ext).replace(/\s+/g,'_'); document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 800); }); };
+  window.skDrop = function(id){ if(!confirm('Remove this recording from the phone? The words stay.')) return; var a = getA(); a.voice = (a.voice||[]).filter(function(v){ return v.id !== id; }); putA(a); del(id).then(list); };
+  var _showQ = window.showQ; window.showQ = function(){ _showQ(); playing = null; try{ audio && audio.pause(); }catch(e){} list(); };
+
+  /* the book says where a recording exists; the hand-off gives the family every file */
+  var _book = window.openBook;
+  window.openBook = function(){ _book(); try{
+    var page = $('bookPage'); if(!page) return; var n = 0;
+    CHAPTERS.forEach(function(c){ c.qs.forEach(function(q, qi){ var a = db.ans[c.id+':'+qi]; if(!(a && a.voice && a.voice.length)) return; n += a.voice.length;
+      var hs = page.querySelectorAll('.bq h3'); for(var i=0;i<hs.length;i++){ if(hs[i].textContent === q && !hs[i].parentNode.querySelector('.voice')){ hs[i].parentNode.insertAdjacentHTML('beforeend', '<div class="voice">🔊 Told aloud — ' + a.voice.length + ' recording' + (a.voice.length===1?'':'s') + ' kept on the phone (' + fmtS(a.voice.reduce(function(t,v){ return t+v.secs; },0)) + ')</div>'); break; } } }); });
+    if(n && !$('skSaveAll')){ page.insertAdjacentHTML('beforeend', '<div id="skSaveAll" class="noprint" style="text-align:center;margin:18px 0"><button class="btn ghost" type="button" onclick="skSaveAll()">⬇ Save all ' + n + ' recording' + (n===1?'':'s') + ' for the family</button><p class="soft" style="font-size:14px;margin-top:6px">They download one by one. Recordings are not in the printed book or the backup file — keep these files with it.</p></div>'); }
+  }catch(e){} };
+  window.skSaveAll = function(){ var ids = []; Object.keys(db.ans).forEach(function(k){ (db.ans[k].voice||[]).forEach(function(v){ ids.push(v.id); }); }); ids.forEach(function(id, i){ setTimeout(function(){ skSave(id); }, i*700); }); };
+  try{ var st = document.createElement('style'); st.textContent = '@media print{ .noprint{ display:none !important } }'; document.head.appendChild(st); }catch(e){}
+})();
+</script>
+
 </body>
 </html>
 <script>
