@@ -79,6 +79,22 @@
   .roster .rdot.wait{background:var(--wait)}
   .roster .rpts{flex:none;font-variant-numeric:tabular-nums;font-weight:700;min-width:34px;text-align:right}
 
+  .leagueBrowse{display:block;width:100%;text-align:center;margin-top:8px;background:none;border:0;
+    color:var(--accent);font-size:12.5px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:4px}
+
+  /* Browse-a-league: one matchup per screen, swipe (or tap Prev/Next) to move through the rest */
+  #leagueView .hd{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 4px}
+  #leagueView .hd .mid{flex:1;min-width:0;padding:0 8px;text-align:center}
+  #leagueView .hd .ttl{font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #leagueView .hd .wk{color:var(--dim);font-size:12px;padding-top:0}
+  #leagueView .hd .spacer{width:56px;flex:none}
+  .slides{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .slides::-webkit-scrollbar{display:none}
+  .slide{flex:0 0 100%;scroll-snap-align:start;min-width:0}
+  .slide .card{margin-bottom:0}
+  .slidesNav{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+  .slidesNav span{color:var(--dim);font-size:12px;font-weight:700}
+
   /* density tiers — more teams than fit comfortably means smaller cards, not endless scrolling */
   #cards.tier-medium .card{padding:10px 14px 8px;margin-bottom:10px}
   #cards.tier-medium .side .logo{width:32px;height:32px;margin-bottom:4px}
@@ -219,7 +235,22 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.2 · 2026-09-27</small></div>
+<!-- ===== Browse a whole league — every matchup, swipe through them ===== -->
+<div id="leagueView" hidden>
+  <div class="hd">
+    <button class="link" id="leagueBack" type="button">‹ Back</button>
+    <div class="mid"><div class="ttl" id="leagueTitle"></div><div class="wk" id="leagueWeek"></div></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="slides" id="leagueSlides"></div>
+  <div class="slidesNav">
+    <button class="link" id="leaguePrev" type="button">‹ Prev</button>
+    <span id="leagueCount"></span>
+    <button class="link" id="leagueNext" type="button">Next ›</button>
+  </div>
+</div>
+
+<div class="stamp"><small id="stamp">v3.3 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -353,6 +384,23 @@ const ESPN = {
       winProb: mineSide.winProbability,
       started: pts(mineSide)>0 || pts(theirSide)>0
     };
+  },
+  // Every matchup in the league for the current week — not just the one team being followed.
+  // The same league fetch already carries the full schedule and every team, so this is one call.
+  async getLeagueScoreboard(leagueId){
+    const d = await espnGetLeague(leagueId);
+    const teams = {}; (d.teams||[]).forEach(t=>teams[t.id]=t);
+    const wk = (d.status && d.status.currentMatchupPeriod) || d.scoringPeriodId;
+    const sp = d.scoringPeriodId;
+    const pts = s => (s.totalPointsLive!=null) ? s.totalPointsLive : (s.totalPoints || ((s.pointsByScoringPeriod||{})[sp]) || 0);
+    const side = (teamObj, entrySide) => ({ name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj),
+      logo:teamObj.logo, record:espnRec(teamObj), pts:pts(entrySide) });
+    const games = (d.schedule||[]).filter(m=>m.matchupPeriodId===wk && m.home && m.away).map(m=>({
+      home: side(teams[m.home.teamId], m.home),
+      away: side(teams[m.away.teamId], m.away),
+      final: m.winner && m.winner!=="UNDECIDED"
+    }));
+    return { leagueName:(d.settings&&d.settings.name)||("League "+leagueId), wk, games };
   }
 };
 
@@ -438,6 +486,36 @@ const SLEEPER = {
       me: meSide, opp: oppSide || {name:"Bye", logo:"", record:"", pts:0, proj:0, starters:[]},
       started: (meSide.pts>0) || (oppSide && oppSide.pts>0)
     };
+  },
+  // Every matchup in the league for the current week — pairs rosters by Sleeper's own matchup_id.
+  async getLeagueScoreboard(leagueId){
+    const [state, uRes, rRes, lRes] = await Promise.all([
+      sleeperState(),
+      fetch(SLEEPER_API+"/league/"+leagueId+"/users", {cache:"no-store"}),
+      fetch(SLEEPER_API+"/league/"+leagueId+"/rosters", {cache:"no-store"}),
+      fetch(SLEEPER_API+"/league/"+leagueId, {cache:"no-store"}),
+    ]);
+    const users = await uRes.json(), rosters = await rRes.json(), league = await lRes.json();
+    const byUser = {}; (users||[]).forEach(u=>byUser[u.user_id]=u);
+    const byRoster = {}; (rosters||[]).forEach(r=>byRoster[r.roster_id]=r);
+    const wk = state.display_week || state.week;
+    const mres = await fetch(SLEEPER_API+"/league/"+leagueId+"/matchups/"+wk+"?_="+Date.now(), {cache:"no-store"});
+    const matchups = await mres.json();
+    const byMid = {}; (matchups||[]).forEach(m=>{ (byMid[m.matchup_id]=byMid[m.matchup_id]||[]).push(m); });
+    function meta(rosterId, points){
+      const r = byRoster[rosterId]||{}; const u = byUser[r.owner_id]||{};
+      const name = (u.metadata && u.metadata.team_name) || u.display_name || ("Roster "+rosterId);
+      const avatar = u.avatar ? "https://sleepercdn.com/avatars/thumbs/"+u.avatar : "";
+      const rec = r.settings||{};
+      return { name, owner:u.display_name||"", logo:avatar,
+        record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:""), pts: points||0 };
+    }
+    const games = Object.values(byMid).filter(pair=>pair.length===2).map(pair=>({
+      home: meta(pair[0].roster_id, pair[0].points),
+      away: meta(pair[1].roster_id, pair[1].points),
+      final: false
+    }));
+    return { leagueName: league.name || ("League "+leagueId), wk, games };
   }
 };
 function rosterSide(r, byUser){
@@ -547,6 +625,8 @@ function cardHTML(cfg, r, err, statusMap){
   const rosterSec = (r.me.starters && r.me.starters.length) ? `
     <button class="rosterToggle" type="button">👥 Show my players ▾</button>
     <div class="roster" hidden>${rosterRowsHTML(r.me.starters, statusMap)}</div>` : "";
+  const browseBtn = `<button class="leagueBrowse" type="button" data-platform="${esc(cfg.platform)}"
+    data-league="${esc(String(cfg.leagueId))}" data-name="${title}">🏈 See the whole league →</button>`;
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
     <div class="vs">
@@ -556,6 +636,7 @@ function cardHTML(cfg, r, err, statusMap){
     </div>
     <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.me.pts-r.opp.pts))}</span><span>${odds}</span></div>
     ${rosterSec}
+    ${browseBtn}
   </div>`;
 }
 // Five or more teams: one compact row each instead of a full card, so a full slate still fits one screen.
@@ -571,13 +652,16 @@ function cardHTMLCompact(cfg, r, err, statusMap){
   const counts = starterCounts(r.me.starters||[], statusMap||{});
   const chip = counts.live ? `<span class="cchip live">${counts.live} live</span>`
     : (!r.final && counts.wait) ? `<span class="cchip">${counts.wait} left</span>` : "";
+  const name = esc((r&&r.leagueName)||cfg.leagueName||"League");
   return `<div class="crow">
     ${plat}<span class="dot ${dotCls}"></span>
     <span class="team me${lead==='opp'?' trail':''}"><span class="tn">${esc(r.me.name)}</span><b>${n1(r.me.pts)}</b></span>
     <span class="cvs">vs</span>
     <span class="team${lead==='me'?' trail':''}"><span class="tn">${esc(r.opp.name)}</span><b>${n1(r.opp.pts)}</b></span>
     ${chip}
-  </div>`;
+  </div>
+  <button class="leagueBrowse" type="button" data-platform="${esc(cfg.platform)}"
+    data-league="${esc(String(cfg.leagueId))}" data-name="${name}" style="margin-top:-4px;margin-bottom:7px">🏈 See the whole league →</button>`;
 }
 function densityTier(n){ return n<=2 ? "full" : n<=4 ? "medium" : "compact"; }
 
@@ -611,7 +695,8 @@ function show(which){
   $("main").hidden = which!=="main";
   $("setupHome").hidden = which!=="setupHome";
   $("wizard").hidden = which!=="wizard";
-  $("teamsBtn").hidden = which==="wizard" || (which==="setupHome" && !PICKS.length);
+  $("leagueView").hidden = which!=="league";
+  $("teamsBtn").hidden = which==="wizard" || which==="league" || (which==="setupHome" && !PICKS.length);
   $("teamsBtn").textContent = which==="main" ? "My teams" : "Scores";
   if(which==="main") update();
   else if(which==="setupHome") renderMyList();
@@ -620,6 +705,61 @@ function show(which){
 function goMain(){ show("main"); }
 function goHome(){ show("setupHome"); }
 function goWizard(){ show("wizard"); }
+
+/* --------------------------- browse a whole league --------------------------- */
+let LEAGUE_GAMES = [];
+function miniSideHTML(t, leading){
+  const ownerLine = (t.owner && t.owner!==t.name) ? `<div class="owner">${esc(t.owner)}</div>` : "";
+  return `<div class="side${leading?" lead":""}">
+    ${t.logo?`<img class="logo" src="${esc(t.logo)}" alt="" onerror="this.style.visibility='hidden'">`:'<div class="logo"></div>'}
+    <div class="name">${esc(t.name)}</div>
+    ${ownerLine}
+    <div class="rec">${esc(t.record||"")}</div>
+    <div class="pts">${n1(t.pts)}</div>
+  </div>`;
+}
+function leagueSlideHTML(g){
+  const lead = g.home.pts===g.away.pts ? "" : (g.home.pts>g.away.pts ? "home" : "away");
+  return `<div class="slide"><div class="card">
+    <div class="vs">
+      ${miniSideHTML(g.home, lead==="home")}
+      <div class="mid">VS</div>
+      ${miniSideHTML(g.away, lead==="away")}
+    </div>
+  </div></div>`;
+}
+async function openLeagueView(platform, leagueId, leagueName){
+  show("league");
+  $("leagueTitle").textContent = leagueName || "League";
+  $("leagueWeek").textContent = "";
+  $("leagueCount").textContent = "";
+  $("leagueSlides").innerHTML = `<div class="slide"><div class="msg">Loading…</div></div>`;
+  try{
+    const info = await ADAPTERS[platform].getLeagueScoreboard(leagueId);
+    LEAGUE_GAMES = info.games || [];
+    $("leagueTitle").textContent = info.leagueName || leagueName;
+    $("leagueWeek").textContent = info.wk ? "Week "+info.wk : "";
+    if(!LEAGUE_GAMES.length){
+      $("leagueSlides").innerHTML = `<div class="slide"><div class="msg">No matchups found for this week.</div></div>`;
+    }else{
+      $("leagueSlides").innerHTML = LEAGUE_GAMES.map(leagueSlideHTML).join("");
+      $("leagueCount").textContent = "1 of "+LEAGUE_GAMES.length;
+      $("leagueSlides").scrollLeft = 0;
+    }
+  }catch(e){
+    LEAGUE_GAMES = [];
+    $("leagueSlides").innerHTML = `<div class="slide"><div class="msg err">Couldn't load this league (${esc(e.message)}). Tap Back and try again.</div></div>`;
+  }
+}
+$("leagueSlides").addEventListener("scroll", ()=>{
+  if(!LEAGUE_GAMES.length) return;
+  const box = $("leagueSlides");
+  const idx = Math.max(0, Math.min(LEAGUE_GAMES.length-1, Math.round(box.scrollLeft / box.clientWidth)));
+  $("leagueCount").textContent = (idx+1)+" of "+LEAGUE_GAMES.length;
+});
+$("leaguePrev").addEventListener("click", ()=>{ $("leagueSlides").scrollBy({left:-$("leagueSlides").clientWidth, behavior:"smooth"}); });
+$("leagueNext").addEventListener("click", ()=>{ $("leagueSlides").scrollBy({left:$("leagueSlides").clientWidth, behavior:"smooth"}); });
+$("leagueBack").addEventListener("click", goMain);
 
 /* --------------------------- My teams (management) --------------------------- */
 function renderMyList(){
@@ -757,9 +897,16 @@ $("addBottom").addEventListener("click", goHome);
 $("update").addEventListener("click", update);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !$("main").hidden) update(); });
 
-// Roster detail: one toggle per card, drops down in place and back up — attached to #cards itself
-// (not the buttons) so it keeps working after every re-render replaces the cards' innerHTML.
+// Roster detail + "see the whole league" both delegate off #cards itself (not the buttons), so they
+// keep working after every re-render replaces the cards' innerHTML.
 $("cards").addEventListener("click", e=>{
+  const lb = e.target.closest(".leagueBrowse");
+  if(lb){
+    const platform = lb.dataset.platform;
+    const leagueId = platform==="espn" ? +lb.dataset.league : lb.dataset.league;
+    openLeagueView(platform, leagueId, lb.dataset.name);
+    return;
+  }
   const b = e.target.closest(".rosterToggle"); if(!b) return;
   const box = b.nextElementSibling; if(!box) return;
   const opening = box.hidden;
