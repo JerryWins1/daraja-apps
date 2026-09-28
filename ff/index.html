@@ -247,7 +247,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.7 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v3.8 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -351,7 +351,7 @@ function espnSideSummary(d, proAbbr, teamObj, entrySide){
       return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId] };
     });
   return { id:teamObj.id, name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
-    pts:pts(entrySide), proj:proj(entrySide), starters };
+    pts:pts(entrySide), proj:proj(entrySide), starters, winProb: entrySide.winProbability };
 }
 // The full-season standings table — same league fetch already carries every team's overall record.
 function espnStandings(d){
@@ -709,9 +709,14 @@ function cardHTML(cfg, r, err, statusMap){
                 : r.started ? (r.me.pts>r.opp.pts ? "You're ahead" : r.me.pts<r.opp.pts ? "You're behind" : "Tied")
                 : "Kickoff pending";
   const odds = (!r.final && r.winProb!=null) ? `Win odds <b>${Math.round(r.winProb*100)}%</b>` : "";
+  // Your own roster keeps the familiar "my players" wording; the opponent gets the same style of
+  // toggle the other-matchup slides use, so this card can show either roster, not just yours.
   const rosterSec = (r.me.starters && r.me.starters.length) ? `
     <button class="rosterToggle" type="button">👥 Show my players ▾</button>
     <div class="roster" hidden>${rosterRowsHTML(r.me.starters, statusMap)}</div>` : "";
+  const oppRosterSec = (r.opp.starters && r.opp.starters.length) ? `
+    <button class="rosterToggle" type="button">👥 Show ${esc(r.opp.owner||r.opp.name)}'s players ▾</button>
+    <div class="roster" hidden>${rosterRowsHTML(r.opp.starters, statusMap)}</div>` : "";
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
     <div class="vs">
@@ -721,6 +726,7 @@ function cardHTML(cfg, r, err, statusMap){
     </div>
     <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.me.pts-r.opp.pts))}</span><span>${odds}</span></div>
     ${rosterSec}
+    ${oppRosterSec}
   </div>`;
 }
 // Five or more teams: one compact row each instead of a full card, so a full slate still fits one screen.
@@ -856,6 +862,9 @@ function leagueSlideHTML(g, statusMap){
   const diff = n1(Math.abs(g.home.pts-g.away.pts));
   const leader = lead==="home" ? g.home : lead==="away" ? g.away : null;
   const verdict = leader ? `<b>${esc(leader.owner||leader.name)}</b> leads by ${diff}` : (started ? "Tied" : "Kickoff pending");
+  // Same "win odds" the main card shows for you — here it's whoever the verdict is already talking
+  // about (the team currently ahead), since there's no "you" to anchor it to in someone else's game.
+  const odds = (!g.final && leader && leader.winProb!=null) ? `Win odds <b>${Math.round(leader.winProb*100)}%</b>` : "";
   const rosterFor = (side) => (side.starters && side.starters.length) ? `
       <button class="rosterToggle" type="button">👥 Show ${esc(side.owner||side.name)}'s players ▾</button>
       <div class="roster" hidden>${rosterRowsHTML(side.starters, statusMap)}</div>` : "";
@@ -866,7 +875,7 @@ function leagueSlideHTML(g, statusMap){
       <div class="mid">VS</div>
       ${sideHTML(g.away, lead==="away"?"lead":"", statusMap)}
     </div>
-    <div class="foot"><span>${verdict}</span></div>
+    <div class="foot"><span>${verdict}</span><span>${odds}</span></div>
     ${rosterFor(g.home)}
     ${rosterFor(g.away)}
   </div></div>`;
