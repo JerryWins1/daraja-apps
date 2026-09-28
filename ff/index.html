@@ -107,6 +107,23 @@
   .activity .arow b{color:var(--ink)}
   .activity .arow .adate{display:block;font-size:10.5px;color:#5d6b84;margin-top:1px}
 
+  /* A dedicated screen: the real NFL scoreboard, straight from ESPN's public site feed — not
+     fantasy points, the actual games, same as opening the ESPN app. */
+  .screenHd{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px}
+  .screenHd .mid{flex:1;min-width:0;padding:0 8px;text-align:center}
+  .screenHd .ttl{font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .screenHd .sub{color:var(--dim);font-size:12px}
+  .screenHd .spacer{width:56px;flex:none}
+  .weekNav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .nflgame{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:8px}
+  .nflgame .nflstate{font-size:11px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .nflgame .nflstate.live{color:var(--live)}
+  .nflgame .nflteam{display:flex;align-items:center;gap:8px;padding:3px 0}
+  .nflgame .nflteam img{width:22px;height:22px;border-radius:50%;object-fit:contain;background:#0e1626;flex:none}
+  .nflgame .nflteam .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;font-size:13.5px}
+  .nflgame .nflteam .sc{font-variant-numeric:tabular-nums;font-weight:800;font-size:16px;min-width:26px;text-align:right}
+  .nflgame .nflteam.winner .nm, .nflgame .nflteam.winner .sc{color:var(--gold)}
+
   /* density tiers — more teams than fit comfortably means smaller cards, not endless scrolling */
   #cards.tier-medium .card{padding:10px 14px 8px;margin-bottom:10px}
   #cards.tier-medium .side .logo{width:32px;height:32px;margin-bottom:4px}
@@ -185,6 +202,7 @@
   <div class="stamp" style="margin-top:12px">
     <span id="updated">Tap Update to get today's scores</span><br>
     <button class="link block" id="addBottom" type="button" style="margin-top:8px">+ Add or manage teams</button>
+    <button class="link block" id="nflBtn" type="button" style="margin-top:6px">🏈 See real NFL scores</button>
   </div>
 </div>
 
@@ -197,6 +215,20 @@
   </div>
   <button id="addTeamBtn" class="big" type="button">+ Add a team</button>
   <button id="doneHome" class="big secondary" type="button" style="margin-top:10px" hidden>Show my scores</button>
+</div>
+
+<!-- ===== Real NFL scores — ESPN's own public scoreboard, not fantasy points ===== -->
+<div id="nflView" hidden>
+  <div class="screenHd">
+    <button class="link" id="nflBack" type="button">‹ Back</button>
+    <div class="mid"><div class="ttl">NFL Scores</div><div class="sub" id="nflWeekLabel"></div></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="weekNav">
+    <button class="link" id="nflPrev" type="button">‹ Prev week</button>
+    <button class="link" id="nflNext" type="button">Next week ›</button>
+  </div>
+  <div id="nflGames"></div>
 </div>
 
 <!-- ===== Add-a-team wizard: one question at a time ===== -->
@@ -247,7 +279,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.8 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v3.9 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -760,6 +792,7 @@ function isMyGame(g, cfg){
 }
 
 let busy=false;
+let CURRENT_WK = null;   // the real NFL week your leagues are on, so "See real NFL scores" opens on the right week
 async function update(){
   if(busy || !PICKS.length) return; busy=true;
   $("update").disabled=true; $("update").textContent="Getting scores…";
@@ -789,6 +822,7 @@ async function update(){
     return buildCardGroup(x.cfg, x.r, x.err, sm, tier, board);
   }).join("");
   const wk = results.map(x=>x.r&&x.r.wk).find(Boolean);
+  if(wk) CURRENT_WK = wk;   // lets the NFL Scores screen default to the week you're actually on
   $("week").textContent = wk ? "Week "+wk : "";
   $("updated").textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
   $("update").disabled=false; $("update").textContent="Update scores"; busy=false;
@@ -840,14 +874,63 @@ function show(which){
   $("main").hidden = which!=="main";
   $("setupHome").hidden = which!=="setupHome";
   $("wizard").hidden = which!=="wizard";
-  $("teamsBtn").hidden = which==="wizard" || (which==="setupHome" && !PICKS.length);
+  $("nflView").hidden = which!=="nfl";
+  $("teamsBtn").hidden = which==="wizard" || which==="nfl" || (which==="setupHome" && !PICKS.length);
   $("teamsBtn").textContent = which==="main" ? "My teams" : "Scores";
   if(which==="main") update();
   else if(which==="setupHome") renderMyList();
   else if(which==="wizard") wizStep(1);
+  else if(which==="nfl") loadNflWeek(NFL_WEEK || CURRENT_WK || null);
 }
 function goMain(){ show("main"); }
 function goHome(){ show("setupHome"); }
+
+/* --------------------------- real NFL scores (ESPN's public scoreboard) --------------------------- */
+let NFL_WEEK = null;
+async function nflScoreboard(week){
+  const qs = week ? ("week="+week+"&seasontype=2&") : "";
+  const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?"+qs+"_="+Date.now(), {cache:"no-store"});
+  const d = await res.json();
+  const side = c => ({ name: (c.team&&(c.team.shortDisplayName||c.team.displayName))||"Team", logo:(c.team&&c.team.logo)||"",
+    score: c.score, winner: !!c.winner });
+  const games = (d.events||[]).map(ev=>{
+    const comp = (ev.competitions||[])[0]||{};
+    const st = (comp.status && comp.status.type) || {};
+    const away = (comp.competitors||[]).find(c=>c.homeAway==="away") || {};
+    const home = (comp.competitors||[]).find(c=>c.homeAway==="home") || {};
+    return { state: st.state, detail: st.shortDetail || st.detail || "", away: side(away), home: side(home) };
+  });
+  return { week: (d.week && d.week.number) || week || null, games };
+}
+function nflGameRowHTML(g){
+  const side = (s, isFinal) => `<div class="nflteam${isFinal && s.winner ? " winner" : ""}">
+    ${s.logo?`<img src="${esc(s.logo)}" alt="" onerror="this.style.visibility='hidden'">`:""}
+    <span class="nm">${esc(s.name)}</span><span class="sc">${s.score!=null?esc(String(s.score)):""}</span>
+  </div>`;
+  return `<div class="nflgame">
+    <div class="nflstate${g.state==="in"?" live":""}">${esc(g.detail)}</div>
+    ${side(g.away, g.state==="post")}
+    ${side(g.home, g.state==="post")}
+  </div>`;
+}
+async function loadNflWeek(week){
+  $("nflWeekLabel").textContent = "Loading…";
+  $("nflGames").innerHTML = `<div class="msg">Loading…</div>`;
+  try{
+    const info = await nflScoreboard(week);
+    NFL_WEEK = info.week;
+    $("nflWeekLabel").textContent = info.week ? "Week "+info.week : "";
+    $("nflGames").innerHTML = info.games.length ? info.games.map(nflGameRowHTML).join("")
+      : `<div class="msg">No games found for this week.</div>`;
+  }catch(e){
+    $("nflWeekLabel").textContent = "";
+    $("nflGames").innerHTML = `<div class="msg err">Couldn't load NFL scores (${esc(e.message)}). Try again.</div>`;
+  }
+}
+$("nflBack").addEventListener("click", goMain);
+$("nflPrev").addEventListener("click", ()=> loadNflWeek(Math.max(1, (NFL_WEEK||1)-1)));
+$("nflNext").addEventListener("click", ()=> loadNflWeek(Math.min(18, (NFL_WEEK||1)+1)));
+$("nflBtn").addEventListener("click", ()=> show("nfl"));
 function goWizard(){ show("wizard"); }
 
 /* --------------------------- swipe to see the rest of the league --------------------------- */
