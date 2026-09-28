@@ -81,12 +81,31 @@
 
   /* Swipe a card in place to see the rest of that league — your own matchup is always the first
      slide; the others come from the same league fetch. Scroll-snap does the swiping, no JS needed. */
-  .slides{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
-    scrollbar-width:none;margin-bottom:0}
+  /* Slides vary a lot in height (a matchup card vs. the longer standings+activity slide). Without
+     align-items:flex-start a flex row stretches every slide — and the container itself — to match
+     the TALLEST one, so a short slide would sit under a huge gap. JS sets an explicit height on the
+     visible slide only, once it knows which one that is (see syncSlideHeight in the script). */
+  .slides{display:flex;align-items:flex-start;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:0}
   .slides::-webkit-scrollbar{display:none}
   .slide{flex:0 0 100%;scroll-snap-align:start;min-width:0}
   .slide .card{margin-bottom:0}
   .swipeHint{text-align:center;color:var(--dim);font-size:11.5px;font-weight:700;margin:7px 0 14px}
+
+  .infoHead{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:14px 0 2px}
+  .infoHead:first-child{margin-top:0}
+  .stand .srow{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12.5px;border-top:1px solid var(--line)}
+  .stand .srow:first-child{border-top:0}
+  .stand .srk{flex:none;width:16px;text-align:center;font-weight:800;color:var(--dim)}
+  .stand .steam{flex:1;min-width:0}
+  .stand .steam b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+  .stand .steam span{display:block;font-size:10.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .stand .srec{flex:none;width:42px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+  .stand .spf{flex:none;width:64px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim);font-size:11px}
+  .activity .arow{padding:6px 0;font-size:12px;line-height:1.4;border-top:1px solid var(--line);color:var(--dim)}
+  .activity .arow:first-child{border-top:0}
+  .activity .arow b{color:var(--ink)}
+  .activity .arow .adate{display:block;font-size:10.5px;color:#5d6b84;margin-top:1px}
 
   /* density tiers — more teams than fit comfortably means smaller cards, not endless scrolling */
   #cards.tier-medium .card{padding:10px 14px 8px;margin-bottom:10px}
@@ -228,7 +247,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.5 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v3.6 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -292,7 +311,7 @@ async function espnProTeamAbbrs(){
   ESPN_PROTEAMS = map; return map;
 }
 async function espnGetLeague(id){
-  const url = ESPN_API + espnSeason() + "/segments/0/leagues/" + id + "?view=mTeam&view=mMatchupScore&view=mRoster&view=mSettings&_=" + Date.now();
+  const url = ESPN_API + espnSeason() + "/segments/0/leagues/" + id + "?view=mTeam&view=mMatchupScore&view=mRoster&view=mSettings&view=mTransactions2&_=" + Date.now();
   let res;
   try { res = await fetch(url, {credentials:"include", cache:"no-store"}); } catch(e){ res=null; }
   if(!res || !res.ok){ res = await fetch(url, {cache:"no-store"}); }
@@ -333,6 +352,46 @@ function espnSideSummary(d, proAbbr, teamObj, entrySide){
     });
   return { id:teamObj.id, name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
     pts:pts(entrySide), proj:proj(entrySide), starters };
+}
+// The full-season standings table — same league fetch already carries every team's overall record.
+function espnStandings(d){
+  const list = (d.teams||[]).map(t=>{
+    const r = (t.record&&t.record.overall)||{};
+    return { name:espnTeamName(t), owner:espnOwnerName(d,t), wins:r.wins||0, losses:r.losses||0, ties:r.ties||0,
+      pf:r.pointsFor||0, pa:r.pointsAgainst||0, pct:r.percentage||0 };
+  });
+  list.sort((a,b)=> b.pct-a.pct || b.pf-a.pf);
+  return list.map((s,i)=>({ rank:i+1, name:s.name, owner:s.owner,
+    record: s.wins+"-"+s.losses+(s.ties?"-"+s.ties:""), pf:s.pf, pa:s.pa }));
+}
+// Recent waiver/free-agent moves and trades — skips lineup-only "ROSTER" entries (just someone
+// setting their weekly starters, not real league news) and anything that didn't actually go through.
+// Player names resolve from whoever currently holds that player on any roster in the league (already
+// fetched); a player dropped all the way to free agency shows generically since resolving that would
+// need the full ~11,000-player pool, too heavy for what this is.
+function espnActivity(d){
+  const teams = {}; (d.teams||[]).forEach(t=>{ teams[t.id] = { name:espnTeamName(t), owner:espnOwnerName(d,t) }; });
+  const players = {};
+  (d.teams||[]).forEach(t=>((t.roster||{}).entries||[]).forEach(e=>{
+    const p = e.playerPoolEntry.player; players[p.id] = p.fullName;
+  }));
+  const pname = id => players[id] || "a player";
+  const relevant = (d.transactions||[]).filter(t=>t.status==="EXECUTED" && (t.type==="WAIVER"||t.type==="FREEAGENT"||t.type==="TRADE"));
+  const out = relevant.map(t=>{
+    const team = teams[t.teamId] || {name:"A team"};
+    const who = esc(team.owner||team.name);
+    const adds = (t.items||[]).filter(i=>i.type==="ADD").map(i=>esc(pname(i.playerId)));
+    const drops = (t.items||[]).filter(i=>i.type==="DROP").map(i=>esc(pname(i.playerId)));
+    let html;
+    if(t.type==="TRADE") html = `<b>${who}</b> made a trade`;
+    else if(adds.length && drops.length) html = `<b>${who}</b> picked up <b>${adds.join(", ")}</b>, dropped <b>${drops.join(", ")}</b>`;
+    else if(adds.length) html = `<b>${who}</b> picked up <b>${adds.join(", ")}</b>`;
+    else if(drops.length) html = `<b>${who}</b> dropped <b>${drops.join(", ")}</b>`;
+    else return null;
+    return { html, at: t.proposedDate||0 };
+  }).filter(Boolean);
+  out.sort((a,b)=>b.at-a.at);
+  return out.slice(0,8);
 }
 
 const ESPN = {
@@ -382,7 +441,8 @@ const ESPN = {
       away: espnSideSummary(d, proAbbr, teams[m.away.teamId], m.away),
       final: m.winner && m.winner!=="UNDECIDED"
     }));
-    return { leagueName:(d.settings&&d.settings.name)||("League "+leagueId), wk, games };
+    return { leagueName:(d.settings&&d.settings.name)||("League "+leagueId), wk, games,
+      standings: espnStandings(d), activity: espnActivity(d) };
   }
 };
 
@@ -421,6 +481,56 @@ function sleeperSideSummary(m, byRoster, byUser, players){
   });
   return { id:m.roster_id, name, owner:u.display_name||"", logo:avatar,
     record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:""), pts:m.points||0, proj:0, starters };
+}
+// The full-season standings table from each roster's own settings (wins/losses/points already
+// tracked by Sleeper — no extra fetch needed).
+function sleeperStandings(rosters, byUser){
+  const list = (rosters||[]).map(r=>{
+    const u = byUser[r.owner_id]||{};
+    const name = (u.metadata && u.metadata.team_name) || u.display_name || ("Roster "+r.roster_id);
+    const s = r.settings||{};
+    const pf = (s.fpts||0) + (s.fpts_decimal||0)/100;
+    const pa = (s.fpts_against||0) + (s.fpts_against_decimal||0)/100;
+    const games = (s.wins||0)+(s.losses||0)+(s.ties||0);
+    return { name, owner:u.display_name||"", wins:s.wins||0, losses:s.losses||0, ties:s.ties||0, pf, pa,
+      pct: games ? (s.wins||0)/games : 0 };
+  });
+  list.sort((a,b)=> b.pct-a.pct || b.pf-a.pf);
+  return list.map((s,i)=>({ rank:i+1, name:s.name, owner:s.owner,
+    record: s.wins+"-"+s.losses+(s.ties?"-"+s.ties:""), pf:s.pf, pa:s.pa }));
+}
+// Recent waiver/free-agent moves and trades. Sleeper only exposes transactions per week, not a
+// single "recent activity" feed, so this checks the current week and the one before it.
+async function sleeperActivity(leagueId, wk, byRoster, byUser, players){
+  const weeksToCheck = [...new Set([wk, wk-1].filter(w=>w>=1))];
+  const lists = await Promise.all(weeksToCheck.map(async w=>{
+    try{
+      const res = await fetch(SLEEPER_API+"/league/"+leagueId+"/transactions/"+w+"?_="+Date.now(), {cache:"no-store"});
+      const j = await res.json(); return Array.isArray(j) ? j : [];
+    }catch(e){ return []; }
+  }));
+  const all = [].concat(...lists);
+  const teamLabel = rid => { const r=byRoster[rid]||{}; const u=byUser[r.owner_id]||{};
+    return u.display_name || (u.metadata&&u.metadata.team_name) || ("Roster "+rid); };
+  const pname = pid => (players[pid]||{}).name || "a player";
+  const out = all.filter(t=>t.status==="complete" && (t.type==="waiver"||t.type==="free_agent"||t.type==="trade")).map(t=>{
+    const rids = t.roster_ids||[];
+    if(t.type==="trade"){
+      return { html: `<b>${esc(rids.map(teamLabel).join(" & "))}</b> made a trade`, at: t.created||0 };
+    }
+    const rid = rids[0];
+    const adds = t.adds ? Object.keys(t.adds).filter(pid=>t.adds[pid]===rid).map(pid=>esc(pname(pid))) : [];
+    const drops = t.drops ? Object.keys(t.drops).filter(pid=>t.drops[pid]===rid).map(pid=>esc(pname(pid))) : [];
+    const who = esc(teamLabel(rid));
+    let html;
+    if(adds.length && drops.length) html = `<b>${who}</b> picked up <b>${adds.join(", ")}</b>, dropped <b>${drops.join(", ")}</b>`;
+    else if(adds.length) html = `<b>${who}</b> picked up <b>${adds.join(", ")}</b>`;
+    else if(drops.length) html = `<b>${who}</b> dropped <b>${drops.join(", ")}</b>`;
+    else return null;
+    return { html, at: t.created||0 };
+  }).filter(Boolean);
+  out.sort((a,b)=>b.at-a.at);
+  return out.slice(0,8);
 }
 const SLEEPER = {
   key:"sleeper", label:"Sleeper",
@@ -490,7 +600,9 @@ const SLEEPER = {
       away: sleeperSideSummary(pair[1], byRoster, byUser, players),
       final: false
     }));
-    return { leagueName: league.name || ("League "+leagueId), wk, games };
+    const activity = await sleeperActivity(leagueId, wk, byRoster, byUser, players);
+    return { leagueName: league.name || ("League "+leagueId), wk, games,
+      standings: sleeperStandings(rosters, byUser), activity };
   }
 };
 function rosterSide(r, byUser){
@@ -671,14 +783,33 @@ async function update(){
     const mySlide = `<div class="slide">${cardHTML(x.cfg, x.r, x.err, sm)}</div>`;
     const board = !x.err && boards[leagueKey(x.cfg)];
     const others = board ? board.games.filter(g=>!isMyGame(g, x.cfg)) : [];
-    if(!others.length) return mySlide;
-    return `<div class="slides">${mySlide}${others.map(g=>leagueSlideHTML(g, sm)).join("")}</div>
-      <div class="swipeHint">◂ Swipe to see ${others.length} more in this league ▸</div>`;
+    if(!board) return mySlide;
+    const otherSlides = others.map(g=>leagueSlideHTML(g, sm)).join("");
+    const hint = others.length
+      ? `Swipe to see ${others.length} more matchup${others.length>1?"s":""}, then the standings`
+      : `Swipe to see the standings`;
+    return `<div class="slides">${mySlide}${otherSlides}${infoSlideHTML(board)}</div>
+      <div class="swipeHint">◂ ${esc(hint)} ▸</div>`;
   }).join("");
   const wk = results.map(x=>x.r&&x.r.wk).find(Boolean);
   $("week").textContent = wk ? "Week "+wk : "";
   $("updated").textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
   $("update").disabled=false; $("update").textContent="Update scores"; busy=false;
+  syncSlideHeights();
+}
+// Slides differ a lot in height (your matchup vs. the longer standings+activity slide). Each
+// .slides group gets its height pinned to whichever slide is currently in view, updated as the
+// swipe settles, so a short slide never sits under a tall empty gap.
+function syncSlideHeights(){
+  document.querySelectorAll("#cards .slides").forEach(box=>{
+    const sync = ()=>{
+      const idx = Math.round(box.scrollLeft / (box.clientWidth||1));
+      const el = box.children[idx];
+      if(el) box.style.height = el.offsetHeight+"px";
+    };
+    sync();
+    let t; box.addEventListener("scroll", ()=>{ clearTimeout(t); t=setTimeout(sync, 80); });
+  });
 }
 
 /* ============================== view switching ============================== */
@@ -721,6 +852,33 @@ function leagueSlideHTML(g, statusMap){
     <div class="foot"><span>${verdict}</span></div>
     ${rosterFor(g.home)}
     ${rosterFor(g.away)}
+  </div></div>`;
+}
+function fmtAgo(ms){
+  if(!ms) return "";
+  const days = Math.floor((Date.now()-ms)/86400000);
+  if(days<=0) return "today";
+  if(days===1) return "1 day ago";
+  if(days<7) return days+" days ago";
+  const weeks = Math.floor(days/7);
+  return weeks===1 ? "1 week ago" : weeks+" weeks ago";
+}
+// The last slide in every league's swipe strip: the season standings, plus recent waiver/trade
+// activity — reference information about the league as a whole, not another matchup.
+function infoSlideHTML(board){
+  const standRows = (board.standings && board.standings.length) ? board.standings.map(s=>`<div class="srow">
+      <span class="srk">${s.rank}</span>
+      <span class="steam"><b>${esc(s.name)}</b>${s.owner&&s.owner!==s.name?`<span>${esc(s.owner)}</span>`:""}</span>
+      <span class="srec">${esc(s.record)}</span>
+      <span class="spf">${n1(s.pf)} PF</span>
+    </div>`).join("") : `<div class="msg" style="padding:4px 0">No standings available.</div>`;
+  const actRows = (board.activity && board.activity.length) ? board.activity.map(a=>`<div class="arow">${a.html}<span class="adate">${esc(fmtAgo(a.at))}</span></div>`).join("")
+    : `<div class="msg" style="padding:4px 0">No recent moves.</div>`;
+  return `<div class="slide"><div class="card">
+    <div class="infoHead">Standings</div>
+    <div class="stand">${standRows}</div>
+    <div class="infoHead">Recent activity</div>
+    <div class="activity">${actRows}</div>
   </div></div>`;
 }
 /* --------------------------- My teams (management) --------------------------- */
@@ -868,6 +1026,10 @@ $("cards").addEventListener("click", e=>{
   box.hidden = !opening;
   const label = b.textContent.replace(/^👥 (Show|Hide) /, "").replace(/ ▾$| ▴$/, "");
   b.textContent = opening ? `👥 Hide ${label} ▴` : `👥 Show ${label} ▾`;
+  // expanding/collapsing a roster changes THIS slide's height without a scroll event firing
+  const slides = b.closest(".slides");
+  if(slides){ const el = slides.children[Math.round(slides.scrollLeft/(slides.clientWidth||1))];
+    if(el) slides.style.height = el.offsetHeight+"px"; }
 });
 
 // First run with nothing set up yet: go straight into the wizard, one question at a time.
