@@ -79,21 +79,14 @@
   .roster .rdot.wait{background:var(--wait)}
   .roster .rpts{flex:none;font-variant-numeric:tabular-nums;font-weight:700;min-width:34px;text-align:right}
 
-  .leagueBrowse{display:block;width:100%;text-align:center;margin-top:8px;background:none;border:0;
-    color:var(--accent);font-size:12.5px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:4px}
-
-  /* Browse-a-league: one matchup per screen, swipe (or tap Prev/Next) to move through the rest */
-  #leagueView .hd{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 4px}
-  #leagueView .hd .mid{flex:1;min-width:0;padding:0 8px;text-align:center}
-  #leagueView .hd .ttl{font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #leagueView .hd .wk{color:var(--dim);font-size:12px;padding-top:0}
-  #leagueView .hd .spacer{width:56px;flex:none}
-  .slides{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  /* Swipe a card in place to see the rest of that league — your own matchup is always the first
+     slide; the others come from the same league fetch. Scroll-snap does the swiping, no JS needed. */
+  .slides{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;margin-bottom:0}
   .slides::-webkit-scrollbar{display:none}
   .slide{flex:0 0 100%;scroll-snap-align:start;min-width:0}
   .slide .card{margin-bottom:0}
-  .slidesNav{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
-  .slidesNav span{color:var(--dim);font-size:12px;font-weight:700}
+  .swipeHint{text-align:center;color:var(--dim);font-size:11.5px;font-weight:700;margin:7px 0 14px}
 
   /* density tiers — more teams than fit comfortably means smaller cards, not endless scrolling */
   #cards.tier-medium .card{padding:10px 14px 8px;margin-bottom:10px}
@@ -235,22 +228,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<!-- ===== Browse a whole league — every matchup, swipe through them ===== -->
-<div id="leagueView" hidden>
-  <div class="hd">
-    <button class="link" id="leagueBack" type="button">‹ Back</button>
-    <div class="mid"><div class="ttl" id="leagueTitle"></div><div class="wk" id="leagueWeek"></div></div>
-    <div class="spacer"></div>
-  </div>
-  <div class="slides" id="leagueSlides"></div>
-  <div class="slidesNav">
-    <button class="link" id="leaguePrev" type="button">‹ Prev</button>
-    <span id="leagueCount"></span>
-    <button class="link" id="leagueNext" type="button">Next ›</button>
-  </div>
-</div>
-
-<div class="stamp"><small id="stamp">v3.4 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v3.5 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -353,7 +331,7 @@ function espnSideSummary(d, proAbbr, teamObj, entrySide){
       const actual = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
       return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId] };
     });
-  return { name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
+  return { id:teamObj.id, name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
     pts:pts(entrySide), proj:proj(entrySide), starters };
 }
 
@@ -441,7 +419,7 @@ function sleeperSideSummary(m, byRoster, byUser, players){
     const pl = players[pid]||{};
     return { name: pl.name||pid, pos: pl.pos||"", pts: pp[pid]||0, teamAbbr: pl.team };
   });
-  return { name, owner:u.display_name||"", logo:avatar,
+  return { id:m.roster_id, name, owner:u.display_name||"", logo:avatar,
     record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:""), pts:m.points||0, proj:0, starters };
 }
 const SLEEPER = {
@@ -622,8 +600,6 @@ function cardHTML(cfg, r, err, statusMap){
   const rosterSec = (r.me.starters && r.me.starters.length) ? `
     <button class="rosterToggle" type="button">👥 Show my players ▾</button>
     <div class="roster" hidden>${rosterRowsHTML(r.me.starters, statusMap)}</div>` : "";
-  const browseBtn = `<button class="leagueBrowse" type="button" data-platform="${esc(cfg.platform)}"
-    data-league="${esc(String(cfg.leagueId))}" data-name="${title}">🏈 See the whole league →</button>`;
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
     <div class="vs">
@@ -633,7 +609,6 @@ function cardHTML(cfg, r, err, statusMap){
     </div>
     <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.me.pts-r.opp.pts))}</span><span>${odds}</span></div>
     ${rosterSec}
-    ${browseBtn}
   </div>`;
 }
 // Five or more teams: one compact row each instead of a full card, so a full slate still fits one screen.
@@ -649,18 +624,22 @@ function cardHTMLCompact(cfg, r, err, statusMap){
   const counts = starterCounts(r.me.starters||[], statusMap||{});
   const chip = counts.live ? `<span class="cchip live">${counts.live} live</span>`
     : (!r.final && counts.wait) ? `<span class="cchip">${counts.wait} left</span>` : "";
-  const name = esc((r&&r.leagueName)||cfg.leagueName||"League");
   return `<div class="crow">
     ${plat}<span class="dot ${dotCls}"></span>
     <span class="team me${lead==='opp'?' trail':''}"><span class="tn">${esc(r.me.name)}</span><b>${n1(r.me.pts)}</b></span>
     <span class="cvs">vs</span>
     <span class="team${lead==='me'?' trail':''}"><span class="tn">${esc(r.opp.name)}</span><b>${n1(r.opp.pts)}</b></span>
     ${chip}
-  </div>
-  <button class="leagueBrowse" type="button" data-platform="${esc(cfg.platform)}"
-    data-league="${esc(String(cfg.leagueId))}" data-name="${name}" style="margin-top:-4px;margin-bottom:7px">🏈 See the whole league →</button>`;
+  </div>`;
 }
 function densityTier(n){ return n<=2 ? "full" : n<=4 ? "medium" : "compact"; }
+
+function leagueKey(cfg){ return cfg.platform+":"+cfg.leagueId; }
+// Does this league-scoreboard game contain the given pick's own team?
+function isMyGame(g, cfg){
+  const tid = String(cfg.teamId);
+  return g && ((g.home && String(g.home.id)===tid) || (g.away && String(g.away.id)===tid));
+}
 
 let busy=false;
 async function update(){
@@ -671,6 +650,15 @@ async function update(){
     if(!adapter) return {cfg, err:new Error("unknown platform")};
     try { return {cfg, r: await adapter.getMatchup(cfg)}; } catch(e){ return {cfg, err:e}; }
   }));
+  // One extra fetch per DISTINCT league (not per pick — two teams in the same league share it) to
+  // get every other matchup, so your own card can be swiped straight through the rest of the league
+  // instead of needing a separate "see the whole league" button and screen.
+  const uniqueLeagues = [...new Map(PICKS.map(cfg=>[leagueKey(cfg), cfg])).values()];
+  const boards = {};
+  await Promise.all(uniqueLeagues.map(async cfg=>{
+    try{ boards[leagueKey(cfg)] = await ADAPTERS[cfg.platform].getLeagueScoreboard(cfg.leagueId); }
+    catch(e){ boards[leagueKey(cfg)] = null; }
+  }));
   // fetch each distinct NFL week's real game statuses once, keyed to what each league actually reported
   const weeks = [...new Set(results.map(x=>x.r&&x.r.wk).filter(Boolean))];
   const statusByWeek = {};
@@ -679,7 +667,13 @@ async function update(){
   $("cards").className = "tier-"+tier;
   $("cards").innerHTML = results.map(x=>{
     const sm = (x.r && statusByWeek[x.r.wk]) || {};
-    return tier==="compact" ? cardHTMLCompact(x.cfg, x.r, x.err, sm) : cardHTML(x.cfg, x.r, x.err, sm);
+    if(tier==="compact") return cardHTMLCompact(x.cfg, x.r, x.err, sm);
+    const mySlide = `<div class="slide">${cardHTML(x.cfg, x.r, x.err, sm)}</div>`;
+    const board = !x.err && boards[leagueKey(x.cfg)];
+    const others = board ? board.games.filter(g=>!isMyGame(g, x.cfg)) : [];
+    if(!others.length) return mySlide;
+    return `<div class="slides">${mySlide}${others.map(g=>leagueSlideHTML(g, sm)).join("")}</div>
+      <div class="swipeHint">◂ Swipe to see ${others.length} more in this league ▸</div>`;
   }).join("");
   const wk = results.map(x=>x.r&&x.r.wk).find(Boolean);
   $("week").textContent = wk ? "Week "+wk : "";
@@ -692,8 +686,7 @@ function show(which){
   $("main").hidden = which!=="main";
   $("setupHome").hidden = which!=="setupHome";
   $("wizard").hidden = which!=="wizard";
-  $("leagueView").hidden = which!=="league";
-  $("teamsBtn").hidden = which==="wizard" || which==="league" || (which==="setupHome" && !PICKS.length);
+  $("teamsBtn").hidden = which==="wizard" || (which==="setupHome" && !PICKS.length);
   $("teamsBtn").textContent = which==="main" ? "My teams" : "Scores";
   if(which==="main") update();
   else if(which==="setupHome") renderMyList();
@@ -703,12 +696,11 @@ function goMain(){ show("main"); }
 function goHome(){ show("setupHome"); }
 function goWizard(){ show("wizard"); }
 
-/* --------------------------- browse a whole league --------------------------- */
-// Every slide reuses sideHTML() and rosterRowsHTML() — the exact same rendering as the main
-// scoreboard card — so a matchup you're browsing shows the same information as your own: score,
-// projection, live/done/waiting chips, and an expandable full roster for EITHER team (there's no
-// "my team" here, so both sides get their own toggle instead of just one).
-let LEAGUE_GAMES = [];
+/* --------------------------- swipe to see the rest of the league --------------------------- */
+// Every "other matchup" slide reuses sideHTML() and rosterRowsHTML() — the exact same rendering as
+// the main scoreboard card — so swiping to someone else's game shows the same information as your
+// own: score, projection, live/done/waiting chips, and an expandable full roster for EITHER team
+// (there's no "my team" in someone else's matchup, so both sides get their own toggle).
 function leagueSlideHTML(g, statusMap){
   const started = g.home.pts>0 || g.away.pts>0;
   const status = g.final ? '<span class="status">Final</span>' : started ? '<span class="status live">Live</span>' : '<span class="status">Not started</span>';
@@ -731,49 +723,6 @@ function leagueSlideHTML(g, statusMap){
     ${rosterFor(g.away)}
   </div></div>`;
 }
-async function openLeagueView(platform, leagueId, leagueName){
-  show("league");
-  $("leagueTitle").textContent = leagueName || "League";
-  $("leagueWeek").textContent = "";
-  $("leagueCount").textContent = "";
-  $("leagueSlides").innerHTML = `<div class="slide"><div class="msg">Loading…</div></div>`;
-  try{
-    const info = await ADAPTERS[platform].getLeagueScoreboard(leagueId);
-    LEAGUE_GAMES = info.games || [];
-    $("leagueTitle").textContent = info.leagueName || leagueName;
-    $("leagueWeek").textContent = info.wk ? "Week "+info.wk : "";
-    const sm = info.wk ? await nflGameStatus(info.wk) : {};
-    if(!LEAGUE_GAMES.length){
-      $("leagueSlides").innerHTML = `<div class="slide"><div class="msg">No matchups found for this week.</div></div>`;
-    }else{
-      $("leagueSlides").innerHTML = LEAGUE_GAMES.map(g=>leagueSlideHTML(g, sm)).join("");
-      $("leagueCount").textContent = "1 of "+LEAGUE_GAMES.length;
-      $("leagueSlides").scrollLeft = 0;
-    }
-  }catch(e){
-    LEAGUE_GAMES = [];
-    $("leagueSlides").innerHTML = `<div class="slide"><div class="msg err">Couldn't load this league (${esc(e.message)}). Tap Back and try again.</div></div>`;
-  }
-}
-// Roster toggles inside the league-browse slides use the same delegated pattern as the main cards.
-$("leagueSlides").addEventListener("click", e=>{
-  const b = e.target.closest(".rosterToggle"); if(!b) return;
-  const box = b.nextElementSibling; if(!box) return;
-  const opening = box.hidden;
-  box.hidden = !opening;
-  const label = b.textContent.replace(/^👥 (Show|Hide) /, "").replace(/ ▾$| ▴$/, "");
-  b.textContent = opening ? `👥 Hide ${label} ▴` : `👥 Show ${label} ▾`;
-});
-$("leagueSlides").addEventListener("scroll", ()=>{
-  if(!LEAGUE_GAMES.length) return;
-  const box = $("leagueSlides");
-  const idx = Math.max(0, Math.min(LEAGUE_GAMES.length-1, Math.round(box.scrollLeft / box.clientWidth)));
-  $("leagueCount").textContent = (idx+1)+" of "+LEAGUE_GAMES.length;
-});
-$("leaguePrev").addEventListener("click", ()=>{ $("leagueSlides").scrollBy({left:-$("leagueSlides").clientWidth, behavior:"smooth"}); });
-$("leagueNext").addEventListener("click", ()=>{ $("leagueSlides").scrollBy({left:$("leagueSlides").clientWidth, behavior:"smooth"}); });
-$("leagueBack").addEventListener("click", goMain);
-
 /* --------------------------- My teams (management) --------------------------- */
 function renderMyList(){
   $("mylist").innerHTML = PICKS.length ? PICKS.map((p,i)=>`<div class="row2">
@@ -910,21 +859,15 @@ $("addBottom").addEventListener("click", goHome);
 $("update").addEventListener("click", update);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !$("main").hidden) update(); });
 
-// Roster detail + "see the whole league" both delegate off #cards itself (not the buttons), so they
-// keep working after every re-render replaces the cards' innerHTML.
+// Roster toggles delegate off #cards itself (not the buttons), so they keep working after every
+// re-render replaces the cards' innerHTML — including toggles inside a swiped-to "other" slide.
 $("cards").addEventListener("click", e=>{
-  const lb = e.target.closest(".leagueBrowse");
-  if(lb){
-    const platform = lb.dataset.platform;
-    const leagueId = platform==="espn" ? +lb.dataset.league : lb.dataset.league;
-    openLeagueView(platform, leagueId, lb.dataset.name);
-    return;
-  }
   const b = e.target.closest(".rosterToggle"); if(!b) return;
   const box = b.nextElementSibling; if(!box) return;
   const opening = box.hidden;
   box.hidden = !opening;
-  b.textContent = opening ? "👥 Hide my players ▴" : "👥 Show my players ▾";
+  const label = b.textContent.replace(/^👥 (Show|Hide) /, "").replace(/ ▾$| ▴$/, "");
+  b.textContent = opening ? `👥 Hide ${label} ▴` : `👥 Show ${label} ▾`;
 });
 
 // First run with nothing set up yet: go straight into the wizard, one question at a time.
