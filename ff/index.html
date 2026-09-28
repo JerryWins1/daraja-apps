@@ -79,6 +79,23 @@
   .roster .rdot.wait{background:var(--wait)}
   .roster .rpts{flex:none;font-variant-numeric:tabular-nums;font-weight:700;min-width:34px;text-align:right}
 
+  /* The Coach: plain arithmetic first (bye weeks, injuries, empty slots, bench-beats-starter by
+     projection), with the "ask my AI" briefing as the optional deeper layer. Same dashed toggle
+     look as the roster lists so it reads as one more thing you can open, not a new screen. */
+  .coachToggle{display:block;width:100%;text-align:center;margin-top:10px;background:none;border:1px dashed var(--line);
+    color:var(--dim);border-radius:10px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .coachToggle:active{background:#0e1626}
+  .coach{margin-top:8px;text-align:left}
+  .coach .crule{font-size:12.5px;padding:5px 0;border-top:1px solid var(--line);display:flex;gap:7px;align-items:flex-start}
+  .coach .crule:first-child{border-top:0}
+  .coach .crule .cflag{flex:none}
+  .coach .crule b{color:var(--ink)}
+  .coach .crule.ok{color:var(--dim)}
+  .coach .cnote{font-size:11.5px;color:var(--dim);margin-top:8px;line-height:1.45}
+  .coach .askBtn{display:block;width:100%;margin-top:10px;background:#0e1626;border:1px solid var(--line);
+    color:var(--ink);border-radius:10px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .coach .askBtn:active{background:#152036}
+
   /* Swipe a card in place to see the rest of that league — your own matchup is always the first
      slide; the others come from the same league fetch. Scroll-snap does the swiping, no JS needed. */
   /* Slides vary a lot in height (a matchup card vs. the longer standings+activity slide). Without
@@ -279,7 +296,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.9 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v4.0 · 2026-09-28</small></div>
 
 <script>
 /* =========================================================================
@@ -328,6 +345,91 @@ function starterCounts(starters, statusMap){
   return out;
 }
 
+/* ------------------------------- the Coach -------------------------------
+   Everything here is plain arithmetic on data the app already fetched — no extra calls, no keys,
+   and every line it prints can be checked by hand against your own lineup. The AI half is the
+   briefing below: it writes out your week in words for you to paste into a chat, because a waiver
+   question needs judgement the app can't do on its own. */
+
+// ESPN sends INJURY_RESERVE / OUT / QUESTIONABLE; Sleeper sends IR / Out / Questionable / Sus.
+// 0 = fine, 1 = worth a look, 2 = don't start them.
+const INJ_SIT = ["OUT","DOUBTFUL","INJURYRESERVE","IR","PUP","SUS","SUSPENSION","NA","NFI"];
+const INJ_WATCH = ["QUESTIONABLE","Q"];
+function injLevel(s){
+  const v = String(s||"").toUpperCase().replace(/[^A-Z]/g,"");
+  if(!v || v==="ACTIVE" || v==="NORMAL") return 0;
+  if(INJ_SIT.indexOf(v)>=0) return 2;
+  if(INJ_WATCH.indexOf(v)>=0) return 1;
+  return 0;
+}
+function injWord(s){
+  const v = String(s||"").toUpperCase().replace(/[^A-Z]/g,"");
+  if(v==="INJURYRESERVE"||v==="IR") return "on injured reserve";
+  if(v==="SUS"||v==="SUSPENSION") return "suspended";
+  if(v==="PUP") return "on the PUP list";
+  if(v==="NA"||v==="NFI") return "not active";
+  return v.toLowerCase();
+}
+// The whole Coach for one team. Pure: give it a side summary and a statusMap, get back findings.
+function ffCoach(me, statusMap){
+  const out = { warn:[], swaps:[], ok:[], hasProj:false, haveStatus:false, counted:0 };
+  if(!me) return out;
+  const sm = statusMap || {};
+  const starters = me.starters || [], bench = me.bench || [];
+  out.counted = starters.length;
+  out.haveStatus = Object.keys(sm).length > 0;
+  const isEmpty = p => !p || !p.name || p.name === "0";
+  // A team with no game on the board this week is on a bye. Only trustworthy once the board
+  // actually loaded — an empty statusMap would otherwise flag every single starter.
+  const onBye = p => out.haveStatus && !!(p.teamAbbr && !sm[p.teamAbbr]);
+  const played = p => { const st = p.teamAbbr ? sm[p.teamAbbr] : null; return st==="in" || st==="post"; };
+
+  // 1. a starting slot with nobody in it
+  const blanks = starters.filter(isEmpty).length;
+  const missing = (me.need ? Math.max(0, me.need - starters.length) : 0) + blanks;
+  if(missing) out.warn.push({ flag:"\u26a0\ufe0f", text:`<b>${missing} empty starting slot${missing>1?"s":""}</b> \u2014 you're giving away those points.` });
+
+  // 2. starters who aren't playing at all this week
+  starters.filter(p=>!isEmpty(p) && onBye(p)).forEach(p=>{
+    out.warn.push({ flag:"\ud83d\udecc", text:`<b>${esc(p.name)}</b>${p.pos?" ("+esc(p.pos)+")":""} is on a bye this week \u2014 no game, no points.` });
+  });
+  // 3. starters the injury report says to sit
+  starters.filter(p=>!isEmpty(p) && !onBye(p) && !played(p) && injLevel(p.injury)===2).forEach(p=>{
+    out.warn.push({ flag:"\ud83e\ude79", text:`<b>${esc(p.name)}</b> is ${esc(injWord(p.injury))} \u2014 start somebody else.` });
+  });
+  starters.filter(p=>!isEmpty(p) && !onBye(p) && !played(p) && injLevel(p.injury)===1).forEach(p=>{
+    out.warn.push({ flag:"\u2753", text:`<b>${esc(p.name)}</b> is questionable \u2014 check before kickoff.` });
+  });
+
+  // 4. a bench player projected to beat a starter at the same position. Only before either of them
+  //    plays (once the ball is kicked the lineup is locked anyway) and only when the gap is big
+  //    enough to be worth the move — projections are not precise to a tenth of a point.
+  const hasProj = starters.concat(bench).some(p=>(p.proj||0) > 0);
+  out.hasProj = hasProj;
+  if(hasProj){
+    const pairs = [];
+    starters.forEach((s,si)=>{
+      if(isEmpty(s) || played(s)) return;
+      bench.forEach((b,bi)=>{
+        if(isEmpty(b) || !b.pos || b.pos !== s.pos) return;
+        if(played(b) || onBye(b) || injLevel(b.injury) >= 2) return;
+        const gain = (b.proj||0) - (s.proj||0);
+        if(gain < 2) return;
+        pairs.push({ si, bi, out:s, in:b, gain });
+      });
+    });
+    pairs.sort((a,b)=>b.gain-a.gain);
+    const usedS = {}, usedB = {};
+    pairs.forEach(x=>{ if(usedS[x.si]||usedB[x.bi]) return; usedS[x.si]=usedB[x.bi]=1; out.swaps.push(x); });
+  }
+
+  if(!out.warn.length && !out.swaps.length && starters.length){
+    out.ok.push(hasProj ? "Nothing to fix \u2014 everybody's playing, nobody's hurt, and no bench player is projected to beat a starter."
+                        : "Nothing to fix \u2014 everybody's playing and nobody's flagged on the injury report.");
+  }
+  return out;
+}
+
 /* ---------------------------- ESPN adapter ---------------------------- */
 const ESPN_API = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/";
 function espnSeason(){ const d=new Date(); return d.getMonth()>=7 ? d.getFullYear() : d.getFullYear()-1; }
@@ -370,20 +472,36 @@ const ESPN_SLOT_ORDER = {0:0,2:1,4:2,6:3,16:4,17:5,23:6};   // QB,RB,WR,TE,D/ST,
 // One team's full summary — name, owner, score, projection, and per-player roster detail. Used by
 // BOTH getMatchup() and getLeagueScoreboard() so every screen in the app shows the same information
 // about a team, not a stripped-down version for "other people's" matchups.
+// How many starting slots this league requires, so the Coach can tell an empty slot from a short
+// roster. ESPN's roster entries only list players, never the blanks between them.
+function espnLineupNeed(d){
+  const c = ((d.settings||{}).rosterSettings||{}).lineupSlotCounts;
+  if(!c) return 0;
+  let n = 0;
+  Object.keys(c).forEach(k=>{ const slot = +k; if(slot!==20 && slot!==21 && slot!==24) n += (c[k]||0); });
+  return n;
+}
 function espnSideSummary(d, proAbbr, teamObj, entrySide){
   const sp = d.scoringPeriodId;
   const pts = s => (s.totalPointsLive!=null) ? s.totalPointsLive : (s.totalPoints || ((s.pointsByScoringPeriod||{})[sp]) || 0);
   const proj = s => (s.totalProjectedPointsLive!=null) ? s.totalProjectedPointsLive : (s.totalProjectedPoints||0);
   const roster = ((teamObj.roster||{}).entries)||[];
+  // one shape for every player, starter or bench: ESPN carries this week's projection
+  // (statSourceId 1) and the injury flag in the same fetch, so the Coach costs no extra call
+  const one = e => {
+    const p = e.playerPoolEntry.player;
+    const actual = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
+    const fcast = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===1);
+    return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0,
+      proj:(fcast&&fcast.appliedTotal)||0, injury:p.injuryStatus||"", slot:e.lineupSlotId, teamAbbr: proAbbr[p.proTeamId] };
+  };
   const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21)
     .sort((a,b)=>(ESPN_SLOT_ORDER[a.lineupSlotId]??9)-(ESPN_SLOT_ORDER[b.lineupSlotId]??9))
-    .map(e=>{
-      const p = e.playerPoolEntry.player;
-      const actual = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
-      return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId] };
-    });
+    .map(one);
+  const bench = roster.filter(e=>e.lineupSlotId===20).map(one);
   return { id:teamObj.id, name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
-    pts:pts(entrySide), proj:proj(entrySide), starters, winProb: entrySide.winProbability };
+    pts:pts(entrySide), proj:proj(entrySide), starters, bench, need:espnLineupNeed(d),
+    winProb: entrySide.winProbability };
 }
 // The full-season standings table — same league fetch already carries every team's overall record.
 function espnStandings(d){
@@ -489,7 +607,7 @@ async function sleeperPlayers(){
   }catch(e){}
   const res = await fetch(SLEEPER_API + "/players/nfl", {cache:"no-store"});
   const d = await res.json();
-  const slim = {}; Object.keys(d).forEach(id=>{ const p=d[id]; slim[id]={name:(p.full_name||((p.first_name||"")+" "+(p.last_name||""))).trim(), team:p.team, pos:p.position||""}; });
+  const slim = {}; Object.keys(d).forEach(id=>{ const p=d[id]; slim[id]={name:(p.full_name||((p.first_name||"")+" "+(p.last_name||""))).trim(), team:p.team, pos:p.position||"", inj:p.injury_status||""}; });
   SLEEPER_PLAYERS = slim;
   try{ sessionStorage.setItem("sleeper.players.cache", JSON.stringify({at:Date.now(), data:slim})); }catch(e){}
   return slim;
@@ -507,12 +625,17 @@ function sleeperSideSummary(m, byRoster, byUser, players){
   const avatar = u.avatar ? "https://sleepercdn.com/avatars/thumbs/"+u.avatar : "";
   const rec = r.settings||{};
   const pp = m.players_points || {};
-  const starters = (m.starters||[]).map(pid=>{
-    const pl = players[pid]||{};
-    return { name: pl.name||pid, pos: pl.pos||"", pts: pp[pid]||0, teamAbbr: pl.team };
-  });
+  // Sleeper marks an empty starting slot with the player id "0" — carry it through as a blank name
+  // so both the roster list and the Coach see an empty slot rather than a player called "0".
+  const one = pid => { const pl = players[pid]||{}; const blank = !pid || pid==="0";
+    return { name: blank ? "" : (pl.name||pid), pos: pl.pos||"", pts: pp[pid]||0, proj:0,
+      injury: pl.inj||"", teamAbbr: pl.team }; };
+  const starters = (m.starters||[]).map(one);
+  const onField = new Set(m.starters||[]);
+  const bench = (r.players||[]).filter(pid=>!onField.has(pid)).map(one);
   return { id:m.roster_id, name, owner:u.display_name||"", logo:avatar,
-    record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:""), pts:m.points||0, proj:0, starters };
+    record:(rec.wins||0)+"-"+(rec.losses||0)+((rec.ties)?"-"+rec.ties:""), pts:m.points||0, proj:0,
+    starters, bench, need:(m.starters||[]).length };
 }
 // The full-season standings table from each roster's own settings (wins/losses/points already
 // tracked by Sleeper — no extra fetch needed).
@@ -722,7 +845,102 @@ function rosterRowsHTML(starters, statusMap){
       <span class="rpts">${n1(s.pts)}</span>
     </div>`).join("");
 }
-function cardHTML(cfg, r, err, statusMap){
+// What the Coach found, as a short list you can check against your own lineup.
+function coachHTML(c, key){
+  const rows = [];
+  c.warn.forEach(w=>rows.push(`<div class="crule"><span class="cflag">${w.flag}</span><span>${w.text}</span></div>`));
+  c.swaps.forEach(x=>rows.push(`<div class="crule"><span class="cflag">\ud83d\udd01</span><span>Consider starting <b>${esc(x.in.name)}</b> over <b>${esc(x.out.name)}</b> at ${esc(x.out.pos||"the same spot")} \u2014 projected ${n1(x.in.proj)} to ${n1(x.out.proj)}, about ${n1(x.gain)} more.</span></div>`));
+  c.ok.forEach(t=>rows.push(`<div class="crule ok"><span class="cflag">\u2705</span><span>${t}</span></div>`));
+  if(!rows.length) rows.push(`<div class="crule ok"><span class="cflag">\u2139\ufe0f</span><span>No roster detail for this league, so there's nothing to check.</span></div>`);
+  const note = !c.hasProj
+    ? `<div class="cnote">This league's site doesn't publish weekly projections, so the Coach can only check who's playing and who's hurt \u2014 it can't compare a bench player to a starter. The briefing below covers that part.</div>`
+    : !c.haveStatus
+    ? `<div class="cnote">The NFL schedule didn't load this time, so bye weeks aren't checked. Tap Update again.</div>`
+    : "";
+  return `<div class="coach" hidden>
+    ${rows.join("")}
+    ${note}
+    <button class="askBtn" type="button" data-coachkey="${esc(key)}">\ud83d\udcac Copy a briefing for my AI</button>
+    <div class="cnote">That copies your whole week \u2014 lineup, projections, injuries, standings, recent moves \u2014 then paste it into Claude or ChatGPT and ask away. Nothing leaves this app until you paste it.</div>
+  </div>`;
+}
+// The briefing. Plain text on purpose: it is meant to be pasted into a chat, so it says out loud
+// everything the app knows about your week, then asks the three questions worth asking.
+function stripTags(h){
+  return String(h||"").replace(/<[^>]*>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<")
+    .replace(/&gt;/g,">").replace(/&quot;/g,'"').trim();
+}
+function ffPrompt(cfg, r, board, statusMap){
+  const sm = statusMap || {};
+  const gameWord = p => { const st = p.teamAbbr ? sm[p.teamAbbr] : null;
+    if(!p.teamAbbr) return "no NFL team listed";
+    if(!Object.keys(sm).length) return "game status unknown";
+    if(!st) return "BYE WEEK - not playing";
+    return st==="in" ? "game in progress" : st==="post" ? "game finished" : "game not started yet"; };
+  const line = p => {
+    if(!p.name) return "  (empty starting slot)";
+    const bits = [p.teamAbbr||"?", gameWord(p)];
+    if(p.proj) bits.push("projected " + n1(p.proj));
+    bits.push(n1(p.pts) + " points so far");
+    if(injLevel(p.injury)) bits.push("INJURY: " + injWord(p.injury));
+    return "  " + (p.pos||"--") + " " + p.name + " (" + bits.join(", ") + ")";
+  };
+  const L = [];
+  L.push("I play in a fantasy football league on " + cfg.platform.toUpperCase() +
+    ' called "' + ((r&&r.leagueName) || cfg.leagueName || "my league") + '". It is week ' + ((r&&r.wk)||"?") + ".");
+  L.push("My team is \"" + (r.me.name||"my team") + "\"" + (r.me.record?" ("+r.me.record+")":"") + ".");
+  if(r.opp && r.opp.name){
+    L.push("This week I play " + r.opp.name + (r.opp.record?" ("+r.opp.record+")":"") + ". Score right now: me " +
+      n1(r.me.pts) + ", them " + n1(r.opp.pts) + (r.final ? " (final)" : r.started ? " (games in progress)" : " (not started)") + ".");
+    if(r.me.proj || r.opp.proj) L.push("Projected finish: me " + n1(r.me.proj) + ", them " + n1(r.opp.proj) + ".");
+  }
+  L.push("");
+  L.push("MY STARTERS");
+  (r.me.starters||[]).forEach(p=>L.push(line(p)));
+  // ESPN simply omits a slot nobody is in, so the count is the only way to say it out loud.
+  const short = r.me.need ? Math.max(0, r.me.need - (r.me.starters||[]).length) : 0;
+  if(short) L.push("  (" + short + " empty starting slot" + (short>1?"s":"") + " - nobody in " + (short>1?"them":"it") + ")");
+  if((r.me.bench||[]).length){ L.push(""); L.push("MY BENCH"); (r.me.bench||[]).forEach(p=>L.push(line(p))); }
+  else { L.push(""); L.push("MY BENCH: not available from this league's site."); }
+  if(r.opp && (r.opp.starters||[]).length){
+    L.push(""); L.push("MY OPPONENT'S STARTERS");
+    r.opp.starters.forEach(p=>L.push(line(p)));
+  }
+  if(board && board.standings && board.standings.length){
+    L.push(""); L.push("LEAGUE STANDINGS");
+    board.standings.forEach(t=>L.push("  " + t.rank + ". " + t.name + " " + t.record + ", " + n1(t.pf) + " points for"));
+  }
+  if(board && board.activity && board.activity.length){
+    L.push(""); L.push("RECENT MOVES IN THE LEAGUE (who is picking up whom)");
+    board.activity.slice(0,15).forEach(a=>L.push("  " + stripTags(a.html) + " - " + fmtAgo(a.at)));
+  }
+  L.push("");
+  L.push("Please help me with three things:");
+  L.push("1. Start or sit: given the above, who should I start and who should I bench this week, and why?");
+  L.push("2. Waiver wire: which available players would be worth adding, and who on my bench should I drop to make room? (You may not know who is free in my league - if so, name the kinds of players to look for and I'll check.)");
+  L.push("3. What is the single biggest risk in my lineup this week?");
+  L.push("");
+  L.push("Answer in plain language, shortest useful answer first, and tell me if something above looks wrong or out of date.");
+  return L.join("\n");
+}
+// Each card's briefing is built with the card and held here by pick, so the button carries a short
+// key instead of a page's worth of text in an HTML attribute.
+const LAST_PROMPTS = {};
+function pickKey(cfg){ return cfg.platform + ":" + cfg.leagueId + ":" + cfg.teamId; }
+// One Coach section, ready to drop into any card. Returns "" when there's nothing to coach.
+function coachSection(cfg, r, statusMap, board){
+  if(!r || r.bye || !r.me) return "";
+  const c = ffCoach(r.me, statusMap);
+  if(!c.counted) return "";
+  const key = pickKey(cfg);
+  LAST_PROMPTS[key] = ffPrompt(cfg, r, board, statusMap);
+  const flags = c.warn.length + c.swaps.length;
+  const label = flags ? `\ud83e\uddd1\u200d\ud83c\udfeb Coach \u2014 ${flags} thing${flags>1?"s":""} to look at`
+                      : `\ud83e\uddd1\u200d\ud83c\udfeb Coach \u2014 lineup looks clean`;
+  return `<button class="coachToggle" type="button" data-label="${esc(label)}">${label} \u25be</button>
+    ${coachHTML(c, key)}`;
+}
+function cardHTML(cfg, r, err, statusMap, board){
   const platBadge = `<span class="plat">${cfg.platform}</span>`;
   const title = esc((r&&r.leagueName) || cfg.leagueName || "League");
   if(err){
@@ -757,12 +975,13 @@ function cardHTML(cfg, r, err, statusMap){
       ${sideHTML(r.opp, lead==="opp"?"lead":"", statusMap)}
     </div>
     <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.me.pts-r.opp.pts))}</span><span>${odds}</span></div>
+    ${coachSection(cfg, r, statusMap, board)}
     ${rosterSec}
     ${oppRosterSec}
   </div>`;
 }
 // Five or more teams: one compact row each instead of a full card, so a full slate still fits one screen.
-function cardHTMLCompact(cfg, r, err, statusMap){
+function cardHTMLCompact(cfg, r, err, statusMap, board){
   const plat = `<span class="plat2">${cfg.platform}</span>`;
   if(err || !r || r.bye || !r.opp){
     const label = err ? (err.message==="PRIVATE"?"private league":err.message==="NOTFOUND"?"not found":"couldn't load")
@@ -780,7 +999,8 @@ function cardHTMLCompact(cfg, r, err, statusMap){
     <span class="cvs">vs</span>
     <span class="team${lead==='me'?' trail':''}"><span class="tn">${esc(r.opp.name)}</span><b>${n1(r.opp.pts)}</b></span>
     ${chip}
-  </div>`;
+  </div>
+  ${coachSection(cfg, r, statusMap, board)}`;
 }
 function densityTier(n){ return n<=2 ? "full" : n<=4 ? "medium" : "compact"; }
 
@@ -834,7 +1054,7 @@ async function update(){
 // last, so scrolling past either end can snap invisibly back to the real slide on the other side —
 // the carousel loops instead of dead-ending.
 function buildCardGroup(cfg, r, err, sm, tier, board){
-  const mySlide = `<div class="slide">${tier==="compact" ? cardHTMLCompact(cfg, r, err, sm) : cardHTML(cfg, r, err, sm)}</div>`;
+  const mySlide = `<div class="slide">${tier==="compact" ? cardHTMLCompact(cfg, r, err, sm, board) : cardHTML(cfg, r, err, sm, board)}</div>`;
   if(!board) return mySlide;
   const others = board.games.filter(g=>!isMyGame(g, cfg));
   const realSlides = [mySlide, ...others.map(g=>leagueSlideHTML(g, sm)), infoSlideHTML(board)];
@@ -1125,6 +1345,41 @@ $("teamsBtn").addEventListener("click", ()=> $("main").hidden ? goMain() : goHom
 $("addBottom").addEventListener("click", goHome);
 $("update").addEventListener("click", update);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !$("main").hidden) update(); });
+
+// The Coach toggle needs its own handler: the roster one rewrites its own label from the text,
+// which would mangle a label carrying counts. This one just swaps the arrow.
+$("cards").addEventListener("click", e=>{
+  const b = e.target.closest(".coachToggle"); if(!b) return;
+  const box = b.nextElementSibling; if(!box) return;
+  const opening = box.hidden;
+  box.hidden = !opening;
+  b.textContent = (b.dataset.label||"Coach") + (opening ? " \u25b4" : " \u25be");
+  const slides = b.closest(".slides");
+  if(slides){ const el = slides.children[Math.round(slides.scrollLeft/(slides.clientWidth||1))];
+    if(el) slides.style.height = el.offsetHeight+"px"; }
+});
+// "Copy a briefing for my AI" — the whole week as plain text, ready to paste into a chat. No keys
+// and no server: the app hands you the words, you choose where they go.
+$("cards").addEventListener("click", async e=>{
+  const b = e.target.closest(".askBtn"); if(!b) return;
+  const text = LAST_PROMPTS[b.dataset.coachkey||""];
+  if(!text){ b.textContent = "Nothing to copy yet — tap Update scores first"; return; }
+  let ok = false;
+  try{ await navigator.clipboard.writeText(text); ok = true; }
+  catch(err){
+    // Safari on an older iPad, or a page without clipboard permission: fall back to a textarea.
+    try{
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select();
+      ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+    }catch(e2){ ok = false; }
+  }
+  b.textContent = ok ? "\u2705 Copied — now paste it into Claude or ChatGPT"
+                     : "Couldn't copy — press and hold to select instead";
+  setTimeout(()=>{ b.textContent = "\ud83d\udcac Copy a briefing for my AI"; }, 4000);
+});
 
 // Roster toggles delegate off #cards itself (not the buttons), so they keep working after every
 // re-render replaces the cards' innerHTML — including toggles inside a swiped-to "other" slide.
