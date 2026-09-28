@@ -247,7 +247,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.6 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v3.7 · 2026-09-27</small></div>
 
 <script>
 /* =========================================================================
@@ -779,17 +779,8 @@ async function update(){
   $("cards").className = "tier-"+tier;
   $("cards").innerHTML = results.map(x=>{
     const sm = (x.r && statusByWeek[x.r.wk]) || {};
-    if(tier==="compact") return cardHTMLCompact(x.cfg, x.r, x.err, sm);
-    const mySlide = `<div class="slide">${cardHTML(x.cfg, x.r, x.err, sm)}</div>`;
     const board = !x.err && boards[leagueKey(x.cfg)];
-    const others = board ? board.games.filter(g=>!isMyGame(g, x.cfg)) : [];
-    if(!board) return mySlide;
-    const otherSlides = others.map(g=>leagueSlideHTML(g, sm)).join("");
-    const hint = others.length
-      ? `Swipe to see ${others.length} more matchup${others.length>1?"s":""}, then the standings`
-      : `Swipe to see the standings`;
-    return `<div class="slides">${mySlide}${otherSlides}${infoSlideHTML(board)}</div>
-      <div class="swipeHint">◂ ${esc(hint)} ▸</div>`;
+    return buildCardGroup(x.cfg, x.r, x.err, sm, tier, board);
   }).join("");
   const wk = results.map(x=>x.r&&x.r.wk).find(Boolean);
   $("week").textContent = wk ? "Week "+wk : "";
@@ -797,13 +788,39 @@ async function update(){
   $("update").disabled=false; $("update").textContent="Update scores"; busy=false;
   syncSlideHeights();
 }
-// Slides differ a lot in height (your matchup vs. the longer standings+activity slide). Each
-// .slides group gets its height pinned to whichever slide is currently in view, updated as the
-// swipe settles, so a short slide never sits under a tall empty gap.
+// Every pick gets the same swipe treatment regardless of density tier — only how "your own" slide
+// looks (full card, shrunk card, or a compact row) changes; swiping past it always works the same
+// way. A clone of the last slide is placed before the first, and a clone of the first after the
+// last, so scrolling past either end can snap invisibly back to the real slide on the other side —
+// the carousel loops instead of dead-ending.
+function buildCardGroup(cfg, r, err, sm, tier, board){
+  const mySlide = `<div class="slide">${tier==="compact" ? cardHTMLCompact(cfg, r, err, sm) : cardHTML(cfg, r, err, sm)}</div>`;
+  if(!board) return mySlide;
+  const others = board.games.filter(g=>!isMyGame(g, cfg));
+  const realSlides = [mySlide, ...others.map(g=>leagueSlideHTML(g, sm)), infoSlideHTML(board)];
+  const looped = [realSlides[realSlides.length-1], ...realSlides, realSlides[0]];
+  const hint = others.length
+    ? `Swipe to see ${others.length} more matchup${others.length>1?"s":""}, then the standings`
+    : `Swipe to see the standings`;
+  return `<div class="slides" data-start="1">${looped.join("")}</div>
+    <div class="swipeHint">◂ ${esc(hint)} — it loops back around ▸</div>`;
+}
+// Slides differ a lot in height (a matchup vs. the longer standings+activity slide). Each .slides
+// group gets its height pinned to whichever slide is currently in view, updated as the swipe
+// settles, so a short slide never sits under a tall empty gap. The same settle check also handles
+// looping: landing on either end's CLONE snaps instantly (no animation, so it's invisible) to the
+// matching real slide at the other end.
 function syncSlideHeights(){
   document.querySelectorAll("#cards .slides").forEach(box=>{
+    const start = +(box.dataset.start||0);
+    if(start>0) box.scrollLeft = box.clientWidth*start;
+    const total = box.children.length;
     const sync = ()=>{
-      const idx = Math.round(box.scrollLeft / (box.clientWidth||1));
+      let idx = Math.round(box.scrollLeft / (box.clientWidth||1));
+      if(total>=4){
+        if(idx<=0){ box.scrollLeft = box.clientWidth*(total-2); idx = total-2; }
+        else if(idx>=total-1){ box.scrollLeft = box.clientWidth*1; idx = 1; }
+      }
       const el = box.children[idx];
       if(el) box.style.height = el.offsetHeight+"px";
     };
