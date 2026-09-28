@@ -1519,6 +1519,7 @@ async function computeSeason() {
   computed.usage = remainingFrom(s, usedPicks, Object.keys(usedPicks));
   computed.standings = players.map(p => ({ id: p, name: pname(p), pts: totals[p] })).sort((a, b) => b.pts - a.pts);
   computed.ready = true;
+  if (coachRank === null) { coachRank = {}; loadCoachRank(); }   // the coach needs this season's championship points
   // Publish the computed deadlines so the mailbox can refuse late picks too. Commissioner's device does this quietly.
   const dls = {}; activeRaces().forEach(r => dls[r.key] = deadline(r).toISOString());
   if (JSON.stringify(s.deadlines || {}) !== JSON.stringify(dls)) {
@@ -1590,7 +1591,7 @@ async function adminSet(path, value, label) {
 }
 
 /* ---------- render ---------- */
-function go(t) { tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); if (t === 'draft' && !draftRank) loadDraftRank(seasonYear).then(r => { draftRank = r; if (tab === 'draft') render(); }); if (t === 'live' && (!live.at || Date.now() - live.at > 30000)) fetchLive(); }
+function go(t) { if (t === 'home' && coachRank === null) { coachRank = {}; loadCoachRank(); } tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); if (t === 'draft' && !draftRank) loadDraftRank(seasonYear).then(r => { draftRank = r; if (tab === 'draft') render(); }); if (t === 'live' && (!live.at || Date.now() - live.at > 30000)) fetchLive(); }
 function render() {
   const s = season();
   $('meName').textContent = me ? pname(me.id) + (isCommish() ? ' · commish' : '') : 'Who are you?';
@@ -1644,6 +1645,7 @@ function rHome() {
     // who's in
     const ins = playersActive().map(p => { const pk = s.picks && s.picks[nr.key] && s.picks[nr.key][p.id]; const L = R && R.lineups[p.id]; return `<div><b>${esc(p.name)}</b>${locked ? (L ? (L.wildcard ? 'Wild card' : L.drivers.map(dname).join(' + ')) + (L.auto ? ' <span class="pill" style="font-size:11px">auto</span>' : '') : '—') : (pk ? '✓ in' : '· waiting')}</div>`; }).join('');
     html += `<div class="lineup-grid">${ins}</div></div>`;
+    html += rCoach(nr, w, locked);
   } else {
     html += `<div class="weekend"><span class="lab">Season</span><h2>${seasonYear} is complete</h2><div class="small" style="color:var(--board-dim)">Final standings below. Start next season from Setup.</div></div>`;
   }
@@ -2131,6 +2133,86 @@ async function draftReset() {
   if (!isCommish()) return;
   if (!confirm('Set up a new draft for ' + seasonYear + '? Current rosters stay until the new draft finishes.')) return;
   await adminSet(['seasons', seasonYear, 'draft'], { status: 'setup', players: playersActive().map(p => p.id), picks: [] }, 'New draft ready');
+}
+
+/* ---------- the coach ----------
+   Advice from the league's own arithmetic: who has drives to burn, who is scoring, when a wild
+   card is worth most. The "Ask my AI" button hands the whole picture to whichever AI you already
+   use, the same way FlipKit does — no keys in the app, nothing to pay for. */
+let coachRank = null;
+async function loadCoachRank() {
+  const done = activeRaces().filter(r => computed.rounds[r.key] && computed.rounds[r.key].results);
+  const lastRound = done.length ? done[done.length - 1].round : 0;
+  coachRank = await loadRank(seasonYear, lastRound);
+  if (tab === 'home') render();
+}
+function coachFor(pid, nr) {
+  const s = season(); const rest = activeRaces().filter(r => r.round >= nr.round);
+  return E.coachAdvice({
+    roster: (s.roster && s.roster[pid]) || [],
+    remaining: computed.usage[pid] || {},
+    rank: coachRank || {},
+    weekendsLeft: rest.length,
+    sprintsLeft: rest.filter(r => r.sprint && r.round !== nr.round).length,
+    perRace: s.perRace || 2,
+    isSprint: !!nr.sprint,
+    name: dname,
+  });
+}
+function rCoach(nr, w, locked) {
+  if (!w) return '';
+  const c = coachFor(w, nr); const s = season();
+  const mine = w === (me && me.id);
+  const wcIcon = { play: '🃏', soon: '🃏', hold: '⏳', none: '' }[c.wildcard.advise] || '';
+  return `<div class="card" style="border-color:var(--flag)">
+    <h2>Coach <span class="sub">${mine ? 'for you' : 'for ' + esc(pname(w))}</span></h2>
+    ${c.picks.length ? `<div class="row" style="gap:8px;align-items:baseline"><span class="lab">Suggested</span><b class="disp" style="font-size:22px">${c.picks.map(d => esc(dname(d))).join(' + ')}</b></div>
+      <ul class="small" style="margin:8px 0 0 18px;padding:0;display:grid;gap:4px">${c.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+    ${c.wildcard.advise !== 'none' ? `<div class="note" style="margin-top:10px"><b>${wcIcon} Wild card: ${c.wildcard.advise === 'play' ? 'play one this weekend' : c.wildcard.advise === 'hold' ? 'hold it' : 'spend one soon'}</b><br><span class="small">${esc(c.wildcard.why)}</span></div>` : ''}
+    ${c.warnings.map(x => `<div class="note" style="margin-top:8px;background:var(--bad-soft)"><span class="small">⚠️ ${esc(x)}</span></div>`).join('')}
+    <p class="small muted" style="margin-top:10px">${c.math.totalDrives} drives left across your ${((s.roster && s.roster[w]) || []).length} drivers · ${c.math.weekendsLeft} weekend${c.math.weekendsLeft === 1 ? '' : 's'} to go · ${c.math.wild} wild card${c.math.wild === 1 ? '' : 's'} in hand. Advice, not orders — the picks are always yours.</p>
+    <div class="row" style="margin-top:10px">${!locked && c.picks.length === (s.perRace || 2) ? `<button class="btn sm primary" onclick="takeCoachPicks('${w}')">Use these picks</button>` : ''}<button class="btn sm" onclick="copyText(coachPrompt('${w}'))">🤖 Ask my AI about this weekend</button></div>
+    <p class="small muted" style="margin-top:6px">That button copies your whole position — drivers, drives left, the calendar and the house rules — so you can paste it into ChatGPT or Claude and argue with it.</p>
+  </div>`;
+}
+function takeCoachPicks(pid) {
+  const nr = nextRace(); if (!nr) return;
+  const c = coachFor(pid, nr);
+  pendingPick = { init: true, drivers: c.picks.slice(), wildcard: false };
+  render(); toast('Loaded — now tap Send my picks');
+}
+// Everything an outside AI needs to give a real answer, in plain words.
+function coachPrompt(pid) {
+  const s = season(); const nr = nextRace(); if (!nr) return '';
+  const rem = computed.usage[pid] || {}; const roster = (s.roster && s.roster[pid]) || [];
+  const rest = activeRaces().filter(r => r.round >= nr.round);
+  const st = (computed.standings || []).map((x, i) => (i + 1) + ') ' + x.name + ' ' + x.pts).join(', ');
+  return [
+    'I play in a fantasy motorsport league with friends. Help me choose my drivers for this weekend.',
+    '',
+    'HOW THE LEAGUE WORKS',
+    '- I have ' + roster.length + ' drivers for the whole season. Each weekend I run ' + (s.perRace || 2) + ' of them.',
+    '- Each driver may only be run ' + s.drivesPer + ' times all season. Running one uses a drive.',
+    '- I get ' + s.wildcardsPer + ' wild cards a season: all ' + roster.length + ' of my drivers score that weekend and it uses no drives.',
+    '- Scoring: race finish 20 points for 1st down to 1 for 20th. Qualifying and the sprint score by grid row, 10 for row 1 down to 1 for row 10. 5 bonus points if my driver sets the fastest lap. A driver who does not finish scores 0 for the race.',
+    '- Miss the deadline and the league auto-drafts my two highest-placed drivers that still have drives.',
+    '',
+    'THIS WEEKEND',
+    '- ' + nr.name + (nr.sprint ? ' (SPRINT weekend: qualifying, sprint and race all score)' : ' (standard weekend: qualifying and race score)'),
+    '- ' + rest.length + ' weekends left in the season, ' + rest.filter(r => r.sprint).length + ' of them sprints.',
+    '',
+    'MY DRIVERS AND DRIVES LEFT',
+    ...roster.map(d => '- ' + dname(d) + ': ' + Math.max(0, rem[d] || 0) + ' of ' + s.drivesPer + ' drives left' + (coachRank && coachRank[d] != null ? ', ' + coachRank[d] + ' championship points this season' : '')),
+    '- Wild cards left: ' + Math.max(0, rem._wild || 0) + ' of ' + s.wildcardsPer,
+    '',
+    'LEAGUE STANDINGS: ' + (st || 'not scored yet'),
+    '',
+    'WHAT I WANT',
+    '1. Which ' + (s.perRace || 2) + ' drivers should I run this weekend, and why?',
+    '2. Should I play a wild card this weekend or save it? Which weekend is the best one left for it?',
+    '3. Am I going to waste drives at this rate? Give me a plan for the rest of the season.',
+    'Use the current form of these drivers if you know it. Be blunt.',
+  ].join('\n');
 }
 
 /* ---------- misc ---------- */
