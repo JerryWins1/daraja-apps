@@ -4,7 +4,7 @@
    canceled race never shifts anyone's picks. Rounds with no entry here are auto-drafted until the
    commissioner backfills them in Setup. */
 const PITWALL_SEED = {
-  seedVersion: 4, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
+  seedVersion: 5, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
   league: { name: 'F1 Group', key: 'f1', commissioner: 'steve', deadlineRule: 'friday', tz: 'America/Chicago', currentSeason: 2026, mailboxUrl: '' },
   players: [
     { id: 'steve', name: 'Steve', active: true },
@@ -51,22 +51,22 @@ const PITWALL_SEED = {
         belgian:    { robbi: { drivers: ['piastri', 'antonelli'] }, jerry: { drivers: ['sainz', 'lawson'] } },
         hungarian:  { robbi: { drivers: ['bearman', 'gasly'] }, jerry: { drivers: ['sainz', 'lawson'] } },
         dutch:      { jerry: { wildcard: true }, robbi: { drivers: ['bearman', 'gasly'] } },
-        italian:    { robbi: { drivers: ['piastri', 'antonelli'] }, ryan: { drivers: ['bottas', 'bortoleto'] }, jerry: { drivers: ['russell', 'lawson'] }, steve: { drivers: ['max_verstappen', 'hadjar'] } }
+        italian:    { robbi: { drivers: ['piastri', 'antonelli'] }, ryan: { drivers: ['bottas', 'bortoleto'] }, jerry: { drivers: ['russell', 'lawson'] }, steve: { drivers: ['max_verstappen', 'hadjar'] }, mark: { drivers: ['leclerc', 'hamilton'], auto: true } }
       },
       overrides: {},
-      // Starting point: Steve's post after the Dutch GP (standings + driver usage list), copied exactly.
-      // The app scores every race from the Italian GP on; the commissioner can move or overwrite this in Setup.
+      // Starting point: Steve's post after the ITALIAN GP (standings + driver usage list), copied exactly.
+      // The app scores every race from the Spanish GP on; the commissioner can move or overwrite this in Setup.
       start: {
-        afterKey: 'dutch',
-        standings: { robbi: 745, mark: 729, steve: 709, jerry: 682, ryan: 445 },
+        afterKey: 'italian',
+        standings: { robbi: 808, mark: 765, steve: 754, jerry: 728, ryan: 469 },
         usage: {
-          steve: { max_verstappen: 3, hadjar: 4, perez: 11, hulkenberg: 10, _wild: 0 },
-          ryan:  { norris: 6, bottas: 8, stroll: 6, bortoleto: 6, _wild: 1 },
-          jerry: { russell: 6, alonso: 12, sainz: 6, lawson: 3, _wild: 1 },
-          mark:  { leclerc: 6, hamilton: 6, ocon: 8, albon: 8, _wild: 0 },
-          robbi: { piastri: 8, antonelli: 7, gasly: 7, bearman: 6, _wild: 0 }
+          steve: { max_verstappen: 2, hadjar: 3, perez: 11, hulkenberg: 10, _wild: 0 },
+          ryan:  { norris: 6, bottas: 7, stroll: 6, bortoleto: 5, _wild: 1 },
+          jerry: { russell: 5, alonso: 12, sainz: 6, lawson: 2, _wild: 1 },
+          mark:  { leclerc: 5, hamilton: 5, ocon: 8, albon: 8, _wild: 0 },
+          robbi: { piastri: 7, antonelli: 6, gasly: 7, bearman: 6, _wild: 0 }
         },
-        note: 'From Steve\'s post after the Dutch GP (Sept 2026): overall standings and the 2026 driver usage list, copied exactly.'
+        note: 'Steve\'s post after the Italian GP (Sept 2026), copied exactly. Moved forward from the Dutch GP because the app\'s own scoring of Italy came out 4 to 19 points light against Steve\'s hand-scoring — Steve scored it, so Steve\'s numbers are the truth. The app scores the Spanish GP onward.'
       },
       note: 'Picks through Monaco are complete from the group text. From Spain on, only the picks that came through are here; Steve has the rest.'
     }
