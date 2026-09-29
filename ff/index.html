@@ -78,6 +78,8 @@
   .roster .rdot.live{background:var(--live)}
   .roster .rdot.wait{background:var(--wait)}
   .roster .rpts{flex:none;font-variant-numeric:tabular-nums;font-weight:700;min-width:34px;text-align:right}
+  .roster .rtag{flex:none;font-size:9px;font-weight:800;padding:1px 4px;border-radius:4px;background:#1f2a40;color:var(--dim)}
+  .roster .rtag.warn{background:#4a2020;color:#fca5a5}
 
   /* Swipe a card in place to see the rest of that league — your own matchup is always the first
      slide; the others come from the same league fetch. Scroll-snap does the swiping, no JS needed. */
@@ -279,7 +281,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v3.9 · 2026-09-27</small></div>
+<div class="stamp"><small id="stamp">v4.0 · 2026-09-29</small></div>
 
 <script>
 /* =========================================================================
@@ -375,15 +377,23 @@ function espnSideSummary(d, proAbbr, teamObj, entrySide){
   const pts = s => (s.totalPointsLive!=null) ? s.totalPointsLive : (s.totalPoints || ((s.pointsByScoringPeriod||{})[sp]) || 0);
   const proj = s => (s.totalProjectedPointsLive!=null) ? s.totalProjectedPointsLive : (s.totalProjectedPoints||0);
   const roster = ((teamObj.roster||{}).entries)||[];
+  // Injury status and a projected-points figure ride along on every player already fetched for the
+  // roster — no extra call. Bench entries are kept separately (not shown in the normal roster list)
+  // purely so lineup-swap suggestions have something to compare a struggling starter against.
+  const toEntry = e => {
+    const p = e.playerPoolEntry.player;
+    const stats = p.stats||[];
+    const actual = stats.find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
+    const projected = stats.find(st=>st.scoringPeriodId===sp && st.statSourceId===1);
+    return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0,
+      projPts:(projected&&projected.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId], injury:p.injuryStatus||"ACTIVE" };
+  };
   const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21)
     .sort((a,b)=>(ESPN_SLOT_ORDER[a.lineupSlotId]??9)-(ESPN_SLOT_ORDER[b.lineupSlotId]??9))
-    .map(e=>{
-      const p = e.playerPoolEntry.player;
-      const actual = (p.stats||[]).find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
-      return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId] };
-    });
+    .map(toEntry);
+  const bench = roster.filter(e=>e.lineupSlotId===20).map(toEntry);
   return { id:teamObj.id, name:espnTeamName(teamObj), owner:espnOwnerName(d,teamObj), logo:teamObj.logo, record:espnRec(teamObj),
-    pts:pts(entrySide), proj:proj(entrySide), starters, winProb: entrySide.winProbability };
+    pts:pts(entrySide), proj:proj(entrySide), starters, bench, winProb: entrySide.winProbability };
 }
 // The full-season standings table — same league fetch already carries every team's overall record.
 function espnStandings(d){
@@ -711,16 +721,39 @@ function playerStatus(teamAbbr, statusMap){
   const st = teamAbbr ? statusMap[teamAbbr] : null;
   if(!st) return "bye"; if(st==="in") return "live"; if(st==="post") return "done"; return "wait";
 }
+const INJ_ABBR = {QUESTIONABLE:"Q", DOUBTFUL:"D", OUT:"O", IR:"IR", INJURY_RESERVE:"IR", SUSPENSION:"SUSP",
+  PUP:"PUP", DAY_TO_DAY:"DTD", COVID_19:"COVID", NON_FOOTBALL_INJURY:"NFI", BEREAVEMENT:"BRVMT"};
 // The full per-player breakdown for one team — a plain list, position first, so the "who's still
-// out there" question has a real answer instead of just a live/done/waiting count.
+// out there" question has a real answer instead of just a live/done/waiting count. Also flags the
+// two things Jerry specifically asked for right on the player line: an injury tag when ESPN's own
+// status isn't ACTIVE, and a plain BYE tag instead of leaving a bye-week player looking just "done".
 function rosterRowsHTML(starters, statusMap){
   if(!starters || !starters.length) return `<div class="msg" style="padding:4px 0">No roster detail for this league.</div>`;
-  return starters.map(s=>`<div class="rrow">
+  return starters.map(s=>{
+    const st = playerStatus(s.teamAbbr, statusMap);
+    const injTag = (s.injury && s.injury!=="ACTIVE") ? `<span class="rtag warn">${esc(INJ_ABBR[s.injury]||s.injury)}</span>` : "";
+    const byeTag = st==="bye" ? `<span class="rtag">BYE</span>` : "";
+    return `<div class="rrow">
       <span class="rpos">${esc(s.pos||"")}</span>
       <span class="rname">${esc(s.name||"—")}</span>
-      <span class="rdot ${playerStatus(s.teamAbbr, statusMap)}"></span>
+      ${injTag}${byeTag}
+      <span class="rdot ${st}"></span>
       <span class="rpts">${n1(s.pts)}</span>
-    </div>`).join("");
+    </div>`;
+  }).join("");
+}
+// A simple, reliable "team assistant" using data already in hand — not a live AI call (no hosted
+// model, no API key, nothing that could be flaky or cost money): injuries and byes read straight off
+// the roster; lineup suggestions compare each starter's PROJECTED points against the best-projected
+// bench player at the same position. ESPN only — Sleeper's roster data doesn't carry this yet.
+function teamCheck(side){
+  const starters = side.starters||[], bench = side.bench||[];
+  const swaps = [];
+  starters.forEach(st=>{
+    const better = bench.filter(b=>b.pos===st.pos && b.projPts>st.projPts+0.5).sort((a,b)=>b.projPts-a.projPts)[0];
+    if(better) swaps.push({out:st, in:better});
+  });
+  return { swaps };
 }
 function cardHTML(cfg, r, err, statusMap){
   const platBadge = `<span class="plat">${cfg.platform}</span>`;
@@ -749,6 +782,12 @@ function cardHTML(cfg, r, err, statusMap){
   const oppRosterSec = (r.opp.starters && r.opp.starters.length) ? `
     <button class="rosterToggle" type="button">👥 Show ${esc(r.opp.owner||r.opp.name)}'s players ▾</button>
     <div class="roster" hidden>${rosterRowsHTML(r.opp.starters, statusMap)}</div>` : "";
+  // Only for your own team, and only shown at all when there's something worth flagging — no button
+  // that just opens onto "nothing to see here."
+  const check = teamCheck(r.me);
+  const checkSec = check.swaps.length ? `
+    <button class="rosterToggle" type="button">🔍 Lineup suggestions (${check.swaps.length}) ▾</button>
+    <div class="activity" hidden>${check.swaps.map(s=>`<div class="arow">Bench <b>${esc(s.in.name)}</b> (proj ${n1(s.in.projPts)}) instead of <b>${esc(s.out.name)}</b> (proj ${n1(s.out.projPts)})</div>`).join("")}</div>` : "";
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
     <div class="vs">
@@ -757,6 +796,7 @@ function cardHTML(cfg, r, err, statusMap){
       ${sideHTML(r.opp, lead==="opp"?"lead":"", statusMap)}
     </div>
     <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.me.pts-r.opp.pts))}</span><span>${odds}</span></div>
+    ${checkSec}
     ${rosterSec}
     ${oppRosterSec}
   </div>`;
