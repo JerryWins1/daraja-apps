@@ -66,12 +66,15 @@
     font-size:12px;color:var(--dim)}
   .foot b{color:var(--ink)}
 
-  .rosterToggle{display:block;width:100%;text-align:center;margin-top:10px;background:none;border:1px dashed var(--line);
+  .rosterToggle, .waiverToggle{display:block;width:100%;text-align:center;margin-top:10px;background:none;border:1px dashed var(--line);
     color:var(--dim);border-radius:10px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .rosterToggle:active{background:#0e1626}
+  .rosterToggle:active, .waiverToggle:active{background:#0e1626}
   .roster{margin-top:8px;text-align:left}
+  .roster .rdiv{font-size:10px;font-weight:800;color:#5d6b84;text-transform:uppercase;letter-spacing:.05em;
+    padding:8px 0 2px;margin-top:4px;border-top:1px solid var(--line)}
   .roster .rrow{display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12.5px;border-top:1px solid var(--line)}
   .roster .rrow:first-child{border-top:0}
+  .roster .rrow.bench{opacity:.6}
   .roster .rpos{flex:none;width:28px;color:var(--dim);font-weight:700;font-size:10.5px;text-transform:uppercase}
   .roster .rname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .roster .rdot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dim)}
@@ -281,7 +284,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.0 · 2026-09-29</small></div>
+<div class="stamp"><small id="stamp">v4.1 · 2026-09-29</small></div>
 
 <script>
 /* =========================================================================
@@ -727,20 +730,39 @@ const INJ_ABBR = {QUESTIONABLE:"Q", DOUBTFUL:"D", OUT:"O", IR:"IR", INJURY_RESER
 // out there" question has a real answer instead of just a live/done/waiting count. Also flags the
 // two things Jerry specifically asked for right on the player line: an injury tag when ESPN's own
 // status isn't ACTIVE, and a plain BYE tag instead of leaving a bye-week player looking just "done".
-function rosterRowsHTML(starters, statusMap){
-  if(!starters || !starters.length) return `<div class="msg" style="padding:4px 0">No roster detail for this league.</div>`;
-  return starters.map(s=>{
+// Bench is passed separately (not just tacked onto the starters array) so it can render under its
+// own "Bench" divider, dimmed — same row format, so injury/bye tags and live status still show for
+// bench guys, just visually secondary since they don't count toward the score.
+function rosterRowsHTML(starters, statusMap, bench){
+  const row = (s, isBench) => {
     const st = playerStatus(s.teamAbbr, statusMap);
     const injTag = (s.injury && s.injury!=="ACTIVE") ? `<span class="rtag warn">${esc(INJ_ABBR[s.injury]||s.injury)}</span>` : "";
     const byeTag = st==="bye" ? `<span class="rtag">BYE</span>` : "";
-    return `<div class="rrow">
+    return `<div class="rrow${isBench?" bench":""}">
       <span class="rpos">${esc(s.pos||"")}</span>
       <span class="rname">${esc(s.name||"—")}</span>
       ${injTag}${byeTag}
       <span class="rdot ${st}"></span>
       <span class="rpts">${n1(s.pts)}</span>
     </div>`;
-  }).join("");
+  };
+  if((!starters||!starters.length) && (!bench||!bench.length)) return `<div class="msg" style="padding:4px 0">No roster detail for this league.</div>`;
+  let html = (starters||[]).map(s=>row(s,false)).join("");
+  if(bench && bench.length) html += `<div class="rdiv">Bench</div>` + bench.map(s=>row(s,true)).join("");
+  return html;
+}
+// Bye-week awareness for the WHOLE roster (starters + bench), for this week and next — cross-checks
+// each player's real NFL team against two already-fetched scoreboard maps. A player with no teamAbbr
+// (shouldn't happen, but roster data can be incomplete) is skipped rather than guessed as a bye.
+function byeReport(players, smThis, smNext){
+  const onBye = (p, sm) => p.teamAbbr && !sm[p.teamAbbr];
+  return { thisWk: players.filter(p=>onBye(p, smThis||{})), nextWk: players.filter(p=>onBye(p, smNext||{})) };
+}
+function byeSectionHTML(report, wk){
+  const row = p => `<div class="arow"><b>${esc(p.name)}</b> <span style="color:var(--dim)">(${esc(p.teamAbbr)})</span></div>`;
+  const part = list => list.length ? list.map(row).join("") : `<div class="arow">Nobody — everyone has a game.</div>`;
+  return `<div class="infoHead">This week${wk?" · Week "+wk:""}</div>${part(report.thisWk)}
+    <div class="infoHead">Next week${wk?" · Week "+(wk+1):""}</div>${part(report.nextWk)}`;
 }
 // A simple, reliable "team assistant" using data already in hand — not a live AI call (no hosted
 // model, no API key, nothing that could be flaky or cost money): injuries and byes read straight off
@@ -755,7 +777,54 @@ function teamCheck(side){
   });
   return { swaps };
 }
-function cardHTML(cfg, r, err, statusMap){
+// Which starters are worth checking the waiver wire for — hurt (anything but ACTIVE) or on a bye
+// this week. Feeds waiverSectionHTML once the player pool is actually fetched (lazily, on tap).
+function waiverTrouble(side, statusMap){
+  return (side.starters||[]).filter(s=>{
+    if(s.injury && s.injury!=="ACTIVE") return true;
+    return playerStatus(s.teamAbbr, statusMap)==="bye";
+  }).map(s=>({ name:s.name, pos:s.pos,
+    reason: (s.injury && s.injury!=="ACTIVE") ? (INJ_ABBR[s.injury]||s.injury) : "BYE" }));
+}
+// The full league player pool, fetched once per league and cached — this is what makes real waiver
+// suggestions possible. ESPN's anonymous API ignores any server-side filter (tested twice: a
+// filterIds shape and a filterStatus/filterSlotIds/sortPercOwned shape both came back with the full
+// pool regardless), so instead of fighting that, this just takes the ranked pool ESPN already returns
+// by default (~1,050 relevant players, ownership% and ownership included) and filters it in JS —
+// every player already carries which team (if any) rosters them IN THIS LEAGUE (onTeamId), so "free
+// agent" comes straight from data already in hand, no extra request needed.
+async function espnPlayerPool(leagueId){
+  const cacheKey = "espn.pool."+leagueId;
+  try{
+    const cached = JSON.parse(sessionStorage.getItem(cacheKey)||"null");
+    if(cached && (Date.now()-cached.at) < 3*3600*1000) return cached.data;
+  }catch(e){}
+  const url = ESPN_API + espnSeason() + "/segments/0/leagues/" + leagueId + "/players?view=kona_player_info&view=players_wl&_=" + Date.now();
+  const res = await fetch(url, {cache:"no-store"});
+  if(!res.ok) throw new Error("ESPN said "+res.status);
+  const d = await res.json();
+  const proAbbr = await espnProTeamAbbrs();
+  const slim = (Array.isArray(d)?d:[]).map(entry=>{
+    const p = entry.player||{};
+    return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", teamAbbr:proAbbr[p.proTeamId],
+      owned:(p.ownership&&p.ownership.percentOwned)||0, free:(entry.onTeamId||0)<=0, injury:p.injuryStatus||"ACTIVE" };
+  });
+  try{ sessionStorage.setItem(cacheKey, JSON.stringify({at:Date.now(), data:slim})); }catch(e){}
+  return slim;
+}
+// For each flagged starter, the best-owned free agents at the same position — skipping any candidate
+// who's ALSO on a bye this week (a "replacement" who isn't playing either helps no one).
+function waiverSectionHTML(trouble, pool, statusMap){
+  if(!trouble.length) return `<div class="msg" style="padding:4px 0">Nothing needs replacing — no bye weeks or injuries in your starting lineup right now.</div>`;
+  return trouble.map(t=>{
+    const cands = pool.filter(p=>p.pos===t.pos && p.free && p.injury==="ACTIVE" && playerStatus(p.teamAbbr, statusMap)!=="bye")
+      .sort((a,b)=>b.owned-a.owned).slice(0,3);
+    const list = cands.length ? cands.map(c=>`<b>${esc(c.name)}</b> (${Math.round(c.owned)}% owned)`).join(", ")
+      : "no strong free-agent options right now";
+    return `<div class="arow">Your <b>${esc(t.name)}</b> (${esc(t.reason)}) — try: ${list}</div>`;
+  }).join("");
+}
+function cardHTML(cfg, r, err, statusMap, statusMapNext){
   const platBadge = `<span class="plat">${cfg.platform}</span>`;
   const title = esc((r&&r.leagueName) || cfg.leagueName || "League");
   if(err){
@@ -775,19 +844,38 @@ function cardHTML(cfg, r, err, statusMap){
                 : "Kickoff pending";
   const odds = (!r.final && r.winProb!=null) ? `Win odds <b>${Math.round(r.winProb*100)}%</b>` : "";
   // Your own roster keeps the familiar "my players" wording; the opponent gets the same style of
-  // toggle the other-matchup slides use, so this card can show either roster, not just yours.
-  const rosterSec = (r.me.starters && r.me.starters.length) ? `
+  // toggle the other-matchup slides use, so this card can show either roster, not just yours. Both
+  // now include the bench (dimmed, under its own divider), not just the starting lineup.
+  const rosterSec = ((r.me.starters&&r.me.starters.length)||(r.me.bench&&r.me.bench.length)) ? `
     <button class="rosterToggle" type="button">👥 Show my players ▾</button>
-    <div class="roster" hidden>${rosterRowsHTML(r.me.starters, statusMap)}</div>` : "";
-  const oppRosterSec = (r.opp.starters && r.opp.starters.length) ? `
+    <div class="roster" hidden>${rosterRowsHTML(r.me.starters, statusMap, r.me.bench)}</div>` : "";
+  const oppRosterSec = ((r.opp.starters&&r.opp.starters.length)||(r.opp.bench&&r.opp.bench.length)) ? `
     <button class="rosterToggle" type="button">👥 Show ${esc(r.opp.owner||r.opp.name)}'s players ▾</button>
-    <div class="roster" hidden>${rosterRowsHTML(r.opp.starters, statusMap)}</div>` : "";
+    <div class="roster" hidden>${rosterRowsHTML(r.opp.starters, statusMap, r.opp.bench)}</div>` : "";
   // Only for your own team, and only shown at all when there's something worth flagging — no button
   // that just opens onto "nothing to see here."
   const check = teamCheck(r.me);
   const checkSec = check.swaps.length ? `
     <button class="rosterToggle" type="button">🔍 Lineup suggestions (${check.swaps.length}) ▾</button>
     <div class="activity" hidden>${check.swaps.map(s=>`<div class="arow">Bench <b>${esc(s.in.name)}</b> (proj ${n1(s.in.projPts)}) instead of <b>${esc(s.out.name)}</b> (proj ${n1(s.out.projPts)})</div>`).join("")}</div>` : "";
+  // Bye weeks for the whole roster, this week and next — always shown (not just when there's a bye)
+  // since "nobody's on bye" is itself the answer to the question.
+  const byeRep = byeReport([...(r.me.starters||[]), ...(r.me.bench||[])], statusMap, statusMapNext);
+  const byeSec = (r.me.starters&&r.me.starters.length) ? `
+    <button class="rosterToggle" type="button">🛌 Show bye weeks ▾</button>
+    <div class="activity" hidden>${byeSectionHTML(byeRep, r.wk)}</div>` : "";
+  // Waiver-wire suggestions for whatever's actually hurt or on a bye in the starting lineup — ESPN
+  // only (the player pool comes from ESPN's own league endpoint). The pool itself is only fetched
+  // when tapped open, and only if there's actually something to check.
+  const trouble = cfg.platform==="espn" ? waiverTrouble(r.me, statusMap) : [];
+  let waiverSec = "";
+  if(cfg.platform==="espn" && r.me.starters && r.me.starters.length){
+    const idx = WAIVER_CTX.length;
+    WAIVER_CTX.push({leagueId:cfg.leagueId, trouble, statusMap});
+    waiverSec = `
+    <button class="waiverToggle" type="button" data-idx="${idx}">🔍 Show waiver wire${trouble.length?` (${trouble.length})`:""} ▾</button>
+    <div class="activity" hidden data-state="idle"></div>`;
+  }
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
     <div class="vs">
@@ -797,6 +885,8 @@ function cardHTML(cfg, r, err, statusMap){
     </div>
     <div class="foot"><span><b>${verdict}</b> by ${n1(Math.abs(r.me.pts-r.opp.pts))}</span><span>${odds}</span></div>
     ${checkSec}
+    ${waiverSec}
+    ${byeSec}
     ${rosterSec}
     ${oppRosterSec}
   </div>`;
@@ -833,6 +923,7 @@ function isMyGame(g, cfg){
 
 let busy=false;
 let CURRENT_WK = null;   // the real NFL week your leagues are on, so "See real NFL scores" opens on the right week
+let WAIVER_CTX = [];     // per-card waiver-check context (league + trouble spots), indexed by data-idx
 async function update(){
   if(busy || !PICKS.length) return; busy=true;
   $("update").disabled=true; $("update").textContent="Getting scores…";
@@ -850,16 +941,20 @@ async function update(){
     try{ boards[leagueKey(cfg)] = await ADAPTERS[cfg.platform].getLeagueScoreboard(cfg.leagueId); }
     catch(e){ boards[leagueKey(cfg)] = null; }
   }));
-  // fetch each distinct NFL week's real game statuses once, keyed to what each league actually reported
+  // fetch each distinct NFL week's real game statuses once, keyed to what each league actually
+  // reported — PLUS the week after, so bye-week awareness can look one week ahead, not just at now.
   const weeks = [...new Set(results.map(x=>x.r&&x.r.wk).filter(Boolean))];
+  const weeksPlusNext = [...new Set([...weeks, ...weeks.map(w=>w+1)])];
   const statusByWeek = {};
-  await Promise.all(weeks.map(async w=>{ statusByWeek[w] = await nflGameStatus(w); }));
+  await Promise.all(weeksPlusNext.map(async w=>{ statusByWeek[w] = await nflGameStatus(w); }));
   const tier = densityTier(PICKS.length);
   $("cards").className = "tier-"+tier;
+  WAIVER_CTX = [];
   $("cards").innerHTML = results.map(x=>{
     const sm = (x.r && statusByWeek[x.r.wk]) || {};
+    const smNext = (x.r && statusByWeek[x.r.wk+1]) || {};
     const board = !x.err && boards[leagueKey(x.cfg)];
-    return buildCardGroup(x.cfg, x.r, x.err, sm, tier, board);
+    return buildCardGroup(x.cfg, x.r, x.err, sm, smNext, tier, board);
   }).join("");
   const wk = results.map(x=>x.r&&x.r.wk).find(Boolean);
   if(wk) CURRENT_WK = wk;   // lets the NFL Scores screen default to the week you're actually on
@@ -873,8 +968,8 @@ async function update(){
 // way. A clone of the last slide is placed before the first, and a clone of the first after the
 // last, so scrolling past either end can snap invisibly back to the real slide on the other side —
 // the carousel loops instead of dead-ending.
-function buildCardGroup(cfg, r, err, sm, tier, board){
-  const mySlide = `<div class="slide">${tier==="compact" ? cardHTMLCompact(cfg, r, err, sm) : cardHTML(cfg, r, err, sm)}</div>`;
+function buildCardGroup(cfg, r, err, sm, smNext, tier, board){
+  const mySlide = `<div class="slide">${tier==="compact" ? cardHTMLCompact(cfg, r, err, sm) : cardHTML(cfg, r, err, sm, smNext)}</div>`;
   if(!board) return mySlide;
   const others = board.games.filter(g=>!isMyGame(g, cfg));
   const realSlides = [mySlide, ...others.map(g=>leagueSlideHTML(g, sm)), infoSlideHTML(board)];
@@ -988,9 +1083,9 @@ function leagueSlideHTML(g, statusMap){
   // Same "win odds" the main card shows for you — here it's whoever the verdict is already talking
   // about (the team currently ahead), since there's no "you" to anchor it to in someone else's game.
   const odds = (!g.final && leader && leader.winProb!=null) ? `Win odds <b>${Math.round(leader.winProb*100)}%</b>` : "";
-  const rosterFor = (side) => (side.starters && side.starters.length) ? `
+  const rosterFor = (side) => ((side.starters&&side.starters.length)||(side.bench&&side.bench.length)) ? `
       <button class="rosterToggle" type="button">👥 Show ${esc(side.owner||side.name)}'s players ▾</button>
-      <div class="roster" hidden>${rosterRowsHTML(side.starters, statusMap)}</div>` : "";
+      <div class="roster" hidden>${rosterRowsHTML(side.starters, statusMap, side.bench)}</div>` : "";
   return `<div class="slide"><div class="card">
     <div style="display:flex;justify-content:flex-end;margin-bottom:2px">${status}</div>
     <div class="vs">
@@ -1168,17 +1263,51 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !$("m
 
 // Roster toggles delegate off #cards itself (not the buttons), so they keep working after every
 // re-render replaces the cards' innerHTML — including toggles inside a swiped-to "other" slide.
-$("cards").addEventListener("click", e=>{
+$("cards").addEventListener("click", async e=>{
+  const resyncHeight = (btn) => {
+    const slides = btn.closest(".slides");
+    if(slides){ const el = slides.children[Math.round(slides.scrollLeft/(slides.clientWidth||1))];
+      if(el) slides.style.height = el.offsetHeight+"px"; }
+  };
+  // The waiver-wire check is heavier (a multi-megabyte player-pool fetch) so it's lazy: nothing is
+  // downloaded until this is actually tapped open, and never at all if there's nothing to check.
+  const wb = e.target.closest(".waiverToggle");
+  if(wb){
+    const box = wb.nextElementSibling; if(!box) return;
+    const opening = box.hidden;
+    box.hidden = !opening;
+    const label = wb.textContent.replace(/^🔍 (Show|Hide) /, "").replace(/ ▾$| ▴$/, "");
+    wb.textContent = opening ? `🔍 Hide ${label} ▴` : `🔍 Show ${label} ▾`;
+    if(opening && box.dataset.state==="idle"){
+      const ctx = WAIVER_CTX[+wb.dataset.idx];
+      if(!ctx.trouble.length){
+        box.innerHTML = waiverSectionHTML(ctx.trouble, [], ctx.statusMap);
+        box.dataset.state = "done";
+      } else {
+        box.dataset.state = "loading";
+        box.innerHTML = `<div class="msg" style="padding:4px 0">Checking available players…</div>`;
+        resyncHeight(wb);
+        try{
+          const pool = await espnPlayerPool(ctx.leagueId);
+          box.innerHTML = waiverSectionHTML(ctx.trouble, pool, ctx.statusMap);
+          box.dataset.state = "done";
+        }catch(err){
+          box.innerHTML = `<div class="msg err">Couldn't check the waiver wire (${esc(err.message)}). Try again.</div>`;
+          box.dataset.state = "idle";
+        }
+      }
+    }
+    resyncHeight(wb);
+    return;
+  }
   const b = e.target.closest(".rosterToggle"); if(!b) return;
   const box = b.nextElementSibling; if(!box) return;
   const opening = box.hidden;
   box.hidden = !opening;
-  const label = b.textContent.replace(/^👥 (Show|Hide) /, "").replace(/ ▾$| ▴$/, "");
-  b.textContent = opening ? `👥 Hide ${label} ▴` : `👥 Show ${label} ▾`;
+  const label = b.textContent.replace(/^(👥|🛌) (Show|Hide) /, "$1 ").replace(/ ▾$| ▴$/, "");
+  b.textContent = opening ? `${label.replace(/^(👥|🛌) /, "$1 Hide ")} ▴` : `${label.replace(/^(👥|🛌) /, "$1 Show ")} ▾`;
   // expanding/collapsing a roster changes THIS slide's height without a scroll event firing
-  const slides = b.closest(".slides");
-  if(slides){ const el = slides.children[Math.round(slides.scrollLeft/(slides.clientWidth||1))];
-    if(el) slides.style.height = el.offsetHeight+"px"; }
+  resyncHeight(b);
 });
 
 // First run with nothing set up yet: go straight into the wizard, one question at a time.
