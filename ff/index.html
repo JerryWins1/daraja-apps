@@ -102,6 +102,9 @@
   .roster .rpts{flex:none;font-variant-numeric:tabular-nums;font-weight:700;min-width:34px;text-align:right}
   .roster .rtag{flex:none;font-size:9px;font-weight:800;padding:1px 4px;border-radius:4px;background:#1f2a40;color:var(--dim)}
   .roster .rtag.warn{background:#4a2020;color:#fca5a5}
+  .roster .rrow.tappable{cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .roster .rrow.tappable .rtag.warn{text-decoration:underline dotted;text-underline-offset:2px}
+  .roster .pnews{margin:2px 0 8px;padding:2px 10px}
 
   /* Swipe a card in place to see the rest of that league — your own matchup is always the first
      slide; the others come from the same league fetch. Scroll-snap does the swiping, no JS needed. */
@@ -308,7 +311,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.2 · 2026-09-29</small></div>
+<div class="stamp"><small id="stamp">v4.3 · 2026-09-29</small></div>
 
 <script>
 /* =========================================================================
@@ -412,7 +415,7 @@ function espnSideSummary(d, proAbbr, teamObj, entrySide){
     const stats = p.stats||[];
     const actual = stats.find(st=>st.scoringPeriodId===sp && st.statSourceId===0);
     const projected = stats.find(st=>st.scoringPeriodId===sp && st.statSourceId===1);
-    return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0,
+    return { id:p.id, name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0,
       projPts:(projected&&projected.appliedTotal)||0, teamAbbr: proAbbr[p.proTeamId], injury:p.injuryStatus||"ACTIVE" };
   };
   const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21)
@@ -764,23 +767,81 @@ const INJ_ABBR = {QUESTIONABLE:"Q", DOUBTFUL:"D", OUT:"O", IR:"IR", INJURY_RESER
 // Bench is passed separately (not just tacked onto the starters array) so it can render under its
 // own "Bench" divider, dimmed — same row format, so injury/bye tags and live status still show for
 // bench guys, just visually secondary since they don't count toward the score.
+let NEWS_SEQ = 0;   // reset each update() — unique id per player-news panel, same pattern as ROSTER_SEQ
+function nextNewsId(){ return "news"+(NEWS_SEQ++); }
 function rosterRowsHTML(starters, statusMap, bench){
   const row = (s, isBench) => {
     const st = playerStatus(s.teamAbbr, statusMap);
-    const injTag = (s.injury && s.injury!=="ACTIVE") ? `<span class="rtag warn">${esc(INJ_ABBR[s.injury]||s.injury)}</span>` : "";
+    const hasInjury = !!(s.injury && s.injury!=="ACTIVE");
+    const injTag = hasInjury ? `<span class="rtag warn">${esc(INJ_ABBR[s.injury]||s.injury)}</span>` : "";
     const byeTag = st==="bye" ? `<span class="rtag">BYE</span>` : "";
-    return `<div class="rrow${isBench?" bench":""}">
+    // Hurt players are tappable — the injury tag alone doesn't say WHY or what to expect, so tapping
+    // the row lazy-loads the real news/injury write-up (ESPN's own player-news feed). Everyone else's
+    // row is plain — nothing to tap into for a player who's just... playing.
+    const tappable = hasInjury && s.id;
+    const newsId = tappable ? nextNewsId() : "";
+    const rowAttrs = tappable ? ` data-news="${newsId}" data-pid="${s.id}"` : "";
+    const newsPanel = tappable ? `<div class="pnews activity" id="${newsId}" hidden data-state="idle"></div>` : "";
+    return `<div class="rrow${isBench?" bench":""}${tappable?" tappable":""}"${rowAttrs}>
       <span class="rpos">${esc(s.pos||"")}</span>
       <span class="rname">${esc(s.name||"—")}</span>
       ${injTag}${byeTag}
       <span class="rdot ${st}"></span>
       <span class="rpts">${n1(s.pts)}</span>
-    </div>`;
+    </div>${newsPanel}`;
   };
   if((!starters||!starters.length) && (!bench||!bench.length)) return `<div class="msg" style="padding:4px 0">No roster detail for this league.</div>`;
   let html = (starters||[]).map(s=>row(s,false)).join("");
   if(bench && bench.length) html += `<div class="rdiv">Bench</div>` + bench.map(s=>row(s,true)).join("");
   return html;
+}
+// ESPN's own story text isn't always clean — real HTML tags (<p>, <a href>, a stray <photo1>
+// placeholder), AND a data artifact where an <a href="URL"> got half-stripped upstream, leaving a
+// bare URL immediately followed by a literal `"&gt;` in the text. Handle both.
+function stripTags(s){
+  let t = String(s||"");
+  t = t.replace(/<[^>]*>/g, "");
+  t = t.replace(/https?:\/\/\S*?["'](?:>|&gt;)/g, "");
+  t = t.replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  return t.replace(/\s+/g, " ").trim();
+}
+// The real story behind an injury tag — ESPN's own fantasy player-news feed, filtered server-side by
+// playerId (verified: it actually honors this filter, unlike the free-agent pool endpoint). Cached
+// per player for a few hours since injury write-ups don't change minute to minute.
+async function espnPlayerNews(playerId){
+  const cacheKey = "espn.news."+playerId;
+  try{
+    const cached = JSON.parse(sessionStorage.getItem(cacheKey)||"null");
+    if(cached && (Date.now()-cached.at) < 3*3600*1000) return cached.data;
+  }catch(e){}
+  const url = "https://site.api.espn.com/apis/fantasy/v2/games/ffl/news/players?playerId="+playerId+"&_="+Date.now();
+  const res = await fetch(url, {cache:"no-store"});
+  if(!res.ok) throw new Error("ESPN said "+res.status);
+  const d = await res.json();
+  let feed = d.feed||[];
+  // "Rotowire" items are the short, player-specific beat-writer notes this feature exists for — exactly
+  // what changed and what it means. "Story" items are long general-roundup articles (often carrying
+  // embedded HTML — links, <photo1> placeholders) that happen to mention this player; prefer Rotowire
+  // when any exist rather than showing that HTML-laden text.
+  const rotowire = feed.filter(f=>f.type==="Rotowire");
+  if(rotowire.length) feed = rotowire;
+  const items = feed.slice(0,3).map(f=>{
+    const story = stripTags(f.story || f.description || "");
+    return {
+      headline: stripTags(f.headline || f.title || ""),
+      story: story.length>420 ? story.slice(0,420).trim()+"…" : story,
+      at: Date.parse(f.published || f.categorized || "") || 0
+    };
+  });
+  try{ sessionStorage.setItem(cacheKey, JSON.stringify({at:Date.now(), data:items})); }catch(e){}
+  return items;
+}
+function playerNewsHTML(items){
+  if(!items.length) return `<div class="msg" style="padding:4px 0">No recent news for this player.</div>`;
+  return items.map(it=>`<div class="arow">
+    <b>${esc(it.headline)}</b>${it.at?`<span class="adate">${esc(fmtAgo(it.at))}</span>`:""}
+    ${it.story && it.story!==it.headline ? `<div style="margin-top:4px">${esc(it.story)}</div>` : ""}
+  </div>`).join("");
 }
 // Bye-week awareness for the WHOLE roster (starters + bench), for this week and next — cross-checks
 // each player's real NFL team against two already-fetched scoreboard maps. A player with no teamAbbr
@@ -979,7 +1040,7 @@ async function update(){
   await Promise.all(weeksPlusNext.map(async w=>{ statusByWeek[w] = await nflGameStatus(w); }));
   const tier = densityTier(PICKS.length);
   $("cards").className = "tier-"+tier;
-  WAIVER_CTX = []; ROSTER_SEQ = 0;
+  WAIVER_CTX = []; ROSTER_SEQ = 0; NEWS_SEQ = 0;
   $("cards").innerHTML = results.map(x=>{
     const sm = (x.r && statusByWeek[x.r.wk]) || {};
     const smNext = (x.r && statusByWeek[x.r.wk+1]) || {};
@@ -1308,6 +1369,28 @@ $("cards").addEventListener("click", async e=>{
     const hint = sideEl.querySelector(".tapHint");
     if(hint) hint.textContent = box.hidden ? "👥 roster ▾" : "👥 roster ▴";
     resyncHeight(sideEl);
+    return;
+  }
+  // Tap a hurt player's row for the real story behind the injury tag — lazy-loaded, cached per player.
+  const rrow = e.target.closest(".rrow.tappable[data-news]");
+  if(rrow){
+    const box = document.getElementById(rrow.dataset.news); if(!box) return;
+    const opening = box.hidden;
+    box.hidden = !opening;
+    if(opening && box.dataset.state==="idle"){
+      box.dataset.state = "loading";
+      box.innerHTML = `<div class="msg" style="padding:4px 0">Loading news…</div>`;
+      resyncHeight(rrow);
+      try{
+        const items = await espnPlayerNews(rrow.dataset.pid);
+        box.innerHTML = playerNewsHTML(items);
+        box.dataset.state = "done";
+      }catch(err){
+        box.innerHTML = `<div class="msg err">Couldn't load news (${esc(err.message)}). Try again.</div>`;
+        box.dataset.state = "idle";
+      }
+    }
+    resyncHeight(rrow);
     return;
   }
   // The waiver-wire check is heavier (a multi-megabyte player-pool fetch), so it's a one-shot action
