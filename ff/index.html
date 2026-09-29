@@ -88,6 +88,13 @@
   .waiverToggle[disabled]{opacity:.6}
   .waiverToggle:active{background:#0e1626}
   .assistant .infoHead:first-child{margin-top:0}
+  .askRow{display:flex;gap:6px;margin:2px 0 6px}
+  .askInput{flex:1;min-width:0;font-size:13px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+    background:#0e1626;color:var(--ink)}
+  .askInput::placeholder{color:#5d6b84}
+  .askBtn{flex:none;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:0 14px;
+    font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .askBtn:active{opacity:.85}
   .roster{margin-top:8px;text-align:left}
   .roster .rdiv{font-size:10px;font-weight:800;color:#5d6b84;text-transform:uppercase;letter-spacing:.05em;
     padding:8px 0 2px;margin-top:4px;border-top:1px solid var(--line)}
@@ -311,7 +318,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.3 · 2026-09-29</small></div>
+<div class="stamp"><small id="stamp">v4.4 · 2026-09-29</small></div>
 
 <script>
 /* =========================================================================
@@ -962,6 +969,21 @@ function cardHTML(cfg, r, err, statusMap, statusMapNext){
     waiverHTML = `<button class="waiverToggle" type="button" data-idx="${idx}">Check available players ▾</button><div class="waiverBox" data-state="idle"></div>`;
   }
   const byeRep = byeReport([...(r.me.starters||[]), ...(r.me.bench||[])], statusMap, statusMapNext);
+  // A typed question, e.g. "suggest a defensive replacement" — this is keyword matching on a
+  // position, NOT a live AI call (same no-hosted-model, no-hallucination reasoning as the rest of
+  // this panel), routed into the same free-agent pool the waiver-wire check already uses.
+  let askHTML;
+  if(cfg.platform!=="espn"){
+    askHTML = `<div class="arow">Not available for Sleeper teams yet.</div>`;
+  } else {
+    const askIdx = ASK_CTX.length;
+    ASK_CTX.push({leagueId:cfg.leagueId, statusMap});
+    askHTML = `<div class="askRow" data-idx="${askIdx}">
+      <input type="text" class="askInput" placeholder="e.g. better defense, replace my QB">
+      <button class="askBtn" type="button">Ask</button>
+    </div>
+    <div class="askBox" data-state="idle"></div>`;
+  }
   const amLabel = "Assistant Manager"+(flagged.size?` (${flagged.size})`:"");
   const assistantSec = (r.me.starters && r.me.starters.length) ? `
     <button class="rosterToggle" type="button" data-base="${esc(amLabel)}">🧢 Show ${esc(amLabel)} ▾</button>
@@ -969,6 +991,7 @@ function cardHTML(cfg, r, err, statusMap, statusMapNext){
       <div class="infoHead">Lineup suggestions</div>${lineupHTML}
       <div class="infoHead">Waiver wire</div>${waiverHTML}
       <div class="infoHead">Bye weeks</div>${byeSectionHTML(byeRep, r.wk)}
+      <div class="infoHead">Ask about a position</div>${askHTML}
     </div>` : "";
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
@@ -1015,6 +1038,29 @@ function isMyGame(g, cfg){
 let busy=false;
 let CURRENT_WK = null;   // the real NFL week your leagues are on, so "See real NFL scores" opens on the right week
 let WAIVER_CTX = [];     // per-card waiver-check context (league + trouble spots), indexed by data-idx
+let ASK_CTX = [];        // per-card "ask about a position" context (league + statusMap), indexed by data-idx
+// Keyword matching on a position — NOT natural language understanding, just enough to route a typed
+// question like "suggest a defensive replacement" to the right slice of the same player pool the
+// waiver-wire check already fetches. Anything that doesn't mention a recognizable position comes back
+// empty so the UI can say so plainly instead of guessing.
+function parsePositionQuestion(text){
+  const t = " "+String(text||"").toLowerCase()+" ";
+  if(/\bdef(?:ense|ence|ensive)?\b|\bdst\b|d\/st/.test(t)) return "D/ST";
+  if(/\b(quarterback|qb)\b/.test(t)) return "QB";
+  if(/\brunning ?backs?\b|\brb\b/.test(t)) return "RB";
+  if(/\breceivers?\b|wide ?outs?|\bwr\b/.test(t)) return "WR";
+  if(/\btight ?ends?\b|\bte\b/.test(t)) return "TE";
+  if(/\bkickers?\b|\bk\b/.test(t)) return "K";
+  return null;
+}
+// Best available free agents at a position, regardless of whether anyone's currently flagged there —
+// this is an on-demand look, not tied to an existing bye/injury the way the waiver-wire check is.
+function positionSuggestionsHTML(pos, pool, statusMap){
+  const cands = pool.filter(p=>p.pos===pos && p.free && p.injury==="ACTIVE" && playerStatus(p.teamAbbr, statusMap)!=="bye")
+    .sort((a,b)=>b.owned-a.owned).slice(0,5);
+  if(!cands.length) return `<div class="arow">No strong free-agent options at ${esc(pos)} right now.</div>`;
+  return `<div class="arow">Best available at <b>${esc(pos)}</b>: ${cands.map(c=>`<b>${esc(c.name)}</b> (${Math.round(c.owned)}% owned)`).join(", ")}</div>`;
+}
 async function update(){
   if(busy || !PICKS.length) return; busy=true;
   $("update").disabled=true; $("update").textContent="Getting scores…";
@@ -1040,7 +1086,7 @@ async function update(){
   await Promise.all(weeksPlusNext.map(async w=>{ statusByWeek[w] = await nflGameStatus(w); }));
   const tier = densityTier(PICKS.length);
   $("cards").className = "tier-"+tier;
-  WAIVER_CTX = []; ROSTER_SEQ = 0; NEWS_SEQ = 0;
+  WAIVER_CTX = []; ASK_CTX = []; ROSTER_SEQ = 0; NEWS_SEQ = 0;
   $("cards").innerHTML = results.map(x=>{
     const sm = (x.r && statusByWeek[x.r.wk]) || {};
     const smNext = (x.r && statusByWeek[x.r.wk+1]) || {};
@@ -1393,6 +1439,32 @@ $("cards").addEventListener("click", async e=>{
     resyncHeight(rrow);
     return;
   }
+  // "Ask about a position" — a typed question, matched by keyword to a position, then answered from
+  // the same player pool the waiver-wire check uses. Reusable for as many taps as you want (unlike
+  // the waiver check, this doesn't remove itself — you might ask about more than one position).
+  const askBtn = e.target.closest(".askBtn");
+  if(askBtn){
+    const row = askBtn.closest(".askRow"); if(!row) return;
+    const input = row.querySelector(".askInput");
+    const box = row.nextElementSibling; if(!box) return;
+    const pos = parsePositionQuestion(input.value);
+    if(!pos){
+      box.innerHTML = `<div class="msg" style="padding:4px 0">Not sure what position that's about — try mentioning QB, RB, WR, TE, K, or defense.</div>`;
+      resyncHeight(askBtn);
+      return;
+    }
+    const ctx = ASK_CTX[+row.dataset.idx];
+    box.innerHTML = `<div class="msg" style="padding:4px 0">Checking available ${esc(pos)}s…</div>`;
+    resyncHeight(askBtn);
+    try{
+      const pool = await espnPlayerPool(ctx.leagueId);
+      box.innerHTML = positionSuggestionsHTML(pos, pool, ctx.statusMap);
+    }catch(err){
+      box.innerHTML = `<div class="msg err">Couldn't check (${esc(err.message)}). Try again.</div>`;
+    }
+    resyncHeight(box);
+    return;
+  }
   // The waiver-wire check is heavier (a multi-megabyte player-pool fetch), so it's a one-shot action
   // nested inside the already-open Assistant Manager panel — tap once, it loads in place and the
   // button goes away, rather than a toggle you open and close.
@@ -1423,6 +1495,13 @@ $("cards").addEventListener("click", async e=>{
   b.textContent = opening ? `🧢 Hide ${b.dataset.base} ▴` : `🧢 Show ${b.dataset.base} ▾`;
   // expanding/collapsing changes THIS slide's height without a scroll event firing
   resyncHeight(b);
+});
+// Enter in the "ask" box submits the same way tapping the Ask button does.
+$("cards").addEventListener("keydown", e=>{
+  if(e.key!=="Enter") return;
+  const input = e.target.closest(".askInput"); if(!input) return;
+  const btn = input.closest(".askRow").querySelector(".askBtn");
+  if(btn) btn.click();
 });
 
 // First run with nothing set up yet: go straight into the wizard, one question at a time.
