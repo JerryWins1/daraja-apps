@@ -319,6 +319,7 @@ async function nflGameStatus(week){
   // The scoreboard's OWN default week can lag a fantasy site's week rollover by a day or two
   // (seen 9/22: fantasy already on week 3, this endpoint still defaulting to week 2's final scores).
   // Always ask for an explicit week so "done" never means "last week's game", not "this week's".
+  if(DEMO.on) return DEMO.status;
   if(!week) return {};
   if(SCOREBOARD_CACHE[week]) return SCOREBOARD_CACHE[week];
   const map = {};
@@ -766,7 +767,70 @@ function rosterSide(r, byUser){
   return { name:(u.display_name)||"Team", logo:"", record:"", pts:0, proj:0, starters:[] };
 }
 
-const ADAPTERS = { espn:ESPN, sleeper:SLEEPER };
+/* ------------------------------ demo league ------------------------------
+   Open the app with ?demo=1 and it runs on a made-up league instead of a real one: invented teams,
+   invented players, invented clubs, no fetching at all. It exists so the 2-minute store video and
+   the Try button have something real to show — nobody should have to hand over a league id, or
+   borrow somebody else's league, just to see what the app looks like with a week in it. */
+const DEMO = {
+  on: /[?&#]demo=1/.test(location.search + location.hash),
+  // The made-up clubs, all yet to kick off. SUM has no game at all this week, which is what puts
+  // two of the players on a bye — the thing the Coach is there to catch.
+  status: { RVR:"pre", HRB:"pre", CDR:"pre", GRN:"pre", IRN:"pre" },
+  pick: { platform:"demo", leagueId:"demo", teamId:1, leagueName:"The Sunday Group", teamName:"Couch Coaches" }
+};
+const DEMO_P = (name,pos,club,proj,injury) => ({ name, pos, teamAbbr:club, pts:0, proj, injury:injury||"" });
+// Every number here adds up: each side's projection is exactly the sum of its starters', so anyone
+// who checks the arithmetic in the video finds it holds.
+const DEMO_ME = {
+  id:1, name:"Couch Coaches", owner:"you", logo:"", record:"3-1", pts:0, proj:80.5, need:6, winProb:0.52,
+  starters:[
+    DEMO_P("Marcus Vance","QB","RVR",22.4),
+    DEMO_P("Andre Boone","RB","HRB",18.6),
+    DEMO_P("Dom Ferris","RB","CDR",9.1,"OUT"),
+    DEMO_P("Kai Okafor","WR","SUM",16.8),
+    DEMO_P("Leo Marchetti","WR","GRN",6.2),
+    DEMO_P("Tobias Reed","TE","IRN",7.4,"QUESTIONABLE")
+  ],
+  bench:[
+    DEMO_P("Silas Crane","WR","IRN",15.9),
+    DEMO_P("Bo Whitfield","RB","GRN",11.5),
+    DEMO_P("Ike Salas","WR","SUM",18.2)
+  ]
+};
+const DEMO_OPP = {
+  id:2, name:"Recliner Rangers", owner:"Steve", logo:"", record:"2-2", pts:0, proj:78.1, need:6,
+  starters:[
+    DEMO_P("Rhett Calloway","QB","HRB",20.1),
+    DEMO_P("Nash Odom","RB","RVR",17.2),
+    DEMO_P("Gil Amara","WR","CDR",14.5),
+    DEMO_P("Wes Turnbull","WR","GRN",10.0),
+    DEMO_P("Cyrus Bell","TE","IRN",8.8),
+    DEMO_P("Pax Lindgren","K","RVR",7.5)
+  ],
+  bench:[ DEMO_P("Otto Frey","RB","CDR",6.6) ]
+};
+const DEMO_BOARD = {
+  leagueName:"The Sunday Group", wk:5, games:[{ home:DEMO_ME, away:DEMO_OPP, final:false }],
+  standings:[
+    { rank:1, name:"Couch Coaches", owner:"you", record:"3-1", pf:402.5, pa:361.0 },
+    { rank:2, name:"Recliner Rangers", owner:"Steve", record:"2-2", pf:388.0, pa:377.4 },
+    { rank:3, name:"Tailgate Union", owner:"Ryan", record:"2-2", pf:371.2, pa:369.8 },
+    { rank:4, name:"Third String Heroes", owner:"Mark", record:"1-3", pf:344.9, pa:398.4 }
+  ],
+  activity:[
+    { html:"<b>Ryan</b> picked up <b>Silas Crane</b>, dropped <b>Otto Frey</b>", at: Date.now()-86400000 },
+    { html:"<b>Mark</b> dropped <b>Bo Whitfield</b>", at: Date.now()-3*86400000 }
+  ]
+};
+const DEMOAD = {
+  async getMatchup(){ return { leagueName:"The Sunday Group", wk:5, final:false, started:false,
+    me:DEMO_ME, opp:DEMO_OPP, winProb:DEMO_ME.winProb }; },
+  async getLeagueScoreboard(){ return DEMO_BOARD; },
+  async listTeams(){ return { leagueName:"The Sunday Group", teams:[DEMO_ME, DEMO_OPP] }; }
+};
+
+const ADAPTERS = { espn:ESPN, sleeper:SLEEPER, demo:DEMOAD };
 function detectAdapter(url){
   if(/espn\.com/i.test(url)) return ESPN;
   if(/sleeper\.(com|app)/i.test(url)) return SLEEPER;
@@ -1395,6 +1459,17 @@ $("cards").addEventListener("click", e=>{
   if(slides){ const el = slides.children[Math.round(slides.scrollLeft/(slides.clientWidth||1))];
     if(el) slides.style.height = el.offsetHeight+"px"; }
 });
+
+// ?demo=1 runs the made-up league for the store video and the Try button. It never touches what
+// you have saved — nothing is written, and closing the demo leaves your own teams exactly as they were.
+if(DEMO.on){
+  PICKS = [DEMO.pick];
+  const b = document.createElement("div");
+  b.style.cssText = "max-width:520px;margin:0 auto 10px;padding:8px 12px;border-radius:12px;background:#1d2a14;"
+    + "border:1px solid #3a5a24;color:#b9d99a;font-size:12.5px;font-weight:700;text-align:center";
+  b.textContent = "Demo — a made-up league, made-up players, made-up clubs. Nothing here is real, and nothing is saved.";
+  const host = $("main"); if(host && host.firstChild) host.insertBefore(b, host.firstChild);
+}
 
 // First run with nothing set up yet: go straight into the wizard, one question at a time.
 // Once at least one team is saved, always land straight on the scores.
