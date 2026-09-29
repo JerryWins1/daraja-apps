@@ -263,5 +263,51 @@
     return year + ' drivers\n\n' + Object.keys(rosters).map(p => String(nm(p)).toLowerCase() + '\n' + rosters[p].map((d, i) => (i + 1) + ') ' + String(dn(d)).toLowerCase() + ' ' + drivesPer + '/' + drivesPer).join('\n')).join('\n\n');
   }
 
-  return { snakeOrder, draftTurn, draftTaken, draftCheck, draftRosters, formatDraftOrder, formatDraftResult, DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs };
+  /* ---------- the coach: lineup and wild card advice ----------
+     Pure arithmetic on the league's own rules. No guessing: every line it returns can be checked by hand.
+     o = { roster:[ids], remaining:{id:drivesLeft,_wild:n}, rank:{id:championshipPoints},
+           weekendsLeft, sprintsLeft, perRace, isSprint, name:(id)=>string } */
+  function coachAdvice(o) {
+    const nm = o.name || (x => x);
+    const roster = o.roster || [], rem = o.remaining || {}, rank = o.rank || {};
+    const perRace = o.perRace || 2, weekendsLeft = Math.max(0, o.weekendsLeft || 0);
+    const wild = Math.max(0, rem._wild || 0), sprintsLeft = Math.max(0, o.sprintsLeft || 0);
+    const left = d => Math.max(0, rem[d] || 0);
+    const avail = roster.filter(d => left(d) > 0);
+    const totalDrives = roster.reduce((a, d) => a + left(d), 0);
+    // weekends you still have to fill with real picks, if you spend every wild card
+    const pickWeekends = Math.max(0, weekendsLeft - wild);
+    const capacity = pickWeekends * perRace;
+    const surplus = totalDrives - capacity;          // drives that cannot all be spent
+    const shortfall = capacity - totalDrives;        // weekends you cannot fill
+
+    const warnings = [];
+    if (weekendsLeft > 0 && avail.length < perRace) warnings.push(avail.length === 0
+      ? 'No drivers have drives left. ' + (wild > 0 ? 'Play a wild card this weekend.' : 'There is nothing left to run — the commissioner needs to sort this out.')
+      : 'Only ' + avail.length + ' driver' + (avail.length === 1 ? '' : 's') + ' still ' + (avail.length === 1 ? 'has' : 'have') + ' drives. ' + (wild > 0 ? 'A wild card runs all four and uses none.' : 'You cannot field a full lineup.'));
+    if (surplus > 0) warnings.push('You are carrying ' + surplus + ' more drive' + (surplus === 1 ? '' : 's') + ' than you have weekends to spend them. ' + (wild > 0 ? 'Every wild card you play makes that worse by ' + perRace + '.' : 'Some will go to waste.'));
+    if (shortfall > 0 && wild >= shortfall / perRace) warnings.push('You are ' + shortfall + ' drive' + (shortfall === 1 ? '' : 's') + ' short of filling every weekend. Wild cards cover the gap.');
+
+    // a driver with as many drives left as there are pick weekends has to run every single one
+    const must = avail.filter(d => left(d) >= pickWeekends && pickWeekends > 0);
+    const byRank = ds => ds.slice().sort((a, b) =>
+      ((rank[b] || 0) - (rank[a] || 0)) || (left(b) - left(a)) || roster.indexOf(a) - roster.indexOf(b));
+    const picks = []; const reasons = [];
+    byRank(must).forEach(d => { if (picks.length < perRace) { picks.push(d); reasons.push(nm(d) + ' — ' + left(d) + ' drives left with only ' + pickWeekends + ' weekend' + (pickWeekends === 1 ? '' : 's') + ' to use them. Running out of room.'); } });
+    byRank(avail.filter(d => !picks.includes(d))).forEach(d => {
+      if (picks.length < perRace) { picks.push(d); reasons.push(nm(d) + ' — your best driver still available, ' + (rank[d] || 0) + ' championship points, ' + left(d) + ' drives left.'); }
+    });
+
+    // wild cards are worth most where four drivers score in three sessions
+    let wc = { advise: 'none', why: '' };
+    if (wild > 0) {
+      if (wild >= weekendsLeft && weekendsLeft > 0) wc = { advise: 'play', why: 'You hold ' + wild + ' wild card' + (wild === 1 ? '' : 's') + ' and there are only ' + weekendsLeft + ' weekend' + (weekendsLeft === 1 ? '' : 's') + ' left. Use one now or lose it.' };
+      else if (o.isSprint) wc = { advise: 'play', why: 'Sprint weekend: a wild card scores all four of your drivers across three sessions. This is the most a wild card is ever worth.' };
+      else if (sprintsLeft >= wild) wc = { advise: 'hold', why: sprintsLeft + ' sprint weekend' + (sprintsLeft === 1 ? '' : 's') + ' still to come. A wild card is worth more there than here.' };
+      else wc = { advise: 'soon', why: 'Only ' + sprintsLeft + ' sprint weekend' + (sprintsLeft === 1 ? '' : 's') + ' left for ' + wild + ' wild card' + (wild === 1 ? '' : 's') + '. Spend at least one on a normal weekend.' };
+    }
+    return { picks, reasons, wildcard: wc, warnings, math: { totalDrives, weekendsLeft, pickWeekends, capacity, surplus, wild, sprintsLeft } };
+  }
+
+  return { coachAdvice, snakeOrder, draftTurn, draftTaken, draftCheck, draftRosters, formatDraftOrder, formatDraftResult, DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs };
 });

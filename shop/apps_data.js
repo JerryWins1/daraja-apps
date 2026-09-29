@@ -9,11 +9,11 @@ const PHASE = 'testing';
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
-const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','ourtable','everyday','academy'];
+const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','ourtable','everyday','academy','myscores'];
 
 /* ══ THE DOOR'S SORT ══ Jerry, 18 Sep: the Daraja door (home/) and the 🌉 More-from-Daraja sheet
    group apps this way; the store shelves above stay as they are for selling. */
-const DOOR = { pitwall:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
+const DOOR = { pitwall:'fun', myscores:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
 const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun' };
 
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -368,7 +368,7 @@ const APPS = {
 
  /* ── FOR FANS & LEAGUES ── */
  pitwall: {
-  name:'Pit Wall', em:'🏁', sub:'your fantasy racing league, your rules', cat:'home', price:'$9 / league season', testing:true, video:true,
+  name:'Pit Wall', em:'🏁', sub:'your fantasy racing league, your rules', cat:'fun', price:'$9 / league season', testing:true, video:true,
   tag:'Picks, deadlines, auto-draft, scoring and standings for a homegrown fantasy racing league — the commissioner finally gets to just watch the race',
   try:BASE+'f1/?test=1',
   lines:[
@@ -415,6 +415,37 @@ const APPS = {
     ]}
   },
   docs:[{label:'📖 The rulebook: how the league works', href:BASE+'f1/rules.html'}]},
+
+ myscores: {
+  name:'My Scores', em:'🏈', sub:'every fantasy league you are in, on one screen', cat:'fun', price:'Free', testing:true, video:true,
+  tag:'Your fantasy football leagues from different sites, side by side, live on Sunday — plus a Coach that checks your lineup for byes, injuries, empty slots and a bench player who should be starting',
+  try:BASE+'ff/?demo=1',
+  lines:[
+   "This is My Scores. If you are in more than one fantasy football league, you already know the problem: two or three apps, two or three logins, and you still cannot see all your games at once on a Sunday.",
+   {t:"My Scores puts every league on one screen. It reads your leagues from the sites they already live on, so there is nothing to move and nothing to set up twice.", point:"#cards"},
+   {t:"Here is one league. Your team on the left, the person you are playing on the right, live scores, and how many of your players are still to play.", point:".card .vs"},
+   "Everything you see in this video is a made-up league. Made-up teams, made-up players, made-up clubs. When you open it yourself, it is your real leagues.",
+   {t:"Tap Show my players and you get the whole lineup, position by position, with a dot for who is playing right now, who is finished, and who has not started.", js:"try{document.querySelector('.rosterToggle').click()}catch(e){}", point:".rosterToggle"},
+   {t:"Now the part that is new. The Coach.", js:"try{document.querySelector('.rosterToggle').click();document.querySelector('.coachToggle').click()}catch(e){}", point:".coachToggle"},
+   {t:"It checks four things before kickoff, and every one of them is something people lose games to. A starter on a bye week, who cannot score at all. A starter the injury report says is out. A starting slot with nobody in it. And a player on your bench projected to beat somebody you are starting.", point:".coach"},
+   "It does not guess. It is arithmetic, and it shows the numbers, so you can check it against your own lineup and disagree if you want to.",
+   {t:"Then there is the button at the bottom. Copy a briefing for my AI.", point:".coach .askBtn"},
+   {t:"That copies your whole week as plain words: your lineup with projections, injuries and byes, your bench, who you are playing, the standings, and who in the league has been picking up whom. Paste it into Claude or ChatGPT and ask it who to start, who to add off waivers, and who to drop.", js:"try{document.querySelector('.coach .askBtn').click()}catch(e){}"},
+   "No keys, no account, no subscription. Nothing about your leagues leaves the app until you paste it somewhere yourself.",
+   {t:"Swipe the card sideways and you get every other matchup in the league, then the standings and the recent moves. Your whole league, in one place, without a tab open.", point:".swipeHint"},
+   "Two sites are supported today. One of them publishes weekly projections and one does not, and the Coach tells you which you are looking at instead of pretending.",
+   "It is free. Open it with the button below and add your first league in about a minute."
+  ],
+  train:[
+   "Let's set up My Scores. About a minute per league, and then you never touch it again.",
+   {t:"Step one: tap Add or manage teams at the bottom.", js:"try{show('setupHome')}catch(e){}", point:"#addBottom"},
+   "Step two: paste the web address of your league. Open your league on its own site, copy the address out of the bar at the top, and paste it in. The app works out which site it is and which league you mean.",
+   "Step three: pick which team in that league is yours from the list it shows you. That is the whole setup for one league.",
+   "Step four: repeat for your other leagues. Two leagues get full-size cards, five or more get a compact row each so the whole slate still fits one screen.",
+   {t:"Step five: tap Update scores whenever you want. It also refreshes by itself every time you come back to the app.", js:"try{show('main')}catch(e){}", point:"#update"},
+   "One thing worth knowing: if a league is set to private on its own site, nothing can read it from outside. The league manager has to set it viewable, which takes one tick in the league settings. The app tells you when that is the problem.",
+   "You'll know it is set up right when the top of the screen shows the right week and every league you are in is on the page."]
+ },
 
  churchhq: {
   name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'off', off:'folded into The Church App — it is how you keep the one you bought current', price:'$29 one-time', video:true,
