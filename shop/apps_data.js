@@ -9,11 +9,11 @@ const PHASE = 'testing';
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
-const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','ourtable','everyday','academy'];
+const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','ourtable','everyday','academy','ff'];
 
 /* ══ THE DOOR'S SORT ══ Jerry, 18 Sep: the Daraja door (home/) and the 🌉 More-from-Daraja sheet
    group apps this way; the store shelves above stay as they are for selling. */
-const DOOR = { pitwall:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
+const DOOR = { pitwall:'fun', ff:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
 const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun' };
 
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -415,6 +415,35 @@ const APPS = {
     ]}
   },
   docs:[{label:'📖 The rulebook: how the league works', href:BASE+'f1/rules.html'}]},
+
+ ff: {
+  name:'My Scores', em:'🏈', sub:'your fantasy scoreboard, one screen', fresh:true, cat:'home', price:'Free', testing:true, video:true,
+  tag:'One tap gets every team\u2019s score. Swipe for the whole league. Tap any name for the roster. A built-in Assistant Manager handles waiver help, injury news, and lineup advice.',
+  try:BASE+'ff/',
+  lines:[
+   "This is My Scores \u2014 one screen for every fantasy football team you follow, however many you\u2019ve got.",
+   "Setup is one short question at a time. Paste your team\u2019s link, tell it which team is yours, and you\u2019re in. Works with ESPN and Sleeper leagues.",
+   "One big Update button gets every team\u2019s score right now \u2014 yours and whoever you\u2019re playing.",
+   "Swipe your own card sideways to see every other matchup in the league, then the standings. It loops right back around.",
+   "Tap either team\u2019s score to open the whole roster \u2014 starters, then bench, with a live dot for who\u2019s still playing.",
+   "The Assistant Manager button is the team-management side: lineup suggestions, real waiver-wire replacements, and who\u2019s on bye this week and next.",
+   "You can even type a plain question \u2014 \u2018suggest a defensive replacement\u2019 \u2014 and it goes and finds one.",
+   "Tap any injury tag and get the real news behind it, not just a two-letter code.",
+   "It\u2019s free, it\u2019s yours, and it works for however many teams your whole family plays. Try it below."
+  ],
+  train:[
+   "Let\u2019s get My Scores loaded \u2014 two minutes, then it\u2019s yours for the season.",
+   "Step one, loading it: open the link. First time in, it walks you through one question at a time \u2014 which league, then which team is yours.",
+   "Step two: paste your team\u2019s link from ESPN or Sleeper, or tap one of the leagues already saved if you\u2019re joining a family game.",
+   "Managing more than one team? Tap \u2018plus Add another team\u2019 and do it again. It\u2019ll ask if a second team in the same league is really a second team, so it never mixes them up.",
+   "Step three, operating it: once you\u2019re set up, it opens straight to your scores. Tap the big Update button any time for the latest \u2014 yours and your opponent\u2019s.",
+   "Swipe your own card sideways to browse every other matchup in the league, then the season standings. Swipe past the end and it loops back to your game.",
+   "Tap either team\u2019s score to open their whole roster, starters and bench, with a live dot next to whoever\u2019s still playing.",
+   "Step four, managing your team: tap Assistant Manager for lineup suggestions comparing your bench to your starters, real waiver-wire replacements for anyone hurt or on bye, and who\u2019s out this week and next.",
+   "Type a plain question in the box at the bottom \u2014 \u2018suggest a defensive replacement\u2019 \u2014 and it\u2019ll find real available options, ranked by who else is picking them up.",
+   "See an injury tag on someone\u2019s roster? Tap it. That\u2019s the real news story behind it, not just a code.",
+   "That\u2019s the whole thing \u2014 one button to update, a swipe to browse, and Assistant Manager for everything else. Enjoy the season."
+  ]},
 
  churchhq: {
   name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'off', off:'folded into The Church App — it is how you keep the one you bought current', price:'$29 one-time', video:true,
