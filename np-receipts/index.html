@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v38">
+<script id="dj-house-v46">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -56,13 +56,27 @@
       (msg ? '\n\n(' + String(msg).slice(0,120) + ')' : ''),
       [['Reload', function(){ location.reload(); }]]);
   }
+  /* v44 (22 Sep 2026): a service worker that fails to update is a leftover from a page that moved
+     (the old store under Apps (installable site)/store/, archived 12 Sep) — not this app's fault.
+     Jerry could not get rid of the bar it raised. Never show it for that; throw the leftover away. */
+  function swNoise(m){ return /ServiceWorker|service worker/i.test(String(m || '')); }
   window.addEventListener('error', function(e){
     if(e && e.target && e.target !== window && e.target.tagName) return; /* a missing image is not a crash */
+    if(swNoise(e && e.message)) return;
     net(e && e.message);
   });
   window.addEventListener('unhandledrejection', function(e){
-    net(e && e.reason && e.reason.message);
+    var m = e && e.reason && e.reason.message;
+    if(swNoise(m)){ try{ e.preventDefault(); }catch(_){} return; }
+    net(m);
   });
+  function tidyWorkers(){
+    try{ if(!navigator.serviceWorker || !navigator.serviceWorker.getRegistrations) return;
+      navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){
+        try{ fetch(r.scope, {method:'HEAD', cache:'no-store'}).then(function(x){ if(x.status === 404) r.unregister(); }, function(){}); }catch(e){}
+      }); }, function(){}); }catch(e){}
+  }
+  setTimeout(tidyWorkers, 4000);
 
   /* one calm bar, never an alert() the person cannot read at their own pace */
   function djBanner(title, body, buttons){
@@ -149,8 +163,8 @@
     }
     var r = box.getBoundingClientRect();
     /* scrolled out of sight — inside a sheet or off the page — so show nothing */
-    if(r.bottom < 4 || r.top > window.innerHeight - 4 || r.width < 60){ micBtn.hidden = true; return; }
-    micBtn.hidden = false;
+    if(r.bottom < 4 || r.top > window.innerHeight - 4 || r.width < 60){ hide(); return; }
+    micBtn.hidden = false; micBtn.style.setProperty('display','flex','important');
     /* measure what the browser actually made, rather than trusting the numbers above */
     var m = micBtn.getBoundingClientRect();
     var w = m.width  || 40, h = m.height || 40;
@@ -159,7 +173,7 @@
     /* a short box would be swallowed by the button — sit just outside it instead */
     if(r.width < w + 90) micBtn.style.left = (window.scrollX + r.right + 6) + 'px';
   }
-  function hide(){ if(micBtn) micBtn.hidden = true; }
+  function hide(){ if(micBtn){ micBtn.hidden = true; micBtn.style.setProperty('display','none','important'); } }
 
   function talk(){
     var box = curBox; if(!box) return;
@@ -334,8 +348,11 @@
         function sync(){
           var on = !!box.value;
           if(on && !lab){
+            var par = box.parentNode, pd = '';
+            try{ pd = getComputedStyle(par).display; }catch(e){}
+            if(pd === 'flex' || pd === 'grid' || pd === 'inline-flex' || pd === 'inline-grid') return;   /* inserting here would shove the row's other cells sideways */
             lab = document.createElement('span'); lab.className='dj-stay'; lab.textContent = text;
-            box.parentNode.insertBefore(lab, box);
+            par.insertBefore(lab, box);
           } else if(!on && lab){ lab.remove(); lab = null; }
         }
         box.addEventListener('input', sync); box.addEventListener('change', sync); sync();
@@ -456,8 +473,9 @@
       if(r.height < 20 || r.width < 20) continue;
       if(r.height > VH * 0.5) continue;                 /* a full-screen overlay is not a bar */
       if(r.bottom < VH * 0.45) continue;                /* only the lower half matters */
-      if(r.width > VW * 0.5 && r.bottom > VH - 8){
-        bar = Math.max(bar, r.height);                  /* a bottom bar spanning the screen */
+      if(el.id === 'pwaTip') continue;                  /* the install tip lifts itself above us — counting it would chase in circles */
+      if(r.width > VW * 0.5 && r.bottom > VH * 0.6){
+        bar = Math.max(bar, VH - r.top);                /* a bar spanning the screen — at the bottom, or just above the nav (Ahead of It's coach bar, 22 Sep) */
       } else if(VW - r.right < 92){
         right = Math.max(right, VH - r.top);            /* something already in our corner */
       }
@@ -523,13 +541,35 @@
   var toggleBtn = null, openDock = false;
 
   var DOCK_LABELS = { djAa:['Aa','Text size — bigger or smaller'], djAIBtn:['✨','Ask an AI about this screen'], djMore:['\u{1F309}','More from Daraja — the other apps'], djHelp:['?','Help, backup, start fresh'], dTipDot:['\u{1F4A1}','Tips for this screen'], introDot:['?','What am I doing here? — the 30-second intro'], djDays:['⏳','Days left on your code'] };
+  /* the version a person should be told, wherever the app happens to print it */
+  function appStamp(){
+    try{
+      var best = null, bestN = -1;
+      var spots = document.querySelectorAll('.foot, .muted, footer, #ver, .ver, .version, #dsSplash div');
+      for(var i = 0; i < spots.length; i++){
+        var txt = spots[i].textContent || '', m, rx = /v\s?(\d+)\.(\d+)[^·\n]{0,4}(\s*·\s*\d{4}-\d{2}-\d{2})?/g;
+        while((m = rx.exec(txt))){
+          var n = (+m[1]) * 1000 + (+m[2]);
+          if(n > bestN){ bestN = n; best = m[0].replace(/\s+/g, ' ').trim(); }
+        }
+      }
+      return best;
+    }catch(e){ return null; }
+  }
+  window.djAppVersion = appStamp;
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    var h = document.createElement('div'); h.style.cssText = 'font-weight:900;font-size:18px;margin:2px 4px 10px'; h.textContent = 'Help and settings'; box.appendChild(h);
+    var h = document.createElement('div'); h.style.cssText = 'font-weight:900;font-size:18px;margin:2px 4px 2px'; h.textContent = 'Help and settings'; box.appendChild(h);
+    /* Which version am I on? On five apps the stamp sat inside a tab you had to find first,
+       so nobody could answer that. It is now always one tap away, in every app. (21 Sep 2026) */
+    var vLine = document.createElement('div');
+    vLine.style.cssText = 'margin:0 4px 10px;font-size:13.5px;color:#55605B';
+    vLine.textContent = 'You are on ' + (appStamp() || 'a version this app does not show');
+    box.appendChild(vLine);
     var n = 0;
     for(var i = 0; i < dockEl.children.length; i++){
       var c = dockEl.children[i]; if(c === toggleBtn) continue;
@@ -642,7 +682,7 @@
 
   /* one text-size setting for every app: they share an address, so they share this */
   var SIZES = [1, 1.15, 1.3];
-  function textSize(){ var v = parseFloat(localStorage.getItem('dj_textsize') || '1'); return SIZES.indexOf(v) >= 0 ? v : 1; }
+    function textSize(){ try{ return parseFloat(localStorage.getItem('dj_textsize') || '1') || 1; }catch(e){ return 1; } }   /* Block All Cookies makes this throw; it used to take the whole pass down with it */
   function applyTextSize(){ try{ var v = textSize(); if(document.body){ if(v === 1) document.body.style.removeProperty('zoom'); else document.body.style.setProperty('zoom', String(v)); } }catch(e){} }
   function aaButton(){
     if(document.getElementById('djAa') || !document.body) return;
@@ -662,7 +702,7 @@
       if(off && !bar && document.body){
         bar = document.createElement('div'); bar.id = 'djOffline'; bar.setAttribute('role','status');
         bar.textContent = 'No connection right now — the app still works and saves on this phone.';
-        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147481002;background:#5A4A12;color:#fff;font:600 14px/1.3 -apple-system,system-ui,sans-serif;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;text-align:center';
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147481002;background:#5A4A12;color:#fff;font:600 14px/1.3 -apple-system,system-ui,sans-serif;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;text-align:center;pointer-events:none'   /* it is a notice, not a control — taps go through to the app underneath */;
         document.body.appendChild(bar);
       }
       if(!off && bar){ bar.remove(); bar = null; }
@@ -683,11 +723,33 @@
       var n = document.createElement('div'); n.id = 'djUpdated';
       n.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481001;background:#1C2B29;color:#fff;border-radius:14px;padding:10px 12px;font:600 15px/1.3 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.3)';
       var t = document.createElement('span'); t.style.flex = '1'; t.textContent = '✨ Updated to ' + stamp;
-      var a = document.createElement('a'); a.href = 'https://jerrywins1.github.io/daraja-apps/whats-new/'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'What changed'; a.style.cssText = 'color:#F2B134;font-weight:800;min-height:44px;display:inline-flex;align-items:center;padding:0 6px;white-space:nowrap';
+      /* v46: "What changed" opens the notes right here (a new tab looked like the note just vanished),
+         and the note stays put once touched — it only tidies itself away if nobody touches it. */
+      n.style.flexWrap = 'wrap';
+      var a = document.createElement('button'); a.type = 'button'; a.textContent = 'What changed'; a.style.cssText = 'color:#F2B134;font:800 15px/1.2 -apple-system,system-ui,sans-serif;min-height:44px;display:inline-flex;align-items:center;padding:0 6px;white-space:nowrap;border:0;background:transparent;cursor:pointer';
       var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label','Dismiss'); x.style.cssText = 'font:800 16px/1 system-ui;min-width:44px;min-height:44px;border:0;background:transparent;color:#fff;cursor:pointer';
+      var box = document.createElement('div'); box.style.cssText = 'flex-basis:100%;font:500 14.5px/1.45 -apple-system,system-ui,sans-serif;display:none;max-height:50vh;overflow:auto';
+      var timer = setTimeout(function(){ if(n.parentNode) n.remove(); }, 30000);
+      n.addEventListener('pointerdown', function(){ clearTimeout(timer); });
       x.onclick = function(){ n.remove(); };
-      n.append(t, a, x); document.body.appendChild(n);
-      setTimeout(function(){ if(n.parentNode) n.remove(); }, 20000);
+      a.onclick = function(){
+        clearTimeout(timer);
+        if(box.style.display === 'block'){ box.style.display = 'none'; return; }
+        box.style.display = 'block'; box.textContent = 'Loading…';
+        var here = location.pathname.replace(/index\.html$/,'');
+        fetch('https://jerrywins1.github.io/daraja-apps/control/fixed.json?' + Date.now()).then(function(r){ return r.json(); }).then(function(list){
+          var mine = (Array.isArray(list) ? list : []).filter(function(e){ try{ return new URL(e.url).pathname.replace(/index\.html$/,'') === here; }catch(err){ return false; } }).slice(0, 4);
+          box.innerHTML = '';
+          if(!mine.length){ box.textContent = 'Small fixes — nothing you need to learn.'; }
+          mine.forEach(function(e){ var d = document.createElement('div'); d.style.cssText = 'padding:8px 0;border-top:1px solid rgba(255,255,255,.15)';
+            var h = document.createElement('b'); h.textContent = (e.version || '') + (e.date ? ' · ' + e.date : ''); h.style.color = '#F2B134';
+            var p = document.createElement('div'); p.textContent = String(e.note || '').replace(/^[^:]{2,30}:\s*/, '');
+            d.append(h, p); box.appendChild(d); });
+          var more = document.createElement('a'); more.href = 'https://jerrywins1.github.io/daraja-apps/whats-new/'; more.target = '_blank'; more.rel = 'noopener'; more.textContent = 'Everything that changed, in every app ›'; more.style.cssText = 'color:#F2B134;display:inline-block;padding:8px 0 2px;font-weight:700';
+          box.appendChild(more);
+        }).catch(function(){ box.textContent = 'Could not load the notes — check your signal.'; });
+      };
+      n.append(t, a, x, box); document.body.appendChild(n);
     }catch(e){}
   }
   /* ── 10 · the Home Screen guide (research patrol, 10 Sep 2026) ─────────────
@@ -985,9 +1047,17 @@
         + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><div style="font-size:26px">\u{1F309}</div><div style="flex:1"><div style="font-weight:900;font-size:19px">More from Daraja</div><div style="font-size:14px;color:' + soft + '">' + (cat ? esc(NAMES[cat] || '') + ' · the other apps on this shelf' : 'the whole family of apps') + '</div></div><button type="button" id="djMoreClose" aria-label="Close" style="width:44px;height:44px;min-height:44px;border-radius:50%;border:1.5px solid ' + line + ';background:' + card + ';color:' + ink + ';font:800 18px/1 sans-serif;cursor:pointer">✕</button></div>'
         + '<p style="font-size:14px;color:' + soft + ';margin:6px 0 12px">Same idea as this one: one price, no subscription, no account, your data stays on your phone. Every purchase keeps a student in Kenya in school.</p>'
         + rows
-        + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">' + btn('\u2753 Help with this app', 'https://jerrywins1.github.io/daraja-apps/help/' + (me ? '?app=' + me : ''), false) + btn('\u{1F4EC} Tell me when things change', 'https://jerrywins1.github.io/daraja-apps/whats-new/#tellme', false) + btn('\u{1F309} Every shelf \u2014 the door', 'https://jerrywins1.github.io/daraja-apps/home/', false) + '</div></div>';
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">' + btn('\u2753 Help with this app', 'https://jerrywins1.github.io/daraja-apps/help/' + (me ? '?app=' + me : ''), false) + btn('\u{1F4EC} Tell me when things change', 'https://jerrywins1.github.io/daraja-apps/whats-new/#tellme', false) + btn('\u{1F309} Every shelf \u2014 the door', 'https://jerrywins1.github.io/daraja-apps/home/', false) + '<button type="button" id="djShare" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 14px;border-radius:12px;font:800 15px -apple-system,system-ui,sans-serif;border:1.5px solid ' + line + ';background:' + card + ';color:' + ink + ';cursor:pointer">\u{1F4E4} Share this app with a friend</button></div></div>';
       document.body.appendChild(wrap);
       document.getElementById('djMoreClose').onclick = function(){ wrap.remove(); };
+      /* v43 (22 Sep 2026): word of mouth is the channel for this age group — one tap to send a friend the app */
+      var sh = document.getElementById('djShare'); if(sh) sh.onclick = function(){
+        var a = me && APPS[me] || {}; var nm = a.name || document.title.split(' — ')[0].split(' · ')[0] || 'this app';
+        var url = me ? ('https://jerrywins1.github.io/daraja-apps/shop/#' + me) : location.href.split('?')[0];
+        var text = 'I am using ' + nm + ' from Daraja Studio — a small phone app, no account, no subscription. Have a look: ' + url;
+        if(navigator.share){ try{ navigator.share({ title: nm, text: text, url: url }).catch(function(){}); return; }catch(e){} }
+        try{ var cp = navigator.clipboard && navigator.clipboard.writeText(text); if(cp && cp.then) cp.then(function(){ sh.textContent = '\u2705 Copied — paste it into a text or an email'; }, function(){ prompt('Copy this and send it to a friend:', text); }); else prompt('Copy this and send it to a friend:', text); }catch(e){ prompt('Copy this and send it to a friend:', text); }
+      };
     });
   }
 
@@ -1029,6 +1099,29 @@
     setTimeout(function(){ w.style.opacity = '0'; w.style.maxHeight = '0'; w.style.margin = '0 10px'; w.style.padding = '0 14px'; setTimeout(function(){ w.remove(); }, 450); }, 8000);
   }
 
+
+  /* v42 (22 Sep 2026): the “Install on iPhone” tip in eleven apps is a fixed strip along the
+     bottom, and on an iPhone it landed on top of the corner dock, a ＋ button, or the Quick setup
+     bar — found the first time the checks ran as an iPhone instead of a Mac. Lift it to sit just
+     above whatever else is floating near the bottom, and follow it if that moves. */
+  function liftTip(){
+    var t = document.getElementById('pwaTip'); if(!t) return;
+    var cs = getComputedStyle(t); if(cs.display === 'none' || cs.position !== 'fixed') return;
+    var H = window.innerHeight, top = H;
+    Array.prototype.forEach.call(document.body.querySelectorAll('*'), function(el){
+      if(el === t || t.contains(el) || el.id === 'djHello' || el.id === 'djOffline') return;
+      var c = getComputedStyle(el); if(c.position !== 'fixed' || c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return;
+      var r = el.getBoundingClientRect(); if(r.width < 24 || r.height < 24 || r.bottom <= H * 0.45 || r.height > H * 0.5 || r.top < 0) return;   /* a full-screen card is not a bar */
+      if(r.top < top) top = r.top;
+    });
+    if(top < H){ t.style.bottom = 'calc(' + Math.round(H - top + 8) + 'px + env(safe-area-inset-bottom))'; }
+  }
+  function tipWatch(){
+    var t = document.getElementById('pwaTip'); if(!t) return;
+    try{ new MutationObserver(function(){ setTimeout(liftTip, 30); }).observe(t, {attributes:true, attributeFilter:['class','style']}); }catch(e){}
+    window.addEventListener('resize', liftTip);
+    [1800, 3200, 6000].forEach(function(ms){ setTimeout(liftTip, ms); });
+  }
   function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
@@ -1043,8 +1136,10 @@
      not less. */
   function boot(){ if(!embedded) start(); try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
-    try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
-    window.addEventListener('resize', fabLift); floorsSoon();
+    try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+    /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
+    try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
+    window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){}
     try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
@@ -1141,7 +1236,7 @@
 <body>
 <div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#F6F4EF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#26221C;font-family:-apple-system,sans-serif">
   <div style="font-size:62px">🧾</div><div style="font-size:28px;font-weight:800">Receipt Maker</div>
-  <div style="font-size:13px;color:#6D675D;font-weight:700">v1.0 · born Sep 1</div>
+  <div style="font-size:13px;color:#6D675D;font-weight:700">born Sep 1</div>
   <div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div>
 </div>
 <script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
@@ -1156,7 +1251,7 @@
     <h2>1 · Your organization <span style="font-weight:400;color:var(--soft);font-size:13px">(saved on this device)</span></h2>
     <label>Organization name</label><input id="orgName" placeholder="e.g. Loving InDeed NFP" autocomplete="name">
     <label>EIN</label><input id="orgEin" placeholder="e.g. 12-3456789" inputmode="numeric">
-    <label>Address</label><input id="orgAddr" placeholder="street, city, state zip" inputmode="numeric">
+    <label>Address</label><input id="orgAddr" placeholder="street, city, state zip">
     <label>Signer (name & title)</label><input id="orgSigner" placeholder="e.g. Jerry Winslow, President">
   </div>
 
@@ -1243,11 +1338,11 @@ function makeLetters(){
 
 <footer style="text-align:center;font-size:11.5px;color:var(--soft);padding:20px;line-height:1.6">
   Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
-  <span style="opacity:.8">Receipt Maker v1.1 · 2026-09-11 · Daraja Studio · every app helps a student in Kenya stay in school</span>
+  <span style="opacity:.8">Receipt Maker v1.2 · 2026-09-21 · Daraja Studio · every app helps a student in Kenya stay in school</span>
 </footer>
 <script>window.DJ_START = {"slug": "receipts", "em": "🧾", "title": "Welcome — this writes your donor letters.", "lede": "At the end of the year every donor needs a letter with their total and the words the IRS requires. This does all of them at once, so nobody spends January on it.", "cta": "Start with my details →", "firstSelector": "input, button", "dataKeys": ["receipts_v1", "np_receipts_v1"], "steps": ["<b>Put your organisation's details in</b> — name, address, EIN.", "<b>Add your gifts</b> — one donor, one amount, one date at a time.", "<b>Make the letters</b> and print or email the lot."]};</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.1 · 2026-09-11) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.2 · 2026-09-21) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
@@ -1370,7 +1465,7 @@ function giftRowHTML(n, name, amt, date){
     + '<span style="flex:none;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.07);'
     + 'display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">'+n+'</span>'
     + '<input class="gName" placeholder="donor name" value="'+(name||'')+'" style="flex:2;min-width:130px" autocomplete="name">'
-    + '<input class="gAmt" placeholder="amount, or describe an in-kind gift" value="'+(amt||'')+'" style="flex:1.4;min-width:120px" inputmode="numeric">'
+    + '<input class="gAmt" placeholder="amount, or describe an in-kind gift" value="'+(amt||'')+'" style="flex:1.4;min-width:120px">'
     + '<input class="gDate" type="date" value="'+(date||'')+'" style="flex:1;min-width:132px">'
     + '<button aria-label="remove this row" type="button" class="gDel" onclick="delGift(this)" title="remove this row" '
     + 'style="flex:none;border:none;background:transparent;color:#b44;font-size:19px;cursor:pointer;padding:0 6px">×</button>'
@@ -1743,7 +1838,7 @@ function _ls(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch
 function _lines(a){ return (a||[]).filter(Boolean).map(function(x){ return '- ' + x; }).join('\n'); }
 
 window.DJ_AI = { title:'Write the thank-you note',
-  prompt:function(){ var d=_ls('receiptmaker_org_v1')||{}; var org=d.org||d.name||'our nonprofit'; var t=(document.body.innerText||'').replace(/\s+/g,' ').slice(0,700);
+  prompt:function(){ var d=_ls('receiptmaker_org_v1')||{}; var org=d.orgName||d.org||d.name||'our nonprofit'; var t=(document.body.innerText||'').replace(/\s+/g,' ').slice(0,700);
     return 'Write a warm, two-paragraph thank-you note from ' + org + ' to a donor, for the gift shown here:\n' + t + '\n\nNo legal wording (the receipt handles that). Sound like a real person, not a form letter. Under 120 words.'; } };
 })();
 </script>

@@ -27,8 +27,10 @@ window.deepCheck = async function(url, opts){
     /* a version a person can actually read, and only one of them */
     const txt = d.body.innerText || '';
     const stamps = [...new Set((txt.match(/v\s?\d+\.\d+/g) || []).map(x => x.replace(/\s/g, '')))];
-    if (!stamps.length) add('NO-VERSION-SHOWN');
-    else if (stamps.length > 1) add('TWO-VERSIONS', stamps.join(' and '));
+    const anywhere = /v\s?\d+\.\d+/.test(d.body.textContent || '');
+    const inSheet = typeof w.djAppVersion === 'function' && w.djAppVersion();
+    if (!stamps.length && !inSheet) add(anywhere ? 'VERSION-HIDDEN' : 'NO-VERSION-ANYWHERE');
+    else if (stamps.length > 1 && !/\/shop\//.test(url)) add('TWO-VERSIONS', stamps.join(' and '));
 
     /* the house layer, and anything fighting it for a name */
     if (!d.querySelector('script[id^="dj-house-v"]')) add('NO-HOUSE-LAYER');
@@ -61,10 +63,14 @@ window.deepCheck = async function(url, opts){
       const label = (b.getAttribute('aria-label') || b.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 22);
       try { b.click(); } catch (e) { add('TAB-THREW', label); continue; }
       await new Promise(r => setTimeout(r, 500));
-      const seen = [...d.querySelectorAll('main *, .wrap *, .view.on *, .pane.on *, section.on *')]
-        .filter(el => { if (!vis(el)) return false; const r = el.getBoundingClientRect(); return r.top < H && r.bottom > 50; })
+      /* the screen this tab switches to — and if the app is not built that way, the page
+         minus the furniture. Measuring only one shape of app made it cry wolf on Immanuel. */
+      const zone = d.querySelector('.view.on, .pane.on, section.on, [role=tabpanel]:not([hidden])') || d.body;
+      const seen = [...zone.querySelectorAll('*')]
+        .filter(el => { if (!vis(el)) return false; if (el.closest('nav, header, footer, .foot, #djDock, #djHello')) return false;
+                        const r = el.getBoundingClientRect(); return r.top < H && r.bottom > 50; })
         .map(el => [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join(' ')).join(' ').replace(/\s+/g, ' ').trim();
-      if (seen.length < 20) add('BLANK-TAB', label);
+      if (seen.length < 20) add('BLANK-TAB', label + ' (' + seen.length + ' characters on screen)');
       if (d.getElementById('djBanner')) { add('RED-BAR-AFTER-TAB', label); d.getElementById('djBanner').remove(); }
     }
   } catch (e) { add('CHECK-FAILED', e.message); }
