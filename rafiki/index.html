@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v46">
+<script id="dj-house-v47">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -763,10 +763,12 @@
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
       var force = /[?&]dj_a2hs=1/.test(location.search);
       if(embedded || (!force && (!ios || navigator.standalone))) return;
+      if(!force && /\/(welcome|watch\.html|feedback-studio|testers|help|testday|control|safety)(\/|$)/.test(location.pathname)) return;   /* v47: tester and helper pages are visited, not kept */
       var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
       if(st === 'done' || st === 'no') return;
       var visits = parseInt(st || '0', 10) || 0;
       if(!force && visits < 1){ localStorage.setItem(key, String(visits + 1)); return; }   /* first visit: just count */
+      if(!force && cardOpen()){ setTimeout(homeScreenGuide, 4000); return; }   /* v47: wait until the welcome card is closed */
       var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
       var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
       var w = document.createElement('div'); w.id = 'djA2HS'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Put this app on your Home Screen');
@@ -1104,9 +1106,27 @@
      bottom, and on an iPhone it landed on top of the corner dock, a ＋ button, or the Quick setup
      bar — found the first time the checks ran as an iPhone instead of a Mac. Lift it to sit just
      above whatever else is floating near the bottom, and follow it if that moves. */
+  /* v47 (2 Oct 2026): the strip still sat on welcome-card buttons in nine apps (My Safety Plan's
+     Call row among them). Now: never on someone's very first visit, never while a welcome or
+     full-screen card is open, and when it does show, the page gets room at the bottom so
+     nothing can hide underneath it. */
+  var TIP_FIRST = (function(){ try{ var k='dj_tipseen_'+location.pathname; if(localStorage.getItem(k)) return false; localStorage.setItem(k,'1'); return true; }catch(e){ return false; } })();
+  function cardOpen(){
+    var ids = ['djStart','introOv','fsIntro','djGate','hello','welcome','firstRun','djCoachCard'], H = window.innerHeight;
+    for(var i=0;i<ids.length;i++){ var e=document.getElementById(ids[i]); if(!e) continue; var ec=getComputedStyle(e), er=e.getBoundingClientRect(); if(ec.display!=='none' && ec.visibility!=='hidden' && +ec.opacity>0 && er.height>40 && er.bottom>0 && er.top<H) return true; }
+    var big = false;
+    Array.prototype.forEach.call(document.body.children, function(el){
+      if(big || el.id === 'pwaTip' || el.id === 'djA2HS') return; var c = getComputedStyle(el);
+      if(c.position === 'fixed' && c.display !== 'none' && c.visibility !== 'hidden' && +c.opacity > 0){ var r = el.getBoundingClientRect(); if(r.height > H * 0.6 && r.width > window.innerWidth * 0.8) big = true; }
+    });
+    return big;
+  }
   function liftTip(){
     var t = document.getElementById('pwaTip'); if(!t) return;
     var cs = getComputedStyle(t); if(cs.display === 'none' || cs.position !== 'fixed') return;
+    var hide = TIP_FIRST || embedded || cardOpen();   /* inside the tester (a frame) it would sit over the app being tested */
+    t.style.visibility = hide ? 'hidden' : '';
+    if(hide) return;
     var H = window.innerHeight, top = H;
     Array.prototype.forEach.call(document.body.querySelectorAll('*'), function(el){
       if(el === t || t.contains(el) || el.id === 'djHello' || el.id === 'djOffline') return;
@@ -1115,12 +1135,15 @@
       if(r.top < top) top = r.top;
     });
     if(top < H){ t.style.bottom = 'calc(' + Math.round(H - top + 8) + 'px + env(safe-area-inset-bottom))'; }
+    var need = Math.round(H - t.getBoundingClientRect().top + 12), have = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    if(need > have && need < H * 0.4) document.body.style.paddingBottom = need + 'px';
   }
   function tipWatch(){
     var t = document.getElementById('pwaTip'); if(!t) return;
     try{ new MutationObserver(function(){ setTimeout(liftTip, 30); }).observe(t, {attributes:true, attributeFilter:['class','style']}); }catch(e){}
     window.addEventListener('resize', liftTip);
     [1800, 3200, 6000].forEach(function(ms){ setTimeout(liftTip, ms); });
+    setInterval(function(){ if(!TIP_FIRST && t.style.visibility === 'hidden') liftTip(); }, 2500);   /* a welcome card that is removed (not hidden) brings the strip back */
   }
   function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
 
@@ -1308,7 +1331,7 @@
     <div class="pills"><button aria-label="choose my voice" onclick="R.voice()" title="choose my voice">🗣 voice</button><button aria-label="sound on or off" onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button aria-label="start over" onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.7 · 2026-09-21 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.8 · 2026-10-02 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -1639,7 +1662,8 @@ function checkin(){
      bubAI('Then I’m glad you told me. You don’t have to carry heavy alone — that’s what people who love you are for, and calling one of them counts as doing something. I’m a friend on your shoulder, not a doctor — but I’m here, and I’m not going anywhere.');
      setTimeout(function(){ ask(understand, 'I’m listening…', [
        ['Sit with me a minute 🤝', function(){ bubAI('Sitting. No hurry. …You know, of all the phones in all the world, I’m glad I ended up in yours.'); offerMenu(); }],
-       ['I’m okay — thanks', function(){ bubAI('Any time. I mean that literally — I’m awake all night.'); offerMenu(); }]]); }, 900);
+       ['I’m okay — thanks', function(){ bubAI('Any time. I mean that literally — I’m awake all night.'); offerMenu(); }],
+       ['📞 Talk to someone (988)', function(){ bubAI('Good choice. 988 is free and answers day and night — call or text. If you are in danger right now, call 911.'); location.href='tel:988'; }]]); }, 900);
    }]]); }, 900);
 }
 
@@ -2163,12 +2187,24 @@ function morning(){
   }, 1500);
 }
 
+/* ── when someone says they want to die (2 Oct 2026): this comes before jokes, weather, anything ── */
+var CRISIS = /(want(ed)? to die|wanna die|kill(ing)? myself|suicid|end (it all|my life|things)|take my (own )?life|don.?t want to (live|be here|wake up)|no reason to live|better off (dead|without me)|hurt(ing)? myself|self.?harm|can.?t go on)/;
+function crisis(){
+  bubAI('I’m really glad you told me. You matter — to me, and to people who love you. I’m only an app, so please talk to a real person right now: call or text <b>988</b> (the Suicide &amp; Crisis Lifeline — free, any time, day or night). If you are in danger this minute, call <b>911</b>.');
+  setTimeout(function(){ ask(understand, 'I’m still here…', [
+    ['📞 Call 988', function(){ location.href='tel:988'; }],
+    ['💬 Text 988', function(){ location.href='sms:988'; }],
+    ['Call someone I love', function(){ bubAI('Yes. Pick the person who would want to know — that’s most people who love you. I’ll be right here when you’re done.'); offerMenu(); }]]); }, 700);
+}
+
 /* ── understanding what you say ── */
 function understand(t){
   var low=String(t||'').toLowerCase();
   if(!low.trim()){ offerMenu(); return; }
-  if(/joke|funny|laugh/.test(low)) return joke();
-  if(/weather|outside|temperature|rain|cold|hot/.test(low)) return weather(function(w){ bubAI(w?('☀️ '+w.t+'° and '+w.p+'.'):'I couldn’t peek outside — location may be off for me.'); offerMenu(); });
+  if(CRISIS.test(low)) return crisis();
+  if(/remind me|remember|don’t forget|dont forget|need to |i have to |pick up|appointment/.test(low)) return captureTask(String(t).replace(/^(hey\s+\w+[,:]?\s*)?(please\s+)?(remind me to|remember to|remember|don’t forget to|dont forget to)\s*/i,''));
+  if(/\b(joke|funny|laugh)/.test(low)) return joke();
+  if(/\b(weather|outside|temperature|rain|raining|snow|cold|hot)\b/.test(low)) return weather(function(w){ bubAI(w?('☀️ '+w.t+'° and '+w.p+'.'):'I couldn’t peek outside — location may be off for me.'); offerMenu(); });
   if(/start over|forget everything|clear (my )?data|erase/.test(low)) return startOver();
   if(/how are you|how’s your|hows it going/.test(low)) { bubAI('Living my best life in your pocket, thanks for asking. Very few apps get asked that — you’re one of the good ones.'); return offerMenu(); }
   if(/^(i )?(did|done|finished|completed)\b|^tick off|^cross off|^mark .* done/.test(low)) return tickOff(low);
