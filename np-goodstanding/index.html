@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v47">
+<script id="dj-house-v49">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -663,7 +663,7 @@
   /* ── 9 · what the research said seniors need (10 Sep 2026) ───────────────
      Toptal / Springer 2025: unmistakable feedback after every action; adjustable
      text; new features introduced with a word of explanation, never silently. */
-  var pulseEl = null, pulseLast = 0;
+  var pulseEl = null, pulseLast = Date.now();   /* v48: no pill for saves an app makes while it opens — only for the person's own */
   function savedPulse(){
     try{
       var now = Date.now(); if(now - pulseLast < 2500 || !document.body) return; pulseLast = now;
@@ -675,6 +675,9 @@
           + 'box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .25s';
         document.body.appendChild(pulseEl);
       }
+      try{ var H = window.innerHeight, top = H;   /* v48: sit above a bottom tab bar, never on it */
+        Array.prototype.forEach.call(document.body.children, function(el){ if(el === pulseEl) return; var c = getComputedStyle(el); if(c.position !== 'fixed' || c.display === 'none') return; var r = el.getBoundingClientRect(); if(r.bottom > H - 4 && r.height < H * 0.3 && r.width > window.innerWidth * 0.5 && r.top < top) top = r.top; });
+        pulseEl.style.bottom = top < H ? 'calc(' + Math.round(H - top + 8) + 'px + env(safe-area-inset-bottom))' : 'calc(14px + env(safe-area-inset-bottom))'; }catch(e){}
       pulseEl.style.opacity = '1';
       setTimeout(function(){ if(pulseEl) pulseEl.style.opacity = '0'; }, 1100);
     }catch(e){}
@@ -802,15 +805,28 @@
     st.textContent = '@media print{'
       + '@page{margin:16mm 14mm;}'
       + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
-      + '#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + '#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
       + 'a{color:#000 !important;text-decoration:none !important;}'
       + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
       + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
       + 'input,textarea,select{border:1px solid #888 !important;background:#fff !important;color:#000 !important;box-shadow:none !important;}'
       + 'textarea{min-height:0 !important;height:auto !important;overflow:visible !important;}'
       + '*{text-shadow:none !important;box-shadow:none !important;}'
+      + 'button:not(.djPH){background:none !important;border:0 !important;color:#000 !important;padding:0 2px !important;min-height:0 !important;font:inherit !important;}'
       + '}';
     document.head.appendChild(st);
+    /* v47 (2 Oct 2026): print used to hide EVERY button, so Serve Board and Drive Counter — whose names
+       and counts ARE buttons — printed blank. Now only action buttons (add, edit, delete, print, close,
+       an icon alone…) are hidden; the rest print as plain words. */
+    var ACT = /^(\?|aa\b|\+|＋|−|-|✕|×|✓|⋯|…|‹|›|«|»|▾|▸|▲|▼|add\b|edit\b|delete|remove|save\b|print|share|back\b|cancel|close|done\b|start\b|next\b|open\b|menu|undo|reset|copy|send|try\b|install|got it|skip)/i;
+    function mark(){ Array.prototype.forEach.call(document.querySelectorAll('button'), function(b){
+      var t = (b.textContent || '').replace(/\s+/g,' ').trim();
+      var noWords = !/[A-Za-z0-9]{2,}/.test(t);
+      var lead = /^[^A-Za-z0-9\s"'(]/.test(t);   /* starts with an emoji or symbol: a toolbar action, not data */
+      if(noWords || lead || ACT.test(t) || b.closest('header,nav,[role=navigation],.fab,#djDock,dialog')) b.classList.add('djPH');
+    }); }
+    window.addEventListener('beforeprint', mark);
+    try{ var mq = window.matchMedia('print'); if(mq.addListener) mq.addListener(function(m){ if(m.matches) mark(); }); }catch(e){}
   }
 
   /* ── 12 · AI Bridge: one door for every app (12 Sep 2026) ───────────────────
@@ -982,7 +998,8 @@
       var bg = bgOf(el); if(bg === null){ el.__djContrast = true; continue; }
       var L1 = lum(fg), L2 = lum(bg); if(L1 === null || L2 === null){ el.__djContrast = true; continue; }
       var ratio = (Math.max(L1,L2) + .05) / (Math.min(L1,L2) + .05);
-      if(ratio < 4.5){ el.style.setProperty('color', L2 > 0.4 ? '#3B453F' : '#C9CFCB', 'important'); n++; }
+      if(ratio < 4.5){ var to = L2 > 0.4 ? '#3B453F' : '#FFFFFF', Lt = lum(to);   /* v49: only ever change it for something BETTER — white text was being dimmed to grey */
+        if(Lt !== null && (Math.max(Lt,L2) + .05) / (Math.min(Lt,L2) + .05) > ratio + 0.2){ el.style.setProperty('color', to, 'important'); n++; } }
       el.__djContrast = true;
     }
     return n;
@@ -1263,7 +1280,11 @@
   body.help .item .acts button[data-help]::after { color:inherit; opacity:.85; font-size:10px; }
   #helpBtn { font:inherit; font-weight:800; font-size:14px; width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2); color:var(--soft); cursor:pointer; }
   body.help #helpBtn { background:var(--accent); color:#fff; border-color:var(--accent); }
-  @media print { nav,.fab,header .calm,.welcome,.primary,.ghost,.acts { display:none !important; } body { padding:0; background:#fff; color:#000; } .card { border:1px solid #ccc; break-inside:avoid; } .view { display:block !important; } }
+  @media print { nav,.fab,header .calm,.welcome,.primary,.ghost,.acts { display:none !important; } body { padding:0; background:#fff; color:#000; } .card { border:1px solid #ccc; break-inside:avoid; } .view { display:block !important; }
+    body[data-print] .view, body[data-print] #djPills, body[data-print] #qsBtn, body[data-print] #fsPill { display:none !important; }
+    body[data-print=year] #v-year { display:block !important; } body[data-print=year] #v-year .row, body[data-print=year] #v-year .big { display:none !important; }
+    body[data-print=handoff] #printHand { display:block !important; } }
+  #printHand { display:none; } #printHand h2 { font-size:18px; margin:0 0 4px; } #printHand .ph { break-inside:avoid; border-top:1px solid #bbb; padding:8px 0; font-size:13px; line-height:1.45; } #printHand .ph b { font-size:14px; }
 </style>
 
 <style id="daraja-house-css-v2">
@@ -1311,16 +1332,16 @@
 <header><h1>Ahead of It · Nonprofit <small>the little nonprofit's compliance keeper</small></h1><span style="display:flex;gap:6px;align-items:center"><a class="fs" href="#" onclick="FS.replay();return false" title="First Steps — set it up with me" style="text-decoration:none;font-weight:800;font-size:14px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--brand-soft);color:var(--brand);border:1px solid var(--line)">?</a><button aria-label="Show what each button does" id="helpBtn" onclick="document.body.classList.toggle('help');toast(document.body.classList.contains('help')?'Help is on — captions under every button. Tap ⓘ again to hide.':'Help off',2600)" title="Show what each button does">ⓘ</button><span class="calm" id="calm" title="All clear = nothing overdue. Otherwise: how many are overdue, and how many of those cost money">all clear</span></span></header>
 <main>
   <section id="v-next" class="view on">
-    <div class="welcome" id="welcome" style="display:none"><h2>Everything that costs you if you forget it — on one calm page.</h2><p>Taxes, renewals, filings, the dog's shots. Each one knows <b>what happens if you miss it</b>, what to do <b>30 days out</b>, and <b>who else needs to know</b>. Start with the library — most people find 8–12 they'd forgotten.</p><button onclick="go('lib')">Pick from the library →</button> <a href="#" onclick="FS.replay();return false" style="color:#fff;font-weight:800;font-size:14px;margin-left:8px">▶ Set it up with me (6 min)</a></div>
+    <div class="welcome" id="welcome" style="display:none"><h2>Everything that costs you if you forget it — on one calm page.</h2><p>Filings, registrations, renewals, the board calendar. Each one knows <b>what happens if you miss it</b>, what to do <b>30 days out</b>, and <b>who else needs to know</b>. Start with the library — most people find 8–12 they'd forgotten.</p><button onclick="go('lib')">Pick from the library →</button> <a href="#" onclick="FS.replay();return false" style="color:#fff;font-weight:800;font-size:14px;margin-left:8px">▶ Set it up with me (6 min)</a></div>
     <div class="card"><h3>Overdue <span class="chip bad" id="nOver">0</span></h3><div id="lOver"></div></div>
     <div class="card"><h3>Do something now <span class="small">step is due</span></h3><div id="lNow"></div></div>
     <div class="card"><h3>Next 90 days</h3><div id="l90"></div></div>
     <div class="card"><h3>Later this year</h3><div id="lLater"></div></div>
   </section>
   <section id="v-year" class="view">
-    <p class="big">The whole year at a glance. Red = costs real money if you miss it · amber = a hassle · green = no big deal. Print it for the fridge.</p>
+    <p class="big">The whole year at a glance. Red = costs real money if you miss it · amber = a hassle · green = no big deal. Print it for the office bulletin board.</p>
     <div class="year" id="year"></div>
-    <div class="row" style="margin-top:10px"><button class="ghost" onclick="window.print()">🖨 Print the year map</button><button class="ghost" onclick="exportIcs()">📅 Add all to my calendar (.ics)</button></div>
+    <div class="row" style="margin-top:10px"><button class="ghost" onclick="printPart('year')">🖨 Print the year map</button><button class="ghost" onclick="exportIcs()">📅 Add all to my calendar (.ics)</button></div>
   </section>
   <section id="v-lib" class="view">
     <p class="big">Tap what applies to you. Each comes with a typical due date, what happens if you miss it, and three reminder steps (30 days · 7 days · 1 day) — change anything after.</p>
@@ -1328,11 +1349,11 @@
     <div class="card" style="margin-top:12px"><h3>Something else</h3><button class="primary" onclick="openEdit()">+ Add my own</button></div>
   </section>
   <section id="v-more" class="view">
-    <div class="card"><h3>Hand-off</h3><p class="small" style="margin-top:0">If you're ever not around, whoever picks this up needs this list. Copy it into <b>In Good Order</b> (our family binder app) or print it.</p><div class="row"><button class="ghost" onclick="copyHandoff()">📋 Copy hand-off summary</button><button class="ghost" onclick="window.print()">🖨 Print everything</button></div></div>
+    <div class="card"><h3>Hand-off</h3><p class="small" style="margin-top:0">If you're ever not around, whoever picks this up needs this list. Copy it into an email to the board, or print it and keep it in the office.</p><div class="row"><button class="ghost" onclick="copyHandoff()">📋 Copy hand-off summary</button><button class="ghost" onclick="printPart('handoff')">🖨 Print the hand-off page</button></div></div>
     <div class="card"><h3>Backup</h3><p class="small" style="margin-top:0">Everything lives only on this device. Back it up like you'd back up photos.</p><div class="row"><button class="ghost" onclick="exportJson()">⬇ Save backup file</button><label class="ghost" style="cursor:pointer">⬆ Restore backup<input type="file" accept=".json" style="display:none" onchange="importJson(event)"></label></div></div>
     <div class="card"><h3>🎯 One Thing</h3><p class="small" style="margin-top:0">Got our One Thing app too? Each item has a <b>🎯 →</b> button that puts it on today's list with its notes. Or let it happen by itself:</p><label class="small" style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" id="nnAuto" onchange="nnAutoSel()" style="width:18px;height:18px;accent-color:var(--brand)"> Put each reminder step on One Thing the day it's due</label><div class="small" id="nnStatus" style="margin-top:6px"></div></div>
-    <div class="card"><h3>Household</h3><div class="field"><label>Whose list is this?</label><input id="owner" placeholder="e.g. Jerry & Diane" onchange="db.owner=this.value;save()"></div><div class="field"><label>Default person to tell</label><input type="text" id="tell" placeholder="e.g. Diane" onchange="db.tell=this.value;save()" autocomplete="off"></div></div>
-    <p class="foot">Ahead of It · Nonprofit v1.5 · 2026-09-21 · by Daraja Studio · private by design — no account, no cloud, nothing leaves your phone.</p>
+    <div class="card"><h3>Our organization</h3><div class="field"><label>Whose list is this?</label><input id="owner" placeholder="e.g. Hope Pantry board" onchange="db.owner=this.value;save()"></div><div class="field"><label>Default person to tell</label><input type="text" id="tell" placeholder="e.g. Treasurer" onchange="db.tell=this.value;save()" autocomplete="off"></div></div>
+    <p class="foot">Ahead of It · Nonprofit v1.6 · 2026-10-02 · by Daraja Studio · private by design — no account, no cloud, nothing leaves your phone.</p>
   </section>
 </main>
 <button aria-label="Add something of your own" class="fab" onclick="openEdit()" title="Add something of your own">＋</button>
@@ -1344,13 +1365,13 @@
 </nav>
 <div class="sheet" id="sheet"><div class="box">
   <h2 id="shTitle">Add</h2><p class="sub">What is it, when is it due, and what happens if you forget?</p>
-  <div class="field"><label>What</label><input id="fName" placeholder="e.g. Boat insurance renewal" autocomplete="name"></div>
+  <div class="field"><label>What</label><input id="fName" placeholder="e.g. State charity registration" autocomplete="off"></div>
   <div class="row"><div class="field" style="flex:1;min-width:140px"><label>Next due</label><input type="date" id="fDue"></div><div class="field" style="flex:1;min-width:140px"><label>Repeats</label><select id="fRep"><option value="0">Once</option><option value="30">Monthly</option><option value="91">Quarterly</option><option value="182">Twice a year</option><option value="365" selected>Yearly</option><option value="730">Every 2 years</option><option value="1825">Every 5 years</option><option value="3650">Every 10 years</option></select></div></div>
   <div class="field"><label>How bad is it if you miss this?</label><div class="seg" id="fSev"><button aria-label="A nuisance at most" data-s="l" onclick="setSev('l')" title="A nuisance at most">🟢 No big deal</button><button aria-label="Late fees, phone calls, paperwork" data-s="m" class="on" onclick="setSev('m')" title="Late fees, phone calls, paperwork">🟡 A hassle</button><button aria-label="Penalties, lost coverage, real money" data-s="h" onclick="setSev('h')" title="Penalties, lost coverage, real money">🔴 Costs real money</button></div></div>
   <div class="field"><label>What happens if you miss it</label><textarea id="fBite" placeholder="e.g. Late penalty + interest; coverage lapses; license suspended…"></textarea></div>
   <div class="field"><label>Reminder steps — what to do, how far ahead</label><div class="ladder" id="fLadder"></div></div>
-  <div class="row"><div class="field" style="flex:1;min-width:140px"><label>Who else needs to know</label><input id="fWho" placeholder="e.g. Diane, George (CPA)"></div><div class="field" style="flex:1;min-width:120px"><label>Amount (optional)</label><input id="fAmt" inputmode="decimal" placeholder="$"></div></div>
-  <div class="field"><label>Where the papers / login are</label><input id="fWhere" placeholder="e.g. Personal/Insurance folder · agent: Bob 555-1212"></div>
+  <div class="row"><div class="field" style="flex:1;min-width:140px"><label>Who else needs to know</label><input id="fWho" placeholder="e.g. Board chair, Treasurer"></div><div class="field" style="flex:1;min-width:120px"><label>Amount (optional)</label><input id="fAmt" inputmode="decimal" placeholder="$"></div></div>
+  <div class="field"><label>Where the papers / login are</label><input id="fWhere" placeholder="e.g. Office file cabinet · agent: Bob 555-1212"></div>
   <div class="row" style="margin-top:14px"><button class="primary" style="flex:1" onclick="saveItem()">Save</button><button class="ghost" onclick="closeSheet()">Cancel</button><button class="ghost" id="delBtn" style="color:var(--bad);display:none" onclick="delItem()">Delete</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
@@ -1368,7 +1389,8 @@ const nextDate=(month,day)=>{ const n=new Date(); let d=new Date(n.getFullYear()
 const LIB=[
  {cat:'IRS',n:'Form 990 / 990-EZ / 990-N',rep:365,sev:'h',due:()=>nextDate(5,15),bite:'Miss it 3 years running and the IRS AUTOMATICALLY revokes your tax-exempt status. No hearing, no warning letter you will notice in time.',lad:[[60,'Gather the year\'s income & expense totals'],[30,'File 990-N online (10 min if under $50k receipts) or send books to the preparer'],[7,'Confirm it was accepted']],who:'Treasurer'},
  {cat:'IRS',n:'1099-NEC to contractors',rep:365,sev:'h',due:()=>nextDate(1,31),bite:'Per-form penalties, and contractors need them for their own taxes.',lad:[[21,'List everyone paid $600+ who is not an employee'],[7,'E-file and send copies']],who:'Treasurer'},
- {cat:'IRS',n:'Payroll filings (941/940) — if you have staff',rep:91,sev:'h',due:()=>{const n=new Date();const q=[[1,31],[4,30],[7,31],[10,31]];for(const[m,d]of q){const x=new Date(n.getFullYear(),m-1,d);if(x>=n)return iso(x);}return iso(new Date(n.getFullYear()+1,0,31));},bite:'Payroll tax penalties can attach PERSONALLY to the treasurer. The one deadline never to test.',lad:[[14,'Confirm the payroll service filed'],[1,'File the confirmation']],who:'Treasurer'},
+ {cat:'IRS',n:'Quarterly payroll return (Form 941) — if you have staff',rep:91,sev:'h',due:()=>{const n=new Date();const q=[[1,31],[4,30],[7,31],[10,31]];for(const[m,d]of q){const x=new Date(n.getFullYear(),m-1,d);if(x>=n)return iso(x);}return iso(new Date(n.getFullYear()+1,0,31));},bite:'Payroll tax penalties can attach PERSONALLY to the treasurer. The one deadline never to test.',lad:[[14,'Confirm the 941 was filed and deposits are current'],[1,'File the confirmation']],who:'Treasurer'},
+ {cat:'IRS',n:'FUTA return (Form 940) — staff, and not a 501(c)(3)',rep:365,sev:'m',due:()=>nextDate(1,31),bite:'Most 501(c)(3)s are exempt from federal unemployment tax; other nonprofits with staff file this once a year.',lad:[[21,'Check with your payroll service or CPA whether you owe it'],[7,'Confirm it was filed']],who:'Treasurer'},
  {cat:'State',n:'State charitable registration renewal (AG)',rep:365,sev:'h',due:()=>nextDate(6,30),bite:'Fundraising without current registration is illegal in most states — and the lapse shows up in public databases donors check.',lad:[[30,'File the AG annual report (IL: AG990-IL)'],[7,'Pay the fee, save the stamped copy']],who:'Treasurer'},
  {cat:'State',n:'Secretary of State annual report',rep:365,sev:'h',due:()=>nextDate(3,31),bite:'Miss it twice and the state can administratively dissolve the corporation — undoing it costs more than ten years of filings.',lad:[[30,'File online — usually 15 minutes'],[1,'Save the confirmation']],who:'Secretary'},
  {cat:'State',n:'Registered agent — confirm current',rep:365,sev:'m',due:()=>nextDate(2,1),bite:'If the agent moved or resigned, legal notices go nowhere — and you find out the worst possible way.',lad:[[7,'Confirm name & address on file are still right']],who:'Secretary'},
@@ -1379,12 +1401,14 @@ const LIB=[
  {cat:'Insurance',n:'General liability renewal',rep:365,sev:'h',due:()=>nextDate(1,1),bite:'One volunteer trip-and-fall without coverage can end a small nonprofit permanently.',lad:[[45,'Ask the agent to re-quote'],[7,'Confirm the new certificate is in hand']],who:'Treasurer'},
  {cat:'Insurance',n:'D&O (directors & officers) renewal',rep:365,sev:'m',due:()=>nextDate(1,1),bite:'Without it, board members\' PERSONAL assets are exposed — and good people quietly leave boards over this.',lad:[[45,'Renew with the liability policy']],who:'Treasurer'},
  {cat:'Money habits',n:'Monthly bank reconciliation',rep:30,sev:'m',due:()=>{const n=new Date();const x=new Date(n.getFullYear(),n.getMonth()+1,10);return iso(x);},bite:'Small fraud and honest errors both hide in unreconciled months. 30 minutes buys sleep.',lad:[[3,'Match the statement to the ledger'],[0,'Second person eyeballs it — 5 minutes']],who:'Treasurer'},
- {cat:'Money habits',n:'Budget vs. actual to the board',rep:91,sev:'l',due:()=>{const n=new Date();const q=[[4,10],[7,10],[10,10],[1,10]];for(const[m,d]of q){const x=new Date(n.getFullYear(),m-1,d);if(x>=n)return iso(x);}return iso(new Date(n.getFullYear()+1,0,10));},bite:'Boards that never see numbers approve things the money cannot do.',lad:[[7,'One page: budget, actual, difference']],who:'Treasurer'},
+ {cat:'Money habits',n:'Budget vs. actual to the board',rep:91,sev:'l',due:()=>{const n=new Date();const q=[[1,10],[4,10],[7,10],[10,10]];for(const[m,d]of q){const x=new Date(n.getFullYear(),m-1,d);if(x>=n)return iso(x);}return iso(new Date(n.getFullYear()+1,0,10));},bite:'Boards that never see numbers approve things the money cannot do.',lad:[[7,'One page: budget, actual, difference']],who:'Treasurer'},
  {cat:'Practical',n:'Domain & website renewal',rep:365,sev:'m',due:()=>nextDate(8,1),bite:'Expired domains get bought by squatters — donors land on ads (or worse) at your old address.',lad:[[30,'Confirm auto-renew + the card on file works']],who:'Secretary'},
  {cat:'Practical',n:'Grant reports due (add each grant\'s real date)',rep:365,sev:'h',due:()=>nextDate(12,1),bite:'One late report and that funder is done with you — and funders talk to each other.',lad:[[30,'Draft the report'],[7,'Send it, save proof']],who:'Board chair'},
 ];
 // ---- state ----
 let db=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.items) return d; }catch(e){} return {items:[],owner:'',tell:''}; })();
+/* 2 Oct 2026: the payroll item now carries the right form name — carry old lists across */
+db.items.forEach(i=>{ if(i.n==='Payroll filings (941/940) — if you have staff') i.n='Quarterly payroll return (Form 941) — if you have staff'; });
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(db)); }catch(e){ try{ toast('This phone would not let the app save that.'); }catch(_){} } }
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function toast(t,ms){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>e.classList.remove('show'),ms||1800); }
@@ -1392,7 +1416,7 @@ const TAB_INTRO={
   next:{t:'Do something now',x:'This page sorts everything by what needs you next. Overdue on top, then this month, then the rest of the year. Each item tells you the one step to take.'},
   year:{t:'The whole year',x:'Every tracked thing on one calendar line. Glance here monthly — nothing sneaks up on you.'},
   lib:{t:'The library',x:'All the things a organization can track — filings, insurance, grants, renewals. Tick the ones YOUR organization has. Two or three is plenty to start.'},
-  more:{t:'Hand-off',x:'This prints ONE page a helper can run the house from — what is due, who to call, where things are. For when you travel, get sick, or just want backup.'}
+  more:{t:'Hand-off',x:'This prints ONE page a helper can keep things running from — what is due, who to call, where things are. For when you travel, get sick, or just want backup.'}
 };
 function tabIntro(v){
   try{
@@ -1418,7 +1442,7 @@ function sevChip(s){ return s==='h'?'<span class="chip bad" title="Missing this 
 function stepNow(it){ const d=daysUntil(it.due); const steps=(it.lad||[]).slice().sort((a,b)=>b[0]-a[0]); let cur=null; for(const s of steps){ if(d<=s[0] && !(it.stepsDone||[]).includes(s[0])) { cur=s; } } return cur; }
 function whenText(it){ const d=daysUntil(it.due); if(d<0) return `${-d} day${d===-1?'':'s'} overdue · was ${fmtD(it.due)}`; if(d===0) return 'due TODAY'; if(d===1) return 'due tomorrow'; return `in ${d} days · ${fmtD(it.due)}`; }
 function rowHtml(it){ const st=stepNow(it); const d=daysUntil(it.due);
-  return `<div class="item"><div class="sev ${it.sev}"></div><div class="body" onclick="openEdit('${it.id}')"><b>${esc(it.n)}</b><div class="when">${whenText(it)} ${it.amt?'· $'+esc(it.amt):''}</div>${st?`<div class="step ${d<=st[0]?'now':''}">${st[0]>1?st[0]+' days out':'last call'} → ${esc(st[1])}</div>`:(d<=0?`<div class="step now">Do it now</div>`:'')}<div style="margin-top:5px">${sevChip(it.sev)}${it.who?`<span class="chip">tell: ${esc(it.who)}</span>`:''}</div></div><div class="acts">${st?`<button aria-label="Tick this reminder step (the item itself isn" onclick="stepDone('${it.id}',${st[0]})" data-help="this reminder step is done" title="Tick this reminder step (the item itself isn't done yet)">step ✓</button>`:''}<button aria-label="The whole thing is handled — it moves to next time" class="ok" onclick="cycleDone('${it.id}')" data-help="paid / renewed / filed" title="The whole thing is handled — it moves to next time">done ✓</button><button aria-label="Send this (with its notes) to One Thing" onclick="toNowNext('${it.id}')" data-help="put it on today's list" title="Send this (with its notes) to One Thing's list for today">🎯 →</button></div></div>`; }
+  return `<div class="item"><div class="sev ${it.sev}"></div><div class="body" onclick="openEdit('${it.id}')"><b>${esc(it.n)}</b><div class="when">${whenText(it)} ${it.amt?'· $'+esc(String(it.amt).replace(/^\$\s*/,'')):''}</div>${st?`<div class="step ${d<=st[0]?'now':''}">${st[0]>1?st[0]+' days out':'last call'} → ${esc(st[1])}</div>`:(d<=0?`<div class="step now">Do it now</div>`:'')}<div style="margin-top:5px">${sevChip(it.sev)}${it.who?`<span class="chip">tell: ${esc(it.who)}</span>`:''}</div></div><div class="acts">${st?`<button aria-label="Tick this reminder step (the item itself isn" onclick="stepDone('${it.id}',${st[0]})" data-help="this reminder step is done" title="Tick this reminder step (the item itself isn't done yet)">step ✓</button>`:''}<button aria-label="The whole thing is handled — it moves to next time" class="ok" onclick="cycleDone('${it.id}')" data-help="paid / renewed / filed" title="The whole thing is handled — it moves to next time">done ✓</button><button aria-label="Send this (with its notes) to One Thing" onclick="toNowNext('${it.id}')" data-help="put it on today's list" title="Send this (with its notes) to One Thing's list for today">🎯 →</button></div></div>`; }
 function render(){ const items=db.items.slice().sort((a,b)=>a.due<b.due?-1:1);
   const over=items.filter(i=>daysUntil(i.due)<0), now=items.filter(i=>daysUntil(i.due)>=0&&stepNow(i)), n90=items.filter(i=>{const d=daysUntil(i.due); return d>=0&&d<=90&&!stepNow(i);}), later=items.filter(i=>daysUntil(i.due)>90);
   $('nOver').textContent=over.length; $('lOver').innerHTML=over.map(rowHtml).join('')||'<div class="empty">Nothing overdue. That is the whole point.</div>';
@@ -1430,7 +1454,7 @@ function render(){ const items=db.items.slice().sort((a,b)=>a.due<b.due?-1:1);
   // year map
   const n=new Date(); const y=$('year'); let h='';
   for(let k=0;k<12;k++){ const m=new Date(n.getFullYear(),n.getMonth()+k,1); const mk=iso(m).slice(0,7); const ins=items.filter(i=>i.due.slice(0,7)===mk);
-    h+=`<div class="mon ${k===0?'now':''}"><h4>${m.toLocaleDateString('en',{month:'short',year:'2-digit'})}</h4>${ins.map(i=>`<div><i class="${i.sev}"></i>${parse(i.due).getDate()} ${esc(i.n)}</div>`).join('')||'<div style="color:var(--faint)">—</div>'}</div>`; }
+    h+=`<div class="mon ${k===0?'now':''}"><h4>${m.toLocaleDateString('en-US',{month:'short',year:'numeric'})}</h4>${ins.map(i=>`<div><i class="${i.sev}"></i>${parse(i.due).getDate()} ${esc(i.n)}</div>`).join('')||'<div style="color:var(--faint)">—</div>'}</div>`; }
   y.innerHTML=h;
   // library
   const cats=[...new Set(LIB.map(l=>l.cat))]; $('lib').innerHTML=cats.map(c=>`<div class="card"><h3>${c}</h3><div class="lib">${LIB.filter(l=>l.cat===c).map(l=>{const have=db.items.some(i=>i.n===l.n); return `<button class="${have?'have':''}" onclick="addLib(${LIB.indexOf(l)})">${esc(l.n)}<small>${l.rep===365?'yearly':l.rep===91?'quarterly':l.rep===182?'twice a year':l.rep>=3650?'every 10 yrs':l.rep>=730?'every few yrs':'monthly'} · ${l.sev==='h'?'🔴':l.sev==='m'?'🟡':'🟢'}${have?' · added':''}</small></button>`;}).join('')}</div></div>`).join('');
@@ -1453,12 +1477,12 @@ window.openEdit=id=>{ editId=id||null; const it=id?db.items.find(x=>x.id===id):n
 window.closeSheet=()=>$('sheet').classList.remove('show');
 window.saveItem=()=>{ window.__fs=window.__fs||{}; const n=$('fName').value.trim(); if(!n){ toast('Give it a name'); return; } const due=$('fDue').value||today();
   const days=JSON.parse($('fLadder').dataset.days||'[]'); const lad=[...$('fLadder').querySelectorAll('input')].map((inp,i)=>[days[i],inp.value.trim()]).filter(s=>s[1]);
-  const data={n,due,rep:Number($('fRep').value),sev:sevV,bite:$('fBite').value.trim(),lad,who:$('fWho').value.trim(),amt:$('fAmt').value.trim(),where:$('fWhere').value.trim()};
+  const data={n,due,rep:Number($('fRep').value),sev:sevV,bite:$('fBite').value.trim(),lad,who:$('fWho').value.trim(),amt:$('fAmt').value.trim().replace(/^\$\s*/,''),where:$('fWhere').value.trim()};
   if(editId){ Object.assign(db.items.find(x=>x.id===editId),data); window.__fs.saved=1; } else { db.items.push({id:uid(),cat:'Mine',stepsDone:[],hist:[],...data}); window.__fs.own=1; }
   save(); render(); closeSheet(); toast(editId?'Saved':'Added — the organization is watched'); };
 window.delItem=()=>{ if(!editId) return; if(!confirm('Remove this from the list?')) return; db.items=db.items.filter(x=>x.id!==editId); save(); render(); closeSheet(); };
 // ---- bridge to One Thing (same address = shared storage; otherwise a hand-off link) ----
-const NN_ART='../nownext/index.html';
+const NN_ART='https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/nownext/index.html';
 function nnLocal(){ try{ const P=JSON.parse(localStorage.getItem('now_next_profiles_v1')); if(P&&P.cur&&localStorage.getItem('now_next_v1_'+P.cur)) return P; }catch(e){} return null; }
 function nnNotes(it){ const n=[]; if(it.bite) n.push({t:'If missed: '+it.bite,at:today(),by:'Ahead of It · Nonprofit'}); if(it.who) n.push({t:'Tell: '+it.who,at:today(),by:'Ahead of It · Nonprofit'}); if(it.where) n.push({t:'Papers / login: '+it.where,at:today(),by:'Ahead of It · Nonprofit'}); return n; }
 function nnText(it,step){ return step? it.n+' — '+step[1] : it.n; }
@@ -1481,7 +1505,16 @@ async function dl(name,text,type){ try{ if(window.claude&&claude.use){ const d=a
 window.exportIcs=()=>{ const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja Studio//Ahead of It · Nonprofit//EN']; db.items.forEach(it=>{ const d=it.due.replace(/-/g,''); lines.push('BEGIN:VEVENT','UID:'+it.id+'@aheadofit','DTSTART;VALUE=DATE:'+d,'SUMMARY:'+it.n.replace(/,/g,'\\,'),'DESCRIPTION:'+('If missed: '+(it.bite||'')+(it.who?' | Tell: '+it.who:'')).replace(/\n/g,' ').replace(/,/g,'\\,'),'END:VEVENT'); (it.lad||[]).forEach(s=>{ lines.push('BEGIN:VEVENT','UID:'+it.id+'-'+s[0]+'@aheadofit','DTSTART;VALUE=DATE:'+addDays(it.due,-s[0]).replace(/-/g,''),'SUMMARY:'+(it.n+' — '+s[1]).replace(/,/g,'\\,'),'END:VEVENT'); }); }); lines.push('END:VCALENDAR'); dl('ahead-of-it.ics',lines.join('\r\n'),'text/calendar'); toast('Calendar file saved — open it to add'); };
 window.exportJson=()=>{ dl('goodstanding-backup.json',JSON.stringify(db,null,1),'application/json'); toast('Backup saved'); };
 window.importJson=ev=>{ const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.items) throw 0; db=d; save(); render(); toast('Restored'); }catch(e){ toast('That file did not look right'); } }; r.readAsText(f); };
-window.copyHandoff=()=>{ const t=['GOOD STANDING — nonprofit hand-off list'+(db.owner?' for '+db.owner:''),'(as of '+today()+')',''].concat(db.items.slice().sort((a,b)=>a.due<b.due?-1:1).map(it=>`• ${it.n} — due ${it.due}${it.rep?' (repeats)':''}${it.amt?' · $'+it.amt:''}\n   If missed: ${it.bite||'—'}\n   Tell: ${it.who||'—'} · Papers: ${it.where||'—'}`)).join('\n'); navigator.clipboard?.writeText(t).then(()=>toast('Copied — paste into In Good Order'),()=>toast('Could not copy on this browser')); };
+window.copyHandoff=()=>{ const t=['GOOD STANDING — nonprofit hand-off list'+(db.owner?' for '+db.owner:''),'(as of '+today()+')',''].concat(db.items.slice().sort((a,b)=>a.due<b.due?-1:1).map(it=>`• ${it.n} — due ${it.due}${it.rep?' (repeats)':''}${it.amt?' · $'+String(it.amt).replace(/^\$\s*/,''):''}\n   If missed: ${it.bite||'—'}\n   Tell: ${it.who||'—'} · Papers: ${it.where||'—'}`)).join('\n'); navigator.clipboard?.writeText(t).then(()=>toast('Copied — paste it into an email or a document'),()=>toast('Could not copy on this browser')); };
+/* 2 Oct 2026: each print button prints its own page — the year map alone, or a hand-off page
+   with what a helper actually needs (what happens if it's missed, who to tell, where the papers are) */
+window.printPart=what=>{ if(what==='handoff'){ let h=document.getElementById('printHand'); if(!h){ h=document.createElement('div'); h.id='printHand'; document.body.appendChild(h); }
+  h.innerHTML='<h2>'+esc(document.title.split(' — ')[0])+' — hand-off list'+(db.owner?' for '+esc(db.owner):'')+'</h2><div style="font-size:12px;margin-bottom:8px">as of '+fmtD(today())+'</div>'
+   + db.items.slice().sort((a,b)=>a.due<b.due?-1:1).map(it=>'<div class="ph"><b>'+esc(it.n)+'</b> — due '+fmtD(it.due)+(it.amt?' · $'+esc(String(it.amt).replace(/^\$\s*/,'')):'')
+   +'<br>If missed: '+esc(it.bite||'—')+'<br>Tell: '+esc(it.who||'—')+' · Papers / login: '+esc(it.where||'—')
+   +((it.lad||[]).length?'<br>Steps: '+(it.lad||[]).map(s=>(s[0]>1?s[0]+' days out':'last call')+' — '+esc(s[1])).join('; '):'')+'</div>').join(''); }
+  document.body.dataset.print=what; const off=()=>{ delete document.body.dataset.print; window.removeEventListener('afterprint',off); };
+  window.addEventListener('afterprint',off); window.print(); setTimeout(off,1500); };
 window.__fsState=()=>({items:db.items.length});
 render(); autoPush();
 </script>
@@ -1531,7 +1564,7 @@ render(); autoPush();
 <div id="fsFin"><div class="bx"><div class="tr">🏁</div><h2>You're running.</h2><p id="fsFinP"></p><div class="hb" id="fsFinH"></div><button onclick="FS.close()">Let's go</button></div></div>
 <script>
 window.FS=(function(){
-const C={slug:"goodstanding",video:[{"em": "😬", "h": "Everyone has a list of things that <b>cause real problems</b> if they slip.", "p": "Taxes, renewals, the boat insurance, Medicare's window. Nobody keeps it in one place.", "v": "Everyone has a list of things that cause real problems if they slip. Taxes, renewals, the boat insurance, Medicare's window. Nobody keeps it in one place."}, {"em": "🧭", "h": "This app keeps it — <b>calmly</b>.", "p": "Each item knows what happens if you miss it, what to do 30 days out, and who to tell.", "v": "This app keeps it, calmly. Each item knows what happens if you miss it, what to do thirty days out, and who to tell."}, {"em": "📚", "h": "We'll start from the <b>library</b>.", "p": "27 real obligations, already written. You tap the ones that are yours.", "v": "We'll start from the library. Twenty-seven real obligations, already written. You tap the ones that are yours."}, {"em": "👉", "h": "I'll point, <b>you tap</b>.", "p": "Five small steps. I'll tick each one the moment you do it.", "v": "I'll point, you tap. Five small steps. I'll tick each one the moment you do it."}],wait:null,steps:[{id:"lib",t:"Pick a few from the Library",m:2,h:"Tap Library below, then tap the ones that are yours — two or three is plenty. Add more any time.",go:()=>{go('lib')},target:"nav button[data-v='lib']",check:(S,sa)=>!!(S.items>=1),manual:false,win:"On the list. Most people find one they'd forgotten."},{id:"fix",t:"Fix one — date and how bad",m:1,h:"Tap an item's words → change the date → pick how bad it is to miss → Save.",go:()=>{go('next')},target:"#v-next .item .body",check:(S,sa)=>!!(S.saved),manual:false,win:"Now it's your date, not a guess."},{id:"own",t:"Add one of your own",m:1,h:"The orange ＋ button. Something nobody's library has — yours.",go:()=>{go('next')},target:".fab",check:(S,sa)=>!!(S.own),manual:false,win:"That one's the reason you needed this."},{id:"year",t:"Look at your Year",m:1,h:"Tap Year below — twelve months, colored by how costly each one is to miss.",go:()=>{go('year')},target:"nav button[data-v='year']",check:(S,sa)=>!!(S.year),manual:false,win:"That's the page people print for the fridge."},{id:"home",t:"Put it on your home screen",m:1,h:"iPhone: Share → Add to Home Screen · Android: ⋮ → Install app.",go:null,target:"",check:(S,sa)=>sa,manual:true,win:"It's an app now, not a tab."}],finale:"Everything that could catch you off guard is on one calm page, with a plan. That's the whole product.",habit:"The one habit: Sunday night, two minutes. Tick what's due this week."}; const KEY='fs_coach_'+C.slug; const $=id=>document.getElementById(id);
+const C={slug:"goodstanding",video:[{"em": "😬", "h": "Everyone has a list of things that <b>cause real problems</b> if they slip.", "p": "The 990, the state registration, the board minutes, the insurance renewal. Nobody keeps it in one place.", "v": "Everyone has a list of things that cause real problems if they slip. The 990, the state registration, the board minutes, the insurance renewal. Nobody keeps it in one place."}, {"em": "🧭", "h": "This app keeps it — <b>calmly</b>.", "p": "Each item knows what happens if you miss it, what to do 30 days out, and who to tell.", "v": "This app keeps it, calmly. Each item knows what happens if you miss it, what to do thirty days out, and who to tell."}, {"em": "📚", "h": "We'll start from the <b>library</b>.", "p": "17 real obligations, already written. You tap the ones that are yours.", "v": "We'll start from the library. Seventeen real obligations, already written. You tap the ones that are yours."}, {"em": "👉", "h": "I'll point, <b>you tap</b>.", "p": "Five small steps. I'll tick each one the moment you do it.", "v": "I'll point, you tap. Five small steps. I'll tick each one the moment you do it."}],wait:null,steps:[{id:"lib",t:"Pick a few from the Library",m:2,h:"Tap Library below, then tap the ones that are yours — two or three is plenty. Add more any time.",go:()=>{go('lib')},target:"nav button[data-v='lib']",check:(S,sa)=>!!(S.items>=1),manual:false,win:"On the list. Most people find one they'd forgotten."},{id:"fix",t:"Fix one — date and how bad",m:1,h:"Tap an item's words → change the date → pick how bad it is to miss → Save.",go:()=>{go('next')},target:"#v-next .item .body",check:(S,sa)=>!!(S.saved),manual:false,win:"Now it's your date, not a guess."},{id:"own",t:"Add one of your own",m:1,h:"The orange ＋ button. Something nobody's library has — yours.",go:()=>{go('next')},target:".fab",check:(S,sa)=>!!(S.own),manual:false,win:"That one's the reason you needed this."},{id:"year",t:"Look at your Year",m:1,h:"Tap Year below — twelve months, colored by how costly each one is to miss.",go:()=>{go('year')},target:"nav button[data-v='year']",check:(S,sa)=>!!(S.year),manual:false,win:"That's the page people print for the fridge."},{id:"home",t:"Put it on your home screen",m:1,h:"iPhone: Share → Add to Home Screen · Android: ⋮ → Install app.",go:null,target:"",check:(S,sa)=>sa,manual:true,win:"It's an app now, not a tab."}],finale:"Everything that could catch you off guard is on one calm page, with a plan. That's the whole product.",habit:"The one habit: Sunday night, two minutes. Tick what's due this week."}; const KEY='fs_coach_'+C.slug; const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let st=(()=>{ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } })(); st.done=st.done||{};
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(st)); }catch(e){} }
@@ -1571,7 +1604,7 @@ function wb(){ const i=cur(); if(i<0){ finale(); return; }
 }
 function restart(){ st.done={}; st.on=0; st.seen=0; st.fin=0; save(); $('fsBar').className=''; $('fsBar').innerHTML=''; intro(); }
 function skip(){ const i=cur(); if(i<0) return; st.done[C.steps[i].id]=1; save(); if(cur()<0){ finale(); } else render(); }
-function boot(){ if(C.wait&&!C.wait(state())){ setTimeout(boot,800); return; } if(!st.seen) intro(); else if(st.on) wb(); else if(!st.fin) $('fsPill').classList.add('show'); }
+function boot(){ if(C.wait&&!C.wait(state())){ setTimeout(boot,800); return; } if(!st.seen){ let first=false; try{ first=!localStorage.getItem('daraja_intro_'+C.slug); }catch(e){} if(first){ st.seen=1; st.on=0; save(); $('fsPill').classList.add('show'); } else intro(); } else if(st.on) wb(); else if(!st.fin) $('fsPill').classList.add('show'); }
 setTimeout(boot,400);
 return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,skip,replay:()=>{ st.seen=0; st.on=0; save(); intro(); }};
 })();
@@ -1929,6 +1962,11 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
   function tidy(){
     var pill=document.getElementById('fsPill'), btn=document.getElementById('qsBtn');
     if(!btn) return;
+    var touched = false;
+    try{ var c = JSON.parse(localStorage.getItem('fs_coach_'+((window.DJ_START&&DJ_START.slug)||'goodstanding'))||'{}');
+         touched = !!(c.on || (c.done && Object.keys(c.done).length)); }catch(e){}
+    if(pill && pill.classList.contains('show') && !touched){ pill.style.display = 'none'; btn.style.display = ''; return; }
+    if(pill && touched) pill.style.display = '';
     var pillUp = pill && pill.classList.contains('show') &&
                  getComputedStyle(pill).display !== 'none';
     btn.style.display = pillUp ? 'none' : '';
@@ -2014,7 +2052,7 @@ try{
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
       +'<div style="font-size:21px;font-weight:800;">⚡ Quick setup</div>'
       +'<button onclick=\"closeQS()\" style="background:#1F2126;border:1px solid #31343B;color:#B7AFA2;border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;font-family:inherit;">✕ Close</button></div>';
-    h+='<div style="color:#B7AFA2;font-size:14px;margin-bottom:14px;line-height:1.5;">Everything on <b style="color:#F5C25C;">one screen</b>. Tick what your house has, fix a date if you know it, tap Save. <b>Two is plenty — there’s no magic number.</b> Already-added items are marked ✓.</div>';
+    h+='<div style="color:#B7AFA2;font-size:14px;margin-bottom:14px;line-height:1.5;">Everything on <b style="color:#F5C25C;">one screen</b>. Tick what your organization has, fix a date if you know it, tap Save. <b>Two is plenty — there’s no magic number.</b> Already-added items are marked ✓.</div>';
     Object.keys(cats).forEach(cat=>{
       h+='<div style="font-size:12px;font-weight:800;letter-spacing:.1em;color:#F5C25C;margin:14px 0 6px;text-transform:uppercase;">'+cat+'</div>';
       cats[cat].forEach(([l,i])=>{
@@ -2178,7 +2216,7 @@ try{
 <script>/* label the unlabeled (2026-08-29) */
 setInterval(function(){try{
   document.querySelectorAll('.fab:not([data-help])').forEach(function(b){b.setAttribute('data-help','Add something of your own — anything the library doesn\'t have');});
-  var q=document.getElementById('qsBtn'); if(q&&!q.getAttribute('data-help')) q.setAttribute('data-help','Open the one-screen setup: tick what your house has');
+  var q=document.getElementById('qsBtn'); if(q&&!q.getAttribute('data-help')) q.setAttribute('data-help','Open the one-screen setup: tick what your organization has');
 }catch(e){}},3000);</script>
 
 <!-- ═══ DARAJA GLASS LAYER v1.0 (2026-09-03) — shared new look: sunrise glass, 🎨 Look toggle, Aa dial, first-open card ═══ -->
@@ -2265,6 +2303,7 @@ window.DJ={
   ok:function(){ try{ speechSynthesis.cancel(); }catch(e){} tipCard.classList.remove('show'); var p=pf(); p.tip=1; sv(p); }
 };
 apply();
+(function(){ try{ var d=JSON.parse(localStorage.getItem('goodstanding_v1')||'null'); if(!d||!d.items||!d.items.length){ var p=pf(); p.tip=1; sv(p); } }catch(e){} })();
 if(!pf().tip){
   say='A new look. This app just got the Daraja glass look — same buttons, same everything, just calmer and easier to read. Tap the Look button any time to switch back to the classic look. Tap A a to make all the words bigger.';
   tipCard.innerHTML='<div class="tt"><span style="font-size:26px">✨</span><span>A new look</span></div>'
@@ -2277,3 +2316,10 @@ if(!pf().tip){
 }
 })();
 </script>
+<style id="dj-ahead-fix-v1">
+/* 2 Oct 2026 cold review: on the glass look the ⓘ was a near-white glyph on a near-white disc, and the
+   status chip faded into the photo. Both get solid, readable backgrounds. */
+body.djglass #helpBtn{ background:rgba(250,247,240,.95) !important; color:#1F2622 !important; border-color:rgba(0,0,0,.25) !important; }
+body.djglass .calm{ background:#FAF7F0 !important; }
+body.djglass .calm.warn{ background:#FFF4DC !important; } body.djglass .calm.bad{ background:#FDE9E4 !important; }
+</style>

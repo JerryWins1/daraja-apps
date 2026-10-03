@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v47">
+<script id="dj-house-v49">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -663,7 +663,7 @@
   /* ── 9 · what the research said seniors need (10 Sep 2026) ───────────────
      Toptal / Springer 2025: unmistakable feedback after every action; adjustable
      text; new features introduced with a word of explanation, never silently. */
-  var pulseEl = null, pulseLast = 0;
+  var pulseEl = null, pulseLast = Date.now();   /* v48: no pill for saves an app makes while it opens — only for the person's own */
   function savedPulse(){
     try{
       var now = Date.now(); if(now - pulseLast < 2500 || !document.body) return; pulseLast = now;
@@ -675,6 +675,9 @@
           + 'box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .25s';
         document.body.appendChild(pulseEl);
       }
+      try{ var H = window.innerHeight, top = H;   /* v48: sit above a bottom tab bar, never on it */
+        Array.prototype.forEach.call(document.body.children, function(el){ if(el === pulseEl) return; var c = getComputedStyle(el); if(c.position !== 'fixed' || c.display === 'none') return; var r = el.getBoundingClientRect(); if(r.bottom > H - 4 && r.height < H * 0.3 && r.width > window.innerWidth * 0.5 && r.top < top) top = r.top; });
+        pulseEl.style.bottom = top < H ? 'calc(' + Math.round(H - top + 8) + 'px + env(safe-area-inset-bottom))' : 'calc(14px + env(safe-area-inset-bottom))'; }catch(e){}
       pulseEl.style.opacity = '1';
       setTimeout(function(){ if(pulseEl) pulseEl.style.opacity = '0'; }, 1100);
     }catch(e){}
@@ -802,15 +805,28 @@
     st.textContent = '@media print{'
       + '@page{margin:16mm 14mm;}'
       + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
-      + '#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + '#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
       + 'a{color:#000 !important;text-decoration:none !important;}'
       + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
       + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
       + 'input,textarea,select{border:1px solid #888 !important;background:#fff !important;color:#000 !important;box-shadow:none !important;}'
       + 'textarea{min-height:0 !important;height:auto !important;overflow:visible !important;}'
       + '*{text-shadow:none !important;box-shadow:none !important;}'
+      + 'button:not(.djPH){background:none !important;border:0 !important;color:#000 !important;padding:0 2px !important;min-height:0 !important;font:inherit !important;}'
       + '}';
     document.head.appendChild(st);
+    /* v47 (2 Oct 2026): print used to hide EVERY button, so Serve Board and Drive Counter — whose names
+       and counts ARE buttons — printed blank. Now only action buttons (add, edit, delete, print, close,
+       an icon alone…) are hidden; the rest print as plain words. */
+    var ACT = /^(\?|aa\b|\+|＋|−|-|✕|×|✓|⋯|…|‹|›|«|»|▾|▸|▲|▼|add\b|edit\b|delete|remove|save\b|print|share|back\b|cancel|close|done\b|start\b|next\b|open\b|menu|undo|reset|copy|send|try\b|install|got it|skip)/i;
+    function mark(){ Array.prototype.forEach.call(document.querySelectorAll('button'), function(b){
+      var t = (b.textContent || '').replace(/\s+/g,' ').trim();
+      var noWords = !/[A-Za-z0-9]{2,}/.test(t);
+      var lead = /^[^A-Za-z0-9\s"'(]/.test(t);   /* starts with an emoji or symbol: a toolbar action, not data */
+      if(noWords || lead || ACT.test(t) || b.closest('header,nav,[role=navigation],.fab,#djDock,dialog')) b.classList.add('djPH');
+    }); }
+    window.addEventListener('beforeprint', mark);
+    try{ var mq = window.matchMedia('print'); if(mq.addListener) mq.addListener(function(m){ if(m.matches) mark(); }); }catch(e){}
   }
 
   /* ── 12 · AI Bridge: one door for every app (12 Sep 2026) ───────────────────
@@ -982,7 +998,8 @@
       var bg = bgOf(el); if(bg === null){ el.__djContrast = true; continue; }
       var L1 = lum(fg), L2 = lum(bg); if(L1 === null || L2 === null){ el.__djContrast = true; continue; }
       var ratio = (Math.max(L1,L2) + .05) / (Math.min(L1,L2) + .05);
-      if(ratio < 4.5){ el.style.setProperty('color', L2 > 0.4 ? '#3B453F' : '#C9CFCB', 'important'); n++; }
+      if(ratio < 4.5){ var to = L2 > 0.4 ? '#3B453F' : '#FFFFFF', Lt = lum(to);   /* v49: only ever change it for something BETTER — white text was being dimmed to grey */
+        if(Lt !== null && (Math.max(Lt,L2) + .05) / (Math.min(Lt,L2) + .05) > ratio + 0.2){ el.style.setProperty('color', to, 'important'); n++; } }
       el.__djContrast = true;
     }
     return n;
@@ -1306,8 +1323,8 @@ body.djglass .srow button{ background:rgba(255,255,255,.14) !important; color:#f
  <div class="big"><div class="l">COMPLETE SETS, RIGHT NOW</div><div class="n" id="canN">0</div><div class="l">complete sets</div><div class="bott" id="bott"></div></div>
  <div class="goalrow">🎯 The drive's goal: <input type="number" id="goal" min="0" inputmode="numeric" onchange="setGoal(this.value)"> sets</div>
  <h3 id="hBox">Everything, A to Z</h3><p class="hintline">Type how many in the box, then tap <b>＋</b>. Leave the box empty to add one. Tap the number itself to fix the total.</p><div class="card" id="listBox"></div>
- <div class="add"><input id="newN" placeholder="＋ add an item (e.g. Soap)" onkeydown="if(event.key==='Enter')addIt()"><button onclick="addIt()">Add</button></div>
- <p class="foot">Operation Christmas Child Assistant v1.10 · 2026-10-01 · counts save on this device · Daraja Studio · <button onclick="newYear()">↻ start a new drive</button></p>
+ <div class="add"><input id="newN" placeholder="＋ add an item (e.g. Jump rope)" onkeydown="if(event.key==='Enter')addIt()"><button onclick="addIt()">Add</button></div>
+ <p class="foot">Operation Christmas Child Assistant v1.11 · 2026-10-02 · counts save on this device · Daraja Studio · <button onclick="newYear()">↻ start a new drive</button></p>
 </main>
 <div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="sbox">
  <h2 id="sName"></h2><div style="color:var(--faint);font-size:13px" id="sSub"></div>
@@ -1329,37 +1346,38 @@ body.djglass .srow button{ background:rgba(255,255,255,.14) !important; color:#f
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-const KEY='occ_counter_v1';
+/* 2 Oct 2026 — Drive Counter keeps its OWN save. It used to share 'occ_counter_v1' with the
+   older OCC Box Counter page, so counting in one changed the other. The first time this
+   version opens, whatever that shared save held is copied across once, so nobody's counts
+   are lost; after that the two never touch. A brand-new church starts at zero. */
+const KEY='church_drive_v1', OLDKEY='occ_counter_v1', MOVED='dj_drive_own_save';
 const SEED={goal:100,items:[
- {n:'Balls/ tennis and other',q:300,box:1,plenty:0},
- {n:'Beanie Babies',q:90,box:0,plenty:0},
- {n:'Boxes (the box itself)',q:15,box:1,plenty:0},
- {n:'Colored pencils',q:68,box:0,plenty:0},
- {n:'Combs/ brushes',q:86,box:1,plenty:0},
- {n:'Crayons/ 24 packs',q:99,box:1,plenty:0},
- {n:'Erasers/ pencil toppers',q:100,box:0,plenty:0},
- {n:'Erasers/ pink',q:83,box:1,plenty:0},
- {n:'Gloves',q:16,box:0,plenty:0},
- {n:'Glue Sticks',q:95,box:0,plenty:0},
- {n:'Hats/ knit',q:62,box:0,plenty:0},
- {n:'Hot Wheels',q:29,box:0,plenty:0},
- {n:'Labels',q:16,box:1,plenty:0},
- {n:'Notebooks',q:102,box:1,plenty:0},
- {n:'Pencil sharpeners',q:88,box:1,plenty:0},
+ {n:'Balls/ tennis and other',q:0,box:1,plenty:0},
+ {n:'Beanie Babies',q:0,box:0,plenty:0},
+ {n:'Boxes (the box itself)',q:0,box:1,plenty:0},
+ {n:'Colored pencils',q:0,box:0,plenty:0},
+ {n:'Combs/ brushes',q:0,box:1,plenty:0},
+ {n:'Crayons/ 24 packs',q:0,box:1,plenty:0},
+ {n:'Erasers/ pencil toppers',q:0,box:0,plenty:0},
+ {n:'Erasers/ pink',q:0,box:1,plenty:0},
+ {n:'Gloves',q:0,box:0,plenty:0},
+ {n:'Glue Sticks',q:0,box:0,plenty:0},
+ {n:'Hats/ knit',q:0,box:0,plenty:0},
+ {n:'Hot Wheels',q:0,box:0,plenty:0},
+ {n:'Labels',q:0,box:1,plenty:0},
+ {n:'Notebooks',q:0,box:1,plenty:0},
+ {n:'Pencil sharpeners',q:0,box:1,plenty:0},
  {n:'Pens and pencils',q:0,box:1,plenty:1},
- {n:'Scissors',q:51,box:1,plenty:0},
- {n:'Sewing Kits',q:76,box:0,plenty:0},
- {n:'Socks',q:63,box:0,plenty:0},
- {n:'Toothbrushes',q:82,box:1,plenty:0},
- {n:'Washcloths',q:100,box:1,plenty:0},
- {n:'Xmas cards',q:80,box:0,plenty:0}]};
+ {n:'Scissors',q:0,box:1,plenty:0},
+ {n:'Sewing Kits',q:0,box:0,plenty:0},
+ {n:'Socks',q:0,box:0,plenty:0},
+ {n:'Toothbrushes',q:0,box:1,plenty:0},
+ {n:'Washcloths',q:0,box:1,plenty:0},
+ {n:'Xmas cards',q:0,box:0,plenty:0}]};
 let db;try{db=JSON.parse(localStorage.getItem(KEY));}catch(e){}
-if(!db){db=JSON.parse(JSON.stringify(SEED));db.items.forEach((it,i)=>it.id='i'+i);save();}
-/* Jerry's count of 1 Oct 2026 (spreadsheet; Sewing Kits 76) — applied once to a phone that already has the list, by item name,
-   so nothing else (goal, flags, items you added yourself) is touched */
-(function(){ try{ if(db.count2026_10_01) return; var C={"Balls/ tennis and other":300,"Beanie Babies":90,"Boxes (the box itself)":15,"Colored pencils":68,"Combs/ brushes":86,"Crayons/ 24 packs":99,"Erasers/ pencil toppers":100,"Erasers/ pink":83,"Gloves":16,"Glue Sticks":95,"Hats/ knit":62,"Hot Wheels":29,"Labels":16,"Notebooks":102,"Pencil sharpeners":88,"Scissors":51,"Sewing Kits":76,"Socks":63,"Toothbrushes":82,"Washcloths":100,"Xmas cards":80};
-  var hit=0; db.items.forEach(function(it){ var k=Object.keys(C).find(function(x){ return x.replace(/\W/g,'').toLowerCase()===String(it.n).replace(/\W/g,'').toLowerCase(); }); if(k){ it.q=C[k]; hit++; } });
-  db.count2026_10_01=1; save(); if(hit) setTimeout(function(){ try{ toast('Counts updated to the 1 Oct list ('+hit+' items)'); }catch(e){} }, 900); }catch(e){} })();
+if(!db){ try{ if(!localStorage.getItem(MOVED)){ const o=JSON.parse(localStorage.getItem(OLDKEY)||'null'); if(o&&Array.isArray(o.items)) db=o; localStorage.setItem(MOVED,'1'); } }catch(e){} if(db) save(); }
+if(!db){db=JSON.parse(JSON.stringify(SEED));db.items.forEach((it,i)=>it.id='i'+i);}   /* not saved until you count something */
+window.driveData=()=>db;
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(db)); }catch(e){ try{ toast('This phone would not let the app save that.'); }catch(_){} } }
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1369,15 +1387,15 @@ function head(){
  const cb=canBuild();
  $('canN').textContent=cb.n;
  $('bott').textContent=cb.n<db.goal&&cb.who?('Short on: '+cb.who+(cb.n>0?' — it runs out first':'')):'';
- if(cb.n>=db.goal&&db.goal>0){$('bott').textContent='🎉 Goal covered — every box item has enough!';$('bott').style.color='var(--green)';}else{$('bott').style.color='var(--red)';}
+ if(cb.n>=db.goal&&db.goal>0){$('bott').textContent='🎉 Goal covered — every item in a set has enough!';$('bott').style.color='var(--green)';}else{$('bott').style.color='var(--red)';}
  $('goal').value=db.goal;
 }
 function rowHtml(it){
  let sub='';
  if(it.plenty)sub='<small class="done">plenty ✓</small>';
- else if(it.box){const need=db.goal-it.q;sub=need>0?`<small class="need">need ${need} more for ${db.goal} boxes</small>`:`<small class="done">enough for the goal ✓</small>`;}
+ else if(it.box){const need=db.goal-it.q;sub=need>0?`<small class="need">need ${need} more for ${db.goal} sets</small>`:`<small class="done">enough for the goal ✓</small>`;}
  const ctl=it.plenty?`<span class="q">∞</span>`:`<button class="pm minus" onclick="amt('${it.id}',-1)" aria-label="Take away" title="Take away">−</button><button class="qbtn" onclick="qaOpen('${it.id}')" aria-label="Now ${it.q} — tap to fix the total" title="Tap to fix the total">${it.q}</button><button class="pm plus" onclick="amt('${it.id}',1)" aria-label="Add" title="Add">＋</button><input class="amt" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="how many" aria-label="How many to add to ${esc(it.n)}" oninput="amtLive(this)" onkeydown="if(event.key==='Enter')amt('${it.id}',1)" autocomplete="off">`;
- return `<div class="row" data-id="${it.id}"><span class="nm" onclick="openSheet('${it.id}')"><b>${esc(it.n)}</b> ${it.box?'<span class="boxchip">EVERY BOX</span>':''}${sub}</span>${ctl}</div>`;
+ return `<div class="row" data-id="${it.id}"><span class="nm" onclick="openSheet('${it.id}')"><b>${esc(it.n)}</b> ${it.box?'<span class="boxchip">EVERY SET</span>':''}${sub}</span>${ctl}</div>`;
 }
 /* A to Z, ignoring capitals and punctuation, so “Combs/ brushes” sits among the C's — and anything you add finds its own place */
 const az=(a,b)=>String(a.n).replace(/[^a-z0-9]/gi,'').toLowerCase().localeCompare(String(b.n).replace(/[^a-z0-9]/gi,'').toLowerCase());
@@ -1728,7 +1746,7 @@ render();
     nextstep:     ['nextstep_v1','next_step_v1'],
     breakeven:    ['breakeven_v1'],
     safety:       ['safety_v1','safetyplan_v1'],
-    occ:          ['occ_v1'],
+    occ:          ['occ_boxes_v1','occ_v1'],
     zuri:         ['zuri_v1','zuri_ops_v1'],
     compass:      ['compass_v1'],
     feedback:     ['fbs_v1'],
@@ -1887,9 +1905,10 @@ render();
      Soap and toothpaste were staples for years and are now BANNED — the single most
      expensive thing a group of volunteers can get wrong. */
   var NOT_ALLOWED = ['soap','toothpaste','candy','gum','chocolate','food','fruit snacks',
-    'drink mixes','seeds','liquids','lotions','medicines','vitamins','used or damaged items',
-    'anything breakable or glass','aerosol cans','alcohol wipes',
-    'toy guns, knives or military figures'];
+    'drink mixes','seeds','liquids','lotions','medicines','vitamins','money','used or damaged items',
+    'anything breakable or glass','matches, fire starters or aerosol cans','alcohol wipes',
+    'knives, saws or razor blades','toy guns, knives or military figures',
+    'wearable camouflage clothing','anything scary'];   /* re-checked 2 Oct 2026 */
   var SHIP_PER_BOX = 10;                    /* the shipping donation per shoebox */
   var COLLECTION = {from:'16 November', to:'23 November 2026', iso:'2026-11-16'};
 
@@ -1907,7 +1926,7 @@ render();
     /* The app keeps its record in a script-local `db`, which is not on window — so
        read the saved copy instead. Read only; the app owns this record. */
     var d = null;
-    try{ d = JSON.parse(localStorage.getItem('occ_counter_v1') || 'null'); }catch(e){}
+    try{ d = (window.driveData && window.driveData()) || JSON.parse(localStorage.getItem('church_drive_v1') || 'null'); }catch(e){}
     if(!d || !d.items) return null;
     var goal = d.goal || 0, short = [], plenty = [];
     d.items.forEach(function(it){
@@ -2053,7 +2072,7 @@ render();
       + '<details class="occNo"><summary>🚫 What is not allowed any more</summary>'
       + '<p><b>Soap and toothpaste were fine for years and are banned now.</b> The full list: '
       + NOT_ALLOWED.join(', ') + '.</p>'
-      + '<p class="occSrc">Samaritan\u2019s Purse, checked 10 September 2026. '
+      + '<p class="occSrc">Samaritan\u2019s Purse, checked 2 October 2026. '
       + 'Worth re-checking their site before a big shop.</p></details>'
       + '</div>';
   }
@@ -2069,7 +2088,7 @@ function _ls(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch
 function _lines(a){ return (a||[]).filter(Boolean).map(function(x){ return '- ' + x; }).join('\n'); }
 
 window.DJ_AI = { title:'What should we buy first?',
-  prompt:function(){ var d=_ls('occ_counter_v1')||{}; var goal=d.goal||100; var short=(d.items||[]).filter(function(i){ return i.box && !i.plenty; }).map(function(i){ return {n:i.n, need: Math.max(0, goal*(i.box||1) - (i.q||0))}; }).filter(function(i){ return i.need>0; }).sort(function(a,b){ return b.need-a.need; }).slice(0,8);
+  prompt:function(){ var d=(window.driveData&&window.driveData())||_ls('church_drive_v1')||{}; var goal=d.goal||100; var short=(d.items||[]).filter(function(i){ return i.box && !i.plenty; }).map(function(i){ return {n:i.n, need: Math.max(0, goal*(i.box||1) - (i.q||0))}; }).filter(function(i){ return i.need>0; }).sort(function(a,b){ return b.need-a.need; }).slice(0,8);
     return 'Our church group is packing ' + goal + ' Operation Christmas Child shoeboxes. We are short on:\n' + _lines(short.map(function(i){ return i.n + ' — need ' + i.need + ' more'; })) + '\n\nWhere do people usually get these cheapest in bulk (dollar stores, Amazon, wholesale), and which two should we buy first? Remember: no toothpaste, candy, liquids or war toys allowed. Short answer.'; } };
 })();
 </script>
