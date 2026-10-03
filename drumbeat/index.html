@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v51">
+<script id="dj-house-v52">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -485,7 +485,7 @@
 
   var dockEl = null;
   function dock(){
-    var wanted = ['djHelp', 'dTipDot', 'introDot', 'djDays', 'djAa', 'djAIBtn', 'djMore'];   /* introDot: Ahead of It’s “What am I doing here?” ? — it sat top-right on its own (21 Sep) */  /* the days-left badge sat on the app title */
+    var wanted = ['djHelp', 'dTipDot', 'introDot', 'djDays', 'djAa', 'djTell', 'djAIBtn', 'djMore'];   /* introDot: Ahead of It’s “What am I doing here?” ? — it sat top-right on its own (21 Sep) */  /* the days-left badge sat on the app title */
     var found = [];
     for(var i=0; i<wanted.length; i++){
       var el = document.getElementById(wanted[i]);
@@ -540,7 +540,7 @@
 
   var toggleBtn = null, openDock = false;
 
-  var DOCK_LABELS = { djAa:['Aa','Text size — bigger or smaller'], djAIBtn:['✨','Ask an AI about this screen'], djMore:['\u{1F309}','More from Daraja — the other apps'], djHelp:['?','Help, backup, start fresh'], dTipDot:['\u{1F4A1}','Tips for this screen'], introDot:['?','What am I doing here? — the 30-second intro'], djDays:['⏳','Days left on your code'] };
+  var DOCK_LABELS = { djAa:['Aa','Text size — bigger or smaller'], djTell:['🎤','Tell it — add a to-do, a shopping item, a bill'], djAIBtn:['✨','Ask an AI about this screen'], djMore:['\u{1F309}','More from Daraja — the other apps'], djHelp:['?','Help, backup, start fresh'], dTipDot:['\u{1F4A1}','Tips for this screen'], introDot:['?','What am I doing here? — the 30-second intro'], djDays:['⏳','Days left on your code'] };
   /* the version a person should be told, wherever the app happens to print it */
   function appStamp(){
     try{
@@ -658,7 +658,7 @@
             var n = added[j];
             if(n.nodeType !== 1) continue;
             if(dockEl && dockEl.contains(n)) continue;
-            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa' || n.id === 'djAIBtn'){ run(); return; }
+            if(n.id === 'djHelp' || n.id === 'dTipDot' || n.id === 'djDays' || n.id === 'djAa' || n.id === 'djAIBtn' || n.id === 'djTell'){ run(); return; }
           }
         }
       });
@@ -1219,7 +1219,187 @@
     [1800, 3200, 6000].forEach(function(ms){ setTimeout(liftTip, ms); });
     setInterval(function(){ if(!TIP_FIRST && t.style.visibility === 'hidden') liftTip(); }, 2500);   /* a welcome card that is removed (not hidden) brings the strip back */
   }
-  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
+
+  /* ── 14 · 🎤 Tell it (v52 · 3 Oct 2026) ──────────────────────────────────────
+     Jerry: "talk to an app — add a note, a to-do item." Say one sentence in any app;
+     plain rules work out where it goes (One Thing to-do · Our Table shopping ·
+     Ahead of It bill · My Circle birthday). Nothing is saved until the person taps
+     "Yes, add it". Anything the rules can't place can go to their own AI. */
+  var TELL_DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  var TELL_MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  var TELL_APPS = {
+    todo:  { name:'One Thing', url:'https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/nownext/', path:'/nownext/' },
+    shop:  { name:'Our Table', url:'https://jerrywins1.github.io/daraja-apps/ourtable/', path:'/ourtable/' },
+    ahead: { name:'Ahead of It', url:'https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/ahead/', path:'/ahead/' },
+    bday:  { name:'My Circle', url:'https://jerrywins1.github.io/daraja-apps/circle/', path:'/circle/' }
+  };
+  function tNoon(){ var n = new Date(); n.setHours(12,0,0,0); return n; }
+  function reEsc(t){ return String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function tellDate(s){
+    var t = String(s || '').toLowerCase(), n = tNoon(), d, m;
+    if((m = t.match(/\b(today|tonight|this evening)\b/))) return { date:djYMD(n), words:m[0] };
+    if((m = t.match(/\b(the day after tomorrow)\b/))){ d = new Date(n); d.setDate(d.getDate()+2); return { date:djYMD(d), words:m[0] }; }
+    if((m = t.match(/\btomorrow\b/))){ d = new Date(n); d.setDate(d.getDate()+1); return { date:djYMD(d), words:m[0] }; }
+    if((m = t.match(/\b(?:on |this |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/))){
+      d = new Date(n); var add = (TELL_DAYS.indexOf(m[1]) - d.getDay() + 7) % 7; if(add === 0) add = 7;
+      d.setDate(d.getDate() + add); return { date:djYMD(d), words:m[0] }; }
+    if((m = t.match(/\b(?:on )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/)) ||
+       (m = t.match(/\b(?:on )?(?:the )?(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/))){
+      var mon = /^\d/.test(m[1]) ? TELL_MON.indexOf(m[2]) : TELL_MON.indexOf(m[1]);
+      var day = /^\d/.test(m[1]) ? +m[1] : +m[2];
+      d = new Date(n.getFullYear(), mon, day, 12); if(d < n) d.setFullYear(d.getFullYear()+1);
+      if(day >= 1 && day <= 31) return { date:djYMD(d), words:m[0] }; }
+    if((m = t.match(/\b(?:on )?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))){
+      d = new Date(m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : n.getFullYear(), +m[1]-1, +m[2], 12);
+      if(!m[3] && d < n) d.setFullYear(d.getFullYear()+1);
+      if(+m[1] <= 12 && +m[2] <= 31) return { date:djYMD(d), words:m[0] }; }
+    if((m = t.match(/\b(?:on )?the (\d{1,2})(?:st|nd|rd|th)\b/))){
+      d = new Date(n.getFullYear(), n.getMonth(), +m[1], 12); if(d < n) d.setMonth(d.getMonth()+1);
+      return { date:djYMD(d), words:m[0] }; }
+    if((m = t.match(/\bnext week\b/))){ d = new Date(n); d.setDate(d.getDate()+7); return { date:djYMD(d), words:m[0] }; }
+    return null;
+  }
+  function tellAmount(s){ var m = String(s).match(/\$\s?(\d[\d,]*(?:\.\d{1,2})?)|\b(\d[\d,]*(?:\.\d{1,2})?)\s*(?:dollars|bucks)\b/i); return m ? { amt:(m[1] || m[2]).replace(/,/g,''), words:m[0] } : null; }
+  function tidy(t){ t = String(t || '').replace(/\s+/g,' ').replace(/^[\s,;:-]+|[\s,;:.-]+$/g,'').trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : ''; }
+  function niceDate(ymd){ try{ return new Date(ymd + 'T12:00:00').toLocaleDateString('en', { weekday:'short', month:'short', day:'numeric' }); }catch(e){ return ymd; } }
+  function tellPlan(raw){
+    var s = String(raw || '').trim().replace(/[.!?]+$/,''); if(!s) return null;
+    var low = s.toLowerCase(), m, d;
+    if((m = s.match(/^(?:my |our )?(.+?)['’]s birthday is (?:on )?(.+)$/i)) && (d = tellDate(m[2])))
+      { var nm = m[1].replace(/^(my|our)\s+/i,''), rl = '', rm = nm.match(/^(wife|husband|son|daughter|grandson|granddaughter|grandchild|mom|mother|dad|father|sister|brother|friend|neighbor|neighbour|niece|nephew|aunt|uncle|cousin)\s+(.+)$/i);
+        if(rm){ rl = rm[1].toLowerCase(); nm = rm[2]; }
+        return { kind:'bday', name:tidy(nm), rel:rl, date:d.date }; }
+    if((m = s.match(/^(?:please )?(?:add|put)\s+(.+?)\s+(?:to|on)\s+(?:the |my |our )?(?:shopping(?: list)?|grocery(?: list)?|groceries|store list|list for the store)$/i)) ||
+       (m = s.match(/^(?:please )?(?:we need|we['’]re out of|we are out of|i['’]m out of|buy|get some|we need some)\s+(.+?)(?:\s+(?:from|at) the (?:store|shop|grocery))?$/i)))
+      return { kind:'shop', text:tidy(m[1]) };
+    if(/\b(due|renew|renews|renewal|expires?|expiring|bill|insurance|premium|tax(?:es)?|registration|license|licence|subscription|payment)\b/.test(low) && (d = tellDate(s))){
+      var a = tellAmount(s), t = s.replace(new RegExp(reEsc(d.words), 'i'), ' ');
+      if(a) t = t.replace(a.words, ' ');
+      t = t.replace(/\b(every month|monthly|every year|yearly|annually|once|one time)\b/ig, ' ').replace(/\b(is|are)?\s*(due|renews?|expires?)\b/ig, ' ').replace(/\b(for|of)\s*$/i, ' ').replace(/^\s*(the|my|our)\s+/i, '');
+      return { kind:'ahead', text:tidy(t), date:d.date, amt:a ? a.amt : '', rep:/\b(every month|monthly)\b/.test(low) ? 30 : (/\b(once|one time)\b/.test(low) ? 0 : 365) };
+    }
+    var t2 = s.replace(/^(?:please )?(?:remind me to|remind me|i need to|i have to|i['’]ve got to|i must|don['’]t let me forget to|add|put|note|to do|todo)[:\s]+/i, '');
+    t2 = t2.replace(/\s+(?:to|on) (?:my )?(?:to-?do list|to do list|list|one thing)$/i, '');
+    d = tellDate(t2); var today = djYMD(tNoon());
+    if(d) t2 = t2.replace(new RegExp('\\s*' + reEsc(d.words), 'i'), ' ');
+    return { kind:'todo', text:tidy(t2), date:(d && d.date > today) ? d.date : null };
+  }
+  function tellSay(p){
+    if(!p) return '';
+    if(p.kind === 'shop') return 'Add <b>' + esc(p.text) + '</b> to the shopping list in Our Table';
+    if(p.kind === 'ahead') return 'Add <b>' + esc(p.text) + '</b> to Ahead of It, due <b>' + niceDate(p.date) + '</b>' + (p.amt ? ', <b>$' + esc(p.amt) + '</b>' : '') + (p.rep === 30 ? ', every month' : p.rep === 0 ? ', once' : ', every year');
+    if(p.kind === 'bday') return 'Save <b>' + esc(p.name) + '</b>’s birthday (' + niceDate(p.date).replace(/^\w+, /,'') + ') in My Circle';
+    return 'Add <b>' + esc(p.text) + '</b> to One Thing' + (p.date ? ' for <b>' + niceDate(p.date) + '</b>' : ' for today');
+  }
+  function lsJ(k){ try{ return JSON.parse(localStorage.getItem(k) || 'null'); }catch(e){ return null; } }
+  function lsPut(k, v){ localStorage.setItem(k, JSON.stringify(v)); return localStorage.getItem(k) === JSON.stringify(v); }
+  function tid(){ return 'tell' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+  function nnKeyOf(){ var P = lsJ('now_next_profiles_v1'); if(P && P.cur) return 'now_next_v1_' + P.cur; return 'now_next_v1'; }
+  function tellDo(p){
+    if(p.kind === 'shop'){
+      var o = lsJ('dj_ourtable_v1') || {}; o.extras = Array.isArray(o.extras) ? o.extras : [];
+      o.extras.push({ id:tid(), text:p.text, aisle:'Other', done:false }); return lsPut('dj_ourtable_v1', o);
+    }
+    if(p.kind === 'ahead'){
+      var h = lsJ('ahead_v1');
+      if(!h || !Array.isArray(h.items)){ p.kind = 'todo'; p.text = p.text + (p.amt ? ' ($' + p.amt + ')' : '') + ' is due'; return tellDo(p); }
+      h.items.push({ id:tid(), n:p.text, cat:'Mine', due:p.date, rep:p.rep, sev:'m', bite:'', lad:[[30,'Gather what you need'],[7,'Do it'],[1,'Confirm it went through']], who:h.tell || '', amt:p.amt || '', where:'', stepsDone:[], hist:[], said:true });
+      return lsPut('ahead_v1', h);
+    }
+    if(p.kind === 'bday'){
+      var c = djCircle.get() || { me:{}, people:[], home:{}, work:{}, share:{me:true,people:true,home:true,work:true} };
+      c.people = Array.isArray(c.people) ? c.people : [];
+      var dt = new Date(p.date + 'T12:00:00'), who = null;
+      c.people.forEach(function(x){ if(x && x.name && x.name.toLowerCase() === p.name.toLowerCase()) who = x; });
+      var RELMAP = { wife:'Spouse', husband:'Spouse', son:'Child', daughter:'Child', grandson:'Grandchild', granddaughter:'Grandchild', grandchild:'Grandchild', mom:'Parent', mother:'Parent', dad:'Parent', father:'Parent', sister:'Brother or sister', brother:'Brother or sister', friend:'Friend', neighbor:'Neighbor', neighbour:'Neighbor' };
+      if(!who){ who = { id:'p' + Date.now().toString(36), name:p.name, rel:RELMAP[p.rel] || (p.rel ? 'Other' : '') }; c.people.push(who); }
+      who.bm = dt.getMonth() + 1; who.bd = dt.getDate(); c.updated = new Date().toISOString();
+      return lsPut('dj_circle_v1', c);
+    }
+    var k = nnKeyOf(), d = lsJ(k) || { tasks:[], regulars:[], history:{}, made_by:'tell' };
+    d.tasks = Array.isArray(d.tasks) ? d.tasks : []; d.upcoming = Array.isArray(d.upcoming) ? d.upcoming : [];
+    if(p.date) d.upcoming.push({ id:tid(), text:p.text, mins:10, date:p.date, notes:[], att:null });
+    else d.tasks.push({ id:tid(), text:p.text, mins:10, done:false, said:true });
+    return lsPut(k, d);
+  }
+  function openTell(){
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    var b = sheet('<div style="font-weight:900;font-size:20px;margin-bottom:2px">🎤 Tell it</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Say one thing. It goes to the right app, after you say yes.</p>'
+      + (SR ? '<button type="button" id="djTellMic" style="' + BTNM + ';width:100%;min-height:60px;font-size:19px;margin-bottom:8px">🎤 Tap and talk</button>' : '')
+      + '<input id="djTellIn" aria-label="What to add" placeholder="e.g. remind me to call Mary Tuesday" style="width:100%;min-height:48px;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;box-sizing:border-box">'
+      + '<div id="djTellPlan" style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#F2EEE4;font-size:16px;min-height:24px;color:#55605B">Try: “add milk to the shopping list” · “car insurance due the 15th, $240” · “Mary’s birthday is March 14”</div>'
+      + '<div id="djTellTo" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
+      + '<button type="button" id="djTellGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px" disabled>Yes, add it</button>'
+      + '<div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djTellAI" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">not right? ask my AI to sort it</button><button type="button" id="djTellX" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
+    var w = document.getElementById('djAISheet'); if(w) w.setAttribute('aria-label', 'Tell it');
+    var inp = b.querySelector('#djTellIn'), out = b.querySelector('#djTellPlan'), go = b.querySelector('#djTellGo'), to = b.querySelector('#djTellTo'), plan = null;
+    function chips(){
+      to.innerHTML = ''; if(!plan) { to.style.display = 'none'; return; } to.style.display = 'flex';
+      [['todo','📋 To-do'],['shop','🛒 Shopping'],['ahead','🧾 A bill']].forEach(function(c){
+        var x = document.createElement('button'); x.type = 'button'; x.textContent = c[1];
+        x.style.cssText = 'font:inherit;font-size:14px;font-weight:700;min-height:38px;padding:6px 12px;border-radius:999px;cursor:pointer;border:1.5px solid ' + (plan.kind === c[0] ? '#23504F;background:#23504F;color:#fff' : '#C9C1AE;background:#fff;color:#1F2622');
+        x.onclick = function(){ var txt = plan.text || plan.name || inp.value;
+          if(c[0] === 'ahead'){ var dd = tellDate(inp.value) || { date:djYMD(new Date(Date.now() + 30*864e5)) }; var am = tellAmount(inp.value); plan = { kind:'ahead', text:txt, date:dd.date, amt:am ? am.amt : '', rep:365 }; }
+          else plan = { kind:c[0], text:txt, date:c[0] === 'todo' ? (plan.date || null) : null };
+          show(); };
+        to.appendChild(x);
+      });
+    }
+    function show(){ if(!plan || !(plan.text || plan.name)){ go.disabled = true; out.style.color = '#55605B'; return; } out.style.color = '#1F2622'; out.innerHTML = tellSay(plan) + '?'; go.disabled = false; chips(); }
+    function update(){ plan = tellPlan(inp.value); if(!inp.value.trim()){ out.innerHTML = 'Say or type one thing.'; to.style.display = 'none'; go.disabled = true; return; } show(); }
+    inp.addEventListener('input', update);
+    inp.addEventListener('keydown', function(e){ if(e.key === 'Enter' && !go.disabled) go.click(); });
+    if(SR){
+      var mic = b.querySelector('#djTellMic'), rec = null;
+      mic.onclick = function(){
+        if(rec){ try{ rec.stop(); }catch(e){} return; }
+        try{ rec = new SR(); }catch(e){ mic.textContent = 'Talking is not available here. Type instead.'; return; }
+        rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1;
+        rec.onresult = function(ev){ var t = ''; for(var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; inp.value = t; update(); };
+        rec.onerror = function(ev){ mic.textContent = (ev && ev.error === 'not-allowed') ? 'Microphone not allowed. Type instead.' : '🎤 Tap and talk'; rec = null; };
+        rec.onend = function(){ rec = null; if(/Listening/.test(mic.textContent)) mic.textContent = '🎤 Tap and talk again'; };
+        mic.textContent = '● Listening… tap to stop'; try{ rec.start(); }catch(e){ rec = null; mic.textContent = '🎤 Tap and talk'; }
+      };
+    } else setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 300);
+    go.onclick = function(){
+      if(!plan) return; var ok = false; try{ ok = tellDo(plan); }catch(e){ ok = false; }
+      var app = TELL_APPS[plan.kind] || TELL_APPS.todo;
+      if(!ok){ out.innerHTML = 'This phone would not save it. Try again, or open ' + esc(app.name) + '.'; return; }
+      var here = location.pathname.indexOf(app.path) >= 0;
+      out.innerHTML = '✓ Done. ' + (here ? 'Refreshing so you can see it…' : '<a href="' + app.url + '" style="color:#23504F;font-weight:800">Open ' + esc(app.name) + ' →</a>');
+      go.textContent = 'Tell it something else'; to.style.display = 'none';
+      go.onclick = function(){ closeAISheet(); openTell(); };
+      if(here) setTimeout(function(){ location.reload(); }, 1100);
+    };
+    b.querySelector('#djTellX').onclick = function(){ closeAISheet(); };
+    b.querySelector('#djTellAI').onclick = function(){
+      var said = inp.value.trim(); if(!said){ inp.focus(); return; }
+      closeAISheet();
+      djAI.ask({ title:'Sort this for me', want:'json', circle:false,
+        prompt:'Turn this sentence into ONE item for a phone app. Answer with JSON only, like {"kind":"todo|shop|ahead","text":"short words","date":"YYYY-MM-DD or empty","amount":"number or empty"}. kind: todo = a thing to do; shop = something to buy; ahead = a bill, renewal or deadline. Today is ' + djYMD() + '.\n\nThe sentence: ' + said,
+        onResult:function(v){
+          if(!v || !v.kind || !v.text){ alert('That answer did not fit. Try saying it another way.'); return; }
+          openTell(); var i2 = document.getElementById('djTellIn'); if(i2) i2.value = said;
+          var k = (v.kind === 'shop' || v.kind === 'ahead') ? v.kind : 'todo';
+          var p = { kind:k, text:tidy(v.text), date:/^\d{4}-\d\d-\d\d$/.test(v.date || '') ? v.date : (k === 'ahead' ? djYMD(new Date(Date.now() + 30*864e5)) : null), amt:String(v.amount || '').replace(/[^\d.]/g,''), rep:365 };
+          var o2 = document.getElementById('djTellPlan'), g2 = document.getElementById('djTellGo');
+          if(o2 && g2){ o2.style.color = '#1F2622'; o2.innerHTML = tellSay(p) + '?'; g2.disabled = false;
+            g2.onclick = function(){ var ok = false; try{ ok = tellDo(p); }catch(e){} var app = TELL_APPS[p.kind]; o2.innerHTML = ok ? '✓ Done. <a href="' + app.url + '" style="color:#23504F;font-weight:800">Open ' + esc(app.name) + ' →</a>' : 'This phone would not save it.'; g2.disabled = true; }; }
+        } });
+    };
+  }
+  window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
+  function tellButton(){
+    if(document.getElementById('djTell') || !document.body) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
+    b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
+    b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    b.onclick = function(){ openTell(); };
+    document.body.appendChild(b);
+  }
+
+  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
