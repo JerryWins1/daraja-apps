@@ -1345,7 +1345,7 @@
     </details>
   </div>
 
-  <p class="small" style="text-align:center;padding:8px 0 20px">FlipKit v1.0 · 2026-09-03 · by Daraja Studio · your list lives on this device only<br>
+  <p class="small" style="text-align:center;padding:8px 0 20px">FlipKit v1.1 · 2026-10-02 · by Daraja Studio · your list lives on this device only<br>
   <span style="opacity:.8">iPhone: Share → Add to Home Screen and it becomes a real app.</span></p>
 </div>
 
@@ -1386,29 +1386,37 @@ function copyPrompt(id){
   var box=document.getElementById('paste-'+id); if(box) box.style.display='block';
 }
 
+function num(v){ var n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,'')); return isNaN(n)?null:n; }
+function usd(n){ var r=Math.round((Number(n)||0)*100)/100; return '$'+(r%1?r.toFixed(2):String(r)); }
 function importAI(id){
   var ta=document.getElementById('ta-'+id); var raw=(ta&&ta.value)||'';
   var m=raw.match(/\{[\s\S]*\}/); if(!m){ toast('Hmm — paste the AI\'s whole reply (it has { } in it).'); return; }
   var o; try{ o=JSON.parse(m[0]); }catch(e){ toast('That didn\'t read cleanly — copy the AI reply again.'); return; }
   var d=db(); var it=d.items.find(function(x){return x.id===id;}); if(!it) return;
-  it.lo=Number(o.lo)||0; it.hi=Number(o.hi)||0; it.ask=Number(o.ask)||0; it.floor=Number(o.floor)||0;
+  if(!num(o.hi)){ toast('Couldn\'t find prices in that reply — paste it again.'); return; }
+  it.lo=num(o.lo)||0; it.hi=num(o.hi)||0; it.ask=num(o.ask)||0; it.floor=num(o.floor)||0;
   it.title=String(o.title||''); it.desc=String(o.desc||''); it.tips=String(o.tips||'');
   save(d); render(); toast('💰 Priced! Listing is ready to copy.');
 }
 
 function copyListing(id){
   var it=db().items.find(function(x){return x.id===id;}); if(!it) return;
-  navigator.clipboard.writeText(it.title+'\n\n'+it.desc+'\n\nAsking $'+it.ask).then(function(){ toast('📋 Listing copied — paste it on Marketplace.'); });
+  navigator.clipboard.writeText(it.title+'\n\n'+it.desc+'\n\nAsking '+usd(it.ask)).then(function(){ toast('📋 Listing copied — paste it on Marketplace.'); });
 }
 
 function markSold(id){
   var d=db(); var it=d.items.find(function(x){return x.id===id;}); if(!it) return;
-  var v=prompt('Sold! For how much? $', it.ask||''); if(v===null) return;
-  it.sold=1; it.soldFor=Number(v)||it.ask||0; save(d); render();
-  toast('💵 $'+it.soldFor+' in your pocket. Who\'s next?');
+  var v=prompt('Sold! For how much? $', it.ask||''), n;
+  while(true){ if(v===null) return; n=num(v); if(n!==null) break; v=prompt('Just the number, like 60. (Type 0 if you gave it away.) For how much? $', it.ask||''); }
+  it.sold=1; it.soldFor=n; save(d); render();
+  toast(n>0?'💵 '+usd(n)+' in your pocket. Who\'s next?':'🎁 Given away — one less thing in the garage.');
 }
+function unsold(id){ var d=db(); var it=d.items.find(function(x){return x.id===id;}); if(!it) return;
+  it.sold=0; it.soldFor=0; save(d); render(); toast('Back on the flip list.'); }
 
-function rm(id){ var d=db(); d.items=d.items.filter(function(x){return x.id!==id;}); save(d); render(); }
+function rm(id){ var d=db(); var it=d.items.find(function(x){return x.id===id;}); if(!it) return;
+  if(!confirm('Remove "'+it.nm+'" from FlipKit?'+(it.sold?' Its '+usd(it.soldFor)+' comes off your cash total.':''))) return;
+  d.items=d.items.filter(function(x){return x.id!==id;}); save(d); render(); }
 
 function render(){
   var d=db(); var L=document.getElementById('list');
@@ -1416,23 +1424,24 @@ function render(){
   var lo=0, hi=0; open.forEach(function(x){ lo+=x.lo||0; hi+=x.hi||0; });
   var cash=d.items.filter(function(x){return x.sold;}).reduce(function(a,x){ return a+(x.soldFor||0); },0);
   var big=document.getElementById('worthBig'), sub=document.getElementById('worthSub'), cl=document.getElementById('cashLine');
-  if(hi>0){ big.textContent='$'+lo+' – $'+hi; sub.textContent='what your '+open.length+' unsold thing'+(open.length===1?' is':'s are')+' worth, says your AI'; }
+  if(hi>0){ big.textContent=usd(lo)+' – '+usd(hi); sub.textContent='what your '+open.length+' unsold thing'+(open.length===1?' is':'s are')+' worth, says your AI'; }
   else if(open.length){ big.textContent=open.length+' thing'+(open.length>1?'s':''); sub.textContent='on the flip list — price them to see the money'; }
   else if(cash>0){ big.textContent='All flipped!'; sub.textContent='add more — the garage isn\'t empty yet 😄'; }
   else { big.textContent='$0'; sub.textContent='add your first item — let\'s see what your stuff is worth'; }
-  if(cash>0){ cl.style.display='block'; cl.textContent='💵 Cash so far: $'+cash; } else cl.style.display='none';
+  if(cash>0){ cl.style.display='block'; cl.textContent='💵 Cash so far: '+usd(cash); } else cl.style.display='none';
 
   L.innerHTML = d.items.map(function(it){
     var priced = it.hi>0;
     return '<div class="card item'+(it.sold?' sold':'')+'">'
      +'<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">'
      +'<div><div class="nm">'+(it.sold?'✅ ':'')+esc(it.nm)+'</div><div class="meta">'+esc(it.cond)+(it.notes?' · '+esc(it.notes):'')+'</div></div>'
-     +(it.sold?'<div class="ask" style="color:#8FE0B0">$'+it.soldFor+'</div>':(priced?'<div class="ask">ask $'+it.ask+'</div>':''))
+     +(it.sold?'<div class="ask" style="color:#8FE0B0">'+usd(it.soldFor)+'</div>':(priced?'<div class="ask">ask '+usd(it.ask)+'</div>':''))
      +'</div>'
      +(priced&&!it.sold?'<div class="listing"><b>'+esc(it.title)+'</b><br>'+esc(it.desc)
-        +'<br><span style="color:var(--faint)">Range $'+it.lo+'–$'+it.hi+' · don\'t go below <b style="color:var(--gold)">$'+it.floor+'</b>'
+        +'<br><span style="color:var(--faint)">Range '+usd(it.lo)+'–'+usd(it.hi)+' · don\'t go below <b style="color:var(--gold)">'+usd(it.floor)+'</b>'
         +(it.tips?' · 💡 '+esc(it.tips):'')+'</span></div>':'')
-     +(it.sold?'':'<div class="rowbtns">'
+     +(it.sold?'<div class="rowbtns"><button class="ghost" onclick="unsold(\''+it.id+'\')">↩ Undo sold</button>'
+        +'<button class="x" onclick="rm(\''+it.id+'\')" aria-label="Remove" title="Remove">×</button></div>':'<div class="rowbtns">'
         +(!priced?'<button class="copy" onclick="copyPrompt(\''+it.id+'\')">🤖 Price it with my AI</button>':'')
         +(priced?'<button class="copy" onclick="copyListing(\''+it.id+'\')">📋 Copy the listing</button>':'')
         +(priced?'<button class="copy" onclick="copyPrompt(\''+it.id+'\')">🤖 Re-price</button>':'')
@@ -1458,13 +1467,16 @@ try{ if(localStorage.getItem('flipkit_seen') && db().items.length){ var s=docume
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 render();
+/* one welcome, not two: when the Start card closes, the old splash goes with it (2 Oct 2026) */
+window.addEventListener('load',function(){ ['djStartGo','djStartClose'].forEach(function(n){ var f=window[n]; if(typeof f!=='function') return;
+  window[n]=function(){ try{ if(document.getElementById('splash')) closeSplash(); }catch(e){} return f.apply(this,arguments); }; }); });
 </script>
 
 
 
 <script>window.DJ_START = {"slug": "flipkit", "em": "💸", "title": "Welcome — turn clutter into cash.", "lede": "Add a thing you want gone. It helps you price it, writes the listing, and keeps a running total of what you have actually made.", "cta": "Add the first thing →", "firstSelector": "input, button", "dataKeys": ["flipkit_v1"], "steps": ["<b>Add one thing</b> from the garage. Just one, to start.", "<b>Price it with your AI</b> — it copies the question for you.", "<b>Paste the listing</b> into Marketplace, and mark it sold when it goes."]};</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.0 · 2026-09-07) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.1 · 2026-10-02) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
