@@ -1215,7 +1215,7 @@
   .row{ display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; }
   .row input{ flex:1; min-width:0; }
   .del{ flex:none; border:none; background:transparent; color:var(--warn); font-size:21px;
-        cursor:pointer; padding:6px 4px; line-height:1; }
+        cursor:pointer; padding:6px 4px; line-height:1; min-width:44px; min-height:44px; }
   .btn{ font:inherit; font-weight:800; font-size:15px; padding:12px 14px; border-radius:12px;
         border:1.5px solid var(--line2); background:var(--card); color:var(--ink); cursor:pointer; }
   .btn.solid{ background:var(--ok); color:#fff; border-color:var(--ok); }
@@ -1299,7 +1299,10 @@
   .staffRow{ display:grid; grid-template-columns:1fr; gap:6px; }
   @media (min-width:520px){ .staffRow{ grid-template-columns:1.1fr 1fr 1.3fr auto; align-items:center; } }
   .fieldLbl{ font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
-             color:var(--soft); margin:2px 0 -2px; }
+             color:var(--soft); margin:2px 0 3px; }
+  .staffRow{ border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:10px; }
+  .staffRow input{ width:100%; }
+  .staffRow .del{ justify-self:end; font-size:15px; font-weight:700; }
 </style>
 <style id="dj-contrast-v3">nav button{color:var(--soft);}</style>
 </head>
@@ -1340,7 +1343,7 @@
     <div class="card">
       <h2>The basics</h2>
       <p class="hint">The things people look up most — and the things that change the least.</p>
-      <label>Church name</label><input id="f_name" placeholder="Immanuel Church" autocomplete="name">
+      <label>Church name</label><input id="f_name" placeholder="Immanuel Church" autocomplete="organization">
       <label>Service times</label><textarea id="f_times" placeholder="Sundays 9:00 &amp; 10:45&#10;Wednesdays 6:30pm"></textarea>
       <label>Address</label><textarea id="f_addr" placeholder="2300 N. Dilleys Rd.&#10;Gurnee, IL 60031"></textarea>
       <label>Phone</label><input id="f_phone" type="tel" placeholder="847-336-4800" inputmode="tel" autocomplete="tel">
@@ -1407,6 +1410,7 @@
         <li>Delete the sample code, paste ours in (button below), then Save.</li>
         <li>Deploy → New deployment → <b>Web app</b> → Execute as <b>Me</b> → Who has access <b>Anyone</b>.</li>
         <li>Copy the address it gives you (it ends in <code>/exec</code>) and paste it here.</li>
+        <li>Send that same address to whoever set up your church app, so the app reads from it. Until the app knows the address, Publish only fills the mailbox.</li>
       </ol>
       <button class="btn block" onclick="copyScript()">📋 Copy the code to paste</button>
       <label>Your mailbox address</label>
@@ -1425,10 +1429,20 @@
 
     <div class="card">
       <h2>Who else can edit?</h2>
-      <p class="hint">Anyone you give this link and the passphrase to. Keep it to two or three people.</p>
+      <p class="hint">HQ keeps what you type on <b>this phone</b>. The passphrase locks your mailbox:
+      the first time you publish with it, the mailbox remembers it and turns away any update that
+      doesn't carry the same words.</p>
       <label>Passphrase for editing</label>
-      <div class="row"><input id="f_pass" placeholder="something your team will remember">
+      <div class="row"><input id="f_pass" placeholder="something your team will remember" autocomplete="off">
         <button class="btn" onclick="saveAll()">Save</button></div>
+      <p class="hint" style="margin-top:10px">To let someone help, give them the mailbox address and
+      the passphrase. On their phone they open Church HQ, paste both on this page, and tap
+      <b>Start from what's in the mailbox</b>, so they begin with your latest version instead of a blank page.
+      Keep it to two or three people.</p>
+      <button class="btn block" onclick="loadFromMailbox()">📥 Start from what's in the mailbox</button>
+      <button class="btn block" onclick="openChurchFile()">📂 Start from a saved church file</button>
+      <p class="hint" style="margin-top:8px">Set up your mailbox before October 2026? Copy the code again and
+      paste it over the old one (Deploy → Manage deployments → Edit → New version) so it checks the passphrase.</p>
     </div>
   </section>
 
@@ -1443,7 +1457,7 @@
 </nav>
 
 <footer>
-  Church HQ v1.2 · 2026-09-22 · Daraja Studio<br>
+  Church HQ v1.3 · 2026-10-02 · Daraja Studio<br>
   Everything lives on this device and in your own Google mailbox. We hold nothing.<br>
   <span style="opacity:.75">every app helps a student in Kenya stay in school</span>
 </footer>
@@ -1488,6 +1502,14 @@ document.addEventListener('input', e => {
 
 /* ── repeating lists ── */
 function listRow(kind, i, obj, fields){
+  /* staff and ministries: each box gets a label that stays, stacked on a phone (Jerry: "do you have room for it") */
+  if(fields.some(f => f.l)){
+    return '<div class="staffRow" data-k="'+kind+'" data-i="'+i+'">'
+      + fields.map(f => '<div><div class="fieldLbl">'+esc(f.l)+'</div><input placeholder="'+esc(f.p)+'" value="'+esc(obj[f.k]||'')
+          + '" oninput="setItem(\''+kind+'\','+i+',\''+f.k+'\',this.value)" aria-label="'+esc(f.l)+'" autocomplete="off"'
+          + (f.type ? ' type="'+f.type+'"' : '') + '></div>').join('')
+      + '<button aria-label="remove" class="del" onclick="delItem(\''+kind+'\','+i+')" title="remove">× remove</button></div>';
+  }
   return '<div class="row" data-k="'+kind+'" data-i="'+i+'">'
     + fields.map(f => '<input placeholder="'+esc(f.p)+'" value="'+esc(obj[f.k]||'')
         + '" oninput="setItem(\''+kind+'\','+i+',\''+f.k+'\',this.value)"'
@@ -1527,23 +1549,27 @@ function paintLists(){
   /* Jerry: "it's their name, title and email — if it's shorter, do you have room for it,
      can it all be displayed." Labelled and stacked, so nothing has to be guessed at. */
   $('staff').innerHTML = db.staff.map((o,i)=>listRow('staff',i,o,
-    [{k:'who',p:'name (e.g. Joe Smith)',flex:1.1},
-     {k:'role',p:'title (e.g. Pastor)',flex:1},
-     {k:'contact',p:'email or phone',flex:1.3}])).join('')
+    [{k:'who',l:'Name',p:'e.g. Joe Smith',flex:1.1},
+     {k:'role',l:'Title',p:'e.g. Pastor',flex:1},
+     {k:'contact',l:'Email or phone',p:'e.g. joe@yourchurch.org',flex:1.3}])).join('')
     || '<p class="hint">Nobody listed yet.</p>';
   $('mins').innerHTML = db.mins.map((o,i)=>listRow('mins',i,o,
-    [{k:'what',p:'ministry',flex:1.3},{k:'who',p:'who leads it',flex:1.2},{k:'link',p:'its app link (optional)',flex:1.5}])).join('')
+    [{k:'what',l:'Ministry',p:'e.g. Youth group',flex:1.3},{k:'who',l:'Who leads it',p:'e.g. Sarah Lee',flex:1.2},{k:'link',l:'Its app link (optional)',p:'https://…',flex:1.5}])).join('')
     || '<p class="hint">No ministries yet.</p>';
 }
 
 /* ── what gets published ── */
+function todayYMD(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function niceDate(s){ const d=new Date(s+'T12:00'); return isNaN(d) ? s : d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 function payload(){
   return {
     rev: (db.rev||0)+1, at: new Date().toISOString(),
     church: { name:db.name, times:db.times, addr:db.addr, phone:db.phone,
               email:db.email, web:db.web, give:db.give, youtube:db.yt },
     news: { head:db.head, body:db.body },
-    events: db.events.filter(e=>e.what),
+    /* past events drop off on their own, and the rest go in date order */
+    events: db.events.filter(e=>e.what && (!e.when || e.when >= todayYMD()))
+              .slice().sort((a,b)=> (a.when||'9999') < (b.when||'9999') ? -1 : (a.when||'9999') > (b.when||'9999') ? 1 : 0),
     staff:  db.staff.filter(s=>s.who),
     ministries: db.mins.filter(m=>m.what)
   };
@@ -1593,6 +1619,12 @@ async function publish(){
     await fetch(db.mailbox, { method:'POST', mode:'no-cors',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({ kind:'church_hq', pass:db.pass||'', data:body }) });
+    /* the mailbox can't answer a no-cors post, so read it back to be sure it took */
+    let got=null; try{ const r=await fetch(db.mailbox+(db.mailbox.indexOf('?')<0?'?':'&')+'t='+Date.now()); got=await r.json(); }catch(e){}
+    if(got && got.at && got.at !== body.at){
+      alert('The mailbox turned this one away, so nothing changed for the congregation.\n\nThe passphrase on the Publish page has to match the one the mailbox was first published with.');
+      return;
+    }
     db.rev = body.rev; db.published = Date.now(); save(); paintStatus();
     alert('Sent. ✅\n\nEveryone who opens the church app from now on sees the new version.');
   }catch(e){
@@ -1627,6 +1659,11 @@ const SCRIPT = [
  'function doPost(e){',
  '  var body = JSON.parse(e.postData.contents);',
  '  var props = PropertiesService.getScriptProperties();',
+ '  var lock = props.getProperty("pass"), pass = String(body.pass || "");',
+ '  if(lock && pass !== lock)',
+ '    return ContentService.createTextOutput(JSON.stringify({ok:false, error:"wrong passphrase"}))',
+ '      .setMimeType(ContentService.MimeType.JSON);',
+ '  if(!lock && pass) props.setProperty("pass", pass);   // the first passphrase used becomes the lock',
  '  props.setProperty("church", JSON.stringify(body.data));',
  '  props.setProperty("updated", new Date().toISOString());',
  '  return ContentService.createTextOutput(JSON.stringify({ok:true}))',
@@ -1665,11 +1702,42 @@ window.testMailbox = async () => {
   }
 };
 
+/* a second editor starts from the latest version instead of a blank page */
+function applyPayload(p){
+  if(!p || !p.church){ alert('That does not look like a church file from Church HQ.'); return false; }
+  const c=p.church;
+  Object.assign(db, { name:c.name||'', times:c.times||'', addr:c.addr||'', phone:c.phone||'', email:c.email||'',
+    web:c.web||'', give:c.give||'', yt:c.youtube||'', head:(p.news||{}).head||'', body:(p.news||{}).body||'',
+    events:(p.events||[]).map(e=>({what:e.what||'',when:e.when||''})),
+    staff:(p.staff||[]).map(x=>({who:x.who||'',role:x.role||'',contact:x.contact||''})),
+    mins:(p.ministries||[]).map(m=>({what:m.what||'',who:m.who||'',link:m.link||''})),
+    rev:p.rev||db.rev||0 });
+  save(); loadFields(); paintLists(); paintStatus();
+  return true;
+}
+window.loadFromMailbox = async () => {
+  saveAll();
+  if(!db.mailbox){ alert('Paste the mailbox address on the Mailbox card first — it ends in /exec.'); return; }
+  if(db.name && !confirm('This replaces what is on this phone with what is in the mailbox. Go ahead?')) return;
+  try{ const r=await fetch(db.mailbox); const p=await r.json();
+    if(!p || !p.church){ alert('The mailbox is empty — nothing has been published to it yet.'); return; }
+    if(applyPayload(p)) alert('Done — this phone now has version '+(p.rev||1)+' from the mailbox.');
+  }catch(e){ alert('The mailbox did not answer. Check the address on the Mailbox card, then try again.'); }
+};
+window.openChurchFile = () => {
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json,text/plain';
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=()=>{ try{ if(db.name && !confirm('This replaces what is on this phone with that file. Go ahead?')) return;
+      if(applyPayload(JSON.parse(rd.result))) alert('Done — loaded from the file.'); }catch(e){ alert('That file could not be read.'); } };
+    rd.readAsText(f); };
+  inp.click();
+};
+
 window.preview = () => {
   const p = payload();
   const w = window.open('', '_blank');
   if(!w){ alert('Your browser blocked the preview window — allow pop-ups and try again.'); return; }
-  const ev = p.events.map(e=>'<li><b>'+esc(e.what)+'</b>'+(e.when?' — '+esc(e.when):'')+'</li>').join('');
+  const ev = p.events.map(e=>'<li><b>'+esc(e.what)+'</b>'+(e.when?' — '+esc(niceDate(e.when)):'')+'</li>').join('');
   const st = p.staff.map(s=>'<li><b>'+esc(s.who)+'</b>'+(s.role?' — '+esc(s.role):'')+(s.contact?'<br><small>'+esc(s.contact)+'</small>':'')+'</li>').join('');
   const mi = p.ministries.map(m=>'<li><b>'+esc(m.what)+'</b>'+(m.who?' — '+esc(m.who):'')+'</li>').join('');
   w.document.write('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -1697,7 +1765,7 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
 
 <script>window.DJ_START = {"slug":"churchhq","em":"⛪","title":"Welcome — this keeps your church app up to date.","lede":"Everything your congregation sees — service times, this week's news, staff, ministries — is typed in here. Change it, tap Publish, and every phone has it. No website needed and no web designer to call.","cta":"Start with the basics →","firstSelector":"button[onclick=\"go('basics')\"]","firstClick":true,"dataKeys":["church_hq_v1"],"steps":["<b>Fill in the basics</b> — church name, service times, address.","<b>Add your news, people and ministries</b> as you go.","<b>Tap Publish.</b> That sends it to every phone."]};</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.2 · 2026-09-22) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.3 · 2026-10-02) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
