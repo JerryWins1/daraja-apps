@@ -1565,7 +1565,7 @@
       <button class="btn ghost" onclick="pickPics()">📎 Add my pictures <span id="picN"></span></button>
       <button class="btn ghost" onclick="copyReport()">Copy to clipboard</button>
       <button class="btn ghost" onclick="downloadReport()">Download .txt</button>
-      <div class="small" style="flex-basis:100%;opacity:.8;margin-top:4px">📨 sends the report + your pictures in one go. Pick <b>Save to Files → Claude Cowork → Feedback inbox</b> (or Messages, to yourself). Then say “read my feedback”.</div>
+      <div class="small" style="flex-basis:100%;opacity:.8;margin-top:4px">📨 sends the report + your pictures in one go. Pick <b>Messages</b> and send it to <b>Jerry</b>. (Jerry: send it to yourself, then say “read my feedback”.)</div>
       <input type="file" id="picIn" accept="image/*" multiple style="display:none" aria-label="Pictures to send with the report">
       <button aria-label="Clears these comments so your next session starts clean" class="btn ghost" onclick="freshAfterReport()" title="Clears these comments so your next session starts clean">🗑 Report sent — start fresh</button>
       <span id="copied">✓ Copied — paste it to Claude</span>
@@ -1586,7 +1586,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v2.12 · 2026-10-01 · Daraja Studio</div>
+<div id="ver">Feedback Studio v2.13 · 2026-10-02 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -2041,7 +2041,7 @@ function downloadReport(){
 
 
 <script>if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }</script>
-<script>window.DJ_START = {"slug": "feedback", "em": "🎙", "title": "Welcome — talk while you use an app.", "lede": "Open any app in here, then say what you think out loud as you go. Every comment is stamped with the moment it happened, and at the end it writes the whole report for you.", "cta": "Pick an app to review →", "firstSelector": "button", "dataKeys": ["fbs_v1"], "steps": ["<b>Open the app</b> you want to look at — a quick-pick, or paste a link.", "<b>Talk as you go.</b> Tap 🎤 and say whatever you are thinking.", "<b>Tap done</b> and it builds the report. Copy it, paste it to Claude."]};</script>
+<script>window.DJ_START = {"slug": "feedback", "em": "🎙", "title": "Welcome — talk while you use an app.", "lede": "Open any app in here, then say what you think out loud as you go. Every comment is stamped with the moment it happened, and at the end it writes the whole report for you.", "cta": "Pick an app to review →", "firstSelector": "button", "dataKeys": ["fbs_v1"], "steps": ["<b>Open the app</b> you want to look at — a quick-pick, or paste a link.", "<b>Talk as you go.</b> Tap 🎤 and say whatever you are thinking.", "<b>Tap done</b> and it builds the report. Tap 📨 Send to Claude and pick Messages → Jerry."]};</script>
 
 <!-- ═══════════ START HERE — first-run guide (v1.1 · 2026-09-10) ═══════════ -->
 <style>
@@ -2074,6 +2074,8 @@ function downloadReport(){
 (function(){
   var CFG = window.DJ_START; if(!CFG) return;
   var SEEN = 'dj_start_' + CFG.slug;
+  /* a tester who arrives with ?app= already chose the app — don't cover it with 'pick an app' (2 Oct 2026) */
+  try{ if(new URLSearchParams(location.search).get('app')){ localStorage.setItem(SEEN,'1'); return; } }catch(e){}
 
   function framed(){ try{ return window.self !== window.top; }catch(e){ return true; } }
   function seen(){ try{ return !!localStorage.getItem(SEEN); }catch(e){ return true; } }
@@ -2347,7 +2349,7 @@ function downloadReport(){
     occ:          ['occ_v1'],
     zuri:         ['zuri_v1','zuri_ops_v1'],
     compass:      ['compass_v1'],
-    feedback:     ['fbs_v1'],
+    feedback:     ['feedback_studio_v1'],
     storykeeper:  ['story_v1','storykeeper_v1'],
     academy:      ['academy_v1'],
     thekey:       ['thekey_v1','key_v1'],
@@ -2774,7 +2776,7 @@ try{
 })();
 </script>
 
-<script id="dj-fs-send-v2">
+<script id="dj-fs-send-v3">
 /* 📨 Send to Claude on a computer (21 Sep 2026). Jerry pressed it on the Mac and nothing reached
    Claude: Chrome on macOS has no share sheet, so the old code only copied the report to the
    clipboard. Now, where there is no sharing, the report and every picture are SAVED to Downloads
@@ -2793,7 +2795,29 @@ try{
   window.sendToClaude = async function(){
     var canShare = false;
     try{ canShare = !!navigator.share; }catch(e){}
-    if(canShare && typeof oldSend === 'function') return oldSend();     /* the phone: unchanged */
+    /* v3 (2 Oct 2026): the phone path. v2 handed phones to an older send that a 21 Sep layer swap had
+       removed, so on an iPhone the report was "saved to Downloads" ON THE TESTER'S PHONE and never
+       reached Jerry. Now the phone opens the share sheet itself, with the report file and pictures. */
+    if(canShare){
+      var rtxt = buildReport();
+      var rsrc = ''; try{ rsrc = new URLSearchParams(location.search).get('app') || ''; }catch(e){} if(!rsrc){ try{ rsrc = document.getElementById('appframe').contentWindow.location.href; }catch(e){} } if(!rsrc || /^about:/.test(rsrc)) rsrc = (window.db && db.appUrl) || '';
+      var rapp = String(rsrc).replace(/[?#].*$/,'').replace(/\/+$/,'').split('/').pop().replace(/[^a-z0-9]+/gi,'-').toLowerCase() || 'app';
+      var rd = new Date(), rp = function(n){ return String(n).padStart(2,'0'); };
+      var rname = 'daraja-feedback-' + rapp + '-' + rd.getFullYear() + '-' + rp(rd.getMonth()+1) + '-' + rp(rd.getDate()) + '-' + rp(rd.getHours()) + rp(rd.getMinutes()) + '.txt';
+      var files = [new File([rtxt], rname, {type:'text/plain'})].concat((window.__fsPics || []).slice());
+      var withFiles = false; try{ withFiles = !!(navigator.canShare && navigator.canShare({files: files})); }catch(e){}
+      try{
+        if(withFiles) await navigator.share({ files: files, title: 'Daraja feedback — ' + rapp });
+        else await navigator.share({ title: 'Daraja feedback — ' + rapp, text: rtxt });
+      }catch(err){
+        if(err && err.name === 'AbortError') return;   /* they closed the sheet — nothing lost, they can press 📨 again */
+        try{ var c2 = navigator.clipboard && navigator.clipboard.writeText(rtxt); if(c2 && c2.catch) c2.catch(function(){}); }catch(e){}
+        card('<b>The share sheet did not open.</b> The report is copied — open Messages, start a text to <b>Jerry</b>, and paste it.'); return;
+      }
+      window.__fsPics = []; var pn = document.getElementById('picN'); if(pn) pn.textContent = '';
+      card('<b>📨 Thank you!</b> If you picked <b>Messages → Jerry</b>, it is on its way' + (withFiles && files.length > 1 ? ' with your ' + (files.length - 1) + ' picture' + (files.length === 2 ? '' : 's') : '') + '. Jerry reads every one.');
+      return;
+    }
 
     var txt = buildReport();
     var src = (window.db && db.appUrl) || '';
@@ -2811,8 +2835,7 @@ try{
     try{ var cp = navigator.clipboard && navigator.clipboard.writeText(txt); if(cp && cp.catch) cp.catch(function(){}); }catch(e){}
     window.__fsPics = []; var n = document.getElementById('picN'); if(n) n.textContent = '';
     card('<b>📨 Saved to your Downloads.</b> The report <b>' + name + '</b>' + (pics.length ? ' and ' + pics.length + ' picture' + (pics.length===1?'':'s') : '') +
-         '.<br><br>Now say to Claude: <b>“read my feedback”</b>. He reads them straight off this Mac.' +
-         '<br><span style="opacity:.8">(It is also on your clipboard, if you would rather paste it.)</span>');
+         '.<br><br><b>Jerry:</b> say “read my feedback” — Claude reads it straight off this Mac.<br><b>Everyone else:</b> email that file to Jerry, or paste the report (it is on your clipboard) into a message to him.');
   };
 })();
 </script>
