@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v49">
+<script id="dj-house-v50">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -1155,6 +1155,23 @@
     var need = Math.round(H - t.getBoundingClientRect().top + 12), have = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
     if(need > have && need < H * 0.4) document.body.style.paddingBottom = need + 'px';
   }
+  /* v50 (2 Oct 2026): the corner ? and bottom bars sat on the last row of content (Serve Board's
+     first "needs someone", Receipt Maker's ×, Next Step's "+ due date", Our Table's "Done for now").
+     Give the page room at the bottom so the last row can always scroll clear of anything floating. */
+  function floatPad(){
+    try{
+      if(!document.body) return; var H = window.innerHeight, top = H;
+      Array.prototype.forEach.call(document.body.querySelectorAll('*'), function(el){
+        if(el.id === 'djHello' || el.id === 'djOffline' || el.id === 'djSaved') return;
+        var c = getComputedStyle(el); if(c.position !== 'fixed' || c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return;
+        var r = el.getBoundingClientRect(); if(r.width < 24 || r.height < 24 || r.bottom < H - 2 || r.top < H * 0.55) return;   /* only things sitting on the bottom edge */
+        if(r.top < top) top = r.top;
+      });
+      if(top >= H) return;
+      var need = Math.round(H - top + 16), have = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+      if(need > have && need < H * 0.4) document.body.style.paddingBottom = need + 'px';
+    }catch(e){}
+  }
   function tipWatch(){
     var t = document.getElementById('pwaTip'); if(!t) return;
     try{ new MutationObserver(function(){ setTimeout(liftTip, 30); }).observe(t, {attributes:true, attributeFilter:['class','style']}); }catch(e){}
@@ -1178,8 +1195,8 @@
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
     try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
     /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
-    try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
-    window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){}
+    try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); floatPad(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
+    window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){} [900, 2500, 6000].forEach(function(ms){ setTimeout(floatPad, ms); }); window.addEventListener('resize', floatPad);
     try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
@@ -1603,7 +1620,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v2.13 · 2026-10-02 · Daraja Studio</div>
+<div id="ver">Feedback Studio v2.14 · 2026-10-02 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -1680,11 +1697,32 @@ function startTimer(){
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec=null, listening=false, restartWanted=false;
 
-function toggleMic(){
-  if(!SR){
-    alert("Voice needs Chrome or Edge on this computer.\nYou can still type comments on the right.");
-    return;
+/* S5 (2 Oct 2026): the voice messages were written for a computer. A phone gets phone words, an iPhone with
+   Dictation off ('service-not-allowed') gets told how to turn it on, and the mic stops retrying after two
+   failures in a row instead of restarting forever with the red button still lit. */
+const IS_PHONE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+let micFails = 0, micStartedAt = 0, micHeard = false, micLastErr = '', micDead = false;
+function micOff(why){
+  micDead = true;
+  stopMic();
+  if(why) alert(why);
+}
+function micHelp(kind){
+  const typeIt = IS_PHONE ? 'Type in the box below instead — or tap the 🎤 on your keyboard to dictate into it.' : 'You can still type comments in the box.';
+  if(kind === 'none') return IS_PHONE ? 'Voice does not work in this browser.\n' + typeIt : 'Voice needs Chrome, Edge or Safari on this computer.\n' + typeIt;
+  if(kind === 'blocked'){
+    if(IS_IOS) return 'Voice is off on this phone.\n' + typeIt + '\n\nTo turn it on: On iPhone: Settings → General → Keyboard → Enable Dictation, and allow the microphone for Safari (Settings → Apps → Safari → Microphone → Allow). Then reload this page.';
+    if(IS_PHONE) return 'The microphone is not allowed for this page.\n' + typeIt + '\n\nTo turn it on: in Chrome tap ⋮ → Settings → Site settings → Microphone → Allow, then reload this page.';
+    return 'The microphone is blocked.\nClick the 🔒 or 🎤 icon in the address bar and allow the microphone, then press the red button again.';
   }
+  if(kind === 'nomic') return (IS_PHONE ? 'The microphone is busy or not available (a call or another app may be using it).\n' : 'No microphone was found on this computer.\n') + typeIt;
+  if(kind === 'net') return 'Voice needs a good internet connection and it dropped.\n' + typeIt;
+  return 'Voice keeps stopping' + (IS_PHONE ? ' on this phone' : '') + '.\n' + typeIt;
+}
+function toggleMic(){
+  if(!SR){ micOff(micHelp('none')); return; }
+  if(!listening){ micFails = 0; micLastErr = ''; micDead = false; }
   listening ? stopMic() : startMic();
 }
 function startMic(){
@@ -1695,6 +1733,7 @@ function startMic(){
   rec.interimResults = true;
   rec.lang = 'en-US';
   rec.onresult = (e)=>{
+    micFails = 0; micHeard = true;
     let interim='';
     for(let i=e.resultIndex;i<e.results.length;i++){
       const r = e.results[i];
@@ -1708,17 +1747,25 @@ function startMic(){
   };
   rec.onend = ()=>{
     document.getElementById('liveText').textContent='';
-    if(restartWanted && listening){ try{rec.start();}catch(e){} }
+    if(restartWanted && listening){
+      /* ended within 1.5 s having heard nothing = a failure, not a pause */
+      if(!micHeard && Date.now() - micStartedAt < 1500) micFails++;
+      if(micFails >= 2){ micOff(micHelp(micLastErr==='network' ? 'net' : 'stops')); return; }
+      micHeard = false; micStartedAt = Date.now();
+      try{ rec.start(); }catch(e){ micFails++; if(micFails >= 2) micOff(micHelp('stops')); }
+    }
     else setMicUI(false);
   };
   rec.onerror = (e)=>{
-    if(e.error==='not-allowed'){
-      stopMic();
-      alert("The microphone is blocked. Click the 🔒 or 🎤 icon in the address bar and allow the microphone.");
-    }
+    const k = e && e.error;
+    if(k==='not-allowed' || k==='service-not-allowed'){ micOff(micHelp('blocked')); return; }
+    if(k==='audio-capture'){ micOff(micHelp('nomic')); return; }
+    if(k==='no-speech' || k==='aborted') return;             /* a quiet moment, or our own stop */
+    micFails++; micLastErr = k || '';
+    if(micFails >= 2) micOff(micHelp(k==='network' ? 'net' : 'stops'));
   };
-  restartWanted = true; listening = true;
-  try{ rec.start(); }catch(e){}
+  restartWanted = true; listening = true; micHeard = false; micStartedAt = Date.now();
+  try{ rec.start(); }catch(e){ micOff(micHelp('blocked')); return; }
   setMicUI(true);
 }
 function stopMic(){
@@ -1732,9 +1779,9 @@ function setMicUI(on){
   b.classList.toggle('live',on);
   t.classList.toggle('live',on);
   b.textContent = on ? '■' : '🎙';
-  l.textContent = on ? "I'm listening — just talk" : "Press the red button and talk";
+  l.textContent = on ? "I'm listening — just talk" : (micDead ? "Voice is off — type in the box below" : "Press the red button and talk");
   h.textContent = on ? "Press ■ to stop. Pause between thoughts and each one becomes its own comment."
-                     : "Your words become comments automatically. Pause between thoughts.";
+                     : (micDead ? "Your typed comments count the same." : "Your words become comments automatically. Pause between thoughts.");
 }
 
 /* ================== NOTES ================== */
@@ -1947,17 +1994,20 @@ function buildReport(){
   out += 'App reviewed : ' + (db.appUrl || '(none loaded)') + '\n';
   out += 'Date         : ' + when + '\n';
   out += 'Comments     : ' + db.notes.length + '\n';
+  let tName = '', tWho = '';   /* S6 (2 Oct 2026): a report that arrives by email or Downloads still says who sent it */
+  try{ tName = localStorage.getItem('dj_name') || (JSON.parse(localStorage.getItem('dj_testers_v1') || '{}').name) || ''; tWho = localStorage.getItem('dj_who') || ''; }catch(e){}
+  out += 'Tester       : ' + (tName || '(no name)') + (tWho ? '  (invite ' + tWho + ')' : '') + '\n';
   const av = appVersion();
   out += 'App version  : ' + (av || 'could not read it — check the line at the bottom of the app') + '\n';
   out += 'Tool         : ' + (((document.getElementById('ver')||{}).textContent||'Feedback Studio').split(' · ')[0]) + ' (Daraja Studio)\n';
   out += '------------------------------------------\n\n';
   if(isAI){
     out += 'INSTRUCTIONS FOR ' + who.toUpperCase() + ':\n';
-    out += 'These are timestamped comments the owner made while\n';
+    out += 'These are timestamped comments the tester made while\n';
     out += 'actually using the app above. Timestamps are minutes:seconds\n';
     out += 'from the start of the session. Read them in order, group them\n';
     out += 'into themes, restate what you understood, then propose the\n';
-    out += 'changes as a numbered plan BEFORE building anything.\n';out += 'STEP lines are taps the owner made (the path they walked).\n';out += 'A comment with an ABOUT line was made while pointing at that\n';out += 'exact thing on screen — treat it as being about that, not the page.\n\n';
+    out += 'changes as a numbered plan BEFORE building anything.\n';out += 'STEP lines are taps the tester made (the path they walked).\n';out += 'A comment with an ABOUT line was made while pointing at that\n';out += 'exact thing on screen — treat it as being about that, not the page.\n\n';
   } else {
     out += 'NOTE FOR THE DEVELOPER:\n';
     out += 'These are timestamped comments made while actually using\n';
@@ -2058,7 +2108,7 @@ function downloadReport(){
 
 
 <script>if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }</script>
-<script>window.DJ_START = {"slug": "feedback", "em": "🎙", "title": "Welcome — talk while you use an app.", "lede": "Open any app in here, then say what you think out loud as you go. Every comment is stamped with the moment it happened, and at the end it writes the whole report for you.", "cta": "Pick an app to review →", "firstSelector": "button", "dataKeys": ["fbs_v1"], "steps": ["<b>Open the app</b> you want to look at — a quick-pick, or paste a link.", "<b>Talk as you go.</b> Tap 🎤 and say whatever you are thinking.", "<b>Tap done</b> and it builds the report. Tap 📨 Send to Claude and pick Messages → Jerry."]};</script>
+<script>window.DJ_START = {"slug": "feedback", "em": "🎙", "title": "Welcome — talk while you use an app.", "lede": "Open any app in here, then say what you think out loud as you go. Every comment is stamped with the moment it happened, and at the end it writes the whole report for you.", "cta": "Pick an app to review →", "firstSelector": "button", "dataKeys": ["feedback_studio_v1"], "steps": ["<b>Open the app</b> you want to look at — a quick-pick, or paste a link.", "<b>Talk as you go.</b> Tap 🎤 and say whatever you are thinking.", "<b>Tap done</b> and it builds the report. Tap 📨 Send to Claude and pick Messages → Jerry."]};</script>
 
 <!-- ═══════════ START HERE — first-run guide (v1.1 · 2026-09-10) ═══════════ -->
 <style>
@@ -2991,5 +3041,56 @@ try{
     inp.value = '';
   });
   window.pickPics = function(){ try{ inp.click(); }catch(e){ note('<b>Could not open your pictures.</b> Take the screenshot with 📸 instead.'); } };
+})();
+</script>
+
+<style id="dj-fs-fit-v1">
+/* S4 (2 Oct 2026): on a 360×780 phone, Screenshot and Mark were half off the bottom edge and ✅ I'm done was
+   1½ screens down. The bar is now two short rows (mic + words + timer, then four equal buttons including
+   ✅ Done), and the app window is sized by the script below so the whole bar fits under it. */
+#fsBtnRow{ display:contents; }
+#fsDone{ background:var(--accent2); }
+@media (max-width:560px){
+  #recbar{ padding:8px 10px calc(8px + env(safe-area-inset-bottom)) !important; gap:6px 8px !important; }
+  #micBtn{ width:46px !important; height:46px !important; font-size:19px !important; }
+  #micState{ flex:1 1 120px !important; }
+  #micLabel{ font-size:14px !important; line-height:1.25; }
+  #micHint{ display:none !important; }
+  #liveText{ min-height:0 !important; margin-top:2px !important; font-size:13px !important; }
+  #liveText:empty{ display:none; }
+  #timer{ font-size:16px !important; }
+  #fsBtnRow{ display:flex; gap:6px; flex:1 1 100%; min-width:0; }
+  #fsBtnRow .btn{ flex:1 1 auto !important; min-width:0 !important; padding:6px 4px !important; font-size:12.5px !important;
+                  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:44px; }
+  #pointCard, #shotCard{ margin:6px 10px 0 !important; padding:9px 12px !important; font-size:13.5px !important; }
+}
+</style>
+<script id="dj-fs-fit-v1-js">
+(function(){
+  var rb = document.getElementById('recbar'); if(!rb) return;
+  /* the four action buttons share one row; ✅ Done joins them */
+  var row = document.createElement('div'); row.id = 'fsBtnRow';
+  Array.prototype.slice.call(rb.querySelectorAll(':scope > .btn')).forEach(function(b){ row.appendChild(b); });
+  var d = document.createElement('button'); d.id = 'fsDone'; d.type = 'button'; d.className = 'btn green';
+  d.textContent = '✅ Done'; d.title = 'Finished? This builds the report to send'; d.setAttribute('aria-label', "I'm done — build the report");
+  d.onclick = function(){ if(typeof doneSession === 'function') doneSession(); };
+  row.appendChild(d); rb.appendChild(row);
+  var shotB = row.querySelector('[onclick*="phoneShot"]'); if(shotB) shotB.setAttribute('aria-label', 'Screenshot — takes a picture of the app');
+  /* the app window gets what is left of the screen after the top bar and the record bar */
+  function px(id){ var e = document.getElementById(id); if(!e) return 0; var r = e.getBoundingClientRect(); if(!r.height) return 0; var c = getComputedStyle(e); return r.height + (parseFloat(c.marginTop) || 0) + (parseFloat(c.marginBottom) || 0); }
+  function fit(){
+    var fh = document.getElementById('frameHolder'); if(!fh) return;
+    if(window.innerWidth > 560){ fh.style.removeProperty('height'); fh.style.removeProperty('min-height'); return; }
+    var h = Math.floor(window.innerHeight - px('topbar') - px('recbar') - px('pointCard') - px('shotCard'));
+    h = Math.max(h, 260);
+    fh.style.setProperty('height', h + 'px', 'important');
+    fh.style.setProperty('min-height', '0', 'important');
+  }
+  window.djFsFit = fit;
+  fit(); window.addEventListener('resize', fit); window.addEventListener('orientationchange', function(){ setTimeout(fit, 300); });
+  try{ var ro = new ResizeObserver(function(){ fit(); });
+    ['topbar','recbar'].forEach(function(id){ var e = document.getElementById(id); if(e) ro.observe(e); });
+    new MutationObserver(function(){ ['pointCard','shotCard'].forEach(function(id){ var e = document.getElementById(id); if(e && !e.__fsFit){ e.__fsFit = 1; ro.observe(e); } }); fit(); })
+      .observe(document.getElementById('stage') || document.body, { childList:true }); }catch(e){ setInterval(fit, 1000); }
 })();
 </script>
