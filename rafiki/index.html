@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v49">
+<script id="dj-house-v51">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -583,6 +583,13 @@
       })(c, lab);
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    if(location.pathname.indexOf('/circle/') < 0){
+      var cr = document.createElement('a'); cr.href = djCircle.url;
+      cr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-decoration:none;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;box-sizing:border-box';
+      var cn = djCircle.count();
+      cr.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">👪</span><span style="flex:1">My Circle — ' + (cn ? cn + ' ' + (cn === 1 ? 'person' : 'people') + ' your AI can know' : 'tell your apps about your people') + '</span>';
+      box.appendChild(cr);
+    }
     var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Close';
     x.style.cssText = 'display:block;width:100%;font:inherit;font-weight:800;min-height:48px;border-radius:14px;border:0;background:#23504F;color:#fff;cursor:pointer;margin-top:2px';
     x.onclick = function(){ w.remove(); }; box.appendChild(x);
@@ -916,11 +923,42 @@
     var w = window.open(u, '_blank', 'noopener'); if(!w) location.href = u;
   }
   function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  /* ── My Circle (v51 · 2 Oct 2026) ─────────────────────────────────────────
+     One on-device profile (dj_circle_v1) that every app on the origin can read.
+     Written only by circle/. Shared with an AI only when the person leaves
+     "Include My Circle" ticked; anyone marked private is never included. */
+  window.djCircle = (function(){
+    var K = 'dj_circle_v1', M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var URL = 'https://jerrywins1.github.io/daraja-apps/circle/';
+    function get(){ try{ var c = JSON.parse(localStorage.getItem(K) || 'null'); return (c && typeof c === 'object') ? c : null; }catch(e){ return null; } }
+    function daysTo(p){ if(!p || !p.bm || !p.bd) return null; var n = new Date(); n.setHours(0,0,0,0); var d = new Date(n.getFullYear(), p.bm-1, p.bd); if(d < n) d = new Date(n.getFullYear()+1, p.bm-1, p.bd); return Math.round((d-n)/864e5); }
+    function ageOf(p){ if(!p.by || !p.bm || !p.bd) return null; var n = new Date(), a = n.getFullYear() - p.by; if(n.getMonth()+1 < p.bm || (n.getMonth()+1 == p.bm && n.getDate() < p.bd)) a--; return (a >= 0 && a < 120) ? a : null; }
+    function summary(){
+      var c = get(); if(!c) return ''; var sh = c.share || {}, me = c.me || {}, h = c.home || {}, w = c.work || {}, L = [];
+      if(sh.me !== false && (me.name || me.town || me.about)) L.push('Me: ' + [[me.name, me.town ? ('lives in ' + me.town) : ''].filter(Boolean).join(', '), me.about].filter(Boolean).join('. '));
+      if(sh.people !== false) (c.people || []).filter(function(p){ return p && p.name && !p.private; }).forEach(function(p){
+        var a = ageOf(p), d = daysTo(p);
+        L.push('- ' + p.name + (p.rel ? ' (' + String(p.rel).toLowerCase() + ')' : '') + (a != null ? ', age ' + a : '') + (p.bm && p.bd ? ', birthday ' + p.bd + ' ' + M[p.bm-1] + (d != null && d <= 30 ? ' (in ' + d + ' days)' : '') : '') + (p.likes ? ', likes ' + p.likes : '') + (p.notes ? '. ' + p.notes : ''));
+      });
+      if(sh.home !== false){ var hl = [h.who ? 'Who lives here: ' + h.who : '', h.pets ? 'Pets: ' + h.pets : '', h.food ? 'Food: ' + h.food : '', h.notes || ''].filter(Boolean); if(hl.length) L.push('Home: ' + hl.join('. ')); }
+      if(sh.work !== false){ var wl = [w.name, w.what, w.goal ? 'Goal this season: ' + w.goal : ''].filter(Boolean); if(wl.length) L.push('My work: ' + wl.join('. ')); }
+      return L.length ? 'About me and my people (I chose to share this):\n' + L.join('\n') : '';
+    }
+    function upcoming(days){ var c = get(); if(!c) return []; days = days == null ? 14 : days;
+      return (c.people || []).map(function(p){ return { name:p.name, rel:p.rel || '', days:daysTo(p), id:p.id }; }).filter(function(x){ return x.name && x.days != null && x.days <= days; }).sort(function(a,b){ return a.days - b.days; }); }
+    function nudge(){ var u = upcoming(14)[0]; if(!u) return '';
+      return u.name + '’s birthday is ' + (u.days === 0 ? 'today' : u.days === 1 ? 'tomorrow' : 'in ' + u.days + ' days') + '.'; }
+    function count(){ var c = get(); return c ? (c.people || []).filter(function(p){ return !p.private; }).length : 0; }
+    return { get:get, summary:summary, upcoming:upcoming, nudge:nudge, count:count, url:URL };
+  })();
+  function circleOn(){ try{ return localStorage.getItem('dj_circle_include') !== '0'; }catch(e){ return true; } }
+  function withCircle(o, prompt){ var ctx = (o.circle === false) ? '' : djCircle.summary(); return (ctx && circleOn()) ? ctx + '\n\n' + prompt : prompt; }
   /* the one public call */
   window.djAI = {
     ask: async function(o){
       o = o || {}; if(!o.prompt) return;
-      var local = await builtIn(o.prompt);
+      var local = await builtIn(withCircle(o, o.prompt));
       if(local){ deliver(o, local); return; }
       var viaD = await viaDaraja(o);
       if(viaD){ deliver(o, viaD); return; }
@@ -933,11 +971,13 @@
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Ask ' + who) + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(who) + '</b>: <span id="djAIShort">“' + esc(short) + '”</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+        + ((o.circle !== false && djCircle.summary()) ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
+           : (o.circle !== false && !djCircle.get() ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once →</a></p>' : ''))
         + '<button type="button" id="djAIGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Open ' + esc(who) + ' →</button>'
         + '<div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAISw" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">different AI</button><button type="button" id="djAIX" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
       b.querySelector('#djAIQ').value = o.prompt;
       b.querySelector('#djAIShow').onclick = function(){ var t = b.querySelector('#djAIQ'); t.style.display = ''; this.style.display = 'none'; };
-      b.querySelector('#djAIGo').onclick = function(){ o.prompt = b.querySelector('#djAIQ').value; o.who = who; closeAISheet(); openAssistant(o); if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); };
+      b.querySelector('#djAIGo').onclick = function(){ var cb = b.querySelector('#djAICircle'); if(cb){ try{ localStorage.setItem('dj_circle_include', cb.checked ? '1' : '0'); }catch(e){} } o.prompt = (cb && cb.checked) ? (djCircle.summary() + '\n\n' + b.querySelector('#djAIQ').value) : b.querySelector('#djAIQ').value; o.who = who; closeAISheet(); openAssistant(o); if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); };
       b.querySelector('#djAISw').onclick = function(){ closeAISheet(); pickAssistant(function(){ djAI.ask(o); }); };
       b.querySelector('#djAIX').onclick = function(){ closeAISheet(); };
     },
@@ -1155,6 +1195,23 @@
     var need = Math.round(H - t.getBoundingClientRect().top + 12), have = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
     if(need > have && need < H * 0.4) document.body.style.paddingBottom = need + 'px';
   }
+  /* v50 (2 Oct 2026): the corner ? and bottom bars sat on the last row of content (Serve Board's
+     first "needs someone", Receipt Maker's ×, Next Step's "+ due date", Our Table's "Done for now").
+     Give the page room at the bottom so the last row can always scroll clear of anything floating. */
+  function floatPad(){
+    try{
+      if(!document.body) return; var H = window.innerHeight, top = H;
+      Array.prototype.forEach.call(document.body.querySelectorAll('*'), function(el){
+        if(el.id === 'djHello' || el.id === 'djOffline' || el.id === 'djSaved') return;
+        var c = getComputedStyle(el); if(c.position !== 'fixed' || c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return;
+        var r = el.getBoundingClientRect(); if(r.width < 24 || r.height < 24 || r.bottom < H - 2 || r.top < H * 0.55) return;   /* only things sitting on the bottom edge */
+        if(r.top < top) top = r.top;
+      });
+      if(top >= H) return;
+      var need = Math.round(H - top + 16), have = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+      if(need > have && need < H * 0.4) document.body.style.paddingBottom = need + 'px';
+    }catch(e){}
+  }
   function tipWatch(){
     var t = document.getElementById('pwaTip'); if(!t) return;
     try{ new MutationObserver(function(){ setTimeout(liftTip, 30); }).observe(t, {attributes:true, attributeFilter:['class','style']}); }catch(e){}
@@ -1178,8 +1235,8 @@
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
     try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
     /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
-    try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
-    window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){}
+    try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); floatPad(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
+    window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){} [900, 2500, 6000].forEach(function(ms){ setTimeout(floatPad, ms); }); window.addEventListener('resize', floatPad);
     try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
@@ -1329,7 +1386,7 @@
     <div class="pills"><button aria-label="choose my voice" onclick="R.voice()" title="choose my voice">🗣 voice</button><button aria-label="sound on or off" onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button aria-label="start over" onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.9 · 2026-10-02 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.10 · 2026-10-02 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -2151,6 +2208,8 @@ function morning(){
   var line = greet+' It’s '+new Date().toLocaleDateString('en',{weekday:'long', month:'long', day:'numeric'})+'.';
   if(S.__saidGreet){ bubAI(line, true); speak('It’s '+new Date().toLocaleDateString('en',{weekday:'long', month:'long', day:'numeric'})+'.'); S.__saidGreet=null; }
   else bubAI(line);
+  /* My Circle (2 Oct 2026): a birthday coming up in the person's own circle */
+  try{ var cn=window.djCircle&&djCircle.nudge(); if(cn) setTimeout(function(){ bubAI('🎂 '+esc(cn)+' Want a gift idea? Tap ✨ and I’ll ask for you.'); }, 2600); }catch(e){}
   var f=nnFacts();
   setTimeout(function(){
     if(f){
