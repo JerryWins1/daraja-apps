@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v52">
+<script id="dj-house-v53">
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
@@ -583,6 +583,13 @@
       })(c, lab);
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    if(window.DJ_TOUR){
+      var tr = document.createElement('button'); tr.type = 'button';
+      tr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      tr.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🎬</span><span style="flex:1">Take the tour again</span>';
+      tr.onclick = function(){ w.remove(); djTour.start(); };
+      box.appendChild(tr);
+    }
     if(location.pathname.indexOf('/circle/') < 0){
       var cr = document.createElement('a'); cr.href = djCircle.url;
       cr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-decoration:none;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;box-sizing:border-box';
@@ -1399,7 +1406,106 @@
     document.body.appendChild(b);
   }
 
-  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
+
+  /* ── 15 · The welcome tour — Jerry's first-open standard (v53 · 3 Oct 2026) ──
+     "Every app should start with a thorough run-through of what it does, the benefits,
+     a demo of the main features, then ask if they want a screen-by-screen explanation.
+     They need to understand the value first. Then ask: start from scratch, or keep a
+     demo database." An app opts in with window.DJ_TOUR (written by tour.py):
+       { slug, name, intro:[{em,h,p}], demo:[{say,go,target}], screens:[{say,go,target}],
+         fresh:"js to start from scratch", keep:"js to keep the example", isNew:"js → true on a first open" } */
+  var TOUR_DONE = function(sl){ return 'dj_tour_' + sl; };
+  function tourRun(code){ if(!code) return; try{ (new Function(code))(); }catch(e){} }
+  function tourSpeak(t){ try{ if(!window.speechSynthesis || localStorage.getItem('dj_tour_quiet') === '1') return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(String(t).replace(/<[^>]+>/g,'')); u.rate = 0.95; var vs = speechSynthesis.getVoices().filter(function(v){ return /^en/i.test(v.lang); }); var pick = vs.filter(function(v){ return /Samantha|Karen|Moira|Serena|Google US English/i.test(v.name); })[0] || vs[0]; if(pick) u.voice = pick; speechSynthesis.speak(u); }catch(e){} }
+  function tourHush(){ try{ speechSynthesis.cancel(); }catch(e){} }
+  function startTour(force){
+    var T = window.DJ_TOUR; if(!T || !document.body) return;
+    if(!force){ try{ if(localStorage.getItem(TOUR_DONE(T.slug))) return; }catch(e){ return; } var isNew = true; if(T.isNew){ try{ isNew = !!(new Function('return (' + T.isNew + ')'))(); }catch(e){} } if(!isNew){ try{ localStorage.setItem(TOUR_DONE(T.slug), 'returning'); }catch(e){} return; } }
+    if(document.getElementById('djTour')) return;
+    var INK = '#1F2622', SOFT = '#55605B', BR = '#23504F';
+    var BIG = 'font:inherit;font-weight:800;font-size:17px;min-height:52px;padding:10px 16px;border-radius:14px;cursor:pointer;';
+    var wrap = document.createElement('div'); wrap.id = 'djTour'; wrap.setAttribute('role','dialog'); wrap.setAttribute('aria-label','Welcome tour');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483000;font:17px/1.45 -apple-system,system-ui,sans-serif;color:' + INK;
+    var shade = document.createElement('div'); shade.style.cssText = 'position:absolute;inset:0;background:rgba(10,20,20,.72)';
+    var ring = document.createElement('div'); ring.style.cssText = 'position:absolute;display:none;border:3px solid #F2B134;border-radius:14px;box-shadow:0 0 0 9999px rgba(10,20,20,.62);transition:all .35s ease;pointer-events:none';
+    var card = document.createElement('div');
+    card.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:560px;background:#FFFDF8;border-radius:20px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));box-shadow:0 10px 40px rgba(0,0,0,.45);max-height:86vh;overflow:auto;box-sizing:border-box';
+    wrap.appendChild(shade); wrap.appendChild(ring); wrap.appendChild(card); document.body.appendChild(wrap);
+    var steps = [], i = 0, phase = '';
+    function build(){
+      steps = [];
+      (T.intro || []).forEach(function(s, k){ steps.push({ kind:'slide', part:'What it does', em:s.em, h:s.h, p:s.p, first:k === 0 }); });
+      steps.push({ kind:'ask', part:'See it work', h:'Now watch it work', p:'I’ll do the main things for you, with example information, so you can see the payoff. You just watch and tap Next.', yes:'▶ Show me', no:'Skip the demo', onNo:'afterDemo' });
+      (T.demo || []).forEach(function(s){ steps.push({ kind:'point', part:'See it work', say:s.say, go:s.go, target:s.target }); });
+      steps.push({ kind:'ask', part:'Every screen', id:'afterDemo', h:'Want the screen-by-screen tour?', p:'I can walk you through every screen and button, one at a time. About ' + Math.max(1, Math.round((T.screens || []).length * 0.25)) + ' minute' + ((T.screens || []).length > 6 ? 's' : '') + '.', yes:'Yes, show me every screen', no:'No thanks, I’ve got it', onNo:'choose' });
+      (T.screens || []).forEach(function(s){ steps.push({ kind:'point', part:'Every screen', say:s.say, go:s.go, target:s.target }); });
+      steps.push({ kind:'choose', id:'choose', part:'Your turn' });
+    }
+    function jump(id){ for(var k = 0; k < steps.length; k++) if(steps[k].id === id){ i = k; show(); return; } }
+    function dots(){ var parts = ['What it does','See it work','Every screen','Your turn']; return '<div style="display:flex;gap:6px;margin-bottom:10px">' + parts.map(function(p){ var on = p === steps[i].part; return '<span style="flex:1;height:5px;border-radius:9px;background:' + (on ? '#F2B134' : '#E2DCCF') + '"></span>'; }).join('') + '</div><div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#B5832A;margin-bottom:4px">' + esc(T.name) + ' · ' + esc(steps[i].part) + '</div>'; }
+    function quietBtn(){ var q = false; try{ q = localStorage.getItem('dj_tour_quiet') === '1'; }catch(e){} return '<button type="button" id="djTourQ" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:36px;cursor:pointer">' + (q ? '🔇 voice off' : '🔊 voice on') + '</button>'; }
+    function nav(nextLabel){ return '<div style="display:flex;gap:8px;margin-top:12px">' + (i > 0 ? '<button type="button" id="djTourB" style="' + BIG + 'background:#fff;border:1.5px solid #C9C1AE;color:' + INK + '">‹</button>' : '') + '<button type="button" id="djTourN" style="' + BIG + 'flex:1;background:' + BR + ';border:0;color:#fff">' + nextLabel + '</button></div><div style="display:flex;justify-content:space-between;margin-top:6px">' + quietBtn() + '<button type="button" id="djTourS" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:36px;cursor:pointer">skip the tour</button></div>'; }
+    function place(target){
+      var el = null; try{ el = target ? document.querySelector(target) : null; }catch(e){}
+      if(el && el.getBoundingClientRect().width > 0){
+        try{ el.scrollIntoView({ block:'center' }); }catch(e){}
+        setTimeout(function(){ var r = el.getBoundingClientRect(); ring.style.display = 'block'; ring.style.left = (r.left - 6) + 'px'; ring.style.top = (r.top - 6) + 'px'; ring.style.width = (r.width + 12) + 'px'; ring.style.height = (r.height + 12) + 'px';
+          var low = r.top + r.height / 2 > innerHeight / 2; card.style.top = low ? '10px' : ''; card.style.bottom = low ? '' : '10px'; }, 260);
+        shade.style.display = 'none';
+      } else { ring.style.display = 'none'; shade.style.display = 'block'; card.style.top = ''; card.style.bottom = '10px'; }
+    }
+    function wire(){
+      var n = card.querySelector('#djTourN'), b = card.querySelector('#djTourB'), s = card.querySelector('#djTourS'), q = card.querySelector('#djTourQ');
+      if(n) n.onclick = function(){ i = Math.min(i + 1, steps.length - 1); show(); };
+      if(b) b.onclick = function(){ i = Math.max(i - 1, 0); show(); };
+      if(s) s.onclick = function(){ jump('choose'); };
+      if(q) q.onclick = function(){ var on = false; try{ on = localStorage.getItem('dj_tour_quiet') === '1'; localStorage.setItem('dj_tour_quiet', on ? '0' : '1'); }catch(e){} if(!on) tourHush(); show(); };
+    }
+    function finish(how){
+      tourHush(); try{ localStorage.setItem(TOUR_DONE(T.slug), how + ' ' + djYMD()); }catch(e){}
+      wrap.remove();
+      tourRun(how === 'fresh' ? T.fresh : T.keep);
+    }
+    function show(){
+      var st = steps[i]; tourHush();
+      if(st.kind === 'slide'){
+        place(null); card.style.top = '50%'; card.style.bottom = ''; card.style.transform = 'translate(-50%,-50%)';
+        card.innerHTML = dots() + '<div style="font-size:54px;line-height:1;margin:4px 0 8px">' + (st.em || '') + '</div><div style="font-weight:900;font-size:24px;line-height:1.2;margin-bottom:8px">' + st.h + '</div><p style="margin:0;color:' + SOFT + ';font-size:17px">' + st.p + '</p>' + nav(st.first ? '▶ Start the tour' : 'Next ›');
+        wire(); if(!st.first || i > 0 || st.started) tourSpeak(st.h + '. ' + st.p);
+        if(st.first){ var n0 = card.querySelector('#djTourN'); n0.onclick = function(){ st.started = true; i = 1; show(); }; tourSpeak(st.h + '. ' + st.p); }
+        return;
+      }
+      card.style.transform = 'translateX(-50%)';
+      if(st.kind === 'ask'){
+        place(null); card.style.top = '50%'; card.style.bottom = ''; card.style.transform = 'translate(-50%,-50%)';
+        card.innerHTML = dots() + '<div style="font-weight:900;font-size:22px;margin-bottom:6px">' + st.h + '</div><p style="margin:0 0 12px;color:' + SOFT + '">' + st.p + '</p><button type="button" id="djTourY" style="' + BIG + 'width:100%;background:' + BR + ';border:0;color:#fff;margin-bottom:8px">' + st.yes + '</button><button type="button" id="djTourNo" style="' + BIG + 'width:100%;background:#fff;border:1.5px solid #C9C1AE;color:' + INK + '">' + st.no + '</button>';
+        card.querySelector('#djTourY').onclick = function(){ i++; show(); };
+        card.querySelector('#djTourNo').onclick = function(){ jump(st.onNo); };
+        tourSpeak(st.h + '. ' + st.p); return;
+      }
+      if(st.kind === 'point'){
+        tourRun(st.go);
+        setTimeout(function(){ place(st.target); }, 350);
+        card.innerHTML = dots() + '<p style="margin:0;font-size:18px;font-weight:700">' + st.say + '</p>' + nav(i + 1 < steps.length && steps[i+1].kind === 'point' ? 'Next ›' : 'Done with this part ›');
+        wire(); tourSpeak(st.say); return;
+      }
+      if(st.kind === 'choose'){
+        place(null); card.style.top = '50%'; card.style.bottom = ''; card.style.transform = 'translate(-50%,-50%)';
+        card.innerHTML = dots() + '<div style="font-weight:900;font-size:22px;margin-bottom:6px">How do you want to start?</div><p style="margin:0 0 12px;color:' + SOFT + '">You can change your mind later. The tour is always under the <b>?</b> button.</p>'
+          + '<button type="button" id="djTourKeep" style="' + BIG + 'width:100%;text-align:left;background:#fff;border:1.5px solid ' + BR + ';color:' + INK + ';margin-bottom:8px">🧪 Keep the examples to play with<br><span style="font-weight:500;font-size:14px;color:' + SOFT + '">' + esc(T.keepNote || 'Try everything on pretend information. Clear it when you are ready.') + '</span></button>'
+          + '<button type="button" id="djTourFresh" style="' + BIG + 'width:100%;text-align:left;background:' + BR + ';border:0;color:#fff">✨ Start fresh with my own<br><span style="font-weight:500;font-size:14px;opacity:.9">' + esc(T.freshNote || 'An empty app, ready for your real information.') + '</span></button>';
+        card.querySelector('#djTourKeep').onclick = function(){ finish('keep'); };
+        card.querySelector('#djTourFresh').onclick = function(){ if(confirm('Start fresh? The examples will be cleared.')) finish('fresh'); };
+        tourSpeak('How do you want to start? Keep the examples to play with, or start fresh with your own.'); return;
+      }
+    }
+    build(); show();
+    window.addEventListener('resize', function(){ var st = steps[i]; if(st && st.kind === 'point') place(st.target); });
+  }
+  window.djTour = { start:function(){ startTour(true); } };
+  function tourLater(){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 900); }
+
+  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
@@ -1556,7 +1662,16 @@ async function djTellMe(){ const name=(document.getElementById('tmName').value||
 </script>
 
 
-                              <section class="day">
+                                <section class="day">
+    <time datetime="2026-10-03">Saturday 3 October</time>
+    <h2>Today’s changes</h2>
+    <div class="entry">
+      <h3>New: a welcome tour on first open — what it does, the benefits, a live demo, a screen-by-screen walkthrough, then start fresh or keep the examples (? → Take the tour again) <span class="app">ourtable</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/ourtable/">open ourtable</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+  </section>
+
+  <section class="day">
     <time datetime="2026-10-02">Friday 2 October</time>
     <h2>Today’s changes</h2>
     <div class="entry">
@@ -2290,7 +2405,7 @@ async function djTellMe(){ const name=(document.getElementById('tmName').value||
   </div>
 
   <footer>
-    What&rsquo;s new &mdash; v1.120 &middot; 2 October 2026 &middot; Daraja Studio<br>
+    What&rsquo;s new &mdash; v1.121 &middot; 3 October 2026 &middot; Daraja Studio<br>
     A family business. Profits go to scholarships in Kenya.
   </footer>
 
