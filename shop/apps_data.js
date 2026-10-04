@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
@@ -13,7 +13,7 @@ const TEST_NOW = ['nownext','ahead','thekey','pitwall','rafiki','storykeeper','c
 
 /* ══ THE DOOR'S SORT ══ Jerry, 18 Sep: the Daraja door (home/) and the 🌉 More-from-Daraja sheet
    group apps this way; the store shelves above stay as they are for selling. */
-const DOOR = { pitwall:'fun', ff:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
+const DOOR = { pitwall:'fun', ff:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later', compass:'free' };   /* compass: a young person's five-year plan, not a later-life tool (Jerry, 2 Oct) */
 const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun' };
 
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
@@ -48,25 +48,25 @@ const APPS = {
   try:BASE+'home/', video:false
  },
  everyday: {
-  name:'Every Day', em:'🌱', sub:'six small things, every day, a streak you can see', fresh:true, cat:'later', price:'Free', testing:true,
-  tag:'six small things, every day, a streak you can see',
+  name:'Every Day', em:'🌱', sub:'six small habits, one tap each', fresh:true, cat:'later', price:'Free', testing:true,
+  tag:'A walk, your pills, a call, some water: tap each one when it’s done and watch the streak grow. Change the six to suit you.',
   try:BASE+'everyday/', video:false
  },
  ourtable: {
-  name:'Our Table', em:'🍽', sub:'your recipes, your week, your list', fresh:true, cat:'home', price:'Free', testing:true,
-  tag:'your recipes, your week, your list',
+  name:'Our Table', em:'🍽', sub:'dinner, decided', fresh:true, cat:'home', price:'Free', testing:true,
+  tag:'Keep the recipes you actually cook, fill the week in one tap, and get one shopping list for all of it. Your recipes stay on your phone — nobody can shut it down.',
   try:BASE+'ourtable/', video:false
  },
  whoscoming: {
-  name:'Who’s Coming', em:'🙋', sub:'ask the group, collect the answers', fresh:true, cat:'home', price:'Free', testing:true,
-  tag:'ask the group, collect the answers',
+  name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', price:'Free', testing:true,
+  tag:'Ask the family or the group one question (“Sunday lunch at 1?”) and see who said yes, no and maybe on one screen. It goes from your own phone. No ads, and nobody has to sign up to answer.',
   try:BASE+'whoscoming/', video:false
  },
  nownext: {
   buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
   name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'home', price:'$4.99', testing:true,
   tag:'Your whole list is in there — it just shows one step at a time, so the day stops looking like a pile. For kids and grown-ups whose brains run fast.',
-  try:A+'nownext/', video:true,
+  try:A+'nownext/?code=TESTING', video:true,   /* ?code= is read by the key gate once nownext ships the 2026-10-02 patch; until then it is ignored */
   train:[
    "Let's set up One Thing — five minutes, then it runs your mornings forever.",
    "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
@@ -96,7 +96,7 @@ const APPS = {
   ]},
  ahead: {
   name:'Ahead of It', em:'🧾', sub:'never miss a deadline', fresh:true, cat:'home', price:'$9', testing:true,
-  tag:'Taxes, renewals, the dog\'s shots — know what it costs you to miss one',
+  tag:'Taxes, renewals, insurance, the dog’s shots: every date that costs money if you miss it, on one calm page, with the next 30 days always in view. No bank login, ever.',
   try:A+'ahead/', video:true,
   train:[
    "Setting up Ahead of It takes five minutes, once — then nothing catches you off guard again.",
@@ -200,8 +200,8 @@ const APPS = {
    "Twelve dollars, once. If you build anything, it pays for itself the first afternoon.",
    "There's a two-minute demo movie on the shelf — or just try it below on any app you like."]},
  storykeeper: {
-  name:'In My Own Words', em:'📖', sub:'your life, in a book', cat:'later', price:'Free app · printed book from $39', testing:true,
-  tag:'Their voice, in a book — life stories, photos, and The Key',
+  name:'In My Own Words', em:'📖', sub:'your life, in a book', cat:'later', price:'Free', testing:true,
+  tag:'Their voice, in a book — life stories, photos, and The Key. Print the book at home or save it as a PDF; a bound copy you can order is coming.',
   try:BASE+'story-keeper/', video:true,
   train:[
    "Making a book with In My Own Words — here's how a good session goes.",
@@ -219,12 +219,12 @@ const APPS = {
    "Their words are written down exactly as they said them. Then the app asks: 'do you have a picture from this time? I'll wait.' Story by story, the photos that matter come out of the pile.",
    "Every story remembers who was in it — so a grandchild can one day read every story that has THEM in it.",
    "And at the back: The Key — one page that tells the family where all the pictures and accounts live. So nothing is lost.",
-   "It all becomes a real printed book. Cover, chapters, photos, their exact words.",
-   "The app is free. The printed book starts at thirty-nine dollars — and it's the gift nobody ever forgets getting.",
+   "It all becomes a real book you can print at home. Cover, chapters, photos, their exact words.",
+   "The app is free. Print the book at home, or save it as a P D F to share. A bound copy you can order is on its way. Either way, it's the gift nobody ever forgets getting.",
    "Try it below. Ask someone you love one question tonight."]},
  academy: {
   name:'Daraja Academy', em:'🌉', sub:'six lessons · AI for Grandparents', cat:'free', price:'Lesson 1 free · course $19', testing:true,
-  tag:'AI for Grandparents — learn to use AI, the patient way',
+  tag:'AI for Grandparents — learn to use AI, the patient way. Why not just open ChatGPT? Because nobody shows you how. This does: big print, one step at a time, out loud.',
   try:BASE+'academy/', video:true,
   train:[
    "Taking a Daraja Academy lesson — here's all there is to it.",
@@ -298,8 +298,8 @@ const APPS = {
    "If you run a small field team anywhere in the world, this pattern fits you too. Ask us.",
    "Try the demo below and see a day in the field."]},
  compass: {
-  name:'Daraja Compass', em:'🧭', sub:'map your next years', fresh:true, cat:'free', price:'Free', testing:false,
-  tag:'A life-mapping interview — talk your way to what matters',
+  name:'Daraja Compass', em:'🧭', sub:'your next five years, on one page', fresh:true, cat:'free', price:'Free', testing:false,
+  tag:'For a young person starting out: plain questions about school, work, family and money, and your next five years on one page. Written with Kenyan students in mind.',
   try:A+'compass/', video:true,
   train:[
    "Using Daraja Compass — give it a quiet evening.",
@@ -317,7 +317,7 @@ const APPS = {
  /* ── WORK SHELF addition ── */
  drumbeat: {
   name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', price:'$19 one-time', video:true,
-  tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece',
+  tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece. Why not just ChatGPT? You’d have to know what to ask. This asks for you, then lays out every piece on a calendar.',
   try:BASE+'drumbeat/',
   lines:[
    "This is Message Assistant, and it is for anyone who has to tell the same news to a lot of people.",
@@ -368,8 +368,8 @@ const APPS = {
 
  /* ── FOR FANS & LEAGUES ── */
  pitwall: {
-  name:'Pit Wall', em:'🏁', sub:'your fantasy racing league, your rules', cat:'home', price:'$9 / league season', testing:true, video:true,
-  tag:'Picks, deadlines, auto-draft, scoring and standings for a homegrown fantasy racing league — the commissioner finally gets to just watch the race',
+  name:'Pit Wall', em:'🏁', sub:'your racing league, run for you', cat:'home', price:'$9 per league, per season', testing:true, video:true,
+  tag:'Picks, deadlines, scoring and standings for your friends’ fantasy racing league, done the same way every race. The commissioner finally gets to watch. Pay only for the seasons you play; nothing renews by itself.',
   try:BASE+'f1/?test=1',
   lines:[
    {t:"This is Pit Wall, made for a very specific kind of friend group: the ones who have run their own fantasy racing league by group text for years.", js:"try{state.league.testMode=true;saveLocal();go('home')}catch(e){}"},
@@ -385,7 +385,7 @@ const APPS = {
    {t:"And it bends to your rules. The commissioner sets the players, drivers per team, drives per driver, wild cards, deadline, and every point value, and can enter picks or fix points for anyone.", js:"try{go('setup')}catch(e){}", point:"nav.tabs button[data-tab='setup']"},
    {t:"Once a year there is a draft room: tick who is in, draw the snake order, and everyone picks a driver in turn until the teams are full. The finished draft becomes the season's rosters.", js:"try{go('draft')}catch(e){}"},
    "No accounts, no ads. One shared mailbox your league owns, and the same link on every phone.",
-   {t:"This preview is in test drive, so you can act as any of the five players and try a whole weekend. Nine dollars covers a league for a season. For a commissioner, that is the cheapest assistant you will ever hire.", js:"try{go('home')}catch(e){}"},
+   {t:"This preview is in test drive, so you can act as any of the five players and try a whole weekend. Nine dollars covers a league for a season, and you only pay for the seasons you play. For a commissioner, that is the cheapest assistant you will ever hire.", js:"try{go('home')}catch(e){}"},
    "Try it now with the button below, and tell us honestly whether your league would pay for it."
   ],
   train:[
@@ -417,8 +417,8 @@ const APPS = {
   docs:[{label:'📖 The rulebook: how the league works', href:BASE+'f1/rules.html'}]},
 
  ff: {
-  name:'My Scores', em:'🏈', sub:'your fantasy scoreboard, one screen', fresh:true, cat:'home', price:'Free', testing:true, video:true,
-  tag:'One tap gets every team\u2019s score. Swipe for the whole league. Tap any name for the roster. A built-in Assistant Manager handles waiver help, injury news, and lineup advice.',
+  name:'My Scores', em:'🏈', sub:'every team\u2019s score, one button', fresh:true, cat:'home', price:'Free', testing:true, video:true,
+  tag:'Every fantasy football team you follow, yours and your opponent\u2019s, on one screen with one Update button. Works with ESPN and Sleeper.',
   try:BASE+'ff/',
   lines:[
    "This is My Scores \u2014 one screen for every fantasy football team you follow, however many you\u2019ve got.",
@@ -434,7 +434,7 @@ const APPS = {
   train:[
    "Let\u2019s get My Scores loaded \u2014 two minutes, then it\u2019s yours for the season.",
    "Step one, loading it: open the link. First time in, it walks you through one question at a time \u2014 which league, then which team is yours.",
-   "Step two: paste your team\u2019s link from ESPN or Sleeper, or tap one of the leagues already saved if you\u2019re joining a family game.",
+   "Step two: open your team on ESPN or Sleeper, copy the page\u2019s link, and paste it in. That\u2019s how it finds your league.",
    "Managing more than one team? Tap \u2018plus Add another team\u2019 and do it again. It\u2019ll ask if a second team in the same league is really a second team, so it never mixes them up.",
    "Step three, operating it: once you\u2019re set up, it opens straight to your scores. Tap the big Update button any time for the latest \u2014 yours and your opponent\u2019s.",
    "Swipe your own card sideways to browse every other matchup in the league, then the season standings. Swipe past the end and it loops back to your game.",
@@ -461,7 +461,7 @@ const APPS = {
  /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 one-time', video:true,
-  tag:'Your whole church in their pocket',
+  tag:'Sermons, events, prayer requests and giving in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
   try:'https://jerrywins1.github.io/immanuel-app/',
   lines:[
    "This is The Church App, which puts your whole church in everyone's pocket.",
@@ -487,7 +487,7 @@ const APPS = {
   ]},
  churchserve: {
   name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', price:'$19 one-time', video:true,
-  tag:'The month of volunteers on one page',
+  tag:'The month of volunteers on one page. No ads to your volunteers.',
   try:'https://jerrywins1.github.io/daraja-apps/church-serve/',
   lines:[
    "This is Serve Board — the end of the Sunday-morning scramble.",
@@ -497,8 +497,8 @@ const APPS = {
    "And when it's set, print it for the bulletin board — because some of your best volunteers don't do phones, and that's fine.",
    "Nineteen dollars, once, for every ministry team you have. Try it below."]},
  churchdrive: {
-  name:'Operation Christmas Child Assistant', em:'📦', sub:'every box, counted', cat:'church', price:'$19 one-time', video:true,
-  tag:'How many complete sets can we hand out right now?',
+  name:'Operation Christmas Child Assistant', em:'📦', sub:'how many full boxes can we pack?', cat:'church', price:'$19 one-time', video:true,
+  tag:'Count what’s been donated and it tells you how many complete boxes or kits you can make right now, and what to ask for on Sunday. Works for food and coat drives too.',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   lines:[
    "This is the Operation Christmas Child Assistant — built for shoebox season, and just as good for a food drive or a coat drive.",
@@ -509,7 +509,7 @@ const APPS = {
    "Nineteen dollars, once, for every drive you'll ever run. Try it below."]},
  churchclubhouse: {
   name:'The Clubhouse', em:'🏠', sub:'church-to-kids, safely', cat:'church', price:'$29 one-time', video:true,
-  tag:'Church-to-kids, one way — no accounts, no chat, no strangers',
+  tag:'Church-to-kids, one way — no accounts, no chat, no strangers, and no ads to kids or parents',
   try:'https://jerrywins1.github.io/daraja-apps/church-clubhouse/',
   lines:[
    "This is The Clubhouse, and it answers a question every children's ministry wrestles with: how do we stay connected to the kids all week without sending them to social media?",
@@ -520,17 +520,17 @@ const APPS = {
   ]},
  churchgameday: {
   name:'GameDay', em:'🏀', sub:'the league, organized', cat:'church', price:'$29 one-time', video:true,
-  tag:'The league schedule that replaces the 40-family phone tree',
+  tag:'The league schedule that replaces the 40-family phone tree. No ads to your parents.',
   try:'https://jerrywins1.github.io/daraja-apps/church-gameday/',
   lines:[
    "This is GameDay — for the church basketball league, and every gym ministry like it.",
    "Schedules, standings, practice times, which door of the gym to use — one link every family keeps.",
    "And the big one: the red cancellation banner. Snow day? Tap once, and forty families see it before anyone drives.",
    "That banner alone replaces the whole phone tree.",
-   "Twenty-nine dollars, once, per season, per league, forever. Try it below."]},
+   "Twenty-nine dollars, once, and it is yours for every season after. No subscription. Try it below."]},
  churchkey: {
-  name:'The Key · Church Edition', em:'🔑', sub:'the building\'s memory', cat:'church', price:'$19 one-time', video:true,
-  tag:'So nothing lives in only one person\'s head',
+  name:'The Key · Church Edition', em:'🔑', sub:'the building’s memory, on paper', cat:'church', price:'$19 one-time', video:true,
+  tag:'The water shutoff, the alarm, who has keys, which plumber knows the pipes, all on one printed page, so the next trustee isn’t starting from zero.',
   try:'https://jerrywins1.github.io/daraja-apps/church-key/',
   lines:[
    "This is The Key, church edition — the page you hope you never need, and one day desperately will.",
@@ -561,7 +561,7 @@ const APPS = {
    "Nineteen dollars, once. Your treasurer will hug you. Try it below."]},
  flipkit: {
   name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', off:'parked — Meta has never allowed an outside app to create a Marketplace listing', price:'$9', testing:true, fresh:true, video:true,
-  tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money',
+  tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money. Why not just ChatGPT? FlipKit asks it the right question, then keeps your floor price and your cash total.',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
   lines:[
    "This is FlipKit, the only app in this store that pays for itself the very first time you use it.",
@@ -585,7 +585,7 @@ const APPS = {
    "Read the selling-safely card once. Then go find the next thing — the garage isn't empty yet."]},
  rafiki: {
   name:'Rafiki', em:'💛', sub:'a friend who knows your family', cat:'later', price:'$19 one-time', testing:true, fresh:true, video:true,
-  tag:'For anybody who lives alone — a friend that learns your family, remembers what you tell it, and speaks first',
+  tag:'For anybody who lives alone — a friend that learns your family, remembers what you tell it, and speaks first. Why not just ChatGPT? Rafiki says good morning by name, and nothing you tell it leaves your phone.',
   try:'https://jerrywins1.github.io/daraja-apps/rafiki/',
   lines:[
    "This is Rafiki, and it is not a to-do list. It is company.",
