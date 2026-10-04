@@ -1643,6 +1643,8 @@
     <!-- TODAY -->
     <section class="tab" id="t-today">
       <div id="digest"></div>
+      <h2>▶ One thing at a time <small id="ftCount"></small></h2>
+      <div class="card" id="focus"><p class="muted" style="margin:0">Loading…</p></div>
       <h2>📶 Zuri go-live <small id="zlDays"></small></h2>
       <div class="card" id="zuriLive"><p class="muted" style="margin:0">Loading the testers' board…</p></div>
       <h2>New messages <small id="msgCount"></small></h2>
@@ -1711,7 +1713,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.15 · 2026-10-04 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.16 · 2026-10-04 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -1775,7 +1777,7 @@ function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h
 
 /* ---------- render ---------- */
 function render(){
-  renderToday(); try{ renderZuriLive(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
+  renderToday(); try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
   const nNew=(D.messages||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
   const nStack=(D.requests||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
@@ -1808,6 +1810,33 @@ async function renderZuriLive(){
     <details style="margin-top:6px"><summary class="muted">The two-week plan</summary>${ZL.plan.map(x=>`<div class="dl ${x[0]<new Date().toISOString().slice(0,10)?'':'soon'}"><span class="d">${new Date(x[0]+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span><span>${esc(x[1])}</span></div>`).join('')}</details>
     <div class="chips" style="margin-top:10px"><a class="chip small" href="https://jerrywins1.github.io/zuri-system/testers/?board" target="_blank" rel="noopener">📊 The board</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?training" target="_blank" rel="noopener">🟠 Training copy</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?practice" target="_blank" rel="noopener">🧪 Practice</a></div>`;
 }
+
+/* ── One thing at a time (4 Oct 2026). Jerry: "I'm losing track — way too many things at once. One thing at a time."
+   The ordered steps live in control/focus.json (Claude updates it); what's done is saved in the HQ setting focus_done,
+   so the Mac and the iPad agree. ── */
+let FOCUS=null;
+async function renderFocus(){
+  const el=$('focus'); if(!el) return;
+  if(!FOCUS){ try{ FOCUS=await (await fetch('focus.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted" style="margin:0">Couldn’t load the list.</p>'; return; } }
+  const done=settingJSON('focus_done',[])||[], later=settingJSON('focus_later',[])||[];
+  const left=FOCUS.steps.filter(x=>done.indexOf(x.id)<0);
+  const order=left.filter(x=>later.indexOf(x.id)<0).concat(left.filter(x=>later.indexOf(x.id)>=0));
+  $('ftCount').textContent=(FOCUS.steps.length-left.length)+' of '+FOCUS.steps.length+' done';
+  if(!order.length){ el.innerHTML='<div style="font-size:40px">🎉</div><b>All done.</b> <span class="muted">Claude will add the next steps.</span>'; return; }
+  const x=order[0], nx=order[1];
+  el.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:4px">${esc(FOCUS.goal)}</div>
+    <div style="font-size:21px;font-weight:800;line-height:1.25;margin:2px 0 4px">${esc(x.t)}</div>
+    <div class="muted" style="font-size:14px;margin-bottom:8px">${esc(x.where)} · ${esc(x.why)}</div>
+    <ol style="margin:0 0 10px 18px;padding:0">${x.how.map(h=>`<li style="margin:5px 0">${esc(h)}</li>`).join('')}</ol>
+    ${x.links&&x.links.length?`<div class="chips" style="margin-bottom:10px">${x.links.map(l=>`<a class="chip small" href="${esc(l[1])}" target="_blank" rel="noopener">${esc(l[0])}</a>`).join('')}</div>`:''}
+    <div class="chips"><button class="chip main" onclick="focusDone('${x.id}')">✓ Done</button><button class="chip" onclick="focusLater('${x.id}')">Not now</button></div>
+    ${nx?`<div class="muted" style="font-size:13px;margin-top:10px">Next up: ${esc(nx.t)}</div>`:''}
+    <details style="margin-top:8px"><summary class="muted" style="font-size:13px">The whole list</summary>${FOCUS.steps.map((s,i)=>`<div class="dl"><span class="d">${done.indexOf(s.id)>=0?'✓':i+1}</span><span style="${done.indexOf(s.id)>=0?'text-decoration:line-through;opacity:.6':''}">${esc(s.t)}</span>${done.indexOf(s.id)>=0?`<button class="chip small" onclick="focusUndo('${s.id}')">undo</button>`:''}</div>`).join('')}</details>`;
+}
+async function focusSave(done,later){ await act({action:'settings.set',k:'focus_done',value:done}); await act({action:'settings.set',k:'focus_later',value:later},'Saved'); }
+window.focusDone=async id=>{ const d=settingJSON('focus_done',[])||[]; const l=(settingJSON('focus_later',[])||[]).filter(x=>x!==id); if(d.indexOf(id)<0) d.push(id); await focusSave(d,l); };
+window.focusLater=async id=>{ const l=(settingJSON('focus_later',[])||[]).filter(x=>x!==id); l.push(id); await focusSave(settingJSON('focus_done',[])||[],l); };
+window.focusUndo=async id=>{ await focusSave((settingJSON('focus_done',[])||[]).filter(x=>x!==id), settingJSON('focus_later',[])||[]); };
 function renderToday(){
   const dg=settingJSON('digest',null);
   $('digest').innerHTML=dg?`<h2>Claude’s morning summary <small>${ago(dg.at)}</small></h2><div class="card" style="white-space:pre-wrap">${esc(dg.text)}</div>`:'';
