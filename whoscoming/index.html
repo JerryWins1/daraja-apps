@@ -1583,6 +1583,7 @@
   button.primary{ background:var(--brand); color:#fff; border-color:transparent; } button.ok{ background:var(--ok); color:#fff; border-color:transparent; }
   button.accent{ background:var(--accent); color:#fff; border-color:transparent; } button.ghost{ background:transparent; }
   button.big{ width:100%; min-height:54px; font-size:18px; }
+  #newAskBtn{ width:calc(100% - 56px); padding-left:8px; padding-right:8px; font-size:17px; white-space:nowrap; }   /* 4 Oct: leave room for the floating ? so it never sits on the main button */
   .row{ display:flex; gap:8px; flex-wrap:wrap; }
   label{ display:block; font-weight:800; font-size:14.5px; margin:10px 0 4px; }
   input, textarea, select{ font:inherit; width:100%; min-height:46px; padding:10px 12px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink); }
@@ -1655,7 +1656,7 @@
       </div>
       <div class="card">
         <h2>Me — so replies come back to you</h2>
-        <label for="myName">Your name</label><input id="myName" placeholder="Jerry">
+        <label for="myName">Your name</label><input id="myName" placeholder="e.g. Pat">
         <label for="myPhone">Your mobile number</label><input id="myPhone" inputmode="tel" placeholder="847 555 0100">
         <p class="small" style="margin-top:8px">When someone taps an answer on their phone, it opens a text back to this number with their answer already typed. You record it with one tap.</p>
         <div class="row"><button class="ok" onclick="saveMe()">Save</button></div>
@@ -1663,7 +1664,7 @@
     </section>
   </div>
 
-  <p class="foot">Who’s Coming v1.5 · 2026-10-03 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Who’s Coming v1.6 · 2026-10-04 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -1703,9 +1704,12 @@ function hostLine(){
   else if(!open.length){ b=g+(db.me.name?', '+db.me.name:'')+'.'; p='Nothing is being asked right now. Want to ask a group something?'; act='<button onclick="toggleNew(true)">Ask something</button>'; }
   else if(waiting.length){ const w=waiting[0]; b=g+'.'; p=`“${esc(w.a.q)}” — ${w.n} ${w.n===1?'person hasn’t':'people haven’t'} answered yet. Nudge them, or record what they told you?`; act=`<button onclick="sendAsk('${w.a.id}',true)">Nudge the ${w.n}</button> <button onclick="openAsk('${w.a.id}')">Record answers</button>`; }
   else if(live.length){ const a=live[0]; b='Everyone has answered.'; p=`“${esc(a.q)}” — ${tallyText(a)}. Close it?`; act=`<button onclick="closeAsk('${a.id}')">Close it ✓</button>`; }
-  else { b=g+'.'; p='One of your questions has no group any more — the people were removed. Open it and pick a group, or close it.'; act='<button onclick="go(\'ask\')">See it</button>'; }
+  else { const o=open.find(a=>!peopleOf(a.groupId).length)||open[0]; const grp=db.groups.find(x=>x.id===o.groupId); b=g+'.';
+    if(grp){ p=`“${esc(o.q)}” — nobody is in ${esc(grp.name)} yet. Add people under People, then send it.`; act='<button onclick="go(\'people\')">Add people</button>'; }
+    else { p='One of your questions has nobody to ask any more — its group was removed. Close it, or delete it and ask again.'; act=`<button onclick="closeAsk('${o.id}')">Close it</button>`; } }
   $('host').innerHTML=`<b>${b}</b><p>${p}</p><div class="row">${act}</div>`;
 }
+function whenTxt(w){ if(!/^\d{4}-\d{2}-\d{2}$/.test(w||'')) return w||''; try{ return new Date(w+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }catch(e){ return w; } }
 function peopleOf(gid){ const g=db.groups.find(x=>x.id===gid); return g?g.people:[]; }
 function tallyText(a){ const t={}; Object.values(a.answers||{}).forEach(x=>{ t[x.a]=(t[x.a]||0)+1; }); return Object.entries(t).map(([k,v])=>v+' '+k).join(' · ')||'no answers yet'; }
 
@@ -1724,7 +1728,7 @@ function replyLink(a,p){ const u=new URL(location.href.split('?')[0]); u.searchP
 function sendAsk(id,nudge){
   const a=db.asks.find(x=>x.id===id); const ppl=peopleOf(a.groupId).filter(p=>!nudge||!(a.answers||{})[p.id]);
   const withPhone=ppl.filter(p=>(p.phone||'').replace(/\D/g,'').length>=7);
-  const body=(nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+a.when:'')+'\n\nTap to answer: '+replyLink(a,{id:'all'});
+  const body=(nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+whenTxt(a.when):'')+'\n\nTap to answer: '+replyLink(a,{id:'all'});
   const nums=withPhone.map(p=>p.phone.replace(/[^\d+]/g,''));
   if(!nums.length){ navigator.clipboard&&navigator.clipboard.writeText(body); alert('No mobile numbers on this group yet — the message is copied. Paste it into your group text, or add numbers under People.'); return; }
   /* iPhone needs the two-slash form to open ONE group text to everybody; with one slash it only took the first number.
@@ -1743,10 +1747,10 @@ function renderAsks(){
   if(!db.asks.length){ el.innerHTML='<div class="card ask"><h2>Nothing asked yet</h2><p>“Sunday lunch — who’s coming?” · “Which Saturday works for the cleanup?” · “Who can drive to the game?” One question, one group, and the answers land here.</p></div>'; return; }
   el.innerHTML=db.asks.map(a=>{ const ppl=peopleOf(a.groupId); const g=db.groups.find(x=>x.id===a.groupId); const answered=ppl.filter(p=>(a.answers||{})[p.id]).length;
     const tally={}; a.options.forEach(o=>tally[o]=0); Object.values(a.answers||{}).forEach(x=>{ tally[x.a]=(tally[x.a]||0)+1; });
-    return `<div class="card ask" id="ask-${a.id}" style="${a.closed?'opacity:.7':''}"><h2>${esc(a.q)}</h2><p>${esc(g?g.name:'(group gone)')} · ${answered} of ${ppl.length} answered${a.when?' · by '+esc(a.when):''}${a.closed?' · closed':''}</p>
+    return `<div class="card ask" id="ask-${a.id}" style="${a.closed?'opacity:.7':''}"><h2>${esc(a.q)}</h2><p>${g?esc(g.name)+' · '+(ppl.length?answered+' of '+ppl.length+' answered':'nobody in it yet — add people under People'):Object.keys(a.answers||{}).length+' answered before the group was removed'}${a.when?' · by '+esc(whenTxt(a.when)):''}${a.closed?' · closed':''}</p>
       ${a.options.length?`<div class="tally">${a.options.map(o=>`<div class="tile"><b>${tally[o]||0}</b><span>${esc(o)}</span></div>`).join('')}</div>`:''}
       <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+' · '+esc(ans.at):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'edit':'record what they said'}</button>`}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
-      <div class="row" style="margin-top:10px"><button class="primary" onclick="sendAsk('${a.id}',false)">📨 Send to the group</button><button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button><button onclick="copyTally('${a.id}')">📋 Copy the tally</button><button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
+      <div class="row" style="margin-top:10px">${ppl.length?`<button class="primary" onclick="sendAsk('${a.id}',false)">📨 Send to the group</button><button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button>`:''}<button onclick="copyTally('${a.id}')">📋 Copy the tally</button><button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
 }
 
 /* ── people ───────────────────────────────────────────────────── */
