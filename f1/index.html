@@ -1794,7 +1794,88 @@ let state = null, me = null, tab = 'home', apiCache = {}, drivers = {}, schedule
 
 /* ---------- storage: local or mailbox ---------- */
 function loadLocal() { try { const s = JSON.parse(localStorage.getItem(LS_STATE)); if (s && s.players) return s; } catch (e) { } return null; }
-function saveLocal() { try { localStorage.setItem(LS_STATE, JSON.stringify(state)); } catch (e) { } }
+function saveLocal() { try { if (state && state.demo) { const cur = loadLocal(); if (cur && !cur.demo) return; /* never write the pretend league over a real one */ } localStorage.setItem(LS_STATE, JSON.stringify(state)); } catch (e) { } }
+/* ---------- family-only league (4 Oct 2026) ----------
+   The real F1 Group league (seed.js) loads only on a family phone:
+     · a phone that already has Pit Wall saved (league, name/PIN, or race cache from before today), or
+     · a phone that opened f1/?family=1 once (sets dj_family='1'; f1/?family=0 clears it).
+   Everyone else gets PITWALL_DEMO below: made-up names and points, flagged demo:true.
+   Demo data is never written over a real saved league. */
+const LS_SEEDMODE = 'pitwall_seed_v1';
+function familyPhone() {
+  try { const q = new URLSearchParams(location.search).get('family');
+    if (q === '1') localStorage.setItem('dj_family', '1');
+    else if (q === '0') { localStorage.removeItem('dj_family'); localStorage.setItem(LS_SEEDMODE, 'demo'); } } catch (e) { }
+  try { if (localStorage.getItem('dj_family') === '1') return true; } catch (e) { }
+  let m = null; try { m = localStorage.getItem(LS_SEEDMODE); } catch (e) { }
+  if (!m) { let had = false;
+    try { had = ['pitwall_state_v1', 'pitwall_me_v1', 'pitwall_api_v1', 'f1_v1', 'pitwall_v1', 'f1league_v1'].some(k => localStorage.getItem(k) != null); } catch (e) { had = true; }
+    m = had ? 'family' : 'demo'; try { localStorage.setItem(LS_SEEDMODE, m); } catch (e) { } }
+  return m === 'family';
+}
+const PITWALL_DEMO = {
+  demo: true, seedVersion: 999,
+  league: { name: 'Pretend League', key: 'demo', commissioner: 'alex', deadlineRule: 'friday', tz: 'America/Chicago', currentSeason: 2026, mailboxUrl: '', testMode: true },
+  players: [
+    { id: 'alex', name: 'Alex', active: true }, { id: 'bea', name: 'Bea', active: true }, { id: 'cal', name: 'Cal', active: true },
+    { id: 'dana', name: 'Dana', active: true }, { id: 'eli', name: 'Eli', active: true }
+  ],
+  history: [ { year: 2024, champion: 'Cal', note: 'pretend' }, { year: 2025, champion: 'Bea', note: 'pretend' } ],
+  paddock: [],
+  seasons: {
+    2026: {
+      year: 2026, driversPer: 4, drivesPer: 12, wildcardsPer: 2, perRace: 2,
+      scoring: { racePlace: [20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1], rowPoints: [10,9,8,7,6,5,4,3,2,1], sprintUsesRows: true, fastestLapBonus: 5, sprintFastestLapBonus: 0, unclassifiedScoresZero: true, perRace: 2 },
+      canceled: ['bahrain', 'saudi-arabian'],
+      draft: { status: 'done', players: ['alex', 'bea', 'cal', 'dana', 'eli'], note: 'Pretend draft', order: [['alex', 'bea', 'cal', 'dana', 'eli'], ['eli', 'dana', 'cal', 'bea', 'alex'], ['alex', 'bea', 'cal', 'dana', 'eli'], ['eli', 'dana', 'cal', 'bea', 'alex']], picks: [] },
+      roster: {
+        alex: ['norris', 'alonso', 'ocon', 'bortoleto'],
+        bea:  ['leclerc', 'antonelli', 'stroll', 'hulkenberg'],
+        cal:  ['max_verstappen', 'sainz', 'gasly', 'bearman'],
+        dana: ['piastri', 'hamilton', 'albon', 'lawson'],
+        eli:  ['russell', 'hadjar', 'perez', 'bottas']
+      },
+      picks: {},
+      overrides: {},
+      start: {
+        afterKey: 'italian',
+        standings: { alex: 612, bea: 598, cal: 571, dana: 544, eli: 503 },
+        usage: {
+          alex: { norris: 6, alonso: 8, ocon: 7, bortoleto: 9, _wild: 1 },
+          bea:  { leclerc: 5, antonelli: 7, stroll: 10, hulkenberg: 8, _wild: 2 },
+          cal:  { max_verstappen: 4, sainz: 7, gasly: 8, bearman: 9, _wild: 1 },
+          dana: { piastri: 5, hamilton: 6, albon: 9, lawson: 10, _wild: 2 },
+          eli:  { russell: 4, hadjar: 8, perez: 9, bottas: 11, _wild: 1 }
+        },
+        note: 'Pretend numbers — this is a made-up league so you can look around.'
+      },
+      note: 'A pretend league. Set up your own in Setup.'
+    }
+  }
+};
+function cn() { return esc(pname(state.league.commissioner)); }
+function demoBanner() { return state && state.demo ? `<div class="note" id="pwDemo" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🎭 <b>This is a pretend league</b> — set up your own in Setup.</span>${tab === 'setup' ? '' : `<button class="btn sm" onclick="go('setup')">Setup</button>`}</div>` : ''; }
+function ownLeague() {
+  modal(`<h2>Start your own league</h2><p class="small muted">The pretend league goes away. You start with just you as commissioner, then add your players here in Setup.</p>
+    <label class="f">League name<input id="olName" placeholder="e.g. Sunday Racing Club" maxlength="40"></label>
+    <label class="f" style="margin-top:8px">Your first name<input id="olMe" placeholder="e.g. Pat" maxlength="24" autocomplete="given-name"></label>
+    <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="ownLeagueGo()">Start it</button></div>`);
+  setTimeout(() => $('olName') && $('olName').focus(), 50);
+}
+function ownLeagueGo() {
+  const lname = ($('olName').value || '').trim() || 'My League', nm = ($('olMe').value || '').trim();
+  if (!nm) { toast('Type your first name'); return; }
+  const id = nm.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'me';
+  const d = PITWALL_DEMO.seasons[2026], y = state.league.currentSeason || 2026;
+  state = { seedVersion: (typeof PITWALL_SEED !== 'undefined' && PITWALL_SEED.seedVersion) || 1,
+    league: { name: lname, key: 'mine', commissioner: id, deadlineRule: 'friday', tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago'), currentSeason: y, mailboxUrl: '' },
+    players: [{ id, name: nm, active: true }], history: [], paddock: [],
+    seasons: { [y]: { year: y, driversPer: d.driversPer, drivesPer: d.drivesPer, wildcardsPer: d.wildcardsPer, perRace: d.perRace, scoring: JSON.parse(JSON.stringify(d.scoring)), canceled: (state.seasons[y] && state.seasons[y].canceled || []).slice(), roster: { [id]: [] }, picks: {}, overrides: {} } } };
+  try { localStorage.setItem(LS_SEEDMODE, 'mine'); } catch (e) { }
+  saveLocal(); me = { id, pin: '' }; saveMe(); closeModal(); seasonYear = y; schedule = null;
+  toast('Your league is ready — add your players below'); go('setup'); refresh();
+}
+
 function mailbox() { return state && state.league && state.league.mailboxUrl && /^https:\/\/script\.google\.com\/.+\/exec$/.test(state.league.mailboxUrl) ? state.league.mailboxUrl : null; }
 async function pullRemote(silent) {
   const url = mailbox(); if (!url) return false;
@@ -2027,8 +2108,8 @@ function render() {
   $('meBtn').classList.toggle('offline', !me);
   $('hdrSub').textContent = (state.league.name || 'F1 Group') + ' · ' + seasonYear + (mailbox() ? '' : ' · this device only');
   const v = $('view');
-  if (!schedule) { v.innerHTML = `<div class="card"><h2>Loading the ${seasonYear} calendar…</h2><p class="muted small">Race dates and results come from the free Jolpica F1 data service. If this never finishes, check your connection.</p>${loadError ? `<div class="warn">${esc(loadError)}</div>` : ''}</div>`; return; }
-  v.innerHTML = ({ home: rHome, standings: rStandings, usage: rUsage, races: rRaces, live: rLive, paddock: rPaddock, setup: rSetup, draft: rDraft })[tab]();
+  if (!schedule) { v.innerHTML = demoBanner() + `<div class="card"><h2>Loading the ${seasonYear} calendar…</h2><p class="muted small">Race dates and results come from the free Jolpica F1 data service. If this never finishes, check your connection.</p>${loadError ? `<div class="warn">${esc(loadError)}</div>` : ''}</div>`; return; }
+  v.innerHTML = demoBanner() + ({ home: rHome, standings: rStandings, usage: rUsage, races: rRaces, live: rLive, paddock: rPaddock, setup: rSetup, draft: rDraft })[tab]();
   if (tab === 'paddock') { const c = $('chatBox'); if (c) c.scrollTop = c.scrollHeight; }
 }
 function rHome() {
@@ -2084,7 +2165,7 @@ function rHome() {
     <div class="row" style="margin-top:10px;justify-content:space-between">${champ ? `<span class="pill flag">🏆 ${champ.year} champion · ${esc(champ.champion)}</span>` : '<span></span>'}<button class="btn sm ghost" onclick="go('standings')">Race by race →</button></div></div>`;
   // paddock teaser
   const pad = (state.paddock || []).slice(-3);
-  html += `<div class="card"><h2>Paddock <span class="sub">trash talk</span></h2>${pad.length ? pad.map(m => `<div class="small" style="margin-bottom:4px"><b>${esc(pname(m.player))}:</b> ${esc(m.text)}</div>`).join('') : '<p class="muted small">Quiet in here. Somebody say something about Ryan\'s drivers.</p>'}<button class="btn sm ghost" style="margin-top:6px" onclick="go('paddock')">Open the paddock →</button></div>`;
+  html += `<div class="card"><h2>Paddock <span class="sub">trash talk</span></h2>${pad.length ? pad.map(m => `<div class="small" style="margin-bottom:4px"><b>${esc(pname(m.player))}:</b> ${esc(m.text)}</div>`).join('') : '<p class="muted small">Quiet in here. Somebody say something about ' + esc(pname((playersActive()[1] || playersActive()[0] || {}).id)) + '\'s drivers.</p>'}<button class="btn sm ghost" style="margin-top:6px" onclick="go('paddock')">Open the paddock →</button></div>`;
   return html;
 }
 function countdown(dl) { const ms = dl - new Date(); if (ms <= 0) return 'locked'; const d = Math.floor(ms / 86400e3), h = Math.floor(ms % 86400e3 / 3600e3), m = Math.floor(ms % 3600e3 / 60e3), sec = Math.floor(ms % 60e3 / 1e3); return d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m ${String(sec).padStart(2, '0')}s` : `${m}m ${String(sec).padStart(2, '0')}s`; }
@@ -2101,7 +2182,7 @@ function rStandings() {
   html += `<div class="card"><h2>Race by race <span class="sub">purple = fastest lap bonus</span></h2><div class="tablewrap"><table><thead><tr><th>Race</th>${players.map(p => `<th class="n">${esc(p.name)}</th>`).join('')}</tr></thead><tbody>
     ${sr ? `<tr><td class="muted">Carried in · after ${esc(sr.name.replace(' Grand Prix', ''))}</td>${players.map(p => `<td class="n muted">${startPoints(p.id)}</td>`).join('')}</tr>` : ''}
     ${races.map(r => { const R = computed.rounds[r.key]; return `<tr><td><button class="btn sm ghost" style="padding:2px 6px" onclick="openRace('${r.key}')">${esc(r.name.replace(' Grand Prix', ''))}${r.sprint ? ' <span class="pill" style="font-size:10px">sprint</span>' : ''}</button></td>${players.map(p => { const sc = R.scores[p.id]; return `<td class="n ${sc && sc.fastestLapDriver ? 'fl' : ''}">${sc ? sc.total : '—'}${R.lineups[p.id] && R.lineups[p.id].wildcard ? ' <span title="wild card">★</span>' : ''}</td>`; }).join('')}</tr>`; }).join('')}
-    <tr><td><b>Total</b></td>${players.map(p => `<td class="n"><b>${p.pts}</b></td>`).join('')}</tr></tbody></table></div><p class="small muted" style="margin-top:8px">★ wild card weekend. Tap a race for the driver-by-driver breakdown and Steve's post.</p></div>`;
+    <tr><td><b>Total</b></td>${players.map(p => `<td class="n"><b>${p.pts}</b></td>`).join('')}</tr></tbody></table></div><p class="small muted" style="margin-top:8px">★ wild card weekend. Tap a race for the driver-by-driver breakdown and ${cn()}'s post.</p></div>`;
   const hist = (state.history || []).slice().sort((a, b) => b.year - a.year);
   html += `<div class="card"><h2>Champions</h2><div class="grid4">${hist.map(h => `<div style="background:var(--paper-2);border-radius:8px;padding:8px 10px"><div class="lab">${h.year}</div><div class="disp" style="font-size:22px;font-weight:700">${esc(h.champion)}</div>${h.note ? `<div class="small muted">${esc(h.note)}</div>` : ''}</div>`).join('')}</div></div>`;
   return html;
@@ -2114,7 +2195,7 @@ function rUsage() {
       ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; const adj = (s.driveAdj && s.driveAdj[p.id] && s.driveAdj[p.id][d]) || 0; const edit = (isCommish() || testMode()); return `<div class="u-d ${edit ? 'edit' : ''} ${left <= 0 ? 'out' : ''}">${edit ? `<input class="uin" type="number" inputmode="numeric" min="0" max="${s.drivesPer}" value="${left}" data-p="${p.id}" data-d="${d}" aria-label="${esc(dname(d))} — drives left for ${esc(p.name)}" oninput="usageBar(this)" onchange="usageType(this)">` : ''}<span>${esc(dname(d))}${adj ? ' <span class="pill" style="font-size:10px">corrected</span>' : ''}</span>${edit ? '' : `<span class="n">${left} left</span>`}<div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}
       ${(isCommish() || testMode()) ? `<div class="u-d edit"><input class="uin" type="number" inputmode="numeric" min="0" max="${s.wildcardsPer}" value="${Math.max(0, u._wild || 0)}" data-p="${p.id}" data-d="_wild" aria-label="Wild cards left for ${esc(p.name)}" onchange="usageType(this)"><span>Wild cards left</span></div>` : ''}</div>`; }).join('')}
   </div>
-  <button class="btn sm" style="margin-top:12px" onclick="copyText(usagePost())">📋 Copy Steve's usage post</button></div>`;
+  <button class="btn sm" style="margin-top:12px" onclick="copyText(usagePost())">📋 Copy ${cn()}'s usage post</button></div>`;
   // race by race: who ran which drivers, every weekend the app has scored
   const grid = activeRaces().map(r => computed.rounds[r.key]).filter(R => R && !R.carried && (R.results || Object.keys(R.lineups).length));
   const carriedCount = activeRaces().filter(r => computed.rounds[r.key] && computed.rounds[r.key].carried).length;
@@ -2148,16 +2229,16 @@ function rRaces() {
 }
 function openRace(key) { selRace = key; const r = schedule.find(x => x.key === key); const R = computed.rounds[key]; const s = season();
   if (!R) { modal(`<h2>${esc(r.name)}</h2><p class="muted">Canceled this season.</p><div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">Close</button></div>`); return; }
-  if (R.carried) { modal(`<h2>${esc(r.name)} <span class="sub">round ${r.round}</span></h2><p class="muted">Scored by Steve before the app. Points and driver usage from this weekend are carried in through the starting point in Setup.</p><div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">Close</button></div>`); return; }
+  if (R.carried) { modal(`<h2>${esc(r.name)} <span class="sub">round ${r.round}</span></h2><p class="muted">Scored by ${esc(pname(state.league.commissioner))} before the app. Points and driver usage from this weekend are carried in through the starting point in Setup.</p><div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">Close</button></div>`); return; }
   let body = `<h2>${esc(r.name)} <span class="sub">round ${r.round}</span></h2><p class="small muted">${fmtD(r.date)} · picks due ${fmtDT(R.deadline)}${r.sprint ? ' · sprint weekend' : ''}</p>`;
   if (R.results) {
     const rows = Object.keys(R.scores).sort((a, b) => R.scores[b].total - R.scores[a].total);
     body += `<div class="tablewrap"><table><thead><tr><th>Player · driver</th><th class="n">Quali</th>${R.results.sprint ? '<th class="n">Sprint</th>' : ''}<th class="n">Race</th><th class="n">FL</th><th class="n">Pts</th></tr></thead><tbody>
       ${rows.map(p => { const sc = R.scores[p]; const L = R.lineups[p]; return `<tr><td><b>${esc(pname(p))}</b>${L.wildcard ? ' <span class="pill acc" style="font-size:10px">wild card</span>' : ''}${L.auto ? ' <span class="pill" style="font-size:10px">auto</span>' : ''}</td><td class="n" colspan="${R.results.sprint ? 4 : 3}"></td><td class="n"><b>${sc.total}</b></td></tr>` + sc.drivers.map(d => `<tr><td class="muted" style="padding-left:22px">${esc(dname(d.id))}${d.status && !/^(Finished|\+\d+ Laps?)$/.test(d.status) ? ` <span class="pill bad" style="font-size:10px">${esc(d.status)}</span>` : ''}</td><td class="n">${d.quali}</td>${R.results.sprint ? `<td class="n">${d.sprint}</td>` : ''}<td class="n">${d.race}</td><td class="n ${d.fl ? 'fl' : ''}">${d.fl || ''}</td><td class="n">${d.total}</td></tr>`).join('') + (sc.adjust ? `<tr><td class="muted" style="padding-left:22px">Commissioner adjustment${sc.adjust.note ? ': ' + esc(sc.adjust.note) : ''}</td><td class="n" colspan="${R.results.sprint ? 4 : 3}"></td><td class="n">${sc.adjust.points > 0 ? '+' : ''}${sc.adjust.points}</td></tr>` : ''); }).join('')}
     </tbody></table></div>
-    <div class="row" style="margin-top:10px"><button class="btn sm" onclick="copyText(racePost('${key}'))">📋 Copy Steve's results post</button><button class="btn sm" onclick="copyText(usagePost('${key}'))">📋 Copy usage post</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn sm" onclick="copyText(racePost('${key}'))">📋 Copy ${esc(pname(state.league.commissioner))}'s results post</button><button class="btn sm" onclick="copyText(usagePost('${key}'))">📋 Copy usage post</button></div>
     <div class="board">${esc(racePost(key))}</div>`;
-    if (isCommish()) body += `<details><summary>Adjust a score (commissioner)</summary><div class="in"><div class="grid2"><label class="f">Player<select id="adjP">${playersActive().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label><label class="f">Points (+ or −)<input id="adjPts" type="number" step="1" value="0"></label></div><label class="f">Why<input id="adjNote" placeholder="e.g. Steve's tally had Robbi at 8 not 6"></label><button class="btn sm primary" onclick="adminSet(['seasons','${seasonYear}','overrides','${key}',$('adjP').value],{points:+$('adjPts').value,note:$('adjNote').value},'Adjustment');closeModal()">Save adjustment</button></div></details>`;
+    if (isCommish()) body += `<details><summary>Adjust a score (commissioner)</summary><div class="in"><div class="grid2"><label class="f">Player<select id="adjP">${playersActive().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label><label class="f">Points (+ or −)<input id="adjPts" type="number" step="1" value="0"></label></div><label class="f">Why<input id="adjNote" placeholder="e.g. the hand tally had it at 8, not 6"></label><button class="btn sm primary" onclick="adminSet(['seasons','${seasonYear}','overrides','${key}',$('adjP').value],{points:+$('adjPts').value,note:$('adjNote').value},'Adjustment');closeModal()">Save adjustment</button></div></details>`;
   } else if (R.locked) {
     body += `<p class="muted">Picks are locked. Results will appear here a few hours after the race.${R.error ? ' <span class="warn">' + esc(R.error) + '</span>' : ''}</p><div class="lineup-grid" style="margin-top:0">${Object.keys(R.lineups).map(p => `<div style="background:var(--paper-2);color:var(--ink)"><b class="lab">${esc(pname(p))}</b>${R.lineups[p].wildcard ? 'Wild card' : R.lineups[p].drivers.map(dname).join(' + ')}${R.lineups[p].auto ? ' <span class="pill" style="font-size:10px">auto</span>' : ''}</div>`).join('')}</div>`;
   } else {
@@ -2287,8 +2368,9 @@ function rSetup() {
   const ro = c ? '' : 'disabled';
   let html = `<div class="card"><h2>Setup</h2><p class="small muted">${c ? 'You are the commissioner. Changes here apply to everyone.' : 'Only the commissioner (' + esc(pname(state.league.commissioner)) + ') can change settings. You can read them.'}</p>
   ${mailbox() ? `<span class="pill ok">Connected to the group mailbox</span>` : `<span class="pill bad">Not connected · this device only</span>`}</div>`;
+  if (state.demo) html = `<div class="card"><h2>🎭 Make it yours</h2><p class="small">Everything here is pretend: made-up names, made-up points. Look around, act as any of them, then start your own league — your name, your players, your scoring.</p><div class="row"><button class="btn primary" onclick="ownLeague()">Start my own league</button></div></div>` + html;
   html += `<details ${testMode() ? 'open' : ''}><summary>Test drive (this device only)</summary><div class="in">
-    <p class="small">For a dry run before the group joins: act as any of the five without a PIN, enter everyone's picks as they text them, and after the race compare the app's breakdown and Steve-style post with Steve's real one. Only works while this device is not connected to the mailbox; connecting turns it off and picks entered here go along to the mailbox.</p>
+    <p class="small">For a dry run before the group joins: act as any player without a PIN, enter everyone's picks as they text them, and after the race compare the app's breakdown and results post with ${cn()}'s own. Only works while this device is not connected to the mailbox; connecting turns it off and picks entered here go along to the mailbox.</p>
     ${mailbox() ? '<span class="pill">Not available while connected to the mailbox</span>' : `<label class="row small" style="gap:8px"><input type="checkbox" style="width:auto" ${testMode() ? 'checked' : ''} onchange="state.league.testMode=this.checked;saveLocal();render();toast(this.checked?'Test drive on — tap a name on Home to act as them':'Test drive off')"> Act as any player without a PIN</label>`}
   </div></details>`;
   html += `<details ${mailbox() || testMode() ? '' : 'open'}><summary>Mailbox (shared data)</summary><div class="in">
@@ -2316,7 +2398,7 @@ function rSetup() {
     <div class="grid2">${(schedule || []).map(r => `<label class="row small" style="gap:6px"><input type="checkbox" style="width:auto" ${(s.canceled || []).includes(r.key) ? 'checked' : ''} ${ro} onchange="toggleCanceled('${r.key}',this.checked)"> ${esc(r.name.replace(' Grand Prix', ''))}</label>`).join('')}</div>
     <div class="lab" style="margin-top:6px">Deadline style</div>
     <select id="stRule" ${ro} onchange="try{ var _s=season(); if(_s) delete _s.deadlines; }catch(e){} adminSet(['league','deadlineRule'],this.value,'Deadline style')">
-      <option value="friday" ${(state.league.deadlineRule || 'friday') === 'friday' ? 'selected' : ''}>Friday 11:59 pm Central, or when qualifying starts if that's earlier (Steve's practice)</option>
+      <option value="friday" ${(state.league.deadlineRule || 'friday') === 'friday' ? 'selected' : ''}>Friday 11:59 pm Central, or when qualifying starts if that's earlier (${cn()}'s practice)</option>
       <option value="eve" ${state.league.deadlineRule === 'eve' ? 'selected' : ''}>11:59 pm the night before qualifying day (Thursday on Saturday-race and sprint weekends)</option>
       <option value="quali" ${state.league.deadlineRule === 'quali' ? 'selected' : ''}>The moment the first qualifying session starts</option>
     </select></div></details>`;
@@ -2345,12 +2427,12 @@ function rSetup() {
   // starting point: per team, points and drives left as they stand today (typed by the commissioner, or pre-filled from the group text)
   const st0 = s.start || {}; const stU = st0.usage || {}; const stS = st0.standings || {};
   html += `<details ${st0.afterKey ? '' : 'open'}><summary>Starting point · where each team stands today</summary><div class="in">
-    <p class="small muted">Pick the last race Steve scored by hand, then for each team enter the points total and every driver's drives left, straight off his last usage post. The app scores everything from the next race on. Leave the race on "none" to score the whole season from round 1.</p>
+    <p class="small muted">Pick the last race ${cn()} scored by hand, then for each team enter the points total and every driver's drives left, straight off his last usage post. The app scores everything from the next race on. Leave the race on "none" to score the whole season from round 1.</p>
     <label class="f">Last race scored by hand<select id="spRace" ${ro}><option value="">none — score from round 1</option>${activeRaces().map(r => `<option value="${r.key}" ${st0.afterKey === r.key ? 'selected' : ''}>${esc(r.name.replace(' Grand Prix', ''))}</option>`).join('')}</select></label>
     <div class="tablewrap"><table><thead><tr><th>Team</th><th class="n">Points</th>${Array.from({ length: s.driversPer }).map((_, i) => `<th class="n">Driver ${i + 1} left</th>`).join('')}<th class="n">Wild cards left</th></tr></thead><tbody>
       ${playersActive().map(p => `<tr><td><b>${esc(p.name)}</b><br><span class="small muted">${(s.roster[p.id] || []).map(dname).join(' · ')}</span></td><td class="n"><input class="mono" style="width:80px" type="number" id="sp_pts_${p.id}" value="${stS[p.id] != null ? stS[p.id] : ''}" placeholder="0" ${ro}></td>${(s.roster[p.id] || []).map(d => `<td class="n"><input class="mono" style="width:64px" type="number" id="sp_${p.id}_${d}" value="${stU[p.id] && stU[p.id][d] != null ? stU[p.id][d] : ''}" placeholder="${s.drivesPer}" ${ro}></td>`).join('')}<td class="n"><input class="mono" style="width:64px" type="number" id="sp_wild_${p.id}" value="${stU[p.id] && stU[p.id]._wild != null ? stU[p.id]._wild : ''}" placeholder="${s.wildcardsPer}" ${ro}></td></tr>`).join('')}
     </tbody></table></div>
-    ${c ? `<div class="row"><button class="btn sm primary" onclick="saveStart()">Save starting point</button>${typeof PITWALL_SEED !== 'undefined' && PITWALL_SEED.seasons[seasonYear] && PITWALL_SEED.seasons[seasonYear].start ? `<button class="btn sm" onclick="useSeedStart()">Use the numbers from the group text</button>` : ''}<button class="btn sm ghost" onclick="adminSet(['seasons','${seasonYear}','start'],null,'Starting point cleared')">Clear</button></div>` : ''}
+    ${c ? `<div class="row"><button class="btn sm primary" onclick="saveStart()">Save starting point</button>${typeof PITWALL_SEED !== 'undefined' && !state.demo && state.league.key === 'f1' && PITWALL_SEED.seasons[seasonYear] && PITWALL_SEED.seasons[seasonYear].start ? `<button class="btn sm" onclick="useSeedStart()">Use the numbers from the group text</button>` : ''}<button class="btn sm ghost" onclick="adminSet(['seasons','${seasonYear}','start'],null,'Starting point cleared')">Clear</button></div>` : ''}
     ${st0.note ? `<div class="note">${esc(st0.note)}</div>` : ''}</div></details>`;
   // backfill picks
   html += `<details><summary>Backfill picks</summary><div class="in"><p class="small muted">For weekends the group texted picks that never made it in here. Pick a race and a player, then set the lineup or wild card. Leave a lineup empty to fall back to auto-draft.</p>
@@ -2409,7 +2491,7 @@ async function saveStart() {
   const race = schedule.find(r => r.key === afterKey);
   await adminSet(['seasons', seasonYear, 'start'], { afterKey, standings, usage, note: 'Entered by ' + pname(me.id) + ' as of after ' + (race ? race.name.replace(' Grand Prix', ' GP') : afterKey) + ', ' + new Date().toLocaleDateString() }, 'Starting point saved');
 }
-async function useSeedStart() { if (!isCommish()) { toast('Commissioner only'); return; } const st = JSON.parse(JSON.stringify(PITWALL_SEED.seasons[seasonYear].start)); await adminSet(['seasons', seasonYear, 'start'], st, 'Starting point saved from the group text'); }
+async function useSeedStart() { if (!isCommish() || state.demo || state.league.key !== 'f1') { toast('Commissioner only'); return; } const st = JSON.parse(JSON.stringify(PITWALL_SEED.seasons[seasonYear].start)); await adminSet(['seasons', seasonYear, 'start'], st, 'Starting point saved from the group text'); }
 async function toggleCanceled(key, on) { const list = (season().canceled || []).filter(k => k !== key); if (on) list.push(key); await adminSet(['seasons', seasonYear, 'canceled'], list, on ? 'Race canceled' : 'Race restored'); }
 async function saveScoring() { const nums = v => v.split(/[,\s]+/).filter(Boolean).map(Number).filter(n => !isNaN(n)); const sc = { racePlace: nums($('scRace').value), rowPoints: nums($('scRow').value), fastestLapBonus: +$('scFL').value, sprintFastestLapBonus: +$('scSFL').value, sprintUsesRows: $('scSprint').value === 'rows', unclassifiedScoresZero: $('scDNF').value === 'zero', perRace: season().perRace || 2 }; await adminSet(['seasons', seasonYear, 'scoring'], sc, 'Scoring saved'); }
 async function setRoster(pid, i, val) { const r = (season().roster[pid] || []).slice(); r[i] = val; await adminSet(['seasons', seasonYear, 'roster', pid], r.filter(Boolean), 'Roster saved'); }
@@ -2582,10 +2664,13 @@ async function refresh() {
 }
 (async function boot() {
   loadApiCache(); loadMe();
-  state = loadLocal() || (typeof PITWALL_SEED !== 'undefined' ? JSON.parse(JSON.stringify(PITWALL_SEED)) : null);
+  { const local = loadLocal(), fam = familyPhone();
+    if (local && !local.demo) state = local;                                   // anyone with a saved league keeps it, exactly as before
+    else if (fam) state = (typeof PITWALL_SEED !== 'undefined' ? JSON.parse(JSON.stringify(PITWALL_SEED)) : null);   // family phone: the real league
+    else state = local || JSON.parse(JSON.stringify(PITWALL_DEMO)); }          // everyone else: the pretend league
   if (!state) { $('view').innerHTML = '<div class="card"><h2>No league data</h2></div>'; return; }
   // A device that is not on the group mailbox yet follows the newest seeded starting point (Steve's latest post), keeping its own picks and PIN.
-  if (typeof PITWALL_SEED !== 'undefined' && (state.seedVersion || 1) < (PITWALL_SEED.seedVersion || 1) && !(state.league && state.league.mailboxUrl)) {
+  if (typeof PITWALL_SEED !== 'undefined' && !state.demo && (state.seedVersion || 1) < (PITWALL_SEED.seedVersion || 1) && !(state.league && state.league.mailboxUrl)) {
     for (const y in PITWALL_SEED.seasons) { const src = PITWALL_SEED.seasons[y]; state.seasons[y] = state.seasons[y] || JSON.parse(JSON.stringify(src)); if (src.start) state.seasons[y].start = JSON.parse(JSON.stringify(src.start)); if (src.canceled) state.seasons[y].canceled = src.canceled.slice(); if (src.draft && !state.seasons[y].draft) state.seasons[y].draft = JSON.parse(JSON.stringify(src.draft));
       // Picks texted to the group and seeded later: fill in only the ones this device has never seen, never overwrite a pick made here.
       if (src.picks) { const dst = state.seasons[y].picks = state.seasons[y].picks || {}; for (const k in src.picks) { dst[k] = dst[k] || {}; for (const pid in src.picks[k]) if (!dst[k][pid]) dst[k][pid] = JSON.parse(JSON.stringify(src.picks[k][pid])); } } }
@@ -2604,7 +2689,7 @@ async function refresh() {
 </script>
 <script>window.DJ_START = {"slug": "pitwall", "em": "🏁", "title": "Welcome — your league, run for you.", "lede": "Picks, deadlines, scoring and standings for a homegrown racing league. The commissioner stops doing maths by hand on a Sunday night and gets to just watch the race.", "cta": "Set up the league →", "firstSelector": "button", "dataKeys": ["f1_v1", "pitwall_v1", "f1league_v1"], "steps": ["<b>Add your players</b> — everyone in the group text.", "<b>Check the scoring</b> matches how your league has always done it.", "<b>Make your picks</b> before the deadline. It does the rest."]};</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.4 · 2026-10-02) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.5 · 2026-10-04) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
@@ -3018,7 +3103,7 @@ async function refresh() {
     border:1.5px solid var(--line-strong,#555); background:var(--surface-2,rgba(128,128,128,.12)); color:inherit; padding:4px 6px; }
   .u-d .uin:focus{ outline:3px solid var(--acc,#B48CFF); outline-offset:1px; }
 </style>
-<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v1.4 · 2026-10-02 · Daraja Studio</p>
+<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v1.5 · 2026-10-04 · Daraja Studio</p>
 <script id="dj-usage-v1">
 /* 11 Sep 2026, Jerry: "just do this like a table — the number in a box on the left, change it,
    tab down to the next one, done." The old way was one question box per driver, twenty taps. */
