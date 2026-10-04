@@ -1960,7 +1960,7 @@
   </div>
 </div>
 
-<div id="ver">Feedback Studio v2.14 · 2026-10-02 · Daraja Studio</div>
+<div id="ver">Feedback Studio v2.15 · 2026-10-04 · Daraja Studio</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -3432,5 +3432,41 @@ try{
     ['topbar','recbar'].forEach(function(id){ var e = document.getElementById(id); if(e) ro.observe(e); });
     new MutationObserver(function(){ ['pointCard','shotCard'].forEach(function(id){ var e = document.getElementById(id); if(e && !e.__fsFit){ e.__fsFit = 1; ro.observe(e); } }); fit(); })
       .observe(document.getElementById('stage') || document.body, { childList:true }); }catch(e){ setInterval(fit, 1000); }
+})();
+</script>
+<script id="dj-fs-send-v4">
+/* 📨 Send to Claude v4 (4 Oct 2026): every report goes straight into Daraja HQ.
+   Until now it only reached Jerry if the tester texted HIS number — strangers don't have it,
+   and a laptop just saved the report on the tester's own computer. Now: POST the whole report
+   to the Daraja mailbox (action "report"); pictures can still follow by the share sheet.
+   If HQ can't be reached (offline, or the old script), it falls back to the old way. */
+(function(){
+  var older = window.sendToClaude;
+  function tName(){ try{ return localStorage.getItem('dj_name') || (JSON.parse(localStorage.getItem('dj_testers_v1') || '{}').name) || ''; }catch(e){ return ''; } }
+  function appKey(){ var src=''; try{ var f=document.getElementById('appframe'); src = (f && (f.getAttribute('src')||'')) || new URLSearchParams(location.search).get('app') || ''; if(!src && f) src = f.contentWindow.location.href; }catch(e){} return String(src).replace(/[?#].*$/,'').replace(/\/+$/,'').split('/').pop().replace(/[^a-z0-9]+/gi,'-').toLowerCase() || 'app'; }
+  function box(html){ var c = document.getElementById('shotCard'); if(!c){ c = document.createElement('div'); c.id = 'shotCard'; var rb = document.getElementById('recbar'); if(rb && rb.parentNode) rb.parentNode.insertBefore(c, rb); else document.body.appendChild(c); }
+    c.innerHTML = html; c.classList.add('show'); try{ c.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){} return c; }
+  window.sendToClaude = async function(){
+    var name = tName();
+    if(!name){ name = (prompt('Your first name, so Jerry knows who sent this:') || '').trim(); if(!name) return; try{ localStorage.setItem('dj_name', name); }catch(e){} }
+    var text = ''; try{ text = buildReport(); }catch(e){}
+    if(!text){ if(older) return older(); return; }
+    var c = box('<b>📨 Sending to Jerry…</b>');
+    var ok = false;
+    try{
+      var cfg = await (await fetch('https://jerrywins1.github.io/daraja-apps/testers/config.json?cb=' + Date.now())).json();
+      if(cfg && cfg.mailbox){
+        var who = ''; try{ who = localStorage.getItem('dj_who') || ''; }catch(e){}
+        var r = await fetch(cfg.mailbox, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'report', name:name, who:who, app:appKey(), text:text }) });
+        var j = await r.json(); ok = !!(j && j.ok);
+      }
+    }catch(e){ ok = false; }
+    if(!ok){ c.classList.remove('show'); if(older) return older(); return; }
+    var pics = (window.__fsPics || []).length;
+    c.innerHTML = '<b>✅ Sent. Thank you, ' + String(name).replace(/[<>&]/g,'') + '!</b> Jerry reads every report the same evening; fixes usually show up on your phone the next morning.'
+      + (pics ? '<br><br>You took ' + pics + ' picture' + (pics === 1 ? '' : 's') + '. <button id="fsPicsToo">📸 Also send my pictures</button>' : '')
+      + '<br><button onclick="document.getElementById(\'shotCard\').classList.remove(\'show\')">Done</button>';
+    var pb = document.getElementById('fsPicsToo'); if(pb) pb.onclick = function(){ if(older) older(); };
+  };
 })();
 </script>
