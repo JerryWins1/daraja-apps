@@ -2994,7 +2994,7 @@ try{
 }catch(e){}
 })();
 </script>
-<script id="dj-sk-journal-v1">
+<script id="dj-sk-journal-v2">
 /* ═══ Today's page — the daily journal (4 Oct 2026) ═══
    Jerry: "a story collecting / diary / journal app that asks the user every day, reminds them,
    and uses AI to ask good questions." It lives here, because a day's page is the everyday side
@@ -3015,22 +3015,35 @@ try{
     'What was the first thing you thought about this morning?','What did you read, watch or hear today that stayed with you?',
     'What is one thing about today you never want to forget?'
   ];
+  var MORNING = ['What are you hoping for today?','Who could you encourage today?','What is one thing you want to get done today, and why does it matter?','How did you sleep, and what are you thinking about this morning?','What are you looking forward to today?'];
+  var KINDS = { day:['📝','My day',''], pray:['🙏','Prayer','What are you praying about today? Is there an answered prayer to give thanks for?'],
+    good:['🌻','Three good things','Three good things from today, big or small.'], letter:['💌','A letter','Write today’s page as a letter to someone you love. Who is it to, and what do you want them to know?'] };
+  var MOODS = ['😞','😐','🙂','😄','🙏'];
+  function followUp(t){
+    t = String(t || ''); var hit = names().filter(function(n){ return new RegExp('\\b' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(t); })[0];
+    if(hit) return 'What did ' + hit + ' say or do that you want to remember?';
+    if(/\b(worr|hard|tired|sad|pain|hurt|lonely|scared|anxious|sick)/i.test(t)) return 'What would help with that tomorrow, and who could you tell?';
+    if(/\b(laugh|fun|happy|great|wonderful|love|smile|joy)/i.test(t)) return 'Who would you love to tell about that, and why them?';
+    if(/\b(remember|used to|when I was|years ago|back then)/i.test(t)) return 'Tell me more about back then. Where were you, and who was there?';
+    return 'What else about today do you want to remember?';
+  }
   var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function ymd(d){ d = d || new Date(); return window.djYMD ? djYMD(d) : d.toISOString().slice(0,10); }
   function addD(s, n){ var d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return ymd(d); }
   function nice(s){ var d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }); }
-  function J(){ if(!db.journal || typeof db.journal !== 'object') db.journal = { prompts:{}, stars:{} }; db.journal.prompts = db.journal.prompts || {}; db.journal.stars = db.journal.stars || {}; return db.journal; }
+  function J(){ if(!db.journal || typeof db.journal !== 'object') db.journal = { prompts:{}, stars:{} }; db.journal.prompts = db.journal.prompts || {}; db.journal.stars = db.journal.stars || {}; db.journal.mood = db.journal.mood || {}; db.journal.kind = db.journal.kind || {}; db.journal.follow = db.journal.follow || {}; return db.journal; }
   function ent(d){ return db.ans['d' + d + ':0']; }
   function has(d){ var a = ent(d); return !!(a && (a.text || '').trim()); }
   function days(){ return Object.keys(db.ans).filter(function(k){ return /^d\d{4}-\d\d-\d\d:0$/.test(k) && (db.ans[k].text || '').trim(); }).map(function(k){ return k.slice(1, 11); }).sort().reverse(); }
   function streak(){ var d = ymd(), n = 0; if(!has(d)) d = addD(d, -1); while(has(d)){ n++; d = addD(d, -1); } return n; }
   function names(){ var out = (db.cast || []).map(function(p){ return p.n; }); try{ var c = window.djCircle && djCircle.get(); (c && c.people || []).forEach(function(p){ if(p.name && !p.private) out.push(p.name); }); }catch(e){} return out.filter(function(n, i, a){ return n && a.indexOf(n) === i; }); }
   function promptFor(d){
-    var j = J(); if(j.prompts[d]) return j.prompts[d];
+    var j = J(); if(j.follow && j.follow[d] && j.follow[d].open) return j.follow[d].q; if(j.prompts[d]) return j.prompts[d];
     var p = '';
     try{ var u = window.djCircle && djCircle.upcoming(3)[0]; if(u) p = u.name + '’s birthday is ' + (u.days === 0 ? 'today' : u.days === 1 ? 'tomorrow' : 'in ' + u.days + ' days') + '. What is a favorite memory of ' + u.name + '?'; }catch(e){}
     if(!p){ var y = ent(addD(d, -1)); var t = y && y.text || ''; var hit = names().filter(function(n){ return new RegExp('\\b' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(t); })[0];
       if(hit) p = 'Yesterday you wrote about ' + hit + '. How are things with ' + hit + ' today?'; }
+    if(!p && d === ymd() && new Date().getHours() < 11){ p = MORNING[new Date().getDate() % MORNING.length]; }
     if(!p){ var start = new Date(new Date(d + 'T12:00:00').getFullYear(), 0, 0); var doy = Math.floor((new Date(d + 'T12:00:00') - start) / 864e5); p = PROMPTS[doy % PROMPTS.length]; }
     if(d === ymd()){ j.prompts[d] = p; save(); }
     return p;
@@ -3056,7 +3069,7 @@ try{
   window.saveAnswer = function(){ if(!CUR) return; return _save.apply(this, arguments); };   /* the box's onchange can fire after a page is closed */
   var _stepQ = window.stepQ;
   window.stepQ = function(dir){
-    if(CUR && CUR.journal){ saveAnswer(); var d = CUR.day; goHome(); CUR = null; if(dir > 0 && has(d)) flash('Saved. ' + (streak() > 1 ? streak() + ' days in a row 🔥' : 'See you tomorrow.')); return; }
+    if(CUR && CUR.journal){ saveAnswer(); var d = CUR.day; var j0 = J(); if(j0.follow[d] && j0.follow[d].open){ j0.follow[d].open = false; save(); } goHome(); CUR = null; if(dir > 0 && has(d)){ flash('Saved. ' + (streak() > 1 ? streak() + ' days in a row 🔥' : 'See you tomorrow.')); if(!j0.follow[d]) setTimeout(function(){ askMore(d); }, 900); } return; }
     return _stepQ.apply(this, arguments);
   };
   var _goHome = window.goHome;
@@ -3076,7 +3089,25 @@ try{
     return r;
   };
   function flash(t){ var f = document.createElement('div'); f.textContent = t; f.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:200;background:#2b2620;color:#faf6ee;font:700 16px/1.3 -apple-system,sans-serif;padding:12px 18px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.35)'; document.body.appendChild(f); setTimeout(function(){ f.remove(); }, 2600); }
-  function lastEntries(n){ return days().slice(0, n).reverse().map(function(d){ return nice(d) + ': ' + ent(d).text.trim().slice(0, 600); }).join('\n\n'); }
+  function askMore(d){
+    var a = ent(d); if(!a) return; var q = followUp(a.text);
+    var w = document.createElement('div'); w.id = 'jMore'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','One more question');
+    w.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center';
+    w.innerHTML = '<div style="background:var(--bg,#faf6ee);color:var(--ink,#2b2620);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.3)">'
+      + '<div style="font-weight:800;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--warm,#b3502f)">One more, if you like</div>'
+      + '<p style="font-family:var(--serif,Georgia,serif);font-size:21px;margin:8px 0 14px">' + esc(q) + '</p>'
+      + '<button class="btn big wide" id="jmYes">🎙 Answer it ›</button>'
+      + '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" style="flex:1;font-size:15px" id="jmAI">✨ Let my AI ask</button><button class="btn ghost" style="flex:1;font-size:15px" id="jmNo">Not tonight</button></div></div>';
+    document.body.appendChild(w);
+    function go(qq){ var j = J(); j.follow[d] = { q:qq, open:true }; save(); w.remove(); var el = document.getElementById('answer'); openToday(d); if(el){ el.value = (el.value ? el.value.replace(/\s+$/, '') + '\n\n' : '') + '— ' + qq + '\n'; saveAnswer(); } }
+    w.querySelector('#jmYes').onclick = function(){ go(q); };
+    w.querySelector('#jmNo').onclick = function(){ var j = J(); j.follow[d] = { q:q, open:false }; save(); w.remove(); };
+    w.querySelector('#jmAI').onclick = function(){ w.remove(); if(!window.djAI) return; djAI.ask({ title:'One more question', want:'text', prompt:'I just wrote this in my journal:\n\n' + a.text.slice(0, 1500) + '\n\nAsk me ONE warm follow-up question that helps me remember more or understand my day, under 20 words. Reply with the question only.', onResult:function(v, raw){ var qq = String(raw || '').split('\n').map(function(x){ return x.trim(); }).filter(Boolean)[0]; if(qq) go(qq.replace(/^["“'*\s]+|["”'*\s]+$/g, '')); } }); };
+  }
+  window.jKind = function(k){ var d = ymd(), j = J(); j.kind[d] = k; if(k === 'day'){ delete j.prompts[d]; j.prompts[d] = promptFor(d); } else j.prompts[d] = KINDS[k][2]; save(); render(); };
+  window.jMood = function(m){ var d = ymd(), j = J(); j.mood[d] = (j.mood[d] === m ? '' : m); save(); render(); };
+  function onThisDay(d){ var out = []; [[365, 'One year ago today'], [30, 'A month ago'], [7, 'A week ago']].forEach(function(x){ var dd = addD(d, -x[0]); if(has(dd)) out.push([x[1], dd]); }); return out[0]; }
+  function lastEntries(n){ return days().slice(0, n).reverse().map(function(d){ var m = J().mood[d]; return nice(d) + (m ? ' (mood ' + m + ')' : '') + ': ' + ent(d).text.trim().slice(0, 600); }).join('\n\n'); }
   window.jBetterQ = function(){
     var past = lastEntries(4);
     if(!window.djAI){ alert('Open this from the Daraja site to ask your AI.'); return; }
@@ -3108,11 +3139,14 @@ try{
     var home = document.getElementById('scrHome'); if(!home) return;
     var card = document.getElementById('jCard');
     if(!card){ card = document.createElement('div'); card.id = 'jCard'; card.className = 'card'; card.style.cssText = 'border-color:var(--gold);'; home.insertBefore(card, home.firstChild); }
-    var d = ymd(), q = promptFor(d), done = has(d), s = streak(), list = days();
+    var d = ymd(), q = promptFor(d), done = has(d), s = streak(), list = days(), otd = onThisDay(d);
     var past = list.filter(function(x){ return x !== d; }).slice(0, 14);
     card.innerHTML = '<h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">📅 Today’s page <span style="font-size:15px;color:var(--soft);font-weight:600">' + esc(nice(d)) + (s ? ' · 🔥 ' + s + (s === 1 ? ' day' : ' days in a row') : '') + '</span></h2>'
       + '<p class="sub" style="font-family:var(--serif);font-size:21px;color:var(--ink);margin:6px 0 12px">' + esc(q) + '</p>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px">' + Object.keys(KINDS).map(function(k){ var on = (J().kind[d] || 'day') === k; return '<button class="btn ghost" aria-pressed="' + on + '" style="font-size:14px;padding:7px 12px;' + (on ? 'background:var(--warm,#b3502f);color:#fff;border-color:transparent' : '') + '" onclick="jKind(\'' + k + '\')">' + KINDS[k][0] + ' ' + KINDS[k][1] + '</button>'; }).join('') + '</div>'
       + '<button class="btn big wide" onclick="openToday()">' + (done ? '✓ Written — add more ›' : '🎙 Talk about today ›') + '</button>'
+      + (done ? '<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-weight:700;font-size:15px">How was today?</span>' + MOODS.map(function(m){ var on = J().mood[d] === m; return '<button class="btn ghost" aria-label="Today felt ' + m + '" aria-pressed="' + on + '" style="font-size:22px;padding:4px 10px;' + (on ? 'border-color:var(--warm,#b3502f);background:#fdf3ee' : '') + '" onclick="jMood(\'' + m + '\')">' + m + '</button>'; }).join('') + '</div>' : '')
+      + (otd ? '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:#fdf6e3;border:1px solid var(--gold,#b8892b)"><b>🕰 ' + otd[0] + '</b> you wrote: “' + esc(ent(otd[1]).text.trim().slice(0, 120)) + (ent(otd[1]).text.trim().length > 120 ? '…' : '') + '” <button class="btn ghost" style="font-size:14px;padding:6px 10px" onclick="openToday(\'' + otd[1] + '\')">Read it</button></div>' : '')
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
       + '<button class="btn ghost" style="font-size:15px;padding:10px 14px" onclick="jBetterQ()">✨ A better question</button>'
       + (list.length >= 2 ? '<button class="btn ghost" style="font-size:15px;padding:10px 14px" onclick="jWeek()">🗓 My week in five lines</button>' : '')
