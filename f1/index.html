@@ -2852,7 +2852,7 @@ async function refresh() {
 </script>
 <script>window.DJ_START = {"slug": "pitwall", "em": "🏁", "title": "Welcome — your league, run for you.", "lede": "Picks, deadlines, scoring and standings for a homegrown racing league. The commissioner stops doing maths by hand on a Sunday night and gets to just watch the race.", "cta": "Set up the league →", "firstSelector": "button", "dataKeys": ["f1_v1", "pitwall_v1", "f1league_v1"], "steps": ["<b>Add your players</b> — everyone in the group text.", "<b>Check the scoring</b> matches how your league has always done it.", "<b>Make your picks</b> before the deadline. It does the rest."]};</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.5 · 2026-10-04) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.6 · 2026-10-04) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
@@ -3266,7 +3266,7 @@ async function refresh() {
     border:1.5px solid var(--line-strong,#555); background:var(--surface-2,rgba(128,128,128,.12)); color:inherit; padding:4px 6px; }
   .u-d .uin:focus{ outline:3px solid var(--acc,#B48CFF); outline-offset:1px; }
 </style>
-<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v1.5 · 2026-10-04 · Daraja Studio</p>
+<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v1.6 · 2026-10-04 · Daraja Studio</p>
 <script id="dj-usage-v1">
 /* 11 Sep 2026, Jerry: "just do this like a table — the number in a box on the left, change it,
    tab down to the next one, done." The old way was one question box per driver, twenty taps. */
@@ -3302,3 +3302,29 @@ window.DJ_AI = { title:'Who should I pick this weekend?',
 </script>
 </body>
 </html>
+<script id="dj-pw-last-v1">
+/* 🏁 Last race (4 Oct 2026). Jerry: "Is there a way to see who won the race today?" The most recent race's
+   podium straight from the same free Jolpica F1 data the app already uses, plus who in the group scored most
+   on it once the group's lineups are scored. Top of Home and Live. */
+(function(){
+  var LR = null, busy = false;
+  async function loadLast(){
+    if(busy) return; busy = true;
+    try{ var j = await (await fetch('https://api.jolpi.ca/ergast/f1/current/last/results.json', { cache:'no-store' })).json(); var r = j && j.MRData && j.MRData.RaceTable && j.MRData.RaceTable.Races && j.MRData.RaceTable.Races[0]; if(r && r.Results && r.Results.length) LR = r; }catch(e){}
+    busy = false; try{ if(tab === 'home' || tab === 'live') render(); }catch(e){}
+  }
+  function card(){
+    if(!LR) return '';
+    var when = new Date(LR.date + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+    var med = ['🥇','🥈','🥉'];
+    var pod = LR.Results.slice(0, 3).map(function(x, i){ var d = x.Driver || {}, c = x.Constructor || {}; return '<div style="display:flex;gap:8px;align-items:baseline;margin:4px 0"><span style="font-size:20px">' + med[i] + '</span><b>' + esc((d.givenName || '') + ' ' + (d.familyName || '')) + '</b><span class="muted small">' + esc(c.name || '') + (i === 0 && x.Time ? ' · ' + esc(x.Time.time) : '') + '</span></div>'; }).join('');
+    var grp = '';
+    try{ var R = computed && computed.rounds && computed.rounds[slug(LR.raceName)]; if(R && R.scores){ var best = null; Object.keys(R.scores).forEach(function(p){ if(!best || R.scores[p].total > R.scores[best].total) best = p; }); if(best) grp = '<p class="small" style="margin:8px 0 0">In your group: <b>' + esc(pname(best)) + '</b> scored most, ' + R.scores[best].total + ' pts.</p>'; } }catch(e){}
+    return '<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="margin:0">🏁 Last race</h2><span class="muted small">' + esc(when) + '</span></div><p class="muted small" style="margin:2px 0 6px">' + esc(LR.raceName) + '</p>' + pod + grp + '</div>';
+  }
+  var _home = rHome, _live = rLive;
+  rHome = function(){ return card() + _home.apply(this, arguments); };
+  rLive = function(){ return card() + _live.apply(this, arguments); };
+  loadLast(); setInterval(function(){ if(!document.hidden) loadLast(); }, 10 * 60e3);
+})();
+</script>
