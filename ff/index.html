@@ -1721,6 +1721,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="My Scores">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="theme-color" content="#0b1220">
 <title>My Scores</title>
 <style>
@@ -1813,14 +1815,29 @@
   .roster{margin-top:8px;text-align:left}
   .roster .rdiv{font-size:10px;font-weight:800;color:#5d6b84;text-transform:uppercase;letter-spacing:.05em;
     padding:8px 0 2px;margin-top:4px;border-top:1px solid var(--line)}
-  .roster .rrow{display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12.5px;border-top:1px solid var(--line)}
+  /* Status is the row's own color, not a 6px dot: a bar down the left edge plus a tint behind the line. */
+  .roster .rrow{display:flex;align-items:center;gap:7px;padding:5px 6px 5px 8px;font-size:12.5px;border-top:1px solid var(--line);
+    border-left:5px solid var(--dim);background:transparent;border-radius:4px}
+  .roster .rrow.st-live{border-left-color:var(--live);background:rgba(74,222,128,.14)}
+  .roster .rrow.st-wait{border-left-color:var(--wait);background:rgba(251,191,36,.12)}
+  .roster .rrow.st-done{border-left-color:#64748b;background:rgba(100,116,139,.12)}
+  .roster .rrow.st-bye{border-left-color:#a78bfa;background:rgba(167,139,250,.12)}
+  .roster .rrow.st-live .rpts{color:var(--live)}
+  .roster .rrow.st-wait .rpts{color:var(--wait)}
+  .roster .rrow.st-bye .rname{color:var(--dim)}
+  .rlegend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10.5px;font-weight:700;color:var(--dim);margin:0 0 6px}
+  .rlegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+  .kickAlert{background:#4a2020;border:1px solid #b45353;color:#fecaca;border-radius:12px;padding:9px 12px;margin:0 0 10px;
+    font-size:12.5px;line-height:1.45;font-weight:600}
+  .kickAlert b{color:#fff}
+  .pushRow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}
+  .pushBtn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .pushBtn.alt{background:transparent;border:1px solid var(--line);color:var(--dim)}
+  .pushBtn[disabled]{opacity:.55}
   .roster .rrow:first-child{border-top:0}
   .roster .rrow.bench{opacity:.6}
   .roster .rpos{flex:none;width:28px;color:var(--dim);font-weight:700;font-size:10.5px;text-transform:uppercase}
   .roster .rname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .roster .rdot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dim)}
-  .roster .rdot.live{background:var(--live)}
-  .roster .rdot.wait{background:var(--wait)}
   .roster .rpts{flex:none;font-variant-numeric:tabular-nums;font-weight:700;min-width:34px;text-align:right}
   .roster .rtag{flex:none;font-size:9px;font-weight:800;padding:1px 4px;border-radius:4px;background:#1f2a40;color:var(--dim)}
   .roster .rtag.warn{background:#4a2020;color:#fca5a5}
@@ -2032,7 +2049,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.7 · 2026-10-04</small></div>
+<div class="stamp"><small id="stamp">v4.10 · 2026-10-04</small></div>
 
 <script>
 /* =========================================================================
@@ -2051,25 +2068,27 @@ function n1(x){ return (Math.round((x||0)*100)/100).toFixed(2); }
 
 /* ---- shared: real NFL game status by team abbreviation, one fetch per update ---- */
 const SCOREBOARD_CACHE = {};   // NFL week number -> {abbr: 'pre'|'in'|'post'}
+const KICKOFFS = {};           // NFL week number -> {abbr: kickoff time in ms}
 async function nflGameStatus(week){
   // The scoreboard's OWN default week can lag a fantasy site's week rollover by a day or two
   // (seen 9/22: fantasy already on week 3, this endpoint still defaulting to week 2's final scores).
   // Always ask for an explicit week so "done" never means "last week's game", not "this week's".
   if(!week) return {};
   if(SCOREBOARD_CACHE[week]) return SCOREBOARD_CACHE[week];
-  const map = {};
+  const map = {}, kick = {};
   try{
     const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week="+week+"&seasontype=2&_="+Date.now(), {cache:"no-store"});
     const d = await res.json();
     (d.events||[]).forEach(ev=>{
       const comp = ev.competitions && ev.competitions[0]; if(!comp) return;
       const state = comp.status && comp.status.type && comp.status.type.state; // 'pre' | 'in' | 'post'
+      const at = Date.parse(ev.date || comp.date || "") || 0;
       (comp.competitors||[]).forEach(c=>{
-        const abbr = c.team && c.team.abbreviation; if(abbr) map[abbr]=state;
+        const abbr = c.team && c.team.abbreviation; if(abbr){ map[abbr]=state; if(at) kick[abbr]=at; }
       });
     });
   }catch(e){ /* leave map empty — starters detail just won't show this update */ }
-  SCOREBOARD_CACHE[week] = map;
+  SCOREBOARD_CACHE[week] = map; KICKOFFS[week] = kick;
   return map;
 }
 function starterCounts(starters, statusMap){
@@ -2503,16 +2522,16 @@ function rosterRowsHTML(starters, statusMap, bench){
     const newsId = tappable ? nextNewsId() : "";
     const rowAttrs = tappable ? ` data-news="${newsId}" data-pid="${s.id}"` : "";
     const newsPanel = tappable ? `<div class="pnews activity" id="${newsId}" hidden data-state="idle"></div>` : "";
-    return `<div class="rrow${isBench?" bench":""}${tappable?" tappable":""}"${rowAttrs}>
+    return `<div class="rrow st-${st}${isBench?" bench":""}${tappable?" tappable":""}"${rowAttrs}>
       <span class="rpos">${esc(s.pos||"")}</span>
       <span class="rname">${esc(s.name||"—")}</span>
       ${injTag}${byeTag}
-      <span class="rdot ${st}"></span>
       <span class="rpts">${n1(s.pts)}</span>
     </div>${newsPanel}`;
   };
   if((!starters||!starters.length) && (!bench||!bench.length)) return `<div class="msg" style="padding:4px 0">No roster detail for this league.</div>`;
-  let html = (starters||[]).map(s=>row(s,false)).join("");
+  let html = `<div class="rlegend"><span><i style="background:var(--live)"></i>playing now</span><span><i style="background:var(--wait)"></i>not started</span><span><i style="background:#64748b"></i>finished</span><span><i style="background:#a78bfa"></i>bye</span></div>`
+    + (starters||[]).map(s=>row(s,false)).join("");
   if(bench && bench.length) html += `<div class="rdiv">Bench</div>` + bench.map(s=>row(s,true)).join("");
   return html;
 }
@@ -2589,6 +2608,79 @@ function teamCheck(side){
     if(better) swaps.push({out:st, in:better});
   });
   return { swaps };
+}
+/* ---------- phone alerts (Web Push) ----------
+   The alert box above only shows while the app is open. These alerts reach a phone with the app CLOSED:
+   a small free relay (Cloudflare Worker, source in Daraja Studio/_build tools/ff-push) watches kickoffs and
+   ESPN, then pushes a message. The relay stores only the phone's push address plus the ESPN league and
+   team ids — no names, no emails. On iPhone this only works once the app is added to the Home Screen. */
+const PUSH_RELAY = "";   // filled in when the relay is deployed
+const VAPID_PUBLIC = "BKGHrGHGG0pH5w1YEht2AvXhyEgHBEMGpcbaMsHr8YA6OmaEWMm3KGrYkKCUQGVKfmluKU3S5gWM5htnRFvg2yQ";
+function pushSupported(){ return !!(window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window); }
+function isIOS(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1); }
+function isStandalone(){ return window.navigator.standalone===true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches); }
+function espnPicks(){ return PICKS.filter(p=>p.platform==="espn").map(p=>({leagueId:+p.leagueId, teamId:+p.teamId})); }
+function pushOn(){ try{ return localStorage.getItem("ff_push")==="1" && Notification.permission==="granted"; }catch(e){ return false; } }
+function u8(b64u){ const s=(b64u+"===".slice((b64u.length+3)%4)).replace(/-/g,"+").replace(/_/g,"/"); const r=atob(s); return Uint8Array.from(r,c=>c.charCodeAt(0)); }
+async function relayPost(path, body){
+  const r = await fetch(PUSH_RELAY+path, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if(!r.ok) throw new Error("relay "+r.status);
+  return r.json();
+}
+async function pushSubscription(create){
+  const reg = await navigator.serviceWorker.register("sw.js");
+  await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if(!sub && create) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:u8(VAPID_PUBLIC)});
+  return sub;
+}
+async function enablePush(){
+  if(!espnPicks().length) throw new Error("Alerts need an ESPN team. Add one under My teams.");
+  const perm = await Notification.requestPermission();
+  if(perm!=="granted") throw new Error("Notifications are blocked. Turn them on in Settings, then try again.");
+  const sub = await pushSubscription(true);
+  await relayPost("/subscribe", {sub:sub.toJSON(), picks:espnPicks()});
+  try{ localStorage.setItem("ff_push","1"); }catch(e){}
+}
+async function disablePush(){
+  try{ const sub = await pushSubscription(false); if(sub){ try{ await relayPost("/unsubscribe", {sub:sub.toJSON()}); }catch(e){} await sub.unsubscribe(); } }catch(e){}
+  try{ localStorage.removeItem("ff_push"); }catch(e){}
+}
+async function testPush(){ const sub = await pushSubscription(false); if(!sub) throw new Error("Turn alerts on first."); return relayPost("/test", {sub:sub.toJSON()}); }
+// keeps the relay's copy of "which teams does this phone follow" current whenever the app opens
+async function syncPush(){ if(!PUSH_RELAY || !pushSupported() || !pushOn()) return;
+  try{ const sub = await pushSubscription(false); if(sub && espnPicks().length) await relayPost("/subscribe", {sub:sub.toJSON(), picks:espnPicks()}); }catch(e){} }
+function pushBoxHTML(msg){
+  if(!PUSH_RELAY) return "";
+  let body;
+  if(!pushSupported()) body = `<div class="arow">This browser can't receive phone alerts.</div>`;
+  else if(isIOS() && !isStandalone()) body = `<div class="arow">On iPhone, first tap Share (the square with the arrow) → <b>Add to Home Screen</b>, then open My Scores from its new icon and tap Turn on.</div>`;
+  else if(pushOn()) body = `<div class="arow">✓ Alerts are on. You'll get a message when a starter is out and the game is about to start.</div>
+    <div class="pushRow"><button class="pushBtn alt" type="button" data-act="test">Send me a test</button><button class="pushBtn alt" type="button" data-act="off">Turn off</button></div>`;
+  else if(typeof Notification!=="undefined" && Notification.permission==="denied") body = `<div class="arow">Notifications are blocked for this app. Turn them on in your phone's Settings, then come back.</div>`;
+  else body = `<div class="arow">Get a message on your phone, even with the app closed, when a starter is out and the game is about to start.</div>
+    <div class="pushRow"><button class="pushBtn" type="button" data-act="on">🔔 Turn on kickoff alerts</button></div>`;
+  return `<div class="infoHead">Kickoff alerts</div><div class="pushBox">${msg?`<div class="arow" style="color:#fca5a5">${esc(msg)}</div>`:""}${body}</div>`;
+}
+function refreshPushBoxes(msg){ document.querySelectorAll(".pushBox").forEach(b=>{ const t=document.createElement("div"); t.innerHTML=pushBoxHTML(msg); const nb=t.querySelector(".pushBox"); if(nb) b.innerHTML=nb.innerHTML; }); }
+// "Kickoff soon and somebody in your lineup isn't playing." Looks only at starters whose own game
+// hasn't started and kicks off within the window, and whose status means they won't suit up (OUT,
+// injured reserve, suspended, PUP, non-football injury). Runs whenever the app is open or reopened;
+// a closed web page can't buzz a phone by itself.
+const NOT_PLAYING = {OUT:1, INJURY_RESERVE:1, IR:1, SUSPENSION:1, PUP:1, NON_FOOTBALL_INJURY:1};
+function kickoffAlerts(side, statusMap, week, windowMin){
+  const kicks = KICKOFFS[week] || {}, now = Date.now(), out = [];
+  (side.starters||[]).forEach(s=>{
+    if(!NOT_PLAYING[s.injury] || !s.teamAbbr || statusMap[s.teamAbbr]!=="pre") return;
+    const mins = Math.round(((kicks[s.teamAbbr]||0) - now)/60000);
+    if(mins>0 && mins<=(windowMin||120)) out.push({name:s.name, pos:s.pos, tag:s.injury==="OUT"?"OUT":(INJ_ABBR[s.injury]||s.injury), mins});
+  });
+  return out.sort((a,b)=>a.mins-b.mins);
+}
+function fmtMins(m){ return m<60 ? m+" min" : Math.floor(m/60)+" h"+(m%60?" "+(m%60)+" min":""); }
+function kickoffAlertHTML(alerts){
+  if(!alerts.length) return "";
+  return `<div class="kickAlert">⏰ ${alerts.map(a=>`<b>${esc(a.name)}</b> (${esc(a.pos)}, ${esc(a.tag)}) — game starts in ${fmtMins(a.mins)}`).join("<br>⏰ ")}<br>Not playing. Open Assistant Manager to find a replacement before kickoff.</div>`;
 }
 // Which starters are worth checking the waiver wire for — hurt (anything but ACTIVE) or on a bye
 // this week. Feeds waiverSectionHTML once the player pool is actually fetched (lazily, on tap).
@@ -2706,9 +2798,12 @@ function cardHTML(cfg, r, err, statusMap, statusMapNext){
       <div class="infoHead">Waiver wire</div>${waiverHTML}
       <div class="infoHead">Bye weeks</div>${byeSectionHTML(byeRep, r.wk)}
       <div class="infoHead">Ask about a position</div>${askHTML}
+      ${cfg.platform==="espn" ? pushBoxHTML() : ""}
     </div>` : "";
+  const kickAlerts = kickoffAlertHTML(cfg.platform==="espn" ? kickoffAlerts(r.me, statusMap, r.wk) : []);
   return `<div class="card">
     <h2>${platBadge}<span class="t">${title}</span>${status}</h2>
+    ${kickAlerts}
     <div class="vs">
       ${sideHTML(r.me, "me"+(lead==="me"?" lead":""), statusMap, meRosterId)}
       <div class="mid">VS</div>
@@ -2732,7 +2827,8 @@ function cardHTMLCompact(cfg, r, err, statusMap){
   const counts = starterCounts(r.me.starters||[], statusMap||{});
   const chip = counts.live ? `<span class="cchip live">${counts.live} live</span>`
     : (!r.final && counts.wait) ? `<span class="cchip">${counts.wait} left</span>` : "";
-  return `<div class="crow">
+  const kickAlerts = kickoffAlertHTML(cfg.platform==="espn" ? kickoffAlerts(r.me, statusMap||{}, r.wk) : []);
+  return `${kickAlerts}<div class="crow">
     ${plat}<span class="dot ${dotCls}"></span>
     <span class="team me${lead==='opp'?' trail':''}"><span class="tn">${esc(r.me.name)}</span><b>${n1(r.me.pts)}</b></span>
     <span class="cvs">vs</span>
@@ -2813,6 +2909,7 @@ async function update(){
   $("updated").textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
   $("update").disabled=false; $("update").textContent="Update scores"; busy=false;
   syncSlideHeights();
+  syncPush();
 }
 // Every pick gets the same swipe treatment regardless of density tier — only how "your own" slide
 // looks (full card, shrunk card, or a compact row) changes; swiping past it always works the same
@@ -3193,6 +3290,18 @@ $("cards").addEventListener("click", async e=>{
       box.innerHTML = `<div class="msg err">Couldn't check (${esc(err.message)}). Try again.</div>`;
     }
     resyncHeight(box);
+    return;
+  }
+  const pb = e.target.closest(".pushBtn");
+  if(pb){
+    if(pb.disabled) return;
+    const act = pb.dataset.act; pb.disabled = true; const old = pb.textContent; pb.textContent = "Working…";
+    try{
+      if(act==="on"){ await enablePush(); refreshPushBoxes(); }
+      else if(act==="off"){ await disablePush(); refreshPushBoxes(); }
+      else if(act==="test"){ const r = await testPush(); pb.textContent = r.ok ? "Sent — check your phone" : "Couldn't send"; setTimeout(()=>{ pb.disabled=false; pb.textContent=old; }, 4000); return; }
+    }catch(err){ refreshPushBoxes(err.message); }
+    resyncHeight(pb);
     return;
   }
   // The waiver-wire check is heavier (a multi-megabyte player-pool fetch), so it's a one-shot action
