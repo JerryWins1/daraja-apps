@@ -1827,7 +1827,7 @@
     </section>
   </div>
 
-  <p class="foot">Who’s Coming v1.7 · 2026-10-04 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Who’s Coming v1.8 · 2026-10-04 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -1945,16 +1945,16 @@ async function fromContacts(gid){
     return; }
   const ios=/iPhone|iPad|iPod/.test(navigator.userAgent), mac=/Macintosh/.test(navigator.userAgent)&&!ios;
   const how = ios ? `<p>An iPhone won’t let an app open Contacts directly (Apple’s rule, not ours). The two-step that works:</p>
-    <p><b>1.</b> Open <b>Contacts</b> → the person → scroll down → <b>Share Contact</b> → <b>Save to Files</b>. Do that for each person you want.</p>
-    <p><b>2.</b> Come back here, tap the button below, and pick the saved cards (several at once is fine).</p>`
+    <p><b>1. Save all your contacts once:</b> open <b>Contacts</b> → tap <b>Lists</b> (top left) → press and hold <b>All Contacts</b> → <b>Export</b> → <b>Save to Files</b>. One file, everyone in it.</p>
+    <p><b>2.</b> Come back here, tap the button below and pick that file. You’ll get a list with a search box: tick just the people you want.</p>`
   : mac ? `<p>On a Mac, a web page can’t open Contacts directly. The two-step that works:</p>
     <p><b>1.</b> Open <b>Contacts</b> on the Mac, select the people (hold ⌘ to pick several), then <b>File → Export → Export vCard…</b> and save the file to your Desktop.</p>
-    <p><b>2.</b> Tap the button below and choose that file — every person in it comes in at once.</p>`
+    <p><b>2.</b> Tap the button below and choose that file. You’ll get a list with a search box: tick just the people you want.</p>`
   : `<p>This device won’t let a web page open Contacts directly. The two-step that works:</p>
     <p><b>1.</b> In your Contacts app, share or export the people you want as a contact file (a .vcf).</p>
     <p><b>2.</b> Tap the button below and choose that file — everyone in it comes in at once.</p>`;
   sheet(`<h3>📇 From your contacts</h3>${how}
-    <div class="row"><button class="primary" style="flex:1" onclick="closeSheet();const f=document.getElementById('vcf');f.dataset.gid='${gid}';f.value='';f.click()">Pick the saved cards</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>
+    <div class="row"><button class="primary" style="flex:1" onclick="closeSheet();const f=document.getElementById('vcf');f.dataset.gid='${gid}';f.value='';f.click()">Pick the contacts file</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>
     <p class="small" style="margin-top:10px">Quicker for a whole group: tap <b>📋 Paste a list</b> instead and type names and numbers, one per line.</p>`);
 }
 function parseVcf(text){ const out=[]; text.split(/BEGIN:VCARD/i).slice(1).forEach(card=>{ const fn=(card.match(/^FN[^:]*:(.+)$/im)||[])[1]||''; const n=(card.match(/^N[^:]*:([^;]*);([^;]*)/im)||[]); const name=(fn||((n[2]||'')+' '+(n[1]||''))).replace(/\\,/g,',').trim(); const tel=(card.match(/^TEL[^:]*:(.+)$/im)||[])[1]||''; if(name) out.push({name, phone:tel.replace(/[^\d+]/g,'')}); }); return out; }
@@ -1994,3 +1994,37 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
 </body>
 </html>
 <script id="dj-menu-v1">window.DJ_MENU = {"slug": "whoscoming", "name": "Who’s Coming", "em": "🙋", "items": [{"id": "ask", "em": "❓", "t": "Ask the family something", "sub": "One question, one group", "go": "go('ask'); toggleNew(true)"}, {"id": "answers", "em": "✅", "t": "See who has answered", "sub": "Your questions and the tally", "go": "go('ask')"}, {"id": "people", "em": "👥", "t": "My groups and people", "sub": "Add people or a new group", "go": "go('people')"}]};</script>
+<script id="dj-wc-pick-v1">
+/* Pick from ALL your contacts (4 Oct 2026). Jerry: "I have 800 people in my contacts" — a contacts file now opens a
+   searchable list with tick boxes instead of adding everyone in it. */
+(function(){
+  var _read = window.readVcf;
+  window.readVcf = function(inp){
+    var gid = inp.dataset.gid, files = [].slice.call(inp.files || []); if(!files.length) return; var all = [], left = files.length;
+    files.forEach(function(f){ var r = new FileReader(); r.onload = function(){ all = all.concat(parseVcf(String(r.result || ''))); if(--left === 0) done(); }; r.onerror = function(){ if(--left === 0) done(); }; r.readAsText(f); });
+    function done(){
+      if(!all.length){ toast('No names found in that file'); return; }
+      if(all.length === 1){ addMany(gid, all); return; }
+      var seen = {}; all = all.filter(function(p){ var k = (p.name || '').toLowerCase() + '|' + String(p.phone || '').replace(/\D/g, ''); if(seen[k] || !p.name) return false; seen[k] = 1; return true; }).sort(function(a, b){ return a.name.localeCompare(b.name); });
+      pick(gid, all);
+    }
+  };
+  function pick(gid, all){
+    var chosen = {};
+    sheet('<h3>📇 Pick people</h3><p class="small">' + all.length + ' contacts. Search, then tick the people you want.</p>'
+      + '<input id="pkQ" placeholder="Search a name" aria-label="Search a name" style="width:100%;margin-bottom:8px">'
+      + '<div id="pkList" style="max-height:46vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:12px"></div>'
+      + '<div class="row" style="margin-top:10px"><button class="primary" style="flex:1" id="pkAdd">Add 0 people</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>');
+    var q = document.getElementById('pkQ'), list = document.getElementById('pkList'), btn = document.getElementById('pkAdd');
+    function count(){ var n = Object.keys(chosen).length; btn.textContent = 'Add ' + n + ' ' + (n === 1 ? 'person' : 'people'); btn.disabled = !n; }
+    function draw(){
+      var t = q.value.trim().toLowerCase(), shown = all.map(function(p, i){ return [p, i]; }).filter(function(x){ return !t || x[0].name.toLowerCase().indexOf(t) >= 0; }).slice(0, 200);
+      list.innerHTML = shown.map(function(x){ var p = x[0], i = x[1]; return '<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line,#eee);cursor:pointer"><input type="checkbox" data-i="' + i + '"' + (chosen[i] ? ' checked' : '') + ' style="width:24px;height:24px;flex:none"><span style="flex:1"><b>' + esc(p.name) + '</b>' + (p.phone ? '<br><small>' + esc(p.phone) + '</small>' : '<br><small>no mobile number</small>') + '</span></label>'; }).join('') + (shown.length === 200 ? '<p class="small" style="padding:10px 12px">Showing the first 200 — type a name to find more.</p>' : '') + (!shown.length ? '<p class="small" style="padding:10px 12px">No one by that name.</p>' : '');
+      list.querySelectorAll('input[data-i]').forEach(function(c){ c.onchange = function(){ if(c.checked) chosen[c.dataset.i] = 1; else delete chosen[c.dataset.i]; count(); }; });
+    }
+    q.oninput = draw; draw(); count();
+    btn.onclick = function(){ var ppl = Object.keys(chosen).map(function(i){ return all[i]; }); closeSheet(); addMany(gid, ppl); };
+    setTimeout(function(){ try{ q.focus(); }catch(e){} }, 300);
+  }
+})();
+</script>
