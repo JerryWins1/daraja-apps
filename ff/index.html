@@ -1721,6 +1721,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="My Scores">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="theme-color" content="#0b1220">
 <title>My Scores</title>
 <style>
@@ -1828,6 +1830,10 @@
   .kickAlert{background:#4a2020;border:1px solid #b45353;color:#fecaca;border-radius:12px;padding:9px 12px;margin:0 0 10px;
     font-size:12.5px;line-height:1.45;font-weight:600}
   .kickAlert b{color:#fff}
+  .pushRow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}
+  .pushBtn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .pushBtn.alt{background:transparent;border:1px solid var(--line);color:var(--dim)}
+  .pushBtn[disabled]{opacity:.55}
   .roster .rrow:first-child{border-top:0}
   .roster .rrow.bench{opacity:.6}
   .roster .rpos{flex:none;width:28px;color:var(--dim);font-weight:700;font-size:10.5px;text-transform:uppercase}
@@ -2043,7 +2049,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.9 · 2026-10-04</small></div>
+<div class="stamp"><small id="stamp">v4.10 · 2026-10-04</small></div>
 
 <script>
 /* =========================================================================
@@ -2603,6 +2609,60 @@ function teamCheck(side){
   });
   return { swaps };
 }
+/* ---------- phone alerts (Web Push) ----------
+   The alert box above only shows while the app is open. These alerts reach a phone with the app CLOSED:
+   a small free relay (Cloudflare Worker, source in Daraja Studio/_build tools/ff-push) watches kickoffs and
+   ESPN, then pushes a message. The relay stores only the phone's push address plus the ESPN league and
+   team ids — no names, no emails. On iPhone this only works once the app is added to the Home Screen. */
+const PUSH_RELAY = "";   // filled in when the relay is deployed
+const VAPID_PUBLIC = "BKGHrGHGG0pH5w1YEht2AvXhyEgHBEMGpcbaMsHr8YA6OmaEWMm3KGrYkKCUQGVKfmluKU3S5gWM5htnRFvg2yQ";
+function pushSupported(){ return !!(window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window); }
+function isIOS(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1); }
+function isStandalone(){ return window.navigator.standalone===true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches); }
+function espnPicks(){ return PICKS.filter(p=>p.platform==="espn").map(p=>({leagueId:+p.leagueId, teamId:+p.teamId})); }
+function pushOn(){ try{ return localStorage.getItem("ff_push")==="1" && Notification.permission==="granted"; }catch(e){ return false; } }
+function u8(b64u){ const s=(b64u+"===".slice((b64u.length+3)%4)).replace(/-/g,"+").replace(/_/g,"/"); const r=atob(s); return Uint8Array.from(r,c=>c.charCodeAt(0)); }
+async function relayPost(path, body){
+  const r = await fetch(PUSH_RELAY+path, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if(!r.ok) throw new Error("relay "+r.status);
+  return r.json();
+}
+async function pushSubscription(create){
+  const reg = await navigator.serviceWorker.register("sw.js");
+  await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if(!sub && create) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:u8(VAPID_PUBLIC)});
+  return sub;
+}
+async function enablePush(){
+  if(!espnPicks().length) throw new Error("Alerts need an ESPN team. Add one under My teams.");
+  const perm = await Notification.requestPermission();
+  if(perm!=="granted") throw new Error("Notifications are blocked. Turn them on in Settings, then try again.");
+  const sub = await pushSubscription(true);
+  await relayPost("/subscribe", {sub:sub.toJSON(), picks:espnPicks()});
+  try{ localStorage.setItem("ff_push","1"); }catch(e){}
+}
+async function disablePush(){
+  try{ const sub = await pushSubscription(false); if(sub){ try{ await relayPost("/unsubscribe", {sub:sub.toJSON()}); }catch(e){} await sub.unsubscribe(); } }catch(e){}
+  try{ localStorage.removeItem("ff_push"); }catch(e){}
+}
+async function testPush(){ const sub = await pushSubscription(false); if(!sub) throw new Error("Turn alerts on first."); return relayPost("/test", {sub:sub.toJSON()}); }
+// keeps the relay's copy of "which teams does this phone follow" current whenever the app opens
+async function syncPush(){ if(!PUSH_RELAY || !pushSupported() || !pushOn()) return;
+  try{ const sub = await pushSubscription(false); if(sub && espnPicks().length) await relayPost("/subscribe", {sub:sub.toJSON(), picks:espnPicks()}); }catch(e){} }
+function pushBoxHTML(msg){
+  if(!PUSH_RELAY) return "";
+  let body;
+  if(!pushSupported()) body = `<div class="arow">This browser can't receive phone alerts.</div>`;
+  else if(isIOS() && !isStandalone()) body = `<div class="arow">On iPhone, first tap Share (the square with the arrow) → <b>Add to Home Screen</b>, then open My Scores from its new icon and tap Turn on.</div>`;
+  else if(pushOn()) body = `<div class="arow">✓ Alerts are on. You'll get a message when a starter is out and the game is about to start.</div>
+    <div class="pushRow"><button class="pushBtn alt" type="button" data-act="test">Send me a test</button><button class="pushBtn alt" type="button" data-act="off">Turn off</button></div>`;
+  else if(typeof Notification!=="undefined" && Notification.permission==="denied") body = `<div class="arow">Notifications are blocked for this app. Turn them on in your phone's Settings, then come back.</div>`;
+  else body = `<div class="arow">Get a message on your phone, even with the app closed, when a starter is out and the game is about to start.</div>
+    <div class="pushRow"><button class="pushBtn" type="button" data-act="on">🔔 Turn on kickoff alerts</button></div>`;
+  return `<div class="infoHead">Kickoff alerts</div><div class="pushBox">${msg?`<div class="arow" style="color:#fca5a5">${esc(msg)}</div>`:""}${body}</div>`;
+}
+function refreshPushBoxes(msg){ document.querySelectorAll(".pushBox").forEach(b=>{ const t=document.createElement("div"); t.innerHTML=pushBoxHTML(msg); const nb=t.querySelector(".pushBox"); if(nb) b.innerHTML=nb.innerHTML; }); }
 // "Kickoff soon and somebody in your lineup isn't playing." Looks only at starters whose own game
 // hasn't started and kicks off within the window, and whose status means they won't suit up (OUT,
 // injured reserve, suspended, PUP, non-football injury). Runs whenever the app is open or reopened;
@@ -2738,6 +2798,7 @@ function cardHTML(cfg, r, err, statusMap, statusMapNext){
       <div class="infoHead">Waiver wire</div>${waiverHTML}
       <div class="infoHead">Bye weeks</div>${byeSectionHTML(byeRep, r.wk)}
       <div class="infoHead">Ask about a position</div>${askHTML}
+      ${cfg.platform==="espn" ? pushBoxHTML() : ""}
     </div>` : "";
   const kickAlerts = kickoffAlertHTML(cfg.platform==="espn" ? kickoffAlerts(r.me, statusMap, r.wk) : []);
   return `<div class="card">
@@ -2848,6 +2909,7 @@ async function update(){
   $("updated").textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
   $("update").disabled=false; $("update").textContent="Update scores"; busy=false;
   syncSlideHeights();
+  syncPush();
 }
 // Every pick gets the same swipe treatment regardless of density tier — only how "your own" slide
 // looks (full card, shrunk card, or a compact row) changes; swiping past it always works the same
@@ -3228,6 +3290,18 @@ $("cards").addEventListener("click", async e=>{
       box.innerHTML = `<div class="msg err">Couldn't check (${esc(err.message)}). Try again.</div>`;
     }
     resyncHeight(box);
+    return;
+  }
+  const pb = e.target.closest(".pushBtn");
+  if(pb){
+    if(pb.disabled) return;
+    const act = pb.dataset.act; pb.disabled = true; const old = pb.textContent; pb.textContent = "Working…";
+    try{
+      if(act==="on"){ await enablePush(); refreshPushBoxes(); }
+      else if(act==="off"){ await disablePush(); refreshPushBoxes(); }
+      else if(act==="test"){ const r = await testPush(); pb.textContent = r.ok ? "Sent — check your phone" : "Couldn't send"; setTimeout(()=>{ pb.disabled=false; pb.textContent=old; }, 4000); return; }
+    }catch(err){ refreshPushBoxes(err.message); }
+    resyncHeight(pb);
     return;
   }
   // The waiver-wire check is heavier (a multi-megabyte player-pool fetch), so it's a one-shot action
