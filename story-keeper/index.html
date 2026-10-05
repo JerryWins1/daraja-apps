@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v56">
+<script id="dj-house-v57">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -14,6 +14,52 @@
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
 (function(){
   if(window.__djHouse) return; window.__djHouse = true;
+
+  /* ── 0 · 🧪 the test copy (v57 · 4 Oct 2026) ─────────────────────────────────
+     Jerry: "If we're in test mode and I want to test as a first-time user, what do I do?"
+     ?dj_sandbox=1 opens a fresh copy that has never seen this person: every save goes to this
+     browser TAB only (sessionStorage, prefix sbx:), IndexedDB names get an sbx_ prefix, and the
+     real data is never read or written. Close the tab and the test copy is gone. If the browser
+     refuses the swap, it says so and does NOT pretend: the real data would be at risk. */
+  (function(){
+    var on = false, q = ''; try{ q = location.search; }catch(e){}
+    try{
+      if(/[?&]dj_sandbox=1/.test(q)){ var s0 = window.sessionStorage; for(var i = s0.length - 1; i >= 0; i--){ var k0 = s0.key(i); if(k0 && k0.indexOf('sbx:') === 0) s0.removeItem(k0); } s0.setItem('dj_sandbox', '1'); on = true; try{ history.replaceState(null, '', location.href.replace(/([?&])dj_sandbox=1&?/, '$1').replace(/[?&](#|$)/, '$1')); }catch(e){} }
+      else if(window.sessionStorage.getItem('dj_sandbox') === '1') on = true;
+    }catch(e){ on = false; }
+    if(!on) return;
+    var S = window.sessionStorage, P = 'sbx:';
+    function keys(){ var ks = []; for(var i = 0; i < S.length; i++){ var k = S.key(i); if(k && k.indexOf(P) === 0) ks.push(k.slice(P.length)); } return ks; }
+    var api = { getItem:function(k){ return S.getItem(P + k); }, setItem:function(k, v){ S.setItem(P + k, String(v)); }, removeItem:function(k){ S.removeItem(P + k); },
+      clear:function(){ keys().forEach(function(k){ S.removeItem(P + k); }); }, key:function(n){ var ks = keys(); return ks[n] == null ? null : ks[n]; } };
+    var fake = new Proxy({}, {
+      get:function(t, p){ if(p === 'length') return keys().length; if(Object.prototype.hasOwnProperty.call(api, p)) return api[p]; if(typeof p === 'string'){ var v = S.getItem(P + p); return v === null ? undefined : v; } return undefined; },
+      set:function(t, p, v){ api.setItem(p, v); return true; }, deleteProperty:function(t, p){ api.removeItem(p); return true; },
+      has:function(t, p){ return Object.prototype.hasOwnProperty.call(api, p) || p === 'length' || S.getItem(P + p) !== null; },
+      ownKeys:function(){ return keys(); },
+      getOwnPropertyDescriptor:function(t, p){ var v = S.getItem(P + p); return v === null ? undefined : { value:v, enumerable:true, configurable:true, writable:true }; } });
+    var ok = false;
+    try{ Object.defineProperty(window, 'localStorage', { configurable:true, get:function(){ return fake; } }); ok = (window.localStorage === fake); }catch(e){ ok = false; }
+    if(!ok){
+      try{ window.sessionStorage.removeItem('dj_sandbox'); }catch(e){}
+      alert('This browser won’t open a separate test copy. To see the app as a new person, open it in a Private window instead. Your real data is untouched.');
+      try{ location.replace(location.href.replace(/([?&])dj_sandbox=1&?/, '$1').replace(/[?&]$/, '')); }catch(e){}
+      return;
+    }
+    try{ var idb = window.indexedDB, o = idb.open.bind(idb), d = idb.deleteDatabase.bind(idb);
+      idb.open = function(n, v){ return v === undefined ? o('sbx_' + n) : o('sbx_' + n, v); }; idb.deleteDatabase = function(n){ return d('sbx_' + n); }; }catch(e){}
+    window.__djSandbox = true;
+    function bar(){
+      if(!document.body || document.getElementById('djSbx')) return;
+      var b = document.createElement('div'); b.id = 'djSbx'; b.setAttribute('role', 'status');
+      b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(6px + env(safe-area-inset-bottom));z-index:2147482900;background:#5B3FA0;color:#fff;font:700 14px/1.3 -apple-system,system-ui,sans-serif;padding:8px 10px 8px 12px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px';
+      b.innerHTML = '<span style="flex:1">🧪 Test copy: you’re a brand-new user here. Your real data is safe.</span><button type="button" style="font:inherit;font-weight:800;font-size:13px;background:#fff;color:#5B3FA0;border:0;border-radius:999px;padding:7px 12px;min-height:36px;cursor:pointer">Leave</button>';
+      b.querySelector('button').onclick = function(){ try{ api.clear(); window.sessionStorage.removeItem('dj_sandbox'); }catch(e){} location.href = location.href.replace(/([?&])dj_sandbox=1&?/, '$1').replace(/[?&]$/, ''); };
+      document.body.appendChild(b);
+    }
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bar); else bar();
+    setTimeout(bar, 1500);
+  })();
 
   /* ── 1 · the real local day ──────────────────────────────────────────────
      toISOString() converts to UTC. At 7pm in Illinois that is already tomorrow,
@@ -493,6 +539,19 @@
   }
 
   var dockEl = null;
+  /* v55: when an app's own box is open (a note sheet, an edit sheet…), the corner dock steps behind it —
+     Jerry saw the ? sitting on One Thing's "anything to remember for next time?" box. */
+  function yieldDock(){
+    if(typeof dockEl === 'undefined' || !dockEl) return;
+    var open = false, H = innerHeight, list = document.querySelectorAll('[role="dialog"], .sheet, .modal, [id$="Sheet"], [id$="sheet"], [id$="Modal"]');
+    for(var i = 0; i < list.length && !open; i++){
+      var el = list[i]; if(/^dj/.test(el.id || '')) continue; if(dockEl.contains(el) || el.contains(dockEl)) continue;
+      var cs = getComputedStyle(el); if(cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      var r = el.getBoundingClientRect(); if(r.height < H * 0.28 || r.top >= H - 40 || r.bottom <= 40 || r.width < 200) continue;
+      open = true;
+    }
+    dockEl.style.visibility = open ? 'hidden' : '';
+  }
   function dock(){
     var wanted = ['djHelp', 'dTipDot', 'introDot', 'djDays', 'djAa', 'djTell', 'djAIBtn', 'djMore'];   /* introDot: Ahead of It’s “What am I doing here?” ? — it sat top-right on its own (21 Sep) */  /* the days-left badge sat on the app title */
     var found = [];
@@ -592,6 +651,13 @@
       })(c, lab);
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+      var nu = document.createElement('button'); nu.type = 'button';
+      nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
+      nu.onclick = function(){ w.remove(); var u = location.href.split('#')[0]; u = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'dj_sandbox=1'; var t = null; try{ t = window.open(u, '_blank'); }catch(e){} if(!t) location.href = u; };
+      box.appendChild(nu);
+    }
     if(window.DJ_TOUR){
       var tr = document.createElement('button'); tr.type = 'button';
       tr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
@@ -1542,9 +1608,9 @@
      not less. */
   function boot(){ if(!embedded) start(); try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
-    try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+    try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); yieldDock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
     /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
-    try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); floatPad(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
+    try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); floatPad(); yieldDock(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
     window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){} [900, 2500, 6000].forEach(function(ms){ setTimeout(floatPad, ms); }); window.addEventListener('resize', floatPad);
     try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
