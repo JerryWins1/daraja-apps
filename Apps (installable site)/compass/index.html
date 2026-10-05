@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v58">
+<script id="dj-house-v59">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -501,7 +501,7 @@
     return n;
   }
   /* the dock and the app's own bars keep moving for a few seconds after load, so the + button is re-checked on the same schedule */
-  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ contrastFloor(); }catch(e){} try{ nameButtons(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
+  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ contrastFloor(); }catch(e){} try{ inputFloor(); }catch(e){} try{ nameButtons(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
 
   function auditFixes(){
     try{ auditFixCSS(); }catch(e){}
@@ -1115,6 +1115,21 @@
   /* a gradient or picture behind the words means we cannot know the colour — return null and leave it alone
      (Ahead of It’s welcome card is white words on a navy gradient; the floor once darkened them, 21 Sep) */
   function bgOf(el){ var e = el; while(e && e !== document.documentElement){ var cs = getComputedStyle(e); if(cs.backgroundImage && cs.backgroundImage !== 'none') return null; var c = cs.backgroundColor; var v = (c||'').match(/\d+(\.\d+)?/g); if(v && v.length >= 3 && (v[3] === undefined || +v[3] >= .5)) return c; e = e.parentElement; } return getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)'; }
+  /* v59: typing boxes. Jerry: "the text in this box should be black or something" (In My Own Words) and
+     "the example text is gold, it's hard to see" (The Key). Any box whose own text is under 4.5:1 against
+     its background gets ink that passes; example (placeholder) text gets a darker or lighter shade by class. */
+  function inputFloor(){
+    if(!document.getElementById('djPhCss')){ var st = document.createElement('style'); st.id = 'djPhCss';
+      st.textContent = '.djPhD::placeholder{color:#5A5346 !important;opacity:1 !important}.djPhL::placeholder{color:#CFC8BC !important;opacity:1 !important}'; (document.head || document.documentElement).appendChild(st); }
+    var els = document.querySelectorAll('textarea, input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"]');
+    for(var i = 0; i < els.length; i++){
+      var el = els[i]; if(el.__djInk) continue; var cs = getComputedStyle(el); if(cs.display === 'none') continue;
+      var bg = cs.backgroundColor, Lb = lum(bg); if(Lb === null){ var b2 = bgOf(el); Lb = b2 ? lum(b2) : null; } if(Lb === null) continue;
+      var Lf = lum(cs.color); var light = Lb > 0.4;
+      if(Lf !== null){ var ratio = (Math.max(Lf, Lb) + .05) / (Math.min(Lf, Lb) + .05); if(ratio < 4.5) el.style.setProperty('color', light ? '#1F2622' : '#F4F1EA', 'important'); }
+      el.classList.add(light ? 'djPhD' : 'djPhL'); el.__djInk = true;
+    }
+  }
   function contrastFloor(){
     var all = document.body ? document.body.getElementsByTagName('*') : [], n = 0;
     for(var i = 0; i < all.length; i++){
@@ -1528,23 +1543,29 @@
     }
     function jump(id){ for(var k = 0; k < steps.length; k++) if(steps[k].id === id){ i = k; show(); return; } }
     function dots(){ var parts = ['What it does','See it work','Every screen','Your turn']; return '<div style="display:flex;gap:6px;margin-bottom:10px">' + parts.map(function(p){ var on = p === steps[i].part; return '<span style="flex:1;height:5px;border-radius:9px;background:' + (on ? '#F2B134' : '#E2DCCF') + '"></span>'; }).join('') + '</div><div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#B5832A;margin-bottom:4px">' + esc(T.name) + ' · ' + esc(steps[i].part) + '</div>'; }
-    function quietBtn(){ var q = false; try{ q = localStorage.getItem('dj_tour_quiet') !== '0'; }catch(e){} return '<button type="button" id="djTourQ" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:36px;cursor:pointer">' + (q ? '🔇 voice off' : '🔊 voice on') + '</button>'; }
+    function quietBtn(){ var q = false; try{ q = localStorage.getItem('dj_tour_quiet') !== '0'; }catch(e){} return '<button type="button" id="djTourQ" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:36px;cursor:pointer">' + (q ? '🔈 Turn the voice on' : '🔊 Voice is on (tap to turn off)') + '</button>'; }
     function nav(nextLabel){ return '<div style="display:flex;gap:8px;margin-top:12px">' + (i > 0 ? '<button type="button" id="djTourB" style="' + BIG + 'background:#fff;border:1.5px solid #C9C1AE;color:' + INK + '">‹</button>' : '') + '<button type="button" id="djTourN" style="' + BIG + 'flex:1;background:' + BR + ';border:0;color:#fff">' + nextLabel + '</button></div><div style="display:flex;justify-content:space-between;margin-top:6px">' + quietBtn() + '<button type="button" id="djTourS" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:36px;cursor:pointer">skip the tour</button></div>'; }
+    /* v59: the box stays in ONE place — the bottom of what the person can actually see — and the page scrolls
+       so the gold ring sits above it. Jerry: "can you just stay one spot"; in Every Day the box went off the top
+       and he was stuck. Inside a frame (Feedback Studio) the visible band is worked out from the parent. */
+    function band(){ var t = 0, b = innerHeight; try{ if(window.top !== window.self && window.frameElement){ var r = window.frameElement.getBoundingClientRect(), ph = parent.innerHeight; t = Math.max(0, -r.top); b = Math.min(innerHeight, ph - r.top); if(b - t < 200){ t = 0; b = innerHeight; } } }catch(e){} return [t, b]; }
+    function pin(){ var bd = band(); card.style.top = ''; card.style.bottom = Math.max(10, innerHeight - bd[1] + 10) + 'px'; card.style.maxHeight = Math.max(220, (bd[1] - bd[0]) * 0.55) + 'px'; }
     function place(target){
       var el = null; try{ el = target ? document.querySelector(target) : null; }catch(e){}
+      card.style.transform = 'translateX(-50%)'; pin();
       if(el && el.getBoundingClientRect().width > 0){
-        try{ el.scrollIntoView({ block:'center' }); }catch(e){}
-        setTimeout(function(){ var r = el.getBoundingClientRect(); ring.style.display = 'block'; ring.style.left = (r.left - 6) + 'px'; ring.style.top = (r.top - 6) + 'px'; ring.style.width = (r.width + 12) + 'px'; ring.style.height = (r.height + 12) + 'px';
-          var low = r.top + r.height / 2 > innerHeight / 2; card.style.top = low ? '10px' : ''; card.style.bottom = low ? '' : '10px'; }, 260);
         shade.style.display = 'none';
-      } else { ring.style.display = 'none'; shade.style.display = 'block'; card.style.top = ''; card.style.bottom = '10px'; }
+        var bd = band(), ch = card.getBoundingClientRect().height || 260, room = (bd[1] - bd[0]) - ch - 30;
+        try{ var r0 = el.getBoundingClientRect(), want = bd[0] + Math.max(16, (room - Math.min(r0.height, room)) / 2); window.scrollBy(0, r0.top - want); var sc = el.parentElement; while(sc && sc !== document.body){ var o = getComputedStyle(sc).overflowY; if((o === 'auto' || o === 'scroll') && sc.scrollHeight > sc.clientHeight){ var rr = el.getBoundingClientRect(); sc.scrollTop += rr.top - want; break; } sc = sc.parentElement; } }catch(e){}
+        setTimeout(function(){ var r = el.getBoundingClientRect(); ring.style.display = 'block'; ring.style.left = (r.left - 6) + 'px'; ring.style.top = (r.top - 6) + 'px'; ring.style.width = (r.width + 12) + 'px'; ring.style.height = Math.min(r.height + 12, Math.max(40, (band()[1] - ch - 24) - (r.top - 6))) + 'px'; pin(); }, 280);
+      } else { ring.style.display = 'none'; shade.style.display = 'block'; }
     }
     function wire(){
       var n = card.querySelector('#djTourN'), b = card.querySelector('#djTourB'), s = card.querySelector('#djTourS'), q = card.querySelector('#djTourQ');
       if(n) n.onclick = function(){ i = Math.min(i + 1, steps.length - 1); show(); };
       if(b) b.onclick = function(){ i = Math.max(i - 1, 0); show(); };
       if(s) s.onclick = function(){ jump('choose'); };
-      if(q) q.onclick = function(){ var on = false; try{ on = localStorage.getItem('dj_tour_quiet') !== '0'; localStorage.setItem('dj_tour_quiet', on ? '0' : '1'); }catch(e){} if(!on) tourHush(); show(); };
+      if(q) q.onclick = function(){ var quiet = true; try{ quiet = localStorage.getItem('dj_tour_quiet') !== '0'; localStorage.setItem('dj_tour_quiet', quiet ? '0' : '1'); if(quiet) localStorage.setItem('dj_voice', 'on'); }catch(e){} if(!quiet) tourHush(); show(); };   /* v59: turning it on opens the house voice gate too — Jerry tapped 'voice on' and heard nothing */
     }
     function finish(how){
       tourHush(); try{ localStorage.setItem(TOUR_DONE(T.slug), how + ' ' + djYMD()); }catch(e){}
@@ -1554,7 +1575,7 @@
     function show(){
       var st = steps[i]; tourHush();
       if(st.kind === 'slide'){
-        place(null); card.style.top = '50%'; card.style.bottom = ''; card.style.transform = 'translate(-50%,-50%)';
+        place(null);
         card.innerHTML = dots() + '<div style="font-size:54px;line-height:1;margin:4px 0 8px">' + (st.em || '') + '</div><div style="font-weight:900;font-size:24px;line-height:1.2;margin-bottom:8px">' + st.h + '</div><p style="margin:0;color:' + SOFT + ';font-size:17px">' + st.p + '</p>' + nav(st.first ? '▶ Start the tour' : 'Next ›');
         wire(); if(!st.first || i > 0 || st.started) tourSpeak(st.h + '. ' + st.p);
         if(st.first){ var n0 = card.querySelector('#djTourN'); n0.onclick = function(){ st.started = true; i = 1; show(); }; tourSpeak(st.h + '. ' + st.p); }
@@ -1562,7 +1583,7 @@
       }
       card.style.transform = 'translateX(-50%)';
       if(st.kind === 'ask'){
-        place(null); card.style.top = '50%'; card.style.bottom = ''; card.style.transform = 'translate(-50%,-50%)';
+        place(null);
         card.innerHTML = dots() + '<div style="font-weight:900;font-size:22px;margin-bottom:6px">' + st.h + '</div><p style="margin:0 0 12px;color:' + SOFT + '">' + st.p + '</p><button type="button" id="djTourY" style="' + BIG + 'width:100%;background:' + BR + ';border:0;color:#fff;margin-bottom:8px">' + st.yes + '</button><button type="button" id="djTourNo" style="' + BIG + 'width:100%;background:#fff;border:1.5px solid #C9C1AE;color:' + INK + '">' + st.no + '</button>';
         card.querySelector('#djTourY').onclick = function(){ i++; show(); };
         card.querySelector('#djTourNo').onclick = function(){ jump(st.onNo); };
@@ -1580,13 +1601,13 @@
         wire(); tourHush(); return;
       }
       if(st.kind === 'choose' && T.choose === false){
-        place(null); card.style.top = '50%'; card.style.bottom = ''; card.style.transform = 'translate(-50%,-50%)';
+        place(null);
         card.innerHTML = dots() + '<div style="font-size:48px;line-height:1;margin-bottom:6px">🎉</div><div style="font-weight:900;font-size:22px;margin-bottom:6px">You’re ready</div><p style="margin:0 0 12px;color:' + SOFT + '">' + esc(T.readyNote || 'Now let’s set it up for you. The tour is always under the ? button.') + '</p><button type="button" id="djTourGo" style="' + BIG + 'width:100%;background:' + BR + ';border:0;color:#fff">Let’s go ›</button>';
         card.querySelector('#djTourGo').onclick = function(){ finish('keep'); };
         tourSpeak('You are ready.'); return;
       }
       if(st.kind === 'choose'){
-        place(null); card.style.top = '50%'; card.style.bottom = ''; card.style.transform = 'translate(-50%,-50%)';
+        place(null);
         card.innerHTML = dots() + '<div style="font-weight:900;font-size:22px;margin-bottom:6px">How do you want to start?</div><p style="margin:0 0 12px;color:' + SOFT + '">You can change your mind later. The tour is always under the <b>?</b> button.</p>'
           + '<button type="button" id="djTourKeep" style="' + BIG + 'width:100%;text-align:left;background:#fff;border:1.5px solid ' + BR + ';color:' + INK + ';margin-bottom:8px">🧪 Keep the examples to play with<br><span style="font-weight:500;font-size:14px;color:' + SOFT + '">' + esc(T.keepNote || 'Try everything on pretend information. Clear it when you are ready.') + '</span></button>'
           + '<button type="button" id="djTourFresh" style="' + BIG + 'width:100%;text-align:left;background:' + BR + ';border:0;color:#fff">✨ Start fresh with my own<br><span style="font-weight:500;font-size:14px;opacity:.9">' + esc(T.freshNote || 'An empty app, ready for your real information.') + '</span></button>';
@@ -1688,7 +1709,7 @@
     /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
     try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); floatPad(); yieldDock(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
     window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){} [900, 2500, 6000].forEach(function(ms){ setTimeout(floatPad, ms); }); window.addEventListener('resize', floatPad);
-    try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
+    try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} try{ inputFloor(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
