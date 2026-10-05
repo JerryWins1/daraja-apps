@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v57">
+<script id="dj-house-v58">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -657,6 +657,13 @@
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
       nu.onclick = function(){ w.remove(); var u = location.href.split('#')[0]; u = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'dj_sandbox=1'; var t = null; try{ t = window.open(u, '_blank'); }catch(e){} if(!t) location.href = u; };
       box.appendChild(nu);
+    }
+    if(window.DJ_MENU){
+      var mr = document.createElement('button'); mr.type = 'button';
+      mr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      mr.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🏠</span><span style="flex:1">Start menu: what would you like to do?</span>';
+      mr.onclick = function(){ w.remove(); djMenu.open(); };
+      box.appendChild(mr);
     }
     if(window.DJ_TOUR){
       var tr = document.createElement('button'); tr.type = 'button';
@@ -1594,7 +1601,76 @@
   window.djTour = { start:function(){ startTour(true); } };
   function tourLater(){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 900); }
 
-  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
+
+  /* ── 16 · The start menu (v58 · 4 Oct 2026) ──────────────────────────────────
+     Jerry: "All the apps start in the middle of something. If you don't remember where you are,
+     start on a screen that gives you options: do my schedule, a journal entry, create a menu."
+     An app opts in with window.DJ_MENU = { slug, name, em, items:[{id, em, t, sub, go}] } (menu.py).
+     Shows on the first open of a day, or after 4 hours away — never on the very first visit (the
+     welcome tour has that), never on top of the tour, never inside the Daraja door (it has its own).
+     ?dj_go=<id> runs one item straight away (the cross-app links use it). */
+  var MENU_APPS = [
+    ['nownext', '🎯', 'Plan my day', 'One Thing', 'https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/nownext/'],
+    ['storykeeper', '📖', 'Today’s journal page', 'In My Own Words', 'https://jerrywins1.github.io/daraja-apps/story-keeper/?dj_go=today'],
+    ['ourtable', '🍽️', 'Plan a meal', 'Our Table', 'https://jerrywins1.github.io/daraja-apps/ourtable/?dj_go=plan'],
+    ['ahead', '🧭', 'What’s coming due', 'Ahead of It', 'https://jerrywins1.github.io/daraja-apps/Apps%20(installable%20site)/ahead/?dj_go=due'],
+    ['whoscoming', '🙋', 'Ask the family something', 'Who’s Coming', 'https://jerrywins1.github.io/daraja-apps/whoscoming/?dj_go=ask'],
+    ['everyday', '🌞', 'My everyday habits', 'Every Day', 'https://jerrywins1.github.io/daraja-apps/everyday/']
+  ];
+  function menuRun(code){ if(!code) return; try{ (new Function(code))(); }catch(e){} }
+  function openMenu(force){
+    var M = window.DJ_MENU; if(!M || !document.body || document.getElementById('djMenu')) return;
+    if(document.getElementById('djTour')) return;
+    try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){}
+    var h = new Date().getHours(), greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    var nm = ''; try{ nm = localStorage.getItem('dj_name') || ''; }catch(e){}
+    var w = document.createElement('div'); w.id = 'djMenu'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', M.name + ' — start');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147482950;background:#F7F4EC;color:#1F2622;overflow:auto;font:17px/1.45 -apple-system,system-ui,sans-serif';
+    var BTN = 'display:flex;align-items:center;gap:14px;width:100%;text-align:left;font:inherit;min-height:70px;padding:12px 16px;margin:0 0 10px;border-radius:18px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05)';
+    var others = MENU_APPS.filter(function(a){ return a[0] !== M.slug; });
+    w.innerHTML = '<div style="max-width:560px;margin:0 auto;padding:calc(22px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))">'
+      + '<div style="font-size:44px;line-height:1">' + (M.em || '🌉') + '</div>'
+      + '<div style="font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#B5832A;margin-top:8px">' + esc(M.name) + '</div>'
+      + '<h1 style="font-size:28px;line-height:1.2;margin:4px 0 4px">' + greet + (nm ? ', ' + esc(nm) : '') + '.</h1>'
+      + '<p style="margin:0 0 16px;color:#55605B">What would you like to do?</p>'
+      + '<div id="djMenuItems"></div>'
+      + '<button type="button" id="djMenuBack" style="' + BTN + ';min-height:54px;background:transparent;box-shadow:none;border-style:dashed"><span style="font-size:24px;width:34px;text-align:center">↩</span><span><b>Pick up where I left off</b></span></button>'
+      + (window.DJ_TOUR ? '<button type="button" id="djMenuTour" style="font:inherit;font-size:15px;background:none;border:0;color:#23504F;text-decoration:underline;min-height:40px;cursor:pointer;padding:0">🎬 Show me around this app</button>' : '')
+      + '<div style="margin-top:18px;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#55605B">Other things today</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' + others.map(function(a){ return '<a href="' + a[4] + '" style="display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 12px;border-radius:999px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;text-decoration:none;font-weight:700;font-size:15px">' + a[1] + ' ' + esc(a[2]) + '</a>'; }).join('') + '</div>'
+      + '</div>';
+    var box = w.querySelector('#djMenuItems');
+    (M.items || []).filter(function(it){ if(!it.show) return true; try{ return !!(new Function('return (' + it.show + ')'))(); }catch(e){ return false; } }).forEach(function(it){
+      var b = document.createElement('button'); b.type = 'button'; b.style.cssText = BTN;
+      b.innerHTML = '<span style="font-size:30px;width:40px;text-align:center">' + (it.em || '•') + '</span><span style="flex:1"><b style="font-size:19px">' + esc(it.t) + '</b>' + (it.sub ? '<br><span style="color:#55605B;font-size:15px">' + esc(it.sub) + '</span>' : '') + '</span><span style="font-size:22px;color:#B5832A">›</span>';
+      b.onclick = function(){ w.remove(); setTimeout(function(){ menuRun(it.go); }, 60); };
+      box.appendChild(b);
+    });
+    w.querySelector('#djMenuBack').onclick = function(){ w.remove(); };
+    var tb = w.querySelector('#djMenuTour'); if(tb) tb.onclick = function(){ w.remove(); try{ djTour.start(); }catch(e){} };
+    document.body.appendChild(w);
+    try{ w.querySelector('button').focus(); }catch(e){}
+  }
+  window.djMenu = { open:function(){ openMenu(true); } };
+  function menuLater(){
+    setTimeout(function(){
+      var M = window.DJ_MENU; if(!M) return;
+      var go = ''; try{ go = new URLSearchParams(location.search).get('dj_go') || ''; }catch(e){}
+      if(go){ var it = (M.items || []).filter(function(x){ return x.id === go; })[0]; try{ history.replaceState(null, '', location.href.replace(/([?&])dj_go=[^&#]*&?/, '$1').replace(/[?&](#|$)/, '$1')); }catch(e){}
+        try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){}
+        if(it) setTimeout(function(){ menuRun(it.go); }, 400); return; }
+      try{ if(window.top !== window.self && /\/home\//.test(parent.location.pathname)) return; }catch(e){}
+      if(document.getElementById('djTour')) return;
+      if(window.DJ_TOUR){ var td = null; try{ td = localStorage.getItem('dj_tour_' + window.DJ_TOUR.slug); }catch(e){} if(!td) return; }
+      var last = 0; try{ last = +localStorage.getItem('dj_menu_seen_' + M.slug) || 0; }catch(e){}
+      if(!last){ try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){} if(!window.DJ_TOUR) return; }
+      var now = Date.now(), newDay = new Date(last).toDateString() !== new Date(now).toDateString();
+      if(!last || newDay || now - last > 4 * 3600e3) openMenu(false);
+      else try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(now)); }catch(e){}
+    }, 1300);
+  }
+
+  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
@@ -1933,7 +2009,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.17 · 2026-10-04</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.18 · 2026-10-04</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -2081,7 +2157,7 @@ input, textarea, select{ background:var(--surface-2); }
       <input type="tel" id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)" autocomplete="tel">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">One Thing v7.17 River · 2026-10-04 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">One Thing v7.18 River · 2026-10-04 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -4977,3 +5053,4 @@ function paint(){ var s=st(); if(!s){ badge.style.display='none'; return; }
 
 <style id="framedLite"></style>
 <script>try{ if(window.self!==window.top){ document.getElementById('framedLite').textContent='*{-webkit-backdrop-filter:none!important;backdrop-filter:none!important} body.river .card,body.river .now,body.river .next{background:rgba(22,25,34,.85)!important}'; } }catch(e){}</script>
+<script id="dj-menu-v1">window.DJ_MENU = {"slug": "nownext", "name": "One Thing", "em": "🎯", "items": [{"id": "next", "em": "🎯", "t": "Do my next thing", "sub": "One thing, a timer, and Done", "go": "go('today')"}, {"id": "plan", "em": "📝", "t": "Plan my day", "sub": "Add what needs doing today", "go": "go('today'); setTimeout(function(){ var n=document.getElementById('newTask'); if(n){ n.scrollIntoView({block:'center'}); n.focus(); } },350)"}, {"id": "routines", "em": "🔁", "t": "My routines", "sub": "Morning, bedtime and the regulars", "go": "go('routines')", "show": "(function(){ var e=document.querySelector(\"#n-routines\"); return !!(e && e.offsetParent!==null); })()"}, {"id": "dump", "em": "🧠", "t": "Get a thought out of my head", "sub": "Park it now, deal with it later", "go": "go('dump')", "show": "(function(){ var e=document.querySelector(\"#n-dump\"); return !!(e && e.offsetParent!==null); })()"}]};</script>
