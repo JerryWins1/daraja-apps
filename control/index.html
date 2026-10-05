@@ -1824,6 +1824,7 @@
       <div class="card" id="newMsgs"></div>
       <h2>Waiting on you</h2>
       <div class="card" id="waiting"></div>
+      <div class="chips" style="margin:14px 0 4px"><button class="chip main" onclick="groupMsg('zuri')">📣 Message the Zuri testers</button></div>
       <h2>Gone quiet <small>no sign of them in 3+ days</small></h2>
       <div class="card" id="quiet"></div>
       <h2>Dates that bite</h2>
@@ -1873,7 +1874,7 @@
       <div class="chips" id="pfilter" style="margin-top:6px"></div>
       <div style="margin:10px 0"><input id="psearch" type="search" placeholder="Find someone" aria-label="Find someone"></div>
       <div class="card" id="plist"></div>
-      <div class="chips"><button class="chip main" onclick="editPerson()">＋ Add a person</button></div>
+      <div class="chips"><button class="chip main" onclick="editPerson()">＋ Add a person</button><button class="chip" onclick="groupMsg('zuri')">📣 Message a group</button></div>
     </section>
 
     <!-- STACK -->
@@ -1886,7 +1887,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.16 · 2026-10-04 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.17 · 2026-10-05 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2163,6 +2164,57 @@ async function sendByHand(id,draftId){
 async function saveDraft(id){ try{ const d=await draftOf(id,null); if(d){ toast('Draft saved'); closeSheet(); load(); } }catch(e){ toast(e.message,true); } }
 async function markRead(ids){ await act({action:'message.read',ids}); }
 async function stackIt(mid){ const m=D.messages.find(x=>x.id===mid); await act({action:'request.add',person_id:m.person_id,msg_id:m.id,text:m.text,app:m.app,kind:'question'},'In the stack'); }
+
+/* ---------- 📣 message a group (v1.17, 5 Oct): write once, then one tap per person ---------- */
+// No WhatsApp sending from HQ yet (Meta verification), so each tap opens WhatsApp with the words typed in; Jerry presses send.
+const GROUPS={zuri:['Zuri testers',p=>p.project==='zuri'&&['staff','hidden','family','customer'].indexOf(p.role)<0],
+  daraja:['Daraja testers',p=>p.project==='daraja'&&p.role==='tester'],customer:['Customers',p=>p.role==='customer']};
+let GM=null;
+const firstName=p=>String(p.name||'').trim().split(/\s+/)[0];
+const fillName=(t,p)=>t.replace(/\{name\}/gi,firstName(p));
+function groupMsg(g){
+  g=GROUPS[g]?g:'zuri';
+  const list=(D.people||[]).filter(p=>shown(p)&&GROUPS[g][1](p)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  GM={g,list,sel:new Set(list.filter(p=>p.phone).map(p=>p.id)),text:(GM&&GM.text)||'',done:new Set()};
+  drawGM();
+}
+function drawGM(){
+  const g=GM.g;
+  sheet(`<button class="chip small close" onclick="closeSheet()">✕</button>
+    <h3 style="margin:4px 0 2px">📣 Message the ${esc(GROUPS[g][0])}</h3>
+    <div class="chips" style="margin:6px 0">${Object.keys(GROUPS).map(k=>`<button class="chip small ${k===g?'main':''}" onclick="GM.text=$('gmText').value;groupMsg('${k}')">${esc(GROUPS[k][0])}</button>`).join('')}</div>
+    <label for="gmText">The message <span class="muted" style="font-weight:500">· write {name} where their first name goes</span></label>
+    <textarea id="gmText" placeholder="Habari {name}! …">${esc(GM.text)}</textarea>
+    <h2>Who gets it</h2>
+    ${GM.list.length?GM.list.map(p=>`<label class="item" style="display:flex;gap:10px;align-items:center;cursor:pointer"><input type="checkbox" data-gm="${p.id}" ${GM.sel.has(p.id)?'checked':''} ${p.phone?'':'disabled'} style="width:22px;height:22px">
+      <span><span class="who">${esc(p.name)}</span> <span class="meta">${p.phone?'+'+esc(p.phone):'no WhatsApp number yet — add it under People'}</span></span></label>`).join(''):'<p class="muted">Nobody in this group yet.</p>'}
+    <div class="chips" style="margin-top:10px"><button class="chip main" onclick="gmNext()">Next: send them one by one →</button></div>`);
+  document.querySelectorAll('[data-gm]').forEach(c=>c.onchange=()=>{ c.checked?GM.sel.add(c.dataset.gm):GM.sel.delete(c.dataset.gm); });
+}
+function gmNext(){
+  GM.text=($('gmText').value||'').trim(); if(!GM.text) return toast('Write the message first',true);
+  GM.who=GM.list.filter(p=>GM.sel.has(p.id)&&p.phone); if(!GM.who.length) return toast('Tick at least one person',true);
+  drawSend();
+}
+function drawSend(){
+  const left=GM.who.filter(p=>!GM.done.has(p.id)), nxt=left[0];
+  sheet(`<button class="chip small close" onclick="closeSheet();load()">✕</button>
+    <h3 style="margin:4px 0 2px">📣 ${GM.done.size} of ${GM.who.length} sent</h3>
+    <p class="muted" style="margin:4px 0 10px">${left.length?'Each button opens WhatsApp with the words already typed. <b>Press the green send arrow there</b>, then come back here for the next one.':'🎉 All sent. HQ logged each one in their conversation.'}</p>
+    ${GM.who.map(p=>{ const d=GM.done.has(p.id); return `<div class="item" style="${p===nxt?'border-left:4px solid var(--accent,#0F6E5C);padding-left:10px':''}">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${esc(p.name)}</b>${d?'<span class="pill">✓ sent</span>':`<button class="chip ${p===nxt?'wa':''}" onclick="gmSend('${p.id}')">📱 Send to ${esc(firstName(p))}</button>`}</div>
+      <div class="sum muted" style="margin-top:4px">${esc(fillName(GM.text,p))}</div></div>`; }).join('')}
+    <div class="chips" style="margin-top:10px">${GM.done.size?'':'<button class="chip small" onclick="drawGM()">← Change the words</button>'}<button class="chip small ${left.length?'':'main'}" onclick="closeSheet();load()">${left.length?'Stop here':'Done'}</button></div>`);
+}
+async function gmSend(id){
+  const p=P(id); if(!p.phone) return; const t=fillName(GM.text,p);
+  const w=window.open('','_blank');
+  try{ const r=await hq({action:'message.draft',person_id:id,text:t});
+    const url='https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
+    if(w) w.location=url; else { toast('Allow pop-ups for HQ, then tap again',true); return; }
+    await hq({action:'message.mark',id:r.id,status:'sent by hand'}); GM.done.add(id); drawSend(); }
+  catch(e){ if(w) w.close(); toast(e.message,true); }
+}
 
 /* ---------- the stack ---------- */
 const STEPS=[['new','New'],['stack','In the stack'],['planned','Planned'],['building','Building'],['done','Done'],['told','Told them']];
