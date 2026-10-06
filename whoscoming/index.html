@@ -1828,7 +1828,7 @@
     </section>
   </div>
 
-  <p class="foot">Who’s Coming v1.8 · 2026-10-04 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Who’s Coming v1.9 · 2026-10-06 · Daraja Studio · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school</p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -1880,7 +1880,7 @@ function tallyText(a){ const t={}; Object.values(a.answers||{}).forEach(x=>{ t[x
 /* ── asks ────────────────────────────────────────────────────── */
 let askKind='yn';
 document.getElementById('askKind').addEventListener('click',e=>{ const c=e.target.closest('.chip'); if(!c) return; askKind=c.dataset.k; document.querySelectorAll('#askKind .chip').forEach(x=>x.classList.toggle('on',x===c)); $('pickOpts').style.display=askKind==='pick'?'':'none'; });
-function toggleNew(on){ $('newAsk').style.display=on?'':'none'; $('newAskBtn').style.display=on?'none':''; if(on){ $('askGroup').innerHTML=db.groups.map(g=>`<option value="${g.id}">${esc(g.name)} (${g.people.length})</option>`).join('')||'<option value="">— make a group first —</option>'; $('askQ').focus(); } }
+function toggleNew(on){ $('newAsk').style.display=on?'':'none'; $('newAskBtn').style.display=on?'none':''; if(on){ const na=$('newAsk'); na.style.scrollMarginTop='80px'; setTimeout(()=>{ na.scrollIntoView({block:'start',behavior:'smooth'}); },30); $('askGroup').innerHTML=db.groups.map(g=>`<option value="${g.id}">${esc(g.name)} (${g.people.length})</option>`).join('')||'<option value="">— make a group first —</option>'; try{ $('askQ').focus({preventScroll:true}); }catch(e){} } }
 function createAsk(){
   const gid=$('askGroup').value, q=$('askQ').value.trim(); if(!gid){ alert('Make a group first (People tab).'); return; } if(!q){ $('askQ').focus(); return; }
   let options = askKind==='yn' ? ['Yes','No','Maybe'] : askKind==='pick' ? $('askOpts').value.split('\n').map(s=>s.trim()).filter(Boolean) : [];
@@ -1890,6 +1890,12 @@ function createAsk(){
 }
 function replyLink(a,p){ const u=new URL(location.href.split('?')[0]); u.searchParams.set('r',a.id); u.searchParams.set('p',p.id); u.searchParams.set('q',a.q); u.searchParams.set('o',a.options.join('|')); u.searchParams.set('to',db.me.phone||''); u.searchParams.set('from',db.me.name||''); return u.toString(); }
 function sendAsk(id,nudge){
+  /* 6 Oct: Diane got a bare link ("nothing — what is happening"): the sender's name was blank. Ask once, then send. */
+  if(!db.me.name){ let dn=''; try{ dn=JSON.parse(localStorage.getItem('dj_name')||'""')||''; }catch(e){ dn=localStorage.getItem('dj_name')||''; }
+    if(dn){ db.me.name=String(dn).trim(); save(); }
+    else { sheet(`<h3>Your name first</h3><p class="small">So they know who’s asking (“Jerry asks: …”). Asked once.</p><input id="meNm" placeholder="Your first name" aria-label="Your first name" style="width:100%"><div class="row" style="margin-top:10px"><button class="primary" style="flex:1" id="meGo">Send it</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>`);
+      const go=()=>{ const v=($('meNm').value||'').trim(); if(!v){ $('meNm').focus(); return; } db.me.name=v; save(); try{ localStorage.setItem('dj_name',JSON.stringify(v)); }catch(e){} closeSheet(); render(); sendAsk(id,nudge); };
+      $('meGo').onclick=go; $('meNm').onkeydown=e=>{ if(e.key==='Enter') go(); }; setTimeout(()=>$('meNm').focus(),250); return; } }
   const a=db.asks.find(x=>x.id===id); const ppl=peopleOf(a.groupId).filter(p=>!nudge||!(a.answers||{})[p.id]);
   const withPhone=ppl.filter(p=>(p.phone||'').replace(/\D/g,'').length>=7);
   const body=(nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+whenTxt(a.when):'')+'\n\nTap to answer: '+replyLink(a,{id:'all'});
@@ -1897,7 +1903,8 @@ function sendAsk(id,nudge){
   if(!nums.length){ navigator.clipboard&&navigator.clipboard.writeText(body); alert('No mobile numbers on this group yet — the message is copied. Paste it into your group text, or add numbers under People.'); return; }
   /* iPhone needs the two-slash form to open ONE group text to everybody; with one slash it only took the first number.
      Android separates numbers with a semicolon. */
-  const url = IOS ? `sms://open?addresses=${nums.join(',')}&body=${encodeURIComponent(body)}` : `sms:${nums.join(';')}?body=${encodeURIComponent(body)}`;
+  /* 6 Oct: on the Mac, Messages also kept only the first number with sms:a;b — the Mac gets the iPhone group form too */
+  const url = (IOS || /Macintosh/.test(navigator.userAgent)) ? `sms://open?addresses=${nums.join(',')}&body=${encodeURIComponent(body)}` : `sms:${nums.join(';')}?body=${encodeURIComponent(body)}`;
   toast(`Opening one group text to ${nums.length} ${nums.length===1?'person':'people'}`);
   location.href=url;
 }
@@ -2000,8 +2007,13 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
    searchable list with tick boxes instead of adding everyone in it. */
 (function(){
   var _read = window.readVcf;
+  window.__wcPick = function(gid, all){ pick(gid, all); };
+  /* 6 Oct: “📇 From contacts” a second time reopens this visit's list (no file hunt); a fresh file still works */
+  window.__wcOrigFrom = window.fromContacts;
+  window.fromContacts = function(gid){ if(window.__wcLast && window.__wcLast.length && !(navigator.contacts && navigator.contacts.select)){ pick(gid, window.__wcLast); return; } return window.__wcOrigFrom(gid); };
   window.readVcf = function(inp){
     var gid = inp.dataset.gid, files = [].slice.call(inp.files || []); if(!files.length) return; var all = [], left = files.length;
+    setTimeout(function(){ try{ inp.value = ''; }catch(e){} }, 0); /* 6 Oct: picking the SAME file again fired nothing — Jerry was stuck */
     files.forEach(function(f){ var r = new FileReader(); r.onload = function(){ all = all.concat(parseVcf(String(r.result || ''))); if(--left === 0) done(); }; r.onerror = function(){ if(--left === 0) done(); }; r.readAsText(f); });
     function done(){
       if(!all.length){ toast('No names found in that file'); return; }
@@ -2011,19 +2023,23 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
     }
   };
   function pick(gid, all){
-    var chosen = {};
+    var chosen = {}; window.__wcLast = all; /* 6 Oct: remember this visit's contacts so “Add more” doesn't need the file again */
+    var g = (db.groups || []).find(function(x){ return x.id === gid; }) || { people: [] };
+    function inGroup(p){ var k = String(p.phone || '').replace(/\D/g, ''); return g.people.some(function(x){ return (k && String(x.phone || '').replace(/\D/g, '') === k) || String(x.name || '').toLowerCase() === String(p.name || '').toLowerCase(); }); }
     sheet('<h3>📇 Pick people</h3><p class="small">' + all.length + ' contacts. Search, then tick the people you want.</p>'
       + '<input id="pkQ" placeholder="Search a name" aria-label="Search a name" style="width:100%;margin-bottom:8px">'
       + '<div id="pkList" style="max-height:46vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:12px"></div>'
-      + '<div class="row" style="margin-top:10px"><button class="primary" style="flex:1" id="pkAdd">Add 0 people</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>');
+      + '<div class="row" style="margin-top:10px;position:sticky;bottom:0;background:var(--surface,#fff);padding:8px 0 2px"><button class="primary" style="flex:1" id="pkAdd">Add 0 people</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>'
+      + '<p class="small" style="margin:6px 0 0"><a href="#" id="pkOther" style="font-weight:700">📂 Use a different contacts file</a></p>');
     var q = document.getElementById('pkQ'), list = document.getElementById('pkList'), btn = document.getElementById('pkAdd');
     function count(){ var n = Object.keys(chosen).length; btn.textContent = 'Add ' + n + ' ' + (n === 1 ? 'person' : 'people'); btn.disabled = !n; }
     function draw(){
       var t = q.value.trim().toLowerCase(), shown = all.map(function(p, i){ return [p, i]; }).filter(function(x){ return !t || x[0].name.toLowerCase().indexOf(t) >= 0; }).slice(0, 200);
-      list.innerHTML = shown.map(function(x){ var p = x[0], i = x[1]; return '<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line,#eee);cursor:pointer"><input type="checkbox" data-i="' + i + '"' + (chosen[i] ? ' checked' : '') + ' style="width:24px;height:24px;flex:none"><span style="flex:1"><b>' + esc(p.name) + '</b>' + (p.phone ? '<br><small>' + esc(p.phone) + '</small>' : '<br><small>no mobile number</small>') + '</span></label>'; }).join('') + (shown.length === 200 ? '<p class="small" style="padding:10px 12px">Showing the first 200 — type a name to find more.</p>' : '') + (!shown.length ? '<p class="small" style="padding:10px 12px">No one by that name.</p>' : '');
+      list.innerHTML = shown.map(function(x){ var p = x[0], i = x[1]; if(inGroup(p)) return '<div style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line,#eee);opacity:.6"><span style="width:24px;text-align:center;flex:none">✓</span><span style="flex:1"><b>' + esc(p.name) + '</b><br><small>already in this group</small></span></div>'; return '<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line,#eee);cursor:pointer"><input type="checkbox" data-i="' + i + '"' + (chosen[i] ? ' checked' : '') + ' style="width:24px;height:24px;flex:none"><span style="flex:1"><b>' + esc(p.name) + '</b>' + (p.phone ? '<br><small>' + esc(p.phone) + '</small>' : '<br><small>no mobile number</small>') + '</span></label>'; }).join('') + (shown.length === 200 ? '<p class="small" style="padding:10px 12px">Showing the first 200 — type a name to find more.</p>' : '') + (!shown.length ? '<p class="small" style="padding:10px 12px">No one by that name.</p>' : '');
       list.querySelectorAll('input[data-i]').forEach(function(c){ c.onchange = function(){ if(c.checked) chosen[c.dataset.i] = 1; else delete chosen[c.dataset.i]; count(); }; });
     }
     q.oninput = draw; draw(); count();
+    var oth = document.getElementById('pkOther'); if(oth) oth.onclick = function(e){ e.preventDefault(); window.__wcLast = null; closeSheet(); window.__wcOrigFrom(gid); };
     btn.onclick = function(){ var ppl = Object.keys(chosen).map(function(i){ return all[i]; }); closeSheet(); addMany(gid, ppl); };
     setTimeout(function(){ try{ q.focus(); }catch(e){} }, 300);
   }
