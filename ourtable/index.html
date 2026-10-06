@@ -1825,7 +1825,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.8 · 2026-10-04 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Our Table v1.9 · 2026-10-05 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
 </div>
 
 <nav>
@@ -1952,11 +1952,11 @@ function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName')
   if(editId){ Object.assign(db.recipes.find(x=>x.id===editId),rec); } else db.recipes.unshift({id:uid(),made:0,...rec});
   save(); closeEdit(); render(); toast('Saved ✓'); }
 function delRecipe(){ if(!confirm('Delete this recipe?')) return; db.recipes=db.recipes.filter(x=>x.id!==editId); DAYS.forEach(d=>{ if(db.week[d]===editId) delete db.week[d]; }); save(); closeEdit(); render(); }
-function openView(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return;
+function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return;
   $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}</p>
     <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
     ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
-    <div class="row" style="margin-top:8px"><button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button><button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button><button onclick="openEdit('${r.id}')">✏️ Edit</button><button class="ghost" onclick="closeView()">Close</button></div>`;
+    <div class="row" style="margin-top:8px"><button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>${day?`<button onclick="closeView();openPick('${day}')">🔁 Swap ${day}</button><button onclick="setDay('${day}',null);closeView()">Clear ${day}</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button class="ghost" onclick="closeView()">Close</button></div>`;
   $('viewSheet').classList.add('on'); }
 function closeView(){ $('viewSheet').classList.remove('on'); }
 function madeIt(id){ const r=db.recipes.find(x=>x.id===id); r.made=(r.made||0)+1; r.last=ymd(new Date()); save(); closeView(); render(); toast('Nice — '+r.made+(r.made===1?' time':' times')+' now'); }
@@ -1964,11 +1964,28 @@ function pickNightFor(id){ closeView(); go('week'); const free=DAYS.find(d=>!db.
 
 /* ── week ─────────────────────────────────────────────────── */
 let pickDay='';
+/* Jerry, 5 Oct: “shouldn't it show me the recipe?” — a planned night now opens its recipe (Swap / Clear there);
+   a night can also hold your own words (“Pizza night”), stored as 'txt:…' and skipped by the shopping list. */
+function nightOf(d){ const v=db.week[d]; if(!v) return null; if(String(v).indexOf('txt:')===0) return {txt:String(v).slice(4)}; const r=db.recipes.find(x=>x.id===v); return r?{r}:null; }
 function renderWeek(){ const mon=new Date(db.weekOf+'T12:00:00'); $('weekTitle').textContent='Week of '+mon.toLocaleDateString(undefined,{month:'short',day:'numeric'});
-  $('weekList').innerHTML=DAYS.map((d,i)=>{ const dt=new Date(mon); dt.setDate(mon.getDate()+i); const r=db.week[d]&&db.recipes.find(x=>x.id===db.week[d]);
-    return `<div class="day"><div class="dn">${d}<small>${dt.getDate()}</small></div><button class="pick ${r?'set':''}" onclick="openPick('${d}')">${r?`<span class="em">${pic(r,24)}</span><span>${esc(r.name)}${r.time?`<span class="who">${esc(r.time)}</span>`:''}</span>`:'<span class="small">tap to choose…</span>'}</button></div>`; }).join(''); }
-function openPick(d){ pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=db.recipes.map(r=>`<div class="recipe" onclick="setDay('${d}','${r.id}');closePick()" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')}</small></div></div>`).join('')||'<div class="empty">Add a recipe first.</div>'; $('pickSheet').classList.add('on'); }
+  $('weekList').innerHTML=DAYS.map((d,i)=>{ const dt=new Date(mon); dt.setDate(mon.getDate()+i); const n=nightOf(d), r=n&&n.r;
+    return `<div class="day"><div class="dn">${d}<small>${dt.getDate()}</small></div><button class="pick ${n?'set':''}" onclick="${n?`openNight('${d}')`:`openPick('${d}')`}">${r?`<span class="em">${pic(r,24)}</span><span>${esc(r.name)}${r.time?`<span class="who">${esc(r.time)}</span>`:''}</span>`:n?`<span class="em">✍️</span><span>${esc(n.txt)}</span>`:'<span class="small">tap to choose…</span>'}</button></div>`; }).join('');
+  const withRecipe=DAYS.filter(d=>{ const n=nightOf(d); return n&&n.r; }).length; let lv=1; try{ lv=(JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}')||{}).level||1; }catch(e){}
+  let ml=$('otMakeList'); if(!ml){ ml=document.createElement('div'); ml.id='otMakeList'; $('weekList').after(ml); }
+  ml.innerHTML=(withRecipe>=2&&lv<2)?'<button class="primary" style="width:100%;margin-top:12px" onclick="makeMyList()">🧺 Make my shopping list from these dinners</button>':''; }
+window.makeMyList=function(){ try{ const f=window.djLevelSet_ourtable; if(f) f(2,true); }catch(e){} buildList(); };
+function openNight(d){ const n=nightOf(d); if(!n) return openPick(d); if(n.r) return openView(n.r.id,d);
+  $('viewIn').innerHTML=`<h3>✍️ ${esc(n.txt)}</h3><p class="small">Dinner on ${d} · your own words, no recipe</p>
+    <div class="row" style="margin-top:8px"><button onclick="closeView();openPick('${d}')">🔁 Swap ${d}</button><button onclick="setDay('${d}',null);closeView()">Clear ${d}</button><button class="ghost" onclick="closeView()">Close</button></div>`;
+  $('viewSheet').classList.add('on'); }
+function openPick(d){ pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=`<div style="border:1.5px dashed rgba(128,128,128,.4);border-radius:14px;padding:10px;margin-bottom:10px"><b>✍️ Something else</b>
+    <div class="row" style="margin-top:6px;flex-wrap:nowrap"><input id="pickTxt" placeholder="Pizza night, leftovers, out with Kara…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')pickText()"><button class="ok" onclick="pickText()">Put it on ${d}</button></div>
+    <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="pickSave" style="width:20px;height:20px"> Save it as a recipe too</label></div>`+db.recipes.map(r=>`<div class="recipe" onclick="setDay('${d}','${r.id}');closePick()" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')}</small></div></div>`).join('')||'<div class="empty">Add a recipe first.</div>'; $('pickSheet').classList.add('on'); }
 function closePick(){ $('pickSheet').classList.remove('on'); }
+window.pickText=function(){ const t=($('pickTxt').value||'').trim(); if(!t){ $('pickTxt').focus(); return; }
+  if($('pickSave').checked){ const id=uid(); db.recipes.unshift({id,made:0,name:t,em:guessEm(t),photo:'',tags:[],ing:[],steps:'',time:''}); setDay(pickDay,id); toast('Saved as a recipe and put on '+pickDay+' — add its ingredients any time'); }
+  else { setDay(pickDay,'txt:'+t); toast('✍️ '+t+' on '+pickDay); }
+  closePick(); };
 function setDay(d,id){ if(id) db.week[d]=id; else delete db.week[d]; save(); render(); }
 /* Jerry, 21 Sep: tapped “I’ll pick” while already on This week and nothing happened.
    Now it walks you to the first empty night and lights it up. */
@@ -2040,6 +2057,7 @@ window.djLevels = function(C){
   function stats(){ try{ return C.stats(ls(C.data) || {}) || {score:0, days:0}; }catch(e){ return {score:0, days:0}; } }
   function level(){ var s = st(); if(s.level) return s.level; var x = stats(); var L = (x.score > 0) ? 3 : 1; save({level:L, since:today(), auto:true, nudge:true}); return L; }
   function setLevel(L, quiet){ var s = st(); var was = s.level || level(); s.level = L; s.since = today(); s.askedOn = ''; s.next = 0; save(s); apply(); if(!quiet){ try{ (window.toast||function(){})(L > was ? 'Level ' + L + ' — ' + C.levels[L].name + '. New things are on the screen now.' : 'Level ' + L + ' — ' + C.levels[L].name + '. Simpler.', 3200); }catch(e){} } }
+  window['djLevelSet_' + C.key] = setLevel;
   function setVis(sel, on){ document.querySelectorAll(sel).forEach(function(e){ if(on) e.style.removeProperty('display'); else e.style.setProperty('display','none','important'); }); }
   function apply(){ var L = level(); [1,2,3].forEach(function(n){ (C.hideBelow[n] || []).forEach(function(sel){ setVis(sel, L >= n); }); }); try{ if(C.fallback && !document.getElementById('djTour')) C.fallback(L); }catch(e){} pill(L); }
   function pill(L){ var p = document.getElementById('djLevelPill'); var h = document.querySelector(C.anchor || 'header');
