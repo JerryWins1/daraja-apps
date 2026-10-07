@@ -463,16 +463,29 @@ const APPS = {
  /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 one-time', video:true,
-  tag:'Sermons, events, prayer requests and giving in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
+  tag:'Sermons with notes you can record (with the scriptures and take-home questions pulled out), events, prayer requests and giving, in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
   try:'https://jerrywins1.github.io/immanuel-app/',
   lines:[
    "This is The Church App, which puts your whole church in everyone's pocket.",
    "Think about where things live right now: the announcements are in a bulletin nobody keeps, the sermons are on a YouTube channel nobody can find, and the calendar is taped to a wall.",
    "This app gathers all of it into one place, on every member's phone, with your church's own name on the front.",
    "Each Sunday's message lands in the app with its title, speaker and scripture, and the home screen always shows the newest one. Events drop off by themselves the moment they have passed.",
-   "Sermon notes are built right in, which ends the era of photographing the screen. Events, prayer requests, your giving link, and your staff page all live there too.",
+   {t:"Sermon Notes are built right in. Tap record and set the phone on your lap: it records the sermon, writes down the words, and keeps your own notes beside it.", js:"openSermonNotes()", point:"#sn2 [data-a=rec]"},
+   {t:"Afterwards it lists every scripture that was mentioned, gives you questions to take home, and with your own AI app, a summary in a minute. Events, prayer requests, giving and your staff page all live in the app too.", js:"(function(){var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click();})()"},
    "And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.",
    "It is one hundred forty-nine dollars, once, with setup included, and it grows with you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
+  ],
+  /* 7 Oct 2026: the 5-minute training — Sermon Notes v2 (record, notes, scriptures, questions, summary, library) */
+  train:[
+   {t:"This is the five-minute training for Sermon Notes in The Church App: how to use it on a Sunday, and what to do with it afterwards.", js:"openSermonNotes()"},
+   {t:"When the sermon starts, open the app and tap the round notes button, or open this week's guide and tap My notes. Then tap Record the sermon.", point:"#sn2 [data-a=rec]"},
+   "Set the phone on your lap with the screen on. It dims by itself and keeps recording. On many phones the words are written down as they are said.",
+   {t:"If something stands out, type it under My notes. Each note is stamped with its moment, so later you can tap the time and hear that part again.", point:"#sn2In"},
+   {t:"This Sunday's outline and Bible verses are already here, posted by the church office. Tap any verse to read it right there.", point:"#sn2 .vref"},
+   {t:"When the sermon ends, tap Stop. The After page opens: listen again, every scripture that was mentioned, and questions to take home.", js:"(function(){var b=document.querySelector('#sn2 [data-tab=after]'); if(b) b.click();})()", point:"#sn2 [data-tab=after]"},
+   "For a summary and bullet points, tap Copy the sermon, open ChatGPT or Claude, paste it, then paste the answer back here. It takes about a minute.",
+   {t:"Everything is saved in your Library, on your own phone. Tap Share to send the summary and questions to your small group or your family.", js:"(function(){var b=document.querySelector('#sn2 [data-a=lib]'); if(b) b.click();})()"},
+   "And for the church office: when you post Sunday's message on the Weekly Update page, add the outline and the verses, and everyone's Sermon Notes has them before the service starts."
   ]},
  churchsteward: {
   name:'Ahead of It · Church', em:'🧾', sub:'never miss an inspection', cat:'church', price:'$29 one-time', video:true,
