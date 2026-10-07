@@ -401,6 +401,23 @@ const APPS = {
    {t:"Step seven: if something needs fixing, the commissioner can enter picks for anyone from Home, or adjust points in Setup. Every change shows its work in Standings.", js:"try{go('standings')}catch(e){}", point:"nav.tabs button[data-tab='standings']"},
    "You'll know it's set up right when Home shows the next race, your drivers, and the deadline, and the Standings match the last post your commissioner made by hand."],
   extra:{
+   join:{ title:'You got the link — how to join (2 minutes)', sub:'For the rest of the group: what the text does, and the one thing you have to do. Sound on.',
+    lines:[
+     {t:"Somebody in your league just texted you a link. This is what it does, and the one thing it needs from you. It takes about two minutes.", js:"try{state.league.testMode=true;saveLocal();go('home')}catch(e){}"},
+     "First, what this is not. It is not a new league. It is the same league you have been running by group text for years, with the same rules, the same commissioner and the same arguments. The app just does the counting.",
+     {t:"When you tapped the link, your phone joined the league. That is the whole setup. Nothing to install, nothing to sign up for, no password to invent.", point:"nav.tabs button[data-tab='home']"},
+     {t:"The one thing it needs from you: tap the button at the top and say which one of you you are. Then pick any four digit number as your PIN. That is only there so nobody else can enter your picks as a joke.", point:"#meBtn"},
+     {t:"Now the part you will use every weekend. This is the home card. It knows the real race calendar, so it shows the next race, when picks are due, and a countdown.", point:"nav.tabs button[data-tab='home']"},
+     "To make your picks, you tap two of your drivers before that deadline. That is it. No text to send, no reply to wait for. Everybody's phone sees it at once.",
+     {t:"Each of your drivers has a set number of runs for the season, and the app counts them down for you. No more arguing about who used Hamilton how many times.", js:"try{go('usage')}catch(e){}", point:"nav.tabs button[data-tab='usage']"},
+     "Twice a season you can play a wild card: all four of your drivers at once, and it does not use anybody's runs. The app keeps track of whether you still have one.",
+     {t:"Miss the deadline and the house rule takes over, same as always: it starts your two highest placed drivers who still have runs left. No midnight texts, no favours, no exceptions, and it is the same rule for everyone.", js:"try{go('races')}catch(e){}"},
+     {t:"After the race, the results come in on their own and the standings do themselves. Tap any race to see exactly how every point was worked out.", js:"try{go('standings')}catch(e){}", point:"nav.tabs button[data-tab='standings']"},
+     {t:"On race day the Live tab is a running scoreboard: where everyone's drivers are right now, and what the league table would look like if the race stopped this second.", js:"try{go('live')}catch(e){}", point:"nav.tabs button[data-tab='live']"},
+     {t:"And the trash talk gets its own room, because it was always the best part.", js:"try{go('paddock')}catch(e){}", point:"nav.tabs button[data-tab='paddock']"},
+     {t:"Last thing, and it is worth doing now: add it to your home screen so it opens like a normal app. On an iPhone, tap the share button at the bottom of the browser, scroll down, and tap Add to Home Screen. On Android it is the three dots, then Install or Add to Home screen.", js:"try{go('home')}catch(e){}"},
+     "That is everything. Tap your name, set a PIN, pick two drivers before Friday night. If you want the full rules written out, there is a rulebook link under the video."
+    ]},
    draft:{ title:'How the draft works (90 seconds)', sub:'The once-a-year event, start to finish. Sound on.',
     lines:[
      {t:"This is the draft room in Pit Wall. Once a year, a couple of weeks before the first race, every team is built from scratch here.", js:"try{state.league.testMode=true;saveLocal();go('draft')}catch(e){}"},
