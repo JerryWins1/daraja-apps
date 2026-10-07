@@ -1818,14 +1818,18 @@
       <div id="digest"></div>
       <!-- v1.18 (6 Oct): Jerry: "I wish we only had one thing." The to-do list lives in Jerry's List only; HQ is people & messages. -->
       <a class="card" href="https://claude.ai/code/artifact/e5353624-9579-478a-9287-207ac2acae61" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border:2px solid var(--accent,#23504F)"><span style="font-size:30px">📋</span><span style="flex:1"><b style="font-size:18px">Jerry's List</b><br><span class="muted">Your one list: 🏢 Business and 🏠 Personal, one next step at a time.</span></span><span style="font-size:22px">›</span></a>
-      <div class="chips" style="margin:12px 0 4px">📣&nbsp;<button class="chip main" onclick="groupMsg('zuri')">Message the Zuri testers</button><button class="chip main" onclick="groupMsg('daraja')">Message the Daraja testers</button></div>
-      <h2>📶 Zuri go-live <small id="zlDays"></small></h2>
+      <!-- v1.21 (7 Oct): Jerry: "a little dashboard of everything that needs to be done, and a section for Zuri testers and a section for Daraja testers rather than a button." -->
+      <h2>Needs you</h2>
+      <div class="tiles" id="needsYou" style="margin-top:0"></div>
+      <h2 id="secZuri">📶 Zuri testers · go-live <small id="zlDays"></small></h2>
       <div class="card" id="zuriLive"><p class="muted" style="margin:0">Loading the testers' board…</p></div>
-      <h2>New messages <small id="msgCount"></small></h2>
+      <h2 id="secDaraja">🌉 Daraja testers <small id="dtCount"></small></h2>
+      <div class="card" id="darajaLive"><p class="muted" style="margin:0">Loading…</p></div>
+      <h2 id="secMsgs">New messages <small id="msgCount"></small></h2>
       <div class="card" id="newMsgs"></div>
-      <h2>Waiting on you</h2>
+      <h2 id="secWaiting">Waiting on you</h2>
       <div class="card" id="waiting"></div>
-            <h2>Gone quiet <small>no sign of them in 3+ days</small></h2>
+            <h2 id="secQuiet">Gone quiet <small>no sign of them in 3+ days</small></h2>
       <div class="card" id="quiet"></div>
       <h2>Dates that bite</h2>
       <div class="card" id="dates"></div>
@@ -1887,7 +1891,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.20 · 2026-10-07 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.21 · 2026-10-07 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -1940,20 +1944,20 @@ function show(t){
 }
 
 /* ---------- helpers on the data ---------- */
-const P=id=>(D.people||[]).find(p=>p.id===id)||{};
+const P=id=>((D&&D.people)||[]).find(p=>p.id===id)||{};
 const pl=(n,w)=>n+' '+w+(n===1?'':'s');
-const openOf=proj=>(D.requests||[]).filter(r=>['done','told'].indexOf(r.status)<0&&(P(r.person_id).project||(r.app==='zuri'?'zuri':'daraja'))===proj);
+const openOf=proj=>((D&&D.requests)||[]).filter(r=>['done','told'].indexOf(r.status)<0&&(P(r.person_id).project||(r.app==='zuri'?'zuri':'daraja'))===proj);
 const shown=p=>p.role!=='hidden';
 const ICON={whatsapp:'💬',help:'❓',board:'🧪',zuri:'📶',feedback:'🎙',note:'📝'};
 function settingJSON(k,def){ try{ return JSON.parse(D.settings[k]); }catch(e){ return def; } }
-function lastActive(p){ const ins=(D.messages||[]).filter(m=>m.person_id===p.id&&m.direction==='in').map(m=>m.at); return [p.last_seen,p.created,...ins].filter(Boolean).sort().pop()||''; }
+function lastActive(p){ const ins=((D&&D.messages)||[]).filter(m=>m.person_id===p.id&&m.direction==='in').map(m=>m.at); return [p.last_seen,p.created,...ins].filter(Boolean).sort().pop()||''; }
 function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h=(Date.now()-new Date(t))/36e5; return h<24?'today':h<72?'week':'quiet'; }
 
 /* ---------- render ---------- */
 function render(){
   renderToday(); try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
-  const nNew=(D.messages||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
-  const nStack=(D.requests||[]).filter(r=>r.status==='new').length;
+  const nNew=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
+  const nStack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
   $('stamp').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · updated '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+(D.whatsapp?' · WhatsApp connected':' · WhatsApp not connected yet');
 }
@@ -1982,7 +1986,7 @@ async function renderZuriLive(){
     ${ppl.filter(p=>p.notes.length).map(p=>p.notes.slice(0,2).map(n=>`<div class="item"><b>${esc(p.t.n)}:</b> ${esc(n.note||'')} <span class="meta">${ago(n.at)}</span></div>`).join('')).join('')}
     <div class="item" style="margin-top:6px"><b>Next on the plan:</b> ${esc(nextStep[1])} <span class="meta">${new Date(nextStep[0]+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></div>
     <details style="margin-top:6px"><summary class="muted">The two-week plan</summary>${ZL.plan.map(x=>`<div class="dl ${x[0]<new Date().toISOString().slice(0,10)?'':'soon'}"><span class="d">${new Date(x[0]+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span><span>${esc(x[1])}</span></div>`).join('')}</details>
-    <div class="chips" style="margin-top:10px"><a class="chip small" href="https://jerrywins1.github.io/zuri-system/testers/?board" target="_blank" rel="noopener">📊 The board</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?training" target="_blank" rel="noopener">🟠 Training copy</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?practice" target="_blank" rel="noopener">🧪 Practice</a></div>`;
+    <div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('zuri')">📣 Message the Zuri testers</button><a class="chip small" href="https://jerrywins1.github.io/zuri-system/testers/?board" target="_blank" rel="noopener">📊 The board</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?training" target="_blank" rel="noopener">🟠 Training copy</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?practice" target="_blank" rel="noopener">🧪 Practice</a></div>`;
 }
 
 /* ── One thing at a time (4 Oct 2026). Jerry: "I'm losing track — way too many things at once. One thing at a time."
@@ -2011,11 +2015,39 @@ async function focusSave(done,later){ await act({action:'settings.set',k:'focus_
 window.focusDone=async id=>{ const d=settingJSON('focus_done',[])||[]; const l=(settingJSON('focus_later',[])||[]).filter(x=>x!==id); if(d.indexOf(id)<0) d.push(id); await focusSave(d,l); };
 window.focusLater=async id=>{ const l=(settingJSON('focus_later',[])||[]).filter(x=>x!==id); l.push(id); await focusSave(settingJSON('focus_done',[])||[],l); };
 window.focusUndo=async id=>{ await focusSave((settingJSON('focus_done',[])||[]).filter(x=>x!==id), settingJSON('focus_later',[])||[]); };
+/* v1.21 (7 Oct) — the Daraja testers panel, the twin of Zuri's: one tile per tester, what they did, their latest words. */
+function renderDarajaLive(){
+  const el=$('darajaLive'); if(!el||!D) return;
+  const ppl=((D&&D.people)||[]).filter(p=>shown(p)&&p.project==='daraja'&&p.role==='tester');
+  const evs=D.events||[], ms=D.messages||[];
+  const rows=ppl.map(p=>{ const ev=evs.filter(e=>e.person_id===p.id), inn=ms.filter(m=>m.person_id===p.id&&m.direction==='in'), out=ms.filter(m=>m.person_id===p.id&&m.direction==='out');
+    const tried=new Set(ev.filter(e=>e.kind==='tried').map(e=>e.app)).size, said=inn.length;
+    const last=[p.last_seen,...ev.map(e=>e.at),...inn.map(m=>m.at)].filter(Boolean).sort().pop()||''; const hrs=last?(Date.now()-new Date(last))/36e5:1e9; const cls=hrs<24?'today':hrs<72?'week':'quiet';   /* real activity only — being added today is not using the apps */
+    const what=!last?(out.length?'invited · not started yet':'not invited yet'):cls==='today'?'active today':'last seen '+ago(last);
+    const st=!last?(out.length?'warn':'hot'):cls==='quiet'?'warn':'ok';
+    const note=inn.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
+    return {p,tried,said,what,st,note}; });
+  $('dtCount').textContent=ppl.length?ppl.length+' testers':'';
+  el.innerHTML=(ppl.length?`<div class="tiles" style="margin-top:0">${rows.map(r=>`<div class="tile ${r.st}" style="cursor:pointer" onclick="openPerson('${r.p.id}')"><div class="k">${esc(String(r.p.name).split(' ')[0])}</div><div class="v">${r.tried}</div><div class="s">apps tried · ${r.said} note${r.said===1?'':'s'} · ${esc(r.what)}</div></div>`).join('')}</div>`
+      :'<p class="muted" style="margin:0">No Daraja testers yet — add them on the People tab.</p>')
+    +rows.filter(r=>r.note).slice(0,3).map(r=>`<div class="item"><b>${esc(String(r.p.name).split(' ')[0])}:</b> ${esc(String(r.note.text||'').replace(/^'/,'').slice(0,160))} <span class="meta">${ago(r.note.at)}</span></div>`).join('')
+    +`<div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('daraja')">📣 Message the Daraja testers</button><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/testers/" target="_blank" rel="noopener">🧪 Testers’ List</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/welcome/" target="_blank" rel="noopener">👋 Welcome page</a></div>`;
+}
+/* v1.21 — "Needs you": everything waiting, as counts; tap one to jump there. */
+function renderNeedsYou(){
+  const el=$('needsYou'); if(!el||!D) return;
+  const unread=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
+  const waiting=((D&&D.messages)||[]).filter(m=>m.direction==='out'&&(m.status==='draft'||m.status==='waiting'||m.status==='failed')).length;
+  const stack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
+  const quiet=((D&&D.people)||[]).filter(p=>shown(p)&&(['tester','staff','customer'].indexOf(p.role)>=0||p.project==='zuri')&&lastSeenClass(p)==='quiet').length;
+  const t=(k,v,s,go,show)=>`<div class="tile ${v?'warn':'ok'}" style="cursor:pointer" onclick="${show?`show('${show}')`:`document.getElementById('${go}').scrollIntoView({behavior:'smooth'})`}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  el.innerHTML=t('New messages',unread,'to read','secMsgs')+t('Waiting on you',waiting,'drafts & retries','secWaiting')+t('The stack',stack,'new requests','', 'stack')+t('Gone quiet',quiet,'3+ days silent','secQuiet');
+}
 function renderToday(){
   const dg=settingJSON('digest',null);
   $('digest').innerHTML=dg?`<h2>Claude’s morning summary <small>${ago(dg.at)}</small></h2><div class="card" style="white-space:pre-wrap">${esc(dg.text)}</div>`:'';
-  const stacked=new Set((D.requests||[]).map(r=>r.msg_id));
-  const fresh=(D.messages||[]).filter(m=>m.direction==='in'&&m.status==='new').sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const stacked=new Set(((D&&D.requests)||[]).map(r=>r.msg_id));
+  const fresh=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   $('msgCount').textContent=fresh.length?fresh.length+' unread':'';
   $('newMsgs').innerHTML=fresh.length?fresh.map(m=>msgItem(m,
       `<button class="chip small main" onclick="openPerson('${m.person_id}',true)">↩︎ Reply</button>`+
@@ -2023,17 +2055,17 @@ function renderToday(){
       `<button class="chip small" onclick="markRead(['${m.id}'])">✓ Read</button>`)).join('')+
       (fresh.length>1?`<div class="chips" style="margin-top:8px"><button class="chip small" onclick="markRead(${esc(JSON.stringify(fresh.map(m=>m.id)))})">✓ Mark all read</button></div>`:'')
     :'<p class="muted" style="margin:0">Nothing new. When testers write on WhatsApp, the board, the help page or the Zuri list, it lands here.</p>';
-  const outs=(D.messages||[]).filter(m=>m.direction==='out'&&(m.status==='draft'||m.status==='waiting'||m.status==='failed'));
-  const nNewReq=(D.requests||[]).filter(r=>r.status==='new').length;
+  const outs=((D&&D.messages)||[]).filter(m=>m.direction==='out'&&(m.status==='draft'||m.status==='waiting'||m.status==='failed'));
+  const nNewReq=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   let w='';
   if(nNewReq) w+=`<div class="item"><b>${nNewReq} new in the stack</b> <button class="chip small" onclick="show('stack')">Open the stack →</button></div>`;
   w+=outs.map(m=>msgItem(m, m.status==='waiting'?'<span class="pill">check-in sent · your words go when they reply</span>':
       m.status==='failed'?`<span class="pill hot">didn’t send</span><button class="chip small" onclick="openPerson('${m.person_id}',true)">Try again</button>`:
       `<span class="pill">draft</span><button class="chip small main" onclick="openPerson('${m.person_id}',true,'${m.id}')">Review &amp; send</button>`)).join('');
   $('waiting').innerHTML=w||'<p class="muted" style="margin:0">Nothing waiting on you.</p>';
-  const quiet=(D.people||[]).filter(p=>shown(p)&&['tester','staff','customer'].indexOf(p.role)>=0||(p.project==='zuri'&&shown(p))).filter(p=>lastSeenClass(p)==='quiet');
+  const quiet=((D&&D.people)||[]).filter(p=>shown(p)&&['tester','staff','customer'].indexOf(p.role)>=0||(p.project==='zuri'&&shown(p))).filter(p=>lastSeenClass(p)==='quiet');
   $('quiet').innerHTML=quiet.length?quiet.map(p=>`<div class="item"><span class="who">${esc(p.name)}</span> <span class="meta">${esc(p.project)} · last heard from ${ago(lastActive(p))}</span> <button class="chip small" onclick="openPerson('${p.id}',true)">💬 Check in</button></div>`).join(''):'<p class="muted" style="margin:0">Everyone has shown up in the last three days.</p>';
-  renderDates();
+  renderDates(); try{ renderDarajaLive(); renderNeedsYou(); }catch(e){}
 }
 
 let BIZ_DATES=[];
@@ -2048,10 +2080,10 @@ function renderDates(){
 }
 
 function renderBusinessLive(){
-  const dp=(D.people||[]).filter(p=>shown(p)&&p.project==='daraja');
+  const dp=((D&&D.people)||[]).filter(p=>shown(p)&&p.project==='daraja');
   const open=openOf('daraja');
   $('darajaPeople').innerHTML=`<b>Testers &amp; customers</b> <span class="muted">· ${pl(dp.length,'person').replace('persons','people')} · ${dp.filter(p=>lastSeenClass(p)==='today').length} active today · ${pl(open.length,'open request')} · ${D.subs||0} on the tell-me list</span><div class="chips" style="margin-top:8px"><button class="chip small" onclick="filt='daraja';show('people');renderPeople()">See them →</button></div>`;
-  const z=(D.people||[]).filter(p=>shown(p)&&p.project==='zuri');
+  const z=((D&&D.people)||[]).filter(p=>shown(p)&&p.project==='zuri');
   const zn=openOf('zuri');
   $('zuri').innerHTML=`<div class="tiles" style="margin-top:0">
     <div class="tile ok"><div class="k">Active today</div><div class="v">${z.filter(p=>lastSeenClass(p)==='today').length}</div><div class="s">of ${z.length} testers</div></div>
@@ -2079,7 +2111,7 @@ function renderPeople(){
   const F=[['all','Everyone'],['zuri','Zuri'],['daraja','Daraja'],['customer','Customers'],['unknown','New numbers'],['hidden','Hidden']];
   $('pfilter').innerHTML=F.map(f=>`<button class="chip small ${filt===f[0]?'main':''}" onclick="filt='${f[0]}';store('jhq_pf',filt);renderPeople()">${f[1]}</button>`).join('');
   const q=($('psearch').value||'').toLowerCase();
-  let list=(D.people||[]).filter(p=> filt==='hidden'?p.role==='hidden': shown(p)&&(filt==='all'||p.project===filt||p.role===filt));
+  let list=((D&&D.people)||[]).filter(p=> filt==='hidden'?p.role==='hidden': shown(p)&&(filt==='all'||p.project===filt||p.role===filt));
   if(q) list=list.filter(p=>(p.name+' '+p.phone+' '+p.notes).toLowerCase().indexOf(q)>=0);
   list.sort((a,b)=>String(b.last_seen||b.created).localeCompare(String(a.last_seen||a.created)));
   const msgs=D.messages||[], reqs=D.requests||[], ev=D.events||[], wk=new Date(Date.now()-7*864e5).toISOString();
@@ -2100,9 +2132,9 @@ function inviteLink(p){ return p.project==='zuri' ? 'https://jerrywins1.github.i
 
 function openPerson(id,compose,draftId){
   const p=P(id); if(!p.id) return;
-  const msgs=(D.messages||[]).filter(m=>m.person_id===id).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
-  const ev=(D.events||[]).filter(e=>e.person_id===id).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,12);
-  const reqs=(D.requests||[]).filter(r=>r.person_id===id);
+  const msgs=((D&&D.messages)||[]).filter(m=>m.person_id===id).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  const ev=((D&&D.events)||[]).filter(e=>e.person_id===id).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,12);
+  const reqs=((D&&D.requests)||[]).filter(r=>r.person_id===id);
   const draft=draftId?msgs.find(m=>m.id===draftId):null;
   const unread=msgs.filter(m=>m.direction==='in'&&m.status==='new').map(m=>m.id);
   sheet(`<button class="chip small close" onclick="closeSheet()">✕</button>
@@ -2174,7 +2206,7 @@ const firstName=p=>String(p.name||'').trim().split(/\s+/)[0];
 const fillName=(t,p)=>t.replace(/\{name\}/gi,firstName(p)).replace(/\{link\}/gi,inviteLink(p)); /* 7 Oct: {link} = this person's own testers link, so what they do lands under their name */
 function groupMsg(g){
   g=GROUPS[g]?g:'zuri';
-  const list=(D.people||[]).filter(p=>shown(p)&&GROUPS[g][1](p)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const list=((D&&D.people)||[]).filter(p=>shown(p)&&GROUPS[g][1](p)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   GM={g,list,sel:new Set(list.filter(p=>p.phone).map(p=>p.id)),text:(GM&&GM.g===g&&GM.text)||(g==='daraja'?"Hi {name}! Thank you for testing our apps. Here's your own link — everything you try and say lands with me: {link} Start with One Thing and Our Table (they're ready). Tap 🎙 Open in the tester and just talk while you use it. Thank you! – Jerry":g==='zuri'?'':''),done:new Set()};
   drawGM();
 }
@@ -2222,7 +2254,7 @@ async function gmSend(id){
 const STEPS=[['new','New'],['stack','In the stack'],['planned','Planned'],['building','Building'],['done','Done'],['told','Told them']];
 const KIND={problem:'🐞',idea:'💡',praise:'🙌',question:'❓',change:'🔧',note:'📝'};
 function renderStack(){
-  const reqs=(D.requests||[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const reqs=((D&&D.requests)||[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   $('stackList').innerHTML=STEPS.map(([s,label],i)=>{
     const items=reqs.filter(r=>(r.status||'new')===s); if(!items.length && (s==='told'||s==='done')) return '';
     const next=STEPS[i+1];
