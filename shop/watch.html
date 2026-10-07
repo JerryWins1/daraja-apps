@@ -1924,11 +1924,22 @@ function speak(text, cb){
         speechSynthesis.speak(u);
         setTimeout(function(){
           if(done || started) return;
+          /* 7 Oct (Jerry on the iPad: "plays three seconds, repeats itself two times, waits"): iPad Safari often fires onstart
+             late or never, so a sentence that WAS playing got cancelled and said again. If the voice is busy, it started. */
+          var busyNow=false; try{ busyNow = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
+          if(busyNow){ started=true; try{ voiceOK(true); }catch(e){} return; }
           if(tries<3){ try{ speechSynthesis.cancel(); }catch(e){} setTimeout(sayIt, 120); }
           else { voiceOK(false); }
-        }, 1500);
+        }, 2500);
       };
       sayIt();
+      /* 7 Oct, round 2 (iPad: "one sentence smoothly, then it stops, then the next"): iPad Safari often never fires onend,
+         so the player sat out the long safety timer. Watch for the voice going quiet instead: once it has been heard
+         speaking, two quiet checks in a row (~0.6 s) mean the sentence is over. */
+      let sawBusy=false, quiet=0;
+      (function hush(){ if(done) return; let b=false; try{ b = speechSynthesis.speaking || speechSynthesis.pending; }catch(e){}
+        if(b){ sawBusy=true; quiet=0; } else if(sawBusy && !speechSynthesis.paused && ++quiet>=2){ fin(); return; }
+        setTimeout(hush, 300); })();
       const expect = 3000 + line.length*170, hardStop = Date.now() + expect + 15000;
       guard = setTimeout(function tick(){
         if(done) return;
