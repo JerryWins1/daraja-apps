@@ -1845,6 +1845,23 @@ const app = APPS[id] || APPS.nownext;
 const EXTRA = (app.extra && params.get('mode') && app.extra[params.get('mode')]) || null; /* extra short videos, e.g. ?mode=draft */
 const MODE = (params.get('mode')==='train' && app.train) ? 'train' : EXTRA ? 'extra' : 'overview';
 const LINES = MODE==='train' ? app.train : EXTRA ? EXTRA.lines : app.lines;
+/* v3 · 7 Oct 2026 — RECORDED narration (voicemaker.py). Jerry on the iPad: the browser's own voice waited 10–15 s,
+   repeated itself and stalled. A real recording plays the same on every device. One m4a per video, a cue per line;
+   a line whose words changed since recording falls back to the browser voice. */
+const VKEY = id + '-' + (MODE==='extra' ? params.get('mode') : MODE);
+let VOICE = null, AUD = null, segTimer = null, segCb = null;
+const vkey40 = t => String(t).replace(/\s+—\s+/g,'… ').replace(/\s+·\s+/g,'… ').replace(/—/g,',').replace(/\s+/g,' ').trim().slice(0,40);
+fetch('voice/index.json?cb=' + Date.now()).then(r=>r.json()).then(j=>{ const v=j[VKEY]; if(v && v.cues && v.cues.length===LINES.length){ VOICE=v; AUD=new Audio(v.file+'?h='+v.h); AUD.preload='auto'; } }).catch(()=>{});
+function segStop(){ clearInterval(segTimer); segTimer=null; try{ AUD && AUD.pause(); }catch(e){} }
+function playSeg(n, cb){
+  const c=VOICE.cues[n]; segCb=cb; let finished=false;
+  const finish=()=>{ if(finished) return; finished=true; segStop(); const f=segCb; segCb=null; f && f(); };
+  const go=()=>{ try{ AUD.currentTime=c[0]; }catch(e){}
+    const p=AUD.play(); if(p && p.catch) p.catch(()=>{ finished=true; segStop(); speak(lineText(LINES[n]), cb); });
+    clearInterval(segTimer); const hard=Date.now()+(c[1]-c[0])*1000+6000;
+    let fixed=0; segTimer=setInterval(()=>{ if(paused) return; if(fixed<3 && AUD.currentTime < c[0]-0.5){ fixed++; try{ AUD.currentTime=c[0]; }catch(e){} return; } if(AUD.ended || AUD.currentTime>=c[1]-0.04 || Date.now()>hard) finish(); },60); };
+  if(AUD.readyState>=1) go(); else { AUD.addEventListener('loadedmetadata', go, {once:true}); try{ AUD.load(); }catch(e){} }
+}
 const $ = x=>document.getElementById(x);
 
 $('slideEm').textContent = app.em;
@@ -1953,6 +1970,7 @@ function speak(text, cb){
 function play(){
   /* inside the tap itself: clear any stuck queue and wake the voice, so the first sentence is heard */
   try{ if(window.speechSynthesis){ speechSynthesis.cancel(); speechSynthesis.resume(); speechSynthesis.getVoices(); } }catch(e){}
+  try{ if(AUD){ AUD.muted=false; AUD.load(); } }catch(e){}
   $('ov').style.display='none'; $('cap').style.display='block';
   const fr=$('appFrame');
   try{ localStorage.setItem('daraja_intro_'+id,'1'); }catch(e){}
@@ -2030,7 +2048,9 @@ function next(){
   direct(l);
   $('capText').textContent = written(lineText(l));
   $('prog').style.width = Math.round(((i+1)/LINES.length)*100)+'%';
-  speak(lineText(l), ()=>setTimeout(next, 950));
+  const nx=()=>setTimeout(next, VOICE?450:950);
+  if(VOICE && AUD && soundOn && VOICE.cues[i] && VOICE.cues[i][2]===vkey40(lineText(l))) playSeg(i, nx);
+  else speak(lineText(l), nx);
 }
 function end(){
   playing=false;
@@ -2042,6 +2062,7 @@ function end(){
   $('ov').style.display='flex';
 }
 function restart(){
+  segCb=null; segStop();
   if(window.speechSynthesis) speechSynthesis.cancel();
   $('movie').classList.remove('live');
   $('shield').style.display='block'; $('liveBar').style.display='none';
@@ -2057,6 +2078,7 @@ function togglePause(){
   if(!playing) return;
   paused=!paused;
   $('pBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+  if(segTimer){ if(paused){ try{ AUD.pause(); }catch(e){} } else { try{ AUD.play(); }catch(e){} } return; }
   if(!window.speechSynthesis){ if(!paused) next(); return; }
   if(paused){ try{ speechSynthesis.pause(); }catch(e){} return; }
   try{ speechSynthesis.resume(); }catch(e){}
@@ -2085,6 +2107,7 @@ function toggleSound(){
   soundOn=!soundOn;
   $('sndBtn').textContent = soundOn?'🔊 Sound on':'🔇 Sound off';
   if(!soundOn && window.speechSynthesis) speechSynthesis.cancel();
+  if(AUD) AUD.muted=!soundOn;
 }
 if(window.speechSynthesis) speechSynthesis.getVoices();
 </script>
