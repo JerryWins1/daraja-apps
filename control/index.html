@@ -1887,7 +1887,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.19 · 2026-10-07 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.20 · 2026-10-07 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2200,23 +2200,21 @@ function drawSend(){
   const left=GM.who.filter(p=>!GM.done.has(p.id)), nxt=left[0];
   sheet(`<button class="chip small close" onclick="closeSheet();load()">✕</button>
     <h3 style="margin:4px 0 2px">📣 ${GM.done.size} of ${GM.who.length} sent</h3>
-    <p class="muted" style="margin:4px 0 10px">${left.length?'Each button opens WhatsApp with the words already typed. <b>Press the green send arrow there</b>, then come back here for the next one.':'🎉 All sent. HQ logged each one in their conversation.'}</p>
+    <p class="muted" style="margin:4px 0 10px">${left.length?'Each button opens <b>Messages</b> (US numbers) or <b>WhatsApp</b> (Kenya) with the words already typed. <b>Press send there</b>, then come back here for the next one.':'🎉 All sent. HQ logged each one in their conversation.'}</p>
     ${GM.who.map(p=>{ const d=GM.done.has(p.id); return `<div class="item" style="${p===nxt?'border-left:4px solid var(--accent,#0F6E5C);padding-left:10px':''}">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${esc(p.name)}</b>${d?'<span class="pill">✓ sent</span>':`<button class="chip ${p===nxt?'wa':''}" onclick="gmSend('${p.id}')">📱 Send to ${esc(firstName(p))}</button>`}</div>
       <div class="sum muted" style="margin-top:4px">${esc(fillName(GM.text,p))}</div></div>`; }).join('')}
     <div class="chips" style="margin-top:10px">${GM.done.size?'':'<button class="chip small" onclick="drawGM()">← Change the words</button>'}<button class="chip small ${left.length?'':'main'}" onclick="closeSheet();load()">${left.length?'Stop here':'Done'}</button></div>`);
 }
 async function gmSend(id){
+  /* 7 Oct: open Messages / WhatsApp INSIDE the tap — Safari blocks it if the page waits for HQ first (Diane's button did nothing) */
   const p=P(id); if(!p.phone) return; const t=fillName(GM.text,p);
-  const w=window.open('','_blank');
-  try{ const r=await hq({action:'message.draft',person_id:id,text:t});
-    /* 7 Oct: US numbers (Kara, Heidi, Diane) text — open Messages; everyone else (Kenya) gets WhatsApp */
-    const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
-    const url= us ? 'sms:+'+p.phone+(apple?'&':'?')+'body='+encodeURIComponent(t) : 'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
-    if(us){ if(w) w.close(); location.href=url; }
-    else if(w) w.location=url; else { toast('Allow pop-ups for HQ, then tap again',true); return; }
-    await hq({action:'message.mark',id:r.id,status:'sent by hand'}); GM.done.add(id); drawSend(); }
-  catch(e){ if(w) w.close(); toast(e.message,true); }
+  const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
+  const url= us ? 'sms:+'+p.phone+(apple?'&':'?')+'body='+encodeURIComponent(t) : 'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
+  if(us){ location.href=url; } else { const w=window.open(url,'_blank'); if(!w) location.href=url; }
+  GM.done.add(id); drawSend();
+  try{ const r=await hq({action:'message.draft',person_id:id,text:t}); await hq({action:'message.mark',id:r.id,status:'sent by hand'}); }
+  catch(e){ toast('Opened it, but HQ could not log it: '+e.message,true); }
 }
 
 /* ---------- the stack ---------- */
