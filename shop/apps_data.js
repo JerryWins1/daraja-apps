@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
@@ -469,7 +469,7 @@ const APPS = {
    "This is The Church App, which puts your whole church in everyone's pocket.",
    "Think about where things live right now: the announcements are in a bulletin nobody keeps, the sermons are on a YouTube channel nobody can find, and the calendar is taped to a wall.",
    "This app gathers all of it into one place, on every member's phone, with your church's own name on the front.",
-   "The sermons sync from your YouTube channel automatically, so when you post Sunday's message that night, it is simply in the app by Monday morning.",
+   "Each Sunday's message lands in the app with its title, speaker and scripture, and the home screen always shows the newest one. Events drop off by themselves the moment they have passed.",
    "Sermon notes are built right in, which ends the era of photographing the screen. Events, prayer requests, your giving link, and your staff page all live there too.",
    "And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.",
    "It is one hundred forty-nine dollars, once, with setup included, and it grows with you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
