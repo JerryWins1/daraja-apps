@@ -1824,7 +1824,7 @@
       <div class="card" id="newMsgs"></div>
       <h2>Waiting on you</h2>
       <div class="card" id="waiting"></div>
-      <div class="chips" style="margin:14px 0 4px"><button class="chip main" onclick="groupMsg('zuri')">📣 Message the Zuri testers</button></div>
+      <div class="chips" style="margin:14px 0 4px"><button class="chip main" onclick="groupMsg('zuri')">📣 Message the Zuri testers</button><button class="chip main" onclick="groupMsg('daraja')">📣 Message the Daraja testers</button></div>
       <h2>Gone quiet <small>no sign of them in 3+ days</small></h2>
       <div class="card" id="quiet"></div>
       <h2>Dates that bite</h2>
@@ -1887,7 +1887,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.18 · 2026-10-06 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.19 · 2026-10-07 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2171,11 +2171,11 @@ const GROUPS={zuri:['Zuri testers',p=>p.project==='zuri'&&['staff','hidden','fam
   daraja:['Daraja testers',p=>p.project==='daraja'&&p.role==='tester'],customer:['Customers',p=>p.role==='customer']};
 let GM=null;
 const firstName=p=>String(p.name||'').trim().split(/\s+/)[0];
-const fillName=(t,p)=>t.replace(/\{name\}/gi,firstName(p));
+const fillName=(t,p)=>t.replace(/\{name\}/gi,firstName(p)).replace(/\{link\}/gi,inviteLink(p)); /* 7 Oct: {link} = this person's own testers link, so what they do lands under their name */
 function groupMsg(g){
   g=GROUPS[g]?g:'zuri';
   const list=(D.people||[]).filter(p=>shown(p)&&GROUPS[g][1](p)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  GM={g,list,sel:new Set(list.filter(p=>p.phone).map(p=>p.id)),text:(GM&&GM.text)||'',done:new Set()};
+  GM={g,list,sel:new Set(list.filter(p=>p.phone).map(p=>p.id)),text:(GM&&GM.g===g&&GM.text)||(g==='daraja'?"Hi {name}! Thank you for testing our apps. Here's your own link — everything you try and say lands with me: {link} Start with One Thing and Our Table (they're ready). Tap 🎙 Open in the tester and just talk while you use it. Thank you! – Jerry":g==='zuri'?'':''),done:new Set()};
   drawGM();
 }
 function drawGM(){
@@ -2183,7 +2183,7 @@ function drawGM(){
   sheet(`<button class="chip small close" onclick="closeSheet()">✕</button>
     <h3 style="margin:4px 0 2px">📣 Message the ${esc(GROUPS[g][0])}</h3>
     <div class="chips" style="margin:6px 0">${Object.keys(GROUPS).map(k=>`<button class="chip small ${k===g?'main':''}" onclick="GM.text=$('gmText').value;groupMsg('${k}')">${esc(GROUPS[k][0])}</button>`).join('')}</div>
-    <label for="gmText">The message <span class="muted" style="font-weight:500">· write {name} where their first name goes</span></label>
+    <label for="gmText">The message <span class="muted" style="font-weight:500">· {name} = their first name · {link} = their own testing link</span></label>
     <textarea id="gmText" placeholder="Habari {name}! …">${esc(GM.text)}</textarea>
     <h2>Who gets it</h2>
     ${GM.list.length?GM.list.map(p=>`<label class="item" style="display:flex;gap:10px;align-items:center;cursor:pointer"><input type="checkbox" data-gm="${p.id}" ${GM.sel.has(p.id)?'checked':''} ${p.phone?'':'disabled'} style="width:22px;height:22px">
@@ -2210,8 +2210,11 @@ async function gmSend(id){
   const p=P(id); if(!p.phone) return; const t=fillName(GM.text,p);
   const w=window.open('','_blank');
   try{ const r=await hq({action:'message.draft',person_id:id,text:t});
-    const url='https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
-    if(w) w.location=url; else { toast('Allow pop-ups for HQ, then tap again',true); return; }
+    /* 7 Oct: US numbers (Kara, Heidi, Diane) text — open Messages; everyone else (Kenya) gets WhatsApp */
+    const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
+    const url= us ? 'sms:+'+p.phone+(apple?'&':'?')+'body='+encodeURIComponent(t) : 'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
+    if(us){ if(w) w.close(); location.href=url; }
+    else if(w) w.location=url; else { toast('Allow pop-ups for HQ, then tap again',true); return; }
     await hq({action:'message.mark',id:r.id,status:'sent by hand'}); GM.done.add(id); drawSend(); }
   catch(e){ if(w) w.close(); toast(e.message,true); }
 }
