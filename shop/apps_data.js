@@ -478,7 +478,7 @@ const APPS = {
   /* 7 Oct 2026: the 5-minute training — Sermon Notes v2 (record, notes, scriptures, questions, summary, library) */
   train:[
    {t:"This is the five-minute training for Sermon Notes in The Church App: how to use it on a Sunday, and what to do with it afterwards.", js:"openSermonNotes()"},
-   {t:"When the sermon starts, open the app and tap the round notes button, or open this week's guide and tap My notes. Then tap Record the sermon.", point:"#sn2 [data-a=rec]"},
+   {t:"When the sermon starts, open the app and tap the round notes button, or open this week's guide and tap My notes. Then tap Record the sermon.", js:"if(!document.getElementById('sn2')||!document.getElementById('sn2').classList.contains('on')) openSermonNotes()", point:"#sn2 [data-a=rec]"},
    "Set the phone on your lap with the screen on. It dims by itself and keeps recording. On many phones the words are written down as they are said.",
    {t:"If something stands out, type it under My notes. Each note is stamped with its moment, so later you can tap the time and hear that part again.", point:"#sn2In"},
    {t:"This Sunday's outline and Bible verses are already here, posted by the church office. Tap any verse to read it right there.", point:"#sn2 .vref"},
