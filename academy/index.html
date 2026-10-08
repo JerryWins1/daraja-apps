@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v62">
+<script id="dj-house-v63">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -195,7 +195,7 @@
   var rec = null, micBtn = null, curBox = null;
 
   function eligible(el){
-    if(!el || el.dataset.djMic === 'off') return false;
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
     var t = (el.tagName||'').toLowerCase();
     if(t === 'textarea') return true;
     if(t !== 'input') return false;
@@ -307,7 +307,7 @@
     zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
     academy:      {k:['daraja_academy_v1'], p:['academy_']},
     feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
-    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_'], idb:['story_voice']},   /* v63: Start fresh also erases the voice recordings */
     thekey:       {k:['daraja_thekey_v1','daraja_thekey_v2'], p:[]},   /* v62: v2 = the accounts, papers and people entries */
     churchkey:    {k:['daraja_churchkey_v1'], p:[]},
     drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
@@ -366,8 +366,9 @@
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
     var dbs = (OWNS[slugOf()] || {}).idb || [];
     if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
-    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.concat(dbs.map(function(n){ return n + ' (attached files)'; })).join('\n  • ') +
-                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
+    if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
     /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
@@ -662,6 +663,8 @@
      No tour, no Start menu, no Home Screen card, no daily hello on top of their question. An app can also set window.DJ_GUEST. */
   function guestVisit(){ try{ return !!window.DJ_GUEST || (/[?&]r=/.test(location.search) && /\/whoscoming\//.test(location.pathname)); }catch(e){ return false; } }
   function kidsPage(){ try{ return !!window.DJ_KIDS || !!document.querySelector('meta[name="dj-kids"]'); }catch(e){ return false; } }
+  /* v63: the crisis tool (My Safety Plan) gets no outside-AI or Tell-it buttons — a plan's names and numbers must never be sent anywhere — and its 988 bar stays on top of the ? sheet */
+  function crisisPage(){ try{ return /\/safety\//.test(location.pathname) || !!document.getElementById('crisis'); }catch(e){ return false; } }
   /* v62 (found #25): the ? sheet row said "Help, backup, start fresh" but only reopened the welcome card.
      It now opens exactly those three things (backup only where the app has one). */
   function btn_lab(c, lab){ if(c.id !== 'djHelp') return lab; return ['?', document.getElementById('djBackup') ? 'Help, backup, start fresh' : 'Help and start fresh']; }
@@ -687,6 +690,7 @@
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
+    if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
@@ -719,7 +723,7 @@
       ai.onclick = function(){ w.remove(); pickAssistant(); };
       box.appendChild(ai);
     }
-    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+    if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
@@ -1174,7 +1178,7 @@
      and the clash left its Routines tab blank. */
   function askButton(){
     if(document.getElementById('djAIBtn') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link) */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link); v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djAIBtn'; b.textContent = '✨';
     b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1358,7 +1362,7 @@
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
-    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers)\//.test(location.pathname)) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
     if(rec.last === today) return;
@@ -1381,7 +1385,7 @@
        up ~100px and a tap aimed at one card landed on the one below. It now floats over the top and fades —
        nothing underneath moves. A tap anywhere on it closes it at once. */
     w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481002;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
-    w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
+    w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
@@ -1624,7 +1628,7 @@
   window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
   function tellButton(){
     if(document.getElementById('djTell') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton; v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
     b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1886,6 +1890,7 @@
   #top h1{font-family:var(--serif); font-size:34px; margin-top:4px; line-height:1.15;}
   #top h1 span{color:var(--warm);}
   .card{ background:var(--card); border:1px solid var(--line); border-radius:20px; padding:26px 26px; margin:16px 0; box-shadow:0 3px 14px rgba(80,60,30,.06); }
+  @media (max-width:480px){ .card{ padding:22px 40px 22px 20px; } }   /* 7 Oct deep check: a lane for the ? button */
   h2{font-family:var(--serif); font-size:29px; margin-bottom:12px; line-height:1.25;}
   p{margin-bottom:14px;} p.big{font-size:22px;} .soft{color:var(--soft);} b{color:var(--warm);}
   .btn{ display:inline-block; border:none; cursor:pointer; font-size:21px; font-weight:700; padding:17px 32px; border-radius:999px; background:var(--warm); color:#fff; font-family:inherit; transition:transform .08s; text-decoration:none; }
@@ -1964,7 +1969,7 @@
 </div>
 <div id="dots"></div>
 <div class="wrap" id="stage"></div>
-<div id="ver">Daraja Academy · v2.5 · 2026-10-07 · every course helps a student in Kenya stay in school</div>
+<div id="ver">Daraja Academy · v2.6 · 2026-10-08 · every course helps a student in Kenya stay in school</div>
 
 <script>
 /* ============ narration ============ */
@@ -2016,6 +2021,9 @@ db.done = db.done || {}; if(db.done1) db.done[1]=true; try{ if(!db.name&&localSt
 function save(){ localStorage.setItem(LS, JSON.stringify(db)); }
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nm=()=>db.name||'Friend';
+/* 7 Oct deep check: headings said "Lesson 1 done, Friend" when no name was given — use the real name or none */
+const realName=()=>{ if(db.name) return db.name; try{ return localStorage.getItem('dj_name')||''; }catch(e){ return ''; } };
+const nmc=()=>realName()?', '+realName():'';
 const stage = ()=>document.getElementById('stage');
 let lesson=0, step=0;      /* lesson 0 = the course home */
 
@@ -2072,8 +2080,8 @@ function doneScreen(n, learned, teaser){
   return function(){
     finishLesson();
     const all=doneCount()===COURSE.length;
-    currentSay = `Well done, ${nm()}. That's lesson ${n} finished. `+(all?'And that was the last one. Your diploma is waiting on the lessons page.':'Come back tomorrow for the next one — ten minutes a day is plenty.');
-    stage().innerHTML = `<div class="card">${listenBtn()}<h2>Lesson ${n} done, ${esc(nm())}. ✅</h2>
+    currentSay = `Well done${nmc()}. That's lesson ${n} finished. `+(all?'And that was the last one. Your diploma is waiting on the lessons page.':'Come back tomorrow for the next one — ten minutes a day is plenty.');
+    stage().innerHTML = `<div class="card">${listenBtn()}<h2>Lesson ${n} done${esc(nmc())}. ✅</h2>
       <p class="big">Today you learned: ${learned}</p>
       ${teaser?`<div class="tip">${teaser}</div>`:''}
       ${all?`<div class="tip"><b>🎓 That was the last lesson.</b> Your diploma is ready on the lessons page.</div>`:''}
@@ -2104,9 +2112,9 @@ function home(){
 function graduate(){
   lesson=0; dots(); const d=doneCount(); const done=db.doneOn||{}; const today=done[6]||Object.values(done).pop()||new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   if(d<6){ currentSay=`${6-d} lessons to go, ${nm()}. The diploma is waiting.`; stage().innerHTML=`<div class="card">${listenBtn()}<h2>Almost. 🎓</h2><p class="big">${6-d} ${6-d===1?'lesson':'lessons'} to go, then this page becomes your diploma.</p><button class="btn ghost" onclick="home()">‹ Lessons</button></div>`; say(currentSay); return; }
-  currentSay=`Congratulations, ${nm()}. You finished AI for Grandparents. Six lessons. You can ask, check, write, and stay safe. Print this, and send a picture to the grandkids.`;
-  stage().innerHTML=`<div class="card">${listenBtn()}<h2>You did it, ${esc(nm())}. 🎓</h2>
-    <div class="cert"><div class="t">🌉 Daraja Academy · Diploma</div><h3>This certifies that</h3><div class="n">${esc(nm())}</div><p style="margin-top:8px;">completed <b>AI for Grandparents</b> — all six lessons —<br>and can ask, check, write, and stay safe with AI.</p><div class="d">Completed ${today}<br><i>"I speak AI."</i></div></div>
+  currentSay=`Congratulations${nmc()}. You finished AI for Grandparents. Six lessons. You can ask, check, write, and stay safe. Print this, and send a picture to the grandkids.`;
+  stage().innerHTML=`<div class="card">${listenBtn()}<h2>You did it${esc(nmc())}. 🎓</h2>
+    <div class="cert"><div class="t">🌉 Daraja Academy · Diploma</div><h3>This certifies that</h3><div class="n">${realName()?esc(realName()):'<span style="display:inline-block;min-width:60%;border-bottom:2px dotted currentColor">&nbsp;</span>'}</div><p style="margin-top:8px;">completed <b>AI for Grandparents</b> — all six lessons —<br>and can ask, check, write, and stay safe with AI.</p><div class="d">Completed ${today}<br><i>"I speak AI."</i></div></div>
     <button class="btn wide" onclick="window.print()" style="background:var(--gold);color:#221;">🖨 Print my diploma</button>
     <p class="soft" style="text-align:center;margin-top:14px;">📸 Send a picture of it to the grandkids. Go on.</p>
     <div class="tip"><b>Pass it on.</b> The best way to remember this is to show one friend lesson one. <button class="btn blue" style="margin-top:8px" onclick="shareCourse()">📤 Send a friend the free lesson</button></div>
@@ -2149,7 +2157,7 @@ COURSE[0].screens=[
  function(){ currentSay = "Your turn — and this one is safe practice, right here in the lesson. Tap any question below, and watch how the A I answers a plain, human question. Tap all three if you like.";
   stage().innerHTML = `<div class="card">${listenBtn()}<h2>Practice: tap a question. 👇</h2><p class="soft">This is a <b>practice robot</b> living inside the lesson — safe as a rocking chair. Tap one (or all three):</p><div class="askRow"><button class="askBtn" id="qa" onclick="ask('a')">🩺 “${CANNED.a.q}”</button><button class="askBtn" id="qb" onclick="ask('b')">🎂 “${CANNED.b.q}”</button><button class="askBtn" id="qc" onclick="ask('c')">🍗 “${CANNED.c.q}”</button></div><div id="chatOut"></div><div id="p1nav" class="hide">${nav(true,'That was easy ›')}</div><div id="p1wait"><br><p class="soft" style="text-align:center">tap a question above to see what happens…</p></div></div>`; say(currentSay); },
  function(){ currentSay = "Now the real thing. Think of something YOU actually want to know or write — a recipe, a letter, a word your doctor used, help planning a trip. Say it or type it below, like you'd ask a neighbor. Then tap one button, and it opens with your question already typed in.";
-  stage().innerHTML = `<div class="card">${listenBtn()}<h2>Now ask something REAL. ✍️</h2><p>Think of something <b>you</b> actually want — a recipe, a letter, a word your doctor used, trip ideas. Ask it like a neighbor:</p><input type="text" id="myAsk" placeholder="Type or say your question… (example: help me write a note to my sister)" value="${esc(db.myAsk||'')}" oninput="db.myAsk=this.value;save();document.getElementById('aiBtns').style.display=this.value.trim()?'block':'none'"><div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;"><button class="btn blue" onclick="copyAsk()">📋 Copy my question</button></div><div id="aiBtns" style="display:${(db.myAsk||'').trim()?'block':'none'};margin-top:12px;text-align:center"><p class="soft" style="margin-bottom:8px"><b>Or skip the copying — one tap does it all:</b></p><button class="btn blue" onclick="openAI('chatgpt')">💬 Ask this in ChatGPT →</button> <button class="btn blue" onclick="openAI('claude')">🤖 Ask this in Claude →</button><p class="soft" style="font-size:13px;margin-top:6px">Your question rides along — it'll be waiting in the box when the page opens.</p><p class="soft" style="font-size:14px;margin-top:6px">ChatGPT works straight away. Claude asks for a free sign-up with your email the first time.</p></div><div class="tip" id="copyTip" style="display:none"><b>Copied! Now the field trip 🚌</b><br>Open <b>claude.ai</b> or <b>chatgpt.com</b>, tap the message box, hold your finger down and choose <b>Paste</b>. Then send it. Come back here after — I'll wait right here.</div>${nav(true,'I did it (or I will!) ›')}</div>`; say(currentSay); },
+  stage().innerHTML = `<div class="card">${listenBtn()}<h2>Now ask something REAL. ✍️</h2><p>Think of something <b>you</b> actually want — a recipe, a letter, a word your doctor used, trip ideas. Ask it like a neighbor:</p><input type="text" id="myAsk" placeholder="Type or say your question…" value="${esc(db.myAsk||'')}" oninput="db.myAsk=this.value;save();document.getElementById('aiBtns').style.display=this.value.trim()?'block':'none'"><p class="soft" style="font-size:15px;margin:6px 2px 0">Example: “help me write a note to my sister”</p><div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;"><button class="btn blue" onclick="copyAsk()">📋 Copy my question</button></div><div id="aiBtns" style="display:${(db.myAsk||'').trim()?'block':'none'};margin-top:12px;text-align:center"><p class="soft" style="margin-bottom:8px"><b>Or skip the copying — one tap does it all:</b></p><button class="btn blue" onclick="openAI('chatgpt')">💬 Ask this in ChatGPT →</button> <button class="btn blue" onclick="openAI('claude')">🤖 Ask this in Claude →</button><p class="soft" style="font-size:13px;margin-top:6px">Your question rides along — it'll be waiting in the box when the page opens.</p><p class="soft" style="font-size:14px;margin-top:6px">ChatGPT works straight away. Claude asks for a free sign-up with your email the first time.</p></div><div class="tip" id="copyTip" style="display:none"><b>Copied! Now the field trip 🚌</b><br>Open <b>claude.ai</b> or <b>chatgpt.com</b>, tap the message box, hold your finger down and choose <b>Paste</b>. Then send it. Come back here after — I'll wait right here.</div>${nav(true,'I did it (or I will!) ›')}</div>`; say(currentSay); },
  function(){ currentSay = "One more thing — the grandparent safety rule. A I can write anything, including lies. So: a real A I helper answers when YOU ask. It never calls you. It never emails you first. It never asks for money or bank numbers. If a voice on the phone sounds exactly like your grandchild asking for money — hang up and call the family directly.";
   stage().innerHTML = `<div class="card">${listenBtn()}<h2>The safety rule. 🛡</h2><p class="big">AI can write anything — <b>including lies.</b> So remember:</p><div class="tip"><b>A real AI helper answers when YOU ask.</b><br>It never calls you. It never emails you first. It <b>never</b> asks for money or bank numbers.</div><div class="tip">📞 If a voice sounds <i>exactly</i> like your grandchild asking for money — <b>hang up and call the family directly.</b></div>${nav(true,'Got it ›')}</div>`; say(currentSay); },
  quizScreen('One-question quiz. 📞', "The phone rings. A voice just like your grandson says he's in trouble and needs gift cards, fast. What do you do?", ["Buy the gift cards — it sounded just like him","Give him your card number so it's faster","Hang up — and call him or his mom directly"], 2, "Exactly right. Hang up, call the family directly. You just beat the newest scam in America.", "Careful! That's exactly how the scam works. The safe move: hang up, and call him or his mom directly. Now you know."),
