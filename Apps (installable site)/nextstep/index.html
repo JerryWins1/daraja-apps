@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v62">
+<script id="dj-house-v63">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -195,7 +195,7 @@
   var rec = null, micBtn = null, curBox = null;
 
   function eligible(el){
-    if(!el || el.dataset.djMic === 'off') return false;
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
     var t = (el.tagName||'').toLowerCase();
     if(t === 'textarea') return true;
     if(t !== 'input') return false;
@@ -307,7 +307,7 @@
     zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
     academy:      {k:['daraja_academy_v1'], p:['academy_']},
     feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
-    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_'], idb:['story_voice']},   /* v63: Start fresh also erases the voice recordings */
     thekey:       {k:['daraja_thekey_v1','daraja_thekey_v2'], p:[]},   /* v62: v2 = the accounts, papers and people entries */
     churchkey:    {k:['daraja_churchkey_v1'], p:[]},
     drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
@@ -366,8 +366,9 @@
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
     var dbs = (OWNS[slugOf()] || {}).idb || [];
     if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
-    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.concat(dbs.map(function(n){ return n + ' (attached files)'; })).join('\n  • ') +
-                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
+    if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
     /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
@@ -662,6 +663,8 @@
      No tour, no Start menu, no Home Screen card, no daily hello on top of their question. An app can also set window.DJ_GUEST. */
   function guestVisit(){ try{ return !!window.DJ_GUEST || (/[?&]r=/.test(location.search) && /\/whoscoming\//.test(location.pathname)); }catch(e){ return false; } }
   function kidsPage(){ try{ return !!window.DJ_KIDS || !!document.querySelector('meta[name="dj-kids"]'); }catch(e){ return false; } }
+  /* v63: the crisis tool (My Safety Plan) gets no outside-AI or Tell-it buttons — a plan's names and numbers must never be sent anywhere — and its 988 bar stays on top of the ? sheet */
+  function crisisPage(){ try{ return /\/safety\//.test(location.pathname) || !!document.getElementById('crisis'); }catch(e){ return false; } }
   /* v62 (found #25): the ? sheet row said "Help, backup, start fresh" but only reopened the welcome card.
      It now opens exactly those three things (backup only where the app has one). */
   function btn_lab(c, lab){ if(c.id !== 'djHelp') return lab; return ['?', document.getElementById('djBackup') ? 'Help, backup, start fresh' : 'Help and start fresh']; }
@@ -687,6 +690,7 @@
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
+    if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
@@ -719,7 +723,7 @@
       ai.onclick = function(){ w.remove(); pickAssistant(); };
       box.appendChild(ai);
     }
-    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+    if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
@@ -1174,7 +1178,7 @@
      and the clash left its Routines tab blank. */
   function askButton(){
     if(document.getElementById('djAIBtn') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link) */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link); v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djAIBtn'; b.textContent = '✨';
     b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1358,7 +1362,7 @@
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
-    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers)\//.test(location.pathname)) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
     if(rec.last === today) return;
@@ -1381,7 +1385,7 @@
        up ~100px and a tap aimed at one card landed on the one below. It now floats over the top and fades —
        nothing underneath moves. A tap anywhere on it closes it at once. */
     w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481002;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
-    w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
+    w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
@@ -1624,7 +1628,7 @@
   window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
   function tellButton(){
     if(document.getElementById('djTell') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton; v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
     b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1949,7 +1953,8 @@
   details summary { cursor:pointer; font-size:12.5px; color:var(--faint); list-style:none; } details summary::-webkit-details-marker { display:none; }
   body.djglass .foot{ position:relative; z-index:1; } body.djglass .toast{ z-index:5; }
   .task label{ display:flex; gap:8px; align-items:flex-start; flex:1; min-height:32px; cursor:pointer; }
-  .task input[type=checkbox]{ width:22px; height:22px; min-width:22px; padding:0; margin:1px 0 0; }
+  .task input[type=checkbox]{ width:28px; height:28px; min-width:28px; padding:0; margin:0; }   /* 7 Oct deep check: was 22px */
+  #filters button{ min-width:44px; min-height:44px; }
   #boardName{ display:inline-block; min-height:44px; line-height:44px; }
 </style>
 
@@ -2015,7 +2020,7 @@
   <button onclick="exportJSON()">Backup</button>
   <label><input type="file" accept="application/json" style="display:none" onchange="importJSON(event)">Restore</label>
   <button onclick="resetSeed()">Reset to examples</button><button onclick="startBlank()">Start blank</button>
-  <span>Stored in this browser · Backup weekly · <b>Next Step Board</b> v1.6 · 2026-10-07 — 🤖 your AI can now build the board for you · <i>daraja</i> studio — every download builds a bridge</span>
+  <span>Stored in this browser · Backup weekly · <b>Next Step Board</b> v1.7 · 2026-10-08 — 🤖 your AI can now build the board for you · <i>daraja</i> studio — every download builds a bridge</span>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -2057,8 +2062,8 @@ window.aiFill=()=>{
       <p style="margin:0 0 14px;font-size:13.5px;color:var(--soft)">Works with Claude, ChatGPT, or any AI. Two steps, no account needed here.</p>
       <div style="border-left:3px solid var(--brand);padding:8px 12px;margin-bottom:10px"><b>Step 1 — give the AI this prompt</b><br>
         <button onclick="aiCopyPrompt()" style="font:inherit;font-weight:700;margin:8px 6px 0 0;padding:9px 14px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface-2);cursor:pointer">📋 Copy the prompt</button>
-        <a href="https://claude.ai/new" target="_blank" style="font-weight:700;font-size:13px;margin-right:8px" rel="noopener noreferrer">open Claude ↗</a>
-        <a href="https://chatgpt.com" target="_blank" style="font-weight:700;font-size:13px" rel="noopener noreferrer">open ChatGPT ↗</a>
+        <a href="https://claude.ai/new" target="_blank" style="font-weight:700;font-size:13px;margin-right:8px;color:var(--brand);white-space:nowrap" rel="noopener noreferrer">open Claude ↗</a>
+        <a href="https://chatgpt.com" target="_blank" style="font-weight:700;font-size:13px;color:var(--brand);white-space:nowrap" rel="noopener noreferrer">open ChatGPT ↗</a>
       </div>
       <div style="border-left:3px solid var(--brand);padding:8px 12px"><b>Step 2 — paste the AI's answer here</b><br>
         <textarea id="aiPaste" rows="5" placeholder='paste the whole reply — I will find the board in it' style="width:100%;margin-top:8px;font:inherit;font-size:13px;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)"></textarea>
@@ -2092,10 +2097,10 @@ window.aiImport=()=>{
 function render(){
   document.getElementById('stamp').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
   const ps=db.projects.filter(p=>filter==='all'||(filter==='mine'?(p.status!=='paused'&&!/^(—|-|claude|them|waiting on them)/i.test((p.who||'').trim())):p.status===filter)).sort((a,b)=>(order[a.status]-order[b.status])||((a.pri||3)-(b.pri||3))||((a.due||'9999').localeCompare(b.due||'9999')));
-  const waiting=db.projects.filter(p=>p.status==='waiting'||p.status==='blocked').length;
+  const waiting=db.projects.filter(p=>p.status==='waiting').length, blocked=db.projects.filter(p=>p.status==='blocked').length;   /* 7 Oct deep check */
   const open=db.projects.reduce((t,p)=>t+p.tasks.filter(x=>!x[2]).length,0);
   const first=db.projects.filter(p=>p.status==='active').sort((a,b)=>a.touched.localeCompare(b.touched))[0]||db.projects.find(p=>p.status!=='paused');
-  document.getElementById('banner').innerHTML=`<span>👋</span><div><b>Where you left off:</b> ${waiting} project${waiting!==1?'s':''} waiting · ${open} open item${open!==1?'s':''}${first?` · Start with <b>${esc(first.emoji+' '+first.name)}</b>: ${esc(first.next)}`:''}</div>`;
+  document.getElementById('banner').innerHTML=`<span>👋</span><div><b>Where you left off:</b> ${waiting} project${waiting!==1?'s':''} waiting${blocked?` · ${blocked} blocked`:''} · ${open} open item${open!==1?'s':''}${first?` · Start with <b>${esc(first.emoji+' '+first.name)}</b>: ${esc(first.next)}`:''}</div>`;
   document.getElementById('boardName').textContent=db.name||'My Next Step Board'; document.title=(db.name||'Next Step Board')+' — Next Step Board';
   if(!db.projects.length){ document.getElementById('grid').innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;color:var(--faint)">No projects yet. Tap <b>+ Add project</b> below — or <b>Reset to examples</b> to see how cards work.</div>'; document.getElementById('count').textContent='0 projects'; return; }
   document.getElementById('grid').innerHTML=ps.map(p=>{
@@ -2144,7 +2149,7 @@ function renderDue(){ const items=db.projects.filter(p=>p.due&&p.status!=='pause
 }
 window.askNotify=()=>{ if(!('Notification' in window)){ toast('Notifications not supported here'); return; } Notification.requestPermission().then(p=>{ toast(p==='granted'?'Notifications on (while the board is open)':'Notifications off'); renderDue(); }); };
 window.ics=id=>{ const p=db.projects.find(x=>x.id===id); if(!p.due) return; const d=p.due.replace(/-/g,''); const dt=new Date(p.due+'T09:00:00'); const stamp=dt.toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
-  const text=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Next Step Board//EN','BEGIN:VEVENT','UID:'+p.id+'-'+d+'@nextstepboard','DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+d,'DTEND;VALUE=DATE:'+d,'SUMMARY:'+(p.emoji+' '+p.name+' — '+p.next).replace(/[,;]/g,' '),'DESCRIPTION:'+('Next step: '+p.next+' ('+p.who+')').replace(/[,;]/g,' '),'BEGIN:VALARM','TRIGGER:-PT15H','ACTION:DISPLAY','DESCRIPTION:'+p.name.replace(/[,;]/g,' '),'END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  const text=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Next Step Board//EN','BEGIN:VEVENT','UID:'+p.id+'-'+d+'@nextstepboard','DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+d,'DTEND;VALUE=DATE:'+(()=>{ const x=new Date(p.due+'T12:00:00'); x.setDate(x.getDate()+1); return x.getFullYear()+String(x.getMonth()+1).padStart(2,'0')+String(x.getDate()).padStart(2,'0'); })(),'SUMMARY:'+(p.emoji+' '+p.name+' — '+p.next).replace(/[,;]/g,' '),'DESCRIPTION:'+('Next step: '+p.next+' ('+p.who+')').replace(/[,;]/g,' '),'BEGIN:VALARM','TRIGGER:-PT15H','ACTION:DISPLAY','DESCRIPTION:'+p.name.replace(/[,;]/g,' '),'END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
   downloadAny((p.name.replace(/[^a-z0-9]+/gi,'-')+'-'+p.due+'.ics'), text, 'text/calendar'); };
 async function downloadAny(name,text,type){ let dl=null; try{ if(window.claude&&claude.use) dl=await claude.use('downloads'); }catch(e){} if(dl){ try{ await dl.save({filename:name,data:text}); return; }catch(e){ if(e&&e.code==='extension_not_enabled'){ try{ await dl.save({filename:name.replace(/\.ics$/,'.txt'),data:text}); toast('Saved as .txt — rename to .ics and open it'); return; }catch(e2){} } toast(e&&e.code==='declined'?'Cancelled':'Open the board file directly to export'); return; } } const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
 window.toggleTask=(id,i,v)=>{ const p=db.projects.find(x=>x.id===id); p.tasks[i][2]=v?1:0; p.touched=today(); save(); render();
@@ -2155,7 +2160,19 @@ window.addTask=id=>{ const el=document.getElementById('add-'+id); const v=el.val
 window.editNext=id=>{ const p=db.projects.find(x=>x.id===id); const v=prompt('Next step for '+p.name+':',p.next); if(v===null) return; p.next=v.trim(); const w=prompt('Who / how long?',p.who); if(w!==null) p.who=w.trim(); p.touched=today(); save(); render(); };
 window.setStatus=id=>{ const p=db.projects.find(x=>x.id===id); const opts=['active','waiting','blocked','paused']; const cur=opts.indexOf(p.status); p.status=opts[(cur+1)%opts.length]; p.touched=today(); save(); render(); toast('Status: '+p.status); };
 window.touch=id=>{ const p=db.projects.find(x=>x.id===id); p.touched=today(); save(); render(); toast('Marked touched today'); };
-window.addProject=()=>{ const n=prompt('Project name:'); if(!n) return; const em=prompt('Pick an emoji for it (or leave blank):','📁')||'📁'; const one=prompt('One line: what is this project?')||''; const nx=prompt('Next step:')||''; const who=prompt('Who / how long? (e.g. "Me · 30 min")','Me')||'Me'; db.projects.push({id:'p'+Date.now().toString(36),emoji:em.trim().slice(0,4),name:n.trim(),status:'active',one:one.trim(),next:nx.trim(),who:who.trim(),link:'',touched:today(),tasks:[]}); save(); render(); toast('Project added'); };
+/* 7 Oct deep check: one small form instead of five pop-ups */
+window.addProject=()=>{ if(document.getElementById('apOv')) return;
+  const ov=document.createElement('div'); ov.id='apOv'; ov.style.cssText='position:fixed;inset:0;z-index:9500;background:rgba(10,14,20,.6);display:flex;align-items:flex-end;justify-content:center';
+  const fld=(id,lab,ph,val)=>`<label style="display:block;font-weight:700;font-size:13.5px;margin:10px 0 4px">${lab}</label><input id="${id}" placeholder="${ph}" value="${val||''}" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #C9CFD6;border-radius:10px;background:#fff;color:#1F2622">`;
+  ov.innerHTML=`<div role="dialog" aria-label="Add a project" style="background:#FFFDF8;color:#1F2622;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto">
+    <h2 style="margin:0 0 4px;font-size:20px">+ Add a project</h2>
+    ${fld('apN','Project name','e.g. Fix the back door')}${fld('apE','Emoji (optional)','📁','📁')}${fld('apO','One line: what is it?','e.g. It sticks in wet weather')}${fld('apX','The next step','e.g. Call the handyman')}${fld('apW','Who / how long?','e.g. Me · 30 min','Me')}
+    <div style="display:flex;gap:8px;margin-top:14px"><button id="apCancel" style="flex:1;min-height:46px;font:inherit;font-weight:700;border-radius:12px;border:1px solid #C9CFD6;background:#fff;color:#1F2622;cursor:pointer">Cancel</button><button id="apGo" style="flex:2;min-height:46px;font:inherit;font-weight:800;border-radius:12px;border:none;background:#23504F;color:#fff;cursor:pointer">Add it</button></div></div>`;
+  document.body.appendChild(ov); const g=id=>document.getElementById(id); setTimeout(()=>{ const f=g('apN'); if(f) f.focus(); },50);
+  const close=()=>ov.remove(); g('apCancel').onclick=close; ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+  g('apGo').onclick=()=>{ const n=g('apN').value.trim(); if(!n){ g('apN').focus(); g('apN').style.borderColor='#B4432F'; return; }
+    const em=g('apE').value||'📁', one=g('apO').value, nx=g('apX').value, who=g('apW').value||'Me'; close(); addProjectNow(n,em,one,nx,who); }; };
+window.addProjectNow=(n,em,one,nx,who)=>{ db.projects.push({id:'p'+Date.now().toString(36),emoji:em.trim().slice(0,4),name:n.trim(),status:'active',one:one.trim(),next:nx.trim(),who:who.trim(),link:'',touched:today(),tasks:[]}); save(); render(); toast('Project added'); };
 window.delProject=id=>{ const p=db.projects.find(x=>x.id===id); if(!confirm('Delete "'+p.name+'" and its checklist? (Backup first if unsure)')) return; db.projects=db.projects.filter(x=>x.id!==id); save(); render(); toast('Deleted'); };
 window.renameBoard=()=>{ const v=prompt('Board name:',db.name||'My Next Step Board'); if(v===null) return; db.name=v.trim()||'My Next Step Board'; save(); render(); };
 window.editProject=id=>{ const p=db.projects.find(x=>x.id===id); const n=prompt('Project name:',p.name); if(n===null) return; p.name=n.trim()||p.name; const em=prompt('Emoji:',p.emoji); if(em!==null&&em.trim()) p.emoji=em.trim().slice(0,4); const one=prompt('One line — what is it?',p.one); if(one!==null) p.one=one.trim(); save(); render(); };
@@ -2656,6 +2673,13 @@ body.djglass{ background:transparent !important; color:#F2EFE8;
 body.djglass .card{ background:rgba(22,25,34,.55) !important; -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
   border-color:rgba(255,255,255,.18) !important; box-shadow:0 8px 30px rgba(0,0,0,.25); color:#F2EFE8; }
 body.djglass header{ background:transparent !important; border:none; position:relative; z-index:1; }
+/* 7 Oct deep check: readable on the glass look */
+body.djglass .acts button:not(.primary):not(.done), body.djglass .acts a, body.djglass .pri button{ background:rgba(255,255,255,.14) !important; color:#fff !important; border-color:rgba(255,255,255,.34) !important; }
+body.djglass .pri b{ color:#F2B134 !important; }
+body.djglass .card b, body.djglass .item b, body.djglass li b{ color:#fff !important; }
+body.djglass .banner{ background:rgba(20,22,30,.62) !important; border-color:rgba(242,177,52,.6) !important; color:#F2EFE8 !important; }
+body.djglass .banner b{ color:#fff !important; }
+body.djglass .status{ color:#fff !important; } body.djglass .meta button{ color:#fff !important; background:rgba(255,255,255,.14) !important; border-color:rgba(255,255,255,.34) !important; }
 body.djglass header h1, body.djglass header h1 span{ color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.45); }
 body.djglass nav{ background:rgba(18,20,28,.6) !important; -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
   border-top:1px solid rgba(255,255,255,.14) !important; }
