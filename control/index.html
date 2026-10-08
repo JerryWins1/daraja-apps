@@ -2043,14 +2043,14 @@
     <!-- STACK -->
     <section class="tab" id="t-stack">
       <div class="card">
-        <b>Every change and question, in one pile.</b>
-        <p class="muted" style="margin:4px 0 10px">Move things along with the buttons. When you’re ready, say “work the stack” and Claude groups them, proposes a plan, and builds after your go.</p>
+        <b>Every change and question, in three steps: 📥 New → 🔧 Being fixed → ✅ Fixed.</b>
+        <p class="muted" style="margin:4px 0 10px">Say “work the stack” and Claude groups them, fixes them after your go, and moves each one to ✅ Fixed himself. Your only job is the green button on a fixed one: <b>📨 Tell them</b>. It quotes their words, so they know which question you’re answering.</p>
         <div class="chips"><button class="chip main" onclick="copy('work the stack')">📋 work the stack</button><button class="chip" onclick="addRequest()">＋ Add one myself</button></div>
       </div>
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.23 · 2026-10-07 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.24 · 2026-10-08 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2121,6 +2121,7 @@ function render(){
   $('stamp').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · updated '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+(D.whatsapp?' · WhatsApp connected':' · WhatsApp not connected yet');
 }
 
+window.replyMsg=function(mid){ const m=((D&&D.messages)||[]).find(x=>x.id===mid); if(!m) return; quoteReply(m.person_id, m.text, {msgId:m.id, when:ago(m.at)}); };
 function msgItem(m,actions){
   const p=P(m.person_id);
   return `<div class="item"><div><span class="who">${esc(p.name||m.name)}</span> <span class="meta">${ICON[m.channel]||'•'} ${esc(m.channel)}${m.app?' · '+esc(m.app):''} · ${ago(m.at)}</span></div><div class="txt">${esc(m.text)}</div><div class="chips">${actions}</div></div>`;
@@ -2210,7 +2211,7 @@ function renderToday(){
   const fresh=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   $('msgCount').textContent=fresh.length?fresh.length+' unread':'';
   $('newMsgs').innerHTML=fresh.length?fresh.map(m=>msgItem(m,
-      `<button class="chip small main" onclick="openPerson('${m.person_id}',true)">↩︎ Reply</button>`+
+      `<button class="chip small main" onclick="replyMsg('${m.id}')">↩︎ Reply</button>`+
       (stacked.has(m.id)?'<span class="pill">in the stack</span>':`<button class="chip small" onclick="stackIt('${m.id}')">📌 Stack it</button>`)+
       `<button class="chip small" onclick="markRead(['${m.id}'])">✓ Read</button>`)).join('')+
       (fresh.length>1?`<div class="chips" style="margin-top:8px"><button class="chip small" onclick="markRead(${esc(JSON.stringify(fresh.map(m=>m.id)))})">✓ Mark all read</button></div>`:'')
@@ -2302,7 +2303,7 @@ function openPerson(id,compose,draftId){
     <div class="muted">${esc(p.project||'—')} · ${esc(p.role)} · ${p.phone?'+'+esc(p.phone):'no WhatsApp number yet'} · last seen ${ago(p.last_seen)}</div>
     ${p.summary?`<p style="margin:8px 0">🧠 ${esc(p.summary)}</p>`:''}
     <h2>Conversation</h2>
-    <div class="thread">${msgs.length?msgs.map(m=>`<div class="bub ${m.direction==='out'?'out':''}">${esc(m.text)}<span class="m">${ICON[m.channel]||''} ${ago(m.at)}${m.direction==='out'?' · '+esc(m.status):''}</span></div>`).join(''):'<p class="muted">No messages yet.</p>'}</div>
+    <div class="thread">${msgs.length?msgs.map(m=>`<div class="bub ${m.direction==='out'?'out':''}">${esc(m.text)}<span class="m">${ICON[m.channel]||''} ${ago(m.at)}${m.direction==='out'?' · '+esc(m.status):''}</span>${m.direction==='in'?`<button class="chip small" style="margin-top:6px" onclick="replyMsg('${m.id}')">↩︎ Answer this one</button>`:''}</div>`).join(''):'<p class="muted">No messages yet.</p>'}</div>
     <label for="cmp">Message ${esc(String(p.name).split(' ')[0])}</label>
     <textarea id="cmp" placeholder="Write it the way you'd say it">${draft?esc(draft.text):''}</textarea>
     <div class="chips" style="margin-top:8px">
@@ -2411,26 +2412,47 @@ async function gmSend(id){
 }
 
 /* ---------- the stack ---------- */
-const STEPS=[['new','New'],['stack','In the stack'],['planned','Planned'],['building','Building'],['done','Done'],['told','Told them']];
+/* v1.24 (8 Oct 2026). Jerry: "I don't understand what the choices are to move them… do we log them as done so I don't have to message
+   them? … put the question, then I type the answer, and that's what goes in WhatsApp, so they know what I'm answering."
+   Three steps instead of six; one obvious button per card; Claude marks fixes himself; every reply quotes their words. */
+const BUCKETS=[['new','📥 New','not looked at yet',['new','stack']],['fixing','🔧 Being fixed','Claude is on it',['planned','building']],['fixed','✅ Fixed','tell them, then it leaves this list',['done']]];
 const KIND={problem:'🐞',idea:'💡',praise:'🙌',question:'❓',change:'🔧',note:'📝'};
 function renderStack(){
   const reqs=((D&&D.requests)||[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  $('stackList').innerHTML=STEPS.map(([s,label],i)=>{
-    const items=reqs.filter(r=>(r.status||'new')===s); if(!items.length && (s==='told'||s==='done')) return '';
-    const next=STEPS[i+1];
-    return `<h2>${label} <small>${items.length}</small></h2><div class="card">${items.length?items.slice(0,s==='told'?10:60).map(r=>`<div class="item">
-      <div><span class="who">${KIND[r.kind]||'•'} ${esc(r.name)}</span> <span class="meta">${r.app?esc(r.app)+' · ':''}${ago(r.at)}${r.likes?' · 👍 '+String(r.likes).split(',').length:''}${r.group?' · '+esc(r.group):''}</span></div>
-      <div class="txt">${esc(r.text)}</div>
-      <div class="chips">${next?`<button class="chip small main" onclick="moveReq('${r.id}','${next[0]}')">→ ${next[1]}</button>`:''}
-        ${s==='done'?`<button class="chip small" onclick="replyDone('${r.id}')">✍️ Tell them it’s fixed</button>`:''}
-        <select aria-label="Move to" onchange="moveReq('${r.id}',this.value)" style="width:auto;min-height:36px;padding:4px 8px;font-size:14px"><option value="">Move…</option>${STEPS.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select>
-        ${r.person_id?`<button class="chip small" onclick="openPerson('${r.person_id}')">👤</button>`:''}</div></div>`).join(''):'<p class="muted" style="margin:0">Empty.</p>'}</div>`; }).join('');
+  const told=reqs.filter(r=>r.status==='told');
+  $('stackList').innerHTML=BUCKETS.map(([key,label,hint,sts])=>{
+    const items=reqs.filter(r=>sts.indexOf(r.status||'new')>=0);
+    return `<h2>${label} <small>${items.length} · ${hint}</small></h2><div class="card">${items.length?items.slice(0,60).map(r=>`<div class="item">
+      <div><span class="who">${KIND[r.kind]||'•'} ${esc(r.name)}</span> <span class="meta">${r.app?esc(r.app)+' · ':''}${ago(r.at)}${r.likes?' · 👍 '+String(r.likes).split(',').length:''}</span></div>
+      <div class="txt">${esc(r.text)}</div>${r.fixed&&key==='fixed'?`<div class="meta" style="margin-top:4px">✅ ${esc(r.fixed)}</div>`:''}
+      <div class="chips">${key==='new'?`<button class="chip small main" onclick="moveReq('${r.id}','building')">🔧 Fix it</button><button class="chip small" onclick="moveReq('${r.id}','done')">✅ Already fixed</button><button class="chip small" onclick="moveReq('${r.id}','told')">Not needed</button>`
+        :key==='fixing'?`<button class="chip small main" onclick="moveReq('${r.id}','done')">✅ It's fixed</button>`
+        :`<button class="chip small wa" onclick="replyDone('${r.id}')">📨 Tell them</button><button class="chip small" onclick="moveReq('${r.id}','told')">No need to tell</button>`}
+        ${r.person_id?`<button class="chip small" onclick="openPerson('${r.person_id}')">👤</button>`:''}</div></div>`).join(''):'<p class="muted" style="margin:0">Nothing here.</p>'}</div>`; }).join('')
+    +(told.length?`<details class="card" style="margin-top:12px"><summary>✓ Done and told <small class="muted">${told.length}</small></summary>${told.slice(0,20).map(r=>`<div class="item meta">${esc(r.name)} · ${esc(String(r.text).slice(0,90))}</div>`).join('')}</details>`:'');
 }
-async function moveReq(id,status){ if(!status) return; await act({action:'request.set',id,status},'Moved'); }
-async function replyDone(id){
-  const r=D.requests.find(x=>x.id===id); const p=P(r.person_id); const first=String(p.name||r.name).split(' ')[0];
-  const text=`Hi ${first} — Jerry here. You told us: “${String(r.text).slice(0,120)}”. That’s fixed now${r.fixed?' ('+r.fixed+')':''}. Open the app once more to get the new version. Thank you for telling us!`;
-  try{ const d=await hq({action:'message.draft',person_id:p.id,text,request_id:id}); await load(); openPerson(p.id,true,d.id); }catch(e){ toast(e.message,true); }
+async function moveReq(id,status){ if(!status) return; await act({action:'request.set',id,status},status==='done'?'✅ Fixed — now tell them':status==='building'?'🔧 On it':status==='told'?'Done':'Moved'); }
+function replyDone(id){ const r=D.requests.find(x=>x.id===id); if(!r) return; quoteReply(r.person_id, r.text, {reqId:id, fixed:true, note:r.fixed||''}); }
+/* one reply sheet for everything: their words on top, your answer below, the text they get quotes them */
+function quoteReply(pid, quote, o){ o=o||{}; const p=P(pid); if(!p.id){ toast('Who is this? Open them under People first',true); return; }
+  const first=String(p.name||'').split(' ')[0]||'there', q=String(quote||'').replace(/\s+/g,' ').trim(), short=q.length>140?q.slice(0,137)+'…':q;
+  const start=o.fixed?('Fixed! '+(o.note?o.note+'. ':'')+'Open the app once more to get the new version. Thank you for telling us!'):'';
+  sheet(`<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0 2px">↩︎ Answer ${esc(first)}</h3>
+    <div class="muted" style="font-size:13px;margin-bottom:6px">They said${o.when?' '+esc(o.when):''}:</div>
+    <div style="border-left:4px solid var(--accent,#23504F);background:rgba(128,128,128,.12);border-radius:0 12px 12px 0;padding:10px 12px;margin-bottom:10px;white-space:pre-wrap">${esc(q)}</div>
+    <label for="qrA">Your answer</label><textarea id="qrA" rows="4" placeholder="Type your answer">${esc(start)}</textarea>
+    <div class="muted" style="font-size:13px;margin:8px 0 4px">What ${esc(first)} will get:</div><div id="qrPrev" style="background:rgba(128,128,128,.12);border-radius:12px;padding:10px 12px;white-space:pre-wrap;font-size:14px"></div>
+    <div class="chips" style="margin-top:10px">${p.phone?`<button class="chip wa" id="qrSend">📱 Send it</button>`:`<button class="chip main" onclick="addNumber()">＋ Add their number first</button>`}<button class="chip" id="qrCopy">📋 Copy it</button></div>
+    <p class="muted" style="font-size:13px;margin:6px 0 0">${p.phone?(/^1\d{10}$/.test(String(p.phone))?'Opens Messages':'Opens WhatsApp')+' with it typed in — press send there. HQ logs it'+(o.reqId?' and moves this to ✓ Done and told':'')+'.':''}</p>`);
+  const msg=()=>`Hi ${first} — Jerry here. You ${o.fixed?'told us':'asked'}: “${short}”\n\n${($('qrA').value||'').trim()}`;
+  const prev=()=>{ $('qrPrev').textContent=msg(); }; $('qrA').addEventListener('input',prev); prev(); setTimeout(()=>{ const a=$('qrA'); a.focus(); a.setSelectionRange(a.value.length,a.value.length); },200);
+  const log=async t=>{ try{ const d=await hq({action:'message.draft',person_id:p.id,text:t,request_id:o.reqId||''}); await hq({action:'message.mark',id:d.id,status:'sent by hand'}); if(o.reqId) await hq({action:'request.set',id:o.reqId,status:'told'}); if(o.msgId) await hq({action:'message.read',ids:[o.msgId]}); }catch(e){ toast('Sent, but HQ could not log it: '+e.message,true); } load(); };
+  const c=$('qrCopy'); if(c) c.onclick=()=>{ copy(msg()); };
+  const b=$('qrSend'); if(b) b.onclick=()=>{ const t=msg(); if(!($('qrA').value||'').trim()){ toast('Type your answer first',true); $('qrA').focus(); return; }
+    const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
+    const url=us?(apple?'sms://open?addresses=+'+p.phone+'&body='+encodeURIComponent(t):'sms:+'+p.phone+'?body='+encodeURIComponent(t)):'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
+    if(us) location.href=url; else { const w=window.open(url,'_blank'); if(!w) location.href=url; }
+    closeSheet(); toast('Press send there — logged in HQ'); log(t); };
 }
 function addRequest(){
   sheet(`<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0">Add to the stack</h3>
