@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v62">
+<script id="dj-house-v63">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -195,7 +195,7 @@
   var rec = null, micBtn = null, curBox = null;
 
   function eligible(el){
-    if(!el || el.dataset.djMic === 'off') return false;
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
     var t = (el.tagName||'').toLowerCase();
     if(t === 'textarea') return true;
     if(t !== 'input') return false;
@@ -307,7 +307,7 @@
     zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
     academy:      {k:['daraja_academy_v1'], p:['academy_']},
     feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
-    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_'], idb:['story_voice']},   /* v63: Start fresh also erases the voice recordings */
     thekey:       {k:['daraja_thekey_v1','daraja_thekey_v2'], p:[]},   /* v62: v2 = the accounts, papers and people entries */
     churchkey:    {k:['daraja_churchkey_v1'], p:[]},
     drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
@@ -366,8 +366,9 @@
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
     var dbs = (OWNS[slugOf()] || {}).idb || [];
     if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
-    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.concat(dbs.map(function(n){ return n + ' (attached files)'; })).join('\n  • ') +
-                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
+    if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
     /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
@@ -662,6 +663,8 @@
      No tour, no Start menu, no Home Screen card, no daily hello on top of their question. An app can also set window.DJ_GUEST. */
   function guestVisit(){ try{ return !!window.DJ_GUEST || (/[?&]r=/.test(location.search) && /\/whoscoming\//.test(location.pathname)); }catch(e){ return false; } }
   function kidsPage(){ try{ return !!window.DJ_KIDS || !!document.querySelector('meta[name="dj-kids"]'); }catch(e){ return false; } }
+  /* v63: the crisis tool (My Safety Plan) gets no outside-AI or Tell-it buttons — a plan's names and numbers must never be sent anywhere — and its 988 bar stays on top of the ? sheet */
+  function crisisPage(){ try{ return /\/safety\//.test(location.pathname) || !!document.getElementById('crisis'); }catch(e){ return false; } }
   /* v62 (found #25): the ? sheet row said "Help, backup, start fresh" but only reopened the welcome card.
      It now opens exactly those three things (backup only where the app has one). */
   function btn_lab(c, lab){ if(c.id !== 'djHelp') return lab; return ['?', document.getElementById('djBackup') ? 'Help, backup, start fresh' : 'Help and start fresh']; }
@@ -687,6 +690,7 @@
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
+    if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
@@ -719,7 +723,7 @@
       ai.onclick = function(){ w.remove(); pickAssistant(); };
       box.appendChild(ai);
     }
-    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+    if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
@@ -1174,7 +1178,7 @@
      and the clash left its Routines tab blank. */
   function askButton(){
     if(document.getElementById('djAIBtn') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link) */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link); v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djAIBtn'; b.textContent = '✨';
     b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1358,7 +1362,7 @@
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
-    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers)\//.test(location.pathname)) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
     if(rec.last === today) return;
@@ -1381,7 +1385,7 @@
        up ~100px and a tap aimed at one card landed on the one below. It now floats over the top and fades —
        nothing underneath moves. A tap anywhere on it closes it at once. */
     w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481002;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
-    w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
+    w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
@@ -1624,7 +1628,7 @@
   window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
   function tellButton(){
     if(document.getElementById('djTell') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton; v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
     b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -2004,6 +2008,71 @@ async function djTellMe(){ const name=(document.getElementById('tmName').value||
                                           <section class="day">
     <time datetime="2026-10-08">Thursday 8 October</time>
     <h2>Today’s changes</h2>
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Next Step Board</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/Apps%20%28installable%20site%29/nextstep/">open Next Step Board</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">GameDay</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/church-gameday/">open GameDay</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">The Clubhouse</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/church-clubhouse/">open The Clubhouse</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Serve Board</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/church-serve/">open Serve Board</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">The Key</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/church-key/">open The Key</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Operation Christmas Child Assistant</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/church-drive/">open Operation Christmas Child Assistant</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Ahead of It</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/np-goodstanding/">open Ahead of It</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Ahead of It</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/church-steward/">open Ahead of It</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Receipt Maker</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/np-receipts/">open Receipt Maker</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">My Scores</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/ff/">open My Scores</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Pit Wall</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/f1/">open Pit Wall</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Message Assistant</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/drumbeat/">open Message Assistant</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Deep check fixes (7 Oct) <span class="app">Break-Even Calculator</span></h3>
+      <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/Apps%20%28installable%20site%29/breakeven/">open Break-Even Calculator</a> — close it completely and open it again if it looks the same.</p>
+    </div>
+
     <div class="entry">
       <h3>Deep check fixes (7 Oct) <span class="app">Daraja Compass</span></h3>
       <p class="look"><b>Have a look:</b> <a href="https://jerrywins1.github.io/daraja-apps/Apps%20%28installable%20site%29/compass/">open Daraja Compass</a> — close it completely and open it again if it looks the same.</p>
@@ -3194,7 +3263,7 @@ async function djTellMe(){ const name=(document.getElementById('tmName').value||
   </div>
 
   <footer>
-    What&rsquo;s new &mdash; v1.208 &middot; 8 October 2026 &middot; Daraja Studio<br>
+    What&rsquo;s new &mdash; v1.221 &middot; 8 October 2026 &middot; Daraja Studio<br>
     A family business. Profits go to scholarships in Kenya.
   </footer>
 

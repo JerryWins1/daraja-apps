@@ -15,7 +15,7 @@
   .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
   .card h2{ font-size:17px; margin-bottom:10px; }
   label{ display:block; font-size:13px; font-weight:700; color:var(--soft); margin:10px 0 4px; }
-  input,select{ width:100%; font:inherit; font-size:15px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); }
+  input,select{ min-height:44px; width:100%; font:inherit; font-size:15px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); }
   .btn{ font:inherit; font-weight:800; font-size:15px; padding:12px 20px; border-radius:999px; border:none; cursor:pointer; background:var(--brand); color:#fff; }
   .btn.gold{ background:var(--gold); color:#221; }
   .btn.ghost{ background:none; border:1.5px solid var(--line); color:var(--soft); }
@@ -98,7 +98,7 @@
     <div class="msg" id="pubMsg"></div>
   </div>
 
-  <div id="ver">Immanuel Weekly Update v1.2 — paste the link, the boxes fill themselves; add the outline and verses for Sermon Notes · 2026-10-07 · Daraja Studio</div>
+  <div id="ver">Immanuel Weekly Update v1.3 — key box fixed, Sunday date in church time, events without a time can be removed · 2026-10-07 · Daraja Studio</div>
 </div>
 
 <script>
@@ -110,7 +110,9 @@ let SRC=null, SHA=null, pendingSermons=[], pendingEvents=[], removedEvents=[];
 const $=id=>document.getElementById(id);
 function say(id,txt,ok){ const m=$(id); m.textContent=txt; m.className='msg '+(ok?'ok':'err'); }
 
-function saveKey(){ const v=$('tok').value.trim(); if(!v){ say('keyMsg','Paste the key first.'); return; }
+function saveKey(){ const v=$('tok').value.trim();
+  /* 7 Oct deep check: an empty box or the old "••••" mask never overwrites a saved key */
+  if(!v||/^[•●*·\s]+$/.test(v)){ $('tok').value=''; say('keyMsg', TOK?'✓ Key already saved on this device — paste a new one only to replace it.':'Paste the key first.', !!TOK); return; }
   TOK=v; localStorage.setItem('immanuel_key',v); say('keyMsg','✓ Key saved on this device.',1); }
 
 async function autoFill(){
@@ -138,10 +140,13 @@ async function autoFill(){
     if(title) $('title').value=title;
     if(ref) $('ref').value=ref;
     if(who) $('who').value=who;
-    if(dateStr){ const d=new Date(dateStr); if(!isNaN(d)) $('date').value=d.toISOString().slice(0,10); }
+    if(dateStr){ const d=new Date(dateStr); if(!isNaN(d)) $('date').value=ymdLocal(d); }  /* 7 Oct deep check: the title's own date, not shifted by UTC */
     $('afMsg').textContent='✓ Filled from the video — check it looks right, then Add.';
   }catch(e){ $('afMsg').textContent='Couldn\'t read the title — fill the boxes by hand.'; }
 }
+function ymdLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function lastSundayChicago(){ let ymd; try{ ymd=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }catch(e){ ymd=ymdLocal(new Date()); }
+  const d=new Date(ymd+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()-d.getUTCDay()); return d.toISOString().slice(0,10); }
 function ytId(u){ const m=/(?:v=|youtu\.be\/|shorts\/|live\/)([A-Za-z0-9_-]{6,})/.exec(u||''); return m?m[1]:(/^[A-Za-z0-9_-]{6,}$/.test((u||'').trim())?(u||'').trim():null); }
 
 async function gh(method,body){
@@ -170,14 +175,14 @@ async function loadApp(){
 }
 
 function evRows(body){
-  const rows=[]; const re=/\{d:"([^"]+)",t:"([^"]+)",title:"([^"]+)",sub:"((?:[^"\\]|\\.)*)",cat:"([^"]+)"(,url:"[^"]*")?(,reg:true)?\}/g;
+  const rows=[]; const re=/\{d:"([^"]+)",t:"([^"]*)",title:"([^"]+)",sub:"((?:[^"\\]|\\.)*)",cat:"([^"]+)"(,url:"[^"]*")?(,reg:true)?\}/g;
   let m; while((m=re.exec(body))) rows.push({raw:m[0],d:m[1],t:m[2],title:m[3]});
   return rows;
 }
 function renderEvents(body){
   const rows=evRows(body);
   $('evList').innerHTML = rows.length? rows.map((r,i)=>
-    `<div class="item"><div><b>${r.title}</b><small>${r.d} · ${r.t}</small></div><button onclick="dropEvent(${i})">remove</button></div>`).join('')
+    `<div class="item"><div><b>${r.title}</b><small>${r.d}${r.t?' · '+r.t:''}</small></div><button onclick="dropEvent(${i})">remove</button></div>`).join('')
     : '<p class="step">No events currently listed.</p>';
   window.__rows=rows;
 }
@@ -218,13 +223,14 @@ async function publish(){
     pendingSermons=[]; pendingEvents=[]; removedEvents=[];
     say('pubMsg','🎉 Published! Live for everyone in about a minute.',1);
     SRC=null; SHA=null;
+    $('evList').innerHTML='<p class="step">Published ✓ — tap Load current app to see the events as they are now.</p>';  /* 7 Oct deep check */
   }catch(e){ say('pubMsg','✗ '+e.message); }
 }
 
 (function init(){
-  if(TOK){ $('tok').value='••••••••••••'; say('keyMsg','✓ Key already saved on this device.',1); }
-  const d=new Date(); d.setDate(d.getDate()-((d.getDay()+7)%7)); // most recent Sunday
-  $('date').value=d.toISOString().slice(0,10);
+  if(TOK){ $('tok').value=''; $('tok').placeholder='key saved ✓ — paste a new one only to replace it'; say('keyMsg','✓ Key already saved on this device.',1); }  /* 7 Oct deep check: no mask in the box */
+  /* 7 Oct deep check: the most recent Sunday in Gurnee (America/Chicago) — toISOString() turned Sunday evening into Monday */
+  $('date').value=lastSundayChicago();
 })();
 </script>
 </body>

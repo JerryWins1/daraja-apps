@@ -19,7 +19,7 @@
     perRace: 2                      // drivers run on a normal weekend
   };
 
-  const CLASSIFIED = /^(Finished|\+\d+ Laps?)$/;
+  const CLASSIFIED = /^(Finished|Lapped|\+\d+ Laps?)$/;   /* 7 Oct deep check: "Lapped" (2026 data) is a classified finish */
 
   /* ---------- allowance ---------- */
   // How many drives each driver should get so the season works out.
@@ -56,14 +56,14 @@
       if (results.quali && results.quali[id]) d.quali = rowPoints(results.quali[id], scoring);
       if (results.sprint && results.sprint[id]) {
         const s = results.sprint[id];
-        const ok = !scoring.unclassifiedScoresZero || CLASSIFIED.test(s.status || 'Finished');
+        const ok = !scoring.unclassifiedScoresZero || s.classified === true || CLASSIFIED.test(s.status || 'Finished');
         d.sprint = ok ? (scoring.sprintUsesRows ? rowPoints(s.position, scoring) : racePlacePoints(s.position, scoring)) : 0;
         if (s.fastestLap && scoring.sprintFastestLapBonus) d.fl += scoring.sprintFastestLapBonus;
       }
       if (results.race && results.race[id]) {
         const r = results.race[id];
         d.status = r.status || '';
-        const ok = !scoring.unclassifiedScoresZero || CLASSIFIED.test(r.status || 'Finished');
+        const ok = !scoring.unclassifiedScoresZero || r.classified === true || CLASSIFIED.test(r.status || 'Finished');
         d.race = ok ? racePlacePoints(r.position, scoring) : 0;
         if (r.fastestLap) { d.fl += scoring.fastestLapBonus; out.fastestLapDriver = id; }
       }
