@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v62">
+<script id="dj-house-v63">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -195,7 +195,7 @@
   var rec = null, micBtn = null, curBox = null;
 
   function eligible(el){
-    if(!el || el.dataset.djMic === 'off') return false;
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
     var t = (el.tagName||'').toLowerCase();
     if(t === 'textarea') return true;
     if(t !== 'input') return false;
@@ -307,7 +307,7 @@
     zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
     academy:      {k:['daraja_academy_v1'], p:['academy_']},
     feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
-    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_'], idb:['story_voice']},   /* v63: Start fresh also erases the voice recordings */
     thekey:       {k:['daraja_thekey_v1','daraja_thekey_v2'], p:[]},   /* v62: v2 = the accounts, papers and people entries */
     churchkey:    {k:['daraja_churchkey_v1'], p:[]},
     drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
@@ -366,8 +366,9 @@
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
     var dbs = (OWNS[slugOf()] || {}).idb || [];
     if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
-    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.concat(dbs.map(function(n){ return n + ' (attached files)'; })).join('\n  • ') +
-                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
+    if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
     /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
@@ -662,6 +663,8 @@
      No tour, no Start menu, no Home Screen card, no daily hello on top of their question. An app can also set window.DJ_GUEST. */
   function guestVisit(){ try{ return !!window.DJ_GUEST || (/[?&]r=/.test(location.search) && /\/whoscoming\//.test(location.pathname)); }catch(e){ return false; } }
   function kidsPage(){ try{ return !!window.DJ_KIDS || !!document.querySelector('meta[name="dj-kids"]'); }catch(e){ return false; } }
+  /* v63: the crisis tool (My Safety Plan) gets no outside-AI or Tell-it buttons — a plan's names and numbers must never be sent anywhere — and its 988 bar stays on top of the ? sheet */
+  function crisisPage(){ try{ return /\/safety\//.test(location.pathname) || !!document.getElementById('crisis'); }catch(e){ return false; } }
   /* v62 (found #25): the ? sheet row said "Help, backup, start fresh" but only reopened the welcome card.
      It now opens exactly those three things (backup only where the app has one). */
   function btn_lab(c, lab){ if(c.id !== 'djHelp') return lab; return ['?', document.getElementById('djBackup') ? 'Help, backup, start fresh' : 'Help and start fresh']; }
@@ -687,6 +690,7 @@
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
+    if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
@@ -719,7 +723,7 @@
       ai.onclick = function(){ w.remove(); pickAssistant(); };
       box.appendChild(ai);
     }
-    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+    if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
@@ -1174,7 +1178,7 @@
      and the clash left its Routines tab blank. */
   function askButton(){
     if(document.getElementById('djAIBtn') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link) */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link); v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djAIBtn'; b.textContent = '✨';
     b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1358,7 +1362,7 @@
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
-    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers)\//.test(location.pathname)) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
     if(rec.last === today) return;
@@ -1381,7 +1385,7 @@
        up ~100px and a tap aimed at one card landed on the one below. It now floats over the top and fades —
        nothing underneath moves. A tap anywhere on it closes it at once. */
     w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481002;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
-    w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
+    w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
@@ -1624,7 +1628,7 @@
   window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
   function tellButton(){
     if(document.getElementById('djTell') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton; v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
     b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1898,6 +1902,11 @@
   main { max-width:680px; margin:0 auto; padding:16px; }
   .crisis { position:fixed; left:0; right:0; bottom:0; z-index:20; background:transparent; padding:0 14px calc(12px + env(safe-area-inset-bottom)); pointer-events:none; }
   body:has(#djStart) .crisis { z-index:9500; }   /* 988 stays reachable over the welcome card */
+  /* 7 Oct deep check: 988 is on top from the first frame — over the splash, the install tip/button and the "plan is ready" card */
+  body:has(#dsSplash) .crisis, body:has(#pwaTip.show) .crisis, body:has(#pwaInstall.show) .crisis, body:has(.ready.show) .crisis { z-index:10000; }
+  #pwaTip { bottom:calc(132px + env(safe-area-inset-bottom)) !important; }
+  #pwaInstall { bottom:calc(150px + env(safe-area-inset-bottom)) !important; }
+  .ready .rbox { margin-bottom:96px; }
   .crisis .in { max-width:680px; margin:0 auto; pointer-events:auto; }
   .crisis .talk { display:flex; align-items:center; justify-content:center; gap:10px; text-decoration:none; font-weight:700; font-size:16px; padding:14px 18px; border-radius:16px; background:var(--calm); color:#fff; box-shadow:0 8px 24px rgba(0,0,0,.18); }
   .crisis .talk small { font-weight:500; opacity:.85; font-size:12.5px; }
@@ -1906,7 +1915,7 @@
   .crisis .more a { flex:1; min-width:110px; text-align:center; text-decoration:none; font-weight:700; padding:11px 12px; border-radius:10px; background:var(--surface-2); color:var(--ink); font-size:14px; }
   .crisis .more a.pri { background:var(--calm-soft); color:var(--calm); }
   .crisis .more .lbl { width:100%; font-size:14px; color:var(--faint); text-align:center; }
-  .crisis .toggle { background:none; border:none; color:var(--faint); font:inherit; font-size:15px; min-height:40px; cursor:pointer; width:100%; text-align:center; padding:6px 0 0; }
+  .crisis .toggle { background:none; border:none; color:var(--faint); font:inherit; font-size:15px; min-height:44px; /* 7 Oct deep check: was 40px */ cursor:pointer; width:100%; text-align:center; padding:6px 0 0; }
   .view { display:none; } .view.on { display:block; }
   h2 { font-size:22px; margin:6px 0 4px; font-weight:700; }
   p.sub { color:var(--soft); margin:0 0 14px; }
@@ -1989,13 +1998,16 @@
 
 <style id="dj-contrast-v1">
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --faint:#9A948B; } }
+  /* 7 Oct deep check: light-mode faint text darkened to 5:1 on the page background */
+  @media (prefers-color-scheme:light){ :root:not([data-theme="dark"]){ --faint:#6B655D; } }
+  :root[data-theme="light"]{ --faint:#6B655D; }
   :root[data-theme="dark"]{ --faint:#9A948B; }
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .talk{ color:#0D1B26; } }
   :root[data-theme="dark"] .talk{ color:#0D1B26; }
 </style>
 </head>
 <body>
-<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🫶</div><div style="font-size:28px;font-weight:800">My Safety Plan</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.2 · 2026-10-07</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🫶</div><div style="font-size:28px;font-weight:800">My Safety Plan</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.3 · 2026-10-08</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
 
 <button id="pwaInstall">⬇ Install app</button>
 <div id="pwaTip"><button onclick="this.parentNode.classList.remove('show');localStorage.setItem('pwaTipSeen','1')" aria-label="Remove" title="Remove">×</button><b>Install on iPhone:</b> tap the Share button <span style="font-size:16px">&#x2B06;&#xFE0E;</span>, then <b>“Add to Home Screen”</b>. It becomes an app icon and works offline.</div>
@@ -2065,7 +2077,7 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d) retur
 function save(){ localStorage.setItem(KEY,JSON.stringify(plan)); }
 const $=id=>document.getElementById(id); const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),1500); }
-window.tab=v=>{ if($('v-edit').classList.contains('on') && v!=='edit'){ collect(); save(); }   /* never lose what was typed */
+window.tab=v=>{ if($('v-edit').classList.contains('on') && v!=='edit'){ const was=JSON.stringify(plan); collect(); if(JSON.stringify(plan)!==was || localStorage.getItem(KEY)) save(); }   /* never lose what was typed — 7 Oct deep check: but don't save an empty skeleton */
   ['plan','edit','now'].forEach(x=>{ $('v-'+x).classList.toggle('on',x===v); $('t-'+x).classList.toggle('on',x===v); }); window.scrollTo(0,0); if(v==='plan') renderPlan(); if(v==='edit') renderEdit(); if(v==='now') renderNow(); };
 
 // ---- edit ----
@@ -2121,7 +2133,7 @@ function renderNow(){
   $('nowPeople').innerHTML = ppl.length?ppl.map(c=>`<div class="contact"><span>${esc(c.name)}</span>${c.num?`<a href="tel:${esc(c.num.replace(/[^\d+]/g,''))}">Call</a>`:''}</div>`).join(''):`<div class="contact"><span>988 Suicide & Crisis Lifeline</span><a href="tel:988">Call</a></div>`;
 }
 window.checkin=v=>{ const today=djYMD(); plan.checkins=(plan.checkins||[]).filter(c=>c.d!==today); plan.checkins.push({d:today,v}); plan.checkins=plan.checkins.slice(-60); save(); renderNow(); };
-let bt=null; window.breathe=()=>{ const c=$('circle'), b=$('breatheBtn'); if(bt){ clearInterval(bt); bt=null; c.className='circle'; c.textContent='ready'; b.textContent='Start 1 minute'; return; } b.textContent='Stop'; let phase=0, n=0; const run=()=>{ phase=1-phase; c.className='circle '+(phase?'in':'out'); c.textContent=phase?'breathe in':'breathe out'; if(++n>=15){ clearInterval(bt); bt=null; b.textContent='Start 1 minute'; setTimeout(()=>{ c.className='circle'; c.textContent='well done'; },4000); } }; run(); bt=setInterval(run,4000); };
+let bt=null; window.breathe=()=>{ const c=$('circle'), b=$('breatheBtn'); if(bt){ clearInterval(bt); bt=null; c.className='circle'; c.textContent='ready'; b.textContent='Start 1 minute'; return; } b.textContent='Stop'; let phase=0, n=0; const run=()=>{ phase=1-phase; c.className='circle '+(phase?'in':'out'); c.textContent=phase?'breathe in':'breathe out'; if(++n>=16){ /* 7 Oct deep check: 16 phases, so it ends on an out-breath */ clearInterval(bt); bt=null; b.textContent='Start 1 minute'; setTimeout(()=>{ c.className='circle'; c.textContent='well done'; },4000); } }; run(); bt=setInterval(run,4000); };
 // ---- backup ----
 async function download(name,text){ let dl=null; try{ if(window.claude&&claude.use) dl=await claude.use('downloads'); }catch(e){} if(dl){ try{ await dl.save({filename:name,data:text}); return; }catch(e){ toast(e&&e.code==='declined'?'Cancelled':'Open the app file directly to export'); return; } } const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
 window.exportPlan=()=>download('my-safety-plan.json',JSON.stringify(plan,null,1));
@@ -2146,10 +2158,10 @@ renderPlan();
 
 
 
-<script>window.DJ_START = {"slug": "safety", "em": "🫶", "title": "Welcome — this is your pocket safety plan.", "lede": "Six things, written down while you are steady, so they are already there on a hard day. It lives only on this phone — nothing is sent anywhere, and nobody else can see it.", "cta": "Start with warning signs →", "firstSelector": "#t-edit", "dataKeys": ["my_safety_plan_v1", "safety_v1", "safetyplan_v1"], "steps": ["<b>Warning signs</b> — what it looks like when things start to slip.", "<b>What helps</b> — things that have worked before, however small.", "<b>Who to call</b> — real names and numbers, ready to tap."]};
+<script>window.DJ_START = {"slug": "safety", "em": "🫶", "title": "Welcome — this is your pocket safety plan.", "lede": "Three things to start with — six short steps in all — written down while you are steady, so they are already there on a hard day. It lives only on this phone — nothing is sent anywhere, and nobody else can see it.", "cta": "Start with warning signs →", "firstSelector": "#t-edit", "dataKeys": ["my_safety_plan_v1", "safety_v1", "safetyplan_v1"], "steps": ["<b>Warning signs</b> — what it looks like when things start to slip.", "<b>What helps</b> — things that have worked before, however small.", "<b>Who to call</b> — real names and numbers, ready to tap."]};
 window.DJ_START.firstAction=function(){ tab('edit'); setTimeout(function(){ var i=document.querySelector('#l-signs input'); if(i){ i.scrollIntoView({block:'center'}); i.focus(); } },150); };</script>
 
-<!-- ═══════════ START HERE — first-run guide (v1.2 · 2026-10-07) ═══════════ -->
+<!-- ═══════════ START HERE — first-run guide (v1.3 · 2026-10-08) ═══════════ -->
 <style>
   #djStart{ position:fixed; inset:0; z-index:9000; background:rgba(12,13,16,.72);
     backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
@@ -2553,7 +2565,7 @@ window.DJ_START.firstAction=function(){ tab('edit'); setTimeout(function(){ var 
 }catch(e){} })();
 </script>
 
-<p class="foot" style="text-align:center;font-size:13px;opacity:.7;padding:18px 12px 26px;font-family:-apple-system,system-ui,sans-serif">My Safety Plan v1.2 · 2026-10-07 · Daraja Studio</p>
+<p class="foot" style="text-align:center;font-size:13px;opacity:.7;padding:18px 12px 26px;font-family:-apple-system,system-ui,sans-serif">My Safety Plan v1.3 · 2026-10-08 · Daraja Studio</p>
 <script id="dj-stamp-v2">
 /* One version, shown twice. Apps carried a splash stamp (which ship.py bumped) and a footer stamp
    (which it could not see, because of tags inside). Testers read the footer, so the footer is now
