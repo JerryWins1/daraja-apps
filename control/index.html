@@ -1894,7 +1894,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.22 · 2026-10-07 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.23 · 2026-10-07 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -1920,7 +1920,7 @@ async function hq(body){
 async function act(body,okMsg){ try{ const j=await hq(body); if(okMsg) toast(okMsg); await load(); return j; }catch(e){ toast(e.message,true); return null; } }
 
 async function start(){
-  if(!KEY){ $('gate').hidden=false; return; }
+  if(!KEY){ $('gate').hidden=false; $('reload').hidden=true; return; } /* 7 Oct deep check: ↻ here sent a request with no key */
   $('app').hidden=false;
   try{ HQ=(await (await fetch('../testers/config.json?cb='+Date.now())).json()).mailbox||''; }catch(e){}
   if(!HQ){ $('gate').hidden=false; $('app').hidden=true; $('gate').querySelector('p.muted').textContent='The HQ address is missing from testers/config.json — tell Claude.'; return; }
@@ -1928,9 +1928,9 @@ async function start(){
   setInterval(()=>{ if(!document.hidden && !$('sheet').classList.contains('on')) load(); },120000);
 }
 async function load(manual){
-  if(busy) return; busy=true; if(manual) $('reload').textContent='…';
+  if(busy || !KEY || !HQ) return; busy=true; if(manual) $('reload').textContent='…';
   try{ const r=await hq({action:'read',days:45}); D=r; render(); if(manual) toast('Up to date'); }
-  catch(e){ toast(e.message==='Not allowed'?'This key is not accepted — ask Claude for a fresh link':'HQ did not answer — try ↻ in a minute',true); if(e.message==='Not allowed'){ store('jhq_key',null); } }
+  catch(e){ toast(e.message==='Not allowed'?'This key is not accepted — ask Claude for a fresh link':'HQ did not answer — try ↻ in a minute',true); if(e.message==='Not allowed'){ store('jhq_key',null); $('gate').hidden=false; $('app').hidden=true; $('reload').hidden=true; } } /* 7 Oct deep check: it stayed on an empty panel */
   finally{ busy=false; $('reload').textContent='↻'; }
 }
 
@@ -1984,11 +1984,11 @@ async function renderZuriLive(){
     const last=mine[0]?new Date(mine[0].at):null; const days=last?Math.floor((Date.now()-last)/864e5):null; const notes=mine.filter(x=>x.kind==='note');
     const st=!mine.length?'hot':days>=2?'warn':'ok'; const what=!mine.length?'hasn’t opened the Testers’ List yet':days===0?'active today':days===1?'active yesterday':'quiet for '+days+' days';
     return {t,done:done.size,what,st,notes,last}; });
-  const nextStep=ZL.plan.find(x=>x[0]>=new Date().toISOString().slice(0,10))||ZL.plan[ZL.plan.length-1];
+  const nextStep=ZL.plan.find(x=>x[0]>=djYMD()) /* 7 Oct deep check: local day, not UTC (after 7 pm it skipped ahead) */||ZL.plan[ZL.plan.length-1];
   el.innerHTML=`<div class="tiles" style="margin-top:0">${ppl.map(p=>`<div class="tile ${p.st}"><div class="k">${esc(p.t.n)}</div><div class="v">${p.done}</div><div class="s">steps done · ${esc(p.what)}</div></div>`).join('')}</div>
     ${ppl.filter(p=>p.notes.length).map(p=>p.notes.slice(0,2).map(n=>`<div class="item"><b>${esc(p.t.n)}:</b> ${esc(n.note||'')} <span class="meta">${ago(n.at)}</span></div>`).join('')).join('')}
     <div class="item" style="margin-top:6px"><b>Next on the plan:</b> ${esc(nextStep[1])} <span class="meta">${new Date(nextStep[0]+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></div>
-    <details style="margin-top:6px"><summary class="muted">The two-week plan</summary>${ZL.plan.map(x=>`<div class="dl ${x[0]<new Date().toISOString().slice(0,10)?'':'soon'}"><span class="d">${new Date(x[0]+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span><span>${esc(x[1])}</span></div>`).join('')}</details>
+    <details style="margin-top:6px"><summary class="muted">The two-week plan</summary>${ZL.plan.map(x=>`<div class="dl ${x[0]<djYMD()?'':'soon'}"><span class="d">${new Date(x[0]+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span><span>${esc(x[1])}</span></div>`).join('')}</details>
     <div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('zuri')">📣 Message the Zuri testers</button><a class="chip small" href="https://jerrywins1.github.io/zuri-system/testers/?board" target="_blank" rel="noopener">📊 The board</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?training" target="_blank" rel="noopener">🟠 Training copy</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?practice" target="_blank" rel="noopener">🧪 Practice</a></div>`;
 }
 
