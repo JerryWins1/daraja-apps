@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v62">
+<script id="dj-house-v63">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -195,7 +195,7 @@
   var rec = null, micBtn = null, curBox = null;
 
   function eligible(el){
-    if(!el || el.dataset.djMic === 'off') return false;
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
     var t = (el.tagName||'').toLowerCase();
     if(t === 'textarea') return true;
     if(t !== 'input') return false;
@@ -307,7 +307,7 @@
     zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
     academy:      {k:['daraja_academy_v1'], p:['academy_']},
     feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
-    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_'], idb:['story_voice']},   /* v63: Start fresh also erases the voice recordings */
     thekey:       {k:['daraja_thekey_v1','daraja_thekey_v2'], p:[]},   /* v62: v2 = the accounts, papers and people entries */
     churchkey:    {k:['daraja_churchkey_v1'], p:[]},
     drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
@@ -366,8 +366,9 @@
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
     var dbs = (OWNS[slugOf()] || {}).idb || [];
     if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
-    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.concat(dbs.map(function(n){ return n + ' (attached files)'; })).join('\n  • ') +
-                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
+    if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
     /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
@@ -662,6 +663,8 @@
      No tour, no Start menu, no Home Screen card, no daily hello on top of their question. An app can also set window.DJ_GUEST. */
   function guestVisit(){ try{ return !!window.DJ_GUEST || (/[?&]r=/.test(location.search) && /\/whoscoming\//.test(location.pathname)); }catch(e){ return false; } }
   function kidsPage(){ try{ return !!window.DJ_KIDS || !!document.querySelector('meta[name="dj-kids"]'); }catch(e){ return false; } }
+  /* v63: the crisis tool (My Safety Plan) gets no outside-AI or Tell-it buttons — a plan's names and numbers must never be sent anywhere — and its 988 bar stays on top of the ? sheet */
+  function crisisPage(){ try{ return /\/safety\//.test(location.pathname) || !!document.getElementById('crisis'); }catch(e){ return false; } }
   /* v62 (found #25): the ? sheet row said "Help, backup, start fresh" but only reopened the welcome card.
      It now opens exactly those three things (backup only where the app has one). */
   function btn_lab(c, lab){ if(c.id !== 'djHelp') return lab; return ['?', document.getElementById('djBackup') ? 'Help, backup, start fresh' : 'Help and start fresh']; }
@@ -687,6 +690,7 @@
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
+    if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
@@ -719,7 +723,7 @@
       ai.onclick = function(){ w.remove(); pickAssistant(); };
       box.appendChild(ai);
     }
-    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+    if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
@@ -1174,7 +1178,7 @@
      and the clash left its Routines tab blank. */
   function askButton(){
     if(document.getElementById('djAIBtn') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link) */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link); v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djAIBtn'; b.textContent = '✨';
     b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1358,7 +1362,7 @@
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
-    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers)\//.test(location.pathname)) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
     if(rec.last === today) return;
@@ -1381,7 +1385,7 @@
        up ~100px and a tap aimed at one card landed on the one below. It now floats over the top and fades —
        nothing underneath moves. A tap anywhere on it closes it at once. */
     w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481002;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
-    w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
+    w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
@@ -1624,7 +1628,7 @@
   window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
   function tellButton(){
     if(document.getElementById('djTell') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton; v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
     b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1886,7 +1890,7 @@
 <title>Operation Christmas Child Assistant</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
- :root{--bg:#F7F3EC;--surface:#fff;--s2:#EFE9DD;--ink:#22291F;--soft:#5A6354;--faint:#8B9384;--green:#2F6E52;--green-soft:#2F6E5219;--red:#B4432F;--red-soft:#B4432F17;--gold:#B07D2B;--line:#E3DCCB;--lineS:#C9C1AC;--brand:#7A1F2B;--brand-soft:#7A1F2B12}
+ :root{--bg:#F7F3EC;--surface:#fff;--s2:#EFE9DD;--ink:#22291F;--soft:#5A6354;--faint:#5F665A;--green:#2F6E52;--green-soft:#2F6E5219;--red:#B4432F;--red-soft:#B4432F17;--gold:#B07D2B;--line:#E3DCCB;--lineS:#C9C1AC;--brand:#7A1F2B;--brand-soft:#7A1F2B12}
  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171512;--surface:#211E19;--s2:#2B271F;--ink:#EFEAE0;--soft:#B5AE9F;--faint:#7E786B;--green:#6DC296;--green-soft:#6DC29622;--red:#E77B62;--red-soft:#E77B6222;--gold:#D9A84E;--line:#332E25;--lineS:#4A443A;--brand:#D98A96;--brand-soft:#D98A9618}}
  :root[data-theme="dark"]{--bg:#171512;--surface:#211E19;--s2:#2B271F;--ink:#EFEAE0;--soft:#B5AE9F;--faint:#7E786B;--green:#6DC296;--green-soft:#6DC29622;--red:#E77B62;--red-soft:#E77B6222;--gold:#D9A84E;--line:#332E25;--lineS:#4A443A;--brand:#D98A96;--brand-soft:#D98A9618}
  *{box-sizing:border-box}html,body{margin:0}
@@ -1984,6 +1988,7 @@
 </style>
 
 <meta name="description" content="How many complete sets can we hand out right now? — Daraja Studio. Works on any phone, nothing to sign up for.">
+<style>/* 7 Oct deep check */ body.djglass .row .nm small.need, body.djglass .row .nm small.done{ color:rgba(242,239,232,.88) !important; } body.djglass .row .nm small.need::before{ content:"● "; color:#F08A6E; }</style>
 <style id="dj-contrast-v5">@media (prefers-color-scheme:light){ small.need, small.done, .small.need, .small.done{ color:#3F4A44 !important; } body:not(.djglass) .goalrow{ color:#1F2622 !important; } }</style>
 <style id="dj-glass-fix-v1">
 body.djglass .amt{ background:rgba(255,255,255,.14) !important; color:#fff !important; border-color:#6DC296 !important; }
@@ -2006,7 +2011,7 @@ body.djglass .srow button{ background:rgba(255,255,255,.14) !important; color:#f
  <div class="goalrow">🎯 The drive's goal: <input type="number" id="goal" min="0" inputmode="numeric" onchange="setGoal(this.value)"> sets</div>
  <h3 id="hBox">Everything, A to Z</h3><p class="hintline">Type how many in the box, then tap <b>＋</b>. Leave the box empty to add one. Tap the number itself to fix the total.</p><div class="card" id="listBox"></div>
  <div class="add"><input id="newN" placeholder="＋ add an item (e.g. Jump rope)" onkeydown="if(event.key==='Enter')addIt()"><button onclick="addIt()">Add</button></div>
- <p class="foot">Operation Christmas Child Assistant v1.12 · 2026-10-07 · counts save on this device · Daraja Studio · <button onclick="newYear()">↻ start a new drive</button></p>
+ <p class="foot">Operation Christmas Child Assistant v1.13 · 2026-10-08 · counts save on this device · Daraja Studio · <button onclick="newYear()">↻ start a new drive</button></p>
 </main>
 <div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="sbox">
  <h2 id="sName"></h2><div style="color:var(--faint);font-size:13px" id="sSub"></div>
@@ -2064,11 +2069,14 @@ function save(){ try{ localStorage.setItem(KEY,JSON.stringify(db)); }catch(e){ t
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let cur=null;
-function canBuild(){let m=Infinity,who='';db.items.forEach(it=>{if(it.box&&!it.plenty){if(it.q<m){m=it.q;who=it.n;}}});return {n:m===Infinity?0:m,who};}
+function canBuild(){let m=Infinity,who='';db.items.forEach(it=>{if(it.box&&!it.plenty){if(it.q<m){m=it.q;who=it.n;}}});
+ /* 7 Oct deep check: every item that runs out first, and how many are short of the goal */
+ const low=db.items.filter(it=>it.box&&!it.plenty&&it.q===m).sort(az).map(it=>it.n), shortN=db.items.filter(it=>it.box&&!it.plenty&&it.q<db.goal).length;
+ return {n:m===Infinity?0:m,who,low,shortN};}
 function head(){
  const cb=canBuild();
  $('canN').textContent=cb.n;
- $('bott').textContent=cb.n<db.goal&&cb.who?('Short on: '+cb.who+(cb.n>0?' — it runs out first':'')):'';
+ $('bott').textContent=cb.n<db.goal&&cb.who?(cb.shortN>1?('Short on '+cb.shortN+' items — '+(cb.low.length>1?'first to run out: '+cb.low.slice(0,2).join(', ')+(cb.low.length>2?' and '+(cb.low.length-2)+' more':''):cb.who+' runs out first')+'. Tap “Send the group” for the full list.'):('Short on: '+cb.who+(cb.n>0?' — it runs out first':''))):'';
  if(cb.n>=db.goal&&db.goal>0){$('bott').textContent='🎉 Goal covered — every item in a set has enough!';$('bott').style.color='var(--green)';}else{$('bott').style.color='var(--red)';}
  $('goal').value=db.goal;
 }
@@ -2119,7 +2127,7 @@ window.togBox=()=>{if(!cur)return;cur.box=$('sBox').checked?1:0;save();};
 window.togPlenty=()=>{if(!cur)return;cur.plenty=$('sPlenty').checked?1:0;save();};
 window.delIt=()=>{if(!cur)return;if(confirm('Remove “'+cur.n+'” from the list?')){db.items=db.items.filter(x=>x.id!==cur.id);save();closeSheet();}};
 window.addIt=()=>{const v=$('newN').value.trim();if(!v)return;db.items.push({id:'i'+Date.now().toString(36),n:v,q:0,box:0,plenty:0});$('newN').value='';save();render();toast('Added — tap its name to mark “every box”');};
-window.newYear=()=>{if(confirm('Start a new year? Counts go to zero; the item list stays.')){db.items.forEach(it=>it.q=0);save();render();toast('Fresh year — happy collecting 🎄');}};
+window.newYear=()=>{if(confirm('Start a new drive? Counts go to zero; the item list stays.')){db.items.forEach(it=>it.q=0);save();render();toast('Fresh start — happy collecting 🎄');}};
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);}
 render();
 </script>
@@ -2636,10 +2644,11 @@ render();
       title = (first || h1.textContent).replace(/\s+/g,' ').replace(/^[^\w]*/,'').trim();
       title = title.replace(/\s+Assistant$/,'');
     }
-    lines.push(title + ' — we are building ' + s.goal + ' boxes.');
+    var bx = function(n){ return n + ' box' + (n === 1 ? '' : 'es'); };   /* 7 Oct deep check: 1 box, 2 boxes */
+    lines.push(title + ' — we are building ' + bx(s.goal) + '.');
     lines.push('');
     if(!s.short.length){
-      lines.push('Every item is covered for all ' + s.goal + ' boxes. Thank you — nothing more needed!');
+      lines.push('Every item is covered for ' + (s.goal === 1 ? 'the box' : 'all ' + bx(s.goal)) + '. Thank you — nothing more needed!');
     } else {
       lines.push('Still to buy:');
       s.short.forEach(function(i){
@@ -2660,7 +2669,7 @@ render();
     lines.push('Drop-off week is ' + COLLECTION.from + '–' + COLLECTION.to
                + (dl > 0 ? ' — ' + dl + ' days away.' : '.'));
     lines.push('Each box also needs a $' + SHIP_PER_BOX + ' shipping donation, so '
-               + s.goal + ' boxes is $' + (s.goal * SHIP_PER_BOX).toLocaleString() + ' altogether.');
+               + bx(s.goal) + ' ' + (s.goal === 1 ? 'is' : 'are') + ' $' + (s.goal * SHIP_PER_BOX).toLocaleString() + ' altogether.');
     return lines.join('\n');
   }
 
@@ -2669,7 +2678,7 @@ render();
     if(!btn || !s) return;
     btn.disabled = false;
     btn.textContent = s.short.length
-      ? '📤 Send the group what we still need (' + s.short.length + ' items)'
+      ? '📤 Send the group what we still need (' + s.short.length + (s.short.length === 1 ? ' item)' : ' items)')
       : '📤 Send the group the good news — everything is covered';
   }
 
@@ -2736,7 +2745,12 @@ render();
     /* the count changes as boxes come in — keep the button honest */
     if(typeof window.render === 'function'){
       var real = window.render;
-      window.render = function(){ var r = real.apply(this, arguments); try{ refresh(); }catch(e){} return r; };
+      window.render = function(){ var r = real.apply(this, arguments); try{ refresh(); facts(); }catch(e){} return r; };
+    }
+    /* 7 Oct deep check: ＋/− and the type-a-number box redraw one row through head(), not render() — follow that too */
+    if(typeof window.head === 'function'){
+      var realHead = window.head;
+      window.head = function(){ var r = realHead.apply(this, arguments); try{ refresh(); facts(); }catch(e){} return r; };
     }
   }
 
@@ -2745,6 +2759,8 @@ render();
     if(!host) return;
     var s = shortages(); if(!s) return;
     var dl = daysLeft();
+    var wasOpen = !!(host.querySelector('details') && host.querySelector('details').open);   /* 7 Oct deep check: redrawn often now — keep it open */
+    setTimeout(function(){ var dd = host.querySelector('details'); if(dd && wasOpen) dd.open = true; }, 0);
     host.innerHTML =
       '<div class="occFact">'
       + '<div class="occFactRow"><span>🗓 Drop-off week</span><b>' + COLLECTION.from + '–' + COLLECTION.to
