@@ -1,14 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v61">
+<script id="dj-house-v63">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
 (function(){ try{
   if(!window.speechSynthesis || /\/shop\/watch\.html|\/rafiki\//.test(location.pathname)) return;
   var real = speechSynthesis.speak.bind(speechSynthesis);
-  speechSynthesis.speak = function(u){ try{ if(localStorage.getItem('dj_voice') === 'on') return real(u); }catch(e){} };
+  /* v62 (7 Oct deep check): a button the person taps to HEAR something ("🔊 Read it to me", "Listen") is asking
+     for the voice, so it speaks even when the voice switch is off. Only for a few seconds after that tap. */
+  var askedAt = 0, ASK = /read (it|this|that)( out)?( to me)?|read to me|read aloud|🔊|listen|hear it|say it again/i;
+  document.addEventListener('click', function(e){ try{ var t = e.target && e.target.closest && e.target.closest('button,a,[role="button"]'); if(!t) return;
+    var words = (t.textContent || '') + ' ' + (t.getAttribute('aria-label') || '') + ' ' + (t.title || '');
+    if(ASK.test(words) && !/turn (the )?voice|voice is on|sound (on|off)|mute/i.test(words)) askedAt = Date.now(); }catch(err){} }, true);
+  window.djSayNow = function(){ askedAt = Date.now(); };
+  speechSynthesis.speak = function(u){ try{ if(localStorage.getItem('dj_voice') === 'on' || Date.now() - askedAt < 6000) return real(u); }catch(e){} };
 }catch(e){} })();
 
 /* ═══ Daraja house standard — safety net, local dates, talk-into-any-box ═══ */
@@ -61,6 +68,16 @@
     setTimeout(bar, 1500);
   })();
 
+  /* v62: a Start fresh that erased an app's file store finishes here, before the app opens it again */
+  (function(){ try{ var w = JSON.parse(localStorage.getItem('dj_idb_wipe') || 'null'); if(!Array.isArray(w) || !w.length) return; var left = w.length;
+    w.forEach(function(n){ var r = indexedDB.deleteDatabase(String(n)); r.onsuccess = function(){ if(--left <= 0){ try{ localStorage.removeItem('dj_idb_wipe'); }catch(e){} } }; }); }catch(e){} })();
+
+  /* v62 (found #51): a tour that was closed half way put the app on Level 3 for good. Put the level back. */
+  (function(){ try{ for(var i = localStorage.length - 1; i >= 0; i--){ var k = localStorage.key(i); if(!k || k.indexOf('dj_tour_lvl_') !== 0) continue;
+      var o = JSON.parse(localStorage.getItem(k) || 'null'); if(!o || o.path !== location.pathname) continue;
+      Object.keys(o.keys || {}).forEach(function(x){ if(o.keys[x] === null) localStorage.removeItem(x); else localStorage.setItem(x, o.keys[x]); });
+      localStorage.removeItem(k); } }catch(e){} })();
+
   /* ── 1 · the real local day ──────────────────────────────────────────────
      toISOString() converts to UTC. At 7pm in Illinois that is already tomorrow,
      so "today" landed on the wrong date and daily streaks broke overnight. */
@@ -79,8 +96,11 @@
     var proto = window.Storage && Storage.prototype;
     if(proto && !proto.__djGuarded){
       var realSet = proto.setItem;
+      /* v62 (7 Oct deep check): Our Table, Every Day, Who's Coming and My Circle keep their data under dj_ names,
+         so skipping every dj_ key meant they never said "Saved ✓". Skip only the house's own bookkeeping. */
+      var HOUSE_KEY = /^dj_(textsize|hello_|tour_|seen_|a2hs_|tipseen_|lastopen|menu_seen_|voice|ai_choice|circle_include|sandbox|level_|glass_|tester_code|idb_wipe|name$|.*_seen$|.*_tip|.*_intro)/;
       proto.setItem = function(k, v){
-        try{ var r = realSet.call(this, k, v); if(String(k).indexOf('dj_')!==0) savedPulse(); return r; }
+        try{ var r = realSet.call(this, k, v); if(!HOUSE_KEY.test(String(k)) && String(k).indexOf('sbx:dj_tour') !== 0) savedPulse(); return r; }
         catch(err){ djSaveFailed(err); return undefined; }
       };
       proto.__djGuarded = true;
@@ -175,7 +195,7 @@
   var rec = null, micBtn = null, curBox = null;
 
   function eligible(el){
-    if(!el || el.dataset.djMic === 'off') return false;
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
     var t = (el.tagName||'').toLowerCase();
     if(t === 'textarea') return true;
     if(t !== 'input') return false;
@@ -277,7 +297,7 @@
   var OWNS = {
     nownext:      {k:['now_next_v1','now_next_profiles_v1','nn7_prefs','nn_code_v1','hz_prefs_v1',
                       'nn_dev','nn_fam_since','nn_family','nn_ph_reg','nn_week_v1'], p:['now_next_v1_','nn_']},
-    ahead:        {k:['ahead_v1'], p:['ahead_']},
+    ahead:        {k:['ahead_v1'], p:['ahead_'], idb:['ahead_papers']},   /* v62: the papers pocket (attached policies, statements) lives in IndexedDB */
     breakeven:    {k:['breakeven_v1'], p:['breakeven_']},
     compass:      {k:['daraja_compass_v1','compassTipSeen'], p:['compass_']},
     nextstep:     {k:['nextstep_board_v1'], p:['nextstep_','nsb_']},
@@ -287,8 +307,8 @@
     zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
     academy:      {k:['daraja_academy_v1'], p:['academy_']},
     feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
-    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
-    thekey:       {k:['daraja_thekey_v1'], p:[]},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_'], idb:['story_voice']},   /* v63: Start fresh also erases the voice recordings */
+    thekey:       {k:['daraja_thekey_v1','daraja_thekey_v2'], p:[]},   /* v62: v2 = the accounts, papers and people entries */
     churchkey:    {k:['daraja_churchkey_v1'], p:[]},
     drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
     flipkit:      {k:['flipkit_v1','flipkit_aa','flipkit_seen'], p:['flipkit_']},
@@ -344,12 +364,21 @@
   function startFresh(){
     var keys = myKeys();
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
-    if(!keys.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
-    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.join('\n  • ') +
-                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    var dbs = (OWNS[slugOf()] || {}).idb || [];
+    if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
+    var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
+    if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
-    location.replace(location.pathname);
+    /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
+       so the app's own file store goes too. The page reloads once the phone says it is gone (or after 2 s). */
+    try{ if(dbs.length) localStorage.setItem('dj_idb_wipe', JSON.stringify(dbs)); }catch(e){}   /* finished on the next open, before the app opens its store */
+    var left = dbs.length, went = false;
+    function away(){ if(went) return; went = true; location.replace(location.pathname); }
+    if(!left){ away(); return; }
+    dbs.forEach(function(n){ try{ var r = indexedDB.deleteDatabase(n); r.onsuccess = r.onerror = r.onblocked = function(){ if(--left <= 0) away(); }; }catch(e){ if(--left <= 0) away(); } });
+    setTimeout(away, 2000);
   }
 
   /* The older erase layer sits at the end of the page, so it assigns AFTER this one
@@ -501,7 +530,7 @@
     return n;
   }
   /* the dock and the app's own bars keep moving for a few seconds after load, so the + button is re-checked on the same schedule */
-  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ contrastFloor(); }catch(e){} try{ inputFloor(); }catch(e){} try{ nameButtons(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
+  function floorsSoon(){ [0, 700, 2200, 4500, 7000].forEach(function(ms){ setTimeout(function(){ try{ floors(); }catch(e){} try{ contrastFloor(); }catch(e){} try{ buttonInk(); }catch(e){} try{ backupHome(); }catch(e){} try{ inputFloor(); }catch(e){} try{ nameButtons(); }catch(e){} try{ fabLift(); }catch(e){} }, ms); }); }
 
   function auditFixes(){
     try{ auditFixCSS(); }catch(e){}
@@ -528,7 +557,7 @@
       if(r.height < 20 || r.width < 20) continue;
       if(r.height > VH * 0.5) continue;                 /* a full-screen overlay is not a bar */
       if(r.bottom < VH * 0.45) continue;                /* only the lower half matters */
-      if(el.id === 'pwaTip') continue;                  /* the install tip lifts itself above us — counting it would chase in circles */
+      if(el.id === 'pwaTip' || el.id === 'djA2HS') continue;   /* the install tip lifts itself above us — counting it would chase in circles; v62: the Home Screen card hides the dock instead */
       if(r.width > VW * 0.5 && r.bottom > VH * 0.6){
         bar = Math.max(bar, VH - r.top);                /* a bar spanning the screen — at the bottom, or just above the nav (Ahead of It's coach bar, 22 Sep) */
       } else if(VW - r.right < 92){
@@ -550,6 +579,9 @@
       var r = el.getBoundingClientRect(); if(r.height < H * 0.28 || r.top >= H - 40 || r.bottom <= 40 || r.width < 200) continue;
       open = true;
     }
+    /* v62 (7 Oct deep check): the ? sat on the main button of full-screen intros (One Thing's "Set it up with me",
+       Ahead's "6 minutes →"), and the Home Screen card pushed it up onto My Circle's name box. Step aside for those too. */
+    if(!open){ ['fsIntro','introOv','djA2HS'].forEach(function(id){ var e = document.getElementById(id); if(!e || open) return; var c = getComputedStyle(e); if(c.display !== 'none' && c.visibility !== 'hidden' && +c.opacity > 0 && e.getBoundingClientRect().height > 40) open = true; }); }
     dockEl.style.visibility = open ? 'hidden' : '';
   }
   function dock(){
@@ -625,9 +657,40 @@
     }catch(e){ return null; }
   }
   window.djAppVersion = appStamp;
+  /* v62 (found #26): a children's page (The Clubhouse sets window.DJ_KIDS = true) gets no grown-up tools —
+     no Tell it, no Ask an AI (an outside site), no My Circle, no AI picker. */
+  /* v62 (7 Oct deep check): someone answering a Who's Coming reply link (?r=…) is a guest, not the organiser.
+     No tour, no Start menu, no Home Screen card, no daily hello on top of their question. An app can also set window.DJ_GUEST. */
+  function guestVisit(){ try{ return !!window.DJ_GUEST || (/[?&]r=/.test(location.search) && /\/whoscoming\//.test(location.pathname)); }catch(e){ return false; } }
+  function kidsPage(){ try{ return !!window.DJ_KIDS || !!document.querySelector('meta[name="dj-kids"]'); }catch(e){ return false; } }
+  /* v63: the crisis tool (My Safety Plan) gets no outside-AI or Tell-it buttons — a plan's names and numbers must never be sent anywhere — and its 988 bar stays on top of the ? sheet */
+  function crisisPage(){ try{ return /\/safety\//.test(location.pathname) || !!document.getElementById('crisis'); }catch(e){ return false; } }
+  /* v62 (found #25): the ? sheet row said "Help, backup, start fresh" but only reopened the welcome card.
+     It now opens exactly those three things (backup only where the app has one). */
+  function btn_lab(c, lab){ if(c.id !== 'djHelp') return lab; return ['?', document.getElementById('djBackup') ? 'Help, backup, start fresh' : 'Help and start fresh']; }
+  function helpSheet(helpBtn){
+    var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help, backup, start fresh');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
+    box.innerHTML = '<div style="font-weight:900;font-size:18px;margin:2px 4px 10px">Help, backup, start fresh</div>';
+    var RS = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+    function row(em, t, sub, fn){ var r = document.createElement('button'); r.type = 'button'; r.style.cssText = RS; r.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + em + '</span><span style="flex:1">' + t + (sub ? '<br><small style="font-weight:600;color:#55605B">' + sub + '</small>' : '') + '</span>'; r.onclick = function(){ w.remove(); fn(); }; box.appendChild(r); }
+    row('👋', 'The welcome card — what this app is for', '', function(){ try{ helpBtn.click(); }catch(e){} });
+    var bk = document.getElementById('djBackup'), bb = bk ? bk.querySelectorAll('button') : [];
+    if(bb[0]) row('💾', 'Save a copy', 'a small file you keep in Files, iCloud or an email to yourself', function(){ bb[0].click(); });
+    if(bb[1]) row('📂', 'Bring a copy back', 'from a file you saved before', function(){ bb[1].click(); });
+    if(window.djStartFresh) row('🧹', 'Start fresh — erase this app’s data', 'asks twice before anything is erased', function(){ window.djStartFresh(); });
+    var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Close';
+    x.style.cssText = 'display:block;width:100%;font:inherit;font-weight:800;min-height:48px;border-radius:14px;border:0;background:#23504F;color:#fff;cursor:pointer;margin-top:2px';
+    x.onclick = function(){ w.remove(); }; box.appendChild(x);
+    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    w.appendChild(box); document.body.appendChild(w);
+  }
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
+    if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
@@ -646,12 +709,21 @@
         var row = document.createElement('button'); row.type = 'button';
         row.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
         row.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + lab[0] + '</span><span style="flex:1">' + lab[1] + '</span>';
-        row.onclick = function(){ w.remove(); try{ btn.click(); }catch(e){} };
+        row.onclick = function(){ w.remove(); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
         box.appendChild(row); n++;
-      })(c, lab);
+      })(c, btn_lab(c, lab));
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
-    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+    /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
+    if(!kidsPage() && !/\/control\//.test(location.pathname)){
+      var ai = document.createElement('button'); ai.type = 'button';
+      ai.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      var ch = aiChoice(), chn = ASSISTANTS[ch] ? ASSISTANTS[ch].name : (ch === 'none' ? 'none' : 'not chosen yet');
+      ai.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🤖</span><span style="flex:1">Which AI do you use?<br><small style="font-weight:600;color:#55605B">now: ' + esc(chn) + '</small></span>';
+      ai.onclick = function(){ w.remove(); pickAssistant(); };
+      box.appendChild(ai);
+    }
+    if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
@@ -672,7 +744,7 @@
       tr.onclick = function(){ w.remove(); djTour.start(); };
       box.appendChild(tr);
     }
-    if(location.pathname.indexOf('/circle/') < 0){
+    if(location.pathname.indexOf('/circle/') < 0 && !kidsPage()){
       var cr = document.createElement('a'); cr.href = djCircle.url;
       cr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-decoration:none;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;box-sizing:border-box';
       var cn = djCircle.count();
@@ -862,6 +934,7 @@
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
       var force = /[?&]dj_a2hs=1/.test(location.search);
       if(embedded || (!force && (!ios || navigator.standalone))) return;
+      if(!force && guestVisit()) return;
       if(!force && /\/(welcome|watch\.html|feedback-studio|testers|help|testday|control|safety)(\/|$)/.test(location.pathname)) return;   /* v47: tester and helper pages are visited, not kept */
       var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
       if(st === 'done' || st === 'no') return;
@@ -996,7 +1069,7 @@
   function pasteBack(o){
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Paste the answer</div><p style="margin:0 0 8px;color:#55605B;font-size:14.5px">Copy what ' + esc(o.who) + ' said, come back, paste it here.</p><textarea id="djAIIn" aria-label="Paste the answer" style="width:100%;min-height:96px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622"></textarea><button type="button" id="djAIUse" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Use this answer</button><div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAIAgain" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">open ' + esc(o.who) + ' again</button><button type="button" id="djAINo" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
     b.querySelector('#djAIUse').onclick = function(){ var t = b.querySelector('#djAIIn').value.trim(); if(!t) return; closeAISheet(); deliver(o, t); };
-    b.querySelector('#djAIAgain').onclick = function(){ openAssistant(o); };
+    b.querySelector('#djAIAgain').onclick = function(){ openAssistant(o, function(){ setTimeout(function(){ pasteBack(o); }, 600); }); };
     b.querySelector('#djAINo').onclick = function(){ closeAISheet(); };
     setTimeout(function(){ try{ b.querySelector('#djAIIn').focus(); }catch(e){} }, 300);
   }
@@ -1005,11 +1078,26 @@
     if(o.want === 'json'){ v = extractJSON(text); if(!v){ alert('That did not look like the answer I expected. Try “Open again” and ask it to answer in JSON only.'); pasteBack(o); return; } }
     try{ o.onResult && o.onResult(v, text); }catch(e){}
   }
-  function openAssistant(o){
+  /* v62 (7 Oct deep check): window.open(u,'_blank','noopener') always returns null, so the old fallback
+     (location.href = u) ALSO turned the app's own tab into Claude and the "Paste the answer" sheet was lost.
+     Open a plain new tab, cut its link back to us, and never send this tab away. Gemini, Copilot and Meta AI
+     can't take the question in the link, so the person is told it is copied and where to paste it — and
+     opens it with one more tap on a real link, which no phone blocks. */
+  function openAssistant(o, then){
     var k = aiChoice(); var A = ASSISTANTS[k]; if(!A) return;
     try{ if(navigator.clipboard){ var cp = navigator.clipboard.writeText(o.prompt); if(cp && cp.catch) cp.catch(function(){}); } }catch(e){}
-    var u = A.url(o.prompt);
-    var w = window.open(u, '_blank', 'noopener'); if(!w) location.href = u;
+    var u = A.url(o.prompt), carries = (u.indexOf('?q=') >= 0);
+    function viaLink(msg){
+      var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Your question is copied</div><p style="margin:0 0 12px;color:#55605B;font-size:15px">' + msg + '</p>'
+        + '<a id="djAIOpen" href="' + esc(u) + '" target="_blank" rel="noopener" style="' + BTNM + ';display:flex;align-items:center;justify-content:center;text-decoration:none;width:100%;min-height:52px;font-size:17px;box-sizing:border-box">Open ' + esc(A.name) + ' →</a>'
+        + '<div style="text-align:right;margin-top:8px"><button type="button" id="djAIX2" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
+      b.querySelector('#djAIOpen').addEventListener('click', function(){ closeAISheet(); if(then) then(); });
+      b.querySelector('#djAIX2').onclick = function(){ closeAISheet(); };
+    }
+    if(!carries){ viaLink('In ' + esc(A.name) + ', press and hold the box where you type, tap <b>Paste</b>, then send it. Come back here with the answer.'); return; }
+    var w = null; try{ w = window.open(u, '_blank'); }catch(e){ w = null; }
+    if(w){ try{ w.opener = null; }catch(e){} if(then) then(); return; }
+    viaLink('Tap the button to open ' + esc(A.name) + ' with your question in it. Come back here with the answer.');   /* the phone blocked the new tab */
   }
   function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
@@ -1053,7 +1141,7 @@
       if(viaD){ deliver(o, viaD); return; }
       var k = aiChoice();
       if(!k){ pickAssistant(function(){ djAI.ask(o); }); return; }
-      if(k === 'none'){ alert('Pick an AI first — tap the ? button, then “Which AI do you use?”'); pickAssistant(function(){ djAI.ask(o); }); return; }
+      if(k === 'none'){ pickAssistant(function(){ djAI.ask(o); }); return; }   /* v62: the picker itself is the place to choose — no alert pointing elsewhere */
       var who = ASSISTANTS[k].name;
       /* show what will be sent, in one line — the full words only if asked for */
       var short = String(o.prompt).replace(/\s+/g,' ').trim(); if(short.length > 110) short = short.slice(0, 108) + '…';
@@ -1066,7 +1154,7 @@
         + '<div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAISw" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">different AI</button><button type="button" id="djAIX" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
       b.querySelector('#djAIQ').value = o.prompt;
       b.querySelector('#djAIShow').onclick = function(){ var t = b.querySelector('#djAIQ'); t.style.display = ''; this.style.display = 'none'; };
-      b.querySelector('#djAIGo').onclick = function(){ var cb = b.querySelector('#djAICircle'); if(cb){ try{ localStorage.setItem('dj_circle_include', cb.checked ? '1' : '0'); }catch(e){} } o.prompt = (cb && cb.checked) ? (djCircle.summary() + '\n\n' + b.querySelector('#djAIQ').value) : b.querySelector('#djAIQ').value; o.who = who; closeAISheet(); openAssistant(o); if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); };
+      b.querySelector('#djAIGo').onclick = function(){ var cb = b.querySelector('#djAICircle'); if(cb){ try{ localStorage.setItem('dj_circle_include', cb.checked ? '1' : '0'); }catch(e){} } o.prompt = (cb && cb.checked) ? (djCircle.summary() + '\n\n' + b.querySelector('#djAIQ').value) : b.querySelector('#djAIQ').value; o.who = who; closeAISheet(); openAssistant(o, function(){ if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); }); };
       b.querySelector('#djAISw').onclick = function(){ closeAISheet(); pickAssistant(function(){ djAI.ask(o); }); };
       b.querySelector('#djAIX').onclick = function(){ closeAISheet(); };
     },
@@ -1090,6 +1178,7 @@
      and the clash left its Routines tab blank. */
   function askButton(){
     if(document.getElementById('djAIBtn') || !document.body) return;
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link); v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djAIBtn'; b.textContent = '✨';
     b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1130,6 +1219,44 @@
       el.classList.add(light ? 'djPhD' : 'djPhL'); el.__djInk = true;
     }
   }
+  /* v62 (7 Oct deep check): white words on a light accent button (Our Table's coral "＋ New recipe" 2.6:1, Who's Coming,
+     My Circle "＋ Add" — in dark mode). Contrast only ever improves: a button whose own solid colour is light and whose
+     words are near-white gets dark ink. If the button's colour later changes (selected/unselected), it is looked at again. */
+  function buttonInk(){
+    var els = document.querySelectorAll('button, a[href], [role="button"]');
+    for(var i = 0; i < els.length; i++){
+      var el = els[i]; if(el.closest('#djTour, #djDock, #djAISheet, #djDockSheet, #djMoreSheet, #djMenu')) continue;
+      var cs = getComputedStyle(el); if(cs.display === 'none') continue;
+      var bg = cs.backgroundColor;
+      if(el.__djInk2 !== undefined){ if(el.__djInk2 === bg) continue; el.style.removeProperty('color'); el.__djInk2 = undefined; cs = getComputedStyle(el); }
+      if(cs.backgroundImage && cs.backgroundImage !== 'none') continue;
+      var v = (bg || '').match(/\d+(\.\d+)?/g); if(!v || v.length < 3 || (v[3] !== undefined && +v[3] < 0.9)) continue;
+      var Lb = lum(bg), Lf = lum(cs.color); if(Lb === null || Lf === null || Lf < 0.75 || Lb < 0.25) continue;
+      var ratio = (Lf + .05) / (Lb + .05); if(ratio < 1) ratio = 1 / ratio;
+      var dark = (Lb + .05) / (lum('rgb(31,38,34)') + .05);
+      if(ratio < 3 && dark > ratio + 1){ el.style.setProperty('color', '#1F2622', 'important'); el.__djInk2 = bg; }
+    }
+  }
+  /* v62 (found #7/#34): the backup buttons (#djBackup) were put inside The Key's and Church Key's hidden print page
+     (#printPage .foot), so Save a copy / Bring a copy back never showed on screen. Move them to the visible page. */
+  function backupHome(){
+    var b = document.getElementById('djBackup'); if(!b || !document.body) return;
+    var hidden = false, e = b.parentElement; while(e && e !== document.body){ if(getComputedStyle(e).display === 'none' || e.id === 'printPage'){ hidden = true; break; } e = e.parentElement; }
+    if(!hidden) return;
+    var feet = document.querySelectorAll('.foot, footer, p.footer'), host = null;
+    for(var j = 0; j < feet.length; j++){ var f = feet[j]; if(f.closest('#printPage')) continue; var ok = true, p2 = f; while(p2 && p2 !== document.body){ if(getComputedStyle(p2).display === 'none'){ ok = false; break; } p2 = p2.parentElement; } if(ok){ host = f; break; } }
+    if(host && host.parentNode) host.parentNode.insertBefore(b, host); else { var fl = document.getElementById('djFreshLink2'); if(fl && fl.parentNode) fl.parentNode.insertBefore(b, fl); else document.body.appendChild(b); }
+  }
+  /* v62 (found #29/#48): the glass ("sunrise") look turns the words light, but an app's pale second-surface colours
+     (--s2, --surface-2, --lineS) stayed cream, so boxes went pale-under-light-text. And the level pill sat under the
+     painted background. An app that sets its own glass values still wins (its rules come later). */
+  function glassCSS(){
+    if(document.getElementById('djGlassFix') || !document.head) return;
+    var st = document.createElement('style'); st.id = 'djGlassFix';
+    st.textContent = 'body.djglass,body.river{--s2:rgba(255,255,255,.10);--surface-2:rgba(255,255,255,.10);--lineS:rgba(255,255,255,.32);}'
+      + 'body.djglass #djLevelPill,body.djglass #nnLevel,body.river #djLevelPill,body.river #nnLevel{position:relative;z-index:2;}';   /* One Thing's look is body.river over #riverBg */
+    document.head.insertBefore(st, document.head.firstChild);
+  }
   function contrastFloor(){
     var all = document.body ? document.body.getElementsByTagName('*') : [], n = 0;
     for(var i = 0; i < all.length; i++){
@@ -1158,6 +1285,7 @@
      It reads the store's own list, so a new app shows up here the day it is shelved. */
   function moreButton(){
     if(document.getElementById('djMore') || !document.body) return;
+    if(kidsPage()) return;   /* v62: no store links on a children's page */
     if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks)\//.test(location.pathname)) return;
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djMore'; b.textContent = '\u{1F309}';
     b.title = 'More from Daraja'; b.setAttribute('aria-label', 'More from Daraja — the other apps');
@@ -1231,10 +1359,10 @@
      came back, and one warm sentence from a pool of forty. Seven seconds, or tap it away.
      Never on the store, the tools, or inside a frame. */
   var HELLO = ['You showed up. That is most of it.','Small steps count double on the hard days.','Nothing here needs to be perfect. It just needs to be yours.','One thing at a time is not slow. It is how things get done.','If today is heavy, do the smallest thing on the list and call it a win.','Somebody is glad you are here today. Probably several somebodies.','You do not have to feel ready. You just have to start.','A day you kept going is a good day, whatever else happened.','It is fine to rest. The list will keep.','The people who love you would rather have you tired than absent.','Three deep breaths cost nothing and change the next ten minutes.','You have handled every day so far. Today is another one of those.','Call someone today. It counts for both of you.','Drink some water. Old advice, still true.','The garden does not hurry, and it still blooms.','Progress that nobody sees is still progress.','If you are stuck, tell one person. Stuck things move when they are spoken.','Today you get to be a beginner at something. That is a gift.','Whatever you are carrying, you can set it down for ten minutes.','Sunshine on your face for five minutes is medicine.','Look at one old photo today, and let it be a good thing.','Being kind to yourself is not lazy. It is maintenance.','Nobody is keeping score except you. Be a generous scorekeeper.','Ask for the help you would happily give someone else.','The next right thing is usually small and close.','A short walk beats a long worry.','It is never too late in the day to make it a decent day.','The grandkids will remember the time, not the tidiness.','Write one sentence about today. Future you will thank you.','A meal cooked slowly is a way of saying you matter.','You are allowed to change your mind about anything.','Laugh at one thing today, on purpose.','What you finished last week still counts this week.','Feeling behind is a feeling, not a fact.','Say thank you to someone today, out loud.','The list is not the boss of you. You are.','A quiet day is not a wasted day.','You have taught more people more things than you know.','Do the thing you keep putting off, badly, for five minutes.','You are here. That is the whole first step.'];
-  function djName(){ try{ return localStorage.getItem('dj_name') || ''; }catch(e){ return ''; } }
+  function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
-    if(embedded || !document.body) return;
-    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers)\//.test(location.pathname)) return;
+    if(embedded || !document.body || guestVisit()) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
     if(rec.last === today) return;
@@ -1253,13 +1381,15 @@
       if(gap >= 3){ back = ' It has been ' + gap + ' days. That is completely fine.'; line = 'Nothing here was counting. Start with the smallest thing on the screen, and let that be enough for today.'; }
     }
     var w = document.createElement('div'); w.id = 'djHello'; w.setAttribute('role', 'status');
-    /* in the flow of the page (not floating), so it never covers a header or a button */
-    w.style.cssText = 'position:relative;z-index:5;max-width:620px;margin:8px 10px 6px;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
-    w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
+    /* v62 (7 Oct deep check): it used to sit IN the page, so when it folded away after 8 s everything jumped
+       up ~100px and a tap aimed at one card landed on the one below. It now floats over the top and fades —
+       nothing underneath moves. A tap anywhere on it closes it at once. */
+    w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481002;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
+    w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
-    document.body.insertBefore(w, document.body.firstChild);
+    document.body.appendChild(w);
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
-    setTimeout(function(){ w.style.opacity = '0'; w.style.maxHeight = '0'; w.style.margin = '0 10px'; w.style.padding = '0 14px'; setTimeout(function(){ w.remove(); }, 450); }, 8000);
+    setTimeout(function(){ w.style.opacity = '0'; w.style.pointerEvents = 'none'; setTimeout(function(){ w.remove(); }, 450); }, 8000);
   }
 
 
@@ -1391,6 +1521,7 @@
   function tellSay(p){
     if(!p) return '';
     if(p.kind === 'shop') return 'Add <b>' + esc(p.text) + '</b> to the shopping list in Our Table';
+    if(p.kind === 'ahead' && !aheadReady()) return 'Ahead of It isn’t set up on this phone yet, so add <b>' + esc(p.text) + (p.amt ? ' ($' + esc(p.amt) + ')' : '') + ' is due</b> to One Thing for <b>' + niceDate(p.date) + '</b>';   /* v62: say where it really goes */
     if(p.kind === 'ahead') return 'Add <b>' + esc(p.text) + '</b> to Ahead of It, due <b>' + niceDate(p.date) + '</b>' + (p.amt ? ', <b>$' + esc(p.amt) + '</b>' : '') + (p.rep === 30 ? ', every month' : p.rep === 0 ? ', once' : ', every year');
     if(p.kind === 'bday') return 'Save <b>' + esc(p.name) + '</b>’s birthday (' + niceDate(p.date).replace(/^\w+, /,'') + ') in My Circle';
     return 'Add <b>' + esc(p.text) + '</b> to One Thing' + (p.date ? ' for <b>' + niceDate(p.date) + '</b>' : ' for today');
@@ -1399,6 +1530,7 @@
   function lsPut(k, v){ localStorage.setItem(k, JSON.stringify(v)); return localStorage.getItem(k) === JSON.stringify(v); }
   function tid(){ return 'tell' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
   function nnKeyOf(){ var P = lsJ('now_next_profiles_v1'); if(P && P.cur) return 'now_next_v1_' + P.cur; return 'now_next_v1'; }
+  function aheadReady(){ var h = lsJ('ahead_v1'); return !!(h && Array.isArray(h.items)); }
   function tellDo(p){
     if(p.kind === 'shop'){
       var o = lsJ('dj_ourtable_v1') || {}; o.extras = Array.isArray(o.extras) ? o.extras : [];
@@ -1496,6 +1628,7 @@
   window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
   function tellButton(){
     if(document.getElementById('djTell') || !document.body) return;
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton; v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
     b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1519,6 +1652,10 @@
     var T = window.DJ_TOUR; if(!T || !document.body) return;
     try{ if(window.top !== window.self){ var pp = parent.location.pathname; if(/\/shop\/watch|\/inspect\//.test(pp) || parent.document.getElementById('djTour')) return; } }catch(e){}
     if(!force && /[?&]dj_go=/.test(location.search)) return;   /* v61: they came for one job (Start my day) — the tour waits for a normal visit */
+    if(!force && guestVisit()) return;   /* v62: a guest answering a reply link */
+    /* v62 (7 Oct deep check): One Thing's code lock (#djGate) came up AFTER the tour, which ended "pick who the
+       list is for" and then met a lock. While a lock is showing, the tour waits for it to be passed. */
+    if(!force){ var gt = document.getElementById('djGate'); if(gt){ var gs = getComputedStyle(gt); if(gs.display !== 'none' && gs.visibility !== 'hidden' && gt.getBoundingClientRect().height > 40){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 1500); return; } } }
     if(!force){ try{ if(localStorage.getItem(TOUR_DONE(T.slug))) return; }catch(e){ return; } var isNew = true; if(T.isNew){ try{ isNew = !!(new Function('return (' + T.isNew + ')'))(); }catch(e){} } if(!isNew){ try{ localStorage.setItem(TOUR_DONE(T.slug), 'returning'); }catch(e){} return; } }
     if(document.getElementById('djTour')) return;
     var INK = '#1F2622', SOFT = '#55605B', BR = '#23504F';
@@ -1529,7 +1666,20 @@
     var ring = document.createElement('div'); ring.style.cssText = 'position:absolute;display:none;border:3px solid #F2B134;border-radius:14px;box-shadow:0 0 0 9999px rgba(10,20,20,.62);transition:all .35s ease;pointer-events:none';
     var card = document.createElement('div');
     card.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:560px;background:#FFFDF8;border-radius:20px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));box-shadow:0 10px 40px rgba(0,0,0,.45);max-height:86vh;overflow:auto;box-sizing:border-box';
-    wrap.appendChild(shade); wrap.appendChild(ring); wrap.appendChild(card); document.body.appendChild(wrap);
+    wrap.appendChild(shade); wrap.appendChild(ring); wrap.appendChild(card);
+    /* v62 (7 Oct deep check): with Aa at "largest" the body is zoomed 1.3×, and a ring placed inside it from
+       screen measurements came out 1.3× too big and in the wrong place. The tour now sits on <html>, outside
+       the zoom; the card keeps the person's text size with its own zoom. */
+    var Z = textSize(); if(Z !== 1){ card.style.zoom = String(Z); }
+    document.documentElement.appendChild(wrap);
+    /* v62 (church/business deep check): the older "Start here" welcome card (#djStart) opened underneath the tour —
+       two welcomes at once. While the tour is up it is closed the app's own way (so the ? still brings it back). */
+    function noStartCard(){ var d = document.getElementById('djStart'); if(!d) return; try{ if(window.djStartClose) window.djStartClose(); }catch(e){} d = document.getElementById('djStart'); if(d) d.remove(); }
+    noStartCard(); var startWatch = setInterval(function(){ if(!wrap.parentNode){ clearInterval(startWatch); return; } noStartCard(); }, 300);
+    /* v62 (found #51): tours switch the app to Level 3 to show every tab. If the tour is closed half way (the app
+       killed, the page reloaded) the person stayed on Level 3. The level is written down here and put back on the
+       next open unless the tour finished. */
+    try{ if(!localStorage.getItem('dj_tour_lvl_' + T.slug)){ var lk = {}, LK = ['dj_level_' + T.slug].concat(T.slug === 'nownext' ? ['nn_level_v1'] : []); LK.forEach(function(k){ lk[k] = localStorage.getItem(k); }); localStorage.setItem('dj_tour_lvl_' + T.slug, JSON.stringify({ path:location.pathname, keys:lk })); } }catch(e){}
     var steps = [], i = 0, phase = '';
     function build(){
       steps = [];
@@ -1550,7 +1700,7 @@
        so the gold ring sits above it. Jerry: "can you just stay one spot"; in Every Day the box went off the top
        and he was stuck. Inside a frame (Feedback Studio) the visible band is worked out from the parent. */
     function band(){ var t = 0, b = innerHeight; try{ if(window.top !== window.self && window.frameElement){ var r = window.frameElement.getBoundingClientRect(), ph = parent.innerHeight; t = Math.max(0, -r.top); b = Math.min(innerHeight, ph - r.top); if(b - t < 200){ t = 0; b = innerHeight; } } }catch(e){} return [t, b]; }
-    function pin(){ var bd = band(); card.style.top = ''; card.style.bottom = Math.max(10, innerHeight - bd[1] + 10) + 'px'; card.style.maxHeight = Math.max(220, (bd[1] - bd[0]) * 0.55) + 'px'; }
+    function pin(top){ var bd = band(); if(top){ card.style.bottom = ''; card.style.top = ((bd[0] + 10) / Z) + 'px'; } else { card.style.top = ''; card.style.bottom = (Math.max(10, innerHeight - bd[1] + 10) / Z) + 'px'; } card.style.maxHeight = (Math.max(220, (bd[1] - bd[0]) * 0.55) / Z) + 'px'; }
     function place(target){
       var el = null; try{ el = target ? document.querySelector(target) : null; }catch(e){}
       card.style.transform = 'translateX(-50%)'; pin();
@@ -1558,7 +1708,13 @@
         shade.style.display = 'none';
         var bd = band(), ch = card.getBoundingClientRect().height || 260, room = (bd[1] - bd[0]) - ch - 30;
         try{ var r0 = el.getBoundingClientRect(), want = bd[0] + Math.max(16, (room - Math.min(r0.height, room)) / 2); window.scrollBy(0, r0.top - want); var sc = el.parentElement; while(sc && sc !== document.body){ var o = getComputedStyle(sc).overflowY; if((o === 'auto' || o === 'scroll') && sc.scrollHeight > sc.clientHeight){ var rr = el.getBoundingClientRect(); sc.scrollTop += rr.top - want; break; } sc = sc.parentElement; } }catch(e){}
-        setTimeout(function(){ var r = el.getBoundingClientRect(); ring.style.display = 'block'; ring.style.left = (r.left - 6) + 'px'; ring.style.top = (r.top - 6) + 'px'; ring.style.width = (r.width + 12) + 'px'; ring.style.height = Math.min(r.height + 12, Math.max(40, (band()[1] - ch - 24) - (r.top - 6))) + 'px'; pin(); }, 280);
+        setTimeout(function(){ var r = el.getBoundingClientRect(), b2 = band(), cH = card.getBoundingClientRect().height || ch;
+          /* v62 (found #6/#19): a bottom bar or the corner ? can't scroll up, so it stayed under the box. When the
+             thing being shown sits where the box is, the box moves to the top of the screen instead. */
+          var up = r.bottom > (b2[1] - cH - 14) && r.top > b2[0] + cH + 24;
+          pin(up);
+          ring.style.display = 'block'; ring.style.left = (r.left - 6) + 'px'; ring.style.top = (r.top - 6) + 'px'; ring.style.width = (r.width + 12) + 'px';
+          ring.style.height = (up ? (r.height + 12) : Math.min(r.height + 12, Math.max(40, (b2[1] - cH - 24) - (r.top - 6)))) + 'px'; }, 280);
       } else { ring.style.display = 'none'; shade.style.display = 'block'; }
     }
     function wire(){
@@ -1569,8 +1725,8 @@
       if(q) q.onclick = function(){ var quiet = true; try{ quiet = localStorage.getItem('dj_tour_quiet') !== '0'; localStorage.setItem('dj_tour_quiet', quiet ? '0' : '1'); if(quiet) localStorage.setItem('dj_voice', 'on'); }catch(e){} if(!quiet) tourHush(); show(); };   /* v59: turning it on opens the house voice gate too — Jerry tapped 'voice on' and heard nothing */
     }
     function finish(how){
-      tourHush(); try{ localStorage.setItem(TOUR_DONE(T.slug), how + ' ' + djYMD()); }catch(e){}
-      wrap.remove();
+      tourHush(); try{ localStorage.setItem(TOUR_DONE(T.slug), how + ' ' + djYMD()); localStorage.removeItem('dj_tour_lvl_' + T.slug); }catch(e){}
+      wrap.remove(); clearInterval(startWatch);
       tourRun(how === 'fresh' ? T.fresh : T.keep);
     }
     function show(){
@@ -1645,7 +1801,7 @@
     if(document.getElementById('djTour')) return;
     try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){}
     var h = new Date().getHours(), greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-    var nm = ''; try{ nm = localStorage.getItem('dj_name') || ''; }catch(e){}
+    var nm = djName();
     var w = document.createElement('div'); w.id = 'djMenu'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', M.name + ' — start');
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482950;background:#F7F4EC;color:#1F2622;overflow:auto;font:17px/1.45 -apple-system,system-ui,sans-serif';
     var BTN = 'display:flex;align-items:center;gap:14px;width:100%;text-align:left;font:inherit;min-height:70px;padding:12px 16px;margin:0 0 10px;border-radius:18px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05)';
@@ -1682,7 +1838,7 @@
         try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){}
         if(it) setTimeout(function(){ menuRun(it.go); }, 400); return; }
       try{ if(window.top !== window.self && /\/home\//.test(parent.location.pathname)) return; }catch(e){}
-      if(document.getElementById('djTour')) return;
+      if(document.getElementById('djTour') || guestVisit()) return;
       if(window.DJ_TOUR){ var td = null; try{ td = localStorage.getItem('dj_tour_' + window.DJ_TOUR.slug); }catch(e){} if(!td) return; }
       var last = 0; try{ last = +localStorage.getItem('dj_menu_seen_' + M.slug) || 0; }catch(e){}
       if(!last){ try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){} if(!window.DJ_TOUR) return; }
@@ -1692,7 +1848,7 @@
     }, 1300);
   }
 
-  function seniorsPass(){ printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
+  function seniorsPass(){ try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
@@ -1710,7 +1866,7 @@
     /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
     try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); floatPad(); yieldDock(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
     window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){} [900, 2500, 6000].forEach(function(ms){ setTimeout(floatPad, ms); }); window.addEventListener('resize', floatPad);
-    try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} try{ inputFloor(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
+    try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} try{ inputFloor(); }catch(e){} try{ buttonInk(); }catch(e){} try{ backupHome(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
@@ -1734,6 +1890,7 @@
   #top h1{font-family:var(--serif); font-size:34px; margin-top:4px; line-height:1.15;}
   #top h1 span{color:var(--warm);}
   .card{ background:var(--card); border:1px solid var(--line); border-radius:20px; padding:26px 26px; margin:16px 0; box-shadow:0 3px 14px rgba(80,60,30,.06); }
+  @media (max-width:480px){ .card{ padding:22px 40px 22px 20px; } }   /* 7 Oct deep check: a lane for the ? button */
   h2{font-family:var(--serif); font-size:29px; margin-bottom:12px; line-height:1.25;}
   p{margin-bottom:14px;} p.big{font-size:22px;} .soft{color:var(--soft);} b{color:var(--warm);}
   .btn{ display:inline-block; border:none; cursor:pointer; font-size:21px; font-weight:700; padding:17px 32px; border-radius:999px; background:var(--warm); color:#fff; font-family:inherit; transition:transform .08s; text-decoration:none; }
@@ -1812,7 +1969,7 @@
 </div>
 <div id="dots"></div>
 <div class="wrap" id="stage"></div>
-<div id="ver">Daraja Academy · v2.5 · 2026-10-07 · every course helps a student in Kenya stay in school</div>
+<div id="ver">Daraja Academy · v2.6 · 2026-10-08 · every course helps a student in Kenya stay in school</div>
 
 <script>
 /* ============ narration ============ */
@@ -1864,6 +2021,9 @@ db.done = db.done || {}; if(db.done1) db.done[1]=true; try{ if(!db.name&&localSt
 function save(){ localStorage.setItem(LS, JSON.stringify(db)); }
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nm=()=>db.name||'Friend';
+/* 7 Oct deep check: headings said "Lesson 1 done, Friend" when no name was given — use the real name or none */
+const realName=()=>{ if(db.name) return db.name; try{ return localStorage.getItem('dj_name')||''; }catch(e){ return ''; } };
+const nmc=()=>realName()?', '+realName():'';
 const stage = ()=>document.getElementById('stage');
 let lesson=0, step=0;      /* lesson 0 = the course home */
 
@@ -1920,8 +2080,8 @@ function doneScreen(n, learned, teaser){
   return function(){
     finishLesson();
     const all=doneCount()===COURSE.length;
-    currentSay = `Well done, ${nm()}. That's lesson ${n} finished. `+(all?'And that was the last one. Your diploma is waiting on the lessons page.':'Come back tomorrow for the next one — ten minutes a day is plenty.');
-    stage().innerHTML = `<div class="card">${listenBtn()}<h2>Lesson ${n} done, ${esc(nm())}. ✅</h2>
+    currentSay = `Well done${nmc()}. That's lesson ${n} finished. `+(all?'And that was the last one. Your diploma is waiting on the lessons page.':'Come back tomorrow for the next one — ten minutes a day is plenty.');
+    stage().innerHTML = `<div class="card">${listenBtn()}<h2>Lesson ${n} done${esc(nmc())}. ✅</h2>
       <p class="big">Today you learned: ${learned}</p>
       ${teaser?`<div class="tip">${teaser}</div>`:''}
       ${all?`<div class="tip"><b>🎓 That was the last lesson.</b> Your diploma is ready on the lessons page.</div>`:''}
@@ -1952,9 +2112,9 @@ function home(){
 function graduate(){
   lesson=0; dots(); const d=doneCount(); const done=db.doneOn||{}; const today=done[6]||Object.values(done).pop()||new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   if(d<6){ currentSay=`${6-d} lessons to go, ${nm()}. The diploma is waiting.`; stage().innerHTML=`<div class="card">${listenBtn()}<h2>Almost. 🎓</h2><p class="big">${6-d} ${6-d===1?'lesson':'lessons'} to go, then this page becomes your diploma.</p><button class="btn ghost" onclick="home()">‹ Lessons</button></div>`; say(currentSay); return; }
-  currentSay=`Congratulations, ${nm()}. You finished AI for Grandparents. Six lessons. You can ask, check, write, and stay safe. Print this, and send a picture to the grandkids.`;
-  stage().innerHTML=`<div class="card">${listenBtn()}<h2>You did it, ${esc(nm())}. 🎓</h2>
-    <div class="cert"><div class="t">🌉 Daraja Academy · Diploma</div><h3>This certifies that</h3><div class="n">${esc(nm())}</div><p style="margin-top:8px;">completed <b>AI for Grandparents</b> — all six lessons —<br>and can ask, check, write, and stay safe with AI.</p><div class="d">Completed ${today}<br><i>"I speak AI."</i></div></div>
+  currentSay=`Congratulations${nmc()}. You finished AI for Grandparents. Six lessons. You can ask, check, write, and stay safe. Print this, and send a picture to the grandkids.`;
+  stage().innerHTML=`<div class="card">${listenBtn()}<h2>You did it${esc(nmc())}. 🎓</h2>
+    <div class="cert"><div class="t">🌉 Daraja Academy · Diploma</div><h3>This certifies that</h3><div class="n">${realName()?esc(realName()):'<span style="display:inline-block;min-width:60%;border-bottom:2px dotted currentColor">&nbsp;</span>'}</div><p style="margin-top:8px;">completed <b>AI for Grandparents</b> — all six lessons —<br>and can ask, check, write, and stay safe with AI.</p><div class="d">Completed ${today}<br><i>"I speak AI."</i></div></div>
     <button class="btn wide" onclick="window.print()" style="background:var(--gold);color:#221;">🖨 Print my diploma</button>
     <p class="soft" style="text-align:center;margin-top:14px;">📸 Send a picture of it to the grandkids. Go on.</p>
     <div class="tip"><b>Pass it on.</b> The best way to remember this is to show one friend lesson one. <button class="btn blue" style="margin-top:8px" onclick="shareCourse()">📤 Send a friend the free lesson</button></div>
@@ -1997,7 +2157,7 @@ COURSE[0].screens=[
  function(){ currentSay = "Your turn — and this one is safe practice, right here in the lesson. Tap any question below, and watch how the A I answers a plain, human question. Tap all three if you like.";
   stage().innerHTML = `<div class="card">${listenBtn()}<h2>Practice: tap a question. 👇</h2><p class="soft">This is a <b>practice robot</b> living inside the lesson — safe as a rocking chair. Tap one (or all three):</p><div class="askRow"><button class="askBtn" id="qa" onclick="ask('a')">🩺 “${CANNED.a.q}”</button><button class="askBtn" id="qb" onclick="ask('b')">🎂 “${CANNED.b.q}”</button><button class="askBtn" id="qc" onclick="ask('c')">🍗 “${CANNED.c.q}”</button></div><div id="chatOut"></div><div id="p1nav" class="hide">${nav(true,'That was easy ›')}</div><div id="p1wait"><br><p class="soft" style="text-align:center">tap a question above to see what happens…</p></div></div>`; say(currentSay); },
  function(){ currentSay = "Now the real thing. Think of something YOU actually want to know or write — a recipe, a letter, a word your doctor used, help planning a trip. Say it or type it below, like you'd ask a neighbor. Then tap one button, and it opens with your question already typed in.";
-  stage().innerHTML = `<div class="card">${listenBtn()}<h2>Now ask something REAL. ✍️</h2><p>Think of something <b>you</b> actually want — a recipe, a letter, a word your doctor used, trip ideas. Ask it like a neighbor:</p><input type="text" id="myAsk" placeholder="Type or say your question… (example: help me write a note to my sister)" value="${esc(db.myAsk||'')}" oninput="db.myAsk=this.value;save();document.getElementById('aiBtns').style.display=this.value.trim()?'block':'none'"><div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;"><button class="btn blue" onclick="copyAsk()">📋 Copy my question</button></div><div id="aiBtns" style="display:${(db.myAsk||'').trim()?'block':'none'};margin-top:12px;text-align:center"><p class="soft" style="margin-bottom:8px"><b>Or skip the copying — one tap does it all:</b></p><button class="btn blue" onclick="openAI('chatgpt')">💬 Ask this in ChatGPT →</button> <button class="btn blue" onclick="openAI('claude')">🤖 Ask this in Claude →</button><p class="soft" style="font-size:13px;margin-top:6px">Your question rides along — it'll be waiting in the box when the page opens.</p><p class="soft" style="font-size:14px;margin-top:6px">ChatGPT works straight away. Claude asks for a free sign-up with your email the first time.</p></div><div class="tip" id="copyTip" style="display:none"><b>Copied! Now the field trip 🚌</b><br>Open <b>claude.ai</b> or <b>chatgpt.com</b>, tap the message box, hold your finger down and choose <b>Paste</b>. Then send it. Come back here after — I'll wait right here.</div>${nav(true,'I did it (or I will!) ›')}</div>`; say(currentSay); },
+  stage().innerHTML = `<div class="card">${listenBtn()}<h2>Now ask something REAL. ✍️</h2><p>Think of something <b>you</b> actually want — a recipe, a letter, a word your doctor used, trip ideas. Ask it like a neighbor:</p><input type="text" id="myAsk" placeholder="Type or say your question…" value="${esc(db.myAsk||'')}" oninput="db.myAsk=this.value;save();document.getElementById('aiBtns').style.display=this.value.trim()?'block':'none'"><p class="soft" style="font-size:15px;margin:6px 2px 0">Example: “help me write a note to my sister”</p><div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;"><button class="btn blue" onclick="copyAsk()">📋 Copy my question</button></div><div id="aiBtns" style="display:${(db.myAsk||'').trim()?'block':'none'};margin-top:12px;text-align:center"><p class="soft" style="margin-bottom:8px"><b>Or skip the copying — one tap does it all:</b></p><button class="btn blue" onclick="openAI('chatgpt')">💬 Ask this in ChatGPT →</button> <button class="btn blue" onclick="openAI('claude')">🤖 Ask this in Claude →</button><p class="soft" style="font-size:13px;margin-top:6px">Your question rides along — it'll be waiting in the box when the page opens.</p><p class="soft" style="font-size:14px;margin-top:6px">ChatGPT works straight away. Claude asks for a free sign-up with your email the first time.</p></div><div class="tip" id="copyTip" style="display:none"><b>Copied! Now the field trip 🚌</b><br>Open <b>claude.ai</b> or <b>chatgpt.com</b>, tap the message box, hold your finger down and choose <b>Paste</b>. Then send it. Come back here after — I'll wait right here.</div>${nav(true,'I did it (or I will!) ›')}</div>`; say(currentSay); },
  function(){ currentSay = "One more thing — the grandparent safety rule. A I can write anything, including lies. So: a real A I helper answers when YOU ask. It never calls you. It never emails you first. It never asks for money or bank numbers. If a voice on the phone sounds exactly like your grandchild asking for money — hang up and call the family directly.";
   stage().innerHTML = `<div class="card">${listenBtn()}<h2>The safety rule. 🛡</h2><p class="big">AI can write anything — <b>including lies.</b> So remember:</p><div class="tip"><b>A real AI helper answers when YOU ask.</b><br>It never calls you. It never emails you first. It <b>never</b> asks for money or bank numbers.</div><div class="tip">📞 If a voice sounds <i>exactly</i> like your grandchild asking for money — <b>hang up and call the family directly.</b></div>${nav(true,'Got it ›')}</div>`; say(currentSay); },
  quizScreen('One-question quiz. 📞', "The phone rings. A voice just like your grandson says he's in trouble and needs gift cards, fast. What do you do?", ["Buy the gift cards — it sounded just like him","Give him your card number so it's faster","Hang up — and call him or his mom directly"], 2, "Exactly right. Hang up, call the family directly. You just beat the newest scam in America.", "Careful! That's exactly how the scam works. The safe move: hang up, and call him or his mom directly. Now you know."),
