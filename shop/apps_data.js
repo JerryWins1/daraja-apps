@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
@@ -36,10 +36,10 @@ const APPS = {
    {t:"Now, something bothers me. I cannot tell which nights I chose and which nights it chose for me. That is a finding. So I tap Point.", point:"#pointBtn"},
    {t:"With Point on, I would tap the thing on the screen that bothers me. That marks the exact spot, so nobody has to guess what I meant.", point:"#appframe"},
    {t:"Then I say what bothered me. Tap the red microphone and talk, in your own words. Short is fine. Grumpy is fine.", point:"#micBtn"},
-   {t:"If you would rather type, there is a box for that too. Watch: my comment lands in the list on the side.", js:"try{var t=document.getElementById('typeIn'); t.value='(video demo) The week filled itself, but I cannot tell which nights I picked and which it picked for me.'; addTyped();}catch(e){}", point:"#typeIn"},
+   {t:"If you would rather type, there is a box for that too. Watch: my comment lands in the list on the side.", js:"try{var sb=document.getElementById('fsSideBtn'); if(sb && !document.body.classList.contains('fsSideOn') && window.matchMedia('(max-width:860px)').matches) sb.click();}catch(e){} try{var t=document.getElementById('typeIn'); t.value='(video demo) The week filled itself, but I cannot tell which nights I picked and which it picked for me.'; addTyped();}catch(e){}", point:"#typeIn"},
    "Three or four findings per app is plenty. If nothing is wrong, say that too. It is just as useful.",
    {t:"When you are finished, tap I am done, build the report. It writes the report for you, from your taps and your words.", js:"try{doneSession()}catch(e){}"},
-   {t:"Here is the report. Now tap Send to Claude, choose Messages, and send it to Jerry. That is the whole job. Claude reads it that evening and fixes what he can overnight.", point:"#reportBox footer .btn.green"},
+   {t:"Here is the report. Tap Send to Claude, and it goes straight to Jerry. Nothing to pick, no number needed. That is the whole job. Claude reads it that evening and fixes what he can overnight.", point:"#reportBox footer .btn.green"},
    {t:"One last thing. The Testers' List is a shared page: the apps to try, what the other testers found, and what got fixed. Tick I tried it when you finish an app.", js:"try{hideReport();var k=JSON.parse(sessionStorage.getItem('__djDemo')||'null');if(k){['dj_ourtable_v1','feedback_studio_v1'].forEach(function(n,i){var v=i?k.f:k.o;if(v==null)localStorage.removeItem(n);else localStorage.setItem(n,v);});sessionStorage.removeItem('__djDemo');setTimeout(function(){location.reload();},1500);}}catch(e){}"},
    "That is all there is. Open an app in the tester. Use it. Point at what is wrong. Say why. Send it. Thank you. Every app that gets better because of you helps a student in Kenya stay in school."]
  },
@@ -70,14 +70,14 @@ const APPS = {
   tag:'Your whole list is in there — it just shows one step at a time, so the day stops looking like a pile. For kids and grown-ups whose brains run fast.',
   try:A+'nownext/?code=TESTING', video:true,   /* ?code= is read by the key gate once nownext ships the 2026-10-02 patch; until then it is ignored */
   train:[
-   "Let's set up One Thing — five minutes, then it runs your mornings forever.",
-   "Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.",
-   {t:"Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.", js:"try{go('today')}catch(e){}"},
+   {t:"Let's set up One Thing — five minutes, then it runs your mornings forever.", keep:'.modewrap.show'},
+   {t:"Step one: when it opens, add each person in your family — kid or grown-up. Tap a name in the header any time to switch people.", keep:'.modewrap.show'},
+   {t:"Step two: add a task. Type one small thing in the box and tap Add. Tap the words of any task to make it the NOW.", js:"try{var s=JSON.parse(localStorage.getItem('nn_level_v1')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('nn_level_v1',JSON.stringify(s));}catch(e){} try{go('today')}catch(e){}", point:"#newTask"},
    "Step three: the NOW card shows one thing, with a timer. Do it, check it off — and enjoy the party. That's the whole engine.",
    {t:"Step four: routines. Open Routines and regulars, and turn on Morning, Homework, or Bedtime. They'll show up by themselves at the right time of day — no nagging.", js:"try{go('routines')}catch(e){}", point:"#n-routines"},
-   {t:"Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.", js:"try{go('today');document.getElementById('wkBtn')&&document.getElementById('wkBtn').click()}catch(e){}", point:"#wkBtn"},
-   {t:"Step six: make it yours. Tap My photo and pick a picture you love — the grandkids, the lake — and your whole day floats on glass over it. Tap Look to change outfits: River, Warm Paper, or Quest H U D game mode. Tap A a to make the words bigger.", js:"try{go('today')}catch(e){}"},
-   {t:"And don't worry about learning it — the first time you touch any feature, a little card pops up and explains it, and it can even read itself out loud. Tap Got it and it never bothers you again."},
+   {t:"Step five: tap the little calendar button to plan the whole week. Type things like 'doctor Tuesday' — it pins the day itself. Tap Spread the week, then Send, and everything lands on the right day for the right person.", js:"try{go('today');setTimeout(function(){var b=document.getElementById('wkBtn');b&&b.click();},2400)}catch(e){}", point:"#wkBtn"},
+   {t:"Step six: make it yours. Tap My photo and pick a picture you love — the grandkids, the lake — and your whole day floats on glass over it. Tap Look to change outfits: River, Warm Paper, or Quest H U D game mode. Tap A a to make the words bigger.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('today')}catch(e){}"},
+   {t:"And don't worry about learning it — the first time you touch any feature, a little card pops up and explains it, and it can even read itself out loud. Tap Got it and it never bothers you again.", keep:'#r7Tip.show', js:"try{var t=document.getElementById('r7Tip'); if(t&&t.innerHTML) t.classList.add('show');}catch(e){}"},
    {t:"Last: peek at Wins now and then — coins, streaks, and the family leaderboard live there. That's it. One thing at a time.", js:"try{var o=document.getElementById('wkOv');o&&(o.style.display='none');go('wins')}catch(e){}"},
    "You'll know it's set up right when the NOW card shows one thing with a timer — and somebody checks it off and gets the party."],
   lines:[
@@ -101,23 +101,23 @@ const APPS = {
   tag:'Taxes, renewals, insurance, the dog’s shots: every date that costs money if you miss it, on one calm page, with the next 30 days always in view. No bank login, ever.',
   try:A+'ahead/', video:true,
   train:[
-   "Setting up Ahead of It takes five minutes, once — then nothing catches you off guard again.",
+   {t:"Setting up Ahead of It takes five minutes, once — then nothing catches you off guard again.", js:"try{var s=JSON.parse(localStorage.getItem('dj_level_ahead')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('dj_level_ahead',JSON.stringify(s));}catch(e){}"},
    {t:"Step one: open the library and tap the items your house actually has — taxes, plate renewals, insurance, the dog's shots.", js:"try{go('lib')}catch(e){}", point:"nav button[data-v='lib']"},
    "Step two: put in your real dates. For each one, the app shows what missing it would cost you — that's how you know what matters.",
    {t:"Step three: make Sunday your glance day. The thirty-days-out view tells you everything that's coming before it can surprise you.", js:"try{go('next')}catch(e){}", point:"nav button[data-v='next']"},
    {t:"Step four: look at the year map once — your whole year of obligations on one screen.", js:"try{go('year')}catch(e){}", point:"nav button[data-v='year']"},
-   {t:"Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done.", js:"try{go('more')}catch(e){}"},
+   {t:"Step five: fill in the hand-off list. If you're ever not the one carrying the household, someone can pick it up without detective work. Done.", js:"try{go('more')}catch(e){}", point:"nav button[data-v='more']"},
    "You'll know you're set when the front page shows your next thirty days, with dates that are really yours — and nothing on it surprises you."],
   lines:[
-   "This is Ahead of It — for whoever carries the household.",
+   {t:"This is Ahead of It — for whoever carries the household.", js:"try{var s=JSON.parse(localStorage.getItem('dj_level_ahead')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('dj_level_ahead',JSON.stringify(s));}catch(e){}"},
    "Every house has its own list, and it is different in every house. The insurance renewal. The property tax. The car registration. The dentist. The dog's shots.",
    "None of it is difficult. It is just that all of it lives in one person's head, and heads leak.",
    "So you put your real ones in, with your real dates, and it holds them for you.",
    "It shows what is due in the next thirty days, and what it actually costs you to miss each one — so you can tell what matters from what can wait.",
-   "There is a year map, the whole calendar on one page, which is the bit people print for the fridge.",
+   {t:"There is a year map, the whole calendar on one page, which is the bit people print for the fridge.", js:"try{go('year')}catch(e){}", point:"nav button[data-v='year']"},
    "Most of these dates are already in your phone's calendar, and it will put yours there too, so a reminder finds you even when the app is closed.",
-   "And there is a hand-off list, so if you are ever not the one carrying the household, somebody else can pick it up without detective work.",
-   "Nothing catches you off guard. No late fees, no lapsed insurance, no 'I thought you renewed it.'",
+   {t:"And there is a hand-off list, so if you are ever not the one carrying the household, somebody else can pick it up without detective work.", js:"try{go('more')}catch(e){}", point:"nav button[data-v='more']"},
+   {t:"Nothing catches you off guard. No late fees, no lapsed insurance, no 'I thought you renewed it.'", js:"try{go('next')}catch(e){}"},
    "Nine dollars, once. Try it below — put three real things from your own house in and see how it feels."
   ]},
  nextstep: {
@@ -225,7 +225,7 @@ const APPS = {
    "The app is free. Print the book at home, or save it as a P D F to share. A bound copy you can order is on its way. Either way, it's the gift nobody ever forgets getting.",
    "Try it below. Ask someone you love one question tonight."]},
  academy: {
-  name:'Daraja Academy', em:'🌉', sub:'six lessons · AI for Grandparents', cat:'free', price:'Lesson 1 free · course $19', testing:true,
+  name:'Daraja Academy', em:'🎓', sub:'six lessons · AI for Grandparents', cat:'later', price:'Lesson 1 free · course $19', testing:true,
   tag:'AI for Grandparents — learn to use AI, the patient way. Why not just open ChatGPT? Because nobody shows you how. This does: big print, one step at a time, out loud.',
   try:BASE+'academy/', video:true,
   train:[
@@ -300,7 +300,7 @@ const APPS = {
    "If you run a small field team anywhere in the world, this pattern fits you too. Ask us.",
    "Try the demo below and see a day in the field."]},
  compass: {
-  name:'Daraja Compass', em:'🧭', sub:'your next five years, on one page', fresh:true, cat:'free', price:'Free', testing:false,
+  name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', price:'Free', testing:false,
   tag:'For a young person starting out: plain questions about school, work, family and money, and your next five years on one page. Written with Kenyan students in mind.',
   try:A+'compass/', video:true,
   train:[
@@ -340,7 +340,7 @@ const APPS = {
   price:'$12', kind:'download', file:'Excel or Google Sheets',
   tag:'Twelve months of money in and money out, adding itself up — with a break-even line so you know the number you have to hit'},
  tplinvoice: {
-  name:'Invoice &amp; Estimate Pack', em:'🧾', sub:'send it, and get paid', cat:'work',
+  name:'Invoice &amp; Estimate Pack', em:'💵', sub:'send it, and get paid', cat:'work',
   price:'$9', kind:'download', file:'Excel or Google Sheets + email scripts',
   tag:'A clean invoice, a matching estimate with deposit terms, a log that tracks who owes you what, and five chase-up emails already written'},
  tplcontent: {
@@ -370,7 +370,7 @@ const APPS = {
 
  /* ── FOR FANS & LEAGUES ── */
  pitwall: {
-  name:'Pit Wall', em:'🏁', sub:'your racing league, run for you', cat:'home', price:'$9 per league, per season', testing:true, video:true,
+  name:'Pit Wall', em:'🏁', sub:'your racing league, run for you', cat:'home', price:'$9 per season you play — nothing renews', testing:true, video:true,
   tag:'Picks, deadlines, scoring and standings for your friends’ fantasy racing league, done the same way every race. The commissioner finally gets to watch. Pay only for the seasons you play; nothing renews by itself.',
   try:BASE+'f1/?test=1',
   lines:[
@@ -401,6 +401,23 @@ const APPS = {
    {t:"Step seven: if something needs fixing, the commissioner can enter picks for anyone from Home, or adjust points in Setup. Every change shows its work in Standings.", js:"try{go('standings')}catch(e){}", point:"nav.tabs button[data-tab='standings']"},
    "You'll know it's set up right when Home shows the next race, your drivers, and the deadline, and the Standings match the last post your commissioner made by hand."],
   extra:{
+   join:{ title:'You got the link — how to join (2 minutes)', sub:'For the rest of the group: what the text does, and the one thing you have to do. Sound on.',
+    lines:[
+     {t:"Somebody in your league just texted you a link. This is what it does, and the one thing it needs from you. It takes about two minutes.", js:"try{state.league.testMode=true;saveLocal();go('home')}catch(e){}"},
+     "First, what this is not. It is not a new league. It is the same league you have been running by group text for years, with the same rules, the same commissioner and the same arguments. The app just does the counting.",
+     {t:"When you tapped the link, your phone joined the league. That is the whole setup. Nothing to install, nothing to sign up for, no password to invent.", point:"nav.tabs button[data-tab='home']"},
+     {t:"The one thing it needs from you: tap the button at the top and say which one of you you are. Then pick any four digit number as your PIN. That is only there so nobody else can enter your picks as a joke.", point:"#meBtn"},
+     {t:"Now the part you will use every weekend. This is the home card. It knows the real race calendar, so it shows the next race, when picks are due, and a countdown.", point:"nav.tabs button[data-tab='home']"},
+     "To make your picks, you tap two of your drivers before that deadline. That is it. No text to send, no reply to wait for. Everybody's phone sees it at once.",
+     {t:"Each of your drivers has a set number of runs for the season, and the app counts them down for you. No more arguing about who used Hamilton how many times.", js:"try{go('usage')}catch(e){}", point:"nav.tabs button[data-tab='usage']"},
+     "Twice a season you can play a wild card: all four of your drivers at once, and it does not use anybody's runs. The app keeps track of whether you still have one.",
+     {t:"Miss the deadline and the house rule takes over, same as always: it starts your two highest placed drivers who still have runs left. No midnight texts, no favours, no exceptions, and it is the same rule for everyone.", js:"try{go('races')}catch(e){}"},
+     {t:"After the race, the results come in on their own and the standings do themselves. Tap any race to see exactly how every point was worked out.", js:"try{go('standings')}catch(e){}", point:"nav.tabs button[data-tab='standings']"},
+     {t:"On race day the Live tab is a running scoreboard: where everyone's drivers are right now, and what the league table would look like if the race stopped this second.", js:"try{go('live')}catch(e){}", point:"nav.tabs button[data-tab='live']"},
+     {t:"And the trash talk gets its own room, because it was always the best part.", js:"try{go('paddock')}catch(e){}", point:"nav.tabs button[data-tab='paddock']"},
+     {t:"Last thing, and it is worth doing now: add it to your home screen so it opens like a normal app. On an iPhone, tap the share button at the bottom of the browser, scroll down, and tap Add to Home Screen. On Android it is the three dots, then Install or Add to Home screen.", js:"try{go('home')}catch(e){}"},
+     "That is everything. Tap your name, set a PIN, pick two drivers before Friday night. If you want the full rules written out, there is a rulebook link under the video."
+    ]},
    draft:{ title:'How the draft works (90 seconds)', sub:'The once-a-year event, start to finish. Sound on.',
     lines:[
      {t:"This is the draft room in Pit Wall. Once a year, a couple of weeks before the first race, every team is built from scratch here.", js:"try{state.league.testMode=true;saveLocal();go('draft')}catch(e){}"},
@@ -488,7 +505,7 @@ const APPS = {
    "And for the church office: when you post Sunday's message on the Weekly Update page, add the outline and the verses, and everyone's Sermon Notes has them before the service starts."
   ]},
  churchsteward: {
-  name:'Ahead of It · Church', em:'🧾', sub:'never miss an inspection', cat:'church', price:'$29 one-time', video:true,
+  name:'Ahead of It · Church', em:'📋', sub:'never miss an inspection', cat:'church', price:'$29 one-time', video:true,
   tag:'Nothing catches the trustees by surprise',
   try:'https://jerrywins1.github.io/daraja-apps/church-steward/',
   lines:[
@@ -565,7 +582,7 @@ const APPS = {
    "Twenty-nine dollars, one time. It may be the cheapest insurance a mission ever bought. Try it below."
   ]},
  npreceipts: {
-  name:'Receipt Maker', em:'🧾', sub:'donor letters, done', cat:'church', price:'$19 one-time', video:true,
+  name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', price:'$19 one-time', video:true,
   tag:'January\'s donor letters in ten minutes',
   try:'https://jerrywins1.github.io/daraja-apps/np-receipts/',
   lines:[

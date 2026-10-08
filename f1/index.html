@@ -2548,7 +2548,14 @@ function rSetup() {
     </ol>`}
     <label class="f">Mailbox URL (ends in /exec)<input id="mbUrl" value="${esc(state.league.mailboxUrl || '')}" placeholder="https://script.google.com/macros/s/…/exec"></label>
     <label class="f">League key<input id="mbKey" value="${esc(state.league.key || 'f1')}"></label>
-    <div class="row"><button class="btn primary sm" onclick="connectMailbox()">Connect</button>${mailbox() ? `<button class="btn sm ghost" onclick="disconnectMailbox()">Disconnect</button>` : ''}</div></div></details>`;
+    <div class="row"><button class="btn primary sm" onclick="connectMailbox()">Connect</button>${mailbox() ? `<button class="btn sm ghost" onclick="disconnectMailbox()">Disconnect</button>` : ''}</div>
+    ${mailbox() ? `<div class="note" style="margin-top:10px">
+      <b>📨 Inviting the rest of the group</b><br>
+      One link does it. Copy it, paste it in the group text, and whoever taps it is on this league — no pasting, no settings, and no pretend league. Then they tap their name and pick a four digit PIN.
+      <div class="row" style="margin-top:8px"><button class="btn sm primary" onclick="copyJoinLink()">📨 Copy the invite link</button></div>
+      <p class="small muted" style="margin-top:6px">That link <i>is</i> the league — anyone who opens it is in it. The group text is the right place for it; a public post is not.</p>
+    </div>` : `<div class="note" style="margin-top:10px"><b>Never made one?</b> The setup page walks it through a step at a time and copies the script for you, instead of you selecting a wall of code by hand.
+      <div class="row" style="margin-top:8px"><a class="btn sm primary" href="mailbox.html">📬 Open the mailbox setup page</a></div></div>`}</div></details>`;
   html += `<details><summary>Season ${seasonYear}</summary><div class="in">
     <div class="grid4">
       <label class="f">Drivers per player<input type="number" id="stDrivers" value="${s.driversPer}" ${ro}></label>
@@ -2623,11 +2630,53 @@ function rSetup() {
   return html;
 }
 /* setup actions */
+/* ---- the invite link ------------------------------------------------------
+   Four friends should not have to paste a ninety-character Apps Script URL into
+   a settings box on a phone — that is exactly where people give up. The
+   commissioner copies ONE link out of Setup and texts it; tapping it joins that
+   phone to the league and goes straight to "who are you?".
+   The mailbox URL rides in the hash, which browsers never send to a server, and
+   it is stripped from the address bar the moment it is used. It is still the
+   key to the league though: fine in the group text, not for anywhere public. */
+function b64url(x) { return btoa(x).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function unb64url(x) { let t = String(x).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; return atob(t); }
+function joinLink() {
+  const url = mailbox(); if (!url) return '';
+  return location.origin + location.pathname.replace(/index\.html$/, '') + '#join=' + b64url(url + '|' + (state.league.key || 'f1'));
+}
+function copyJoinLink() {
+  const l = joinLink();
+  if (!l) { toast('Connect the mailbox first'); return; }
+  copyText(l);
+}
+// A phone arriving on an invite link joins before anything renders. Returns what happened,
+// so boot can say it once the app is actually on screen.
+function claimInvite() {
+  const m = /[#&]join=([A-Za-z0-9\-_]+)/.exec(location.hash || '');
+  if (!m) return '';
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+  let url = '', key = 'f1';
+  try { const parts = unb64url(m[1]).split('|'); url = parts[0] || ''; key = parts[1] || 'f1'; } catch (e) { }
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) return 'bad';
+  if (state.league.mailboxUrl === url && state.league.key === key && !state.demo) return 'already';
+  // Someone arriving on an invite is joining the real league, so the pretend one this device was
+  // given as a new visitor is dropped here — the mailbox's league replaces it a moment later.
+  if (state.demo) { delete state.demo; try { localStorage.setItem(LS_SEEDMODE, 'family'); } catch (e) { } }
+  state.league.mailboxUrl = url; state.league.key = key; state.league.testMode = false;
+  if (me && me.pin === '0000') { me = null; saveMe(); }
+  // An invited player is joining a league, not starting one, so the first-run "set up your
+  // league" overlay is marked seen here — before the script that would show it even loads.
+  try { localStorage.setItem('dj_start_pitwall', '1'); } catch (e) { }
+  saveLocal();
+  return 'joined';
+}
 async function connectMailbox() {
   const url = $('mbUrl').value.trim(), key = $('mbKey').value.trim() || 'f1';
   if (!url) { // nothing pasted yet: show the recipe instead of silently disconnecting
     modal(`<h2>No mailbox URL yet <span class="sub">five minutes, once</span></h2>
-      <p class="small">The mailbox is a free Google script that holds the league so every phone sees the same thing. Paste its web app URL in the box, then tap Connect. To make one:</p>
+      <p class="small">The mailbox is a free Google script that holds the league so every phone sees the same thing. Paste its web app URL in the box, then tap Connect.</p>
+      <div class="row" style="margin:8px 0"><a class="btn sm primary" href="mailbox.html">📬 Walk me through making one</a></div>
+      <p class="small muted">That page does the copying for you. Or by hand:</p>
       <ol class="small" style="margin:8px 0 8px 18px;padding:0;display:grid;gap:5px">
         <li>Open <a href="https://script.google.com/home" target="_blank" rel="noopener"><b>script.google.com</b></a> → <b>New project</b> → delete the sample code.</li>
         <li>Open the <a href="https://raw.githubusercontent.com/JerryWins1/daraja-apps/main/f1/F1_Mailbox_AppsScript.gs" target="_blank" rel="noopener"><b>mailbox script</b></a> → select all → copy → paste into the project → 💾 save → name it <b>Pit Wall mailbox</b>.</li>
@@ -2843,9 +2892,21 @@ async function refresh() {
   seasonYear = state.league.currentSeason || Math.max.apply(null, Object.keys(state.seasons).map(Number));
   // Store / review link: f1/?test=1 opens straight into Test drive (act as any player, no PIN) on a device that is not on the group mailbox.
   try { if (new URLSearchParams(location.search).get('test') === '1' && !mailbox()) { state.league.testMode = true; saveLocal(); } } catch (e) { }
+  // An invite link from the group text: join the league before the first paint, so this phone
+  // pulls the real league rather than briefly showing the pretend one.
+  const invite = claimInvite();
   render();
   await pullRemote(true);
   await refresh();
+  if (invite === 'joined') {
+    modal(`<h2>You're in 🏁 <span class="sub">${esc(state.league.name || 'the league')}</span></h2>
+      <p class="small">This phone now shares the same league as everyone else — same picks, same standings, same deadline. One thing left: tell it which one of you you are, and choose a four digit PIN so nobody else can make your picks.</p>
+      <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal();openIdentity()">That's me →</button></div>`);
+  } else if (invite === 'bad') {
+    modal(`<h2>That invite link didn't work</h2>
+      <p class="small">Ask ${esc(pname(state.league.commissioner))} to copy it again — Setup → Mailbox → Copy the invite link — and send it whole. Links sometimes get cut in half by a text. The app still works on this phone in the meantime.</p>
+      <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+  }
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   // keep fresh: pull the mailbox every 2 minutes while open
   setInterval(async () => { if (mailbox() && document.visibilityState === 'visible') { const ok = await pullRemote(true); if (ok) { await computeSeason(); if (tab !== 'setup') render(); } } }, 120000);
