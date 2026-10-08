@@ -195,7 +195,7 @@
   var rec = null, micBtn = null, curBox = null;
 
   function eligible(el){
-    if(!el || el.dataset.djMic === 'off') return false;
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
     var t = (el.tagName||'').toLowerCase();
     if(t === 'textarea') return true;
     if(t !== 'input') return false;
@@ -307,7 +307,7 @@
     zuri:         {k:['zuri_ops_v1'], p:['zuri_']},
     academy:      {k:['daraja_academy_v1'], p:['academy_']},
     feedback:     {k:['feedback_studio_v1'], p:['fbs_']},
-    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_']},
+    storykeeper:  {k:['story_keeper_v1','story_ask_v1'], p:['story_'], idb:['story_voice']},   /* v63: Start fresh also erases the voice recordings */
     thekey:       {k:['daraja_thekey_v1','daraja_thekey_v2'], p:[]},   /* v62: v2 = the accounts, papers and people entries */
     churchkey:    {k:['daraja_churchkey_v1'], p:[]},
     drumbeat:     {k:['drumbeat_v1','drumbeat_groups_v1'], p:['drumbeat_']},
@@ -366,8 +366,9 @@
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
     var dbs = (OWNS[slugOf()] || {}).idb || [];
     if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
-    if(!confirm('Erase everything in THIS app?\n\nThis will clear:\n  • ' + keys.concat(dbs.map(function(n){ return n + ' (attached files)'; })).join('\n  • ') +
-                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;
+    var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
+    if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
+                '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
     /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
@@ -662,6 +663,8 @@
      No tour, no Start menu, no Home Screen card, no daily hello on top of their question. An app can also set window.DJ_GUEST. */
   function guestVisit(){ try{ return !!window.DJ_GUEST || (/[?&]r=/.test(location.search) && /\/whoscoming\//.test(location.pathname)); }catch(e){ return false; } }
   function kidsPage(){ try{ return !!window.DJ_KIDS || !!document.querySelector('meta[name="dj-kids"]'); }catch(e){ return false; } }
+  /* v63: the crisis tool (My Safety Plan) gets no outside-AI or Tell-it buttons — a plan's names and numbers must never be sent anywhere — and its 988 bar stays on top of the ? sheet */
+  function crisisPage(){ try{ return /\/safety\//.test(location.pathname) || !!document.getElementById('crisis'); }catch(e){ return false; } }
   /* v62 (found #25): the ? sheet row said "Help, backup, start fresh" but only reopened the welcome card.
      It now opens exactly those three things (backup only where the app has one). */
   function btn_lab(c, lab){ if(c.id !== 'djHelp') return lab; return ['?', document.getElementById('djBackup') ? 'Help, backup, start fresh' : 'Help and start fresh']; }
@@ -687,6 +690,7 @@
   function dockSheet(){
     var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
+    if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
@@ -719,7 +723,7 @@
       ai.onclick = function(){ w.remove(); pickAssistant(); };
       box.appendChild(ai);
     }
-    if(!window.__djSandbox && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
+    if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
@@ -1174,7 +1178,7 @@
      and the clash left its Routines tab blank. */
   function askButton(){
     if(document.getElementById('djAIBtn') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link) */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: not on a kids' page; not on the private HQ panel (it would copy testers' names into a link); v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djAIBtn'; b.textContent = '✨';
     b.title = 'Ask an AI about this screen'; b.setAttribute('aria-label', 'Ask an AI about this screen');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -1358,7 +1362,7 @@
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
-    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers)\//.test(location.pathname)) return;
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
     if(rec.last === today) return;
@@ -1381,7 +1385,7 @@
        up ~100px and a tap aimed at one card landed on the one below. It now floats over the top and fades —
        nothing underneath moves. A tap anywhere on it closes it at once. */
     w.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147481002;max-width:620px;margin:0 auto;background:#1F5C45;color:#fff;border-radius:16px;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.22);font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:10px;align-items:center;cursor:pointer;opacity:0;transition:opacity .4s,max-height .4s;overflow:hidden;max-height:200px';
-    w.innerHTML = '<div style="flex:1"><b>' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
+    w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
@@ -1624,7 +1628,7 @@
   window.djTell = { open:openTell, plan:tellPlan, date:tellDate };
   function tellButton(){
     if(document.getElementById('djTell') || !document.body) return;
-    if(kidsPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton */
+    if(kidsPage() || crisisPage() || /\/control\//.test(location.pathname)) return;   /* v62: see askButton; v63: not in the crisis tool */
     var b = document.createElement('button'); b.type = 'button'; b.id = 'djTell'; b.textContent = '🎤';
     b.title = 'Tell it — add a to-do, a shopping item, a bill'; b.setAttribute('aria-label', 'Tell it — add a to-do, a shopping item, a bill');
     b.style.cssText = 'width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border:1.5px solid rgba(128,128,128,.45);background:rgba(250,246,238,.94);color:#25303a;font:800 19px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)';
@@ -2079,7 +2083,7 @@
 </style>
 </head>
 <body>
-<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">📖</div><div style="font-size:28px;font-weight:800">In My Own Words</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.13 · 2026-10-07</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">📖</div><div style="font-size:28px;font-weight:800">In My Own Words</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.14 · 2026-10-08</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
 
 
 <div id="top">
@@ -2091,17 +2095,17 @@
 <div class="wrap" id="scrHome">
   <div class="card" id="firstCard">
     <h2>Let's begin 🕊</h2>
-    <p class="sub">There's no typing here. Pick a chapter of your life, and I'll ask you a question.
+    <p class="sub"><!-- 7 Oct deep check -->You don't need to type your stories. Pick a chapter of your life, and I'll ask you a question.
     You press the red button and <b>just talk</b> — like telling a story at the kitchen table.
     Your words are saved exactly as you say them.</p>
-    <p class="sub" style="background:#fdf6e3;border:1.5px solid var(--gold);border-radius:12px;padding:12px 14px;">
+    <p class="sub" style="background:#fdf6e3;color:#3b3326;border:1.5px solid var(--gold);border-radius:12px;padding:12px 14px;"><!-- 7 Oct deep check: dark text on the cream box (was 1.6:1 in dark mode) -->
     🎤 <b>Before you start:</b> sit in a quiet room, close to the microphone — arm's reach or less.
     A phone held nearby or a headset with a mic makes your words come out right the first time.</p>
     <p class="sub">🎁 <b>Making this for someone you love?</b> The best sessions are two chairs and one
     phone: you ask, they talk, the book remembers. Sunday afternoons were made for this.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <span style="font-weight:700;">Whose story is this?</span>
-      <input type="text" id="whoName" placeholder="Your name" style="max-width:220px" onchange="setName(this.value)" autocomplete="name">
+      <input type="text" id="whoName" placeholder="Your name" style="max-width:220px" onchange="setName(this.value)" oninput="skSoon('name')" autocomplete="name">
     </div>
   </div>
 
@@ -2139,7 +2143,7 @@
 My pictures live in three places —
 • My iPhone (Aaron knows the passcode)
 • Google Photos: jerry@… (password is in the family safe)
-• Two photo albums in the hall closet, top shelf" onchange="db.key=this.value;save()"></textarea>
+• Two photo albums in the hall closet, top shelf" onchange="db.key=this.value;save()" oninput="skSoon('key')"></textarea>
   </div>
 
   <button class="btn big wide gold" style="margin-top:8px" onclick="openBook()">📖 See your book so far</button>
@@ -2168,7 +2172,7 @@ My pictures live in three places —
     <button id="recBtn" onclick="toggleRec()" aria-label="Record" title="Record">🎙</button>
     <div id="recState">Press to talk</div>
 
-    <textarea id="answer" placeholder="Your story appears here as you talk… (you can also type or fix words)" onchange="saveAnswer()"></textarea>
+    <textarea id="answer" placeholder="Your story appears here as you talk… (you can also type or fix words)" onchange="saveAnswer()" oninput="skSoon('answer')"></textarea>
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
       <button class="btn ghost" style="font-size:16px; padding:11px 18px;" onclick="readBack()">🔊 Read it back to me</button>
       <button class="btn gold" style="font-size:16px; padding:11px 18px; background:var(--gold); color:#221;" onclick="polishCopy()">✨ Make it book-ready</button>
@@ -2216,7 +2220,7 @@ My pictures live in three places —
   <button id="nBook" onclick="openBook()"><span class="em">📖</span>Your book</button>
 </div>
 
-<div id="ver">In My Own Words v1.13 · 2026-10-07 · now keeps your voice too · formerly Story Keeper · Daraja Studio — every copy helps a student in Kenya stay in school</div>
+<div id="ver">In My Own Words v1.14 · 2026-10-08 · now keeps your voice too · formerly Story Keeper · Daraja Studio — every copy helps a student in Kenya stay in school</div>
 
 <script>
 /* ================= DATA ================= */
@@ -2260,6 +2264,19 @@ const CHAPTERS = [
 
 const LS='story_keeper_v1';
 let db = load();
+/* 7 Oct deep check: if the tour was interrupted (phone locked, app swiped away) its examples were left in the
+   person's real book and the fake diary days even made a streak. Unless they chose "Keep the examples",
+   take the examples back out on the next open — the same clean-up the tour's Start fresh does. */
+(function skTourLeftovers(){ try{
+  if(/^keep/.test(localStorage.getItem('dj_tour_storykeeper')||'')) return;
+  const isEx=a=>a && a.ex && /\(example\)/.test(a.text||'') && !(a.photos||[]).length && !(a.voice||[]).length;
+  let n=0;
+  Object.keys(db.ans||{}).forEach(k=>{ if(isEx(db.ans[k])){ delete db.ans[k]; n++; } });
+  Object.keys(db.ans||{}).forEach(k=>{ const a=db.ans[k]; if(a && a.people){ const b=a.people.length; a.people=a.people.filter(x=>!/\(example\)$/.test(x)); n+=b-a.people.length; } });
+  const c0=(db.cast||[]).length; db.cast=(db.cast||[]).filter(p=>!(p.ex && /\(example\)$/.test(p.n))); n+=c0-db.cast.length;
+  if(/\(example\)$/.test(db.name||'')){ db.name=''; n++; }
+  if(n) localStorage.setItem(LS, JSON.stringify(db));
+}catch(e){} })();
 function load(){
   try{
     const d = JSON.parse(localStorage.getItem(LS)||'{}');
@@ -2279,6 +2296,20 @@ function putA(a){ db.ans[aKey()]=a; save(); }
 
 /* ================= HOME ================= */
 function setName(v){ db.name=v.trim(); save(); }
+/* 7 Oct deep check: a typed story was lost if the app closed before you tapped somewhere else.
+   Now every box saves a moment after you stop typing, and again whenever the app is hidden. */
+let _skT=null, _skWhat={};
+function skFlush(){
+  clearTimeout(_skT); const w=_skWhat; _skWhat={};
+  try{
+    if(w.name){ db.name=$('whoName').value.trim(); save(); }
+    if(w.key){ db.key=$('keyText').value; save(); }
+    if(w.answer && CUR && !$('scrQ').classList.contains('hide')) saveAnswer();
+  }catch(e){}
+}
+function skSoon(what){ _skWhat[what]=1; clearTimeout(_skT); _skT=setTimeout(skFlush, 700); }
+window.addEventListener('pagehide', skFlush);
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') skFlush(); });
 function addPerson(){
   const n=$('pName').value.trim(); if(!n) return;
   db.cast.push({n, r:$('pRel').value}); $('pName').value='';
@@ -2287,7 +2318,7 @@ function addPerson(){
 function delPerson(i){ const p=db.cast[i]; if(!p||!confirm('Remove '+p.n+' from the people in your story?')) return; db.cast.splice(i,1); save(); renderCast(); }
 function renderCast(){
   $('castList').innerHTML = db.cast.length
-    ? db.cast.map((p,i)=>`<span class="person">${esc(p.n)} <small style="color:var(--soft)">· ${p.r}</small><button type="button" class="x" aria-label="Remove ${esc(p.n)}" onclick="delPerson(${i})">×</button></span>`).join('')
+    ? db.cast.map((p,i)=>`<span class="person">${esc(p.n)} <small style="color:var(--soft)">· ${esc(p.r)}</small><button type="button" class="x" aria-label="Remove ${esc(p.n)}" onclick="delPerson(${i})">×</button></span>`).join('')
     : '<span style="color:var(--soft)">No one added yet — start with your spouse or a child.</span>';
 }
 function chapProgress(c){
@@ -2298,12 +2329,13 @@ function renderChaps(){
   $('chapGrid').innerHTML = CHAPTERS.map(c=>{
     const done = chapProgress(c);
     return `<button class="chapBtn" onclick="openChap('${c.id}')">
-      <span class="em">${c.em}</span><b>${c.name}</b>
-      ${done ? `<span class="done">✓ ${done} of ${c.qs.length} told</span>` : `<small>${c.qs.length} questions</small>`}
+      <span class="em">${esc(c.em)}</span><b>${esc(c.name)}</b>
+      ${done ? `<span class="done">✓ ${done} of ${c.qs.length} told</span>` : `<small>${c.qs.length} question${c.qs.length===1?'':'s'}</small>`}
     </button>`;
   }).join('');
 }
-function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }   /* 7 Oct deep check: quotes too — names sit inside attributes */
+function skImg(p){ return /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+\/=]+$/.test(String(p||'')) ? p : ''; }   /* 7 Oct deep check: only real pictures go into src="" */
 
 /* ================= INTERVIEW ================= */
 let CUR = null;
@@ -2453,7 +2485,7 @@ function rmPhoto(i){
 function renderThumbs(){
   const a=getA();
   $('qThumbs').innerHTML = a.photos.map((p,i)=>
-    `<span class="th"><img src="${p}" alt=""><button class="rm" onclick="rmPhoto(${i})" aria-label="Remove" title="Remove">×</button></span>`).join('');
+    `<span class="th"><img src="${skImg(p)}" alt=""><button class="rm" onclick="rmPhoto(${i})" aria-label="Remove" title="Remove">×</button></span>`).join('');
 }
 
 /* ================= BOOK ================= */
@@ -2473,7 +2505,7 @@ function openBook(){
     html += `<div class="bchap"><h2>${c.em} ${esc(c.name)}</h2>`;
     parts.forEach(x=>{
       html += `<div class="bq"><h3>${esc(x.q)}</h3><p>${esc(x.a.text)}</p>`;
-      (x.a.photos||[]).forEach(p=>{ html += `<img src="${p}" alt="">`; });
+      (x.a.photos||[]).forEach(p=>{ if(skImg(p)) html += `<img src="${skImg(p)}" alt="">`; });
       if(x.a.people && x.a.people.length) html += `<div class="who">In this story: ${x.a.people.map(esc).join(', ')}</div>`;
       html += `</div>`;
     });
@@ -2532,7 +2564,7 @@ function stopRead(){
 
 /* ---- backup & restore ---- */
 function backup(){
-  const blob=new Blob([JSON.stringify({app:'story_keeper',ver:1,saved:new Date().toISOString(),data:db, ask:(function(){ try{ return JSON.parse(localStorage.getItem('story_ask_v1')||'null'); }catch(e){ return null; } })()})],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({app:'story_keeper',ver:1,saved:djYMD() /* 7 Oct deep check: local date, not UTC */,data:db, ask:(function(){ try{ return JSON.parse(localStorage.getItem('story_ask_v1')||'null'); }catch(e){ return null; } })()})],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const nm=(db.name||'my').toLowerCase().replace(/[^a-z0-9]+/g,'_');
@@ -2552,13 +2584,15 @@ function restore(files){
       const when=j.saved||j.when||'';
       if(!d.ans && !d.cast) throw new Error('not a Story Keeper backup');
       if(!confirm('Bring back this backup'+(when?' from '+String(when).slice(0,10):'')+'?\nIt replaces what is on this device right now.')) return;
-      db={ name:d.name||'', cast:d.cast||[], ans:d.ans||{}, key:d.key||'' };
+      /* 7 Oct deep check: keep EVERY part of the backup (journal stars, moods, prompts…), like load() does */
+      db=Object.assign({}, d, { name:d.name||'', cast:d.cast||[], ans:d.ans||{}, key:d.key||'' });
       save();
       if(ask&&ask.q){ try{ localStorage.setItem('story_ask_v1', JSON.stringify(ask)); }catch(e){} ensureAsked(); }
       document.getElementById('whoName').value=db.name;
       document.getElementById('keyText').value=db.key;
       renderCast(); renderChaps();
-      alert('Welcome back. Every story and picture is here. ✓');
+      alert('Welcome back. Every story, picture and diary day is here. ✓');
+      location.reload();   /* 7 Oct deep check: redraw Today's page and the diary from the restored book */
     }catch(e){ alert("That file doesn't look like a backup from this app."); }
   };
   rd.readAsText(f);
@@ -2586,7 +2620,11 @@ function openQow(){
 function ensureAsked(){
   let st=null; try{ st=JSON.parse(localStorage.getItem('story_ask_v1')||'null'); }catch(e){}
   if(!(st&&st.q&&st.q.length)) return false;
-  const ch={id:'asked', em:'💛', name:(st.f? st.f+"'s questions" : 'Questions for you'), qs:st.q};
+  /* 7 Oct deep check: a gift link is text from outside — keep it plain text, short, and strings only */
+  const plain=x=>String(x==null?'':x).replace(/<[^>]*>?/g,'').replace(/[<>]/g,'').trim();
+  const qs=(Array.isArray(st.q)?st.q:[]).map(q=>plain(q).slice(0,400)).filter(Boolean).slice(0,40); if(!qs.length) return false;
+  const f=plain(st.f).slice(0,60);
+  const ch={id:'asked', em:'💛', name:(f? f+"'s questions" : 'Questions for you'), qs:qs};
   const k=CHAPTERS.findIndex(c=>c.id==='asked');
   if(k<0) CHAPTERS.unshift(ch); else CHAPTERS[k]=ch;
   return true;
@@ -3093,7 +3131,7 @@ window.DJ_START.firstAction=function(){ var i=document.getElementById('whoName')
     var qs=draft.qs.map(function(q){ return String(q||'').trim(); }).filter(Boolean);
     if(!qs.length){ alert('Write at least one question first.'); return; }
     var payload=enc({f:draft.from, t:draft.to, q:qs});
-    var url=location.origin+location.pathname+'?ask='+payload;
+    var url=location.origin+location.pathname+'?ask='+encodeURIComponent(payload);   /* 7 Oct deep check */
     var msg=(draft.to? draft.to+', ' : '')+'I set something up so you can tell your story in your own voice — it asks you a few questions and writes down what you say. No account, nothing to sign up for. Here it is: '+url;
     show('<h2>✓ Ready to send</h2>'
       + '<p>Send this to '+(draft.to?esc(draft.to):'them')+'. When they open it, they will be asked <b>your</b> '+qs.length+' question'+(qs.length>1?'s':'')+' — nothing else to set up at their end.</p>'
@@ -3113,11 +3151,15 @@ window.DJ_START.firstAction=function(){ var i=document.getElementById('whoName')
     try{
       var u=new URL(location.href), a=u.searchParams.get('ask');
       if(!a) return null;
+      a=a.replace(/ /g,'+');   /* 7 Oct deep check: a "+" in the link arrives as a space */
       return dec(a);
     }catch(e){ return null; }
   }
   function boot(){
     var got=incoming();
+    /* 7 Oct deep check: strip tags from the gift link the moment it is read in */
+    if(got && typeof got==='object'){ var pl=function(x){ return String(x==null?'':x).replace(/<[^>]*>?/g,'').replace(/[<>]/g,'').trim(); };
+      got={ f:pl(got.f).slice(0,60), t:pl(got.t).slice(0,60), q:(Array.isArray(got.q)?got.q:[]).map(function(q){ return pl(q).slice(0,400); }).filter(Boolean).slice(0,40) }; }
     if(got && got.q && got.q.length){
       try{ localStorage.setItem(KEY, JSON.stringify(got)); }catch(e){}
       try{ if(typeof ensureAsked==='function' && ensureAsked() && typeof renderChaps==='function') renderChaps(); }catch(e){}
@@ -3188,6 +3230,8 @@ window.DJ_AI = { title:'What should I ask next?',
   var $ = function(id){ return document.getElementById(id); };
   var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
   var DBN = 'story_voice', ST = 'clips', idb = null;
+  /* 7 Oct deep check: "Your voice is kept ✓" never showed — this app had no toast() */
+  var toast = function(t){ try{ var f=document.createElement('div'); f.textContent=t; f.setAttribute('role','status'); f.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));z-index:200;background:#2b2620;color:#faf6ee;font:700 15px -apple-system,sans-serif;padding:10px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.3)'; document.body.appendChild(f); setTimeout(function(){ f.remove(); }, 2600); }catch(e){} };
   function open(){ return new Promise(function(ok, no){ if(idb) return ok(idb); if(!window.indexedDB) return no(new Error('no store')); var r = indexedDB.open(DBN, 1); r.onupgradeneeded = function(){ r.result.createObjectStore(ST); }; r.onsuccess = function(){ idb = r.result; ok(idb); }; r.onerror = function(){ no(r.error); }; }); }
   function put(id, blob){ return open().then(function(d){ return new Promise(function(ok, no){ var t = d.transaction(ST, 'readwrite'); t.objectStore(ST).put(blob, id); t.oncomplete = ok; t.onerror = function(){ no(t.error); }; }); }); }
   function get(id){ return open().then(function(d){ return new Promise(function(ok, no){ var r = d.transaction(ST).objectStore(ST).get(id); r.onsuccess = function(){ ok(r.result); }; r.onerror = function(){ no(r.error); }; }); }); }
