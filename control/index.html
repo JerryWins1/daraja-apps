@@ -1967,6 +1967,7 @@
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
       <button data-t="stack">The stack<span class="n" id="nStack" hidden></span></button>
+      <button data-t="history">History</button>
     </nav>
 
     <!-- TODAY -->
@@ -1975,8 +1976,11 @@
       <!-- v1.18 (6 Oct): Jerry: "I wish we only had one thing." The to-do list lives in Jerry's List only; HQ is people & messages. -->
       <a class="card" href="https://claude.ai/code/artifact/e5353624-9579-478a-9287-207ac2acae61" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border:2px solid var(--accent,#23504F)"><span style="font-size:30px">📋</span><span style="flex:1"><b style="font-size:18px">Jerry's List</b><br><span class="muted">Your one list: 🏢 Business and 🏠 Personal, one next step at a time.</span></span><span style="font-size:22px">›</span></a>
       <!-- v1.21 (7 Oct): Jerry: "a little dashboard of everything that needs to be done, and a section for Zuri testers and a section for Daraja testers rather than a button." -->
-      <h2>Needs you</h2>
-      <div class="tiles" id="needsYou" style="margin-top:0"></div>
+      <!-- v1.25 (8 Oct): Jerry: "the panel only had things that I need to do right now, but keep a history of what's happened." -->
+      <h2>✅ Needs you now <small id="nowCount"></small></h2>
+      <div class="card" id="nowList"><p class="muted" style="margin:0">Loading…</p></div>
+      <details class="card" id="moreToday" style="margin-top:14px"><summary style="font-weight:800;cursor:pointer">👥 The testers, dates &amp; more <small class="muted">(how everyone is doing — nothing to act on)</small></summary>
+      <div class="tiles" id="needsYou" style="margin-top:8px;display:none"></div>
       <h2 id="secZuri">📶 Zuri testers · go-live <small id="zlDays"></small></h2>
       <div class="card" id="zuriLive"><p class="muted" style="margin:0">Loading the testers' board…</p></div>
       <h2 id="secDaraja">🌉 Daraja testers <small id="dtCount"></small></h2>
@@ -1984,16 +1988,23 @@
       <!-- v1.22 (7 Oct): Jerry: "we have Zuri testers, we have Daraja testers, can we have church testers also? It's a different group." -->
       <h2 id="secChurch">⛪ Church testers <small id="ctCount"></small></h2>
       <div class="card" id="churchLive"><p class="muted" style="margin:0">Loading…</p></div>
-      <h2 id="secMsgs">New messages <small id="msgCount"></small></h2>
+      <div hidden><h2 id="secMsgs">New messages <small id="msgCount"></small></h2>
       <div class="card" id="newMsgs"></div>
       <h2 id="secWaiting">Waiting on you</h2>
-      <div class="card" id="waiting"></div>
+      <div class="card" id="waiting"></div></div>
             <h2 id="secQuiet">Gone quiet <small>no sign of them in 3+ days</small></h2>
       <div class="card" id="quiet"></div>
       <h2>Dates that bite</h2>
       <div class="card" id="dates"></div>
       <h2>Say these words to Claude <small>tap to copy</small></h2>
       <div class="card"><div class="chips" id="words"></div></div>
+      </details>
+    </section>
+
+    <!-- HISTORY (v1.25): everything that has happened, newest first -->
+    <section class="tab" id="t-history">
+      <div class="chips" id="hFilter" style="margin-top:6px"></div>
+      <div id="hList"></div>
     </section>
 
     <!-- BUSINESS -->
@@ -2043,14 +2054,14 @@
     <!-- STACK -->
     <section class="tab" id="t-stack">
       <div class="card">
-        <b>Every change and question, in one pile.</b>
-        <p class="muted" style="margin:4px 0 10px">Move things along with the buttons. When you’re ready, say “work the stack” and Claude groups them, proposes a plan, and builds after your go.</p>
+        <b>Every change and question, in three steps: 📥 New → 🔧 Being fixed → ✅ Fixed.</b>
+        <p class="muted" style="margin:4px 0 10px">Say “work the stack” and Claude groups them, fixes them after your go, and moves each one to ✅ Fixed himself. Your only job is the green button on a fixed one: <b>📨 Tell them</b>. It quotes their words, so they know which question you’re answering.</p>
         <div class="chips"><button class="chip main" onclick="copy('work the stack')">📋 work the stack</button><button class="chip" onclick="addRequest()">＋ Add one myself</button></div>
       </div>
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.23 · 2026-10-07 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.25 · 2026-10-08 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2114,13 +2125,16 @@ function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h
 
 /* ---------- render ---------- */
 function render(){
-  renderToday(); try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
+  renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
   const nNew=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
   const nStack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
   $('stamp').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · updated '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+(D.whatsapp?' · WhatsApp connected':' · WhatsApp not connected yet');
 }
 
+window.zHandled=async function(at){ const h=(settingJSON('zuri_handled',[])||[]).filter(x=>x!==at); h.push(at); D.settings.zuri_handled=JSON.stringify(h.slice(-400)); renderZuriLive(); await act({action:'settings.set',k:'zuri_handled',value:h.slice(-400)},'Handled'); };
+window.zAnswer=function(pid,at,btn){ quoteReply(pid, btn.getAttribute('data-q'), {after:()=>zHandled(at)}); };
+window.replyMsg=function(mid){ const m=((D&&D.messages)||[]).find(x=>x.id===mid); if(!m) return; quoteReply(m.person_id, m.text, {msgId:m.id, when:ago(m.at)}); };
 function msgItem(m,actions){
   const p=P(m.person_id);
   return `<div class="item"><div><span class="who">${esc(p.name||m.name)}</span> <span class="meta">${ICON[m.channel]||'•'} ${esc(m.channel)}${m.app?' · '+esc(m.app):''} · ${ago(m.at)}</span></div><div class="txt">${esc(m.text)}</div><div class="chips">${actions}</div></div>`;
@@ -2142,7 +2156,14 @@ async function renderZuriLive(){
     return {t,done:done.size,what,st,notes,last}; });
   const nextStep=ZL.plan.find(x=>x[0]>=djYMD()) /* 7 Oct deep check: local day, not UTC (after 7 pm it skipped ahead) */||ZL.plan[ZL.plan.length-1];
   el.innerHTML=`<div class="tiles" style="margin-top:0">${ppl.map(p=>`<div class="tile ${p.st}"><div class="k">${esc(p.t.n)}</div><div class="v">${p.done}</div><div class="s">steps done · ${esc(p.what)}</div></div>`).join('')}</div>
-    ${ppl.filter(p=>p.notes.length).map(p=>p.notes.slice(0,2).map(n=>`<div class="item"><b>${esc(p.t.n)}:</b> ${esc(n.note||'')} <span class="meta">${ago(n.at)}</span></div>`).join('')).join('')}
+    ${(()=>{ /* v1.25 (8 Oct): only NEW notes — Jerry kept seeing Veronica's 5 Oct note after it was fixed. ✓ Handled hides one; ↩︎ Answer quotes it and hides it once sent. */
+      const H=settingJSON('zuri_handled',[])||[], cut=Date.now()-30*864e5;
+      const fresh=[]; ppl.forEach(p=>p.notes.forEach(n=>{ if(H.indexOf(n.at)<0 && new Date(n.at)>cut) fresh.push({p,n}); }));
+      fresh.sort((a,b)=>String(b.n.at).localeCompare(String(a.n.at)));
+      ZNEW=fresh.map(({p,n})=>{ const hp=((D&&D.people)||[]).find(x=>x.project==='zuri'&&p.t.match.test(x.name||'')); return {who:p.t.n,note:n.note||'',at:n.at,pid:hp?hp.id:'',auto:/^🤖/.test(n.note||'')}; }); setTimeout(()=>{ try{ renderNow(); }catch(e){} },0);
+      if(!fresh.length) return '<div class="item muted">No new notes from the testers. ✓</div>';
+      return fresh.slice(0,8).map(({p,n})=>{ const auto=/^🤖/.test(n.note||''); const hp=((D&&D.people)||[]).find(x=>x.project==='zuri'&&p.t.match.test(x.name||''));
+        return `<div class="item"><b>${esc(p.t.n)}:</b> ${esc(n.note||'')} <span class="meta">${ago(n.at)}</span><div class="chips" style="margin-top:6px">${!auto&&hp?`<button class="chip small main" onclick="zAnswer('${hp.id}','${esc(n.at)}',this)" data-q="${esc(n.note||'')}">↩︎ Answer</button>`:''}<button class="chip small" onclick="zHandled('${esc(n.at)}')">✓ Handled</button></div></div>`; }).join(''); })()}
     <div class="item" style="margin-top:6px"><b>Next on the plan:</b> ${esc(nextStep[1])} <span class="meta">${new Date(nextStep[0]+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></div>
     <details style="margin-top:6px"><summary class="muted">The two-week plan</summary>${ZL.plan.map(x=>`<div class="dl ${x[0]<djYMD()?'':'soon'}"><span class="d">${new Date(x[0]+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span><span>${esc(x[1])}</span></div>`).join('')}</details>
     <div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('zuri')">📣 Message the Zuri testers</button><a class="chip small" href="https://jerrywins1.github.io/zuri-system/testers/?board" target="_blank" rel="noopener">📊 The board</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?training" target="_blank" rel="noopener">🟠 Training copy</a><a class="chip small" href="https://jerrywins1.github.io/zuri-system/?practice" target="_blank" rel="noopener">🧪 Practice</a></div>`;
@@ -2193,6 +2214,35 @@ function renderDarajaLive(proj){
     +rows.filter(r=>r.note).slice(0,3).map(r=>`<div class="item"><b>${esc(String(r.p.name).split(' ')[0])}:</b> ${esc(String(r.note.text||'').replace(/^'/,'').slice(0,160))} <span class="meta">${ago(r.note.at)}</span></div>`).join('')
     +`<div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('${proj}')">📣 Message the ${CH?'church':'Daraja'} testers</button><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/testers/${CH?'?line=church':''}" target="_blank" rel="noopener">🧪 ${CH?'Church apps list':'Testers’ List'}</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/welcome/" target="_blank" rel="noopener">👋 Welcome page</a></div>`;
 }
+/* v1.25 — ✅ Needs you now: ONLY things that need Jerry — unread messages, fixes to tell, new tester notes, drafts to send.
+   Everything else is folded under "The testers, dates & more", and the History tab keeps the record. */
+let ZNEW=[];
+function renderNow(){
+  const el=$('nowList'); if(!el||!D) return; const out=[];
+  const stacked=new Set((D.requests||[]).map(r=>r.msg_id));
+  (D.messages||[]).filter(m=>m.direction==='in'&&m.status==='new').sort((a,b)=>String(b.at).localeCompare(String(a.at))).forEach(m=>out.push(msgItem(m,
+    `<button class="chip small main" onclick="replyMsg('${m.id}')">↩︎ Reply</button>`+(stacked.has(m.id)?'':`<button class="chip small" onclick="stackIt('${m.id}')">📌 For Claude to fix</button>`)+`<button class="chip small" onclick="markRead(['${m.id}'])">✓ Done, no reply</button>`)));
+  (D.requests||[]).filter(r=>r.status==='done').forEach(r=>out.push(`<div class="item"><div><span class="who">✅ Fixed for ${esc(r.name)}</span> <span class="meta">${r.app?esc(r.app)+' · ':''}${ago(r.at)}</span></div><div class="txt">“${esc(String(r.text).slice(0,160))}”</div>${r.fixed?`<div class="meta">${esc(r.fixed)}</div>`:''}<div class="chips"><button class="chip small wa" onclick="replyDone('${r.id}')">📨 Tell them</button><button class="chip small" onclick="moveReq('${r.id}','told')">No need to tell</button></div></div>`));
+  ZNEW.forEach(z=>out.push(`<div class="item"><div><span class="who">📶 ${esc(z.who)} (Zuri)</span> <span class="meta">${ago(z.at)}</span></div><div class="txt">${esc(z.note)}</div><div class="chips">${z.pid&&!z.auto?`<button class="chip small main" onclick="zAnswer('${z.pid}','${esc(z.at)}',this)" data-q="${esc(z.note)}">↩︎ Answer</button>`:''}<button class="chip small" onclick="zHandled('${esc(z.at)}')">✓ Handled</button></div></div>`));
+  (D.messages||[]).filter(m=>m.direction==='out'&&(m.status==='draft'||m.status==='failed')).forEach(m=>out.push(msgItem(m,`<span class="pill">${m.status==='failed'?'didn’t send':'draft'}</span><button class="chip small main" onclick="openPerson('${m.person_id}',true,'${m.id}')">Review &amp; send</button>`)));
+  const nNew=(D.requests||[]).filter(r=>r.status==='new'||r.status==='stack').length;
+  if(nNew) out.push(`<div class="item"><span class="who">📥 ${nNew} new in the stack</span> <span class="meta">— nothing to do yourself: say “work the stack” and Claude fixes them</span></div>`);
+  $('nowCount').textContent=out.length?out.length+(out.length===1?' thing':' things'):'';
+  el.innerHTML=out.length?out.join(''):'<div style="font-size:34px">✓</div><b>Nothing needs you right now.</b> <span class="muted">New messages and fixes to tell people about show up here. What already happened is under History.</span>';
+}
+let HF='all';
+function renderHistory(){
+  const el=$('hList'); if(!el||!D) return; const ev=[];
+  (D.messages||[]).forEach(m=>{ if(m.direction==='in') ev.push({at:m.at,k:'in',h:`<span class="who">${esc((P(m.person_id).name)||m.name)}</span> wrote <span class="meta">${ICON[m.channel]||''} ${esc(m.channel||'')}${m.app?' · '+esc(m.app):''}</span>`,t:m.text});
+    else if(m.status!=='draft') ev.push({at:m.at,k:'out',h:`You → <span class="who">${esc((P(m.person_id).name)||m.name)}</span> <span class="meta">${esc(m.status||'')}</span>`,t:m.text}); });
+  (D.requests||[]).filter(r=>r.status==='done'||r.status==='told').forEach(r=>ev.push({at:r.at,k:'fixed',h:`${r.status==='told'?'✓ Fixed & told':'✅ Fixed'} — <span class="who">${esc(r.name)}</span>${r.app?' <span class="meta">· '+esc(r.app)+'</span>':''}`,t:r.text+(r.fixed?'\n→ '+r.fixed:'')}));
+  ev.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const F=[['all','Everything'],['in','They wrote'],['out','You sent'],['fixed','Fixed']];
+  $('hFilter').innerHTML=F.map(f=>`<button class="chip small ${HF===f[0]?'main':''}" onclick="HF='${f[0]}';renderHistory()">${f[1]}</button>`).join('');
+  const list=ev.filter(e=>HF==='all'||e.k===HF).slice(0,250); let day='';
+  el.innerHTML=list.length?list.map(e=>{ const d=String(e.at||'').slice(0,10), head=d!==day?`<h2>${d?new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}):'Earlier'}</h2>`:''; day=d;
+    return head+`<div class="card" style="margin-bottom:8px"><div>${e.h} <span class="meta">${ago(e.at)}</span></div><div class="txt" style="white-space:pre-wrap;margin-top:4px">${esc(String(e.t||'').slice(0,400))}</div></div>`; }).join(''):'<p class="muted">Nothing yet.</p>';
+}
 /* v1.21 — "Needs you": everything waiting, as counts; tap one to jump there. */
 function renderNeedsYou(){
   const el=$('needsYou'); if(!el||!D) return;
@@ -2210,7 +2260,7 @@ function renderToday(){
   const fresh=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   $('msgCount').textContent=fresh.length?fresh.length+' unread':'';
   $('newMsgs').innerHTML=fresh.length?fresh.map(m=>msgItem(m,
-      `<button class="chip small main" onclick="openPerson('${m.person_id}',true)">↩︎ Reply</button>`+
+      `<button class="chip small main" onclick="replyMsg('${m.id}')">↩︎ Reply</button>`+
       (stacked.has(m.id)?'<span class="pill">in the stack</span>':`<button class="chip small" onclick="stackIt('${m.id}')">📌 Stack it</button>`)+
       `<button class="chip small" onclick="markRead(['${m.id}'])">✓ Read</button>`)).join('')+
       (fresh.length>1?`<div class="chips" style="margin-top:8px"><button class="chip small" onclick="markRead(${esc(JSON.stringify(fresh.map(m=>m.id)))})">✓ Mark all read</button></div>`:'')
@@ -2302,7 +2352,7 @@ function openPerson(id,compose,draftId){
     <div class="muted">${esc(p.project||'—')} · ${esc(p.role)} · ${p.phone?'+'+esc(p.phone):'no WhatsApp number yet'} · last seen ${ago(p.last_seen)}</div>
     ${p.summary?`<p style="margin:8px 0">🧠 ${esc(p.summary)}</p>`:''}
     <h2>Conversation</h2>
-    <div class="thread">${msgs.length?msgs.map(m=>`<div class="bub ${m.direction==='out'?'out':''}">${esc(m.text)}<span class="m">${ICON[m.channel]||''} ${ago(m.at)}${m.direction==='out'?' · '+esc(m.status):''}</span></div>`).join(''):'<p class="muted">No messages yet.</p>'}</div>
+    <div class="thread">${msgs.length?msgs.map(m=>`<div class="bub ${m.direction==='out'?'out':''}">${esc(m.text)}<span class="m">${ICON[m.channel]||''} ${ago(m.at)}${m.direction==='out'?' · '+esc(m.status):''}</span>${m.direction==='in'?`<button class="chip small" style="margin-top:6px" onclick="replyMsg('${m.id}')">↩︎ Answer this one</button>`:''}</div>`).join(''):'<p class="muted">No messages yet.</p>'}</div>
     <label for="cmp">Message ${esc(String(p.name).split(' ')[0])}</label>
     <textarea id="cmp" placeholder="Write it the way you'd say it">${draft?esc(draft.text):''}</textarea>
     <div class="chips" style="margin-top:8px">
@@ -2411,26 +2461,47 @@ async function gmSend(id){
 }
 
 /* ---------- the stack ---------- */
-const STEPS=[['new','New'],['stack','In the stack'],['planned','Planned'],['building','Building'],['done','Done'],['told','Told them']];
+/* v1.24 (8 Oct 2026). Jerry: "I don't understand what the choices are to move them… do we log them as done so I don't have to message
+   them? … put the question, then I type the answer, and that's what goes in WhatsApp, so they know what I'm answering."
+   Three steps instead of six; one obvious button per card; Claude marks fixes himself; every reply quotes their words. */
+const BUCKETS=[['new','📥 New','not looked at yet',['new','stack']],['fixing','🔧 Being fixed','Claude is on it',['planned','building']],['fixed','✅ Fixed','tell them, then it leaves this list',['done']]];
 const KIND={problem:'🐞',idea:'💡',praise:'🙌',question:'❓',change:'🔧',note:'📝'};
 function renderStack(){
   const reqs=((D&&D.requests)||[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  $('stackList').innerHTML=STEPS.map(([s,label],i)=>{
-    const items=reqs.filter(r=>(r.status||'new')===s); if(!items.length && (s==='told'||s==='done')) return '';
-    const next=STEPS[i+1];
-    return `<h2>${label} <small>${items.length}</small></h2><div class="card">${items.length?items.slice(0,s==='told'?10:60).map(r=>`<div class="item">
-      <div><span class="who">${KIND[r.kind]||'•'} ${esc(r.name)}</span> <span class="meta">${r.app?esc(r.app)+' · ':''}${ago(r.at)}${r.likes?' · 👍 '+String(r.likes).split(',').length:''}${r.group?' · '+esc(r.group):''}</span></div>
-      <div class="txt">${esc(r.text)}</div>
-      <div class="chips">${next?`<button class="chip small main" onclick="moveReq('${r.id}','${next[0]}')">→ ${next[1]}</button>`:''}
-        ${s==='done'?`<button class="chip small" onclick="replyDone('${r.id}')">✍️ Tell them it’s fixed</button>`:''}
-        <select aria-label="Move to" onchange="moveReq('${r.id}',this.value)" style="width:auto;min-height:36px;padding:4px 8px;font-size:14px"><option value="">Move…</option>${STEPS.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select>
-        ${r.person_id?`<button class="chip small" onclick="openPerson('${r.person_id}')">👤</button>`:''}</div></div>`).join(''):'<p class="muted" style="margin:0">Empty.</p>'}</div>`; }).join('');
+  const told=reqs.filter(r=>r.status==='told');
+  $('stackList').innerHTML=BUCKETS.map(([key,label,hint,sts])=>{
+    const items=reqs.filter(r=>sts.indexOf(r.status||'new')>=0);
+    return `<h2>${label} <small>${items.length} · ${hint}</small></h2><div class="card">${items.length?items.slice(0,60).map(r=>`<div class="item">
+      <div><span class="who">${KIND[r.kind]||'•'} ${esc(r.name)}</span> <span class="meta">${r.app?esc(r.app)+' · ':''}${ago(r.at)}${r.likes?' · 👍 '+String(r.likes).split(',').length:''}</span></div>
+      <div class="txt">${esc(r.text)}</div>${r.fixed&&key==='fixed'?`<div class="meta" style="margin-top:4px">✅ ${esc(r.fixed)}</div>`:''}
+      <div class="chips">${key==='new'?`<button class="chip small main" onclick="moveReq('${r.id}','building')">🔧 Fix it</button><button class="chip small" onclick="moveReq('${r.id}','done')">✅ Already fixed</button><button class="chip small" onclick="moveReq('${r.id}','told')">Not needed</button>`
+        :key==='fixing'?`<button class="chip small main" onclick="moveReq('${r.id}','done')">✅ It's fixed</button>`
+        :`<button class="chip small wa" onclick="replyDone('${r.id}')">📨 Tell them</button><button class="chip small" onclick="moveReq('${r.id}','told')">No need to tell</button>`}
+        ${r.person_id?`<button class="chip small" onclick="openPerson('${r.person_id}')">👤</button>`:''}</div></div>`).join(''):'<p class="muted" style="margin:0">Nothing here.</p>'}</div>`; }).join('')
+    +(told.length?`<details class="card" style="margin-top:12px"><summary>✓ Done and told <small class="muted">${told.length}</small></summary>${told.slice(0,20).map(r=>`<div class="item meta">${esc(r.name)} · ${esc(String(r.text).slice(0,90))}</div>`).join('')}</details>`:'');
 }
-async function moveReq(id,status){ if(!status) return; await act({action:'request.set',id,status},'Moved'); }
-async function replyDone(id){
-  const r=D.requests.find(x=>x.id===id); const p=P(r.person_id); const first=String(p.name||r.name).split(' ')[0];
-  const text=`Hi ${first} — Jerry here. You told us: “${String(r.text).slice(0,120)}”. That’s fixed now${r.fixed?' ('+r.fixed+')':''}. Open the app once more to get the new version. Thank you for telling us!`;
-  try{ const d=await hq({action:'message.draft',person_id:p.id,text,request_id:id}); await load(); openPerson(p.id,true,d.id); }catch(e){ toast(e.message,true); }
+async function moveReq(id,status){ if(!status) return; await act({action:'request.set',id,status},status==='done'?'✅ Fixed — now tell them':status==='building'?'🔧 On it':status==='told'?'Done':'Moved'); }
+function replyDone(id){ const r=D.requests.find(x=>x.id===id); if(!r) return; quoteReply(r.person_id, r.text, {reqId:id, fixed:true, note:r.fixed||''}); }
+/* one reply sheet for everything: their words on top, your answer below, the text they get quotes them */
+function quoteReply(pid, quote, o){ o=o||{}; const p=P(pid); if(!p.id){ toast('Who is this? Open them under People first',true); return; }
+  const first=String(p.name||'').split(' ')[0]||'there', q=String(quote||'').replace(/\s+/g,' ').trim(), short=q.length>140?q.slice(0,137)+'…':q;
+  const start=o.fixed?('Fixed! '+(o.note?o.note+'. ':'')+'Open the app once more to get the new version. Thank you for telling us!'):'';
+  sheet(`<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0 2px">↩︎ Answer ${esc(first)}</h3>
+    <div class="muted" style="font-size:13px;margin-bottom:6px">They said${o.when?' '+esc(o.when):''}:</div>
+    <div style="border-left:4px solid var(--accent,#23504F);background:rgba(128,128,128,.12);border-radius:0 12px 12px 0;padding:10px 12px;margin-bottom:10px;white-space:pre-wrap">${esc(q)}</div>
+    <label for="qrA">Your answer</label><textarea id="qrA" rows="4" placeholder="Type your answer">${esc(start)}</textarea>
+    <div class="muted" style="font-size:13px;margin:8px 0 4px">What ${esc(first)} will get:</div><div id="qrPrev" style="background:rgba(128,128,128,.12);border-radius:12px;padding:10px 12px;white-space:pre-wrap;font-size:14px"></div>
+    <div class="chips" style="margin-top:10px">${p.phone?`<button class="chip wa" id="qrSend">📱 Send it</button>`:`<button class="chip main" onclick="addNumber()">＋ Add their number first</button>`}<button class="chip" id="qrCopy">📋 Copy it</button></div>
+    <p class="muted" style="font-size:13px;margin:6px 0 0">${p.phone?(/^1\d{10}$/.test(String(p.phone))?'Opens Messages':'Opens WhatsApp')+' with it typed in — press send there. HQ logs it'+(o.reqId?' and moves this to ✓ Done and told':'')+'.':''}</p>`);
+  const msg=()=>`Hi ${first} — Jerry here. You ${o.fixed?'told us':'asked'}: “${short}”\n\n${($('qrA').value||'').trim()}`;
+  const prev=()=>{ $('qrPrev').textContent=msg(); }; $('qrA').addEventListener('input',prev); prev(); setTimeout(()=>{ const a=$('qrA'); a.focus(); a.setSelectionRange(a.value.length,a.value.length); },200);
+  const log=async t=>{ try{ const d=await hq({action:'message.draft',person_id:p.id,text:t,request_id:o.reqId||''}); await hq({action:'message.mark',id:d.id,status:'sent by hand'}); if(o.reqId) await hq({action:'request.set',id:o.reqId,status:'told'}); if(o.msgId) await hq({action:'message.read',ids:[o.msgId]}); if(o.after) await o.after(); }catch(e){ toast('Sent, but HQ could not log it: '+e.message,true); } load(); };
+  const c=$('qrCopy'); if(c) c.onclick=()=>{ copy(msg()); };
+  const b=$('qrSend'); if(b) b.onclick=()=>{ const t=msg(); if(!($('qrA').value||'').trim()){ toast('Type your answer first',true); $('qrA').focus(); return; }
+    const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
+    const url=us?(apple?'sms://open?addresses=+'+p.phone+'&body='+encodeURIComponent(t):'sms:+'+p.phone+'?body='+encodeURIComponent(t)):'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
+    if(us) location.href=url; else { const w=window.open(url,'_blank'); if(!w) location.href=url; }
+    closeSheet(); toast('Press send there — logged in HQ'); log(t); };
 }
 function addRequest(){
   sheet(`<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0">Add to the stack</h3>
