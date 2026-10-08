@@ -1908,9 +1908,9 @@
   .b.ai .rp:hover{ opacity:1; }
 
   .chips{ display:flex; gap:8px; flex-wrap:wrap; padding:0 0 2px; animation:up .3s ease-out; }
-  .chips button{ font:800 14.5px -apple-system,sans-serif; border:1.5px solid rgba(255,255,255,.4); background:rgba(255,255,255,.12);
+  .chips button{ font:800 14.5px -apple-system,sans-serif; border:1.5px solid rgba(255,255,255,.45); background:rgba(20,23,32,.58); /* 7 Oct deep check: dark backing — white on evening peach was 2.6:1 */
     color:#fff; border-radius:999px; padding:12px 17px; cursor:pointer; -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
-  .chips button:hover{ background:rgba(255,255,255,.2); }
+  .chips button:hover{ background:rgba(20,23,32,.72); }
   .chips button.hot{ background:var(--coral); border-color:var(--coral); }
   .chips button.warn{ border-color:rgba(255,150,120,.6); color:#FFC9B8; }
   .faces{ display:flex; gap:8px; flex-wrap:wrap; padding:0 0 2px; }
@@ -1948,6 +1948,13 @@
   #hello .v{ font-size:12px; color:var(--faint); font-weight:700; }
   .foot{ text-align:center; font-size:11.5px; color:var(--faint); padding:6px 20px 0; line-height:1.7; }
   body.big{ font-size:112%; } body.huge{ font-size:126%; }
+  /* 7 Oct deep check: header buttons were 40px tall — fingertips need 44 */
+  header .pills button{ min-height:44px!important; }
+  /* 7 Oct deep check: Aa now makes the conversation itself bigger, not just the type box */
+  body.big .b{ font-size:18.5px; } body.huge .b{ font-size:20.8px; }
+  body.big .chips button{ font-size:16.2px; } body.huge .chips button{ font-size:18.3px; }
+  body.big header b{ font-size:23.5px; } body.huge header b{ font-size:26.5px; }
+  body.big .faces button{ font-size:34px; } body.huge .faces button{ font-size:38px; }
   @media (prefers-reduced-motion:reduce){ *{ animation:none!important; } }
 </style>
 
@@ -2011,7 +2018,7 @@
     <div class="pills"><button aria-label="choose my voice" onclick="R.voice()" title="choose my voice">🗣 voice</button><button aria-label="sound on or off" onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button aria-label="start over" onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.12 · 2026-10-07 · by Daraja Studio · your friend lives only on this device — no account, nothing sent anywhere<br>
+  <div class="foot">Rafiki v1.13 · 2026-10-08 · by Daraja Studio · your friend lives only on this device — no account, nothing you tell it is sent anywhere (the weather, only if you say yes, uses your rough location)<!-- 7 Oct deep check --><br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -2260,11 +2267,21 @@ function nnFacts(){
 }
 
 /* ── weather ── */
+/* 7 Oct deep check: the weather is the one thing that leaves the phone, so ask once first,
+   and send only a rough location (1 decimal ≈ the size of a town) */
+function wxAsk(yes, no){
+  bubAI('Would you like me to tell you the weather when you visit? To do that I send your <b>rough location</b> (about the size of a town) to a free weather service. That is the only thing that ever leaves this phone — everything you tell me stays here.');
+  setTimeout(function(){ ask(understand, 'type here…', [
+    ['☀️ Yes, tell me the weather', function(){ S.wxOK=true; save(S); yes(); }, 'hot'],
+    ['No thanks', function(){ S.wxOK=false; save(S); bubAI('No weather, then — nothing leaves this phone. Change your mind any time: just ask me “what’s the weather?”'); setTimeout(no, 700); }]
+  ]); }, 800);
+}
 function weather(cb){
-  if(!navigator.geolocation){ cb(null); return; }
+  if(!navigator.geolocation || S.wxOK===false){ cb(null); return; }
+  if(S.wxOK!==true){ wxAsk(function(){ weather(cb); }, function(){ cb(null); }); return; }
   navigator.geolocation.getCurrentPosition(function(pos){
-    var u='https://api.open-meteo.com/v1/forecast?latitude='+pos.coords.latitude.toFixed(3)
-      +'&longitude='+pos.coords.longitude.toFixed(3)+'&current_weather=true&temperature_unit=fahrenheit';
+    var u='https://api.open-meteo.com/v1/forecast?latitude='+pos.coords.latitude.toFixed(1)
+      +'&longitude='+pos.coords.longitude.toFixed(1)+'&current_weather=true&temperature_unit=fahrenheit';
     fetch(u).then(function(r){return r.json();}).then(function(j){
       var w=j.current_weather; if(!w){ cb(null); return; }
       var c=w.weathercode, phrase='out there';
@@ -2274,6 +2291,7 @@ function weather(cb){
       else if(c<=67) phrase='rainy — grab a jacket';
       else if(c<=77) phrase='snowy';
       else if(c<=82) phrase='showery';
+      else if(c<=86) phrase='snow showers'; /* 7 Oct deep check: 85/86 are snow showers, not storms */
       else phrase='stormy — stay cozy';
       cb({t:Math.round(w.temperature), p:phrase, lat:pos.coords.latitude, lon:pos.coords.longitude});
     }).catch(function(){ cb(null); });
@@ -2428,7 +2446,7 @@ function numOf(t){
 function enough(){
   setupMode=false;
   S.ch1=1; S.visits=Math.max(1,S.visits||0); S.lastSeen=Date.now(); save(S);
-  bubAI('Of course — that’s plenty for today. Friends don’t interview, they visit. 💛<br>I’ve kept every word of what you told me, and I’ll never ask those questions again. Whenever you want to tell me more, tap <b>🧡 Who do you know?</b> and I’ll pick up right where we stopped.');
+  bubAI('Of course — that’s plenty for today. Friends don’t interview, they visit. 💛<br>I’ve kept every word of what you told me, and I’ll never ask those questions again. Whenever you want to tell me more, just tell me — or tap <b>🧡 Who do you know?</b> to hear what I remember.'); /* 7 Oct deep check: that button is now always offered */
   offerMenu();
 }
 
@@ -2594,6 +2612,10 @@ var wkList=[], moList=[], docList=[];
 function chapter2(){
   setupMode = true;
   bubAI('Now the useful part. Let’s get your week down, so I can carry it for you.');
+  /* 7 Oct deep check: on a second run, say what is already there so nothing gets added twice */
+  try{ var od=nnDB(), have=od? (od.regulars||[]).map(function(r){ return r.text; }).concat((od.upcoming||[]).filter(function(u){ return /^Check in with /.test(u.text||''); }).map(function(u){ return u.text; })) : [];
+    if(have.length) bubAI('You already have these coming back regularly: <b>'+esc(have.slice(0,10).join(', '))+(have.length>10?'…':'')+'</b>. I won’t add any of them twice — just tell me what’s new. (To take one off, open '+NN+'.)');
+  }catch(e){}
   setTimeout(q_weekly, 1200);
 }
 function q_weekly(){
@@ -2641,9 +2663,13 @@ function nnAddRepeat(text, every){
   var k=nnEnsure();
   if(!k){ S.notes.push({t:text+' ('+every+')', at:Date.now()}); save(S); return 'note'; }
   try{ var d=JSON.parse(localStorage.getItem(k)); d.tasks=d.tasks||[]; d.regulars=d.regulars||[];
+    /* 7 Oct deep check: running "Tell me about my week" again must not add everything twice */
+    var nrm=function(x){ return String(x||'').toLowerCase().replace(/\s+/g,' ').trim(); };
+    if(d.regulars.concat(d.upcoming||[]).some(function(r){ return nrm(r.text)===nrm(text); })) return 'dup';
     var now=new Date(), rid='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
     if(every==='yearly'){ var ny=new Date(now.getFullYear()+1, now.getMonth(), now.getDate()); (d.upcoming=d.upcoming||[]).push({id:rid, text:text, mins:15, date:ny.getFullYear()+'-'+String(ny.getMonth()+1).padStart(2,'0')+'-'+String(ny.getDate()).padStart(2,'0'), notes:[], att:null, from:S.name||'your friend'}); }
     else d.regulars.push({id:rid, text:text, mins:15, kind:every==='monthly'?'monthly':(every==='daily'?'daily':'weekly'), days:[now.getDay()], dom:now.getDate(), from:S.name||'your friend'});
+    if(every!=='yearly') /* 7 Oct deep check: a once-a-year check-in waits for next year, not today's list */
     d.tasks.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5), text:text, mins:15, done:false, every:every, from:S.name||'your friend', said:true});
     localStorage.setItem(k, JSON.stringify(d)); return 'task';
   }catch(e){ S.notes.push({t:text, at:Date.now()}); save(S); return 'note'; }
@@ -2802,6 +2828,8 @@ function whatNow(){
     }
     chips.push(['\u{1F4F1} Open '+NN, function(){ openPartner(); bubAI('Opened it for you — it is the same list, so anything you tick there I will know about.'); setTimeout(whatNow, 1400); }]);
     chips.push(['\u{1F5D3} Tell me about my week', chapter2]);
+    chips.push(['\u{1F4AC} Check on me', checkin]);   /* 7 Oct deep check: was lost after setup — it's the button way to 988 */
+    chips.push(['\u{1F9E1} Who do you know?', brag]);
     chips.push(['\u{1F604} Tell me a joke', joke]);
     chips.push(['\u{1F9F9} Start over', startOver]);
     bubAI(line);
@@ -2860,9 +2888,11 @@ function morning(){
 
 /* ── when someone says they want to die (2 Oct 2026): this comes before jokes, weather, anything ── */
 /* 7 Oct deep check: much wider — the old pattern missed 16 of 24 ways people say it. Checked against everyday sentences ("take my pills", "send it") so reminders don't trip it. */
-var CRISIS = /(want(ed)? to die|wanna die|wish (i|i'?d|i had) (was|were|had) (dead|never been born)|wish i (was|were)n.?t (alive|here|born)|(i|i'?d) rather (be dead|die|not (be here|wake up|be alive))|kill(ing)? myself|suicid|\bend (it all|it|my life|things|everything)( all)?( now| tonight| today| soon)?$|\bend (it all|my life|everything)\b|take my (own )?life|tak(e|ing) all (of )?(my|the|these|those) (pills|tablets|meds|medicine)|too many (pills|tablets)|overdos|hang(ing)? myself|shoot(ing)? myself|jump(ing)? off (a|the) (bridge|building|roof|cliff)|don.?t want to (live|be here|be alive|wake up|go on|exist)|(not|n.?t) want(ing)? to be alive|no (reason|point) (to|in) (live|living|going on|being here)|nothing (left )?to live for|(life|it) (isn.?t|is not|.?s not|ain.?t) worth (living|it)|not worth living|better off (dead|without me)|be with (my )?(\w+ )?(\w+ )?in heaven (now|soon|tonight)|hurt(ing)? myself|self.?harm|can.?t go on|can.?t do this anymore|give up on (life|living)|ready to die|want(ed)? it (all )?to (end|be over)|go to sleep (and|&) (never|not) wake)/;
+/* 7 Oct deep check (fix round): five more ways people say it — added only, nothing removed */
+var CRISIS = /(do not want to (live|be here|be alive|wake up|go on|exist)|\bkill me\b(?! (with|laughing))|end my own life|(what.?s|what is) the point (of|in) (living|life|going on|being alive|carrying on)|done with (life|living)|tired of (living|being alive)|want(ed)? to die|wanna die|wish (i|i'?d|i had) (was|were|had) (dead|never been born)|wish i (was|were)n.?t (alive|here|born)|(i|i'?d) rather (be dead|die|not (be here|wake up|be alive))|kill(ing)? myself|suicid|\bend (it all|it|my life|things|everything)( all)?( now| tonight| today| soon)?$|\bend (it all|my life|everything)\b|take my (own )?life|tak(e|ing) all (of )?(my|the|these|those) (pills|tablets|meds|medicine)|too many (pills|tablets)|overdos|hang(ing)? myself|shoot(ing)? myself|jump(ing)? off (a|the) (bridge|building|roof|cliff)|don.?t want to (live|be here|be alive|wake up|go on|exist)|(not|n.?t) want(ing)? to be alive|no (reason|point) (to|in) (live|living|going on|being here)|nothing (left )?to live for|(life|it) (isn.?t|is not|.?s not|ain.?t) worth (living|it)|not worth living|better off (dead|without me)|be with (my )?(\w+ )?(\w+ )?in heaven (now|soon|tonight)|hurt(ing)? myself|self.?harm|can.?t go on|can.?t do this anymore|give up on (life|living)|ready to die|want(ed)? it (all )?to (end|be over)|go to sleep (and|&) (never|not) wake)/;
 
 function crisis(){
+  setupMode=false; window.__inSetup=false; /* 7 Oct deep check */
   bubAI('I’m really glad you told me. You matter — to me, and to people who love you. I’m only an app, so please talk to a real person right now: call or text <b>988</b> (the Suicide &amp; Crisis Lifeline — free, any time, day or night). If you are in danger this minute, call <b>911</b>.');
   setTimeout(function(){ ask(understand, 'I’m still here…', [
     ['📞 Call 988', function(){ location.href='tel:988'; }],
@@ -2870,26 +2900,57 @@ function crisis(){
     ['Call someone I love', function(){ bubAI('Yes. Pick the person who would want to know — that’s most people who love you. I’ll be right here when you’re done.'); offerMenu(); }]]); }, 700);
 }
 
+/* ── 7 Oct deep check: heavy feelings. Checked right after CRISIS and before jokes, weather,
+   start-over and to-dos, so "I haven't laughed since my husband died" never gets a joke and
+   "I need to talk to someone, I'm so lonely" is never filed as a chore. ── */
+var HEAVY = /\b(lonely|lonesome|so alone|all alone|alone (tonight|today|again|all the time|in this)|i'?m alone|i am alone|sad|sadness|depressed|depression|grie(f|ve|ving)|heartbroken|heartbreak|hopeless|miserable|cr(y|ying|ied)|in tears|scared|afraid|frightened|terrified|panick(ed|ing)|(miss|missing) (him|her|them|my (wife|husband|son|daughter|mom|mother|mum|dad|father|brother|sister|friend|partner|family|kids|children|grand\w+|dog|cat|old life|home))|(wife|husband|son|daughter|mom|mother|mum|dad|father|brother|sister|friend|partner|spouse|grand\w+|baby|dog|cat|pet)\b[^.]{0,24}\b(died|passed)|(he|she|they)( just| recently)? (died|passed)|passed away|funeral|widow(ed|er)?|lost my (wife|husband|son|daughter|mom|mother|dad|father|brother|sister|friend|partner|dog|cat|baby)|(talk|speak) to (someone|somebody|anyone|a person)|nobody (cares|calls|visits|loves)|no one (cares|calls|visits|loves)|haven.?t laughed|feel(ing)? (so |really |very )?(empty|lost|low|blue|awful|terrible|worthless|useless|down))\b/;
+var STRONG = /\b(lonely|lonesome|alone|depress|hopeless|heartbroken|cr(y|ying|ied)|scared|afraid|frightened|terrified|(talk|speak) to (someone|somebody|anyone))/;
+function heavy(t){
+  setupMode=false; window.__inSetup=false;
+  var low=String(t||'').toLowerCase(), nm=esc(S.p.userName||'friend');
+  var loss=/(died|passed|funeral|widow|lost my|miss(ing)? (him|her|them))/.test(low);
+  var scared=/(scared|afraid|frightened|terrified|panick)/.test(low);
+  var line = loss ? 'Oh, '+nm+' — I’m so sorry. Losing someone you love leaves a hole nothing quite fills, and missing them is just love with nowhere to go. Thank you for telling me.'
+    : scared ? 'I’m right here with you, '+nm+'. Being scared is hard — harder on your own. Let’s take one slow breath together.'
+    : 'I’m really glad you told me, '+nm+'. That’s a heavy thing to carry by yourself — and you don’t have to.';
+  bubAI(line+' I’m only an app, so here is what a real friend would say: call someone who loves you — hearing a voice helps more than you’d think. And if it ever feels like too much, <b>988</b> answers day and night — call or text, free.'+(scared?' If you are in danger right now, call <b>911</b>.':''));
+  setTimeout(function(){ ask(understand, 'I’m listening…', [
+    ['📞 Call someone I love', callLoved, 'hot'],
+    ['Sit with me a minute 🤝', function(){ bubAI('Sitting right here with you. No hurry at all. …I’m glad you’re here, '+nm+'.'); offerMenu(); }],
+    ['📞 Talk to someone (988)', function(){ bubAI('Good choice. 988 is free and answers day and night — call or text. If you are in danger right now, call 911.'); location.href='tel:988'; }],
+    ['I’m okay — thanks', function(){ bubAI('Okay. I’m here whenever you want me — day or night.'); offerMenu(); }]
+  ]); }, 900);
+}
+function callLoved(){
+  var kids=String(S.p.kids||'').split(/,\s*/).filter(Boolean);
+  bubAI((kids.length? 'How about '+esc(kids.slice(0,3).join(' or '))+'? ' : 'Who would be glad to hear from you? ')+'Pick up the phone and just say you wanted to hear their voice — that’s plenty. I’ll be right here when you’re done. 💛');
+  offerMenu();
+}
+window.callLoved=callLoved;
+
 /* ── understanding what you say ── */
 function understand(t){
   var low=String(t||'').toLowerCase();
   if(!low.trim()){ offerMenu(); return; }
   if(CRISIS.test(low)) return crisis();
+  var TASKRX=/^(hey\s+\w+[,:]?\s*)?(please\s+)?(remind me to|remember to|remember|don’t forget to|dont forget to)\s*/i;
+  if(TASKRX.test(String(t).trim()) && !STRONG.test(low)) return captureTask(String(t).trim().replace(TASKRX,''));
+  if(HEAVY.test(low)) return heavy(t);
   if(/remind me|remember|don’t forget|dont forget|need to |i have to |pick up|appointment/.test(low)) return captureTask(String(t).replace(/^(hey\s+\w+[,:]?\s*)?(please\s+)?(remind me to|remember to|remember|don’t forget to|dont forget to)\s*/i,''));
-  if(/\b(joke|funny|laugh)/.test(low)) return joke();
-  if(/\b(weather|outside|temperature|rain|raining|snow|cold|hot)\b/.test(low)) return weather(function(w){ bubAI(w?('☀️ '+w.t+'° and '+w.p+'.'):'I couldn’t peek outside — location may be off for me.'); offerMenu(); });
-  if(/start over|forget everything|clear (my )?data|erase/.test(low)) return startOver();
+  if(/\bjokes?\b|make me (laugh|smile)|something funny|cheer me up/.test(low)) return joke();   /* 7 Oct deep check: requests only — "laughed" no longer matches */
+  if(/\b(weather|temperature|forecast|raining|snowing)\b|\b(will it|is it|going to) (rain|snow)\b|\b(is it|it.?s|how) (cold|hot|warm|chilly) (out|outside|today)\b|like outside/.test(low)){ if(S.wxOK===false) delete S.wxOK; return weather(function(w){ bubAI(w?('☀️ '+w.t+'° and '+w.p+'.'):'I couldn’t peek outside — location may be off for me.'); offerMenu(); }); }
+  if(/^\s*(please\s+)?(start over|start fresh|forget everything|clear (my )?data|erase (everything|it all|my data))\s*[.!]*\s*$|forget everything/.test(low)) return startOver();
   if(/how are you|how’s your|hows it going/.test(low)) { bubAI('Living my best life in your pocket, thanks for asking. Very few apps get asked that — you’re one of the good ones.'); return offerMenu(); }
   if(/^(i )?(did|done|finished|completed)\b|^tick off|^cross off|^mark .* done/.test(low)) return tickOff(low);
   if(/what.*(on )?my list|read (me )?my list|what do i have|what.s left/.test(low)) return readList();
   if(/open (now|my productive|the other app|the list)/.test(low)){ openPartner(); bubAI('There you go — same list, both apps.'); return whatNow(); }
   if(/remind me|remember|don’t forget|dont forget|need to |i have to |pick up|appointment/.test(low)) return captureTask(String(t).replace(/^(hey\s+\w+[,:]?\s*)?(please\s+)?(remind me to|remember to|remember|don’t forget to|dont forget to)\s*/i,''));
-  if(/sad|lonely|tired|overwhelmed|anxious|stressed|heavy|down\b/.test(low)) return checkin();
+  if(/tired|overwhelmed|anxious|stressed|worried|heavy|down\b/.test(low)) return checkin();
   if(/save (this|the) (spot|place)|next time (i’m|im|we’re) here/.test(low)) return savePlace();
   if(/who do you know|what do you know about me/.test(low)) return brag();
   if(/thank/.test(low)) { bubAI('Always. That’s the whole job — well, that and the jokes.'); return offerMenu(); }
   S.notes.push({t:t, at:Date.now()}); save(S);
-  bubAI('I’ve tucked that away word for word. And I’m still learning to hold up my end of a conversation — ask me for a joke, the weather, or something to remember, and I shine. The rest is coming.');
+  bubAI('I’ve tucked that away word for word. I’m still learning to hold up my end of a conversation — if something is on your heart, tell me how you feel and I’ll listen. Or tap <b>💬 Check on me</b>.'); /* 7 Oct deep check: no joke offer when it's unsure */
   offerMenu();
 }
 
@@ -2903,6 +2964,7 @@ window.R={
     if(rec){ try{ rec.stop(); }catch(e){} rec=null; }
     var fn=pending; pending=null; clearAsk(); bubME(t);
     if(CRISIS.test(t.toLowerCase())) fn=null;   /* someone in crisis gets the 988 reply whatever was being asked */
+    else if(fn && fn!==understand && HEAVY.test(t.toLowerCase()) && !/^(hey\s+\w+[,:]?\s*)?(please\s+)?(remind me|remember|don.?t forget)/i.test(t)) fn=heavy;   /* 7 Oct deep check */
     setTimeout(function(){ (fn||understand)(t); }, 320);
   },
   /* FIX 6: the mic FILLS the box and keeps listening — only Send commits */
@@ -2926,7 +2988,7 @@ window.R={
       if(hint) hint.textContent='The microphone got shy — try the 🎤 on your keyboard, then tap Send.'; };
     try{ rec.start(); }catch(e){ rec=null; b.classList.remove('on'); b.textContent='🎤 Talk'; }
   },
-  voice:function(){ if(!chat){ return; } unlock(); hush(); pickVoice(offerMenu); },
+  voice:function(){ if(!chat){ begin(); return; } /* 7 Oct deep check: was a dead button before Say hello */ unlock(); hush(); pickVoice(offerMenu); },
   reset:function(){
     if(chat){ unlock(); hush(); startOver(); return; }
     if(confirm('Erase everything and start over as strangers?\n\nMy name, your family, your notes and spots — all of it goes.')){
@@ -3360,8 +3422,8 @@ function _ls(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch
 function _lines(a){ return (a||[]).filter(Boolean).map(function(x){ return '- ' + x; }).join('\n'); }
 
 window.DJ_AI = { title:'Ask Rafiki something bigger',
-  prompt:function(){ var d=_ls('rafiki_v1')||{}; var me=(d.user&&d.user.name)||d.name||'the person'; var pet=d.petName||d.buddy||'Rafiki';
-    return 'You are ' + pet + ', a warm companion for an older person named ' + me + ' who lives on their own. Reply the way a kind friend would on the phone: two or three short sentences, one gentle question back. Here is what I want to say to you today:\n\n(type or dictate it into the box above before you open the AI)'; },
+  prompt:function(){ var d=_ls('rafiki_v1')||{}; /* 7 Oct deep check: real names live in d.p.userName and d.name; crisis guard added */ var me=(d.p&&d.p.userName)||'the person'; var pet=d.name||'Rafiki';
+    return 'You are ' + pet + ', a warm companion for an older person named ' + me + ' who lives on their own. Reply the way a kind friend would on the phone: two or three short sentences, one gentle question back. If I say anything about wanting to die, not wanting to live, or hurting myself, kindly give me the 988 Suicide & Crisis Lifeline first (call or text 988 in the US, or 911 if I am in danger now) and urge me to reach a real person. Here is what I want to say to you today:\n\n(type or dictate it into the box above before you open the AI)'; },
   onResult:function(v,raw){ try{ if(window.speechSynthesis){ var u=new SpeechSynthesisUtterance(String(raw).slice(0,600)); speechSynthesis.speak(u); } }catch(e){} djAI.showAnswer('Rafiki', raw); } };
 })();
 </script>
