@@ -1985,8 +1985,29 @@
   .toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom)); z-index:200; background:var(--ink); color:#fff; padding:12px 18px; border-radius:14px; font-weight:750; max-width:90vw; box-shadow:0 6px 20px rgba(0,0,0,.3); }
   .bar{ height:10px; border-radius:9px; background:#E9E4DA; overflow:hidden; }
   .bar i{ display:block; height:100%; background:var(--brand2); }
+  /* Quick Quote engine (v1.1): options, photos, the sign-here pad */
+  .tiers{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin-bottom:8px; }
+  .tier{ min-height:58px; border-radius:12px; border:1.5px solid var(--line); background:#fff; font-weight:750; font-size:13.5px; padding:6px 4px; cursor:pointer; line-height:1.2; overflow-wrap:anywhere; color:var(--ink); }
+  .tier b{ display:block; font-size:15px; margin-top:2px; }
+  .tier.on{ background:var(--brand); color:#fff; border-color:var(--brand); }
+  .tier:disabled{ cursor:default; }
+  .from{ font-size:12.5px; color:var(--good); font-weight:700; }
+  .opt.pre{ border-color:var(--brand); box-shadow:inset 0 0 0 2px var(--brand); }
+  .vopt{ display:block; width:100%; text-align:left; background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:8px; cursor:pointer; color:var(--ink); min-height:58px; }
+  .vopt.on{ border-color:var(--good); box-shadow:inset 0 0 0 2px var(--good); background:var(--goodSoft); }
+  .vopt .ol{ font-size:14px; color:var(--soft); margin:2px 0; }
+  .vopt .ot{ font-weight:850; font-size:18px; text-align:right; }
+  .phs{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:8px; }
+  .ph{ position:relative; }
+  .ph img{ width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid var(--line); display:block; background:#EEE; }
+  .ph .px{ position:absolute; top:4px; right:4px; min-width:44px; min-height:44px; border-radius:12px; border:0; background:rgba(0,0,0,.6); color:#fff; font-size:18px; cursor:pointer; }
+  .sgpad canvas{ display:block; width:100%; height:150px; background:#fff; border:1.5px dashed #B9B1A2; border-radius:12px; touch-action:none; }
+  .sigimg{ display:block; max-width:280px; width:100%; height:auto; background:#fff; border:1px solid var(--line); border-radius:10px; }
+  .foot{ text-align:center; font-size:12.5px; color:var(--soft); margin-top:14px; }
+  #bmPrint{ display:none; }
   @media (max-width:380px){ .stats{ grid-template-columns:1fr; } .two{ grid-template-columns:1fr; } }
-  @media print{ nav.tabs, header.top .back, .noprint{ display:none !important; } body{ padding:0; background:#fff; } }
+  @media print{ nav.tabs, header.top .back, .noprint{ display:none !important; } body{ padding:0; background:#fff; }
+    body.bmprinting > *:not(#bmPrint){ display:none !important; } body.bmprinting #bmPrint{ display:block; } }
 </style>
 </head>
 <body>
@@ -1999,6 +2020,7 @@
   <button data-go="money"><span class="e">💵</span>Money</button>
   <button data-go="more"><span class="e">⚙️</span>More</button>
 </nav>
+<div id="bmPrint"></div>
 <script>
 /* Business Manager — one simple app for a one-truck trade business.
    Everything lives on this phone under one key (bizmgr_v1). Customers get links to view.html,
@@ -2008,6 +2030,18 @@
 if(/^#ok\//.test(location.hash)) window.DJ_GUEST = true;
 var KEY = 'bizmgr_v1';
 var S = null, preview = false;   /* preview: the tour is showing the example business — nothing is saved */
+/* v1.1 (9 Oct 2026): Quick Quote lives inside Business Manager. S.mode is 'quotes' (Quick Quote — estimates only:
+   invoices, expenses, profit, schedule, crew, tax dates and to-dos are hidden, never deleted) or 'full'. The store
+   links add ?mode=quotes or ?mode=full, which preselects the choice in the setup interview. Turning on the rest
+   later keeps every quote, price and signature — nothing is retyped. */
+var VER = 'v1.1 · 2026-10-09';
+/* Prices (Jerry, 9 Oct 2026): full Business Manager is $149 one-time; Quick Quote is $29; someone upgrading from
+   Quick Quote gets the $29 credited, so the upgrade is $120. Change them here only. No payment gates while testing. */
+var PRICE = { quotes:'$29', full:'$149', upgrade:'$120' };
+var URLMODE = (location.search.match(/[?&]mode=(quotes|full)\b/) || [])[1] || '';
+var QHIDE = { deposits:1, schedule:1, materials:1, crew:1, expenses:1, todos:1, reminders:1 };
+function QM(){ return !!(S && S.mode === 'quotes'); }
+function appName(){ return (S && S.mode) ? (S.mode === 'quotes' ? 'Quick Quote' : 'Business Manager') : (URLMODE === 'quotes' ? 'Quick Quote' : 'Business Manager'); }
 
 /* ── little helpers ─────────────────────────────────────────── */
 function $(id){ return document.getElementById(id); }
@@ -2071,11 +2105,19 @@ function blank(){
     pay:{ card:'', paypal:'', venmo:'', cashapp:'', zelle:'', check:'' },
     msg:{ channel:'text' },
     prices:[], customers:[], jobs:[], invoices:[], expenses:[], receipts:[], todos:[], crew:[], clock:null,
-    seq:{ job:1001, inv:2001 } };
+    seq:{ job:1001, inv:2001 }, mode:'', quote:QDEF(), imports:{} };
 }
-function load(){ try{ var s = JSON.parse(localStorage.getItem(KEY) || 'null'); if(s && s.v){ var b = blank(); ['biz','features','pay','msg','seq','setup'].forEach(function(k){ s[k] = Object.assign({}, b[k], s[k] || {}); }); ['prices','customers','jobs','invoices','expenses','receipts','todos','crew'].forEach(function(k){ if(!Array.isArray(s[k])) s[k] = []; }); return s; } }catch(e){} return null; }
-function save(){ if(preview || !S) return; try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ alert('This phone would not save that — it may be full. Go to More → Back up to keep a copy.'); } }
-function F(k){ return !!(S && S.features[k]); }
+/* how the owner prices (the Quick Quote profile): asked in setup, changed in More → Quote settings */
+function QDEF(){ return { included:'', addons:'', city:'', county:'', trip:'every', tripUnder:300, tone:'short', detail:'itemized', never:['brands', 'warranties', 'guesses'], neverOther:'',
+  names:['Good', 'Better', 'Best'], betterAdds:'Upgraded parts & fittings: $95', bestAdds:'Premium parts + priority scheduling: $250', seen:{} }; }
+function load(){ try{ var s = JSON.parse(localStorage.getItem(KEY) || 'null'); if(s && s.v){ var b = blank(); ['biz','features','pay','msg','seq','setup'].forEach(function(k){ s[k] = Object.assign({}, b[k], s[k] || {}); }); ['prices','customers','jobs','invoices','expenses','receipts','todos','crew'].forEach(function(k){ if(!Array.isArray(s[k])) s[k] = []; });
+  /* books from before v1.1 have no mode: they are the whole business */
+  if(s.mode !== 'quotes' && s.mode !== 'full') s.mode = 'full';
+  s.quote = Object.assign(QDEF(), s.quote || {}); if(!Array.isArray(s.quote.never)) s.quote.never = []; if(!Array.isArray(s.quote.names) || s.quote.names.length !== 3) s.quote.names = ['Good', 'Better', 'Best']; if(!s.quote.seen || typeof s.quote.seen !== 'object') s.quote.seen = {};
+  if(!s.imports || typeof s.imports !== 'object') s.imports = {};
+  return s; } }catch(e){} return null; }
+function save(){ if(preview || !S) return; try{ S.jobs.forEach(tierSync); localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ alert('This phone would not save that — it may be full. Go to More → Back up to keep a copy.'); } }
+function F(k){ if(!S) return false; if(S.mode === 'quotes'){ if(QHIDE[k]) return false; if(k === 'estimates' || k === 'lineItems') return true; } return !!S.features[k]; }
 
 /* ── money math ─────────────────────────────────────────────── */
 function lineSum(lines){ return r2((lines || []).reduce(function(a, l){ return a + num(l.qty) * num(l.price); }, 0)); }
@@ -2102,27 +2144,36 @@ function owed(){ return S.invoices.filter(function(v){ return invBal(v) > 0.004 
 
 /* ── job stages, only the ones this business uses ───────────── */
 var STAGE = { new:'New', estimate:'Estimate sent', approved:'Approved', scheduled:'Scheduled', working:'Working', done:'Done — bill it', closed:'Paid & closed', lost:'Didn’t get it' };
-function stages(){ var a = ['new']; if(F('estimates')) a.push('estimate', 'approved'); if(F('schedule')) a.push('scheduled'); a.push('working', 'done', 'closed'); return a; }
+function stages(){ if(QM()) return ['new', 'estimate', 'approved']; var a = ['new']; if(F('estimates')) a.push('estimate', 'approved'); if(F('schedule')) a.push('scheduled'); a.push('working', 'done', 'closed'); return a; }
 function nextStage(j){ var a = stages(), i = a.indexOf(j.status); return i >= 0 && i < a.length - 1 ? a[i + 1] : null; }
 function autoClose(j){ if(!j) return; var b = jobBilled(j); if(b > 0 && jobPaid(j) >= b - 0.004 && b >= jobTotal(j) - 0.004 && j.status !== 'lost') j.status = 'closed'; }
 function pill(st, label){ return '<span class="pill ' + st + '">' + esc(label || STAGE[st] || st) + '</span>'; }
 
 /* ── screens ────────────────────────────────────────────────── */
-var TABS = { home:1, jobs:1, money:1, more:1 };
+var TABS = { home:1, jobs:1, money:1, more:1, prices:1 };
+/* in Quick Quote these screens are hidden (their data is kept) */
+var QBLOCK = { money:1, inv:1, expenses:1, expense:1, import:1, export:1, hours:1, pl:1, receipt:1, receipts:1, rcpt:1, todo:1, sched:1 };
 var route = [], after = null;
 function go(h){ if(location.hash === '#' + h) render(); else location.hash = h; }
 function back(){ if(history.length > 1) history.back(); else go('home'); }
-function setHead(title, sub){ $('ttl').textContent = title; $('sub').textContent = sub || ''; document.title = 'Business Manager' + (title && title !== 'Business Manager' ? ' — ' + title : ''); }
+function setHead(title, sub){ var an = appName(); $('ttl').textContent = title; $('sub').textContent = sub || ''; document.title = an + (title && title !== an ? ' — ' + title : ''); }
+function tabLabels(){
+  var qm = QM(), b = document.querySelectorAll('nav.tabs button');
+  if(b[1]){ b[1].firstChild.textContent = qm ? '🧾' : '🧰'; b[1].lastChild.textContent = qm ? 'Quotes' : 'Jobs'; }
+  if(b[3]){ b[3].setAttribute('data-go', qm ? 'prices' : 'money'); b[3].firstChild.textContent = qm ? '🏷️' : '💵'; b[3].lastChild.textContent = qm ? 'Prices' : 'Money'; }
+}
 
 function render(){
   route = (location.hash.replace(/^#/, '') || 'home').split('/');
   var r = route[0];
   if(!S || !S.setup.done){ if(r !== 'setup' && r !== 'ok') r = 'welcome'; }
+  if(QM() && QBLOCK[r]) r = 'home';
+  tabLabels();
   var V = VIEWS[r] || VIEWS.home;
   after = null;
   var html = V();
   $('main').innerHTML = html;
-  var tab = TABS[r] ? r : ({ job:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', ok:'jobs', todo:'home', receipt:'money', receipts:'money', rcpt:'money', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
+  var tab = TABS[r] ? r : (QM() && r === 'set' && route[1] === 'prices') ? 'prices' : ({ job:'jobs', upgrade:'more', newquote:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', ok:'jobs', todo:'home', receipt:'money', receipts:'money', rcpt:'money', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
   document.querySelectorAll('nav.tabs button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-go') === tab); });
   var setupMode = (r === 'welcome' || r === 'setup');
   $('tabs').style.display = setupMode ? 'none' : '';
@@ -2136,16 +2187,25 @@ var VIEWS = {};
 
 /* ── welcome (nothing saved yet) ── */
 VIEWS.welcome = function(){
+  if(appName() === 'Quick Quote'){
+    setHead('Quick Quote', 'by Business Manager');
+    return '<div class="card" style="text-align:center;padding:22px 16px"><div style="font-size:54px">🧾</div><div style="font-size:24px;font-weight:850;margin:6px 0">A priced quote in a minute</div>'
+      + '<p class="muted" style="margin:0 0 16px">Describe the job and it’s priced from <b>your own price list</b>. Offer three options, and the customer signs on your phone or from a link.</p>'
+      + '<button class="btn main full" onclick="BM.go(\'setup\')" style="margin-bottom:8px">Set it up for my business (2 min) →</button>'
+      + '<button class="btn full" onclick="BM.keepDemo()">Look around with an example business</button></div>'
+      + '<p class="hint" style="text-align:center">Everything stays on this phone. Nothing is sent anywhere unless you tap Send.</p><p class="foot">Quick Quote by Business Manager ' + VER + '</p>';
+  }
   setHead('Business Manager', 'for one-truck businesses');
   return '<div class="card" style="text-align:center;padding:22px 16px"><div style="font-size:54px">🧰</div><div style="font-size:24px;font-weight:850;margin:6px 0">Run the business from your phone</div>'
     + '<p class="muted" style="margin:0 0 16px">Estimates, jobs, the schedule, invoices with a <b>Pay now</b> link, expenses and your real profit. Only the parts you use.</p>'
     + '<button class="btn main full" onclick="BM.go(\'setup\')" style="margin-bottom:8px">Set it up for my business (2 min) →</button>'
     + '<button class="btn full" onclick="BM.keepDemo()">Look around with an example business</button></div>'
-    + '<p class="hint" style="text-align:center">Everything stays on this phone. Nothing is sent anywhere unless you tap Send.</p>';
+    + '<p class="hint" style="text-align:center">Everything stays on this phone. Nothing is sent anywhere unless you tap Send.</p><p class="foot">Business Manager ' + VER + '</p>';
 };
 
 /* ── home ── */
 VIEWS.home = function(){
+  if(QM()) return homeQuotes();
   var t = today(), h = [], hr = new Date().getHours();
   setHead(S.biz.name || 'Business Manager', fd(t));
   if(S.setup.demo) h.push('<div class="banner demo"><b>This is an example business.</b> Play with anything. <div class="btns" style="margin-top:8px"><button class="btn sm main" onclick="BM.fresh()">Start my own business</button></div></div>');
@@ -2176,11 +2236,11 @@ function byDate(a, b){ return (a.date || '9').localeCompare(b.date || '9') || by
 function byTime(a, b){ return (a.time || '99').localeCompare(b.time || '99'); }
 function needs(){
   var t = today(), out = [];
-  S.invoices.forEach(function(v){ if(invOverdue(v)){ var c = cust(v.customerId), d = daysBetween(v.due, t); out.push({ em:'⏰', t:c.name + ' — ' + money(invBal(v)) + ' is ' + d + ' day' + (d === 1 ? '' : 's') + ' late', s:'Invoice #' + v.num + (v.reminders && v.reminders.length ? ' · last reminder ' + fd(v.reminders[v.reminders.length - 1]) : ' · no reminder yet'), a:'Remind', go:"BM.remind('" + v.id + "')", k:0 }); } });
-  S.invoices.forEach(function(v){ if(!v.sent){ out.push({ em:'🧾', t:'Invoice #' + v.num + ' isn’t sent yet', s:cust(v.customerId).name + ' · ' + money(invTotal(v)), a:'Send', go:"BM.go('inv/" + v.id + "')", k:1 }); } });
+  if(!QM()) S.invoices.forEach(function(v){ if(invOverdue(v)){ var c = cust(v.customerId), d = daysBetween(v.due, t); out.push({ em:'⏰', t:c.name + ' — ' + money(invBal(v)) + ' is ' + d + ' day' + (d === 1 ? '' : 's') + ' late', s:'Invoice #' + v.num + (v.reminders && v.reminders.length ? ' · last reminder ' + fd(v.reminders[v.reminders.length - 1]) : ' · no reminder yet'), a:'Remind', go:"BM.remind('" + v.id + "')", k:0 }); } });
+  if(!QM()) S.invoices.forEach(function(v){ if(!v.sent){ out.push({ em:'🧾', t:'Invoice #' + v.num + ' isn’t sent yet', s:cust(v.customerId).name + ' · ' + money(invTotal(v)), a:'Send', go:"BM.go('inv/" + v.id + "')", k:1 }); } });
   S.jobs.forEach(function(j){
     var c = cust(j.customerId);
-    if(j.status === 'done' && jobBilled(j) < jobTotal(j) - 0.004) out.push({ em:'💵', t:'Bill ' + c.name, s:j.title + ' is done · ' + money(jobTotal(j) - jobBilled(j)) + ' not billed yet', a:'Bill it', go:"BM.go('job/" + j.id + "')", k:1 });
+    if(!QM() && j.status === 'done' && jobBilled(j) < jobTotal(j) - 0.004) out.push({ em:'💵', t:'Bill ' + c.name, s:j.title + ' is done · ' + money(jobTotal(j) - jobBilled(j)) + ' not billed yet', a:'Bill it', go:"BM.go('job/" + j.id + "')", k:1 });
     if(F('estimates') && j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) >= 3) out.push({ em:'📨', t:'Follow up with ' + c.name, s:'Estimate sent ' + fd(j.estSent) + ' · ' + money(jobTotal(j)), a:'Check in', go:"BM.followUp('" + j.id + "')", k:2 });
     if(F('estimates') && j.status === 'new' && daysBetween(j.created, t) >= 1) out.push({ em:'📝', t:'Send ' + c.name + ' a price', s:j.title, a:'Estimate', go:"BM.go('job/" + j.id + "')", k:3 });
     if(F('schedule') && j.status === 'approved' && !j.date) out.push({ em:'📅', t:'Put ' + c.name + ' on the schedule', s:j.title + ' was approved', a:'Schedule', go:"BM.go('job/" + j.id + "')", k:3 });
@@ -2195,11 +2255,11 @@ function jobCard(j){
 
 /* ── jobs list / customers / schedule ── */
 function seg(on){
-  var a = [['jobs', 'Jobs'], ['custs', 'Customers']]; if(F('schedule')) a.push(['sched', 'Schedule']);
+  var a = [['jobs', QM() ? 'Quotes' : 'Jobs'], ['custs', 'Customers']]; if(F('schedule')) a.push(['sched', 'Schedule']);
   return '<div class="chips" style="margin-bottom:4px">' + a.map(function(x){ return '<button class="chip' + (x[0] === on ? ' on' : '') + '" onclick="BM.go(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
 }
 VIEWS.jobs = function(){
-  setHead('Jobs');
+  setHead(QM() ? 'Quotes' : 'Jobs');
   var f = route[1] || 'active', q = (BM._q || '').toLowerCase();
   var list = S.jobs.filter(function(j){ return f === 'all' ? true : f === 'active' ? (j.status !== 'closed' && j.status !== 'lost') : j.status === f; })
     .filter(function(j){ return !q || (j.title + ' ' + cust(j.customerId).name + ' ' + (j.desc || '') + ' ' + j.num).toLowerCase().indexOf(q) >= 0; })
@@ -2207,8 +2267,8 @@ VIEWS.jobs = function(){
   var h = seg('jobs');
   h += '<input class="i" type="search" placeholder="Search jobs or customers" value="' + esc(BM._q || '') + '" oninput="BM._q=this.value;BM.relist()" style="margin-bottom:8px" aria-label="Search jobs">';
   h += '<div class="chips">' + [['active', 'Active']].concat(stages().concat(['lost']).map(function(s){ return [s, STAGE[s]]; })).concat([['all', 'All']]).map(function(x){ var c = x[0] === 'active' || x[0] === 'all' ? '' : ' (' + S.jobs.filter(function(j){ return j.status === x[0]; }).length + ')'; return '<button class="chip' + (x[0] === f ? ' on' : '') + '" onclick="BM.go(\'jobs/' + x[0] + '\')">' + esc(x[1]) + c + '</button>'; }).join('') + '</div>';
-  h += '<div id="jl">' + (list.length ? list.map(jobCard).join('') : '<div class="empty"><div class="em">🧰</div>No jobs here yet.</div>') + '</div>';
-  h += '<button class="btn main full" onclick="BM.go(\'newjob\')" style="margin-top:6px">➕ New job</button>';
+  h += '<div id="jl">' + (list.length ? list.map(jobCard).join('') : '<div class="empty"><div class="em">' + (QM() ? '🧾' : '🧰') + '</div>No ' + (QM() ? 'quotes' : 'jobs') + ' here yet.</div>') + '</div>';
+  h += '<button class="btn main full" onclick="BM.go(\'newjob\')" style="margin-top:6px">➕ New ' + (QM() ? 'quote' : 'job') + '</button>';
   return h;
 };
 VIEWS.sched = function(){
@@ -2239,11 +2299,11 @@ VIEWS.cust = function(){
   var paid = 0; S.invoices.forEach(function(v){ if(v.customerId === c.id) paid += invPaid(v); });
   var h = '<div class="card"><div class="big" style="font-size:22px">' + esc(c.name) + '</div><div class="muted">' + esc(c.phone || '') + (c.email ? '<br>' + esc(c.email) : '') + (c.address ? '<br>' + esc(c.address) : '') + '</div>'
     + (c.notes ? '<p style="margin:8px 0 0">' + esc(c.notes) + '</p>' : '') + '<div class="btns" style="margin-top:10px">' + contactBtns(c) + '</div></div>';
-  h += '<div class="card row"><div class="grow muted">Paid you, all time</div><b>' + money(paid) + '</b></div>';
+  if(!QM()) h += '<div class="card row"><div class="grow muted">Paid you, all time</div><b>' + money(paid) + '</b></div>';
   h += '<h2>Jobs</h2>' + (js.length ? js.map(jobCard).join('') : '<div class="card muted">No jobs yet.</div>');
   var sj = js.filter(function(j){ return j.signed; });
   if(sj.length) h += '<h2>Signed estimates</h2>' + sj.map(function(j){ return '<button class="card tap" onclick="BM.signedCopy(\'' + j.id + '\')"><div class="row"><div class="grow"><b>#' + j.num + ' ' + esc(j.title) + '</b><div class="small muted">' + (j.signed.sig ? 'Signed' : 'Approved') + ' by ' + esc(j.signed.name) + ' · ' + fd(j.signed.date) + (j.signed.total ? ' · ' + money(j.signed.total) : '') + '</div></div><span>📄</span></div></button>'; }).join('');
-  h += '<div class="btns" style="margin-top:6px"><button class="btn main" onclick="BM.go(\'newjob/' + c.id + '\')">➕ New job for ' + esc(first(c.name)) + '</button><button class="btn" onclick="BM.go(\'editcust/' + c.id + '\')">✏️ Edit</button></div>';
+  h += '<div class="btns" style="margin-top:6px"><button class="btn main" onclick="BM.go(\'newjob/' + c.id + '\')">➕ New ' + (QM() ? 'quote' : 'job') + ' for ' + esc(first(c.name)) + '</button><button class="btn" onclick="BM.go(\'editcust/' + c.id + '\')">✏️ Edit</button></div>';
   return h;
 };
 function contactBtns(c){
@@ -2278,16 +2338,16 @@ function delCust(id){
 
 /* ── new / edit job ── */
 VIEWS.newjob = function(){
-  setHead('New job');
+  setHead(QM() ? 'New quote' : 'New job');
   var pre = route[1] || '';
   var opts = '<option value="">— New customer —</option>' + S.customers.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).map(function(c){ return '<option value="' + c.id + '"' + (c.id === pre ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('');
   var h = '<div class="card"><label class="f" for="jc" style="margin-top:0">Customer</label><select class="i" id="jc" onchange="BM.toggleNewCust()">' + opts + '</select><div id="ncBox"' + (pre ? ' hidden' : '') + '>' + custForm({}, 'n') + '</div></div>';
   h += '<div class="card"><label class="f" for="jt" style="margin-top:0">What’s the job?</label><input class="i" id="jt" placeholder="' + esc(sampleTitle()) + '">'
-    + '<label class="f" for="jd">Details <span class="muted small">(optional — tap the 🎤 on your keyboard to talk)</span></label><textarea class="i" id="jd" placeholder="What the customer wants, what you saw, anything to remember"></textarea>';
+    + '<label class="f" for="jd">Details <span class="muted small">(' + (F('estimates') && F('lineItems') ? 'the more you say, the better the price draft' : 'optional') + ' — tap the 🎤 on your keyboard to talk)</span></label><textarea class="i" id="jd" placeholder="What the customer wants, what you saw, sizes, how many hours — anything to remember"></textarea>';
   if(!F('lineItems')) h += '<label class="f" for="jp">Price</label><input class="i" id="jp" inputmode="decimal" placeholder="$0.00">';
   if(F('schedule')) h += '<div class="two"><div><label class="f" for="jdt">Day</label><input class="i" id="jdt" type="date"></div><div><label class="f" for="jtm">Time</label><input class="i" id="jtm" type="time"></div></div>';
   h += '</div><button class="btn main full" onclick="BM.saveNewJob()">Save job →</button>';
-  if(F('lineItems')) h += '<p class="hint" style="text-align:center">Next you’ll add the price — from your price list, by hand, or let the AI draft it from the details.</p>';
+  if(F('lineItems')) h += '<p class="hint" style="text-align:center">Next: one tap prices it from your price list (⚡), or ask your AI (✨). You can change every line.</p>';
   return h;
 };
 function sampleTitle(){ return ({ plumbing:'Replace water heater', hvac:'AC not cooling', electrical:'Add outlets in garage', carpentry:'Rebuild back deck stairs', painting:'Paint living room and hall', cleaning:'Deep clean — 3 bed house', windows:'All windows, inside and out', lawn:'Spring clean-up and mulch', handyman:'Hang shelves and fix door', roofing:'Leak over kitchen' })[S.biz.trade] || 'What needs doing'; }
@@ -2341,29 +2401,40 @@ VIEWS.job = function(){
   /* customer */
   h.push('<div class="card"><div class="row"><div class="grow"><b>' + esc(c.name) + '</b><div class="small muted">' + esc([c.phone, c.address].filter(Boolean).join(' · ')) + '</div></div><button class="btn sm" onclick="BM.go(\'cust/' + c.id + '\')">›</button></div><div class="btns" style="margin-top:8px">' + contactBtns(c) + '</div></div>');
   if(j.desc) h.push('<div class="card"><div class="muted small" style="font-weight:800">DETAILS</div><div style="white-space:pre-wrap">' + esc(j.desc) + '</div></div>');
-  /* price */
-  h.push('<h2>' + (F('estimates') ? 'Price / estimate' : 'Price') + '</h2><div class="card">');
+  /* price — the Quick Quote engine: ⚡ from the price list, ✨ from the owner's own AI, three options, photos */
+  var lock = !!j.signed;
+  h.push('<h2>' + (F('estimates') ? (QM() ? 'The quote' : 'Price / estimate') : 'Price') + '</h2><div class="card" id="priceCard">');
   if(F('lineItems')){
-    if(j.items.length) h.push('<table class="lines">' + j.items.map(function(l, i){ return '<tr onclick="BM.editItem(\'' + j.id + '\',' + i + ')" style="cursor:pointer"><td>' + esc(l.name) + (num(l.qty) !== 1 ? '<div class="small muted">' + num(l.qty) + ' × ' + money(l.price) + '</div>' : '') + '</td><td class="n">' + money(num(l.qty) * num(l.price)) + '</td></tr>'; }).join('') + '</table>');
-    else h.push('<p class="muted" style="margin:0 0 8px">No price yet. Add items from your price list, type your own, or let the AI draft them from the details.</p>');
-    h.push('<div class="btns" style="margin:8px 0"><button class="btn sm" onclick="BM.addItem(\'' + j.id + '\')">➕ Add item</button>' + (hasAI() ? '<button class="btn sm" onclick="BM.aiPrice(\'' + j.id + '\')">✨ Draft it for me</button>' : '') + '</div>');
+    if(j.tiers && j.tiers.length){
+      h.push('<div class="tiers" role="group" aria-label="Options">' + j.tiers.map(function(t, k){ return '<button class="tier' + (k === (j.edit || 0) ? ' on' : '') + '" data-k="' + k + '" onclick="BM.tierEdit(\'' + j.id + '\',' + k + ')"' + (lock && k !== (j.edit || 0) ? ' disabled' : '') + ' aria-pressed="' + (k === (j.edit || 0)) + '">' + esc(t.name) + (j.pick === k ? ' ✔' : '') + '<b>' + money0(lineSum(tierItems(j, k))) + '</b></button>'; }).join('') + '</div>');
+      if(!lock) h.push('<label class="f" for="tierName" style="margin-top:0">Name of this option</label><input class="i" id="tierName" value="' + esc(j.tiers[j.edit || 0].name) + '" onchange="BM.tierName(\'' + j.id + '\',this.value)" style="margin-bottom:8px">');
+    }
+    if(j.items.length) h.push('<table class="lines">' + j.items.map(function(l, i){ var m = matchPrice(l.name); return '<tr onclick="BM.editItem(\'' + j.id + '\',' + i + ')" style="cursor:pointer"><td>' + esc(l.name) + (num(l.qty) !== 1 ? '<div class="small muted">' + num(l.qty) + ' × ' + money(l.price) + '</div>' : '') + (m ? '<div class="from">📌 price list · ' + money(m.price) + '</div>' : '') + '</td><td class="n">' + money(num(l.qty) * num(l.price)) + '</td></tr>'; }).join('') + '</table>');
+    else h.push('<p class="muted" style="margin:0 0 8px">No price yet. ⚡ prices it from your price list in one tap' + (hasAI() ? ', or ✨ asks your own AI app' : '') + '. You can change every line.</p>');
+    if(!lock) h.push('<div class="btns" style="margin:8px 0"><button class="btn sm' + (j.items.length ? '' : ' main') + '" onclick="BM.draftLocal(\'' + j.id + '\')">⚡ Draft from my price list</button>' + (hasAI() ? '<button class="btn sm" onclick="BM.aiQuote(\'' + j.id + '\')">✨ Ask my AI</button>' : '') + '<button class="btn sm" onclick="BM.addItem(\'' + j.id + '\')">➕ Add item</button>'
+      + (F('estimates') ? (j.tiers ? '<button class="btn sm" onclick="BM.untier(\'' + j.id + '\')">Back to one price</button>' : (j.items.length ? '<button class="btn sm" onclick="BM.offerTiers(\'' + j.id + '\')">⭐ Offer 3 options</button>' : '')) : '') + '</div>');
+    if(!lock) h.push(suggestions(j));
   } else {
     h.push('<div class="row"><div class="grow">' + esc(j.title) + '</div><button class="btn sm" onclick="BM.go(\'editjob/' + j.id + '\')">' + (num(j.price) ? money(j.price) : 'Set price') + '</button></div>');
   }
-  h.push(totals(jobSub(j), num(S.biz.taxRate), [], 0) + '</div>');
+  h.push(totals(jobSub(j), num(S.biz.taxRate), [], 0));
+  if(F('estimates') && F('lineItems')) h.push('<label class="f" for="qn">Note on the estimate <span class="muted small">(one short sentence)</span></label><input class="i" id="qn" value="' + esc(j.qnote || '') + '" placeholder="e.g. Price confirmed on site before work starts." onchange="BM.setQNote(\'' + j.id + '\',this.value)"' + (lock ? ' disabled' : '') + '>');
+  h.push('</div>');
   if(F('estimates') && j.status !== 'lost'){
-    h.push('<div class="card">' + (j.signed ? '<div>✅ <b>' + (j.signed.sig ? 'Signed' : 'Approved') + '</b> by ' + esc(j.signed.name) + ' on ' + fd(j.signed.date) + '</div>' + (j.signed.sig ? '<div style="margin-top:8px">' + sigSVG(j.signed.sig, '100%', 70) + '</div>' : '') + '<button class="btn sm" style="margin-top:8px" onclick="BM.signedCopy(\'' + j.id + '\')">📄 ' + (j.signed.sig ? 'Signed copy' : 'Approved copy') + '</button>' : j.estSent ? '<div>📨 Estimate sent ' + fd(j.estSent) + ' — waiting to hear back</div>' : '<div class="muted">Estimate not sent yet.</div>')
-      + '<div class="btns" style="margin-top:10px"><button class="btn sm main" onclick="BM.sendEstimate(\'' + j.id + '\')">' + (j.estSent ? 'Send again' : '📨 Send estimate') + '</button><button class="btn sm" onclick="BM.previewEst(\'' + j.id + '\')">👀 Preview</button>'
-      + (!j.signed ? '<button class="btn sm" onclick="BM.approved(\'' + j.id + '\')">👍 They said yes</button>' : '') + '</div>'
-      + '<p class="hint">The customer gets a link to look it over, sign it with their finger and approve it. Their reply has a link that saves the signed copy here.</p></div>');
+    h.push('<div class="card">' + (j.signed ? '<div>✅ <b>' + (j.signed.sig || j.signed.sigImg ? 'Signed' : 'Approved') + '</b> by ' + esc(j.signed.name) + ' on ' + fd(j.signed.date) + (j.signed.option ? ' — option: <b>' + esc(j.signed.option) + '</b>' : '') + '</div>' + sigHTML(j.signed, 70) + '<div class="btns" style="margin-top:8px"><button class="btn sm" onclick="BM.signedCopy(\'' + j.id + '\')">📄 ' + (j.signed.sig || j.signed.sigImg ? 'Signed copy' : 'Approved copy') + '</button><button class="btn sm" onclick="BM.printEst(\'' + j.id + '\')">🖨️ Print</button><button class="btn sm" onclick="BM.unapprove(\'' + j.id + '\')">Undo approval</button></div>' : j.estSent ? '<div>📨 Estimate sent ' + fd(j.estSent) + ' — waiting to hear back</div>' : '<div class="muted">Estimate not sent yet.</div>')
+      + (!j.signed ? '<div class="btns" style="margin-top:10px"><button class="btn sm main" onclick="BM.sendEstimate(\'' + j.id + '\')">' + (j.estSent ? 'Send again' : '📨 Send estimate') + '</button><button class="btn sm good" onclick="BM.signHere(\'' + j.id + '\')">✍️ Sign on my phone</button><button class="btn sm" onclick="BM.previewEst(\'' + j.id + '\')">👀 Preview</button><button class="btn sm" onclick="BM.printEst(\'' + j.id + '\')">🖨️ Print</button><button class="btn sm" onclick="BM.approved(\'' + j.id + '\')">👍 They said yes</button></div>'
+      + '<p class="hint">Send a link: the customer ' + (j.tiers ? 'picks an option, ' : '') + 'signs with a finger and approves. Or hand them your phone and tap ✍️ Sign on my phone.</p>' : '') + '</div>');
   }
+  if(F('estimates')) h.push(photoBlock(j));
+  if(QM() && j.signed && upsellDue()) h.push('<div class="card" style="background:#EAF2F8;border-color:#A9C7DD"><b>Need invoices too?</b><p class="muted" style="margin:4px 0 8px">Turn on the rest of Business Manager and this approved quote becomes an invoice with a <b>Pay now</b> link — nothing to retype. ' + PRICE.upgrade + ' more, and your quotes come with you.</p><div class="btns"><button class="btn sm main" onclick="BM.go(\'upgrade\')">Turn on Business Manager</button><button class="btn sm" onclick="BM.upsellLater()">Not now</button></div></div>');
+  after = fillPhotos;
   /* schedule */
   if(F('schedule') && j.status !== 'lost' && j.status !== 'closed'){
     h.push('<h2>Schedule</h2><div class="card"><div class="two"><div><label class="f" for="sd" style="margin-top:0">Day</label><input class="i" type="date" id="sd" value="' + esc(j.date || '') + '" onchange="BM.setWhen(\'' + j.id + '\')"></div><div><label class="f" for="stm" style="margin-top:0">Time</label><input class="i" type="time" id="stm" value="' + esc(j.time || '') + '" onchange="BM.setWhen(\'' + j.id + '\')"></div></div>'
       + (j.date ? '<div class="btns" style="margin-top:10px"><button class="btn sm" onclick="BM.ics(\'' + j.id + '\')">📅 Add to my calendar</button><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'scheduled\')">💬 Confirm with ' + esc(first(c.name)) + '</button></div>' : '') + '</div>');
   }
   /* updates */
-  if(j.status !== 'lost' && j.status !== 'closed') h.push('<h2>Send an update</h2><div class="btns"><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'onway\')">🚚 On my way</button><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'late\')">⏳ Running late</button><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'finished\')">✅ Work is done</button><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'custom\')">✍️ Something else</button></div>');
+  if(!QM() && j.status !== 'lost' && j.status !== 'closed') h.push('<h2>Send an update</h2><div class="btns"><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'onway\')">🚚 On my way</button><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'late\')">⏳ Running late</button><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'finished\')">✅ Work is done</button><button class="btn sm" onclick="BM.update(\'' + j.id + '\',\'custom\')">✍️ Something else</button></div>');
   /* costs */
   if(F('materials') || F('expenses')){
     var ex = S.expenses.filter(function(e){ return e.jobId === j.id; });
@@ -2376,7 +2447,7 @@ VIEWS.job = function(){
       + '<div class="btns" style="margin-top:8px">' + (S.clock && S.clock.jobId === j.id ? '<button class="btn sm good" onclick="BM.clockOut()">⏱ Clock out</button>' : '<button class="btn sm" onclick="BM.clockPick(\'' + j.id + '\')">⏱ Clock in</button>') + '<button class="btn sm" onclick="BM.logHours(\'' + j.id + '\')">➕ Log hours</button></div></div>');
   }
   /* billing */
-  if(j.status !== 'lost'){
+  if(!QM() && j.status !== 'lost'){
     var vs = jobInvoices(j), billed = jobBilled(j), left = r2(jobTotal(j) - billed);
     h.push('<h2>Billing</h2><div class="card">' + (vs.length ? vs.map(function(v){ var b = invBal(v); return '<button class="card tap" style="margin-bottom:8px" onclick="BM.go(\'inv/' + v.id + '\')"><div class="row"><div class="grow"><b>Invoice #' + v.num + '</b> <span class="muted small">' + esc(KIND[v.kind] || '') + '</span><div class="small muted">' + fd(v.date) + '</div></div><div style="text-align:right"><b>' + money(invTotal(v)) + '</b><div>' + invPill(v) + '</div></div></div></button>'; }).join('') : '')
       + '<div class="tot"><span>Job total</span><b>' + money(jobTotal(j)) + '</b></div><div class="tot"><span>Billed so far</span><span>' + money(billed) + '</span></div><div class="tot"><span>Paid so far</span><span>' + money(jobPaid(j)) + '</span></div>'
@@ -2433,7 +2504,7 @@ function sheet(html, onOpen){
   closeSheet(true);
   var w = document.createElement('div'); w.className = 'shade'; w.id = 'bmSheet'; w.setAttribute('role', 'dialog');
   w.innerHTML = '<div class="sheet"><button class="x" onclick="BM.closeSheet()" aria-label="Close">✕</button>' + html + '</div>';
-  w.addEventListener('click', function(e){ if(e.target === w) closeSheet(); });
+  w.addEventListener('click', function(e){ if(e.target === w && !w.getAttribute('data-hold')) closeSheet(); });
   document.body.appendChild(w); if(onOpen) onOpen(w);
   return w;
 }
@@ -2462,20 +2533,7 @@ function saveItem(jid, idx){
 function delItem(jid, idx){ job(jid).items.splice(idx, 1); save(); closeSheet(); render(); }
 
 /* ── AI helpers (all optional; the app works without them) ── */
-function aiPrice(jid){
-  var j = job(jid);
-  if(!j.desc && !j.title){ alert('Add some details about the job first.'); return; }
-  var pl = S.prices.map(function(p){ return '- ' + p.name + ': $' + num(p.price); }).join('\n');
-  djAI.ask({ title:'Draft the price', want:'text', circle:false,
-    prompt:'I run a small ' + TRADES[S.biz.trade].name.toLowerCase() + ' business. Draft the line items for an estimate.\n\nJob: ' + j.title + '\nDetails: ' + (j.desc || '(none)') + '\n\nMy price list (use these prices where they fit):\n' + (pl || '(none yet)') + '\n\nWrite one item per line, exactly like this, with nothing else:\nLabor (per hour) | 3 | 110\nCapacitor replace | 1 | 185\nNote: one short sentence on anything I should double-check\n\n(The three parts are: item | how many | price each.) Use realistic US prices when my list has nothing that fits. Only the items a customer would expect to see.',
-    onResult:function(v, raw){ var r = parsePriceAnswer(raw || v);
-      if(!r.items.length){ alert('I couldn’t find any prices in what you pasted. In ' + aiName() + ', tap Copy under its answer, come back, and paste again.'); return; }
-      var have = {}; j.items.forEach(function(x){ have[x.name.toLowerCase()] = 1; });
-      var added = r.items.filter(function(x){ return !have[x.name.toLowerCase()]; });
-      added.forEach(function(x){ j.items.push(x); });
-      if(r.note) logJob(j, 'AI note: ' + r.note); save(); render();
-      toast(added.length ? 'Added ' + added.length + ' item' + (added.length > 1 ? 's' : '') + ' — check the prices' : 'Those items are already on this job'); } });
-}
+/* pricing with AI lives in the Quick Quote engine below (aiQuote); the old line format is still read by parsePriceAnswer */
 /* the AI answers in plain lines ("Labor | 3 | 110"); older answers in JSON still work */
 function bulletless(t){ return String(t || '').split(/\r?\n/).map(function(l){ return l.replace(/^\s*[-*•·]\s+/, '').replace(/\*\*|`/g, '').trim(); }).filter(Boolean); }
 function parsePriceAnswer(t){
@@ -2603,8 +2661,23 @@ function bizCard(){ var b = S.biz; return { n:b.name, o:b.owner, p:b.phone, e:b.
 function jobLines(j){ return F('lineItems') && j.items.length ? j.items : [{ name:j.title, qty:1, price:num(j.price) }]; }
 function estPayload(j){
   var c = cust(j.customerId);
-  return { k:'est', n:j.num, d:j.estSent || today(), x:addDays(j.estSent || today(), 30), b:bizCard(), c:{ n:c.name, a:c.address }, ti:j.title, de:j.desc || '',
+  var p = { k:'est', n:j.num, d:j.estSent || today(), x:addDays(j.estSent || today(), 30), b:bizCard(), c:{ n:c.name, a:c.address }, ti:j.title, de:j.desc || '',
     li:jobLines(j).map(function(l){ return [l.name, num(l.qty), num(l.price)]; }), tx:num(S.biz.taxRate), dp:F('deposits') ? num(S.biz.depositPct) : 0, te:S.biz.terms, sg:j.signed || null, r:appURL() };
+  /* v1.1: three options ride along (op), with the one they picked (pk); the one-sentence note (nt); how many photos (phn) */
+  if(F('lineItems') && j.tiers && j.tiers.length){ p.op = j.tiers.map(function(t, k){ return [t.name, tierItems(j, k).map(function(l){ return [l.name, num(l.qty), num(l.price)]; })]; }); if(j.pick != null && j.tiers[j.pick]) p.pk = j.pick; }
+  if(j.qnote) p.nt = j.qnote;
+  if((j.photos || []).length) p.phn = j.photos.length;
+  return p;
+}
+/* photos go in the customer's link only when small copies of all of them fit; otherwise the page says they're available on request */
+var PH_BUDGET = 26000;
+async function estPayloadPh(j){
+  var p = estPayload(j); if(!p.phn) return p;
+  try{ var th = [], tot = 0;
+    for(var i = 0; i < j.photos.length; i++){ var src = await photoSrc(j.photos[i]); if(!src) continue; var t = await thumb(src, 220, 0.5); if(!t) continue; th.push(t); tot += t.length; }
+    if(th.length && tot <= PH_BUDGET){ p.ph = th; delete p.phn; }
+  }catch(e){}
+  return p;
 }
 function invPayload(v){
   var c = cust(v.customerId), j = job(v.jobId) || {};
@@ -2614,20 +2687,22 @@ function invPayload(v){
 async function sendEstimate(jid){
   var j = job(jid), c = cust(j.customerId);
   if(jobSub(j) <= 0 && !confirm('There’s no price on this yet. Send it anyway?')) return;
-  var link = await linkFor(estPayload(j));
-  compose({ c:c, jobId:jid, kind:'estimate', redo:{ f:'sendEstimate', a:[jid] }, label:'Estimate', subject:'Estimate #' + j.num + ' from ' + S.biz.name, text:tpl('estimate', { c:c, title:j.title, amount:money(jobTotal(j)), link:link }),
-    onSent:function(){ j.estSent = j.estSent || today(); if(j.status === 'new') j.status = 'estimate'; } });
+  var link = await linkFor(await estPayloadPh(j));
+  compose({ c:c, jobId:jid, kind:'estimate', redo:{ f:'sendEstimate', a:[jid] }, label:'Estimate', subject:'Estimate #' + j.num + ' from ' + S.biz.name, text:tpl('estimate', { c:c, title:j.title, amount:estAmount(j), link:link }),
+    onSent:function(){ j.estSent = j.estSent || today(); if(j.status === 'new') j.status = 'estimate'; remember(j); } });
 }
-async function followUp(jid){ var j = job(jid), c = cust(j.customerId); var link = await linkFor(estPayload(j)); compose({ c:c, jobId:jid, kind:'followup', redo:{ f:'followUp', a:[jid] }, label:'Estimate follow-up', text:tpl('followup', { c:c, title:j.title, link:link }), onSent:function(){ j.estSent = today(); } }); }
-async function previewEst(jid){ var w = window.open('about:blank', '_blank'); var u = await linkFor(estPayload(job(jid))); if(w) w.location = u; else location.href = u; }
+async function followUp(jid){ var j = job(jid), c = cust(j.customerId); var link = await linkFor(await estPayloadPh(j)); compose({ c:c, jobId:jid, kind:'followup', redo:{ f:'followUp', a:[jid] }, label:'Estimate follow-up', text:tpl('followup', { c:c, title:j.title, link:link }), onSent:function(){ j.estSent = today(); } }); }
+async function previewEst(jid){ var w = window.open('about:blank', '_blank'); var u = await linkFor(await estPayloadPh(job(jid))); if(w) w.location = u; else location.href = u; }
 function approved(jid){
   var j = job(jid), c = cust(j.customerId);
-  sheet('<h3>They said yes 🎉</h3><p class="muted" style="margin:0 0 6px">Who approved it? (If they approved from the link, use the name they typed.)</p><input class="i" id="apN" value="' + esc(c.name) + '"><label class="f" for="apD">When</label><input class="i" type="date" id="apD" value="' + today() + '">'
+  sheet('<h3>They said yes 🎉</h3><p class="muted" style="margin:0 0 6px">Who approved it? (If they approved from the link, use the name they typed.)</p><input class="i" id="apN" value="' + esc(c.name) + '" aria-label="Who approved it"><label class="f" for="apD">When</label><input class="i" type="date" id="apD" value="' + today() + '">'
+    + (j.tiers && j.tiers.length ? '<label class="f" for="apO">Which option?</label><select class="i" id="apO">' + j.tiers.map(function(t, k){ return '<option value="' + k + '"' + (k === (j.pick != null ? j.pick : (j.edit || 0)) ? ' selected' : '') + '>' + esc(t.name) + ' — ' + money(lineSum(tierItems(j, k))) + '</option>'; }).join('') + '</select>' : '')
     + '<button class="btn main full" style="margin-top:14px" onclick="BM.saveApproved(\'' + jid + '\')">Mark approved</button>'
     + '<label class="f" for="apL" style="margin-top:18px">Or paste the link from their approval message</label><input class="i" id="apL" placeholder="https://…#ok/…" oninput="BM.pasteOk(this.value)"><p class="hint">That saves their signature too.</p>');
 }
 function pasteOk(v){ var m = String(v || '').match(/#ok\/([A-Za-z0-9_-]+)/); if(m){ closeSheet(); go('ok/' + m[1]); } }
-function saveApproved(jid){ var j = job(jid); j.signed = { name:$('apN').value.trim() || cust(j.customerId).name, date:$('apD').value || today() }; j.estSent = j.estSent || j.signed.date; if(['new', 'estimate'].indexOf(j.status) >= 0) j.status = 'approved'; logJob(j, 'Approved by ' + j.signed.name); save(); closeSheet(); render(); toast(F('schedule') ? 'Approved. Next: pick a day.' : 'Approved.'); }
+function saveApproved(jid){ var j = job(jid); var pk = $('apO') ? +$('apO').value : null; if(j.tiers && pk != null && j.tiers[pk]){ tierSelect(j, pk); j.pick = pk; }
+  j.signed = { name:$('apN').value.trim() || cust(j.customerId).name, date:$('apD').value || today(), option:j.tiers && j.pick != null && j.tiers[j.pick] ? j.tiers[j.pick].name : '' }; remember(j); j.estSent = j.estSent || j.signed.date; if(['new', 'estimate'].indexOf(j.status) >= 0) j.status = 'approved'; logJob(j, 'Approved by ' + j.signed.name); save(); closeSheet(); render(); toast(F('schedule') ? 'Approved. Next: pick a day.' : 'Approved.'); }
 
 /* ── calendar file ── */
 function ics(jid){
@@ -3189,20 +3264,23 @@ VIEWS.ok = function(){
     var j = S && S.setup.done ? S.jobs.filter(function(x){ return String(x.num) === String(A.n); })[0] : null;
     if(!j || preview){ box.innerHTML = notHere(A.n, A.nm); return; }
     var when = new Date(A.at || Date.now()), d = ymd(when), already = j.signed && j.signed.at === A.at;
+    var opName = '';
+    if(!already && j.tiers && A.op != null && j.tiers[+A.op]){ tierSelect(j, +A.op); j.pick = +A.op; }
+    if(j.tiers && A.op != null && j.tiers[+A.op]) opName = j.tiers[+A.op].name;
     var cur = jobTotal(j), changed = Math.abs(cur - num(A.t)) > 0.009;
     if(!already){
-      j.signed = { name:A.nm, date:d, at:A.at, sig:A.sg || null, total:num(A.t), via:'link' };
+      j.signed = { name:A.nm, date:d, at:A.at, sig:A.sg || null, total:num(A.t), via:'link', option:opName }; remember(j);
       j.signedCopy = Object.assign(estPayload(j), { sg:j.signed });
       j.estSent = j.estSent || d;
       if(['new', 'estimate'].indexOf(j.status) >= 0) j.status = 'approved';
       logJob(j, 'Signed by ' + A.nm + ' (from their phone)'); save();
     }
     box.innerHTML = '<div style="font-size:40px">✅</div><div style="font-size:21px;font-weight:850">' + esc(A.nm) + ' signed it</div>'
-      + '<p class="muted" style="margin:4px 0 10px">Estimate #' + esc(A.n) + ' · ' + esc(j.title) + ' · ' + money(A.t) + '<br>' + when.toLocaleString([], { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) + '</p>'
+      + '<p class="muted" style="margin:4px 0 10px">Estimate #' + esc(A.n) + ' · ' + esc(j.title) + (opName ? ' · option: <b>' + esc(opName) + '</b>' : '') + ' · ' + money(A.t) + '<br>' + when.toLocaleString([], { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) + '</p>'
       + (A.sg ? sigSVG(A.sg) : '')
       + (changed ? '<div class="banner small" style="margin-top:10px">Heads up: they approved <b>' + money(A.t) + '</b>, but the job now totals <b>' + money(cur) + '</b>. If you changed the price after sending, send the new estimate for a fresh signature.</div>' : '')
       + '<p class="hint" style="margin-top:10px">' + (already ? 'Already saved.' : 'Saved to the job and to ' + esc(first(cust(j.customerId).name)) + '’s records.') + '</p>'
-      + '<div class="btns" style="margin-top:8px"><button class="btn main" onclick="BM.go(\'job/' + j.id + '\')">Open the job</button><button class="btn" onclick="BM.signedCopy(\'' + j.id + '\')">📄 Signed copy</button></div>';
+      + '<div class="btns" style="margin-top:8px"><button class="btn main" onclick="BM.go(\'job/' + j.id + '\')">Open the ' + (QM() ? 'quote' : 'job') + '</button><button class="btn" onclick="BM.signedCopy(\'' + j.id + '\')">📄 Signed copy</button></div>';
   };
   return '<div class="card" id="okBox" style="text-align:center">Opening the signed estimate…</div>';
 };
@@ -3419,19 +3497,23 @@ VIEWS.more = function(){
   setHead('More');
   var o = function(go, em, t, s){ return '<button class="opt" onclick="' + go + '"><span class="e">' + em + '</span><span class="grow">' + t + (s ? '<small>' + s + '</small>' : '') + '</span>›</button>'; };
   var h = '<h2 style="margin-top:4px">Your business</h2>' + o("BM.go('set/biz')", '🏷️', 'Business info', esc(S.biz.name) + ' · ' + esc((TRADES[S.biz.trade] || TRADES.other).name))
-    + o("BM.go('set/features')", '🎚️', 'What the app does for you', 'Turn features on or off')
-    + o("BM.go('set/pay')", '💳', 'Getting paid', payList() || 'Add your pay links')
+    + (QM() ? '' : o("BM.go('set/features')", '🎚️', 'What the app does for you', 'Turn features on or off'))
+    + (QM() ? '' : o("BM.go('set/pay')", '💳', 'Getting paid', payList() || 'Add your pay links'))
     + (F('lineItems') ? o("BM.go('set/prices')", '🏷', 'Price list', S.prices.length + ' items') : '')
+    + (F('estimates') && F('lineItems') ? o("BM.go('set/quote')", '🧾', 'How you price', 'What’s included, add-ons, trip charge, the three options') : '')
     + (F('crew') ? o("BM.go('set/crew')", '👷', 'Crew', S.crew.map(function(c){ return c.name; }).join(', ') || 'Add your helpers') : '')
     + o("BM.go('set/msg')", '💬', 'Messages', (S.msg.channel === 'email' ? 'Email first' : 'Text first') + (S.biz.reviewLink ? ' · review link set' : ''))
     + o("BM.go('custs')", '👥', 'Customers', S.customers.length + ' saved')
     + (F('todos') ? o("BM.go('todo')", '📝', 'To-do & due dates', openTodos().length + ' open' + (soonTodos(7).length ? ' · ' + soonTodos(7).length + ' due this week' : '')) : '');
+  if(QM()) h += '<h2>Business Manager</h2>' + o("BM.go('upgrade')", '🧰', 'Turn on the rest of Business Manager', 'Invoices with a Pay now link, expenses, profit, schedule — ' + PRICE.upgrade + ' more, your quotes come with you');
+  if(qqHas()) h += '<h2>Quick Quote</h2>' + o("BM.qqImport()", '📥', 'Bring over my Quick Quote prices and quotes', qqImported() ? 'Brought over ' + fd(S.imports.qq.at) + ' — tap again to pick up anything new' : 'Your price list, saved estimates, signatures and photos — nothing to retype');
   h += '<h2>Help</h2>' + (hasAI() ? o('djAI.choose()', '✨', 'Your AI helper', (djAI.which() ? 'Using ' + djAI.which() : 'Pick the AI you use') + ' — writes messages, drafts prices, reviews jobs') : '')
-    + o("BM.redoSetup()", '🗣️', 'Answer the setup questions again', 'Re-picks what the app shows you')
+    + o("BM.redoSetup()", '🗣️', 'Answer the setup questions again', QM() ? 'Changes how your quotes are priced' : 'Re-picks what the app shows you')
     + (window.djTour ? o('djTour.start()', '🎬', 'Show me around', 'The welcome tour') : '');
   h += '<h2>Your data</h2>' + o("BM.backup()", '💾', 'Back up', 'Download everything to a file — do this monthly') + '<label class="opt"><span class="e">📂</span><span class="grow">Restore from a backup<small>Replaces what’s on this phone</small></span><input type="file" accept=".json,application/json" hidden onchange="BM.restore(this)"></label>'
     + o("BM.wipe()", '🗑️', '<span style="color:var(--bad)">Erase everything and start over</span>', '');
   h += '<p class="hint" style="text-align:center;margin-top:16px">Your information lives only on this phone. Back it up — if the phone is lost, so is the data.</p>';
+  h += '<p class="foot">' + (QM() ? 'Quick Quote by Business Manager ' : 'Business Manager ') + VER + '</p>';
   return h;
 };
 function payList(){ var p = S.pay, a = []; if(p.card) a.push('Card'); if(p.paypal) a.push('PayPal'); if(p.venmo) a.push('Venmo'); if(p.cashapp) a.push('Cash App'); if(p.zelle) a.push('Zelle'); if(p.check) a.push('Check'); return a.join(', '); }
@@ -3444,14 +3526,15 @@ VIEWS.set = function(){
       + '<label class="f" for="bT">Kind of work</label><select class="i" id="bT">' + Object.keys(TRADES).map(function(t){ return '<option value="' + t + '"' + (t === b.trade ? ' selected' : '') + '>' + TRADES[t].em + ' ' + TRADES[t].name + '</option>'; }).join('') + '</select>'
       + '<div class="two"><div>' + fld('bP', 'Phone', b.phone, 'type="tel"') + '</div><div>' + fld('bE', 'Email', b.email, 'type="email"') + '</div></div>'
       + fld('bA', 'Business address', b.address) + fld('bL', 'License / insured line', b.license, 'placeholder="e.g. Licensed & insured · Lic #12345"')
-      + '<div class="two"><div>' + fld('bX', 'Sales tax %', b.taxRate, 'inputmode="decimal"') + '</div><div>' + fld('bD', 'Invoices due in (days)', b.payDays, 'inputmode="numeric"') + '</div></div>'
+      + (QM() ? fld('bX', 'Sales tax %', b.taxRate, 'inputmode="decimal"') : '<div class="two"><div>' + fld('bX', 'Sales tax %', b.taxRate, 'inputmode="decimal"') + '</div><div>' + fld('bD', 'Invoices due in (days)', b.payDays, 'inputmode="numeric"') + '</div></div>')
       + (F('deposits') ? fld('bDp', 'Deposit %', b.depositPct, 'inputmode="decimal"') : '')
-      + fld('bS', 'Set aside for income tax (% of profit)', b.setAside, 'inputmode="decimal"', 'A reminder only. Many self-employed people set aside 25–30%; your accountant can tell you your number.')
+      + (QM() ? '' : fld('bS', 'Set aside for income tax (% of profit)', b.setAside, 'inputmode="decimal"', 'A reminder only. Many self-employed people set aside 25–30%; your accountant can tell you your number.'))
       + '<label class="f" for="bTe">Terms printed on estimates & invoices</label><textarea class="i" id="bTe">' + esc(b.terms) + '</textarea></div>'
       + '<button class="btn main full" onclick="BM.saveBiz()">Save</button>';
   } else if(k === 'features'){
     setHead('What the app does');
-    h = '<p class="muted" style="margin:0 2px 10px">Turn off what you don’t use — it disappears from the screens. Nothing you entered is lost.</p><div class="card">' + FEAT.map(function(f){ return '<div class="toggle"><span style="font-size:24px">' + f[1] + '</span><div class="grow"><b>' + f[2] + '</b><div class="small muted">' + f[3] + '</div></div><label class="switch"><input type="checkbox" aria-label="' + f[2] + '" ' + (F(f[0]) ? 'checked' : '') + ' onchange="BM.setFeat(\'' + f[0] + '\',this.checked)"><span></span></label></div>'; }).join('') + '</div>';
+    h = '<p class="muted" style="margin:0 2px 10px">Turn off what you don’t use — it disappears from the screens. Nothing you entered is lost.</p>'
+      + '<div class="card"><div class="row"><span style="font-size:24px">🧾</span><div class="grow"><b>Quotes only (Quick Quote)</b><div class="small muted">Hide everything except quotes and your price list. Invoices, expenses and the rest are kept, just out of sight.</div></div></div><button class="btn sm full" style="margin-top:8px" onclick="BM.setMode(\'quotes\')">Switch to quotes only</button></div><div class="card">' + FEAT.map(function(f){ return '<div class="toggle"><span style="font-size:24px">' + f[1] + '</span><div class="grow"><b>' + f[2] + '</b><div class="small muted">' + f[3] + '</div></div><label class="switch"><input type="checkbox" aria-label="' + f[2] + '" ' + (F(f[0]) ? 'checked' : '') + ' onchange="BM.setFeat(\'' + f[0] + '\',this.checked)"><span></span></label></div>'; }).join('') + '</div>';
   } else if(k === 'pay'){
     setHead('Getting paid'); var p = S.pay;
     h = '<p class="muted" style="margin:0 2px 10px">Whatever you fill in shows as a <b>Pay</b> button on the customer’s invoice, with the amount filled in where that service allows it. Leave blank what you don’t use.</p><div class="card">'
@@ -3463,12 +3546,14 @@ VIEWS.set = function(){
       + '<button class="btn main full" onclick="BM.savePay()">Save</button>';
   } else if(k === 'prices'){
     setHead('Price list');
-    h = '<p class="muted" style="margin:0 2px 10px">The things you charge for most. ' + (S.setup.starter ? '<b>These started as typical prices — change them to yours.</b>' : '') + '</p><div class="card" id="plist">' + S.prices.map(function(p, i){ return '<div class="row" style="margin-bottom:8px"><input class="i grow" value="' + esc(p.name) + '" onchange="BM.setPrice(' + i + ',\'name\',this.value)" aria-label="Item"><input class="i" style="width:110px" inputmode="decimal" value="' + esc(p.price) + '" onchange="BM.setPrice(' + i + ',\'price\',this.value)" aria-label="Price"><button class="btn sm danger" onclick="BM.delPrice(' + i + ')" aria-label="Remove">✕</button></div>'; }).join('') + '</div>'
+    h = '<p class="muted" style="margin:0 2px 10px">The things you charge for most. Every draft uses these prices when an item matches — even when the AI suggests a different price. ' + (S.setup.starter ? '<b>These started as typical prices — change them to yours.</b>' : '') + '</p><div class="card" id="plist">' + S.prices.map(function(p, i){ return '<div class="row" style="margin-bottom:8px"><input class="i grow" value="' + esc(p.name) + '" onchange="BM.setPrice(' + i + ',\'name\',this.value)" aria-label="Item"><input class="i" style="width:110px" inputmode="decimal" value="' + esc(p.price) + '" onchange="BM.setPrice(' + i + ',\'price\',this.value)" aria-label="Price"><button class="btn sm danger" onclick="BM.delPrice(' + i + ')" aria-label="Remove">✕</button></div>'; }).join('') + '</div>'
       + '<button class="btn full" onclick="BM.addPrice()">➕ Add an item</button>';
   } else if(k === 'crew'){
     setHead('Crew');
     h = '<p class="muted" style="margin:0 2px 10px">Who works with you, and what you pay them per hour (used to show each job’s real profit).</p><div class="card">' + (S.crew.length ? S.crew.map(function(c, i){ return '<div class="row" style="margin-bottom:8px"><input class="i grow" value="' + esc(c.name) + '" onchange="BM.setCrew(' + i + ',\'name\',this.value)" aria-label="Name"><input class="i" style="width:110px" inputmode="decimal" value="' + esc(c.rate) + '" placeholder="$/hr" onchange="BM.setCrew(' + i + ',\'rate\',this.value)" aria-label="Pay per hour"><button class="btn sm danger" onclick="BM.delCrew(' + i + ')" aria-label="Remove">✕</button></div>'; }).join('') : '<p class="muted" style="margin:0">Nobody yet.</p>') + '</div>'
       + '<button class="btn full" onclick="BM.addCrew()">➕ Add a person</button><p class="hint">Helpers are either employees (W-2, payroll taxes withheld) or contractors (1099). That depends on how they work, not what you call them — ask your accountant if you’re not sure.</p>';
+  } else if(k === 'quote'){
+    setHead('How you price'); h = quoteSettings();
   } else if(k === 'msg'){
     setHead('Messages');
     h = '<div class="card"><label class="f" style="margin-top:0">When I message customers, start with</label><div class="chips"><button class="chip' + (S.msg.channel !== 'email' ? ' on' : '') + '" onclick="BM.setChan(\'text\')">💬 Text</button><button class="chip' + (S.msg.channel === 'email' ? ' on' : '') + '" onclick="BM.setChan(\'email\')">✉️ Email</button></div>'
@@ -3479,7 +3564,7 @@ VIEWS.set = function(){
 };
 function saveBiz(){
   var b = S.biz; b.name = $('bN').value.trim(); b.owner = $('bO').value.trim(); b.trade = $('bT').value; b.phone = $('bP').value.trim(); b.email = $('bE').value.trim(); b.address = $('bA').value.trim(); b.license = $('bL').value.trim();
-  b.taxRate = num($('bX').value); b.payDays = num($('bD').value) || 14; if($('bDp')) b.depositPct = num($('bDp').value) || 30; b.setAside = num($('bS').value); b.terms = $('bTe').value.trim();
+  b.taxRate = num($('bX').value); if($('bD')) b.payDays = num($('bD').value) || 14; if($('bDp')) b.depositPct = num($('bDp').value) || 30; if($('bS')) b.setAside = num($('bS').value); b.terms = $('bTe').value.trim();
   save(); toast('Saved'); go('more');
 }
 function setFeat(k, v){ S.features[k] = v; save(); toast((v ? 'On: ' : 'Off: ') + FEAT.filter(function(f){ return f[0] === k; })[0][2]); }
@@ -3502,62 +3587,94 @@ function yes(t, s){ return { t:t, s:s }; }
 var QS = [
   { id:'name', ask:function(){ return 'Hi! I’ll set this up around how <b>you</b> work — about two minutes. You can change any answer later.<br><br>First: what’s your business called, and what’s your name?'; }, form:[['name', 'Business name', 'Miller Plumbing'], ['owner', 'Your name', 'Dan Miller']],
     apply:function(a){ S.biz.name = a.name; S.biz.owner = a.owner; }, say:function(a){ return a.name + ' — ' + a.owner; } },
+  { id:'mode', ask:function(){ return 'What do you need' + (S.biz.owner ? ', ' + esc(first(S.biz.owner)) : '') + '?'; }, pre:function(){ return S.mode || URLMODE; },
+    opts:function(){ return [{ v:'quotes', t:'🧾 Just quotes (Quick Quote)', s:'Priced estimates from your own price list, three options, the customer signs' }, { v:'full', t:'🧰 The whole business', s:'Quotes plus jobs, invoices with a Pay link, expenses, profit and the schedule' }]; },
+    apply:function(v){ S.mode = v; if(v === 'quotes'){ S.features.estimates = true; S.features.lineItems = true; } } },
   { id:'trade', grid:true, ask:function(){ return 'Good to meet you, ' + esc(first(S.biz.owner)) + '. What kind of work do you do?'; }, opts:function(){ return Object.keys(TRADES).map(function(k){ return { v:k, t:TRADES[k].em + ' ' + TRADES[k].name }; }); },
     apply:function(v){ S.biz.trade = v; } },
   { id:'contact', ask:function(){ return 'How should customers reach you? This goes on your estimates and invoices.'; }, form:[['phone', 'Phone', '', 'tel'], ['email', 'Email', '', 'email'], ['address', 'Business address (optional)', '']],
     apply:function(a){ S.biz.phone = a.phone; S.biz.email = a.email; S.biz.address = a.address; }, say:function(a){ return [a.phone, a.email].filter(Boolean).join(' · ') || 'Skip for now'; }, optional:true },
-  { id:'est', ask:function(){ return 'Before you start a job, do customers usually get a price in writing?'; }, opts:function(){ return [{ v:'y', t:'Yes, I send estimates' }, { v:'s', t:'Sometimes, on bigger jobs' }, { v:'n', t:'No — I just do the work and bill' }]; },
+  { id:'est', when:function(){ return !QM(); }, ask:function(){ return 'Before you start a job, do customers usually get a price in writing?'; }, opts:function(){ return [{ v:'y', t:'Yes, I send estimates' }, { v:'s', t:'Sometimes, on bigger jobs' }, { v:'n', t:'No — I just do the work and bill' }]; },
     apply:function(v){ S.features.estimates = v !== 'n'; } },
-  { id:'items', ask:function(){ return 'When you price a job, how do you like to do it?'; }, opts:function(){ return [{ v:'y', t:'List the parts and labor', s:'Itemized, from a price list' }, { v:'n', t:'One price for the whole job', s:'Short and simple' }]; },
-    apply:function(v){ S.features.lineItems = v === 'y'; } },
-  { id:'dep', ask:function(){ return 'On bigger jobs, do you take a deposit up front or bill in stages?'; }, opts:function(){ return [{ v:'25', t:'Yes — usually 25%' }, { v:'33', t:'Yes — about a third' }, { v:'50', t:'Yes — half up front' }, { v:'n', t:'No, one bill at the end' }]; },
+  { id:'items', ask:function(){ return 'When you price a job, how do you like to do it?'; }, opts:function(){ var o = [{ v:'y', t:'List the parts and labor', s:'Itemized, from a price list' }, { v:'b', t:'A few bundled lines', s:'One line per piece of work, from a price list' }]; if(!QM()) o.push({ v:'n', t:'One price for the whole job', s:'Short and simple' }); return o; },
+    apply:function(v){ S.features.lineItems = v !== 'n'; S.quote.detail = v === 'b' ? 'bundled' : 'itemized'; } },
+  /* the Quick Quote profile — how the price drafts should come out */
+  { id:'qInc', when:qOn, ask:function(){ return 'What’s included in your prices? Say it in your own words — for example, does an install include the part, haul-away and the permit?'; }, optional:true,
+    form:[['inc', 'What’s included', 'e.g. Installs include the unit, fittings and haul-away. Faucet and toilet prices are labor only.', 'textarea']], apply:function(a){ S.quote.included = a.inc; }, say:function(a){ return a.inc ? oneSentence(a.inc) : 'Skip for now'; } },
+  { id:'qAdd', when:qOn, ask:function(){ return 'Add-ons you charge separately, and how much? One per line. Tap the common ones to add them.'; }, optional:true,
+    form:[['add', 'Add-ons', 'Permit: $75', 'textarea']], quick:['Permit: $75', 'Disposal / haul-away: $50', 'Materials markup: 15%', 'After-hours: $95'],
+    apply:function(a){ S.quote.addons = a.add; }, say:function(a){ return a.add ? a.add.split('\n').filter(Boolean).join(' · ') : 'None'; } },
+  { id:'qArea', when:qOn, ask:function(){ return 'Where do you work? City and county help with permit and code items.'; }, optional:true, form:[['city', 'City', 'e.g. Gurnee'], ['county', 'County', 'e.g. Lake County, IL']],
+    apply:function(a){ S.quote.city = a.city; S.quote.county = a.county; }, say:function(a){ return [a.city, a.county].filter(Boolean).join(', ') || 'Skip for now'; } },
+  { id:'qTrip', when:qOn, ask:function(){ return 'Your trip charge or service call — added to every job, only small ones, or never?'; }, opts:function(){ return [{ v:'every', t:'Every job' }, { v:'small', t:'Only small jobs' }, { v:'never', t:'Never' }]; },
+    apply:function(v){ S.quote.trip = v; } },
+  { id:'qTripU', when:function(){ return qOn() && S.quote.trip === 'small'; }, ask:function(){ return 'A “small” job is one under how much?'; }, form:[['under', 'Small means under', '300', 'decimal']],
+    apply:function(a){ S.quote.tripUnder = num(a.under) || 300; }, say:function(a){ return 'Under ' + money0(num(a.under) || 300); } },
+  { id:'qTone', when:qOn, ask:function(){ return 'Each estimate ends with a one-sentence note. How should it read?'; }, opts:function(){ return [{ v:'short', t:'Short and technical' }, { v:'friendly', t:'Friendly, for the customer' }]; },
+    apply:function(v){ S.quote.tone = v; } },
+  { id:'qNever', when:qOn, multi:true, none:true, other:'Anything else to leave out (optional)', ask:function(){ return 'What should <b>never</b> be on an estimate? Tick all that apply.'; },
+    opts:function(){ return [{ v:'brands', t:'Brand names' }, { v:'warranties', t:'Warranties' }, { v:'guesses', t:'Guesses — prices not on my list, unknown quantities' }]; },
+    apply:function(v){ S.quote.never = v.v; S.quote.neverOther = v.other; } },
+  { id:'dep', when:function(){ return !QM(); }, ask:function(){ return 'On bigger jobs, do you take a deposit up front or bill in stages?'; }, opts:function(){ return [{ v:'25', t:'Yes — usually 25%' }, { v:'33', t:'Yes — about a third' }, { v:'50', t:'Yes — half up front' }, { v:'n', t:'No, one bill at the end' }]; },
     apply:function(v){ S.features.deposits = v !== 'n'; if(v !== 'n') S.biz.depositPct = +v; } },
-  { id:'sched', ask:function(){ return 'Do you book jobs for a set day and time?'; }, opts:function(){ return [{ v:'y', t:'Yes, I keep a schedule' }, { v:'n', t:'No, mostly same-day or as it comes' }]; },
+  { id:'sched', when:function(){ return !QM(); }, ask:function(){ return 'Do you book jobs for a set day and time?'; }, opts:function(){ return [{ v:'y', t:'Yes, I keep a schedule' }, { v:'n', t:'No, mostly same-day or as it comes' }]; },
     apply:function(v){ S.features.schedule = v === 'y'; } },
-  { id:'mat', ask:function(){ return 'Do you buy materials or supplies for jobs?'; }, opts:function(){ return [{ v:'y', t:'Yes', s:'I’ll track them per job so you see what each job really made' }, { v:'n', t:'No, or not much' }]; },
+  { id:'mat', when:function(){ return !QM(); }, ask:function(){ return 'Do you buy materials or supplies for jobs?'; }, opts:function(){ return [{ v:'y', t:'Yes', s:'I’ll track them per job so you see what each job really made' }, { v:'n', t:'No, or not much' }]; },
     apply:function(v){ S.features.materials = v === 'y'; } },
-  { id:'crew', ask:function(){ return 'Does anyone work with you?'; }, opts:function(){ return [{ v:'n', t:'Just me' }, { v:'y', t:'Yes, a helper or two' }]; },
+  { id:'crew', when:function(){ return !QM(); }, ask:function(){ return 'Does anyone work with you?'; }, opts:function(){ return [{ v:'n', t:'Just me' }, { v:'y', t:'Yes, a helper or two' }]; },
     apply:function(v){ S.features.crew = v === 'y'; } },
-  { id:'crewN', when:function(){ return S.features.crew; }, ask:function(){ return 'Who? Add their pay per hour if you want each job’s profit to count their time. (You can skip this.)'; }, form:[['c1', 'Name', ''], ['r1', '$ per hour', '', 'decimal'], ['c2', 'Name', ''], ['r2', '$ per hour', '', 'decimal']], optional:true,
+  { id:'crewN', when:function(){ return !QM() && S.features.crew; }, ask:function(){ return 'Who? Add their pay per hour if you want each job’s profit to count their time. (You can skip this.)'; }, form:[['c1', 'Name', ''], ['r1', '$ per hour', '', 'decimal'], ['c2', 'Name', ''], ['r2', '$ per hour', '', 'decimal']], optional:true,
     apply:function(a){ S.crew = []; [['c1', 'r1'], ['c2', 'r2']].forEach(function(k){ if(a[k[0]]) S.crew.push({ id:uid(), name:a[k[0]], rate:num(a[k[1]]) }); }); }, say:function(a){ return [a.c1, a.c2].filter(Boolean).join(', ') || 'Later'; } },
-  { id:'pay', multi:true, ask:function(){ return 'How do customers pay you? Pick all that apply. Your invoices will get a <b>Pay now</b> button.'; }, opts:function(){ return [{ v:'card', t:'💳 Card (Square, Stripe…)' }, { v:'paypal', t:'PayPal' }, { v:'venmo', t:'Venmo' }, { v:'cashapp', t:'Cash App' }, { v:'zelle', t:'Zelle' }, { v:'check', t:'Check or cash' }]; },
+  { id:'pay', multi:true, when:function(){ return !QM(); }, ask:function(){ return 'How do customers pay you? Pick all that apply. Your invoices will get a <b>Pay now</b> button.'; }, opts:function(){ return [{ v:'card', t:'💳 Card (Square, Stripe…)' }, { v:'paypal', t:'PayPal' }, { v:'venmo', t:'Venmo' }, { v:'cashapp', t:'Cash App' }, { v:'zelle', t:'Zelle' }, { v:'check', t:'Check or cash' }]; },
     apply:function(v){ SU.pay = v; } },
-  { id:'payD', when:function(){ return SU.pay && SU.pay.filter(function(x){ return x !== 'check'; }).length; }, ask:function(){ return 'Fill in what customers need to pay you. Skip any you don’t have handy — you can add them in More → Getting paid.'; }, optional:true,
+  { id:'payD', when:function(){ return !QM() && SU.pay && SU.pay.filter(function(x){ return x !== 'check'; }).length; }, ask:function(){ return 'Fill in what customers need to pay you. Skip any you don’t have handy — you can add them in More → Getting paid.'; }, optional:true,
     form:function(){ var f = []; var P = SU.pay; if(P.indexOf('card') >= 0) f.push(['card', 'Card payment link (customer enters amount)', 'https://square.link/…', 'url']); if(P.indexOf('paypal') >= 0) f.push(['paypal', 'PayPal.me name', 'yourname']); if(P.indexOf('venmo') >= 0) f.push(['venmo', 'Venmo username', 'your-name']); if(P.indexOf('cashapp') >= 0) f.push(['cashapp', 'Cash App $cashtag', '$yourtag']); if(P.indexOf('zelle') >= 0) f.push(['zelle', 'Zelle phone or email', '']); return f; },
     apply:function(a){ Object.keys(a).forEach(function(k){ S.pay[k] = a[k]; }); if(SU.pay.indexOf('check') >= 0 && !S.pay.check) S.pay.check = S.biz.name; if(S.pay.cashapp && S.pay.cashapp[0] !== '$') S.pay.cashapp = '$' + S.pay.cashapp; S.pay.venmo = (S.pay.venmo || '').replace(/^@/, ''); }, say:function(){ return 'Done'; } },
   { id:'tax', ask:function(){ return 'Do you charge sales tax on your work?'; }, opts:function(){ return [{ v:'n', t:'No' }, { v:'y', t:'Yes' }, { v:'?', t:'Not sure' }]; },
     apply:function(v){ SU.tax = v; if(v !== 'y') S.biz.taxRate = 0; } },
   { id:'taxR', when:function(){ return SU.tax === 'y'; }, ask:function(){ return 'What rate?'; }, form:[['rate', 'Sales tax %', '7', 'decimal']], apply:function(a){ S.biz.taxRate = num(a.rate); }, say:function(a){ return num(a.rate) + '%'; } },
-  { id:'exp', ask:function(){ return (SU.tax === '?' ? 'No problem — it depends on your state and the kind of work. Worth asking your accountant; you can add it later in Business info.<br><br>' : '') + 'Want to track business expenses? Then you’ll see your real profit, and at tax time you hand your accountant a clean report instead of a shoebox.'; }, opts:function(){ return [{ v:'y', t:'Yes, track expenses', s:'Type them in or import a bank / card statement' }, { v:'n', t:'No, I’ve got that covered' }]; },
+  { id:'exp', when:function(){ return !QM(); }, ask:function(){ return (SU.tax === '?' ? 'No problem — it depends on your state and the kind of work. Worth asking your accountant; you can add it later in Business info.<br><br>' : '') + 'Want to track business expenses? Then you’ll see your real profit, and at tax time you hand your accountant a clean report instead of a shoebox.'; }, opts:function(){ return [{ v:'y', t:'Yes, track expenses', s:'Type them in or import a bank / card statement' }, { v:'n', t:'No, I’ve got that covered' }]; },
     apply:function(v){ S.features.expenses = v === 'y'; } },
   { id:'chan', ask:function(){ return 'Last one. Do your customers prefer texts or emails?'; }, opts:function(){ return [{ v:'text', t:'💬 Texts' }, { v:'email', t:'✉️ Email' }]; },
     apply:function(v){ S.msg.channel = v; } }
 ];
 function qList(){ return QS.filter(function(q){ return !q.when || q.when(); }); }
+function qOn(){ return F('estimates') && F('lineItems'); }
+function suQuick(i){ var q = qList()[SU.i], t = $('su0'); if(!q || !q.quick || !t) return; var x = q.quick[i]; if(t.value.split('\n').indexOf(x) >= 0) return; t.value = (t.value.trim() ? t.value.trim() + '\n' : '') + x; }
 VIEWS.setup = function(){
   setHead('Set up', S && S.biz.name ? S.biz.name : 'about two minutes');
-  if(!SU){ SU = { i:0, said:[] }; if(!S || S.setup.done){ var keep = S && S.setup.done ? S : null; S = keep || blank(); } preview = false; }
+  if(!SU){ SU = { i:0, said:[] }; if(!S || S.setup.done){ var keep = S && S.setup.done ? S : null; S = keep || blank(); } if(!S.mode && URLMODE) S.mode = URLMODE; preview = false; }
   var qs = qList(), q = qs[SU.i];
   var h = '<div class="steps" aria-hidden="true">' + qs.map(function(x, i){ return '<span class="' + (i <= SU.i ? 'on' : '') + '"></span>'; }).join('') + '</div><div class="chat" style="margin-top:12px">';
   SU.said.forEach(function(s){ h += '<div class="bubble">' + s.q + '</div><div class="bubble me">' + esc(s.a) + '</div>'; });
-  if(!q) return finishSetup();
+  if(!q || SU.fin){ SU.fin = true; return finishSetup(); }   /* fin: bringing over Quick Quote can add a question — the interview is still over */
   h += '<div class="bubble">' + q.ask() + '</div></div>';
   var form = typeof q.form === 'function' ? q.form() : q.form;
   if(form){
-    h += '<div class="card" style="margin-top:10px">' + form.map(function(f, i){ var t = f[3] === 'decimal' ? 'text" inputmode="decimal' : (f[3] || 'text'); return '<label class="f" for="su' + i + '"' + (i ? '' : ' style="margin-top:0"') + '>' + f[1] + '</label><input class="i" id="su' + i + '" type="' + t + '" placeholder="' + esc(f[2] || '') + '" value="' + esc(SU['v_' + q.id + f[0]] || '') + '">'; }).join('')
+    h += '<div class="card" style="margin-top:10px">' + form.map(function(f, i){ var t = f[3] === 'decimal' ? 'text" inputmode="decimal' : (f[3] || 'text'), lb = '<label class="f" for="su' + i + '"' + (i ? '' : ' style="margin-top:0"') + '>' + f[1] + '</label>';
+        if(f[3] === 'textarea') return lb + '<textarea class="i" id="su' + i + '" placeholder="' + esc(f[2] || '') + '">' + esc(SU['v_' + q.id + f[0]] != null ? SU['v_' + q.id + f[0]] : suDefault(q.id)) + '</textarea>';
+        return lb + '<input class="i" id="su' + i + '" type="' + t + '" placeholder="' + esc(f[2] || '') + '" value="' + esc(SU['v_' + q.id + f[0]] != null ? SU['v_' + q.id + f[0]] : suDefault(q.id, f[0])) + '">'; }).join('')
+      + (q.quick ? '<div class="chips" style="flex-wrap:wrap;margin-top:8px">' + q.quick.map(function(x, i){ return '<button class="chip" type="button" onclick="BM.suQuick(' + i + ')">＋ ' + esc(x) + '</button>'; }).join('') + '</div>' : '')
       + '<button class="btn main full" style="margin-top:12px" onclick="BM.suForm()">Next →</button>' + (q.optional ? '<button class="btn sm full" style="margin-top:6px" onclick="BM.suSkip()">Skip</button>' : '') + '</div>';
     after = function(){ var f0 = $('su0'); if(f0) f0.focus(); };
   } else if(q.multi){
-    h += '<div class="answers" style="margin-top:10px">' + q.opts().map(function(o){ return '<label class="opt"><input type="checkbox" value="' + o.v + '" style="width:24px;height:24px;flex:none"><span>' + o.t + '</span></label>'; }).join('') + '<button class="btn main full" onclick="BM.suMulti()">Next →</button></div>';
+    var ticked = q.id === 'qNever' ? S.quote.never : [];
+    h += '<div class="answers" style="margin-top:10px">' + q.opts().map(function(o){ return '<label class="opt"><input type="checkbox" value="' + o.v + '" style="width:24px;height:24px;flex:none"' + (ticked.indexOf(o.v) >= 0 ? ' checked' : '') + '><span>' + o.t + '</span></label>'; }).join('')
+      + (q.other ? '<label class="f" for="suOther">' + q.other + '</label><input class="i" id="suOther" value="' + esc(S.quote.neverOther || '') + '" placeholder="e.g. no hourly rates shown to the customer">' : '') + '<button class="btn main full" onclick="BM.suMulti()">Next →</button></div>';
   } else {
-    h += '<div class="answers' + (q.grid ? ' grid' : '') + '" style="margin-top:10px">' + q.opts().map(function(o){ return '<button class="opt" onclick="BM.suPick(\'' + o.v + '\')"><span class="grow">' + o.t + (o.s ? '<small>' + o.s + '</small>' : '') + '</span></button>'; }).join('') + '</div>';
+    var pre = q.pre ? q.pre() : '';
+    h += '<div class="answers' + (q.grid ? ' grid' : '') + '" style="margin-top:10px">' + q.opts().map(function(o){ return '<button class="opt' + (pre === o.v ? ' pre' : '') + '" data-v="' + o.v + '" onclick="BM.suPick(\'' + o.v + '\')"><span class="grow">' + o.t + (o.s ? '<small>' + o.s + '</small>' : '') + '</span>' + (pre === o.v ? '<span class="pill">✓ Picked</span>' : '') + '</button>'; }).join('') + '</div>';
   }
   h += '<div class="row" style="margin-top:12px">' + (SU.i > 0 ? '<button class="btn sm" onclick="BM.suBack()">‹ Change last answer</button>' : '') + '<span class="grow"></span><button class="btn sm" onclick="BM.suAll()">Skip — turn everything on</button></div>';
   return h;
 };
 function suNext(q, val, said){ q.apply(val); SU.said.push({ q:q.ask(), a:said }); SU.i++; render(); setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 50); }
 function suPick(v){ var q = qList()[SU.i], o = q.opts().filter(function(x){ return x.v === v; })[0]; suNext(q, v, o.t.replace(/<[^>]+>/g, '')); }
-function suMulti(){ var q = qList()[SU.i], v = [].map.call(document.querySelectorAll('.answers input:checked'), function(x){ return x.value; }); if(!v.length){ alert('Pick at least one — or “Check or cash”.'); return; } suNext(q, v, q.opts().filter(function(o){ return v.indexOf(o.v) >= 0; }).map(function(o){ return o.t.replace(/^\W+\s/, ''); }).join(', ')); }
+function suMulti(){ var q = qList()[SU.i], v = [].map.call(document.querySelectorAll('.answers input:checked'), function(x){ return x.value; });
+  if(q.none){ var oth = $('suOther') ? $('suOther').value.trim() : ''; suNext(q, { v:v, other:oth }, q.opts().filter(function(o){ return v.indexOf(o.v) >= 0; }).map(function(o){ return o.t.split(' — ')[0]; }).concat(oth ? [oth] : []).join(', ') || 'Nothing special'); return; }
+  if(!v.length){ alert('Pick at least one — or “Check or cash”.'); return; } suNext(q, v, q.opts().filter(function(o){ return v.indexOf(o.v) >= 0; }).map(function(o){ return o.t.replace(/^\W+\s/, ''); }).join(', ')); }
+/* answering the setup again shows what's already saved */
+function suDefault(id, k){ var Qd = S && S.quote ? S.quote : {}; return id === 'qInc' ? (Qd.included || '') : id === 'qAdd' ? (Qd.addons || '') : id === 'qArea' ? (k === 'county' ? Qd.county || '' : Qd.city || '') : id === 'qTripU' ? String(Qd.tripUnder || '') : ''; }
 function suForm(){
   var q = qList()[SU.i], form = typeof q.form === 'function' ? q.form() : q.form, a = {};
   form.forEach(function(f, i){ a[f[0]] = $('su' + i).value.trim(); SU['v_' + q.id + f[0]] = a[f[0]]; });
@@ -3565,25 +3682,31 @@ function suForm(){
   suNext(q, a, q.say ? q.say(a) : 'OK');
 }
 function suSkip(){ var q = qList()[SU.i], form = typeof q.form === 'function' ? q.form() : q.form, a = {}; form.forEach(function(f){ a[f[0]] = ''; }); suNext(q, a, 'Skip for now'); }
-function suBack(){ SU.said.pop(); SU.i = Math.max(0, SU.i - 1); render(); }
-function suAll(){ if(!S.biz.name){ alert('Just tell me the business name first.'); return; } Object.keys(S.features).forEach(function(k){ S.features[k] = true; }); SU.i = qList().length; render(); }
+function suBack(){ SU.fin = false; SU.said.pop(); SU.i = Math.max(0, SU.i - 1); render(); }
+function suAll(){ if(!S.biz.name){ alert('Just tell me the business name first.'); return; } if(!S.mode) S.mode = URLMODE || 'full'; Object.keys(S.features).forEach(function(k){ S.features[k] = true; }); SU.i = qList().length; render(); }
 function finishSetup(){
   if(!S.prices.length){ S.prices = (TRADES[S.biz.trade] || TRADES.other).items.map(function(x){ return { name:x[0], price:x[2] }; }); S.setup.starter = true; }
+  if(!S.mode) S.mode = URLMODE || 'full';
   var on = FEAT.filter(function(f){ return F(f[0]); }), off = FEAT.filter(function(f){ return !F(f[0]); });
+  var imp = qqHas() && !qqImported() ? '<div class="banner" style="margin-top:12px"><b>Used Quick Quote before?</b> Bring over your price list and saved estimates — nothing to retype.<button class="btn sm main full" style="margin-top:8px" onclick="BM.qqImport()">📥 Bring over my Quick Quote prices and quotes</button></div>' : '';
+  if(QM()) return '<div class="chat">' + SU.said.slice(-2).map(function(s){ return '<div class="bubble">' + s.q + '</div><div class="bubble me">' + esc(s.a) + '</div>'; }).join('')
+    + '<div class="bubble">All set, ' + esc(first(S.biz.owner)) + '. <b>Quick Quote</b> is ready:<ul style="margin:8px 0;padding-left:20px"><li>Describe a job and tap <b>⚡</b> — it’s priced from your price list</li><li>Or tap <b>✨</b> to ask your own AI app — your prices still win</li><li><b>⭐ Three options</b> (Good / Better / Best), photos, and the customer signs</li></ul>'
+    + 'I started your price list with typical ' + esc(TRADES[S.biz.trade].name.toLowerCase()) + ' prices. <b>Change them to yours</b> under Prices.<br><br>When you want invoices, expenses and the rest, turn on Business Manager in More — your quotes come with you.</div></div>'
+    + imp + '<button class="btn main full" style="margin-top:14px" onclick="BM.suDone()">Let’s go →</button>';
   var h = '<div class="chat">' + SU.said.slice(-2).map(function(s){ return '<div class="bubble">' + s.q + '</div><div class="bubble me">' + esc(s.a) + '</div>'; }).join('')
     + '<div class="bubble">All set, ' + esc(first(S.biz.owner)) + '. Here’s what I turned on for you:<ul style="margin:8px 0;padding-left:20px">' + on.map(function(f){ return '<li>' + f[1] + ' <b>' + f[2] + '</b></li>'; }).join('') + '<li>🧾 <b>Invoices with a Pay now link</b> and reminders</li></ul>'
     + (off.length ? 'Hidden, because you don’t need them: ' + off.map(function(f){ return f[2].toLowerCase(); }).join(', ') + '. Turn any on later in More.<br><br>' : '')
     + (F('lineItems') ? 'I started your price list with typical ' + esc(TRADES[S.biz.trade].name.toLowerCase()) + ' prices. <b>Change them to yours</b> in More → Price list.' : '') + '</div></div>'
-    + '<button class="btn main full" style="margin-top:14px" onclick="BM.suDone()">Let’s go →</button>';
+    + imp + '<button class="btn main full" style="margin-top:14px" onclick="BM.suDone()">Let’s go →</button>';
   return h;
 }
-function suDone(){ S.setup.done = true; S.setup.demo = false; S.setup.at = today(); SU = null; preview = false; save(); go('home'); toast('Tip: tap + to add your first job'); }
+function suDone(){ S.setup.done = true; S.setup.demo = false; S.setup.at = today(); if(!S.mode) S.mode = URLMODE || 'full'; SU = null; preview = false; save(); go('home'); toast(QM() ? 'Tip: tap + to start your first quote' : 'Tip: tap + to add your first job'); }
 function redoSetup(){ SU = { i:0, said:[] }; preview = false; go('setup'); }
 
 /* ── the example business (for the tour and for playing) ── */
 function makeDemo(){
   var d = blank(), t = today(), A = function(n){ return addDays(t, n); };
-  d.setup = { done:true, demo:true, at:t, starter:true };
+  d.setup = { done:true, demo:true, at:t, starter:true }; d.mode = 'full';
   Object.assign(d.biz, { name:'Miller Plumbing & Repair', owner:'Dan Miller', trade:'plumbing', phone:'(555) 201-4477', email:'dan@millerplumbing.example', address:'412 Oak St, Springfield', license:'Licensed & insured', taxRate:0, depositPct:30, reviewLink:'' });
   Object.assign(d.features, { estimates:true, lineItems:true, deposits:true, schedule:true, materials:true, crew:true, expenses:true });
   d.pay = { card:'', paypal:'millerplumbing', venmo:'', cashapp:'', zelle:'(555) 201-4477', check:'Miller Plumbing & Repair' };
@@ -3595,7 +3718,8 @@ function makeDemo(){
   d.jobs = [
     J('j1', 1001, 'c1', 'Replace water heater', '50 gal gas, 12 yrs old, leaking at base. Haul old one away.', 'scheduled', [['Water heater install, 40–50 gal', 1, 1450], ['Haul-away & disposal', 1, 75]], { date:t, time:'09:00', estSent:A(-6), signed:{ name:'Sarah Johnson', date:A(-4) } }),
     J('j2', 1002, 'c2', 'Kitchen faucet + disposal', 'Customer bought the faucet. Replace disposal (1/2 hp).', 'scheduled', [['Faucet replace (labor)', 1, 225], ['Disposal, 1/2 hp, installed', 1, 340]], { date:A(1), time:'13:30', estSent:A(-5), signed:{ name:'Rita Alvarez', date:A(-3) } }),
-    J('j3', 1003, 'c3', 'Fellowship hall restrooms', 'Two toilets running, one urinal flush valve, check water pressure.', 'estimate', [['Service call / trip charge', 1, 95], ['Toilet rebuild', 2, 165], ['Flush valve replace', 1, 285]], { estSent:A(-4) }),
+    J('j3', 1003, 'c3', 'Fellowship hall restrooms', 'Two toilets running, one urinal flush valve, check water pressure.', 'estimate', [['Service call / trip charge', 1, 95], ['Toilet rebuild', 2, 165], ['Flush valve replace', 1, 285]], { estSent:A(-4), qnote:'Priced from our standard list; we confirm on site before any work starts.', edit:0,
+      tiers:[{ name:'Good', items:[] }, { name:'Better', items:[{ name:'Service call / trip charge', qty:1, price:95 }, { name:'Toilet rebuild', qty:2, price:165 }, { name:'Flush valve replace', qty:1, price:285 }, { name:'Upgraded parts & fittings', qty:1, price:95 }] }, { name:'Best', items:[{ name:'Service call / trip charge', qty:1, price:95 }, { name:'Toilet rebuild', qty:2, price:165 }, { name:'Flush valve replace', qty:1, price:285 }, { name:'Upgraded parts & fittings', qty:1, price:95 }, { name:'Premium parts + priority scheduling', qty:1, price:250 }] }] }),
     J('j4', 1004, 'c4', 'Main line clog', 'Backed up into basement floor drain. Camera after.', 'done', [['Drain cleaning', 1, 175], ['Camera inspection', 1, 150]], { date:A(-2), time:'08:00', times:[{ who:'cw1', date:A(-2), hours:3 }] }),
     J('j5', 1005, 'c5', 'Bathroom remodel rough-in', 'Move toilet 18", new shower valve, vanity supply & drain.', 'working', [['Labor (per hour)', 24, 110], ['Shower valve & trim', 1, 380], ['PEX, fittings, drain parts', 1, 420]], { date:A(-1), time:'08:00', estSent:A(-14), signed:{ name:'Linda Chen', date:A(-12) }, times:[{ who:'cw1', date:A(-1), hours:7 }] }),
     J('j7', 1007, 'c6', 'Grease trap pump-out & repair', 'Restaurant grease interceptor, replace baffle.', 'closed', [['Grease trap service', 1, 1450], ['Baffle replace', 1, 1400]], { date:A(-6), estSent:A(-9), signed:{ name:'Rosa Delgado', date:A(-8) } }),
@@ -3634,16 +3758,458 @@ function makeDemo(){
   d.seq = { job:1010, inv:2007 };
   return d;
 }
-function keepDemo(){ S = makeDemo(); preview = false; save(); go('home'); }
+function keepDemo(){ S = makeDemo(); if(URLMODE) S.mode = URLMODE; preview = false; save(); go('home'); }
 function fresh(){
   if(S && S.setup.done && !S.setup.demo && !confirm('Start a new business from scratch? What’s on this phone now will be erased.')) return;
   try{ localStorage.removeItem(KEY); }catch(e){} S = blank(); preview = false; SU = null; go('setup');
 }
-function tourShow(h){ if(!S || !S.setup.done){ S = makeDemo(); preview = true; } closeSheet(); if(location.hash === '#' + h) render(); else location.hash = h; }
+function tourShow(h){ if(!S || !S.setup.done){ S = makeDemo(); if(URLMODE) S.mode = URLMODE; preview = true; } closeSheet(); if(location.hash === '#' + h) render(); else location.hash = h; }
+
+/* ══ Quick Quote inside Business Manager (v1.1 · 9 Oct 2026) ═══════════════════════════════════════
+   The quote engine from Quick Quote v1.2, on Business Manager's own jobs and price list:
+   ⚡ a draft from the price list (keyword match, hours → labor, add-ons unless included, the trip rule),
+   ✨ the owner's own AI through djAI (JSON or plain lines back), and THE PRICE LIST ALWAYS WINS over AI prices.
+   Three options (Good / Better / Best) live on the job as j.tiers; j.items is always the option being edited
+   (j.edit), so every total, link and invoice keeps working. j.pick is the option the customer chose.
+   Photos (≤4, shrunk on the phone) are kept in the bizmgr_files store; j.photos holds their ids. */
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+/* ── options ── */
+function tierItems(j, k){ return k === (j.edit || 0) ? j.items : (j.tiers[k] || {}).items || []; }
+function tierTotal(j, k){ return r2(lineSum(tierItems(j, k)) * (1 + num(S.biz.taxRate) / 100)); }
+function tierSync(j){ try{ if(j && j.tiers && j.tiers[j.edit || 0]) j.tiers[j.edit || 0].items = j.items; }catch(e){} }
+function tierSelect(j, k){ if(!j.tiers || !j.tiers[k]) return; tierSync(j); j.edit = k; j.items = j.tiers[k].items || []; }
+function allLines(j){ return j.tiers ? [].concat.apply([], j.tiers.map(function(t, k){ return tierItems(j, k); })) : (j.items || []); }
+function bare(l){ return { name:l.name, qty:num(l.qty) || 1, price:num(l.price) }; }
+function extraLine(name, price){ var m = matchPrice(name); return m ? { name:m.name, qty:1, price:num(m.price) } : { name:name, qty:1, price:num(price) }; }
+function buildTiers(base, names){
+  names = names || S.quote.names;
+  var has = function(list, n){ return list.some(function(i){ var a = matchPrice(i.name); return norm(i.name) === norm(n) || (a && a === matchPrice(n)); }); };
+  var better = clone(base); parseAdds(S.quote.betterAdds).forEach(function(a){ if(!a.pct && !has(better, a.name)) better.push(extraLine(a.name, a.amt)); });
+  var best = clone(better); parseAdds(S.quote.bestAdds).forEach(function(a){ if(!a.pct && !has(best, a.name)) best.push(extraLine(a.name, a.amt)); });
+  return [{ name:names[0], items:clone(base) }, { name:names[1], items:better }, { name:names[2], items:best }];
+}
+function offerTiers(jid){
+  var j = job(jid); if(!j || j.tiers) return; if(!j.items.length){ toast('Add at least one line first'); return; }
+  j.tiers = buildTiers(j.items); j.edit = 0; j.pick = null; j.items = j.tiers[0].items; logJob(j, 'Offered three options'); save(); render();
+  toast(parseAdds(S.quote.betterAdds).length || parseAdds(S.quote.bestAdds).length ? '3 options ready — tap one to change it' : '3 options ready — set what Better and Best add in More → How you price');
+}
+function untier(jid){
+  var j = job(jid); if(!j || !j.tiers) return;
+  if(!confirm('Go back to one price? This keeps “' + j.tiers[j.edit || 0].name + '” and drops the other options.')) return;
+  j.items = clone(j.items); delete j.tiers; delete j.pick; delete j.edit; save(); render();
+}
+function tierEdit(jid, k){ var j = job(jid); if(!j || !j.tiers) return; if(j.signed && k !== (j.edit || 0)){ toast('It’s approved — tap Undo approval to switch options'); return; } tierSelect(j, k); save(); render(); }
+function tierName(jid, v){ var j = job(jid); if(!j || !j.tiers) return; var k = j.edit || 0; j.tiers[k].name = String(v || '').trim() || S.quote.names[k] || 'Option ' + (k + 1); save(); render(); }
+function setQNote(jid, v){ var j = job(jid); if(!j) return; j.qnote = oneSentence(v); save(); var q = $('qn'); if(q) q.value = j.qnote; toast('Saved'); }
+function estAmount(j){
+  if(j.tiers && j.tiers.length && (j.pick == null || !j.tiers[j.pick])){ var ts = j.tiers.map(function(t, k){ return tierTotal(j, k); }); return j.tiers.length + ' options, from ' + money(Math.min.apply(null, ts)); }
+  return money(jobTotal(j));
+}
+
+/* ── matching: a line matches a price-list item when their important words line up ── */
+var STOP = { the:1, a:1, an:1, of:1, and:1, or:1, 'for':1, to:1, 'in':1, on:1, 'with':1, per:1, 'new':1, old:1, replace:1, replacement:1, install:1, installation:1, labor:1, service:1, gal:1, gallon:1, x:1 };
+function norm(s){ return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function words(s){ return norm(s).split(' ').filter(function(w){ return w.length > 1 && !STOP[w] && !/^\d+$/.test(w); }).map(function(w){ return w.replace(/(ing|es|s)$/, ''); }); }
+function matchPrice(name){
+  var w = words(name); if(!w.length) return null; var best = null, bs = 0;
+  S.prices.forEach(function(p){ if(!p.name) return; var pw = words(p.name); if(!pw.length) return; var hit = pw.filter(function(x){ return w.indexOf(x) >= 0; }).length, sc = hit / pw.length;
+    if(hit && sc > bs && (sc >= 0.67 || (pw.length >= 2 && hit >= 2))){ bs = sc; best = p; } });
+  if(!best && /trip|service call/i.test(name)) best = tripItem() || null;
+  if(!best && /labou?r|hour/i.test(name) && !words(name).length) best = laborItem() || null;
+  return best;
+}
+function tripItem(){ return S.prices.filter(function(p){ return /trip|service call/i.test(p.name || ''); })[0]; }
+function laborItem(){ return S.prices.filter(function(p){ return /labou?r/i.test(p.name || '') && /hour/i.test(p.name || ''); })[0] || S.prices.filter(function(p){ return /labou?r/i.test(p.name || ''); })[0]; }
+/* add-ons from the profile: "Permit: $75", "Materials markup: 15%" */
+function parseAdds(text){ return String(text || '').split('\n').map(function(l){ return l.trim(); }).filter(Boolean).map(function(l){ var m = /^(.*?)[:\-–]\s*\$?\s*([\d.,]+)\s*(%)?/.exec(l); return m ? { name:m[1].trim(), amt:parseFloat(m[2].replace(/,/g, '')), pct:!!m[3] } : null; }).filter(Boolean); }
+function addons(){ return parseAdds(S.quote.addons); }
+function oneSentence(t){ t = String(t || '').replace(/\s+/g, ' ').trim(); var m = /^(.+?[.!?])(\s|$)/.exec(t); t = m ? m[1] : t; if(t.length > 160) t = t.slice(0, 157).replace(/\s\S*$/, '') + '…'; return t; }
+function qtyFor(p, low){ if(/pipe/i.test(p.name)){ var m = /(\d+)\s*(?:ft|feet|foot)\b/.exec(low); if(m) return Math.max(1, Math.round(+m[1] / 10)); } var n = /\b(two|three|four|2|3|4)\s+(?:\w+\s){0,2}(toilets|faucets|drains)/.exec(low); if(n) return ({ two:2, three:3, four:4 })[n[1]] || +n[1]; return 1; }
+function applyTrip(items){
+  var t = tripItem(); if(!t) return; if(items.some(function(i){ return matchPrice(i.name) === t; })) return;
+  var sub = lineSum(items), Qd = S.quote;
+  if(Qd.trip === 'every' || (Qd.trip === 'small' && sub < (num(Qd.tripUnder) || 300))) items.unshift({ name:t.name, qty:1, price:num(t.price) });
+}
+
+/* ── ⚡ a draft from the price list ── */
+function draftItems(text){
+  var jw = words(text), items = [], Qd = S.quote, low = text.toLowerCase();
+  S.prices.forEach(function(p){ if(!p.name) return; if(/trip|service call/i.test(p.name) || (/labou?r/i.test(p.name) && /hour/i.test(p.name))) return; var pw = words(p.name); if(!pw.length) return;
+    var hit = pw.filter(function(x){ return jw.indexOf(x) >= 0; }).length; if(hit / pw.length >= 0.5 || (pw.length >= 2 && hit >= 2)) items.push({ name:p.name, qty:qtyFor(p, low), price:num(p.price) }); });
+  var hrs = /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)\b/i.exec(text), lab = laborItem(); if(hrs && lab) items.push({ name:lab.name, qty:+hrs[1], price:num(lab.price) });
+  var inc = String(Qd.included || '').toLowerCase();
+  addons().forEach(function(a){ if(a.pct) return; var aw = words(a.name);
+    /* already included in the price, says the profile ("includes … haul-away") → don't charge it twice */
+    if(aw.some(function(x){ return inc.indexOf(x) >= 0; }) || (/dispos|haul/i.test(a.name) && /haul|dispos/.test(inc)) || (/permit/i.test(a.name) && /permit/.test(inc))) return;
+    var hint = aw.some(function(x){ return jw.indexOf(x) >= 0; }) || (/permit/i.test(a.name) && /water heater|gas line|repipe|sewer|panel|furnace|roof/i.test(text)) || (/dispos|haul/i.test(a.name) && /haul|dispos|old (unit|one|heater|toilet)/i.test(text));
+    if(hint) items.push({ name:a.name, qty:1, price:num(a.amt) }); });
+  applyTrip(items);
+  return items;
+}
+function draftLocal(jid, extraNote){
+  var j = job(jid); if(!j) return;
+  var text = (j.title || '') + '. ' + (j.desc || '');
+  if(!String(j.title || j.desc || '').trim()){ alert('Describe the job first — tap ✏️ Edit.'); return; }
+  var keep = j.items.filter(function(l){ return l.receiptId; }), own = j.items.filter(function(l){ return !l.receiptId; });
+  if(typeof extraNote !== 'string' && own.length && !confirm('Replace the ' + own.length + ' line' + (own.length > 1 ? 's' : '') + ' on this ' + (QM() ? 'quote' : 'job') + ' with a fresh draft from your price list?')) return;
+  var items = draftItems(text), base = items.concat(keep);
+  if(j.tiers){ j.tiers = buildTiers(base, j.tiers.map(function(t){ return t.name; })); j.edit = 0; j.pick = null; j.items = j.tiers[0].items; } else j.items = base;
+  var any = items.filter(function(i){ return !/trip|service call/i.test(i.name); }).length;
+  j.qnote = extraNote ? oneSentence(extraNote) : oneSentence(S.quote.tone === 'friendly' ? (any ? 'Here’s your estimate — prices are from our standard list and include everything shown.' : 'We’ll take a look and confirm the price before any work starts.') : (any ? 'Priced from standard list; final price confirmed on site.' : 'Site visit needed to price this job.'));
+  j.via = 'list'; logJob(j, 'Priced from the price list'); save(); render();
+  toast(any ? 'Drafted ' + items.length + ' line' + (items.length > 1 ? 's' : '') + ' from your price list — check them over' : 'Nothing on your price list matched — add lines' + (hasAI() ? ', or try ✨' : ''));
+}
+function draftNote(jid){ var note = (($('aqN') || {}).value || '').trim(); closeSheet(true); draftLocal(jid, note); }
+
+/* ── lines that keep coming back → offer them to the price list ── */
+function seenKeys(j){ var o = {}; allLines(j).forEach(function(l){ if(l.name && !l.receiptId && !matchPrice(l.name)) o[norm(l.name)] = 1; }); return Object.keys(o); }
+function remember(j){ if(!j || j.seenK) return; j.seenK = seenKeys(j); j.seenK.forEach(function(k){ S.quote.seen[k] = (S.quote.seen[k] || 0) + 1; }); }
+function suggestions(j){
+  var out = [], done = {};
+  j.items.forEach(function(l, i){ if(!l.name || l.receiptId || matchPrice(l.name)) return; var k = norm(l.name); if(done[k]) return; done[k] = 1;
+    var t = (S.quote.seen[k] || 0) - (j.seenK && j.seenK.indexOf(k) >= 0 ? 1 : 0);
+    if(t >= 1) out.push('<div class="banner small" style="margin:8px 0 0">💡 You’ve used <b>' + esc(l.name) + '</b> ' + (t + 1) + ' times.<button class="btn sm full" style="margin-top:6px" onclick="BM.keepLine(\'' + j.id + '\',' + i + ')">Save it to my price list at ' + money(l.price) + '</button></div>'); });
+  return out.join('');
+}
+function keepLine(jid, i){
+  var j = job(jid), l = j && j.items[i]; if(!l) return;
+  var ex = S.prices.filter(function(p){ return norm(p.name) === norm(l.name); })[0];
+  if(ex) ex.price = num(l.price); else S.prices.push({ name:l.name, price:num(l.price) });
+  save(); render(); toast('On your price list: ' + l.name + ' ' + money(l.price));
+}
+
+/* ── ✨ the owner's own AI: the request goes out through djAI, the answer comes back pasted ── */
+function aiLabel(){ var n = aiName(); return n === 'Your AI' ? 'my AI' : n; }
+function aiQuote(jid){
+  var j = job(jid); if(!j) return; if(!String(j.title || j.desc || '').trim()){ alert('Add some details about the job first.'); return; }
+  var nm = j.tiers ? j.tiers.map(function(t){ return t.name; }) : S.quote.names;
+  sheet('<h3>✨ Ask ' + esc(aiLabel()) + ' for the price</h3><p class="muted" style="margin:0 0 6px">It gets your price list, how you price and the job details. Then you copy its answer back here. <b>Your price list always wins.</b></p>'
+    + '<label class="f" for="aqN">Anything to change this time? <span class="muted small">(optional)</span></label><input class="i" id="aqN" placeholder="e.g. the customer supplies the unit">'
+    + '<label class="row" style="margin:12px 0 4px"><input type="checkbox" id="aqT" style="width:24px;height:24px;flex:none"' + (j.tiers ? ' checked disabled' : '') + '><span>⭐ Ask for 3 options (' + esc(nm.join(' / ')) + ')</span></label>'
+    + '<button class="btn main full" style="margin-top:10px" onclick="BM.aiQuoteGo(\'' + jid + '\')">✨ Ask ' + esc(aiLabel()) + '</button>'
+    + '<button class="btn full" style="margin-top:8px" onclick="BM.draftNote(\'' + jid + '\')">⚡ Redo from my price list instead</button>');
+}
+function aiQuoteGo(jid){
+  var j = job(jid), note = (($('aqN') || {}).value || '').trim(), three = !!(j.tiers || ($('aqT') && $('aqT').checked));
+  closeSheet(true);
+  djAI.ask({ title:'Price this job', want:'text', circle:false, prompt:aiRequest(j, note, three), onResult:function(v, raw){ useAI(jid, raw || v, three); } });
+}
+function profileLines(){
+  var Qd = S.quote, trip = { every:'Every job', small:'Only small jobs (under ' + money0(Qd.tripUnder) + ')', never:'Never' }[Qd.trip] || Qd.trip;
+  return ['What’s included in each price: ' + (Qd.included ? Qd.included.replace(/\n/g, '; ') : '(not answered)'), 'Add-ons charged separately: ' + (Qd.addons ? Qd.addons.replace(/\n/g, '; ') : '(none)'),
+    'Service area: ' + ([Qd.city, Qd.county].filter(Boolean).join(', ') || '(not answered)'), 'Trip charge: ' + trip, 'Tone of the note: ' + (Qd.tone === 'friendly' ? 'Friendly, for the customer' : 'Short and technical'),
+    'Line item detail: ' + (Qd.detail === 'bundled' ? 'Bundled lines' : 'Itemized parts and labor')].map(function(x){ return '- ' + x; }).join('\n');
+}
+function aiRequest(j, note, three){
+  var Qd = S.quote, names = j.tiers ? j.tiers.map(function(t){ return t.name; }) : Qd.names, c = cust(j.customerId);
+  var row = function(i){ return '- ' + i.name + ' × ' + num(i.qty) + ' @ $' + num(i.price); };
+  var list = S.prices.filter(function(p){ return p.name; }).map(function(p){ return '- ' + p.name + ': $' + num(p.price); }).join('\n');
+  var cur = j.items.filter(function(l){ return !l.receiptId; }).length ? '\n\nCURRENT DRAFT (improve it):\n' + (j.tiers ? j.tiers.map(function(t, k){ return t.name + ':\n' + tierItems(j, k).map(row).join('\n'); }).join('\n') : j.items.map(row).join('\n')) : '';
+  var ask = three ? '\n\nGIVE THREE OPTIONS the customer can choose from, cheapest first, named ' + names.join(' / ') + ' (for example: repair / replace / replace plus extras). Each option is a complete list with its own lines.'
+    + (Qd.betterAdds ? ' The owner adds to the middle option: ' + Qd.betterAdds.replace(/\n/g, '; ') + '.' : '') + (Qd.bestAdds ? ' The owner adds to the top option: ' + Qd.bestAdds.replace(/\n/g, '; ') + '.' : '') : '';
+  var shape = three ? '{"options":[{"name":' + JSON.stringify(names[0]) + ',"items":[{"name":"...","qty":1,"price":0}]},{"name":' + JSON.stringify(names[1]) + ',"items":[...]},{"name":' + JSON.stringify(names[2]) + ',"items":[...]}],"note":"one short sentence"}'
+    : '{"items":[{"name":"...","qty":1,"price":0}],"note":"one short sentence"}';
+  var never = Qd.never.map(function(v){ return ({ brands:'brand names', warranties:'warranties', guesses:'guessed prices or quantities' })[v]; }).filter(Boolean).concat(Qd.neverOther ? [Qd.neverOther] : []).join(', ') || 'nothing special';
+  return 'You are writing a ' + (TRADES[S.biz.trade] || TRADES.other).name.toLowerCase() + ' estimate for a small business. Use ONLY the information below.\n\nBUSINESS PROFILE:\n' + profileLines()
+    + '\n\nPRICE LIST (use these exact names and prices whenever an item matches):\n' + (list || '(none yet)')
+    + '\n\nJOB' + (c.id ? ' for ' + c.name : '') + ':\n' + j.title + (j.desc ? '\n' + j.desc : '') + cur + (note ? '\n\nCHANGE THIS TIME: ' + note : '') + ask
+    + '\n\nRULES: follow the profile (trip charge, add-ons, bundled or itemized, tone). Never include: ' + never + '. The note must be ONE short sentence.'
+    + '\n\nReply with ONLY this JSON, nothing else:\n' + shape;
+}
+function parseItems(arr){ return (Array.isArray(arr) ? arr : []).map(function(i){ return typeof i === 'string' ? { name:i.trim(), qty:1, price:0 } : { name:String(i.name || i.item || i.description || '').trim(), qty:+(i.qty || i.quantity || 1) || 1, price:+String(i.price != null ? i.price : (i.unit_price != null ? i.unit_price : (i.rate || i.amount || 0))).replace(/[^\d.\-]/g, '') || 0 }; }).filter(function(i){ return i.name; }); }
+/* tolerant: {items}, {lines}, {options:[{name,items}]}, {tiers|choices|packages}, {good,better,best}, a bare array — or plain "name | qty | price" lines */
+function parseAIQuote(raw){
+  var s0 = String(raw || '').replace(/```(?:json)?/gi, '').replace(/[“”]/g, '"').replace(/[‘’]/g, "'"), j = null;
+  [['{', '}'], ['[', ']']].some(function(p){ var a = s0.indexOf(p[0]), b = s0.lastIndexOf(p[1]); if(a < 0 || b <= a) return false; try{ j = JSON.parse(s0.slice(a, b + 1).replace(/,\s*([}\]])/g, '$1')); return true; }catch(e){ return false; } });
+  if(!j || typeof j !== 'object'){ var pl = parsePriceAnswer(raw); return { items:pl.items, tiers:null, note:pl.note || '' }; }
+  if(Array.isArray(j)) j = j.length && j[0] && (j[0].items || j[0].lines) ? { options:j } : { items:j };
+  var opts = j.options || j.tiers || j.choices || j.packages || j.estimates || null;
+  if(!opts && (j.good || j.better || j.best)) opts = ['good', 'better', 'best'].filter(function(k){ return j[k]; }).map(function(k){ return Object.assign({ name:k[0].toUpperCase() + k.slice(1) }, Array.isArray(j[k]) ? { items:j[k] } : j[k]); });
+  var tiers = null;
+  if(Array.isArray(opts)){ tiers = opts.map(function(o, k){ return { name:String((o && (o.name || o.title || o.label || o.tier)) || S.quote.names[k] || ('Option ' + (k + 1))).trim(), items:parseItems(o && (o.items || o.lines || o.line_items)) }; }).filter(function(t){ return t.items.length; }).slice(0, 3);
+    if(tiers.length < 2){ if(tiers.length === 1 && !(j.items || j.lines)) j.items = tiers[0].items; tiers = null; } }
+  return { items:tiers ? tiers[0].items : parseItems(j.items || j.lines), tiers:tiers, note:String(j.note || j.notes || '').trim() };
+}
+function useAI(jid, raw, three){
+  var j = job(jid); if(!j) return; var r = null;
+  try{ r = parseAIQuote(raw); }catch(e){ r = null; }
+  if(!r || (!r.items.length && !r.tiers)){ alert('I couldn’t find any prices in what you pasted. In ' + aiName() + ', tap Copy under its answer, come back, and paste again.'); return; }
+  /* the price list wins: any line that matches an item gets the list name and price */
+  var fixed = 0, fix = function(list){ list.forEach(function(i){ var m = matchPrice(i.name); if(m){ if(num(i.price) !== num(m.price)) fixed++; i.price = num(m.price); i.name = m.name; } }); applyTrip(list); };
+  var keep = j.items.filter(function(l){ return l.receiptId; });
+  if(r.tiers){ r.tiers.forEach(function(t){ fix(t.items); t.items = t.items.map(bare).concat(clone(keep)); }); j.tiers = r.tiers; j.edit = 0; j.pick = null; j.items = j.tiers[0].items; }
+  else { fix(r.items); var base = r.items.map(bare).concat(keep);
+    if(j.tiers || three){ j.tiers = buildTiers(base, j.tiers ? j.tiers.map(function(t){ return t.name; }) : null); j.edit = 0; j.pick = null; j.items = j.tiers[0].items; } else j.items = base; }
+  if(r.note) j.qnote = oneSentence(r.note);
+  j.via = 'ai'; logJob(j, 'Priced with ' + aiName()); save(); render();
+  toast(fixed ? fixed + (fixed === 1 ? ' price was' : ' prices were') + ' set to your price list' : 'Priced — check it over before you send');
+}
+
+/* ── signatures: finger strokes (on a 1000 × 300 grid, like the customer page) or a picture from Quick Quote ── */
+function sigHTML(sg, h){
+  if(!sg) return '';
+  if(sg.sig && sg.sig.length) return '<div style="margin-top:8px">' + sigSVG(sg.sig, '100%', h || 70) + '</div>';
+  if(sg.sigImg && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+\/=]+$/.test(sg.sigImg)) return '<div style="margin-top:8px"><img class="sigimg" src="' + sg.sigImg + '" alt="Signature of ' + esc(sg.name) + '"></div>';
+  return '';
+}
+var SG = null;
+function signHere(jid){
+  var j = job(jid), c = cust(j.customerId);
+  if(!lineSum(allLines(j)) && !num(j.price) && !confirm('There’s no price on this yet. Have them sign anyway?')) return;
+  SG = { jid:jid, pick:j.tiers ? (j.pick != null ? j.pick : null) : null, sig:[], cur:null };
+  var body = j.tiers ? '<p style="margin:0 0 6px"><b>Please choose one option:</b></p>' + j.tiers.map(function(t, k){ return '<button type="button" class="vopt' + (SG.pick === k ? ' on' : '') + '" data-k="' + k + '" onclick="BM.sgPick(' + k + ')" aria-pressed="' + (SG.pick === k) + '"><b>' + esc(t.name) + '</b><div class="ol">' + tierItems(j, k).map(function(l){ return esc(l.name) + (num(l.qty) !== 1 ? ' × ' + num(l.qty) : ''); }).join('<br>') + '</div><div class="ot">' + money(tierTotal(j, k)) + '</div></button>'; }).join('')
+    : '<div class="card" style="padding:10px 12px">' + jobLines(j).map(function(l){ return esc(l.name) + (num(l.qty) !== 1 ? ' × ' + num(l.qty) : '') + ' — ' + money(num(l.qty) * num(l.price)); }).join('<br>') + '<div class="tot grand"><span>Total</span><span>' + money(jobTotal(j)) + '</span></div></div>';
+  sheet('<h3>✍️ ' + esc(S.biz.name || 'Estimate') + '</h3><p class="muted" style="margin:0 0 8px">Estimate #' + j.num + ' for ' + esc(c.name) + ' · ' + fdLong(today()) + '</p>' + body + (j.qnote ? '<p class="muted">' + esc(j.qnote) + '</p>' : '')
+    + '<label class="f" for="sgN">Your full name</label><input class="i" id="sgN" autocomplete="name" value="' + esc(c.id ? c.name : '') + '">'
+    + '<div class="row" style="margin-top:12px"><span class="grow muted">Sign here with your finger</span><button class="btn sm" type="button" onclick="BM.sgClear()">Clear</button></div>'
+    + '<div class="sgpad"><canvas id="sgPad" aria-label="Signature box"></canvas></div>'
+    + '<button class="btn good full" style="margin-top:12px" onclick="BM.sgDone()">✅ Done — I approve</button><button class="btn sm full" style="margin-top:6px" onclick="BM.closeSheet()">Cancel</button>'
+    + '<p class="hint">Signing means you approve this estimate' + (j.tiers ? ' and the option you chose' : '') + '.</p>', function(w){ w.setAttribute('data-hold', '1'); setTimeout(initSgPad, 30); });
+}
+function initSgPad(){
+  var c = $('sgPad'); if(!c || !SG) return; var g = c.getContext('2d');
+  function fit(){ var r = c.getBoundingClientRect(), k = window.devicePixelRatio || 1; c.width = Math.max(10, r.width * k); c.height = Math.max(10, r.height * k); g.setTransform(c.width / 1000, 0, 0, c.height / 300, 0, 0); draw(); }
+  function draw(){ g.clearRect(0, 0, 1000, 300); g.lineWidth = 7; g.lineCap = g.lineJoin = 'round'; g.strokeStyle = '#1C2630'; SG.sig.forEach(function(s){ g.beginPath(); for(var i = 0; i + 1 < s.length; i += 2){ if(i) g.lineTo(s[i], s[i + 1]); else g.moveTo(s[i], s[i + 1]); } if(s.length === 2) g.lineTo(s[0] + 1, s[1]); g.stroke(); }); }
+  function pt(e){ var r = c.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 300)]; }
+  c.addEventListener('pointerdown', function(e){ e.preventDefault(); try{ c.setPointerCapture(e.pointerId); }catch(x){} SG.cur = pt(e); SG.sig.push(SG.cur); draw(); });
+  c.addEventListener('pointermove', function(e){ if(!SG || !SG.cur) return; var p = pt(e), n = SG.cur.length; if(Math.abs(p[0] - SG.cur[n - 2]) + Math.abs(p[1] - SG.cur[n - 1]) < 6) return; SG.cur.push(p[0], p[1]); draw(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev){ c.addEventListener(ev, function(){ if(SG) SG.cur = null; }); });
+  SG.redraw = draw; fit();
+}
+function sgPick(k){ if(!SG) return; SG.pick = k; document.querySelectorAll('#bmSheet .vopt').forEach(function(b){ var on = +b.getAttribute('data-k') === k; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
+function sgClear(){ if(!SG) return; SG.sig = []; SG.cur = null; if(SG.redraw) SG.redraw(); }
+function sgDone(){
+  if(!SG) return; var j = job(SG.jid); if(!j) return;
+  if(j.tiers && SG.pick == null){ toast('Please tap the option you want first'); return; }
+  var nm = ($('sgN').value || '').trim(); if(!nm){ $('sgN').focus(); toast('Please type your name'); return; }
+  if(!SG.sig.some(function(s){ return s.length >= 4; })){ toast('Please sign in the box with your finger'); return; }
+  if(j.tiers){ tierSelect(j, SG.pick); j.pick = SG.pick; }
+  var at = new Date().toISOString();
+  j.signed = { name:nm, date:today(), at:at, sig:SG.sig, total:jobTotal(j), via:'screen', option:j.tiers ? j.tiers[j.pick].name : '' };
+  j.signedCopy = Object.assign(estPayload(j), { sg:j.signed });
+  j.estSent = j.estSent || today();
+  if(['new', 'estimate'].indexOf(j.status) >= 0) j.status = 'approved';
+  logJob(j, 'Signed by ' + nm + ' on my phone' + (j.signed.option ? ' — ' + j.signed.option : '')); remember(j);
+  SG = null; save(); closeSheet(); render(); toast('Approved by ' + nm + ' — saved');
+}
+function unapprove(jid){
+  var j = job(jid); if(!j || !j.signed) return;
+  if(!confirm('Remove ' + j.signed.name + '’s approval so you can change the estimate? They will need to approve again.')) return;
+  logJob(j, 'Approval by ' + j.signed.name + ' undone'); delete j.signed; delete j.signedCopy; j.pick = null;
+  if(j.status === 'approved') j.status = j.estSent ? 'estimate' : 'new';
+  save(); render();
+}
+
+/* ── photos: up to 4, shrunk on the phone (≤1000 px JPEG) ── */
+function thumb(src, max, q){ return new Promise(function(res){ var i = new Image(); i.onload = function(){ try{ var k = Math.min(1, max / Math.max(i.naturalWidth, i.naturalHeight)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(i.naturalWidth * k)); c.height = Math.max(1, Math.round(i.naturalHeight * k)); var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(i, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', q)); }catch(e){ res(null); } }; i.onerror = function(){ res(null); }; i.src = src; }); }
+async function photoSrc(id){
+  var v = null; try{ v = await getFile(id); }catch(e){ v = null; } if(!v) return null;
+  if(typeof v === 'string') return /^data:image\//.test(v) ? v : null;
+  return await new Promise(function(res){ var r = new FileReader(); r.onload = function(){ res(r.result); }; r.onerror = function(){ res(null); }; r.readAsDataURL(v); });
+}
+function photoBlock(j){
+  var ph = j.photos || [];
+  return '<h2>Photos</h2><div class="card">' + (ph.length ? '<div class="phs">' + ph.map(function(id){ return '<div class="ph"><img data-ph="' + esc(id) + '" alt="Job photo"><button type="button" class="px noprint" onclick="BM.delPhoto(\'' + j.id + '\',\'' + esc(id) + '\')" aria-label="Remove photo">✕</button></div>'; }).join('') + '</div>' : '<p class="muted" style="margin:0 0 8px">Up to 4 photos of the job. They print with the estimate.</p>')
+    + (ph.length < 4 ? '<label class="btn sm">📷 Add photos<input type="file" id="phIn" accept="image/*" multiple hidden onchange="BM.addPhotos(\'' + j.id + '\',this)"></label>' : '') + '</div>';
+}
+function readAsURL(f){ return new Promise(function(res){ var r = new FileReader(); r.onload = function(){ res(r.result); }; r.onerror = function(){ res(null); }; r.readAsDataURL(f); }); }
+async function addPhotos(jid, inp){
+  var j = job(jid); if(!j) return; var files = [].slice.call((inp && inp.files) || []); j.photos = j.photos || [];
+  var room = 4 - j.photos.length; if(room <= 0){ toast('Up to 4 photos — remove one first'); return; } if(files.length > room) toast('Up to 4 photos — adding the first ' + room);
+  var added = 0, bad = 0;
+  for(var n = 0; n < Math.min(room, files.length); n++){
+    try{ var raw = await readAsURL(files[n]), d = raw && await thumb(raw, 1000, 0.7); if(!d) throw 0; var id = 'ph' + uid(); await putFile(id, d); j.photos.push(id); added++; }catch(e){ bad++; }
+  }
+  if(added){ save(); render(); }
+  toast(bad ? (bad === 1 ? 'One photo could not be added' : bad + ' photos could not be added') : added === 1 ? 'Photo added' : added + ' photos added');
+}
+async function delPhoto(jid, pid){
+  var j = job(jid); if(!j || !confirm('Remove this photo?')) return;
+  j.photos = (j.photos || []).filter(function(x){ return x !== pid; }); if(!j.photos.length) delete j.photos;
+  if(!S.jobs.some(function(x){ return (x.photos || []).indexOf(pid) >= 0; })) await delFile(pid);
+  save(); render();
+}
+function fillPhotos(){ document.querySelectorAll('img[data-ph]').forEach(function(img){ photoSrc(img.getAttribute('data-ph')).then(function(src){ if(src) img.src = src; else img.alt = 'Photo not on this phone'; }); }); }
+
+/* ── print the estimate (with options, signature and full-size photos) ── */
+var DOC_CSS = '.bmdoc{font:15px/1.5 -apple-system,Segoe UI,sans-serif;max-width:760px;margin:0 auto;color:#111;background:#fff}.bmdoc h1{font-size:22px;margin:0}.bmdoc .hd{border-bottom:3px solid #1E3A4C;padding-bottom:10px;margin-bottom:10px}.bmdoc .big{font-size:20px;font-weight:800;letter-spacing:.04em;margin:12px 0 2px}.bmdoc table{width:100%;border-collapse:collapse;margin:10px 0}.bmdoc td,.bmdoc th{padding:7px 6px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}.bmdoc td.r,.bmdoc th.r{text-align:right;white-space:nowrap}.bmdoc .t{font-size:18px;font-weight:800}.bmdoc .opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}.bmdoc .opt{border:1.5px solid #bbb;border-radius:10px;padding:10px;break-inside:avoid;page-break-inside:avoid}.bmdoc .opt.on{border:3px solid #1F7A4D}.bmdoc .opt h3{margin:0 0 4px;font-size:17px}.bmdoc .opt table{margin:4px 0;font-size:13.5px}.bmdoc .opt td{padding:4px 2px}.bmdoc .opt .t{font-size:19px;text-align:right}.bmdoc .box{display:inline-block;width:16px;height:16px;border:1.5px solid #333;vertical-align:-3px;margin-right:6px;border-radius:3px}.bmdoc .sign{margin-top:26px;display:flex;gap:20px;flex-wrap:wrap}.bmdoc .sign div{flex:1;min-width:200px;border-top:1px solid #333;padding-top:4px;font-size:13px;color:#444}.bmdoc .ap{border:2px solid #1F7A4D;border-radius:10px;padding:10px 12px;margin:16px 0;break-inside:avoid;page-break-inside:avoid}.bmdoc .ap img,.bmdoc .ap svg{display:block;max-width:300px;width:100%;height:auto;margin-top:6px}.bmdoc .pics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}.bmdoc .pics img{width:100%;height:auto;max-height:340px;object-fit:contain;border:1px solid #ddd;border-radius:8px;break-inside:avoid;page-break-inside:avoid}.bmdoc .muted{color:#555;font-size:13.5px}.bmdoc .terms{white-space:pre-wrap;color:#555;font-size:13px;margin-top:12px}@media (max-width:560px){.bmdoc .opts{grid-template-columns:1fr}}@media print{.bmdoc .opts{grid-template-columns:repeat(3,minmax(0,1fr))}}';
+function estDocHTML(j, pics){
+  var b = S.biz, c = cust(j.customerId), tx = num(S.biz.taxRate), d0 = j.estSent || today();
+  var tbl = function(items, full){ return '<table>' + (full ? '<tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr>' : '') + items.map(function(i){ return full ? '<tr><td>' + esc(i.name) + '</td><td class="r">' + num(i.qty) + '</td><td class="r">' + money(i.price) + '</td><td class="r">' + money(num(i.qty) * num(i.price)) + '</td></tr>' : '<tr><td>' + esc(i.name) + (num(i.qty) !== 1 ? ' × ' + num(i.qty) : '') + '</td><td class="r">' + money(num(i.qty) * num(i.price)) + '</td></tr>'; }).join('') + '</table>'; };
+  var h = '<div class="bmdoc"><div class="hd"><h1>' + esc(b.name || 'Estimate') + '</h1><div class="muted">' + esc([b.owner, b.phone, b.email].filter(Boolean).join(' · ')) + (b.address ? '<br>' + esc(b.address) : '') + (b.license ? '<br>' + esc(b.license) : '') + '</div></div>'
+    + '<div class="big">ESTIMATE #' + esc(j.num) + '</div><div>Date: ' + fdLong(d0) + ' · Good until ' + fdLong(addDays(d0, 30)) + '</div><div>For: <b>' + esc(c.name) + '</b>' + (c.address ? ' · ' + esc(c.address) : '') + '</div>'
+    + '<p style="font-weight:800;margin:12px 0 2px">' + esc(j.title) + '</p>' + (j.desc ? '<p class="muted" style="white-space:pre-wrap;margin:0">' + esc(j.desc) + '</p>' : '');
+  if(F('lineItems') && j.tiers && j.tiers.length){
+    h += '<p>' + (j.signed ? 'The option chosen is marked.' : 'Please choose one option.') + '</p><div class="opts">' + j.tiers.map(function(t, k){ var on = j.signed && j.pick === k; return '<div class="opt' + (on ? ' on' : '') + '"><h3>' + (j.signed ? (on ? '✔ ' : '') : '<span class="box"></span>') + esc(t.name) + '</h3>' + tbl(tierItems(j, k), false) + '<div class="t">' + money(tierTotal(j, k)) + '</div></div>'; }).join('') + '</div>' + (tx ? '<p class="muted">Totals include ' + tx + '% sales tax.</p>' : '');
+  } else {
+    var sub = jobSub(j); h += tbl(jobLines(j), true) + (tx ? '<p class="r">Subtotal ' + money(sub) + ' · Sales tax (' + tx + '%) ' + money(jobTax(j)) + '</p>' : '') + '<p class="t" style="text-align:right">Total: ' + money(jobTotal(j)) + '</p>';
+  }
+  if(j.qnote) h += '<p>' + esc(j.qnote) + '</p>';
+  if(b.terms) h += '<div class="terms">' + esc(b.terms) + '</div>';
+  if(j.signed) h += '<div class="ap"><b>' + (j.signed.sig || j.signed.sigImg ? 'Signed' : 'Approved') + ' by ' + esc(j.signed.name) + ' on ' + fdLong(j.signed.date) + (j.signed.option ? ' — Option: ' + esc(j.signed.option) : '') + '</b>' + sigHTML(j.signed, 90) + '</div>';
+  else h += '<div class="sign"><div>Customer signature</div><div>Date</div></div>';
+  if(pics.length) h += '<p style="margin-top:18px"><b>Photos</b></p><div class="pics">' + pics.map(function(s){ return '<img src="' + s + '" alt="Job photo">'; }).join('') + '</div>';
+  return h + '</div>';
+}
+async function printEst(jid){
+  var j = job(jid); if(!j) return;
+  var w = null; try{ w = window.open('', '_blank'); }catch(e){ w = null; }
+  var pics = []; for(var i = 0; i < (j.photos || []).length; i++){ var s = await photoSrc(j.photos[i]); if(s) pics.push(s); }
+  remember(j); save();
+  var body = estDocHTML(j, pics), title = 'Estimate ' + j.num + ' — ' + cust(j.customerId).name;
+  if(w && !w.closed){ w.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + esc(title) + '</title><style>body{margin:24px 16px;background:#fff}' + DOC_CSS + '</style></head><body>' + body + '<script>window.onload=function(){setTimeout(function(){try{print()}catch(e){}},400)}<\/script></body></html>'); w.document.close(); return; }
+  /* no new window (blocked): print from this page instead */
+  $('bmPrint').innerHTML = '<style>' + DOC_CSS + '</style>' + body; document.body.classList.add('bmprinting');
+  var done = function(){ document.body.classList.remove('bmprinting'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done); setTimeout(function(){ window.print(); setTimeout(done, 1500); }, 300);
+}
+
+/* ── Quick Quote home, the upgrade, quotes-only switch ── */
+function upsellDue(){ var a = S.setup.upsellAt; return !a || daysBetween(a, today()) >= 14; }
+function upsellLater(){ S.setup.upsellAt = today(); save(); render(); }
+function homeQuotes(){
+  var t = today(), h = [], hr = new Date().getHours(), m0 = t.slice(0, 7);
+  setHead('Quick Quote', 'by Business Manager · ' + fd(t));
+  if(S.setup.demo) h.push('<div class="banner demo"><b>This is an example business.</b> Play with anything. <div class="btns" style="margin-top:8px"><button class="btn sm main" onclick="BM.fresh()">Start my own business</button></div></div>');
+  h.push('<div class="muted" style="margin:2px 2px 10px">' + (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (S.biz.owner ? ', ' + esc(first(S.biz.owner)) : '') + '.</div>');
+  var out = S.jobs.filter(function(j){ return j.status === 'estimate'; }), ok = S.jobs.filter(function(j){ return j.signed && (j.signed.date || '').slice(0, 7) === m0; });
+  h.push('<div class="stats"><button class="stat" onclick="BM.go(\'jobs/estimate\')"><div class="lbl">Waiting to hear</div><div class="val">' + money0(out.reduce(function(a, j){ return a + jobTotal(j); }, 0)) + '</div><div class="small muted">' + out.length + ' quote' + (out.length === 1 ? '' : 's') + ' out</div></button>'
+    + '<button class="stat paid" onclick="BM.go(\'jobs/approved\')"><div class="lbl">Approved this month</div><div class="val">' + money0(ok.reduce(function(a, j){ return a + jobTotal(j); }, 0)) + '</div><div class="small muted">' + ok.length + ' signed</div></button></div>');
+  if(qqHas() && !qqImported()) h.push('<div class="banner"><b>Used Quick Quote before?</b> Bring over your price list and saved estimates.<button class="btn sm main full" style="margin-top:8px" onclick="BM.qqImport()">📥 Bring over my Quick Quote prices and quotes</button></div>');
+  var n = needs();
+  h.push('<h2>Needs you' + (n.length ? ' (' + n.length + ')' : '') + '</h2>');
+  h.push(n.length ? n.slice(0, 8).map(function(x){ return '<button class="card tap need" onclick="' + x.go + '"><span class="ic">' + x.em + '</span><span class="grow"><b>' + esc(x.t) + '</b><div class="small muted">' + esc(x.s) + '</div></span><span class="pill">' + esc(x.a) + '</span></button>'; }).join('') : '<div class="card muted">✅ All caught up. Nice work.</div>');
+  h.push('<h2>Quick</h2><div class="btns"><button class="btn main" onclick="BM.go(\'newjob\')">➕ New quote</button><button class="btn" onclick="BM.go(\'prices\')">🏷️ Price list</button></div>');
+  var rec = S.jobs.slice().sort(function(a, b){ return (b.created || '').localeCompare(a.created || '') || b.num - a.num; }).slice(0, 5);
+  if(rec.length) h.push('<h2>Recent quotes</h2>' + rec.map(jobCard).join(''));
+  return h.join('');
+}
+VIEWS.prices = function(){ route = ['set', 'prices']; return VIEWS.set(); };
+VIEWS.upgrade = function(){
+  setHead('Business Manager', 'everything, when you’re ready');
+  if(!QM()) return '<div class="card">Business Manager is already on. 👍</div><button class="btn full" onclick="BM.go(\'home\')">Back to Today</button>';
+  var nq = S.jobs.length, ns = S.jobs.filter(function(j){ return j.signed; }).length;
+  return '<div class="card" style="text-align:center;padding:20px 16px"><div style="font-size:48px">🧰</div><div style="font-size:22px;font-weight:850;margin:4px 0">Turn on the rest of Business Manager</div><p class="muted" style="margin:0">' + PRICE.upgrade + ' more — the ' + PRICE.quotes + ' you paid for Quick Quote counts toward the ' + PRICE.full + '. Your quotes come with you.</p></div>'
+    + '<div class="card"><b>What you get</b><ul style="margin:6px 0 0;padding-left:20px"><li>🧾 An approved quote becomes an invoice with a <b>Pay now</b> link — nothing to retype</li><li>💵 Who owes you, friendly reminders, deposits</li><li>📅 The schedule and “on my way” texts</li><li>⛽ Receipts, expenses and your real profit</li><li>📦 A clean package for your accountant</li><li>📝 Tax dates and a to-do list</li></ul></div>'
+    + '<div class="card"><b>What stays the same</b><p class="muted" style="margin:4px 0 0">All ' + nq + ' quote' + (nq === 1 ? '' : 's') + (ns ? ' (' + ns + ' signed)' : '') + ', your price list, photos and signatures. You can go back to quotes only any time — nothing is deleted.</p></div>'
+    + '<button class="btn main full" onclick="BM.setMode(\'full\')">Turn on Business Manager</button><p class="hint" style="text-align:center">While we’re testing, it turns on right away.</p>';
+};
+function setMode(m){
+  if(m !== 'quotes' && m !== 'full') return;
+  if(m === 'quotes' && !confirm('Switch to quotes only? Invoices, expenses, the schedule and the rest are hidden, not deleted. Turn them back on any time in More.')) return;
+  S.mode = m; if(m === 'full') S.features.estimates = true;
+  save(); go('home'); toast(m === 'full' ? 'Business Manager is on — your quotes came with you' : 'Quick Quote: quotes only');
+}
+function quoteSettings(){
+  var Qd = S.quote, sel = function(id, val, opts){ return '<select class="i" id="' + id + '">' + opts.map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === val ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'; };
+  return '<p class="muted" style="margin:0 2px 10px">Every ⚡ draft and every ✨ AI request follows these. Your price list always wins.</p><div class="card">'
+    + '<label class="f" for="qsInc" style="margin-top:0">What’s included in your prices</label><textarea class="i" id="qsInc" placeholder="e.g. Installs include the unit, fittings and haul-away.">' + esc(Qd.included) + '</textarea>'
+    + '<label class="f" for="qsAdd">Add-ons you charge separately <span class="muted small">(one per line — name: price)</span></label><textarea class="i" id="qsAdd" placeholder="Permit: $75">' + esc(Qd.addons) + '</textarea>'
+    + '<div class="two"><div><label class="f" for="qsCity">City</label><input class="i" id="qsCity" value="' + esc(Qd.city) + '"></div><div><label class="f" for="qsCounty">County</label><input class="i" id="qsCounty" value="' + esc(Qd.county) + '"></div></div>'
+    + '<div class="two"><div><label class="f" for="qsTrip">Trip charge</label>' + sel('qsTrip', Qd.trip, [['every', 'Every job'], ['small', 'Only small jobs'], ['never', 'Never']]) + '</div><div><label class="f" for="qsUnder">“Small” means under</label><input class="i" id="qsUnder" inputmode="decimal" value="' + esc(Qd.tripUnder) + '"></div></div>'
+    + '<div class="two"><div><label class="f" for="qsTone">The note reads</label>' + sel('qsTone', Qd.tone, [['short', 'Short and technical'], ['friendly', 'Friendly']]) + '</div><div><label class="f" for="qsDet">Lines</label>' + sel('qsDet', Qd.detail, [['itemized', 'Parts and labor'], ['bundled', 'Bundled']]) + '</div></div>'
+    + '<label class="f">Never include</label>' + [['brands', 'Brand names'], ['warranties', 'Warranties'], ['guesses', 'Guesses (prices not on my list, unknown quantities)']].map(function(x){ return '<label class="row" style="margin:6px 0;min-height:44px"><input type="checkbox" class="qsNever" value="' + x[0] + '" style="width:24px;height:24px;flex:none"' + (Qd.never.indexOf(x[0]) >= 0 ? ' checked' : '') + '><span>' + x[1] + '</span></label>'; }).join('')
+    + '<input class="i" id="qsOther" value="' + esc(Qd.neverOther) + '" placeholder="Anything else to leave out" aria-label="Anything else to leave out"></div>'
+    + '<h2>⭐ Good / Better / Best</h2><div class="card"><p class="muted" style="margin:0">Used when you tap “Offer 3 options”. Better is the job plus the Better extras; Best is Better plus the Best extras. Items on your price list always use your price.</p>'
+    + '<label class="f">Names of the three options</label><div class="tiers">' + [0, 1, 2].map(function(k){ return '<input class="i" id="qsN' + k + '" value="' + esc(Qd.names[k]) + '" aria-label="Option ' + (k + 1) + ' name" style="min-width:0;padding:10px 8px">'; }).join('') + '</div>'
+    + '<label class="f" for="qsBetter">Better adds <span class="muted small">(one per line — name: price)</span></label><textarea class="i" id="qsBetter">' + esc(Qd.betterAdds) + '</textarea>'
+    + '<label class="f" for="qsBest">Best adds</label><textarea class="i" id="qsBest">' + esc(Qd.bestAdds) + '</textarea></div>'
+    + '<button class="btn main full" onclick="BM.saveQuote()">Save</button>';
+}
+function saveQuote(){
+  var Qd = S.quote, def = ['Good', 'Better', 'Best'];
+  Qd.included = $('qsInc').value.trim(); Qd.addons = $('qsAdd').value.trim(); Qd.city = $('qsCity').value.trim(); Qd.county = $('qsCounty').value.trim();
+  Qd.trip = $('qsTrip').value; Qd.tripUnder = num($('qsUnder').value) || 300; Qd.tone = $('qsTone').value; Qd.detail = $('qsDet').value;
+  Qd.never = [].map.call(document.querySelectorAll('.qsNever:checked'), function(x){ return x.value; }); Qd.neverOther = $('qsOther').value.trim();
+  Qd.names = [0, 1, 2].map(function(k){ return $('qsN' + k).value.trim() || def[k]; }); Qd.betterAdds = $('qsBetter').value.trim(); Qd.bestAdds = $('qsBest').value.trim();
+  save(); toast('Saved'); go('more');
+}
+
+/* ── one tap: bring over Quick Quote (same phone, same web address). Reads only — Quick Quote is never changed. ── */
+var QQK = 'dj_quickquote_v1';
+function qqData(){ try{ var d = JSON.parse(localStorage.getItem(QQK) || 'null'); return d && typeof d === 'object' ? d : null; }catch(e){ return null; } }
+function qqHas(){ var d = qqData(); return !!(d && (d.setup || (Array.isArray(d.saved) && d.saved.length))); }
+function qqImported(){ return !!(S && S.imports && S.imports.qq); }
+function qqIdb(){ return new Promise(function(res){ try{ var r = indexedDB.open('dj_quickquote_media', 1);
+  /* if Quick Quote never made its photo store, make it exactly as Quick Quote would, so Quick Quote keeps working */
+  r.onupgradeneeded = function(){ if(!r.result.objectStoreNames.contains('photos')) r.result.createObjectStore('photos'); };
+  r.onsuccess = function(){ res(r.result); }; r.onerror = function(){ res(null); }; r.onblocked = function(){ res(null); }; }catch(e){ res(null); } }); }
+function qqPhoto(dbh, id, d){ if(d.media && typeof d.media[id] === 'string') return Promise.resolve(d.media[id]); if(!dbh) return Promise.resolve(null);
+  return new Promise(function(res){ try{ var q = dbh.transaction('photos').objectStore('photos').get(id); q.onsuccess = function(){ res(q.result || null); }; q.onerror = function(){ res(null); }; }catch(e){ res(null); } }); }
+function qqDay(at){ var d = at ? new Date(at) : null; return d && !isNaN(d) ? ymd(d) : today(); }
+function qqTitle(desc){ var t = String(desc || '').split('\n')[0].trim(), m = t.match(/^(.+?[.!?])(\s|$)/); if(m) t = m[1]; t = t.replace(/[.!?]+$/, ''); if(t.length > 60) t = t.slice(0, 57).replace(/\s\S*$/, '') + '…'; return t || 'Quote'; }
+function qqLines(list){ return (Array.isArray(list) ? list : []).filter(function(i){ return i && (i.name || i.price); }).map(function(i){ return { name:String(i.name || '').trim() || 'Item', qty:num(i.qty) || 1, price:num(i.price) }; }); }
+function starterUntouched(){ var T = (TRADES[S.biz.trade] || TRADES.other).items; return S.prices.length === T.length && T.every(function(x, i){ return S.prices[i] && S.prices[i].name === x[0] && num(S.prices[i].price) === x[2]; }); }
+async function qqJob(e, dbh, d, imp, n){
+  var nm = String(e.customer || '').trim() || 'Customer';
+  var c = S.customers.filter(function(x){ return String(x.name || '').toLowerCase() === nm.toLowerCase(); })[0];
+  if(!c){ c = { id:uid(), name:nm, phone:'', email:'', address:'', created:today() }; S.customers.push(c); }
+  var date = qqDay(e.at), desc = String(e.job || '').trim();
+  var j = { id:uid(), num:S.seq.job++, customerId:c.id, title:qqTitle(desc), desc:desc, status:'new', created:date, items:[], times:[], log:[{ d:today(), t:'Brought over from Quick Quote' }], qnote:e.note ? oneSentence(e.note) : '', via:e.via || 'list', from:'quickquote' };
+  if(Array.isArray(e.tiers) && e.tiers.length){
+    j.tiers = e.tiers.map(function(t, k){ return { name:String((t && t.name) || S.quote.names[k] || ('Option ' + (k + 1))), items:qqLines(t && t.items) }; });
+    var hasPick = e.pick != null && j.tiers[e.pick], k0 = hasPick ? +e.pick : Math.min(+e.edit || 0, j.tiers.length - 1);
+    j.edit = k0; j.items = j.tiers[k0].items; if(hasPick) j.pick = +e.pick;
+  } else j.items = qqLines(e.items);
+  j.price = lineSum(j.items);
+  if(e.approval && e.approval.name){ var ad = qqDay(e.approval.at);
+    j.signed = { name:String(e.approval.name), date:ad, at:e.approval.at || '', total:jobTotal(j), via:'quickquote', option:String(e.approval.option || '') };
+    if(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+\/=]+$/.test(e.approval.sig || '')) j.signed.sigImg = e.approval.sig;
+    j.status = 'approved'; j.estSent = ad; }
+  else if(e.sent){ j.status = 'estimate'; j.estSent = date; }
+  var ph = [];
+  for(var i = 0; i < (e.photos || []).length && ph.length < 4; i++){ var pid = e.photos[i];
+    if(imp.photos[pid]){ ph.push(imp.photos[pid]); continue; }
+    var data = await qqPhoto(dbh, pid, d);
+    if(typeof data === 'string' && /^data:image\//.test(data)){ var nid = 'ph' + uid(); try{ await putFile(nid, data); imp.photos[pid] = nid; ph.push(nid); n.ph++; }catch(x){} } }
+  if(ph.length) j.photos = ph;
+  S.jobs.push(j); return j;
+}
+async function qqImport(){
+  var d = qqData(); if(!d || !S){ alert('I can’t find Quick Quote on this phone. It has to be the same phone and the same web browser.'); return; }
+  var imp = S.imports.qq || {}; imp.map = imp.map || {}; imp.photos = imp.photos || {};
+  var n = { p:0, q:0, i:0, ph:0, same:0 };
+  /* the business and how they price */
+  if(d.biz){ if(!S.biz.name && d.biz.name) S.biz.name = String(d.biz.name); if(!S.biz.phone && d.biz.phone) S.biz.phone = String(d.biz.phone); }
+  var P = d.profile || {};
+  ['included', 'addons', 'city', 'county', 'neverOther'].forEach(function(k){ if(typeof P[k] === 'string' && P[k].trim()) S.quote[k] = P[k]; });
+  ['trip', 'tone', 'detail'].forEach(function(k){ if(typeof P[k] === 'string' && P[k]) S.quote[k] = P[k]; });
+  if(num(P.tripUnder)) S.quote.tripUnder = num(P.tripUnder); if(Array.isArray(P.never)) S.quote.never = P.never.slice();
+  if(d.opt){ if(Array.isArray(d.opt.names) && d.opt.names.length === 3) S.quote.names = d.opt.names.map(String); if(typeof d.opt.betterAdds === 'string') S.quote.betterAdds = d.opt.betterAdds; if(typeof d.opt.bestAdds === 'string') S.quote.bestAdds = d.opt.bestAdds; }
+  Object.keys(d.seen || {}).forEach(function(k){ S.quote.seen[k] = Math.max(S.quote.seen[k] || 0, +d.seen[k] || 0); });
+  /* the price list: theirs replaces the untouched starter list; same names update, new ones are added */
+  if(Array.isArray(d.prices) && d.prices.length){
+    if(starterUntouched()){ S.prices = []; S.setup.starter = false; }
+    d.prices.forEach(function(p){ if(!p || !String(p.name || '').trim()) return; var nm = String(p.name).trim(), pr = num(p.price), ex = S.prices.filter(function(x){ return norm(x.name) === norm(nm); })[0];
+      if(ex){ if(num(ex.price) !== pr){ ex.price = pr; n.p++; } } else { S.prices.push({ name:nm, price:pr }); n.p++; } });
+  }
+  /* saved estimates and invoices — the open one in Quick Quote is newer than its saved copy */
+  var saved = Array.isArray(d.saved) ? d.saved.slice() : [];
+  if(d.cur && d.cur.id){ var ix = -1; saved.forEach(function(x, k){ if(x && x.id === d.cur.id) ix = k; }); if(ix >= 0) saved[ix] = d.cur; }
+  var ests = saved.filter(function(x){ return x && x.id && x.kind !== 'invoice'; }).reverse(), invs = saved.filter(function(x){ return x && x.id && x.kind === 'invoice'; }).reverse();
+  var dbh = ests.concat(invs).some(function(x){ return (x.photos || []).length; }) ? await qqIdb() : null;
+  try{
+    for(var a = 0; a < ests.length; a++){ var e = ests[a]; if(imp.map[e.id] && job(imp.map[e.id])){ n.same++; continue; } var j = await qqJob(e, dbh, d, imp, n); imp.map[e.id] = j.id; n.q++; }
+    for(var b = 0; b < invs.length; b++){ var v = invs[b]; if(imp.map[v.id] && inv(imp.map[v.id])){ n.same++; continue; }
+      var jj = imp.map[v.fromEst] ? job(imp.map[v.fromEst]) : null;
+      if(!jj){ jj = await qqJob(Object.assign({}, v, { tiers:null, sent:true }), dbh, d, imp, n); }
+      var items = qqLines(v.items), tot = lineSum(items), date = qqDay(v.at), nn = parseInt(v.num, 10);
+      if(!(nn > 0) || S.invoices.some(function(x){ return x.num === nn; })) nn = S.seq.inv;
+      var bv = { id:uid(), num:nn, jobId:jj.id, customerId:jj.customerId, kind:'single', date:date, due:/^\d{4}-\d\d-\d\d$/.test(v.due || '') ? v.due : date, taxRate:0, lines:items, credits:[],
+        payments:v.status === 'paid' ? [{ amount:tot, date:/^\d{4}-\d\d-\d\d$/.test(v.paidAt || '') ? v.paidAt : date, method:'Other' }] : [], sent:date, reminders:[], from:'quickquote' };
+      S.invoices.push(bv); S.seq.inv = Math.max(S.seq.inv, nn + 1); imp.map[v.id] = bv.id; n.i++;
+      if(['new', 'estimate', 'approved', 'scheduled', 'working'].indexOf(jj.status) >= 0) jj.status = 'done'; autoClose(jj); logJob(jj, 'Invoice #' + nn + ' brought over from Quick Quote'); }
+  } finally { if(dbh) try{ dbh.close(); }catch(x){} }
+  imp.at = today(); S.imports.qq = imp; save(); render();
+  sheet('<h3>📥 Brought over from Quick Quote</h3><div class="card"><div class="tot"><span>Price list items added or updated</span><b>' + n.p + '</b></div><div class="tot"><span>Quotes</span><b>' + n.q + '</b></div><div class="tot"><span>Invoices' + (QM() && n.i ? ' (kept for when you turn on Business Manager)' : '') + '</span><b>' + n.i + '</b></div><div class="tot"><span>Photos</span><b>' + n.ph + '</b></div>'
+    + (n.same ? '<p class="hint">' + n.same + ' were already here, so they weren’t copied again.</p>' : '') + '</div><p class="muted">Nothing in Quick Quote was changed or deleted.</p>' + (S.setup.done ? '<button class="btn main full" onclick="BM.closeSheet();BM.go(\'jobs/all\')">See my quotes</button>' : '<button class="btn main full" onclick="BM.closeSheet()">OK</button>'));
+}
 
 /* ── the plus button ── */
 function plus(){
   var o = function(fn, em, t, s){ return '<button class="opt" onclick="BM.closeSheet();' + fn + '"><span class="e">' + em + '</span><span class="grow">' + t + (s ? '<small>' + s + '</small>' : '') + '</span></button>'; };
+  if(QM()){ sheet('<h3>Add something</h3>' + o("BM.go('newjob')", '🧾', 'New quote', 'Describe the job — it’s priced from your list') + o("BM.go('newcust')", '👤', 'New customer', '') + o("BM.go('set/prices')", '🏷️', 'Price list', 'Add or change your prices')); return; }
   sheet('<h3>Add something</h3>' + o("BM.go('newjob')", '🧰', 'New job', F('estimates') ? 'Then price it and send the estimate' : 'Who, what, when, how much')
     + o("BM.go('newcust')", '👤', 'New customer', '')
     + (F('todos') ? o('BM.editTodo()', '📝', 'To-do or reminder', 'Anything not tied to a job — taxes, the truck, an errand') : '')
@@ -3661,7 +4227,10 @@ window.BM = {
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
   saveCust:saveCust, delCust:delCust, message:message, toggleNewCust:toggleNewCust, saveNewJob:saveNewJob, saveEditJob:saveEditJob, delJob:delJob,
   setStage:setStage, setWhen:setWhen, saveNote:saveNote, addItem:addItem, pickPrice:pickPrice, editItem:editItem, saveItem:saveItem, delItem:delItem,
-  aiPrice:aiPrice, review:review, aiWrite:aiWrite, pasteAnswer:pasteAnswer, sendVia:sendVia, update:update,
+  aiPrice:aiQuote, review:review,
+  draftLocal:draftLocal, draftNote:draftNote, aiQuote:aiQuote, aiQuoteGo:aiQuoteGo, offerTiers:offerTiers, untier:untier, tierEdit:tierEdit, tierName:tierName, setQNote:setQNote, keepLine:keepLine,
+  signHere:signHere, sgPick:sgPick, sgClear:sgClear, sgDone:sgDone, unapprove:unapprove, addPhotos:addPhotos, delPhoto:delPhoto, printEst:printEst,
+  setMode:setMode, upsellLater:upsellLater, saveQuote:saveQuote, qqImport:qqImport, suQuick:suQuick, _useAI:useAI, _parseAIQuote:parseAIQuote, _price:PRICE, _ver:VER, aiWrite:aiWrite, pasteAnswer:pasteAnswer, sendVia:sendVia, update:update,
   sendEstimate:sendEstimate, followUp:followUp, previewEst:previewEst, approved:approved, saveApproved:saveApproved, ics:ics,
   clockPick:clockPick, clockIn:clockIn, clockOut:clockOut, logHours:logHours, saveHours:saveHours, delHours:delHours,
   newInvoice:newInvoice, setInvDates:setInvDates, sendInvoice:sendInvoice, remind:remind, previewInv:previewInv, payment:payment, savePayment:savePayment, delPayment:delPayment, delInvoice:delInvoice,
@@ -3687,17 +4256,28 @@ if(S && S.setup.done && !S.setup.demo && S.jobs.length > 2 && (!S.lastBackup || 
 </script>
 <script>
 /* the house welcome tour and start menu (see the dj-house script above) */
+/* v1.1: opened from a Quick Quote link (?mode=quotes), or a quotes-only book — the tour and menu say Quick Quote */
+var BMQ = /[?&]mode=quotes\b/.test(location.search) || (function(){ try{ return (JSON.parse(localStorage.getItem('bizmgr_v1') || '{}') || {}).mode === 'quotes'; }catch(e){ return false; } })();
 window.DJ_TOUR = {
-  slug:'businessmanager', name:'Business Manager',
+  slug:'businessmanager', name:BMQ ? 'Quick Quote' : 'Business Manager',
   isNew:"!localStorage.getItem('bizmgr_v1')",
-  intro:[
+  intro:BMQ ? [
+    { em:'🧾', h:'Welcome to Quick Quote', p:'A priced estimate in a minute, from your own price list. Let me show you how it works.' },
+    { em:'⚡', h:'Your prices, every time', p:'Describe the job and tap ⚡ — it is priced from your price list. Or ask your own AI app; your price list still wins.' },
+    { em:'⭐', h:'Three options, one signature', p:'Offer Good / Better / Best. The customer picks one and signs with a finger — on your phone or from a link.' },
+    { em:'🧰', h:'Room to grow', p:'When you want invoices, expenses and profit, turn on the rest of Business Manager. Your quotes come with you.' }
+  ] : [
     { em:'🧰', h:'Welcome to Business Manager', p:'Your office in your truck: estimates, jobs, the schedule, invoices with a Pay now link, expenses and your real profit. Let me show you how it works.' },
     { em:'😩', h:'The problem it solves', p:'You’re great at the work. The paperwork happens at 10pm, payments come in late, and at tax time it’s a shoebox. Most business software is built for big companies.' },
     { em:'🎚️', h:'Only what you use', p:'A two-minute interview sets it up for how you work. Don’t do estimates? Don’t have a crew? Those parts never show up.' },
     { em:'💵', h:'Get paid faster', p:'Every invoice has a link: the customer opens it on their phone and taps Pay. Late ones show up on your home screen with a one-tap friendly reminder.' },
     { em:'✨', h:'An AI helper, when you want it', p:'It writes your messages, drafts an estimate from your notes, sorts your bank statement, and reviews finished jobs so the next one makes more money.' }
   ],
-  demo:[
+  demo:BMQ ? [
+    { say:'Describe a job and tap ⚡: every line is priced from your own price list.', go:"BM.tourShow('job/j3')", target:'#priceCard' },
+    { say:'Offer three options. The customer picks one and signs — on your phone or from a link.', go:"BM.tourShow('job/j3')", target:'.tiers' },
+    { say:'Your price list. Every draft uses these prices, even when the AI suggests others.', go:"BM.tourShow('prices')", target:'#plist' }
+  ] : [
     { say:'This is your home screen: who owes you, what got paid this month, and today’s jobs.', go:"BM.tourShow('home')", target:'.stats' },
     { say:'“Needs you” is your to-do list, built for you: late invoices, estimates to follow up, finished jobs to bill.', go:"BM.tourShow('home')", target:'.need' },
     { say:'Every job moves through simple steps. One big button always shows the next one.', go:"BM.tourShow('job/j3')", target:'.steps' },
@@ -3705,18 +4285,28 @@ window.DJ_TOUR = {
     { say:'Invoices go out with a Pay now link and come back as money. Record a payment and the job closes itself.', go:"BM.tourShow('money')", target:'.card' },
     { say:'Profit, where the money went, and a clean package for your accountant at tax time.', go:"BM.tourShow('money')", target:'.btns' }
   ],
-  screens:[
+  screens:BMQ ? [
+    { say:'Today: quotes waiting to hear back, and what needs you.', go:"BM.tourShow('home')", target:'nav.tabs button[data-go=home]' },
+    { say:'Quotes: every quote and your customers.', go:"BM.tourShow('jobs')", target:'nav.tabs button[data-go=jobs]' },
+    { say:'The + button starts a new quote from anywhere.', go:"BM.tourShow('home')", target:'nav.tabs button.plus' },
+    { say:'Prices: your price list.', go:"BM.tourShow('prices')", target:'nav.tabs button[data-go=prices]' },
+    { say:'More: how you price, the three options, and turning on the rest of Business Manager.', go:"BM.tourShow('more')", target:'nav.tabs button[data-go=more]' }
+  ] : [
     { say:'Today: your day at a glance.', go:"BM.tourShow('home')", target:'nav.tabs button[data-go=home]' },
     { say:'Jobs: every job, your customers, and the schedule.', go:"BM.tourShow('jobs')", target:'nav.tabs button[data-go=jobs]' },
     { say:'The + button adds a job, a customer, or an expense from anywhere.', go:"BM.tourShow('home')", target:'nav.tabs button.plus' },
     { say:'Money: who owes you, profit, expenses, statement import, and reports.', go:"BM.tourShow('money')", target:'nav.tabs button[data-go=money]' },
     { say:'More: your business info, how you get paid, price list, and turning features on or off.', go:"BM.tourShow('more')", target:'nav.tabs button[data-go=more]' }
   ],
-  keepNote:'Look around Miller Plumbing — pretend jobs, customers and money. Start your own any time.',
+  keepNote:BMQ ? 'Look around Miller Plumbing — pretend quotes and prices. Start your own any time.' : 'Look around Miller Plumbing — pretend jobs, customers and money. Start your own any time.',
   freshNote:'Answer a few questions and it sets itself up for your business.',
   keep:"BM.keepDemo()", fresh:"BM.fresh()"
 };
-window.DJ_MENU = { slug:'businessmanager', name:'Business Manager', em:'🧰', items:[
+window.DJ_MENU = BMQ ? { slug:'businessmanager', name:'Quick Quote', em:'🧾', items:[
+  { id:'today', em:'🏠', t:'What’s waiting', sub:'quotes out, what needs me', go:"BM.go('home')" },
+  { id:'newjob', em:'➕', t:'Start a new quote', sub:'', go:"BM.go('newjob')" },
+  { id:'prices', em:'🏷️', t:'My price list', sub:'', go:"BM.go('prices')" }
+] } : { slug:'businessmanager', name:'Business Manager', em:'🧰', items:[
   { id:'today', em:'🏠', t:'What’s on today', sub:'jobs, who owes me, what needs me', go:"BM.go('home')" },
   { id:'newjob', em:'➕', t:'Start a new job', sub:'', go:"BM.go('newjob')" },
   { id:'bill', em:'🧾', t:'Bill a finished job', sub:'', go:"BM.go('jobs/done')" },

@@ -38,6 +38,14 @@
   .linkbtn{ background:none; border:0; color:var(--soft); text-decoration:underline; font:inherit; font-size:14px; min-height:36px; cursor:pointer; padding:0; }
   .terms{ font-size:13.5px; color:var(--soft); margin-top:14px; white-space:pre-wrap; }
   .foot{ text-align:center; font-size:12.5px; color:var(--soft); margin-top:18px; }
+  .vopt{ display:block; width:100%; text-align:left; background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; margin-top:8px; cursor:pointer; font:inherit; color:var(--ink); min-height:58px; }
+  .vopt.on{ border-color:var(--good); box-shadow:inset 0 0 0 2px var(--good); background:#E3F3EA; }
+  .vopt .on-name{ font-weight:850; font-size:18px; }
+  .vopt .ol{ font-size:14.5px; color:var(--soft); margin:4px 0; }
+  .vopt .ot{ font-weight:850; font-size:20px; text-align:right; }
+  .pics{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:8px; }
+  .pics img{ width:100%; height:auto; border-radius:10px; border:1px solid var(--line); display:block; }
+  .sigimg{ display:block; max-width:280px; width:100%; height:auto; margin-top:8px; }
   @media print{ .noprint{ display:none !important; } body{ background:#fff; } .paper{ border:0; padding:0; } }
 </style>
 </head>
@@ -70,7 +78,12 @@
   function draw(){
     var b = D.b || {}, c = D.c || {}, est = D.k === 'est';
     document.title = (est ? 'Estimate' : 'Invoice') + ' #' + D.n + ' — ' + (b.n || '');
-    var sub = (D.li || []).reduce(function(a, l){ return a + (+l[1]) * (+l[2]); }, 0);
+    /* v1.1: three options (D.op = [[name, lines]]) — the customer taps one, then signs for that one */
+    var ops = Array.isArray(D.op) && D.op.length > 1 ? D.op : null;
+    if(ops && D._pick == null && D.pk != null && ops[D.pk] && D.sg) D._pick = +D.pk;
+    D._ops = ops;
+    var L = ops ? (D._pick != null && ops[D._pick] ? ops[D._pick][1] : []) : (D.li || []);
+    var sub = L.reduce(function(a, l){ return a + (+l[1]) * (+l[2]); }, 0);
     var tax = Math.round(sub * (+D.tx || 0)) / 100, cr = (D.cr || []).reduce(function(a, x){ return a + (+x[1]); }, 0);
     var total = Math.round((sub + tax - cr) * 100) / 100, paid = +D.pd || 0, bal = Math.round((total - paid) * 100) / 100;
     var h = '<div class="paper"><div class="hd"><div class="logo">' + esc(b.em || '🧰') + '</div><div style="flex:1;min-width:0"><div class="bn">' + esc(b.n) + '</div><div class="muted">' + esc([b.o, b.p, b.e].filter(Boolean).join(' · ')) + (b.a ? '<br>' + esc(b.a) : '') + (b.l ? '<br>' + esc(b.l) : '') + '</div></div></div>';
@@ -79,20 +92,33 @@
       + (est && D.x ? '<div class="muted">Good until ' + fd(D.x) + '</div>' : '') + (!est && D.du ? '<div class="muted">Due ' + fd(D.du) + '</div>' : '') + '</div></div>';
     if(D.ti) h += '<div style="font-weight:800;font-size:18px;margin-bottom:4px">' + esc(D.ti) + '</div>';
     if(est && D.de) h += '<div class="muted" style="white-space:pre-wrap;margin-bottom:8px">' + esc(D.de) + '</div>';
+    if(ops){
+      h += '<div style="font-weight:800;margin-top:6px">' + (D.sg ? 'The option chosen:' : 'Choose one option:') + '</div>' + ops.map(function(o, k){ var s2 = (o[1] || []).reduce(function(a, l){ return a + (+l[1]) * (+l[2]); }, 0), t2 = Math.round((s2 + Math.round(s2 * (+D.tx || 0)) / 100) * 100) / 100;
+        return '<button type="button" class="vopt' + (D._pick === k ? ' on' : '') + '" data-k="' + k + '" aria-pressed="' + (D._pick === k) + '"' + (D.sg && D._pick !== k ? ' disabled style="opacity:.55"' : '') + '><div class="on-name">' + (D._pick === k ? '✔ ' : '') + esc(o[0]) + '</div><div class="ol">' + (o[1] || []).map(function(l){ return esc(l[0]) + ((+l[1]) !== 1 ? ' × ' + (+l[1]) : '') + ' — ' + money((+l[1]) * (+l[2])); }).join('<br>') + '</div><div class="ot">' + money(t2) + '</div></button>'; }).join('');
+      if(D._pick != null && ops[D._pick]){
+        if(tax) h += '<div class="tot" style="margin-top:8px"><span>Subtotal</span><span>' + money(sub) + '</span></div><div class="tot"><span>Sales tax (' + (+D.tx) + '%)</span><span>' + money(tax) + '</span></div>';
+        h += '<div class="tot grand"><span>Total — ' + esc(ops[D._pick][0]) + '</span><span>' + money(total) + '</span></div>';
+      } else if(tax) h += '<div class="muted" style="margin-top:6px">Option totals include ' + (+D.tx) + '% sales tax.</div>';
+    } else {
     h += '<table>' + (D.li || []).map(function(l){ return '<tr><td>' + esc(l[0]) + ((+l[1]) !== 1 ? '<div class="muted">' + (+l[1]) + ' × ' + money(l[2]) + '</div>' : '') + '</td><td class="n">' + money((+l[1]) * (+l[2])) + '</td></tr>'; }).join('') + '</table>';
     if(tax || cr) h += '<div class="tot" style="margin-top:6px"><span>Subtotal</span><span>' + money(sub) + '</span></div>';
     if(tax) h += '<div class="tot"><span>Sales tax (' + (+D.tx) + '%)</span><span>' + money(tax) + '</span></div>';
     (D.cr || []).forEach(function(x){ h += '<div class="tot"><span>' + esc(x[0]) + '</span><span>−' + money(x[1]) + '</span></div>'; });
     h += '<div class="tot grand"><span>Total</span><span>' + money(total) + '</span></div>';
+    }
+    if(est && D.nt) h += '<p style="margin:10px 0 0">' + esc(D.nt) + '</p>';
     if(!est && paid) h += '<div class="tot"><span>Paid</span><span>−' + money(paid) + '</span></div><div class="tot grand"><span>Balance due</span><span>' + money(bal) + '</span></div>';
-    if(est && D.dp) h += '<div class="muted" style="margin-top:6px">A deposit of ' + D.dp + '% (' + money(total * D.dp / 100) + ') is due when you approve.</div>';
+    if(est && D.dp && (!ops || D._pick != null)) h += '<div class="muted" style="margin-top:6px">A deposit of ' + D.dp + '% (' + money(total * D.dp / 100) + ') is due when you approve.</div>';
+    var pics = (Array.isArray(D.ph) ? D.ph : []).filter(function(u){ return /^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/=]+$/.test(u); });
+    if(est && pics.length) h += '<div style="font-weight:800;margin-top:14px">Photos</div><div class="pics">' + pics.map(function(u){ return '<img src="' + u + '" alt="Photo of the job">'; }).join('') + '</div>';
+    else if(est && +D.phn > 0) h += '<p class="muted" style="margin-top:12px">📷 ' + (+D.phn) + ' photo' + (+D.phn === 1 ? '' : 's') + ' of the job — available on request.</p>';
     if(D.te) h += '<div class="terms">' + esc(D.te) + '</div>';
     h += '</div>';
     h += est ? approveBox(total) : payBox(bal);
     h += '<button class="btn noprint" onclick="window.print()">🖨️ Print or save as PDF</button>';
     h += '<div class="foot">Sent by ' + esc(b.n) + ' using Business Manager.</div>';
     document.getElementById('doc').innerHTML = h;
-    D._total = total; initPad();
+    D._total = total; D._ops = ops; initPad();
   }
   /* signature: strokes kept as numbers on a 1000 × 300 grid, so they travel in a link */
   var SIG = [], cur = null;
@@ -119,12 +145,15 @@
     return 'j' + b64u(new TextEncoder().encode(s));
   }
   function approveBox(total){
-    if(D.sg) return '<div class="box"><span class="paid">✓ ' + (D.sg.sig ? 'Signed' : 'Approved') + '</span> by ' + esc(D.sg.name) + ' on ' + fd(D.sg.date) + (D.sg.at ? ' at ' + new Date(D.sg.at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : '') + (D.sg.sig ? sigSVG(D.sg.sig) + '<div class="muted" style="font-size:13px">' + esc(D.sg.name) + '</div>' : '') + '</div>';
-    return '<div class="box noprint" id="ap"><div style="font-weight:850;font-size:19px">Ready to go ahead?</div><p class="muted" style="margin:4px 0 10px">Sign below to approve this estimate for <b>' + money(total) + '</b>. It sends a message to ' + esc((D.b || {}).o || (D.b || {}).n) + ' so they can get you on the schedule.</p>'
+    if(D.sg){ var img = D.sg.sigImg && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+\/=]+$/.test(D.sg.sigImg) ? '<img class="sigimg" src="' + D.sg.sigImg + '" alt="Signature">' : '';
+      return '<div class="box"><span class="paid">✓ ' + (D.sg.sig || img ? 'Signed' : 'Approved') + '</span> by ' + esc(D.sg.name) + ' on ' + fd(D.sg.date) + (D.sg.at ? ' at ' + new Date(D.sg.at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : '') + (D.sg.option ? '<div style="margin-top:6px">Option: <b>' + esc(D.sg.option) + '</b></div>' : '') + (D.sg.sig && D.sg.sig.length ? sigSVG(D.sg.sig) + '<div class="muted" style="font-size:13px">' + esc(D.sg.name) + '</div>' : img) + '</div>'; }
+    var opn = D._ops && D._pick != null && D._ops[D._pick] ? D._ops[D._pick][0] : '';
+    if(D._ops && !opn) return '<div class="box noprint" id="ap"><div style="font-weight:850;font-size:19px">Ready to go ahead?</div><p class="muted" style="margin:4px 0 0">Tap the option you want above. Then you can sign for it here.</p></div>';
+    return '<div class="box noprint" id="ap"><div style="font-weight:850;font-size:19px">Ready to go ahead?</div><p class="muted" style="margin:4px 0 10px">Sign below to approve ' + (opn ? '<b>' + esc(opn) + '</b>' : 'this estimate') + ' for <b>' + money(total) + '</b>. It sends a message to ' + esc((D.b || {}).o || (D.b || {}).n) + ' so they can get you on the schedule.</p>'
       + '<label class="muted" for="nm">Your full name</label><input class="i" id="nm" autocomplete="name" value="' + esc((D.c || {}).n || '') + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:end;margin-top:12px"><span class="muted">Sign with your finger</span><button type="button" class="linkbtn" id="sigClear">Clear</button></div>'
       + '<div class="pad"><canvas id="sig" aria-label="Signature box"></canvas><div class="line"></div><div class="x">✕</div></div>'
-      + '<label class="ck"><input type="checkbox" id="ok"><span>I approve Estimate #' + esc(D.n) + ' for ' + money(total) + ' and agree to the terms above.</span></label>'
+      + '<label class="ck"><input type="checkbox" id="ok"><span>I approve Estimate #' + esc(D.n) + (opn ? ' — ' + esc(opn) + ' —' : '') + ' for ' + money(total) + ' and agree to the terms above.</span></label>'
       + '<button class="btn good" id="apGo">✅ Approve this estimate</button>'
       + '<button class="btn" id="apQ">💬 I have a question</button></div>';
   }
@@ -151,6 +180,9 @@
   }
   document.addEventListener('click', function(e){
     var t = e.target.closest('button'); if(!t) return;
+    if(t.classList.contains('vopt')){ if(D.sg || t.disabled) return; var nmEl = document.getElementById('nm'), nmV = nmEl ? nmEl.value : null, okEl = document.getElementById('ok'), okV = okEl ? okEl.checked : false;
+      D._pick = +t.getAttribute('data-k'); draw(); var n2 = document.getElementById('nm'); if(n2 && nmV != null) n2.value = nmV; var o2 = document.getElementById('ok'); if(o2) o2.checked = false;
+      var ap = document.getElementById('ap'); if(ap && ap.scrollIntoView) ap.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
     if(t.id === 'sigClear' && D._clearSig) D._clearSig();
     if(t.id === 'apGo') approve();
     if(t.id === 'apSend') reply(D._msg, 'Approved: Estimate #' + D.n);
@@ -159,13 +191,16 @@
   });
   async function approve(){
     var nm = document.getElementById('nm').value.trim();
+    var opn = D._ops ? (D._pick != null && D._ops[D._pick] ? D._ops[D._pick][0] : '') : '';
+    if(D._ops && !opn){ alert('Please tap the option you want first.'); return; }
     if(!nm){ alert('Please type your name.'); return; }
     if(!SIG.some(function(s){ return s.length >= 4; })){ alert('Please sign in the box with your finger.'); return; }
     if(!document.getElementById('ok').checked){ alert('Please tick the box to approve.'); return; }
     var at = new Date().toISOString(), total = money(D._total);
-    var msg = 'I approve Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + ' for ' + total + '.\nSigned: ' + nm + ', ' + fd(today());
-    if(D.r){ try{ msg += '\n\nSigned copy for ' + ((D.b || {}).n || 'your records') + ' (tap to save it in Business Manager):\n' + D.r + '#ok/' + await encode({ n:D.n, t:Math.round(D._total * 100) / 100, nm:nm, at:at, sg:SIG }); }catch(e){} }
-    D.sg = { name:nm, date:today(), at:at, sig:SIG };
+    var msg = 'I approve Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + (opn ? ' — option: ' + opn : '') + ' for ' + total + '.\nSigned: ' + nm + ', ' + fd(today());
+    var back = { n:D.n, t:Math.round(D._total * 100) / 100, nm:nm, at:at, sg:SIG }; if(opn) back.op = D._pick;
+    if(D.r){ try{ msg += '\n\nSigned copy for ' + ((D.b || {}).n || 'your records') + ' (tap to save it in Business Manager):\n' + D.r + '#ok/' + await encode(back); }catch(e){} }
+    D.sg = { name:nm, date:today(), at:at, sig:SIG, option:opn };
     document.getElementById('ap').innerHTML = '<div style="font-weight:850;font-size:19px">Thank you, ' + esc(nm.split(' ')[0]) + '! 🎉</div><p class="muted">Your signed approval is ready to send to ' + esc((D.b || {}).o || (D.b || {}).n) + '. If your messages app didn’t open, tap below.</p>' + sigSVG(SIG) + '<button class="btn good" id="apSend">📨 Send my approval</button>';
     D._msg = msg; reply(msg, 'Approved: Estimate #' + D.n);
   }
