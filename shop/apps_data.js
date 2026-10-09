@@ -22,6 +22,11 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ advent: {
+  name:'Advent Together', em:'🕯️', sub:'24 days to Christmas: one prayer, one reading, one small thing to do together', fresh:true, cat:'church', price:'Free', testing:true,
+  tag:'24 days to Christmas: one prayer, one reading, one small thing to do together',
+  try:BASE+'advent/', video:false
+ },
  quickquote: {
   name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', price:'Free', testing:true,
   tag:'a priced estimate in a minute, from your own price list',
