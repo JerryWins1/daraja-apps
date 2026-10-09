@@ -22,9 +22,14 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ advent: {
+  name:'Advent Together', em:'🕯️', sub:'24 days to Christmas: one prayer, one reading, one small thing to do together', fresh:true, cat:'church', price:'$7 a family · $49 a whole church', testing:true,
+  tag:'24 days to Christmas: one prayer, one reading, one small thing to do together',
+  try:BASE+'advent/', video:false
+ },
  quickquote: {
-  name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', price:'Free', testing:true,
-  tag:'a priced estimate in a minute, from your own price list',
+  name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'off', off:'merged into Business Manager (Jerry, 9 Oct 2026) — its quote builder, price list and three options live on there', price:'$29 one-time', testing:true,
+  tag:'Describe the job, get a priced estimate from YOUR price list: three options, the customer signs on your phone, one tap turns it into an invoice. Works with no signal.',
   try:BASE+'quickquote/', video:false
  },
  tester: {
