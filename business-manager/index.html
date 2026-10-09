@@ -321,7 +321,7 @@
     gameday:      {k:[], p:['gameday_','church_gameday_']},
     goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
     receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']},
-    businessmanager: {k:['bizmgr_v1'], p:['bizmgr_']}
+    businessmanager: {k:['bizmgr_v1'], p:['bizmgr_'], idb:['bizmgr_files']}
   };
 
   function slugOf(){
@@ -2005,6 +2005,7 @@
    which carries the estimate or invoice inside the link itself, so nothing needs a server yet. */
 (function(){
 'use strict';
+if(/^#ok\//.test(location.hash)) window.DJ_GUEST = true;
 var KEY = 'bizmgr_v1';
 var S = null, preview = false;   /* preview: the tour is showing the example business — nothing is saved */
 
@@ -2065,14 +2066,14 @@ function guessCat(desc){ for(var i = 0; i < RULES.length; i++) if(RULES[i][0].te
 /* ── the saved book ─────────────────────────────────────────── */
 function blank(){
   return { v:1, setup:{ done:false, demo:false, at:'' },
-    biz:{ name:'', owner:'', trade:'other', phone:'', email:'', address:'', license:'', taxRate:0, depositPct:30, payDays:14, terms:'Payment is due within 14 days of the invoice. Estimate good for 30 days. Any extra work will be agreed with you before it is done.', reviewLink:'', setAside:25 },
+    biz:{ name:'', owner:'', trade:'other', phone:'', email:'', address:'', license:'', taxRate:0, depositPct:30, payDays:14, terms:'Payment is due within 14 days of the invoice. Estimate good for 30 days. Any extra work will be agreed with you before it is done.', reviewLink:'', setAside:25, markup:0 },
     features:{ estimates:true, lineItems:true, deposits:false, schedule:true, materials:true, crew:false, expenses:true, reminders:true },
     pay:{ card:'', paypal:'', venmo:'', cashapp:'', zelle:'', check:'' },
     msg:{ channel:'text' },
-    prices:[], customers:[], jobs:[], invoices:[], expenses:[], crew:[], clock:null,
+    prices:[], customers:[], jobs:[], invoices:[], expenses:[], receipts:[], crew:[], clock:null,
     seq:{ job:1001, inv:2001 } };
 }
-function load(){ try{ var s = JSON.parse(localStorage.getItem(KEY) || 'null'); if(s && s.v){ var b = blank(); ['biz','features','pay','msg','seq','setup'].forEach(function(k){ s[k] = Object.assign({}, b[k], s[k] || {}); }); ['prices','customers','jobs','invoices','expenses','crew'].forEach(function(k){ if(!Array.isArray(s[k])) s[k] = []; }); return s; } }catch(e){} return null; }
+function load(){ try{ var s = JSON.parse(localStorage.getItem(KEY) || 'null'); if(s && s.v){ var b = blank(); ['biz','features','pay','msg','seq','setup'].forEach(function(k){ s[k] = Object.assign({}, b[k], s[k] || {}); }); ['prices','customers','jobs','invoices','expenses','receipts','crew'].forEach(function(k){ if(!Array.isArray(s[k])) s[k] = []; }); return s; } }catch(e){} return null; }
 function save(){ if(preview || !S) return; try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ alert('This phone would not save that — it may be full. Go to More → Back up to keep a copy.'); } }
 function F(k){ return !!(S && S.features[k]); }
 
@@ -2116,12 +2117,12 @@ function setHead(title, sub){ $('ttl').textContent = title; $('sub').textContent
 function render(){
   route = (location.hash.replace(/^#/, '') || 'home').split('/');
   var r = route[0];
-  if(!S || !S.setup.done){ if(r !== 'setup') r = 'welcome'; }
+  if(!S || !S.setup.done){ if(r !== 'setup' && r !== 'ok') r = 'welcome'; }
   var V = VIEWS[r] || VIEWS.home;
   after = null;
   var html = V();
   $('main').innerHTML = html;
-  var tab = TABS[r] ? r : ({ job:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
+  var tab = TABS[r] ? r : ({ job:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', ok:'jobs', receipt:'money', receipts:'money', rcpt:'money', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
   document.querySelectorAll('nav.tabs button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-go') === tab); });
   var setupMode = (r === 'welcome' || r === 'setup');
   $('tabs').style.display = setupMode ? 'none' : '';
@@ -2238,6 +2239,8 @@ VIEWS.cust = function(){
     + (c.notes ? '<p style="margin:8px 0 0">' + esc(c.notes) + '</p>' : '') + '<div class="btns" style="margin-top:10px">' + contactBtns(c) + '</div></div>';
   h += '<div class="card row"><div class="grow muted">Paid you, all time</div><b>' + money(paid) + '</b></div>';
   h += '<h2>Jobs</h2>' + (js.length ? js.map(jobCard).join('') : '<div class="card muted">No jobs yet.</div>');
+  var sj = js.filter(function(j){ return j.signed; });
+  if(sj.length) h += '<h2>Signed estimates</h2>' + sj.map(function(j){ return '<button class="card tap" onclick="BM.signedCopy(\'' + j.id + '\')"><div class="row"><div class="grow"><b>#' + j.num + ' ' + esc(j.title) + '</b><div class="small muted">' + (j.signed.sig ? 'Signed' : 'Approved') + ' by ' + esc(j.signed.name) + ' · ' + fd(j.signed.date) + (j.signed.total ? ' · ' + money(j.signed.total) : '') + '</div></div><span>📄</span></div></button>'; }).join('');
   h += '<div class="btns" style="margin-top:6px"><button class="btn main" onclick="BM.go(\'newjob/' + c.id + '\')">➕ New job for ' + esc(first(c.name)) + '</button><button class="btn" onclick="BM.go(\'editcust/' + c.id + '\')">✏️ Edit</button></div>';
   return h;
 };
@@ -2347,10 +2350,10 @@ VIEWS.job = function(){
   }
   h.push(totals(jobSub(j), num(S.biz.taxRate), [], 0) + '</div>');
   if(F('estimates') && j.status !== 'lost'){
-    h.push('<div class="card">' + (j.signed ? '<div>✅ <b>Approved</b> by ' + esc(j.signed.name) + ' on ' + fd(j.signed.date) + '</div>' : j.estSent ? '<div>📨 Estimate sent ' + fd(j.estSent) + ' — waiting to hear back</div>' : '<div class="muted">Estimate not sent yet.</div>')
+    h.push('<div class="card">' + (j.signed ? '<div>✅ <b>' + (j.signed.sig ? 'Signed' : 'Approved') + '</b> by ' + esc(j.signed.name) + ' on ' + fd(j.signed.date) + '</div>' + (j.signed.sig ? '<div style="margin-top:8px">' + sigSVG(j.signed.sig, '100%', 70) + '</div>' : '') + '<button class="btn sm" style="margin-top:8px" onclick="BM.signedCopy(\'' + j.id + '\')">📄 ' + (j.signed.sig ? 'Signed copy' : 'Approved copy') + '</button>' : j.estSent ? '<div>📨 Estimate sent ' + fd(j.estSent) + ' — waiting to hear back</div>' : '<div class="muted">Estimate not sent yet.</div>')
       + '<div class="btns" style="margin-top:10px"><button class="btn sm main" onclick="BM.sendEstimate(\'' + j.id + '\')">' + (j.estSent ? 'Send again' : '📨 Send estimate') + '</button><button class="btn sm" onclick="BM.previewEst(\'' + j.id + '\')">👀 Preview</button>'
       + (!j.signed ? '<button class="btn sm" onclick="BM.approved(\'' + j.id + '\')">👍 They said yes</button>' : '') + '</div>'
-      + '<p class="hint">The customer gets a link to look it over on their phone, type their name, and approve it.</p></div>');
+      + '<p class="hint">The customer gets a link to look it over, sign it with their finger and approve it. Their reply has a link that saves the signed copy here.</p></div>');
   }
   /* schedule */
   if(F('schedule') && j.status !== 'lost' && j.status !== 'closed'){
@@ -2363,7 +2366,7 @@ VIEWS.job = function(){
   if(F('materials') || F('expenses')){
     var ex = S.expenses.filter(function(e){ return e.jobId === j.id; });
     h.push('<h2>Materials & costs</h2><div class="card">' + (ex.length ? '<table class="lines">' + ex.map(function(e){ return '<tr onclick="BM.addExpense(\'' + e.id + '\')" style="cursor:pointer"><td>' + esc(e.vendor || e.cat) + '<div class="small muted">' + fd(e.date) + ' · ' + esc(e.cat) + '</div></td><td class="n">' + money(e.amount) + '</td></tr>'; }).join('') + '</table>' : '<p class="muted" style="margin:0">No costs recorded for this job.</p>')
-      + '<div class="btns" style="margin-top:8px"><button class="btn sm" onclick="BM.addExpense(null,\'' + j.id + '\')">➕ Add a cost or receipt</button></div></div>');
+      + '<div class="btns" style="margin-top:8px"><button class="btn sm" onclick="BM.newReceipt()">📸 Scan a receipt</button><button class="btn sm" onclick="BM.addExpense(null,\'' + j.id + '\')">➕ Type a cost</button></div></div>');
   }
   /* hours */
   if(F('crew')){
@@ -2599,7 +2602,7 @@ function jobLines(j){ return F('lineItems') && j.items.length ? j.items : [{ nam
 function estPayload(j){
   var c = cust(j.customerId);
   return { k:'est', n:j.num, d:j.estSent || today(), x:addDays(j.estSent || today(), 30), b:bizCard(), c:{ n:c.name, a:c.address }, ti:j.title, de:j.desc || '',
-    li:jobLines(j).map(function(l){ return [l.name, num(l.qty), num(l.price)]; }), tx:num(S.biz.taxRate), dp:F('deposits') ? num(S.biz.depositPct) : 0, te:S.biz.terms, sg:j.signed || null };
+    li:jobLines(j).map(function(l){ return [l.name, num(l.qty), num(l.price)]; }), tx:num(S.biz.taxRate), dp:F('deposits') ? num(S.biz.depositPct) : 0, te:S.biz.terms, sg:j.signed || null, r:appURL() };
 }
 function invPayload(v){
   var c = cust(v.customerId), j = job(v.jobId) || {};
@@ -2618,8 +2621,10 @@ async function previewEst(jid){ var w = window.open('about:blank', '_blank'); va
 function approved(jid){
   var j = job(jid), c = cust(j.customerId);
   sheet('<h3>They said yes 🎉</h3><p class="muted" style="margin:0 0 6px">Who approved it? (If they approved from the link, use the name they typed.)</p><input class="i" id="apN" value="' + esc(c.name) + '"><label class="f" for="apD">When</label><input class="i" type="date" id="apD" value="' + today() + '">'
-    + '<button class="btn main full" style="margin-top:14px" onclick="BM.saveApproved(\'' + jid + '\')">Mark approved</button>');
+    + '<button class="btn main full" style="margin-top:14px" onclick="BM.saveApproved(\'' + jid + '\')">Mark approved</button>'
+    + '<label class="f" for="apL" style="margin-top:18px">Or paste the link from their approval message</label><input class="i" id="apL" placeholder="https://…#ok/…" oninput="BM.pasteOk(this.value)"><p class="hint">That saves their signature too.</p>');
 }
+function pasteOk(v){ var m = String(v || '').match(/#ok\/([A-Za-z0-9_-]+)/); if(m){ closeSheet(); go('ok/' + m[1]); } }
 function saveApproved(jid){ var j = job(jid); j.signed = { name:$('apN').value.trim() || cust(j.customerId).name, date:$('apD').value || today() }; j.estSent = j.estSent || j.signed.date; if(['new', 'estimate'].indexOf(j.status) >= 0) j.status = 'approved'; logJob(j, 'Approved by ' + j.signed.name); save(); closeSheet(); render(); toast(F('schedule') ? 'Approved. Next: pick a day.' : 'Approved.'); }
 
 /* ── calendar file ── */
@@ -2764,7 +2769,7 @@ VIEWS.money = function(){
     var cats = Object.keys(R.exp).sort(function(a, b){ return R.exp[b] - R.exp[a]; }), mx = cats.length ? R.exp[cats[0]] : 1;
     h.push('<h2>Where the money went</h2><div class="card">' + (cats.length ? cats.map(function(k){ return '<div style="margin:6px 0"><div class="row small"><span class="grow">' + esc(k) + '</span><b>' + money(R.exp[k]) + '</b></div><div class="bar"><i style="width:' + Math.max(2, R.exp[k] / mx * 100) + '%"></i></div></div>'; }).join('') : '<p class="muted" style="margin:0">No expenses in this period.</p>')
       + (R.personal ? '<p class="hint">Not counted: ' + money(R.personal) + ' marked personal.</p>' : '') + '</div>');
-    h.push('<div class="btns"><button class="btn" onclick="BM.addExpense()">➕ Expense</button><button class="btn" onclick="BM.go(\'import\')">📄 Import statement</button><button class="btn" onclick="BM.go(\'expenses/' + p + '\')">📋 All expenses</button></div>');
+    h.push('<div class="btns"><button class="btn" onclick="BM.newReceipt()">📸 Receipt</button><button class="btn" onclick="BM.addExpense()">➕ Expense</button><button class="btn" onclick="BM.go(\'import\')">📄 Import statement</button><button class="btn" onclick="BM.go(\'expenses/' + p + '\')">📋 All expenses</button>' + ((S.receipts || []).length ? '<button class="btn" onclick="BM.go(\'receipts\')">🗂️ Receipts</button>' : '') + '</div>');
   }
   /* jobs that brought money in this period */
   var jm = {}; R.inc.forEach(function(x){ if(x.v.jobId) jm[x.v.jobId] = 1; });
@@ -2793,7 +2798,7 @@ function addExpense(id, jid){
     + '<label class="f" for="eJ">For a job? <span class="muted small">(so the job shows its real profit)</span></label><select class="i" id="eJ"><option value="">— Not for one job —</option>' + js.map(function(j){ return '<option value="' + j.id + '"' + (j.id === e.jobId ? ' selected' : '') + '>' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('') + '</select>'
     + '<label class="f" for="eN">Note</label><input class="i" id="eN" value="' + esc(e.note || '') + '">'
     + '<div class="btns" style="margin-top:14px"><button class="btn main" onclick="BM.saveExpense(\'' + (id || '') + '\')">Save</button>' + (id ? '<button class="btn danger" onclick="BM.delExpense(\'' + id + '\')">Delete</button>' : '') + '</div>'
-    + '<p class="hint">Keep the paper receipt or a photo of it in your phone’s photos — the IRS can ask for it.</p>', function(){ BM._catTouched = !!id; });
+    + (e.receiptId ? '<button class="btn sm full" style="margin-top:10px" onclick="BM.closeSheet();BM.go(\'rcpt/' + e.receiptId + '\')">🧾 See the receipt this came from</button>' : '<p class="hint">Got the receipt? Use 📸 Receipt instead — it keeps a photo, and you can split items between jobs.</p>'), function(){ BM._catTouched = !!id; });
 }
 function saveExpense(id){
   var a = num($('eA').value); if(!a){ alert('How much was it?'); return; }
@@ -2863,7 +2868,7 @@ function setRows(items, sign){
   IMP.rows = items.map(function(x){
     var out = sign === 'neg' ? x.raw < 0 : x.raw > 0, amt = Math.abs(x.raw), cat = guessCat(x.desc);
     var skip = /payment.*thank|autopay|online payment|transfer|credit card payment|mobile payment|deposit|zelle from|refund/i.test(x.desc);
-    var dup = have[x.date + '|' + amt.toFixed(2) + '|' + cleanVendor(x.desc).toLowerCase().slice(0, 12)];
+    var dup = have[x.date + '|' + amt.toFixed(2) + '|' + cleanVendor(x.desc).toLowerCase().slice(0, 12)] || receiptCovers(x.date, amt);
     return { date:x.date, desc:x.desc, vendor:cleanVendor(x.desc), amount:amt, cat:cat, on:out && !skip && !dup && cat !== 'Personal (not business)', out:out, dup:!!dup };
   }).filter(function(r){ return r.out; });
   render();
@@ -2873,7 +2878,7 @@ function importReview(){
   var R = IMP.rows, on = R.filter(function(r){ return r.on; });
   var h = '<div class="card"><b>' + R.length + ' charges found.</b> Check the ones that were for the business, fix any category, then save.<div class="muted small" style="margin-top:4px">Showing money <b>out</b> as ' + (IMP.sign === 'neg' ? 'negative numbers (bank style)' : 'positive numbers (card style)') + '. <a href="javascript:void 0" onclick="BM.flipSign()">Looks backwards? Flip it</a></div>'
     + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.aiSort()">✨ Let AI sort the categories</button>' : '') + '</div>';
-  h += R.map(function(r, i){ return '<div class="card" style="padding:10px 12px;' + (r.on ? '' : 'opacity:.6') + '"><div class="row"><input type="checkbox" style="width:26px;height:26px;flex:none" ' + (r.on ? 'checked' : '') + ' onchange="BM.impOn(' + i + ',this.checked)" aria-label="Include"><div class="grow"><b>' + esc(r.vendor) + '</b><div class="small muted">' + fd(r.date) + (r.dup ? ' · already in your expenses' : '') + '</div></div><b>' + money(r.amount) + '</b></div>'
+  h += R.map(function(r, i){ return '<div class="card" style="padding:10px 12px;' + (r.on ? '' : 'opacity:.6') + '"><div class="row"><input type="checkbox" style="width:26px;height:26px;flex:none" ' + (r.on ? 'checked' : '') + ' onchange="BM.impOn(' + i + ',this.checked)" aria-label="Include"><div class="grow"><b>' + esc(r.vendor) + '</b><div class="small muted">' + fd(r.date) + (r.dup ? ' · already in your expenses or a receipt' : '') + '</div></div><b>' + money(r.amount) + '</b></div>'
     + '<select class="i" style="min-height:42px;margin-top:6px;font-size:15px" onchange="BM.impCat(' + i + ',this.value)" aria-label="Category">' + CATS.map(function(c){ return '<option' + (c === r.cat ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>'; }).join('');
   h += '<div style="position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));padding-top:6px"><button class="btn main full" onclick="BM.saveImport()">Save ' + on.length + ' expenses (' + money(on.reduce(function(a, r){ return a + r.amount; }, 0)) + ')</button><button class="btn sm full" style="margin-top:6px" onclick="BM.cancelImport()">Cancel</button></div>';
   return h;
@@ -2919,6 +2924,291 @@ function aiRead(){
       setRows(rows, 'pos'); } });
 }
 
+/* ── receipts: photo or emailed receipt → items → which job each one is for ──────────
+   The photo is read on the phone (Tesseract, loaded on first use). An emailed receipt is pasted.
+   Every item then goes to a job (or is split between two), to the shop, or is marked personal.
+   Tax is spread across the items in proportion. Photos are kept in the phone's file store. */
+var OCR_JS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+var OCR_OPT = { workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js', corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1', langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int' };
+var RC = null;   /* the receipt being worked on */
+var STORES = ['Home Depot', 'Lowe’s', 'Menards', 'Ace Hardware', 'True Value', 'Harbor Freight', 'Northern Tool', 'Ferguson', 'Johnstone Supply', 'Grainger', 'Fastenal', 'Sherwin-Williams', 'Tractor Supply', 'Walmart', 'Costco', 'Sam’s Club', 'Target', 'Amazon', 'SupplyHouse', 'Winsupply', 'Graybar', 'ABC Supply', 'Floor & Decor', '84 Lumber', 'AutoZone', 'O’Reilly', 'NAPA'];
+
+/* the phone's file store, for receipt photos */
+function fdb(){ return new Promise(function(res, rej){ var r = indexedDB.open('bizmgr_files', 1); r.onupgradeneeded = function(){ r.result.createObjectStore('f'); }; r.onsuccess = function(){ res(r.result); }; r.onerror = function(){ rej(r.error); }; }); }
+async function putFile(id, blob){ var db = await fdb(); return new Promise(function(res, rej){ var t = db.transaction('f', 'readwrite'); t.objectStore('f').put(blob, id); t.oncomplete = function(){ res(id); }; t.onerror = function(){ rej(t.error); }; }); }
+async function getFile(id){ var db = await fdb(); return new Promise(function(res){ var q = db.transaction('f').objectStore('f').get(id); q.onsuccess = function(){ res(q.result || null); }; q.onerror = function(){ res(null); }; }); }
+async function delFile(id){ try{ var db = await fdb(); db.transaction('f', 'readwrite').objectStore('f').delete(id); }catch(e){} }
+async function shrink(file){
+  var url = URL.createObjectURL(file);
+  try{
+    var img = await new Promise(function(res, rej){ var i = new Image(); i.onload = function(){ res(i); }; i.onerror = rej; i.src = url; });
+    var k = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(function(res){ c.toBlob(res, 'image/jpeg', 0.8); });
+  } finally { URL.revokeObjectURL(url); }
+}
+function loadScript(src){ return new Promise(function(res, rej){ if(window.Tesseract) return res(); var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = function(){ rej(new Error('offline')); }; document.head.appendChild(s); }); }
+
+VIEWS.receipt = function(){
+  setHead('Receipt', RC && RC.vendor ? RC.vendor : 'photo or email');
+  if(!RC || !RC.lines) return receiptStart();
+  return receiptReview();
+};
+function receiptStart(){
+  var h = '<div class="card"><b>📸 Take a picture of the receipt</b><p class="muted small" style="margin:4px 0 10px">Lay it flat in good light and fill the screen with it. The phone reads it for you, then you say which job each item is for.</p>'
+    + '<label class="btn main full">📸 Take a picture<input type="file" accept="image/*" capture="environment" hidden onchange="BM.rcPhoto(this)"></label>'
+    + '<label class="btn full" style="margin-top:8px">🖼️ Pick a photo I already took<input type="file" accept="image/*" hidden onchange="BM.rcPhoto(this)"></label>'
+    + '<div id="ocrMsg" class="hint" hidden></div></div>';
+  h += '<div class="card"><b>📧 Emailed receipt</b><p class="muted small" style="margin:4px 0 8px">Open the receipt email from Home Depot, Lowe’s, Amazon or your supply house. Press and hold, <b>Select All</b>, <b>Copy</b>, then paste it here.</p>'
+    + '<textarea class="i" id="rcT" placeholder="Paste the receipt here"></textarea><button class="btn full" style="margin-top:8px" onclick="BM.rcText()">Read it</button></div>';
+  h += '<button class="btn sm full" onclick="BM.rcManual()">✍️ Type the items in myself</button>';
+  var n = (S.receipts || []).length;
+  if(n) h += '<button class="btn sm full" style="margin-top:8px" onclick="BM.go(\'receipts\')">🗂️ Receipts I’ve saved (' + n + ')</button>';
+  return h;
+}
+async function rcPhoto(inp){
+  var f = inp.files && inp.files[0]; if(!f) return;
+  var msg = $('ocrMsg'); msg.hidden = false; msg.textContent = 'Saving the photo…';
+  var blob = await shrink(f).catch(function(){ return f; }), pid = 'rc_' + uid();
+  try{ await putFile(pid, blob); }catch(e){ pid = ''; }
+  var text = '';
+  try{
+    msg.textContent = 'Getting the receipt reader ready (first time takes a moment)…';
+    await loadScript(OCR_JS);
+    var w = await Tesseract.createWorker('eng', 1, Object.assign({ logger:function(m){ if(m.status === 'recognizing text') msg.textContent = 'Reading the receipt… ' + Math.round(m.progress * 100) + '%'; } }, OCR_OPT));
+    var out = await w.recognize(blob); text = out.data.text || ''; await w.terminate();
+  }catch(e){
+    msg.innerHTML = 'I couldn’t read the photo here (' + esc(e.message || 'no connection') + '). The photo is saved — type the items in below, or paste the receipt text.';
+  }
+  startReceipt(text, pid, 'photo');
+}
+function rcText(){ var t = $('rcT').value.trim(); if(!t){ alert('Paste the receipt first.'); return; } startReceipt(t, '', 'email'); }
+function rcManual(){ startReceipt('', '', 'typed'); if(!RC.lines.length) RC.lines.push({ name:'', amount:0, to:'' }); render(); }
+function startReceipt(text, pid, how){
+  var r = parseReceipt(text);
+  RC = { id:uid(), how:how, photo:pid, text:text, vendor:r.vendor, date:r.date || today(), tax:r.tax, total:r.total, lines:r.items.map(function(x){ return { name:x.name, amount:x.amount, to:'' }; }), most:'', bill:{}, markup:num(S.biz.markup) };
+  var active = destJobs(); if(active.length === 1) RC.most = 'job:' + active[0].id;
+  if(location.hash !== '#receipt') go('receipt'); else render();
+  if(text && !RC.lines.length) toast('I couldn’t pick out the items — add them below' + (hasAI() ? ', or let AI read it' : ''));
+}
+
+/* reading receipt text: works on Home Depot / Lowe's style receipts and pasted eReceipts */
+function parseReceipt(text){
+  var out = { vendor:'', date:'', tax:0, total:0, items:[] }, t = String(text || '');
+  for(var i = 0; i < STORES.length; i++){ var re = new RegExp(STORES[i].replace(/[’']/g, '[’\']?').replace(/[&]/g, '&').replace(/ /g, '\\s*'), 'i'); if(re.test(t)){ out.vendor = STORES[i]; break; } }
+  var dm = t.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/) || t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if(dm) out.date = anyDate(dm[0]);
+  var SKIP = /\b(sub-?total|total|tax|change|cash|visa|master ?card|mc|amex|discover|debit|credit|tender|balance|payment|auth|approval|card ?#|acct|account|points|rewards|you saved|savings total|items? sold|tendered|pro xtra|return policy)\b/i;
+  var lines = t.split(/\r?\n/).map(function(l){ return l.replace(/\s+/g, ' ').trim(); }).filter(Boolean), pending = '', pendingQty = 0;
+  lines.forEach(function(l){
+    var m;
+    if(!out.total && (m = l.match(/^(?:grand\s+)?total(?:\s+due)?\b[^\d\-]*(-?\$?\s?[\d,]+\.\d{2})/i))) out.total = num(m[1]);
+    else if(/^(?:order|amount|balance)\s+(?:total|due)\b/i.test(l) && (m = l.match(/(-?\$?\s?[\d,]+\.\d{2})\s*$/))) out.total = out.total || num(m[1]);
+    if(!out.tax && /\btax\b/i.test(l) && !/\bpre-?tax\b/i.test(l) && (m = l.match(/(-?\$?\s?[\d,]+\.\d{2})\s*$/))) out.tax = num(m[1]);
+    if(SKIP.test(l)){ pending = ''; pendingQty = 0; return; }
+    m = l.match(/^(.*?[A-Za-z].*?)\s+(-?\$?\s?\d{1,5}(?:,\d{3})*\.\d{2})(?:\s*-)?\s*[A-Z]{0,2}$/);
+    var fromPending = false;
+    if(!m && pending && (fromPending = true) && (m = l.match(/^(?:\d+\s*@\s*\$?[\d.]+\s+)?(-?\$?\s?\d{1,5}(?:,\d{3})*\.\d{2})\s*[A-Z]{0,2}$/))){ m = [l, pending, m[1]]; }
+    if(!m){
+      /* eReceipts put "Item # 123456  Qty 2" or "Model / SKU" under the product name: keep the name, note the quantity */
+      if(pending && /^(item|sku|model|upc|qty|quantity|store\s*so|internet|ships?|delivered|sold by)\b|item\s*#/i.test(l)){ var qq = l.match(/\bqty\.?\s*:?\s*(\d+)/i); if(qq && +qq[1] > 1) pendingQty = +qq[1]; return; }
+      pending = /[A-Za-z]{3}/.test(l) && !/\d+\.\d{2}/.test(l) ? l : ''; pendingQty = 0; return;
+    }
+    var name = m[1].replace(/^\d{6,}\s+/, '').replace(/<[A-Z]>/g, '').replace(/\s+\d+\s*@\s*\$?[\d.]+$/, '').replace(/\s{2,}/g, ' ').trim();
+    var q = l.match(/(\d+)\s*@\s*\$?([\d.]+)/); if(q) name += ' (' + q[1] + ' @ $' + (+q[2]).toFixed(2) + ')';
+    else if(fromPending && pendingQty > 1) name += ' (qty ' + pendingQty + ')';
+    pending = ''; pendingQty = 0;
+    if(name.length < 2 || /^(qty|price|amount|item|description)$/i.test(name)) return;
+    out.items.push({ name:name.slice(0, 60), amount:num(m[2]) });
+  });
+  if(!out.tax && out.total){ var s = out.items.reduce(function(a, x){ return a + x.amount; }, 0), d = r2(out.total - s); if(d > 0 && d < s * 0.15) out.tax = d; }
+  return out;
+}
+
+function destJobs(){ var cut = addDays(today(), -45); return S.jobs.filter(function(j){ return j.status !== 'lost' && (j.status !== 'closed' || (j.date || j.created || '') >= cut); }).sort(function(a, b){ return (b.date || b.created || '').localeCompare(a.date || a.created || ''); }); }
+function destOptions(sel, withSplit){
+  var o = '<option value="">— Where does it go? —</option>' + destJobs().map(function(j){ return '<option value="job:' + j.id + '"' + (sel === 'job:' + j.id ? ' selected' : '') + '>🧰 ' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('');
+  if(withSplit) o += '<option value="split"' + (sel === 'split' ? ' selected' : '') + '>➗ Split between two jobs…</option>';
+  [['tools', '🔧 Shop — tools & equipment'], ['supplies', '📦 Shop — supplies & stock'], ['personal', '🍫 Personal — not business']].forEach(function(x){ o += '<option value="' + x[0] + '"' + (sel === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; });
+  return o;
+}
+function destName(to){ if(!to) return 'Not picked'; if(to.indexOf('job:') === 0){ var j = job(to.slice(4)); return j ? j.title : 'a job'; } return { tools:'Shop tools', supplies:'Shop supplies', personal:'Personal', split:'Split' }[to] || to; }
+function rcSums(){ var items = r2(RC.lines.reduce(function(a, l){ return a + num(l.amount); }, 0)), tax = num(RC.tax); return { items:items, tax:tax, total:r2(items + tax) }; }
+function receiptReview(){
+  var s = rcSums(), h = '';
+  h += '<div class="card"><div class="two"><div><label class="f" for="rcV" style="margin-top:0">Store</label><input class="i" id="rcV" value="' + esc(RC.vendor) + '" onchange="BM.rcSet(\'vendor\',this.value)" placeholder="Home Depot"></div><div><label class="f" for="rcD" style="margin-top:0">Date</label><input class="i" type="date" id="rcD" value="' + esc(RC.date) + '" onchange="BM.rcSet(\'date\',this.value)"></div></div>'
+    + (RC.photo ? '<button class="btn sm" style="margin-top:8px" onclick="BM.showPhoto(\'' + RC.photo + '\')">📸 See the photo</button>' : '') + '</div>';
+  h += '<div class="card"><label class="f" for="rcM" style="margin-top:0">Most of this is for</label><select class="i" id="rcM" onchange="BM.rcMost(this.value)">' + destOptions(RC.most, false) + '</select><p class="hint">Then change just the items that go somewhere else — a tool for the shop, a snack that’s personal, or a split between two jobs.</p></div>';
+  h += '<h2>Items (' + RC.lines.length + ')</h2>';
+  h += RC.lines.map(function(l, i){
+    var sel = l.to || RC.most;
+    return '<div class="card" style="padding:10px 12px"><div class="row"><input class="i grow" style="min-height:44px;font-size:15.5px" value="' + esc(l.name) + '" placeholder="Item" onchange="BM.rcLine(' + i + ',\'name\',this.value)" aria-label="Item"><input class="i" style="width:104px;min-height:44px;font-size:15.5px;text-align:right" inputmode="decimal" value="' + (l.amount ? num(l.amount).toFixed(2) : '') + '" placeholder="$" onchange="BM.rcLine(' + i + ',\'amount\',this.value)" aria-label="Price"><button class="btn sm danger" onclick="BM.rcDel(' + i + ')" aria-label="Remove item">✕</button></div>'
+      + '<select class="i" style="min-height:44px;margin-top:6px;font-size:15px' + (l.to && l.to !== RC.most ? ';border-color:var(--amber);background:var(--amberSoft)' : '') + '" onchange="BM.rcTo(' + i + ',this.value)" aria-label="Where it goes">' + destOptions(sel, true) + '</select>'
+      + (l.to === 'split' ? '<div class="small muted" style="margin-top:4px">' + l.split.map(function(p){ return money(p.amt) + ' → ' + esc(destName(p.to)); }).join(' · ') + ' <a href="javascript:void 0" onclick="BM.rcSplit(' + i + ')">change</a></div>' : '') + '</div>';
+  }).join('');
+  h += '<div class="btns"><button class="btn sm" onclick="BM.rcAdd()">➕ Add an item</button>' + (hasAI() && RC.text ? '<button class="btn sm" onclick="BM.rcAI()">✨ Have AI read it</button>' : '') + '</div>';
+  h += '<div class="card" style="margin-top:10px"><div class="tot"><span>Items</span><span>' + money(s.items) + '</span></div><div class="tot"><span>Tax</span><span><input class="i" style="width:110px;min-height:40px;text-align:right" inputmode="decimal" value="' + (s.tax ? s.tax.toFixed(2) : '') + '" placeholder="0.00" onchange="BM.rcSet(\'tax\',this.value)" aria-label="Tax"></span></div><div class="tot grand"><span>Total</span><span>' + money(s.total) + '</span></div>'
+    + (RC.total && Math.abs(RC.total - s.total) > 0.02 ? '<div class="banner small" style="margin:8px 0 0">The receipt says <b>' + money(RC.total) + '</b> but these add up to <b>' + money(s.total) + '</b>. Check for a missed or misread line.</div>' : '') + '</div>';
+  var jobsHere = {}; RC.lines.forEach(function(l){ (l.to === 'split' ? l.split : [{ to:l.to || RC.most }]).forEach(function(p){ if(p.to && p.to.indexOf('job:') === 0) jobsHere[p.to.slice(4)] = 1; }); });
+  var jids = Object.keys(jobsHere).filter(job);
+  if(jids.length && F('lineItems')) h += '<div class="card"><b>Charge the customer for these?</b><p class="hint" style="margin-top:2px">Adds the items to the job’s price, so they show up on the invoice.</p>' + jids.map(function(id){ var j = job(id); return '<label class="row" style="margin-top:8px"><input type="checkbox" style="width:24px;height:24px;flex:none"' + (RC.bill[id] ? ' checked' : '') + ' onchange="BM.rcBill(\'' + id + '\',this.checked)"><span class="grow">' + esc(j.title) + '</span></label>'; }).join('')
+    + '<div class="row" style="margin-top:8px"><span class="grow small muted">Markup on materials</span><input class="i" style="width:80px;min-height:40px;text-align:right" inputmode="decimal" value="' + num(RC.markup) + '" onchange="BM.rcSet(\'markup\',this.value)" aria-label="Markup percent"><span>%</span></div></div>';
+  h += '<div style="position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));padding-top:6px"><button class="btn main full" onclick="BM.rcSave()">Save receipt</button><button class="btn sm full" style="margin-top:6px" onclick="BM.rcCancel()">Cancel</button></div>';
+  return h;
+}
+function rcSet(k, v){ RC[k] = (k === 'tax' || k === 'markup') ? num(v) : v; if(k === 'tax' || k === 'markup') render(); }
+function rcMost(v){ RC.most = v; render(); }
+function rcLine(i, k, v){ RC.lines[i][k] = k === 'amount' ? num(v) : v; if(k === 'amount'){ var l = RC.lines[i]; if(l.to === 'split') l.split[1].amt = r2(num(l.amount) - num(l.split[0].amt)); render(); } }
+function rcDel(i){ RC.lines.splice(i, 1); render(); }
+function rcAdd(){ RC.lines.push({ name:'', amount:0, to:'' }); render(); var ins = document.querySelectorAll('#main input.grow'); if(ins.length) ins[ins.length - 1].focus(); }
+function rcBill(id, v){ RC.bill[id] = v; }
+function rcTo(i, v){ if(v === 'split'){ rcSplit(i); return; } RC.lines[i].to = v === RC.most ? '' : v; render(); }
+function rcSplit(i){
+  var l = RC.lines[i], js = destJobs(), a = (l.split && l.split[0].to) || RC.most || (js[0] ? 'job:' + js[0].id : ''), b = (l.split && l.split[1].to) || (js[1] ? 'job:' + js[1].id : '');
+  var half = l.split ? num(l.split[0].amt) : r2(num(l.amount) / 2);
+  sheet('<h3>Split ' + esc(l.name || 'this item') + '</h3><p class="muted" style="margin:0 0 6px">' + money(l.amount) + ' between two places.</p>'
+    + '<label class="f" for="spA">First</label><select class="i" id="spA">' + destOptions(a, false) + '</select><label class="f" for="spX">Amount for the first</label><input class="i" id="spX" inputmode="decimal" value="' + half.toFixed(2) + '">'
+    + '<label class="f" for="spB">The rest goes to</label><select class="i" id="spB">' + destOptions(b, false) + '</select>'
+    + '<div class="btns" style="margin-top:14px"><button class="btn main" onclick="BM.rcSplitSave(' + i + ')">Split it</button><button class="btn" onclick="BM.rcSplitHalf()">Half and half</button></div>');
+}
+function rcSplitHalf(){ var l = $('spX'); if(l){ var i = +(document.querySelector('#bmSheet .btn.main').getAttribute('onclick').match(/\d+/)[0]); l.value = (num(RC.lines[i].amount) / 2).toFixed(2); } }
+function rcSplitSave(i){
+  var l = RC.lines[i], a = $('spA').value, b = $('spB').value, x = num($('spX').value);
+  if(!a || !b){ alert('Pick both places.'); return; } if(a === b){ alert('Pick two different places.'); return; }
+  if(x <= 0 || x >= num(l.amount)){ alert('The first amount has to be between $0 and ' + money(l.amount) + '.'); return; }
+  l.to = 'split'; l.split = [{ to:a, amt:r2(x) }, { to:b, amt:r2(num(l.amount) - x) }]; closeSheet(); render();
+}
+function rcCancel(){ if(RC && RC.photo && !(S.receipts || []).some(function(r){ return r.photo === RC.photo; })) delFile(RC.photo); RC = null; go('money'); }
+function rcSave(){
+  var s = rcSums(), missing = RC.lines.filter(function(l){ return !(l.to || RC.most); }).length;
+  if(!RC.lines.length){ alert('Add at least one item.'); return; }
+  if(missing){ alert(missing + ' item' + (missing > 1 ? 's don’t' : ' doesn’t') + ' have a place yet. Pick “Most of this is for”, or set each one.'); return; }
+  var ratio = s.items ? s.tax / s.items : 0, groups = {}, mk = 1 + num(RC.markup) / 100;
+  RC.lines.forEach(function(l){
+    (l.to === 'split' ? l.split : [{ to:l.to || RC.most, amt:num(l.amount) }]).forEach(function(p){
+      var g = groups[p.to] = groups[p.to] || { amt:0, names:[], items:[] };
+      g.amt += p.amt * (1 + ratio); g.names.push(l.name + (l.to === 'split' ? ' (part)' : '')); g.items.push({ name:l.name, amt:p.amt });
+    });
+  });
+  var rec = { id:RC.id, date:RC.date || today(), vendor:RC.vendor || 'Receipt', how:RC.how, photo:RC.photo, items:s.items, tax:s.tax, total:s.total, lines:JSON.parse(JSON.stringify(RC.lines)), most:RC.most, created:today(), expenses:[] };
+  Object.keys(groups).forEach(function(to){
+    var g = groups[to], isJob = to.indexOf('job:') === 0, jid = isJob ? to.slice(4) : '';
+    var e = { id:uid(), date:rec.date, vendor:rec.vendor, amount:r2(g.amt), cat:isJob ? 'Materials & supplies' : { tools:'Tools & equipment', supplies:'Materials & supplies', personal:'Personal (not business)' }[to], jobId:jid, note:g.names.join(', ').slice(0, 300), source:'receipt', receiptId:rec.id };
+    S.expenses.push(e); rec.expenses.push(e.id);
+    if(isJob && RC.bill[jid] && job(jid)){ var j = job(jid); g.items.forEach(function(x){ j.items.push({ name:x.name || 'Materials', qty:1, price:r2(x.amt * mk), receiptId:rec.id }); }); logJob(j, 'Billed materials from ' + rec.vendor + ' receipt'); }
+    if(isJob && job(jid)) logJob(job(jid), 'Receipt: ' + rec.vendor + ' ' + money(g.amt));
+  });
+  (S.receipts = S.receipts || []).push(rec);
+  if(num(RC.markup) !== num(S.biz.markup)) S.biz.markup = num(RC.markup);
+  RC = null; save();
+  var where = Object.keys(groups).map(function(to){ return destName(to); }).join(', ');
+  toast('Saved ' + money(rec.total) + ' → ' + where); go('rcpt/' + rec.id);
+}
+function rcAI(){
+  djAI.ask({ title:'Read this receipt', want:'text', circle:false,
+    prompt:'This is the text of a store receipt (it may be messy — it was read from a photo or copied from an email). Pull out what was bought. Write exactly this, with nothing else:\nStore: name of the store\nDate: YYYY-MM-DD\nItem name | price\nItem name | price\nTax: 0.00\nTotal: 0.00\n\nUse the price actually charged for each line (after any discount). Leave out payment, card and change lines.\n\n' + String(RC.text).slice(0, 8000),
+    onResult:function(v, raw){
+      var n = 0, lines = [];
+      bulletless(raw).forEach(function(l){ var m;
+        if((m = l.match(/^store\s*:\s*(.+)$/i))) RC.vendor = m[1].trim();
+        else if((m = l.match(/^date\s*:\s*(.+)$/i))) RC.date = anyDate(m[1]) || RC.date;
+        else if((m = l.match(/^tax\s*:\s*(.+)$/i))) RC.tax = num(m[1]);
+        else if((m = l.match(/^total\s*:\s*(.+)$/i))) RC.total = num(m[1]);
+        else { var p = l.split('|').map(function(x){ return x.trim(); }); if(p.length >= 2 && /\d/.test(p[p.length - 1])){ lines.push({ name:p.slice(0, -1).join(' '), amount:num(p[p.length - 1]), to:'' }); n++; } } });
+      if(!n){ alert('I couldn’t find items in what you pasted. In ' + aiName() + ', tap Copy under its answer, come back, and paste again.'); return; }
+      RC.lines = lines; render(); toast('Read ' + n + ' items — check them over'); } });
+}
+async function showPhoto(id){
+  var b = await getFile(id); if(!b){ alert('That photo isn’t on this phone any more.'); return; }
+  var u = URL.createObjectURL(b);
+  sheet('<h3>Receipt photo</h3><img src="' + u + '" alt="Receipt photo" style="width:100%;border-radius:12px;border:1px solid var(--line)">');
+}
+
+/* saved receipts */
+VIEWS.receipts = function(){
+  setHead('Receipts');
+  var list = (S.receipts || []).slice().sort(function(a, b){ return b.date.localeCompare(a.date); });
+  return '<button class="btn main full" style="margin-bottom:10px" onclick="BM.newReceipt()">📸 Add a receipt</button>' + (list.length ? list.map(function(r){
+    var to = {}; r.lines.forEach(function(l){ (l.to === 'split' ? l.split.map(function(p){ return p.to; }) : [l.to || r.most]).forEach(function(t){ to[destName(t)] = 1; }); });
+    return '<button class="card tap" onclick="BM.go(\'rcpt/' + r.id + '\')"><div class="row"><div class="grow"><b>' + esc(r.vendor) + '</b>' + (r.photo ? ' 📸' : '') + '<div class="small muted">' + fd(r.date) + ' · ' + r.lines.length + ' item' + (r.lines.length > 1 ? 's' : '') + ' → ' + esc(Object.keys(to).join(', ')) + '</div></div><b>' + money(r.total) + '</b></div></button>';
+  }).join('') : '<div class="empty"><div class="em">🧾</div>No receipts yet.</div>');
+};
+VIEWS.rcpt = function(){
+  var r = (S.receipts || []).filter(function(x){ return x.id === route[1]; })[0]; if(!r) return '<div class="empty">That receipt is gone.</div>';
+  setHead(r.vendor, fd(r.date) + ' · ' + money(r.total));
+  var h = (r.photo ? '<button class="btn full" style="margin-bottom:10px" onclick="BM.showPhoto(\'' + r.photo + '\')">📸 See the photo</button>' : '');
+  h += '<div class="card"><table class="lines">' + r.lines.map(function(l){ return '<tr><td>' + esc(l.name || 'Item') + '<div class="small muted">' + (l.to === 'split' ? l.split.map(function(p){ return money(p.amt) + ' → ' + esc(destName(p.to)); }).join(' · ') : '→ ' + esc(destName(l.to || r.most))) + '</div></td><td class="n">' + money(l.amount) + '</td></tr>'; }).join('') + '</table>'
+    + '<div class="tot"><span>Tax</span><span>' + money(r.tax) + '</span></div><div class="tot grand"><span>Total</span><span>' + money(r.total) + '</span></div><p class="hint">Tax is spread across the items, so each job carries its share.</p></div>';
+  h += '<h2>Where it went</h2>' + S.expenses.filter(function(e){ return e.receiptId === r.id; }).map(function(e){ var j = e.jobId ? job(e.jobId) : null; return '<button class="card tap" onclick="' + (j ? 'BM.go(\'job/' + j.id + '\')' : 'BM.addExpense(\'' + e.id + '\')') + '"><div class="row"><div class="grow"><b>' + esc(j ? j.title : e.cat) + '</b><div class="small muted">' + esc(e.cat) + '</div></div><b>' + money(e.amount) + '</b></div></button>'; }).join('');
+  h += '<button class="btn danger full" style="margin-top:10px" onclick="BM.delReceipt(\'' + r.id + '\')">Undo this receipt</button><p class="hint">Removes its expenses (and any items it added to a job’s price) so you can do it again.</p>';
+  return h;
+};
+function newReceipt(){ RC = null; go('receipt'); if(location.hash === '#receipt') render(); }
+function delReceipt(id){
+  if(!confirm('Undo this receipt? Its expenses come off the books, and items it added to a job’s price are removed.')) return;
+  var r = S.receipts.filter(function(x){ return x.id === id; })[0];
+  S.expenses = S.expenses.filter(function(e){ return e.receiptId !== id; });
+  S.jobs.forEach(function(j){ j.items = (j.items || []).filter(function(x){ return x.receiptId !== id; }); });
+  S.receipts = S.receipts.filter(function(x){ return x.id !== id; });
+  if(r && r.photo) delFile(r.photo);
+  save(); go('receipts');
+}
+/* a receipt already covers its card charge: the statement import shouldn't add it again */
+function receiptCovers(date, amt){ return (S.receipts || []).some(function(r){ return Math.abs(r.total - amt) < 0.015 && Math.abs(daysBetween(r.date, date)) <= 3; }); }
+
+/* ── signed estimates coming back ──────────────────────────────────────────
+   The customer signs on view.html. Their approval message carries a link back to this app
+   (#ok/<code>) holding their name, the time, the total they saw and their signature strokes.
+   Tapping it here saves the signed copy on the job and in the customer's records. */
+function unb64(s){ s = s.replace(/-/g, '+').replace(/_/g, '/'); while(s.length % 4) s += '='; var bin = atob(s), u = new Uint8Array(bin.length); for(var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+async function decode(h){
+  var bytes = unb64(h.slice(1));
+  if(h[0] === 'z'){ var st = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')); return JSON.parse(await new Response(st).text()); }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+function appURL(){ return new URL('./', location.href.split('#')[0]).href; }
+function sigSVG(sig, w, h){
+  if(!sig || !sig.length) return '';
+  var paths = sig.map(function(s){ var d = ''; for(var i = 0; i + 1 < s.length; i += 2) d += (i ? 'L' : 'M') + s[i] + ' ' + s[i + 1]; return '<path d="' + d + '"/>'; }).join('');
+  return '<svg viewBox="0 0 1000 300" width="' + (w || '100%') + '" height="' + (h || 90) + '" role="img" aria-label="Signature" style="display:block;background:#fff;border:1px solid var(--line);border-radius:10px"><g fill="none" stroke="#1C2630" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">' + paths + '</g></svg>';
+}
+function notHere(n, nm){
+  return '<b>I can’t find Estimate #' + esc(n) + ' on this ' + (S && S.setup.done ? 'phone' : 'screen') + '.</b><p class="muted">' + (nm ? esc(nm) + ' approved it, but the' : 'The') + ' job isn’t here. If you keep Business Manager on your Home Screen, the link probably opened in your web browser instead.</p>'
+    + '<ol class="small" style="text-align:left;margin:6px 0 10px;padding-left:20px"><li>Tap <b>Copy this link</b>.</li><li>Open Business Manager from your Home Screen.</li><li>Open the job, tap <b>👍 They said yes</b>, and paste it in the box at the bottom.</li></ol>'
+    + '<button class="btn main full" onclick="BM.copyHere()">📋 Copy this link</button>';
+}
+function copyHere(){ var u = location.href; try{ navigator.clipboard.writeText(u).then(function(){ toast('Copied'); }, function(){ prompt('Copy this link:', u); }); }catch(e){ prompt('Copy this link:', u); } }
+VIEWS.ok = function(){
+  setHead('Signed estimate');
+  after = async function(){
+    var box = $('okBox'), A;
+    try{ A = await decode(route[1] || ''); }catch(e){ box.innerHTML = '<b>That link didn’t open.</b><p class="muted">It may have been cut short when it was copied. Ask the customer to send it again, or tap “They said yes” on the job.</p>'; return; }
+    var j = S && S.setup.done ? S.jobs.filter(function(x){ return String(x.num) === String(A.n); })[0] : null;
+    if(!j || preview){ box.innerHTML = notHere(A.n, A.nm); return; }
+    var when = new Date(A.at || Date.now()), d = ymd(when), already = j.signed && j.signed.at === A.at;
+    var cur = jobTotal(j), changed = Math.abs(cur - num(A.t)) > 0.009;
+    if(!already){
+      j.signed = { name:A.nm, date:d, at:A.at, sig:A.sg || null, total:num(A.t), via:'link' };
+      j.signedCopy = Object.assign(estPayload(j), { sg:j.signed });
+      j.estSent = j.estSent || d;
+      if(['new', 'estimate'].indexOf(j.status) >= 0) j.status = 'approved';
+      logJob(j, 'Signed by ' + A.nm + ' (from their phone)'); save();
+    }
+    box.innerHTML = '<div style="font-size:40px">✅</div><div style="font-size:21px;font-weight:850">' + esc(A.nm) + ' signed it</div>'
+      + '<p class="muted" style="margin:4px 0 10px">Estimate #' + esc(A.n) + ' · ' + esc(j.title) + ' · ' + money(A.t) + '<br>' + when.toLocaleString([], { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) + '</p>'
+      + (A.sg ? sigSVG(A.sg) : '')
+      + (changed ? '<div class="banner small" style="margin-top:10px">Heads up: they approved <b>' + money(A.t) + '</b>, but the job now totals <b>' + money(cur) + '</b>. If you changed the price after sending, send the new estimate for a fresh signature.</div>' : '')
+      + '<p class="hint" style="margin-top:10px">' + (already ? 'Already saved.' : 'Saved to the job and to ' + esc(first(cust(j.customerId).name)) + '’s records.') + '</p>'
+      + '<div class="btns" style="margin-top:8px"><button class="btn main" onclick="BM.go(\'job/' + j.id + '\')">Open the job</button><button class="btn" onclick="BM.signedCopy(\'' + j.id + '\')">📄 Signed copy</button></div>';
+  };
+  return '<div class="card" id="okBox" style="text-align:center">Opening the signed estimate…</div>';
+};
+async function signedCopy(jid){
+  var j = job(jid), p = j.signedCopy || Object.assign(estPayload(j), { sg:j.signed });
+  var w = window.open('about:blank', '_blank'), u = viewURL() + '#' + await encode(p);
+  if(w) w.location = u; else location.href = u;
+}
 /* ── hours ── */
 VIEWS.hours = function(){
   setHead('Hours for payroll');
@@ -3067,7 +3357,7 @@ function setChan(c){ S.msg.channel = c; save(); render(); }
 function saveMsg(){ S.biz.reviewLink = $('rL').value.trim(); save(); toast('Saved'); go('more'); }
 function backup(){ download('business-manager-backup-' + today() + '.json', JSON.stringify(S, null, 1), 'application/json'); S.lastBackup = today(); save(); }
 function restore(inp){ var f = inp.files && inp.files[0]; if(!f) return; var r = new FileReader(); r.onload = function(){ try{ var d = JSON.parse(r.result); if(!d || !d.v || !d.biz) throw 0; if(!confirm('Replace everything on this phone with the backup from ' + (d.lastBackup || 'that file') + '?')) return; localStorage.setItem(KEY, JSON.stringify(d)); S = load(); preview = false; go('home'); toast('Restored'); }catch(e){ alert('That doesn’t look like a Business Manager backup.'); } }; r.readAsText(f); }
-function wipe(){ if(!confirm('Erase all your customers, jobs, invoices and expenses on this phone?')) return; if(!confirm('Last check — this can’t be undone. Erase everything?')) return; try{ localStorage.removeItem(KEY); }catch(e){} S = null; preview = false; go('welcome'); }
+function wipe(){ if(!confirm('Erase all your customers, jobs, invoices and expenses on this phone?')) return; if(!confirm('Last check — this can’t be undone. Erase everything?')) return; try{ localStorage.removeItem(KEY); indexedDB.deleteDatabase('bizmgr_files'); }catch(e){} S = null; preview = false; go('welcome'); }
 
 /* ── the setup interview ── */
 var SU = null;
@@ -3202,7 +3492,7 @@ function plus(){
   var o = function(fn, em, t, s){ return '<button class="opt" onclick="BM.closeSheet();' + fn + '"><span class="e">' + em + '</span><span class="grow">' + t + (s ? '<small>' + s + '</small>' : '') + '</span></button>'; };
   sheet('<h3>Add something</h3>' + o("BM.go('newjob')", '🧰', 'New job', F('estimates') ? 'Then price it and send the estimate' : 'Who, what, when, how much')
     + o("BM.go('newcust')", '👤', 'New customer', '')
-    + (F('expenses') || F('materials') ? o('BM.addExpense()', '⛽', 'Expense or receipt', 'Gas, materials, tools…') : '')
+    + (F('expenses') || F('materials') ? o('BM.newReceipt()', '📸', 'Receipt', 'Snap it or paste the email — then pick the job for each item') + o('BM.addExpense()', '⛽', 'Quick expense', 'Gas, a bill, anything without a receipt to scan') : '')
     + (F('crew') ? (S.clock ? o('BM.clockOut()', '⏱', 'Clock out', '') : o('BM.clockPick()', '⏱', 'Clock in', '')) : '')
     + (F('expenses') ? o("BM.go('import')", '📄', 'Import a bank or card statement', 'CSV from your bank’s website') : ''));
 }
@@ -3225,6 +3515,9 @@ window.BM = {
   hoursCSV:hoursCSV, exp:exp,
   saveBiz:saveBiz, setFeat:setFeat, savePay:savePay, setPrice:setPrice, delPrice:delPrice, addPrice:addPrice, setCrew:setCrew, delCrew:delCrew, addCrew:addCrew, setChan:setChan, saveMsg:saveMsg,
   backup:backup, restore:restore, wipe:wipe,
+  newReceipt:newReceipt, rcPhoto:rcPhoto, rcText:rcText, rcManual:rcManual, rcSet:rcSet, rcMost:rcMost, rcLine:rcLine, rcDel:rcDel, rcAdd:rcAdd, rcBill:rcBill, rcTo:rcTo,
+  rcSplit:rcSplit, rcSplitHalf:rcSplitHalf, rcSplitSave:rcSplitSave, rcCancel:rcCancel, rcSave:rcSave, rcAI:rcAI, showPhoto:showPhoto, delReceipt:delReceipt,
+  signedCopy:signedCopy, pasteOk:pasteOk, copyHere:copyHere, _rc:function(){ return RC; }, _parseReceipt:parseReceipt,
   _state:function(){ return S; }
 };
 

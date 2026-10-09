@@ -31,6 +31,11 @@
   label.ck{ display:flex; gap:10px; align-items:flex-start; margin:10px 0; }
   label.ck input{ width:24px; height:24px; flex:none; margin-top:2px; }
   .paid{ display:inline-block; background:#E3F3EA; color:var(--good); font-weight:850; padding:4px 12px; border-radius:99px; }
+  .pad{ position:relative; margin:6px 0 4px; }
+  .pad canvas{ display:block; width:100%; height:150px; background:#fff; border:1.5px dashed #B9B1A2; border-radius:12px; touch-action:none; }
+  .pad .line{ position:absolute; left:16px; right:16px; bottom:34px; border-bottom:1.5px solid #D9D2C4; pointer-events:none; }
+  .pad .x{ position:absolute; left:18px; bottom:38px; color:#B9B1A2; font-size:20px; pointer-events:none; }
+  .linkbtn{ background:none; border:0; color:var(--soft); text-decoration:underline; font:inherit; font-size:14px; min-height:36px; cursor:pointer; padding:0; }
   .terms{ font-size:13.5px; color:var(--soft); margin-top:14px; white-space:pre-wrap; }
   .foot{ text-align:center; font-size:12.5px; color:var(--soft); margin-top:18px; }
   @media print{ .noprint{ display:none !important; } body{ background:#fff; } .paper{ border:0; padding:0; } }
@@ -87,11 +92,38 @@
     h += '<button class="btn noprint" onclick="window.print()">🖨️ Print or save as PDF</button>';
     h += '<div class="foot">Sent by ' + esc(b.n) + ' using Business Manager.</div>';
     document.getElementById('doc').innerHTML = h;
+    D._total = total; initPad();
+  }
+  /* signature: strokes kept as numbers on a 1000 × 300 grid, so they travel in a link */
+  var SIG = [], cur = null;
+  function initPad(){
+    var c = document.getElementById('sig'); if(!c) return;
+    var g = c.getContext('2d');
+    function fit(){ var r = c.getBoundingClientRect(), k = window.devicePixelRatio || 1; c.width = r.width * k; c.height = r.height * k; g.setTransform(c.width / 1000, 0, 0, c.height / 300, 0, 0); redraw(); }
+    function redraw(){ g.clearRect(0, 0, 1000, 300); g.lineWidth = 7; g.lineCap = g.lineJoin = 'round'; g.strokeStyle = '#1C2630'; SIG.forEach(function(s){ g.beginPath(); for(var i = 0; i + 1 < s.length; i += 2) i ? g.lineTo(s[i], s[i + 1]) : g.moveTo(s[i], s[i + 1]); if(s.length === 2) g.lineTo(s[0] + 1, s[1]); g.stroke(); }); }
+    function pt(e){ var r = c.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 300)]; }
+    c.addEventListener('pointerdown', function(e){ e.preventDefault(); c.setPointerCapture(e.pointerId); cur = pt(e); SIG.push(cur); redraw(); });
+    c.addEventListener('pointermove', function(e){ if(!cur) return; var p = pt(e), n = cur.length; if(Math.abs(p[0] - cur[n - 2]) + Math.abs(p[1] - cur[n - 1]) < 6) return; cur.push(p[0], p[1]); redraw(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev){ c.addEventListener(ev, function(){ cur = null; }); });
+    window.addEventListener('resize', fit); fit();
+    D._clearSig = function(){ SIG = []; redraw(); };
+  }
+  function sigSVG(sig){
+    var d = (sig || []).map(function(s){ var p = ''; for(var i = 0; i + 1 < s.length; i += 2) p += (i ? 'L' : 'M') + s[i] + ' ' + s[i + 1]; return '<path d="' + p + '"/>'; }).join('');
+    return '<svg viewBox="0 0 1000 300" width="100%" height="90" role="img" aria-label="Signature" style="display:block;margin-top:8px;border-bottom:1.5px solid #D9D2C4"><g fill="none" stroke="#1C2630" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">' + d + '</g></svg>';
+  }
+  function b64u(bytes){ var bin = ''; for(var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  async function encode(obj){
+    var s = JSON.stringify(obj);
+    try{ if(window.CompressionStream){ var st = new Blob([s]).stream().pipeThrough(new CompressionStream('deflate-raw')); return 'z' + b64u(new Uint8Array(await new Response(st).arrayBuffer())); } }catch(e){}
+    return 'j' + b64u(new TextEncoder().encode(s));
   }
   function approveBox(total){
-    if(D.sg) return '<div class="box"><span class="paid">✓ Approved</span> by ' + esc(D.sg.name) + ' on ' + fd(D.sg.date) + '</div>';
-    return '<div class="box noprint" id="ap"><div style="font-weight:850;font-size:19px">Ready to go ahead?</div><p class="muted" style="margin:4px 0 10px">Type your name to approve this estimate for <b>' + money(total) + '</b>. It sends a message to ' + esc((D.b || {}).o || (D.b || {}).n) + ' so they can get you on the schedule.</p>'
+    if(D.sg) return '<div class="box"><span class="paid">✓ ' + (D.sg.sig ? 'Signed' : 'Approved') + '</span> by ' + esc(D.sg.name) + ' on ' + fd(D.sg.date) + (D.sg.at ? ' at ' + new Date(D.sg.at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : '') + (D.sg.sig ? sigSVG(D.sg.sig) + '<div class="muted" style="font-size:13px">' + esc(D.sg.name) + '</div>' : '') + '</div>';
+    return '<div class="box noprint" id="ap"><div style="font-weight:850;font-size:19px">Ready to go ahead?</div><p class="muted" style="margin:4px 0 10px">Sign below to approve this estimate for <b>' + money(total) + '</b>. It sends a message to ' + esc((D.b || {}).o || (D.b || {}).n) + ' so they can get you on the schedule.</p>'
       + '<label class="muted" for="nm">Your full name</label><input class="i" id="nm" autocomplete="name" value="' + esc((D.c || {}).n || '') + '">'
+      + '<div style="display:flex;justify-content:space-between;align-items:end;margin-top:12px"><span class="muted">Sign with your finger</span><button type="button" class="linkbtn" id="sigClear">Clear</button></div>'
+      + '<div class="pad"><canvas id="sig" aria-label="Signature box"></canvas><div class="line"></div><div class="x">✕</div></div>'
       + '<label class="ck"><input type="checkbox" id="ok"><span>I approve Estimate #' + esc(D.n) + ' for ' + money(total) + ' and agree to the terms above.</span></label>'
       + '<button class="btn good" id="apGo">✅ Approve this estimate</button>'
       + '<button class="btn" id="apQ">💬 I have a question</button></div>';
@@ -119,19 +151,24 @@
   }
   document.addEventListener('click', function(e){
     var t = e.target.closest('button'); if(!t) return;
-    if(t.id === 'apGo'){
-      var nm = document.getElementById('nm').value.trim();
-      if(!nm){ alert('Please type your name.'); return; }
-      if(!document.getElementById('ok').checked){ alert('Please tick the box to approve.'); return; }
-      var total = document.querySelector('.grand span:last-child').textContent;
-      var msg = 'I approve Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + ' for ' + total + '.\nSigned: ' + nm + ', ' + fd(today());
-      document.getElementById('ap').innerHTML = '<div style="font-weight:850;font-size:19px">Thank you, ' + esc(nm.split(' ')[0]) + '! 🎉</div><p class="muted">Your approval is ready to send. If your messages app didn’t open, tap below.</p><button class="btn good" id="apSend">📨 Send my approval</button>';
-      D._msg = msg; reply(msg, 'Approved: Estimate #' + D.n);
-    }
+    if(t.id === 'sigClear' && D._clearSig) D._clearSig();
+    if(t.id === 'apGo') approve();
     if(t.id === 'apSend') reply(D._msg, 'Approved: Estimate #' + D.n);
     if(t.id === 'apQ') reply('Hi, I have a question about Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + ': ', 'Question: Estimate #' + D.n);
     if(t.id === 'paidTell') reply('Hi, I just paid invoice #' + D.n + '. Thank you!', 'Paid: Invoice #' + D.n);
   });
+  async function approve(){
+    var nm = document.getElementById('nm').value.trim();
+    if(!nm){ alert('Please type your name.'); return; }
+    if(!SIG.some(function(s){ return s.length >= 4; })){ alert('Please sign in the box with your finger.'); return; }
+    if(!document.getElementById('ok').checked){ alert('Please tick the box to approve.'); return; }
+    var at = new Date().toISOString(), total = money(D._total);
+    var msg = 'I approve Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + ' for ' + total + '.\nSigned: ' + nm + ', ' + fd(today());
+    if(D.r){ try{ msg += '\n\nSigned copy for ' + ((D.b || {}).n || 'your records') + ' (tap to save it in Business Manager):\n' + D.r + '#ok/' + await encode({ n:D.n, t:Math.round(D._total * 100) / 100, nm:nm, at:at, sg:SIG }); }catch(e){} }
+    D.sg = { name:nm, date:today(), at:at, sig:SIG };
+    document.getElementById('ap').innerHTML = '<div style="font-weight:850;font-size:19px">Thank you, ' + esc(nm.split(' ')[0]) + '! 🎉</div><p class="muted">Your signed approval is ready to send to ' + esc((D.b || {}).o || (D.b || {}).n) + '. If your messages app didn’t open, tap below.</p>' + sigSVG(SIG) + '<button class="btn good" id="apSend">📨 Send my approval</button>';
+    D._msg = msg; reply(msg, 'Approved: Estimate #' + D.n);
+  }
   start();
 })();
 </script>
