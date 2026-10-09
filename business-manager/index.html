@@ -2461,11 +2461,36 @@ function aiPrice(jid){
   var j = job(jid);
   if(!j.desc && !j.title){ alert('Add some details about the job first.'); return; }
   var pl = S.prices.map(function(p){ return '- ' + p.name + ': $' + num(p.price); }).join('\n');
-  djAI.ask({ title:'Draft the price', want:'json', circle:false,
-    prompt:'I run a small ' + TRADES[S.biz.trade].name.toLowerCase() + ' business. Draft line items for an estimate.\n\nJob: ' + j.title + '\nDetails: ' + (j.desc || '(none)') + '\n\nMy price list (use these prices where they fit):\n' + (pl || '(none yet)') + '\n\nAnswer with JSON only, like {"items":[{"name":"Labor (per hour)","qty":3,"price":110}],"note":"one short sentence of anything I should check"}. Use realistic US prices when my list has nothing that fits. Keep it to the items a customer would expect to see.',
-    onResult:function(v){ var items = (v && (v.items || v)) || []; if(!Array.isArray(items) || !items.length){ alert('I couldn’t read items in that answer.'); return; }
-      items.forEach(function(x){ if(x && x.name) j.items.push({ name:String(x.name), qty:num(x.qty) || 1, price:num(x.price) }); });
-      if(v.note) logJob(j, 'AI note: ' + v.note); save(); render(); toast('Added ' + items.length + ' items — check the prices'); } });
+  djAI.ask({ title:'Draft the price', want:'text', circle:false,
+    prompt:'I run a small ' + TRADES[S.biz.trade].name.toLowerCase() + ' business. Draft the line items for an estimate.\n\nJob: ' + j.title + '\nDetails: ' + (j.desc || '(none)') + '\n\nMy price list (use these prices where they fit):\n' + (pl || '(none yet)') + '\n\nWrite one item per line, exactly like this, with nothing else:\nLabor (per hour) | 3 | 110\nCapacitor replace | 1 | 185\nNote: one short sentence on anything I should double-check\n\n(The three parts are: item | how many | price each.) Use realistic US prices when my list has nothing that fits. Only the items a customer would expect to see.',
+    onResult:function(v, raw){ var r = parsePriceAnswer(raw || v);
+      if(!r.items.length){ alert('I couldn’t find any prices in what you pasted. In ' + aiName() + ', tap Copy under its answer, come back, and paste again.'); return; }
+      var have = {}; j.items.forEach(function(x){ have[x.name.toLowerCase()] = 1; });
+      var added = r.items.filter(function(x){ return !have[x.name.toLowerCase()]; });
+      added.forEach(function(x){ j.items.push(x); });
+      if(r.note) logJob(j, 'AI note: ' + r.note); save(); render();
+      toast(added.length ? 'Added ' + added.length + ' item' + (added.length > 1 ? 's' : '') + ' — check the prices' : 'Those items are already on this job'); } });
+}
+/* the AI answers in plain lines ("Labor | 3 | 110"); older answers in JSON still work */
+function bulletless(t){ return String(t || '').split(/\r?\n/).map(function(l){ return l.replace(/^\s*[-*•·]\s+/, '').replace(/\*\*|`/g, '').trim(); }).filter(Boolean); }
+function parsePriceAnswer(t){
+  var out = { items:[], note:'' }, js = null;
+  try{ js = djAI.extractJSON(t); }catch(e){}
+  var arr = js && (Array.isArray(js) ? js : js.items);
+  if(Array.isArray(arr)){ arr.forEach(function(x){ if(x && x.name) out.items.push({ name:String(x.name), qty:num(x.qty) || 1, price:num(x.price) }); }); out.note = js.note || ''; if(out.items.length) return out; }
+  bulletless(t).forEach(function(l){
+    l = l.replace(/^\d+[.)]\s+/, '');
+    if(/^note\s*:/i.test(l)){ out.note = l.replace(/^note\s*:\s*/i, ''); return; }
+    var name, qty = 1, price, p = l.split('|').map(function(x){ return x.trim(); }).filter(Boolean), m;
+    if(p.length >= 3){ name = p[0]; qty = num(p[1]) || 1; price = p[2]; }
+    else if(p.length === 2){ name = p[0]; price = p[1]; }
+    else if((m = l.match(/^(.+?)\s*(?:[:–—=]|\s-\s)\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/))){ name = m[1]; price = m[2]; }
+    else return;
+    if(!/\d/.test(String(price)) || /^(item|total|subtotal|tax)\b/i.test(name)) return;
+    if((m = name.match(/^(\d+(?:\.\d+)?)\s*[x×]\s+(.+)$/i))){ qty = +m[1]; name = m[2]; }
+    out.items.push({ name:name.replace(/[:\s]+$/, ''), qty:qty, price:num(price) });
+  });
+  return out;
 }
 function review(jid){
   var j = job(jid), c = cust(j.customerId), inc = jobTotal(j) - jobTax(j);
@@ -2863,15 +2888,35 @@ function saveImport(){
 }
 function aiSort(){
   var R = IMP.rows;
-  djAI.ask({ title:'Sort these charges', want:'json', circle:false,
-    prompt:'I run a small ' + TRADES[S.biz.trade].name.toLowerCase() + ' business. Put each charge in one of these categories: ' + CATS.join('; ') + '.\nIf it looks personal (groceries, streaming, clothing), use "Personal (not business)".\n\n' + R.map(function(r, i){ return i + '. ' + r.desc + ' — $' + r.amount.toFixed(2); }).join('\n') + '\n\nAnswer with JSON only: {"0":"Category", "1":"Category", ...}',
-    onResult:function(v){ if(!v || typeof v !== 'object'){ alert('I couldn’t read that answer.'); return; } Object.keys(v).forEach(function(k){ var r = R[+k]; if(r && CATS.indexOf(v[k]) >= 0){ r.cat = v[k]; if(v[k] === 'Personal (not business)') r.on = false; } }); render(); toast('Sorted — give it a quick look'); } });
+  djAI.ask({ title:'Sort these charges', want:'text', circle:false,
+    prompt:'I run a small ' + TRADES[S.biz.trade].name.toLowerCase() + ' business. Put each charge in one of these categories: ' + CATS.join('; ') + '.\nIf it looks personal (groceries, streaming, clothing), use "Personal (not business)".\n\n' + R.map(function(r, i){ return i + ' | ' + r.desc + ' | $' + r.amount.toFixed(2); }).join('\n') + '\n\nAnswer with one line per charge, exactly like this, with nothing else:\n0 | Materials & supplies\n1 | Fuel & vehicle',
+    onResult:function(v, raw){ var n = 0, txt = String(raw || ''), js = null;
+      try{ js = djAI.extractJSON(txt); }catch(e){}
+      var pairs = [];
+      if(js && typeof js === 'object' && !Array.isArray(js)) Object.keys(js).forEach(function(k){ pairs.push([+k, String(js[k])]); });
+      else bulletless(txt).forEach(function(l){ var m = l.match(/^#?(\d+)\s*[|.:)\-–]\s*(?:.*\|\s*)?(.+)$/); if(m) pairs.push([+m[1], m[2]]); });
+      pairs.forEach(function(x){ var r = R[x[0]], c = matchCat(x[1]); if(r && c){ r.cat = c; if(c === 'Personal (not business)') r.on = false; n++; } });
+      if(!n){ alert('I couldn’t match any categories in what you pasted. In ' + aiName() + ', tap Copy under its answer, come back, and paste again.'); return; }
+      render(); toast('Sorted ' + n + ' — give it a quick look'); } });
+}
+function matchCat(x){
+  var low = String(x || '').toLowerCase().replace(/[*"`]/g, '').trim();
+  for(var i = 0; i < CATS.length; i++) if(low.indexOf(CATS[i].toLowerCase()) >= 0) return CATS[i];
+  for(i = 0; i < CATS.length; i++){ var w = CATS[i].toLowerCase().split(/[\s&(]/)[0]; if(w && low.indexOf(w) === 0) return CATS[i]; }
+  return null;
 }
 function aiRead(){
   var t = $('impT').value.trim(); if(!t){ alert('Paste the statement text first.'); return; }
-  djAI.ask({ title:'Read my statement', want:'json', circle:false,
-    prompt:'Pull every transaction out of this bank or credit card statement text. Answer with JSON only: {"rows":[{"date":"YYYY-MM-DD","desc":"merchant","amount":12.34}]} where amount is POSITIVE for money spent (charges, debits) and NEGATIVE for payments, credits and refunds.\n\n' + t.slice(0, 12000),
-    onResult:function(v){ var rows = v && (v.rows || v); if(!Array.isArray(rows) || !rows.length){ alert('I couldn’t read rows in that answer.'); return; } setRows(rows.map(function(r){ return { date:anyDate(r.date), desc:String(r.desc || ''), raw:num(r.amount) }; }).filter(function(x){ return x.date && x.raw; }), 'pos'); } });
+  djAI.ask({ title:'Read my statement', want:'text', circle:false,
+    prompt:'Pull every transaction out of this bank or credit card statement text. Write one transaction per line, exactly like this, with nothing else:\n2026-10-01 | Home Depot | 212.33\n2026-10-03 | Online payment thank you | -500.00\n\nUse a POSITIVE amount for money spent (charges, debits) and a NEGATIVE amount for payments, credits and refunds.\n\n' + t.slice(0, 12000),
+    onResult:function(v, raw){ var txt = String(raw || ''), rows = [], js = null;
+      try{ js = djAI.extractJSON(txt); }catch(e){}
+      var arr = js && (Array.isArray(js) ? js : js.rows);
+      if(Array.isArray(arr)) rows = arr.map(function(r){ return { date:anyDate(r.date), desc:String(r.desc || ''), raw:num(r.amount) }; });
+      else bulletless(txt).forEach(function(l){ var p = l.split('|').map(function(x){ return x.trim(); }); if(p.length >= 3){ var a = p[p.length - 1]; rows.push({ date:anyDate(p[0]), desc:p.slice(1, -1).join(' '), raw:/^\(.*\)$/.test(a) ? -Math.abs(num(a.replace(/[()]/g, ''))) : num(a) }); } });
+      rows = rows.filter(function(x){ return x.date && x.raw; });
+      if(!rows.length){ alert('I couldn’t find any transactions in what you pasted. In ' + aiName() + ', tap Copy under its answer, come back, and paste again.'); return; }
+      setRows(rows, 'pos'); } });
 }
 
 /* ── hours ── */
