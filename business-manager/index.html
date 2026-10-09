@@ -2425,14 +2425,14 @@ function totals(sub, tax, credits, paid){
 
 /* ── line items ── */
 function sheet(html, onOpen){
-  closeSheet();
+  closeSheet(true);
   var w = document.createElement('div'); w.className = 'shade'; w.id = 'bmSheet'; w.setAttribute('role', 'dialog');
   w.innerHTML = '<div class="sheet"><button class="x" onclick="BM.closeSheet()" aria-label="Close">✕</button>' + html + '</div>';
   w.addEventListener('click', function(e){ if(e.target === w) closeSheet(); });
   document.body.appendChild(w); if(onOpen) onOpen(w);
   return w;
 }
-function closeSheet(){ var s = $('bmSheet'); if(s) s.remove(); }
+function closeSheet(quiet){ var s = $('bmSheet'); if(!s) return; if(!quiet && s.getAttribute('data-compose')) clearPending(); s.remove(); }
 function addItem(jid){
   var h = '<h3>Add to the price</h3><p class="muted" style="margin:0 0 10px">Tap one from your price list, or make your own.</p>';
   h += '<button class="opt" onclick="BM.editItem(\'' + jid + '\',-1)"><span class="e">✍️</span><span>Type my own item</span></button>';
@@ -2500,21 +2500,45 @@ function compose(o){
   var c = o.c || {}, canText = !!c.phone, canMail = !!c.email, pref = S.msg.channel;
   var h = '<h3>Message ' + esc(c.name || '') + '</h3><p class="muted small" style="margin:0 0 8px">' + esc([c.phone, c.email].filter(Boolean).join(' · ') || 'No phone or email saved — you can still copy it.') + '</p>'
     + '<textarea class="i" id="mT" style="min-height:190px">' + esc(o.text) + '</textarea>'
-    + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.aiWrite()">✨ Make it sound better</button>' : '')
+    + (hasAI() ? '<div id="mPaste" class="banner"' + (getPending() ? '' : ' hidden') + ' style="margin:8px 0 0"><b>Back from ' + esc(aiName()) + '?</b> Copy its answer there, then tap here.<button class="btn main full" style="margin-top:8px" onclick="BM.pasteAnswer()">📋 Paste ' + esc(aiName()) + '’s answer</button></div>'
+      + '<button class="btn sm full" style="margin-top:8px" onclick="BM.aiWrite()">✨ Make it sound better</button><p class="hint">' + esc(aiName()) + ' opens with your message. When it answers, copy the answer and come back to this app (tap ◀ at the top-left corner, or switch apps). Your message waits here.</p>' : '')
     + '<div class="btns" style="margin-top:10px">'
     + (canText ? '<button class="btn ' + (pref === 'text' || !canMail ? 'main' : '') + '" onclick="BM.sendVia(\'text\')">💬 Text it</button>' : '')
     + (canMail ? '<button class="btn ' + (pref === 'email' || !canText ? 'main' : '') + '" onclick="BM.sendVia(\'email\')">✉️ Email it</button>' : '')
     + '<button class="btn" onclick="BM.sendVia(\'share\')">📋 ' + (navigator.share ? 'Share / copy' : 'Copy') + '</button></div>'
     + '<p class="hint">Opens your own messages or email with this filled in. You press send there.</p>';
   BM._msg = o;
-  sheet(h);
+  var w = sheet(h); w.setAttribute('data-compose', '1');
 }
 function aiWrite(){
   var o = BM._msg, t = $('mT').value;
+  setPending({ redo:o.redo || { f:'message', a:[(o.c || {}).id] }, text:t, at:Date.now() });
+  var mp = $('mPaste'); if(mp) mp.hidden = false;
   djAI.ask({ title:'Polish this message', circle:false,
     prompt:'Rewrite this message from a small ' + TRADES[S.biz.trade].name.toLowerCase() + ' business owner to a customer. Keep it short, warm, professional and plain — like a trusted local tradesman, not a corporation. Keep any link exactly as it is. Answer with only the message.\n\n' + t,
-    onResult:function(v, raw){ var box = $('mT'); if(!box){ compose(Object.assign({}, o, { text:String(raw).trim() })); } else box.value = String(raw).trim(); } });
+    onResult:function(v, raw){ clearPending(); var box = $('mT'); if(!box){ compose(Object.assign({}, o, { text:String(raw).trim() })); } else { box.value = String(raw).trim(); var mp = $('mPaste'); if(mp) mp.hidden = true; } } });
 }
+/* the trip to the person's own AI: the draft is kept on the phone, so the message is still here when they come back,
+   even if the phone reloaded the app while they were away */
+var PEND = 'bizmgr_ai_pending';
+function aiName(){ var k = ''; try{ k = djAI.which(); }catch(e){} return ({ claude:'Claude', chatgpt:'ChatGPT', gemini:'Gemini', copilot:'Copilot', meta:'Meta AI' })[k] || 'Your AI'; }
+function getPending(){ try{ var p = JSON.parse(localStorage.getItem(PEND) || 'null'); if(p && Date.now() - p.at < 3 * 36e5) return p; }catch(e){} return null; }
+function setPending(p){ try{ localStorage.setItem(PEND, JSON.stringify(p)); }catch(e){} }
+function clearPending(){ try{ localStorage.removeItem(PEND); }catch(e){} }
+async function pasteAnswer(){
+  var box = $('mT'); if(!box) return;
+  try{ var t = await navigator.clipboard.readText(); if(t && t.trim()){ box.value = t.trim(); clearPending(); $('mPaste').hidden = true; toast('Pasted. Read it over, then send.'); return; } }catch(e){}
+  box.focus(); box.select(); toast('Press and hold in the message box, then tap Paste');
+  clearPending();
+}
+function checkPending(){
+  var p = getPending(); if(!p || preview || !S || !S.setup.done) return;
+  if(document.getElementById('djAISheet')) return;   /* the house paste-back sheet is already waiting */
+  if($('mT')){ var mp = $('mPaste'); if(mp) mp.hidden = false; return; }
+  var f = BM[p.redo && p.redo.f]; if(typeof f !== 'function'){ clearPending(); return; }
+  Promise.resolve(f.apply(null, p.redo.a || [])).then(function(){ var box = $('mT'); if(box){ box.value = p.text; var mp = $('mPaste'); if(mp) mp.hidden = false; } });
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') setTimeout(checkPending, 700); });
 function sendVia(how){
   var o = BM._msg, t = $('mT').value, c = o.c || {};
   if(how === 'text'){ location.href = 'sms:' + c.phone.replace(/[^\d+]/g, '') + '?&body=' + encodeURIComponent(t); }
@@ -2526,12 +2550,12 @@ function sendVia(how){
   }
   if(o.jobId){ var j = job(o.jobId); if(j) logJob(j, 'Sent: ' + (o.label || o.kind || 'message')); }
   if(o.onSent) o.onSent();
-  save(); closeSheet(); setTimeout(render, 300);
+  clearPending(); save(); closeSheet(); setTimeout(render, 300);
 }
-function message(cid){ var c = cust(cid); compose({ c:c, text:tpl('custom', { c:c }), kind:'message' }); }
+function message(cid){ var c = cust(cid); compose({ c:c, text:tpl('custom', { c:c }), kind:'message', redo:{ f:'message', a:[cid] } }); }
 function update(jid, kind){
   var j = job(jid), c = cust(j.customerId);
-  compose({ c:c, jobId:jid, kind:kind, label:{ onway:'On my way', late:'Running late', finished:'Work is done', scheduled:'Schedule confirmation', custom:'Message' }[kind],
+  compose({ c:c, jobId:jid, kind:kind, redo:{ f:'update', a:[jid, kind] }, label:{ onway:'On my way', late:'Running late', finished:'Work is done', scheduled:'Schedule confirmation', custom:'Message' }[kind],
     text:tpl(kind, { c:c, title:j.title, date:j.date, time:j.time }),
     onSent:function(){ if(kind === 'finished' && ['scheduled', 'working', 'approved', 'new'].indexOf(j.status) >= 0){ j.status = 'done'; } if(kind === 'onway' && (j.status === 'scheduled' || j.status === 'approved')) j.status = 'working'; } });
 }
@@ -2561,10 +2585,10 @@ async function sendEstimate(jid){
   var j = job(jid), c = cust(j.customerId);
   if(jobSub(j) <= 0 && !confirm('There’s no price on this yet. Send it anyway?')) return;
   var link = await linkFor(estPayload(j));
-  compose({ c:c, jobId:jid, kind:'estimate', label:'Estimate', subject:'Estimate #' + j.num + ' from ' + S.biz.name, text:tpl('estimate', { c:c, title:j.title, amount:money(jobTotal(j)), link:link }),
+  compose({ c:c, jobId:jid, kind:'estimate', redo:{ f:'sendEstimate', a:[jid] }, label:'Estimate', subject:'Estimate #' + j.num + ' from ' + S.biz.name, text:tpl('estimate', { c:c, title:j.title, amount:money(jobTotal(j)), link:link }),
     onSent:function(){ j.estSent = j.estSent || today(); if(j.status === 'new') j.status = 'estimate'; } });
 }
-async function followUp(jid){ var j = job(jid), c = cust(j.customerId); var link = await linkFor(estPayload(j)); compose({ c:c, jobId:jid, kind:'followup', label:'Estimate follow-up', text:tpl('followup', { c:c, title:j.title, link:link }), onSent:function(){ j.estSent = today(); } }); }
+async function followUp(jid){ var j = job(jid), c = cust(j.customerId); var link = await linkFor(estPayload(j)); compose({ c:c, jobId:jid, kind:'followup', redo:{ f:'followUp', a:[jid] }, label:'Estimate follow-up', text:tpl('followup', { c:c, title:j.title, link:link }), onSent:function(){ j.estSent = today(); } }); }
 async function previewEst(jid){ var w = window.open('about:blank', '_blank'); var u = await linkFor(estPayload(job(jid))); if(w) w.location = u; else location.href = u; }
 function approved(jid){
   var j = job(jid), c = cust(j.customerId);
@@ -2653,12 +2677,12 @@ function setInvDates(id){ var v = inv(id); v.date = $('ivD').value || v.date; v.
 async function sendInvoice(id){
   var v = inv(id), c = cust(v.customerId), j = job(v.jobId) || {};
   var link = await linkFor(invPayload(v));
-  compose({ c:c, jobId:v.jobId, kind:'invoice', label:'Invoice #' + v.num, subject:'Invoice #' + v.num + ' from ' + S.biz.name, text:tpl('invoice', { c:c, title:j.title || 'the work', amount:money(invBal(v)), due:v.due, link:link }), onSent:function(){ v.sent = v.sent || today(); } });
+  compose({ c:c, jobId:v.jobId, kind:'invoice', redo:{ f:'sendInvoice', a:[id] }, label:'Invoice #' + v.num, subject:'Invoice #' + v.num + ' from ' + S.biz.name, text:tpl('invoice', { c:c, title:j.title || 'the work', amount:money(invBal(v)), due:v.due, link:link }), onSent:function(){ v.sent = v.sent || today(); } });
 }
 async function remind(id){
   var v = inv(id), c = cust(v.customerId);
   var link = await linkFor(invPayload(v));
-  compose({ c:c, jobId:v.jobId, kind:'reminder', label:'Reminder for #' + v.num, subject:'Reminder: invoice #' + v.num, text:tpl('reminder', { c:c, num:v.num, amount:money(invBal(v)), due:v.due, link:link }), onSent:function(){ v.reminders.push(today()); } });
+  compose({ c:c, jobId:v.jobId, kind:'reminder', redo:{ f:'remind', a:[id] }, label:'Reminder for #' + v.num, subject:'Reminder: invoice #' + v.num, text:tpl('reminder', { c:c, num:v.num, amount:money(invBal(v)), due:v.due, link:link }), onSent:function(){ v.reminders.push(today()); } });
 }
 async function previewInv(id){ var w = window.open('about:blank', '_blank'); var u = await linkFor(invPayload(inv(id))); if(w) w.location = u; else location.href = u; }
 var METHODS = ['Card', 'Cash', 'Check', 'Zelle', 'Venmo', 'PayPal', 'Cash App', 'Bank transfer', 'Other'];
@@ -2674,7 +2698,7 @@ function savePayment(id){
   var j = job(v.jobId); if(j){ logJob(j, 'Paid ' + money(a) + ' on #' + v.num); autoClose(j); }
   save(); closeSheet(); render();
   if(invBal(v) <= 0.004 && (v.kind === 'deposit' || v.kind === 'progress')){ toast((KIND[v.kind] || 'Payment') + ' received 👍'); return; }
-  if(invBal(v) <= 0.004){ var c = cust(v.customerId); setTimeout(function(){ if(confirm('Paid in full! 🎉 Send ' + first(c.name) + ' a thank-you' + (S.biz.reviewLink ? ' and ask for a review' : '') + '?')) compose({ c:c, jobId:v.jobId, kind:'thanks', label:'Thank-you', text:tpl('thanks', { c:c }) }); }, 250); }
+  if(invBal(v) <= 0.004){ var c = cust(v.customerId); setTimeout(function(){ if(confirm('Paid in full! 🎉 Send ' + first(c.name) + ' a thank-you' + (S.biz.reviewLink ? ' and ask for a review' : '') + '?')) compose({ c:c, jobId:v.jobId, kind:'thanks', redo:{ f:'message', a:[c.id] }, label:'Thank-you', text:tpl('thanks', { c:c }) }); }, 250); }
 }
 function delPayment(id, i){ if(!confirm('Remove this payment?')) return; var v = inv(id); v.payments.splice(i, 1); var j = job(v.jobId); if(j && j.status === 'closed') j.status = 'done'; save(); render(); }
 function delInvoice(id){ var v = inv(id); if(v.payments.length && !confirm('This invoice has payments recorded. Delete it and its payments?')) return; if(!v.payments.length && !confirm('Delete invoice #' + v.num + '?')) return; S.invoices = S.invoices.filter(function(x){ return x.id !== id; }); save(); if(v.jobId) go('job/' + v.jobId); else go('money'); }
@@ -3147,7 +3171,7 @@ window.BM = {
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
   saveCust:saveCust, delCust:delCust, message:message, toggleNewCust:toggleNewCust, saveNewJob:saveNewJob, saveEditJob:saveEditJob, delJob:delJob,
   setStage:setStage, setWhen:setWhen, saveNote:saveNote, addItem:addItem, pickPrice:pickPrice, editItem:editItem, saveItem:saveItem, delItem:delItem,
-  aiPrice:aiPrice, review:review, aiWrite:aiWrite, sendVia:sendVia, update:update,
+  aiPrice:aiPrice, review:review, aiWrite:aiWrite, pasteAnswer:pasteAnswer, sendVia:sendVia, update:update,
   sendEstimate:sendEstimate, followUp:followUp, previewEst:previewEst, approved:approved, saveApproved:saveApproved, ics:ics,
   clockPick:clockPick, clockIn:clockIn, clockOut:clockOut, logHours:logHours, saveHours:saveHours, delHours:delHours,
   newInvoice:newInvoice, setInvDates:setInvDates, sendInvoice:sendInvoice, remind:remind, previewInv:previewInv, payment:payment, savePayment:savePayment, delPayment:delPayment, delInvoice:delInvoice,
@@ -3162,6 +3186,7 @@ window.BM = {
 /* ── boot ── */
 S = load();
 render();
+setTimeout(checkPending, 1500);
 /* a gentle monthly nudge to back up, since everything lives on this phone */
 if(S && S.setup.done && !S.setup.demo && S.jobs.length > 2 && (!S.lastBackup || daysBetween(S.lastBackup, today()) > 30)) setTimeout(function(){ toast('Tip: back up your data — More → Back up'); }, 4000);
 })();
