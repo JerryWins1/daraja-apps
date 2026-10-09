@@ -2821,7 +2821,7 @@ function viewMail() {
     out.push(h("div", { class: "note" }, mail.error), h("button", { class: "btn btn-primary btn-big", type: "button", onclick: sortMail }, "Try again"));
     return out;
   }
-  if (mail.status === "example") out.push(h("div", { class: "note" }, mail.note || "These are example emails to show you how I sort mail. To sort your real email, choose Gmail in My Setup (see the steps there for other email)."));
+  if (mail.status === "example") out.push(h("div", { class: "note" }, mail.note || (P().provider === "gmail" ? "These are example emails to show you how I sort mail. Your real Gmail shows up here when you open Porchlight inside Claude." : "These are example emails to show you how I sort mail. To sort your real email, choose Gmail in My Setup (see the steps there for other email).")));
   else if (mail.note) out.push(h("div", { class: "note" }, mail.note));
   const live = mail.items.filter((m) => !S.mailDone.includes(m.id));
   if (!live.length) out.push(helperSays("You're all caught up! Nothing new in the last five days."));
@@ -3197,6 +3197,58 @@ function openHelp() {
     ui.view !== "messages" && ui.view !== "setup" ? h("button", { class: "btn btn-primary btn-big", type: "button", onclick: () => { closeSheet(); ui.msgTab = "chat"; go("messages"); } }, `Ask ${P().helper} a question`) : null,
   ]);
 }
+
+/* ================================================================
+   STORE VIDEOS — shop/watch.html drives the app with porchTour.scene(name).
+   It shows an example person and example mail. Inside the store's player the
+   real saved data is set aside with parent.tourSet and put back when it ends.
+================================================================ */
+const DEMO = {
+  updatedAt: 1,
+  profile: { setupDone: true, name: "Margaret", helper: "Sunny", goals: ["email", "todo", "weather", "websites", "smile"], provider: "gmail", vips: ["Sarah", "Dr. Patel"], place: "75201", tickers: [], bankName: "", bankUrl: "", sites: [{ name: "Our church", url: "https://example.org/" }], verse: true, jokes: true, order: ["email", "todo", "weather", "smile", "websites"], textSize: 1, gmailOk: true },
+  tasks: [
+    { id: "d1", text: "Call the pharmacy about my refill", done: false, from: "", at: 1 },
+    { id: "d2", text: "Follow up: Sunday dinner?", done: false, from: "Sarah (your daughter)", at: 1 },
+    { id: "d3", text: "Water the tomatoes", done: true, from: "", at: 1 },
+  ],
+  mailDone: [],
+};
+const DEMO_CHAT = [
+  { role: "user", content: "Is this a scam? “USPS: your package is on hold. Pay $1.99 at usps-redelivery.co”" },
+  { role: "assistant", content: "Yes, this looks like a scam. The Post Office doesn't text you asking for money, and that web address isn't the real one. Don't tap the link. You can delete the message." },
+];
+window.porchTour = {
+  scene(name) {
+    try {
+      if (!this.loaded) {
+        this.loaded = true;
+        try { if (window.parent !== window && window.parent.tourSet) window.parent.tourSet(LS_KEY, JSON.stringify(DEMO)); } catch {}
+        S = JSON.parse(JSON.stringify(DEMO));
+        applyTextSize();
+      }
+      $("#sheet").hidden = true;   /* not closeSheet(): that cancels speech, and the video's narration may be speaking */
+      const setupStep = (id) => { ui.view = "setup"; ui.step = Math.max(0, liveSteps().findIndex((s) => s.id === id)); window.scrollTo(0, 0); render(); };
+      const ex = (id) => EXAMPLE_MAIL.find((m) => m.id === id);
+      switch (name) {
+        case "welcome": case "name": case "helper": case "goals": case "provider": case "connect": case "vips": case "size": case "done":
+          setupStep(name); break;
+        case "home": go("home"); break;
+        case "mail": mail.items = EXAMPLE_MAIL.slice(); mail.status = "example"; mail.note = null; go("mail"); break;
+        case "scam": this.scene("mail"); openReader(ex("ex3")); break;
+        case "reply":
+          this.scene("mail"); openReader(ex("ex1"), true);
+          if ($("#f-wish")) $("#f-wish").value = "Yes, I'll be there Sunday at five";
+          if ($("#f-draft")) $("#f-draft").value = "Hi Sarah,\n\nYes, I'll be there Sunday at five. I'll bring a pie.\n\nLove,\nMargaret";
+          break;
+        case "todo": go("todo"); break;
+        case "talk": chatTurns = DEMO_CHAT.slice(); ui.msgTab = "chat"; go("messages"); break;
+        case "family": ui.msgTab = "family"; go("messages"); break;
+        case "settings": go("settings"); break;
+        case "help": go("home"); openHelp(); break;
+      }
+    } catch (e) {}
+  },
+};
 
 boot();
 </script>
