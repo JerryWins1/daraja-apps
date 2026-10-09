@@ -22,6 +22,11 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ quickquote: {
+  name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', price:'Free', testing:true,
+  tag:'a priced estimate in a minute, from your own price list',
+  try:BASE+'quickquote/', video:false
+ },
  tester: {
   name:'How to be a tester', em:'🧪', sub:'three minutes: a real test, start to finish', cat:'off', price:'', testing:true, video:true,
   tag:'The tester video — watch one short test from start to finish: use the app, point at what is wrong, say why, send the report',
