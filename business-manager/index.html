@@ -2067,13 +2067,13 @@ function guessCat(desc){ for(var i = 0; i < RULES.length; i++) if(RULES[i][0].te
 function blank(){
   return { v:1, setup:{ done:false, demo:false, at:'' },
     biz:{ name:'', owner:'', trade:'other', phone:'', email:'', address:'', license:'', taxRate:0, depositPct:30, payDays:14, terms:'Payment is due within 14 days of the invoice. Estimate good for 30 days. Any extra work will be agreed with you before it is done.', reviewLink:'', setAside:25, markup:0 },
-    features:{ estimates:true, lineItems:true, deposits:false, schedule:true, materials:true, crew:false, expenses:true, reminders:true },
+    features:{ estimates:true, lineItems:true, deposits:false, schedule:true, materials:true, crew:false, expenses:true, reminders:true, todos:true },
     pay:{ card:'', paypal:'', venmo:'', cashapp:'', zelle:'', check:'' },
     msg:{ channel:'text' },
-    prices:[], customers:[], jobs:[], invoices:[], expenses:[], receipts:[], crew:[], clock:null,
+    prices:[], customers:[], jobs:[], invoices:[], expenses:[], receipts:[], todos:[], crew:[], clock:null,
     seq:{ job:1001, inv:2001 } };
 }
-function load(){ try{ var s = JSON.parse(localStorage.getItem(KEY) || 'null'); if(s && s.v){ var b = blank(); ['biz','features','pay','msg','seq','setup'].forEach(function(k){ s[k] = Object.assign({}, b[k], s[k] || {}); }); ['prices','customers','jobs','invoices','expenses','receipts','crew'].forEach(function(k){ if(!Array.isArray(s[k])) s[k] = []; }); return s; } }catch(e){} return null; }
+function load(){ try{ var s = JSON.parse(localStorage.getItem(KEY) || 'null'); if(s && s.v){ var b = blank(); ['biz','features','pay','msg','seq','setup'].forEach(function(k){ s[k] = Object.assign({}, b[k], s[k] || {}); }); ['prices','customers','jobs','invoices','expenses','receipts','todos','crew'].forEach(function(k){ if(!Array.isArray(s[k])) s[k] = []; }); return s; } }catch(e){} return null; }
 function save(){ if(preview || !S) return; try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ alert('This phone would not save that — it may be full. Go to More → Back up to keep a copy.'); } }
 function F(k){ return !!(S && S.features[k]); }
 
@@ -2122,7 +2122,7 @@ function render(){
   after = null;
   var html = V();
   $('main').innerHTML = html;
-  var tab = TABS[r] ? r : ({ job:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', ok:'jobs', receipt:'money', receipts:'money', rcpt:'money', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
+  var tab = TABS[r] ? r : ({ job:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', ok:'jobs', todo:'home', receipt:'money', receipts:'money', rcpt:'money', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
   document.querySelectorAll('nav.tabs button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-go') === tab); });
   var setupMode = (r === 'welcome' || r === 'setup');
   $('tabs').style.display = setupMode ? 'none' : '';
@@ -2167,6 +2167,7 @@ VIEWS.home = function(){
   h.push('<h2>Needs you' + (n.length ? ' (' + n.length + ')' : '') + '</h2>');
   h.push(n.length ? n.slice(0, 8).map(function(x){ return '<button class="card tap need" onclick="' + x.go + '"><span class="ic">' + x.em + '</span><span class="grow"><b>' + esc(x.t) + '</b><div class="small muted">' + esc(x.s) + '</div></span><span class="pill">' + esc(x.a) + '</span></button>'; }).join('') : '<div class="card muted">✅ All caught up. Nice work.</div>');
   h.push('<h2>Quick</h2><div class="btns"><button class="btn main" onclick="BM.go(\'newjob\')">➕ New job</button>'
+    + (F('todos') ? '<button class="btn" onclick="BM.go(\'todo\')">📝 To-do' + (openTodos().length ? ' (' + openTodos().length + ')' : '') + '</button>' : '')
     + (F('expenses') ? '<button class="btn" onclick="BM.addExpense()">⛽ Expense</button>' : '')
     + (F('crew') && !S.clock ? '<button class="btn" onclick="BM.clockPick()">⏱ Clock in</button>' : '') + '</div>');
   return h.join('');
@@ -2184,6 +2185,7 @@ function needs(){
     if(F('estimates') && j.status === 'new' && daysBetween(j.created, t) >= 1) out.push({ em:'📝', t:'Send ' + c.name + ' a price', s:j.title, a:'Estimate', go:"BM.go('job/" + j.id + "')", k:3 });
     if(F('schedule') && j.status === 'approved' && !j.date) out.push({ em:'📅', t:'Put ' + c.name + ' on the schedule', s:j.title + ' was approved', a:'Schedule', go:"BM.go('job/" + j.id + "')", k:3 });
   });
+  if(F('todos')) soonTodos(7).forEach(function(td){ var late = effDue(td) < t; out.push({ em:TCAT[td.cat] || '📌', t:td.text, s:dueText(td) + (td.repeat && td.repeat !== 'none' ? ' · repeats' : ''), a:late ? 'Late' : 'Due', go:"BM.go('todo')", k:late ? 0 : 2 }); });
   return out.sort(function(a, b){ return a.k - b.k; });
 }
 function jobCard(j){
@@ -3209,6 +3211,139 @@ async function signedCopy(jid){
   var w = window.open('about:blank', '_blank'), u = viewURL() + '#' + await encode(p);
   if(w) w.location = u; else location.href = u;
 }
+/* ── to-do list and due dates ─────────────────────────────────────────────
+   One list for everything that isn't a customer job: taxes, the truck, insurance, licenses, errands.
+   Repeating items move to their next date when checked off. */
+var REPEAT = { none:'Doesn’t repeat', weekly:'Every week', monthly:'Every month', quarterly:'Every 3 months', yearly:'Every year', esttax:'IRS estimated tax dates (Apr 15, Jun 15, Sep 15, Jan 15)', q941:'Quarterly payroll (Apr 30, Jul 31, Oct 31, Jan 31)' };
+var TCAT = { tax:'🏛️', vehicle:'🚚', insurance:'🛡️', license:'📜', money:'💵', other:'📌' };
+function todos(){ return S.todos || (S.todos = []); }
+function addMonths(s, n){ var d = parseD(s), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + n); var last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); d.setDate(Math.min(day, last)); return ymd(d); }
+function fixedNext(s, md){ var y = parseD(s).getFullYear(); for(var k = 0; k < 3; k++){ for(var i = 0; i < md.length; i++){ var c = (y + k) + '-' + md[i]; if(c > s) return c; } } return s; }
+function nextDue(due, rep){
+  if(!due) return due;
+  if(rep === 'weekly') return addDays(due, 7);
+  if(rep === 'monthly') return addMonths(due, 1);
+  if(rep === 'quarterly') return addMonths(due, 3);
+  if(rep === 'yearly') return addMonths(due, 12);
+  if(rep === 'esttax') return fixedNext(due, ['01-15', '04-15', '06-15', '09-15']);
+  if(rep === 'q941') return fixedNext(due, ['01-31', '04-30', '07-31', '10-31']);
+  return due;
+}
+function firstDue(rep, from){ from = from || addDays(today(), -1); return rep === 'esttax' || rep === 'q941' ? nextDue(from, rep) : ''; }
+/* tax deadlines that land on a weekend move to the next business day (holidays aren't counted) */
+function effDue(t){ if(!t.due || t.cat !== 'tax') return t.due; var d = parseD(t.due), w = d.getDay(); return w === 6 ? addDays(t.due, 2) : w === 0 ? addDays(t.due, 1) : t.due; }
+function dueText(t){
+  var d = effDue(t); if(!d) return '';
+  var n = daysBetween(today(), d);
+  return n < 0 ? (-n) + ' day' + (n === -1 ? '' : 's') + ' late' : n === 0 ? 'Due today' : n === 1 ? 'Due tomorrow' : n < 14 ? 'Due in ' + n + ' days' : 'Due ' + fd(d);
+}
+function openTodos(){ return todos().filter(function(t){ return !t.done; }); }
+function soonTodos(days){ var lim = addDays(today(), days == null ? 7 : days); return openTodos().filter(function(t){ return t.due && effDue(t) <= lim; }).sort(function(a, b){ return effDue(a).localeCompare(effDue(b)); }); }
+
+VIEWS.todo = function(){
+  setHead('To-do & due dates');
+  var t = today(), open = openTodos(), wk = addDays(t, 7), mo = addDays(t, 60);
+  var late = open.filter(function(x){ return x.due && effDue(x) < t; }), week = open.filter(function(x){ return x.due && effDue(x) >= t && effDue(x) <= wk; }),
+      soon = open.filter(function(x){ return x.due && effDue(x) > wk && effDue(x) <= mo; }), later = open.filter(function(x){ return x.due && effDue(x) > mo; }), nod = open.filter(function(x){ return !x.due; });
+  var by = function(a, b){ return effDue(a).localeCompare(effDue(b)); };
+  var h = '<div class="card"><div class="row"><input class="i grow" id="tdT" placeholder="Add a to-do…" onkeydown="if(event.key===\'Enter\')BM.quickTodo()" aria-label="New to-do"><button class="btn main" onclick="BM.quickTodo()" aria-label="Add">Add</button></div>'
+    + '<div class="two" style="margin-top:8px"><input class="i" type="date" id="tdD" aria-label="Due date"><select class="i" id="tdR" aria-label="Repeats">' + [['none', 'One time'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['quarterly', 'Every 3 months'], ['yearly', 'Yearly']].map(function(k){ return '<option value="' + k[0] + '">' + k[1] + '</option>'; }).join('') + '</select></div></div>';
+  var sec = function(title, list, cls){ return list.length ? '<h2' + (cls ? ' style="color:var(--bad)"' : '') + '>' + title + ' (' + list.length + ')</h2>' + list.sort(by).map(todoRow).join('') : ''; };
+  h += sec('Late', late, 1) + sec('This week', week) + sec('Next 2 months', soon) + sec('Later', later) + sec('No date', nod);
+  if(!open.length) h += '<div class="empty"><div class="em">✅</div>Nothing on the list.</div>';
+  h += '<button class="btn full" style="margin-top:12px" onclick="BM.commonDates()">📋 Add common due dates — taxes, truck, insurance</button>';
+  var done = todos().filter(function(x){ return x.done; }).sort(function(a, b){ return (b.doneAt || '').localeCompare(a.doneAt || ''); }).slice(0, 8);
+  if(done.length) h += '<h2>Done lately</h2><div class="card small muted">' + done.map(function(x){ return '✓ ' + esc(x.text) + ' · ' + fd(x.doneAt); }).join('<br>') + '</div>';
+  h += '<p class="hint">Tax dates are the usual federal ones. When one lands on a weekend it shows the next business day. Your state, your sales tax schedule and your accountant may add others.</p>';
+  return h;
+};
+function todoRow(t){
+  var late = t.due && effDue(t) < today(), dt = dueText(t);
+  return '<div class="card" style="padding:10px 12px"><div class="row"><button class="btn sm" style="min-width:44px;min-height:44px;padding:0;border-radius:50%;font-size:18px" onclick="BM.doneTodo(\'' + t.id + '\')" aria-label="Mark done: ' + esc(t.text) + '">' + (t.repeat && t.repeat !== 'none' ? '🔁' : '○') + '</button>'
+    + '<button class="grow" style="background:none;border:0;text-align:left;padding:4px 2px;cursor:pointer" onclick="BM.editTodo(\'' + t.id + '\')"><b>' + (TCAT[t.cat] || '') + ' ' + esc(t.text) + '</b>' + (dt || t.notes ? '<div class="small" style="color:' + (late ? 'var(--bad)' : 'var(--soft)') + ';font-weight:' + (late ? 800 : 500) + '">' + esc(dt) + (t.notes ? (dt ? ' · ' : '') + esc(t.notes) : '') + '</div>' : '') + '</button></div></div>';
+}
+function quickTodo(){
+  var x = $('tdT').value.trim(); if(!x){ $('tdT').focus(); return; }
+  var rep = $('tdR').value, due = $('tdD').value;
+  if(rep !== 'none' && !due){ alert('Pick the first date it’s due, so I know when to repeat it.'); return; }
+  todos().push({ id:uid(), text:x, due:due, repeat:rep, cat:guessTodoCat(x), notes:'', done:false, created:today() }); save(); render(); toast('Added');
+}
+function guessTodoCat(x){ return /tax|irs|1099|w-?2|941|940|sales tax/i.test(x) ? 'tax' : /truck|van|vehicle|registration|inspection|emission|oil|tire|plates/i.test(x) ? 'vehicle' : /insurance|liability|workers.?comp|bond/i.test(x) ? 'insurance' : /licen[cs]e|permit|certif/i.test(x) ? 'license' : 'other'; }
+function doneTodo(id){
+  var t = todos().filter(function(x){ return x.id === id; })[0]; if(!t) return;
+  if(t.repeat && t.repeat !== 'none' && t.due){
+    var n = nextDue(t.due, t.repeat), guard = 0; while(n <= today() && guard++ < 60) n = nextDue(n, t.repeat);
+    t.lastDone = today(); t.due = n; toast('Done. Next one: ' + fd(n));
+  } else { t.done = true; t.doneAt = today(); toast('Done ✓'); }
+  save(); render();
+}
+function editTodo(id){
+  var t = id ? todos().filter(function(x){ return x.id === id; })[0] : { text:'', due:'', repeat:'none', cat:'other', notes:'' };
+  sheet('<h3>' + (id ? 'To-do' : 'New to-do') + '</h3><label class="f" for="teT">What</label><input class="i" id="teT" value="' + esc(t.text) + '">'
+    + '<div class="two"><div><label class="f" for="teD">Due</label><input class="i" type="date" id="teD" value="' + esc(t.due) + '"></div><div><label class="f" for="teC">Kind</label><select class="i" id="teC">' + Object.keys(TCAT).map(function(k){ return '<option value="' + k + '"' + (k === t.cat ? ' selected' : '') + '>' + TCAT[k] + ' ' + { tax:'Taxes', vehicle:'Vehicle', insurance:'Insurance', license:'License', money:'Money', other:'Other' }[k] + '</option>'; }).join('') + '</select></div></div>'
+    + '<label class="f" for="teR">Repeats</label><select class="i" id="teR">' + Object.keys(REPEAT).map(function(k){ return '<option value="' + k + '"' + (k === (t.repeat || 'none') ? ' selected' : '') + '>' + REPEAT[k] + '</option>'; }).join('') + '</select>'
+    + '<label class="f" for="teN">Notes</label><input class="i" id="teN" value="' + esc(t.notes || '') + '" placeholder="Policy #, website, who to call…">'
+    + (t.lastDone ? '<p class="hint">Last done ' + fd(t.lastDone) + '.</p>' : '')
+    + '<div class="btns" style="margin-top:14px"><button class="btn main" onclick="BM.saveTodo(\'' + (id || '') + '\')">Save</button>' + (id && t.due ? '<button class="btn" onclick="BM.todoIcs(\'' + id + '\')">📅 Add to my calendar</button>' : '') + (id ? '<button class="btn danger" onclick="BM.delTodo(\'' + id + '\')">Delete</button>' : '') + '</div>');
+}
+function saveTodo(id){
+  var d = { text:$('teT').value.trim(), due:$('teD').value, repeat:$('teR').value, cat:$('teC').value, notes:$('teN').value.trim() };
+  if(!d.text){ alert('What needs doing?'); return; }
+  if(d.repeat !== 'none' && !d.due) d.due = firstDue(d.repeat);
+  if(d.repeat !== 'none' && !d.due){ alert('Pick the first date it’s due, so I know when to repeat it.'); return; }
+  if(id) Object.assign(todos().filter(function(x){ return x.id === id; })[0], d); else { d.id = uid(); d.done = false; d.created = today(); todos().push(d); }
+  save(); closeSheet(); render();
+}
+function delTodo(id){ if(!confirm('Delete this to-do?')) return; S.todos = todos().filter(function(x){ return x.id !== id; }); save(); closeSheet(); render(); }
+/* calendar file with the repeat built in, and a reminder 3 days ahead */
+function todoIcs(id){
+  var t = todos().filter(function(x){ return x.id === id; })[0], e = function(s){ return String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1'); };
+  var dates = t.repeat === 'esttax' || t.repeat === 'q941' ? [0, 1, 2, 3].reduce(function(a){ a.push(a.length ? nextDue(a[a.length - 1], t.repeat) : t.due); return a; }, []) : [t.due];
+  var rule = { weekly:'FREQ=WEEKLY', monthly:'FREQ=MONTHLY', quarterly:'FREQ=MONTHLY;INTERVAL=3', yearly:'FREQ=YEARLY', esttax:'FREQ=YEARLY', q941:'FREQ=YEARLY' }[t.repeat];
+  var now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''), L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Business Manager//EN'];
+  dates.forEach(function(d, i){ var s = d.replace(/-/g, ''); L.push('BEGIN:VEVENT', 'UID:' + t.id + '-' + i + '@bizmgr', 'DTSTAMP:' + now, 'DTSTART;VALUE=DATE:' + s, 'DTEND;VALUE=DATE:' + addDays(d, 1).replace(/-/g, ''), 'SUMMARY:' + e(t.text), 'DESCRIPTION:' + e(t.notes || 'From Business Manager'));
+    if(rule) L.push('RRULE:' + rule);
+    L.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + e(t.text), 'TRIGGER:-P3D', 'END:VALARM', 'END:VEVENT'); });
+  L.push('END:VCALENDAR'); download('reminder-' + t.text.replace(/[^\w]+/g, '-').toLowerCase().slice(0, 30) + '.ics', L.join('\r\n'), 'text/calendar');
+}
+/* the usual deadlines for a small trade business, picked from a list */
+function commonList(){
+  var y = parseD(today()).getFullYear(), t = today(), nx = function(md){ var c = y + '-' + md; return c >= t ? c : (y + 1) + '-' + md; };
+  var L = [
+    { k:'esttax', text:'Quarterly estimated taxes (IRS 1040-ES)', cat:'tax', repeat:'esttax', due:firstDue('esttax'), why:'Self-employed? Pay as you go, four times a year.' },
+    { k:'return', text:'File income taxes (Schedule C)', cat:'tax', repeat:'yearly', due:nx('04-15'), why:'Federal return, April 15.' },
+    { k:'1099', text:'Send 1099s to subcontractors', cat:'tax', repeat:'yearly', due:nx('01-31'), why:'To subs you paid enough last year; January 31.' },
+    { k:'sales', text:'File sales tax return', cat:'tax', repeat:'quarterly', due:'', why:'If you charge sales tax. Your state sets the schedule.', ask:1 },
+    { k:'941', text:'Payroll taxes (Form 941)', cat:'tax', repeat:'q941', due:firstDue('q941'), why:'If you have employees.', crew:1 },
+    { k:'w2', text:'Send W-2s to employees', cat:'tax', repeat:'yearly', due:nx('01-31'), why:'If you have employees; January 31.', crew:1 },
+    { k:'reg', text:'Truck registration renewal', cat:'vehicle', repeat:'yearly', due:'', why:'Pick the date on your registration.', ask:1 },
+    { k:'insp', text:'Truck inspection / emissions', cat:'vehicle', repeat:'yearly', due:'', why:'If your state requires it.', ask:1 },
+    { k:'oil', text:'Truck service / oil change', cat:'vehicle', repeat:'quarterly', due:addDays(t, 30), why:'Every 3 months.' },
+    { k:'gl', text:'General liability insurance renewal', cat:'insurance', repeat:'yearly', due:'', why:'Pick your policy renewal date.', ask:1 },
+    { k:'auto', text:'Commercial auto insurance renewal', cat:'insurance', repeat:'yearly', due:'', why:'Pick your policy renewal date.', ask:1 },
+    { k:'wc', text:'Workers’ comp renewal', cat:'insurance', repeat:'yearly', due:'', why:'If you have employees.', ask:1, crew:1 },
+    { k:'lic', text:'Contractor license renewal', cat:'license', repeat:'yearly', due:'', why:'State or city license.', ask:1 },
+    { k:'backup', text:'Back up Business Manager', cat:'other', repeat:'monthly', due:addDays(t, 14), why:'More → Back up. Takes a minute.' }
+  ];
+  return L.filter(function(x){ return !x.crew || F('crew'); });
+}
+function commonDates(){
+  var have = {}; todos().forEach(function(x){ if(!x.done) have[x.text] = 1; });
+  var L = commonList();
+  sheet('<h3>Common due dates</h3><p class="muted" style="margin:0 0 10px">Tick what applies. Add the date where it asks — it’s on your registration, policy or license.</p>'
+    + L.map(function(x, i){ var on = have[x.text]; return '<div class="card" style="padding:10px 12px' + (on ? ';opacity:.55' : '') + '"><label class="row"><input type="checkbox" id="cd' + i + '" style="width:24px;height:24px;flex:none"' + (on ? ' disabled' : (!x.ask ? ' checked' : '')) + '><span class="grow"><b>' + TCAT[x.cat] + ' ' + esc(x.text) + '</b><div class="small muted">' + (on ? 'Already on your list' : esc(x.why) + (x.due ? ' Next: ' + fd(effDue(x)) + '.' : '')) + '</div></span></label>'
+      + (x.ask && !on ? '<input class="i" type="date" id="cdd' + i + '" style="min-height:42px;margin-top:6px" aria-label="Date for ' + esc(x.text) + '" onchange="document.getElementById(\'cd' + i + '\').checked=true">' : '') + '</div>'; }).join('')
+    + '<button class="btn main full" style="margin-top:10px" onclick="BM.saveCommon()">Add the ticked ones</button>');
+}
+function saveCommon(){
+  var L = commonList(), n = 0, miss = [];
+  L.forEach(function(x, i){ var cb = $('cd' + i); if(!cb || !cb.checked || cb.disabled) return; var d = x.ask ? ($('cdd' + i) || {}).value : x.due;
+    if(!d){ miss.push(x.text); return; }
+    todos().push({ id:uid(), text:x.text, due:d, repeat:x.repeat, cat:x.cat, notes:'', done:false, created:today() }); n++; });
+  if(miss.length){ alert('Add a date for: ' + miss.join(', ') + ' — or untick them.'); if(!n) return; }
+  save(); closeSheet(); render(); toast('Added ' + n + ' due date' + (n === 1 ? '' : 's'));
+}
+
 /* ── hours ── */
 VIEWS.hours = function(){
   setHead('Hours for payroll');
@@ -3277,7 +3412,8 @@ var FEAT = [
   ['schedule', '📅', 'Schedule', 'Days and times, calendar, “on my way” texts.'],
   ['materials', '🪵', 'Job costs', 'Track materials per job to see what each job really made.'],
   ['crew', '👷', 'Crew & hours', 'Clock in/out and weekly hours for payroll.'],
-  ['expenses', '⛽', 'Expenses & profit', 'Record or import costs; profit and reports for your accountant.']
+  ['expenses', '⛽', 'Expenses & profit', 'Record or import costs; profit and reports for your accountant.'],
+  ['todos', '📝', 'To-do & due dates', 'Your list, plus reminders for taxes, the truck, insurance and licenses.']
 ];
 VIEWS.more = function(){
   setHead('More');
@@ -3288,7 +3424,8 @@ VIEWS.more = function(){
     + (F('lineItems') ? o("BM.go('set/prices')", '🏷', 'Price list', S.prices.length + ' items') : '')
     + (F('crew') ? o("BM.go('set/crew')", '👷', 'Crew', S.crew.map(function(c){ return c.name; }).join(', ') || 'Add your helpers') : '')
     + o("BM.go('set/msg')", '💬', 'Messages', (S.msg.channel === 'email' ? 'Email first' : 'Text first') + (S.biz.reviewLink ? ' · review link set' : ''))
-    + o("BM.go('custs')", '👥', 'Customers', S.customers.length + ' saved');
+    + o("BM.go('custs')", '👥', 'Customers', S.customers.length + ' saved')
+    + (F('todos') ? o("BM.go('todo')", '📝', 'To-do & due dates', openTodos().length + ' open' + (soonTodos(7).length ? ' · ' + soonTodos(7).length + ' due this week' : '')) : '');
   h += '<h2>Help</h2>' + (hasAI() ? o('djAI.choose()', '✨', 'Your AI helper', (djAI.which() ? 'Using ' + djAI.which() : 'Pick the AI you use') + ' — writes messages, drafts prices, reviews jobs') : '')
     + o("BM.redoSetup()", '🗣️', 'Answer the setup questions again', 'Re-picks what the app shows you')
     + (window.djTour ? o('djTour.start()', '🎬', 'Show me around', 'The welcome tour') : '');
@@ -3486,6 +3623,14 @@ function makeDemo(){
     { id:'e9', date:A(-3), vendor:'Menards', amount:189.99, cat:'Materials & supplies', jobId:'j9', note:'Sump pump, check valve' },
     { id:'e6', date:A(-2), vendor:'Harbor Freight', amount:89.99, cat:'Tools & equipment', jobId:'', note:'Drain auger cable' }
   ];
+  d.todos = [
+    { id:'t1', text:'Truck registration renewal', due:A(5), repeat:'yearly', cat:'vehicle', notes:'Plate 4KT-221 · renew online at the DMV site', done:false },
+    { id:'t2', text:'Quarterly estimated taxes (IRS 1040-ES)', due:nextDue(A(-1), 'esttax'), repeat:'esttax', cat:'tax', notes:'', done:false },
+    { id:'t3', text:'General liability insurance renewal', due:A(21), repeat:'yearly', cat:'insurance', notes:'Next Insurance · policy GL-88213', done:false },
+    { id:'t4', text:'Call Rosa back about a water softener quote', due:A(1), repeat:'none', cat:'other', notes:'', done:false },
+    { id:'t5', text:'Order more 1/2" PEX fittings', due:'', repeat:'none', cat:'other', notes:'', done:false },
+    { id:'t6', text:'Truck service / oil change', due:A(-2), repeat:'quarterly', cat:'vehicle', notes:'', done:false }
+  ];
   d.seq = { job:1010, inv:2007 };
   return d;
 }
@@ -3501,6 +3646,7 @@ function plus(){
   var o = function(fn, em, t, s){ return '<button class="opt" onclick="BM.closeSheet();' + fn + '"><span class="e">' + em + '</span><span class="grow">' + t + (s ? '<small>' + s + '</small>' : '') + '</span></button>'; };
   sheet('<h3>Add something</h3>' + o("BM.go('newjob')", '🧰', 'New job', F('estimates') ? 'Then price it and send the estimate' : 'Who, what, when, how much')
     + o("BM.go('newcust')", '👤', 'New customer', '')
+    + (F('todos') ? o('BM.editTodo()', '📝', 'To-do or reminder', 'Anything not tied to a job — taxes, the truck, an errand') : '')
     + (F('expenses') || F('materials') ? o('BM.newReceipt()', '📸', 'Receipt', 'Snap it or paste the email — then pick the job for each item') + o('BM.addExpense()', '⛽', 'Quick expense', 'Gas, a bill, anything without a receipt to scan') : '')
     + (F('crew') ? (S.clock ? o('BM.clockOut()', '⏱', 'Clock out', '') : o('BM.clockPick()', '⏱', 'Clock in', '')) : '')
     + (F('expenses') ? o("BM.go('import')", '📄', 'Import a bank or card statement', 'CSV from your bank’s website') : ''));
@@ -3526,6 +3672,7 @@ window.BM = {
   backup:backup, restore:restore, wipe:wipe,
   newReceipt:newReceipt, rcPhoto:rcPhoto, rcText:rcText, rcManual:rcManual, rcSet:rcSet, rcMost:rcMost, rcLine:rcLine, rcDel:rcDel, rcAdd:rcAdd, rcBill:rcBill, rcTo:rcTo,
   rcSplit:rcSplit, rcSplitHalf:rcSplitHalf, rcSplitSave:rcSplitSave, rcCancel:rcCancel, rcSave:rcSave, rcAI:rcAI, showPhoto:showPhoto, delReceipt:delReceipt,
+  quickTodo:quickTodo, doneTodo:doneTodo, editTodo:editTodo, saveTodo:saveTodo, delTodo:delTodo, todoIcs:todoIcs, commonDates:commonDates, saveCommon:saveCommon, _nextDue:nextDue,
   signedCopy:signedCopy, pasteOk:pasteOk, copyHere:copyHere, _rc:function(){ return RC; }, _parseReceipt:parseReceipt,
   _state:function(){ return S; }
 };
