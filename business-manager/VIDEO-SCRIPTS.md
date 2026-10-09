@@ -1,5 +1,7 @@
 # Business Manager — video scripts
 
+*The videos were recorded before v1.1 (9 Oct 2026), which added three options, photos, signing on your own phone and the quotes-only edition (Quick Quote). They don’t show those yet.*
+
 Each line is one screen. The time is when it appears. To add your voice: play the video, read each line as its screen comes up, and record with your phone’s voice memo or iMovie. Or just send the videos as they are — every word is already on screen.
 
 ## Short overview
@@ -91,7 +93,7 @@ Each line is one screen. The time is when it appears. To add your voice: play th
 - `2:51` **Pricing & estimates** — Price it, send it, get it signed.
 - `2:54` **Add from your price list** — Tap an item, or type your own. New items you type are saved to your list for next time.
 - `3:04` **Quantity and price** — Change how many or the price for this job.
-- `3:10` **Or let AI draft it** — “Draft it for me” turns your notes into line items. It opens your AI app; copy its answer and paste it back.
+- `3:10` **Or let it draft the price** — ⚡ “Draft from my price list” turns your notes into line items from your own prices. ✨ “Ask my AI” opens your AI app; copy its answer and paste it back — your price list still wins.
 - `3:20` **Send the estimate** — It writes the message with a link. Text it, email it, or copy it. You always press send yourself.
 - `3:30` **Make it sound better** — Optional: ✨ rewrites the message with your AI. Copy its answer, come back, tap Paste.
 - `3:39` **What the customer sees** — Your name, the work, the prices, the total, your terms. No app or login for them.
