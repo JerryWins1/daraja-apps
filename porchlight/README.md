@@ -20,14 +20,17 @@ A patient personal assistant for people who don't like technology. It interviews
 | File | Purpose |
 | --- | --- |
 | `app.html` | The page as published to Claude (no `<html>` wrapper; Claude adds it). |
-| `index.html` | The same page with a standard wrapper so it opens in any browser. |
+| `index.html` | The installable Daraja version: the same page with the shared Daraja house script (`dj-house-v63`) in its head. |
+| `manifest.webmanifest`, `icon.svg`, `sw.js` | Lets people add it to their phone's Home Screen and open it offline. |
+
+Porchlight is listed in the store catalog (`shop/apps_data.js`) at $29 one-time, marked as testing.
 
 ## Running it
 
 - **Inside Claude (full version):** open the live link above. Claude asks once for permission to use Gmail, Google Calendar, and Claude itself.
 - **In any browser (limited version):** open `index.html`. The interview, to-do list, jokes, verses, and links all work and are saved on that device only. The page shows example emails, and the chat answers only simple requests.
 
-After editing `app.html`, rebuild `index.html` by wrapping it with a doctype, `<head>`, and `<body>`. See the commit that added this folder.
+After editing `app.html`, rebuild `index.html`: copy the `dj-house-v63` script block from the root `index.html` into a `<head>` with the meta, manifest and icon tags, then the contents of `app.html` in `<body>`, then the service-worker registration line.
 
 ## Known limits
 

@@ -9,7 +9,7 @@ const PHASE = 'testing';
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
-const TEST_NOW = ['nownext','ourtable','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','everyday','academy','ff'];
+const TEST_NOW = ['nownext','ourtable','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','everyday','academy','ff','porchlight'];
 /* 6 Oct 2026, Jerry: “One Thing is ready to go… Our Table looks good, post it to the testers.” READY apps lead the store, the Testers' List and Founding Testers. */
 const READY = ['nownext','ourtable'];
 
@@ -629,4 +629,9 @@ const APPS = {
    "It is nineteen dollars, once, and there is nothing else to pay, ever. Rather less than one afternoon of company usually costs.",
    "If you know somebody who lives alone, this is the one to show them. Try it below."
   ]},
+ porchlight: {
+  name:'Porchlight', em:'🏮', sub:'your mail sorted, scams caught', cat:'later', price:'$29 one-time', testing:true, fresh:true, video:false,
+  tag:'A patient helper that asks a few easy questions, then sorts your Gmail into what needs an answer, what can wait, and what looks like a scam. It reads mail aloud and helps you write back. The try-it page shows example mail; sorting your real Gmail works when you open it inside Claude.',
+  try:BASE+'porchlight/'
+ },
 };
