@@ -9,7 +9,7 @@ const PHASE = 'testing';
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
-const TEST_NOW = ['nownext','ourtable','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','everyday','academy','ff'];
+const TEST_NOW = ['nownext','ourtable','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','everyday','academy','ff','porchlight'];
 /* 6 Oct 2026, Jerry: “One Thing is ready to go… Our Table looks good, post it to the testers.” READY apps lead the store, the Testers' List and Founding Testers. */
 const READY = ['nownext','ourtable'];
 
@@ -22,6 +22,11 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ quickquote: {
+  name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', price:'Free', testing:true,
+  tag:'a priced estimate in a minute, from your own price list',
+  try:BASE+'quickquote/', video:false
+ },
  tester: {
   name:'How to be a tester', em:'🧪', sub:'three minutes: a real test, start to finish', cat:'off', price:'', testing:true, video:true,
   tag:'The tester video — watch one short test from start to finish: use the app, point at what is wrong, say why, send the report',
@@ -628,5 +633,40 @@ const APPS = {
    "Everything you tell it stays on your own phone. No account, nothing sent anywhere, nobody reading it. That is not a footnote. For a lot of people it is the whole reason they will answer honestly.",
    "It is nineteen dollars, once, and there is nothing else to pay, ever. Rather less than one afternoon of company usually costs.",
    "If you know somebody who lives alone, this is the one to show them. Try it below."
+  ]},
+ porchlight: {
+  name:'Porchlight', em:'🏮', sub:'your mail sorted, scams caught', cat:'later', price:'$29 one-time', testing:true, fresh:true, video:true,
+  tag:'A patient helper that asks a few easy questions, then sorts your Gmail into what needs an answer, what can wait, and what looks like a scam. It reads mail aloud and helps you write back. The try-it page shows example mail; sorting your real Gmail works when you open it inside Claude.',
+  try:BASE+'porchlight/',
+  lines:[
+   "This is Porchlight. It sorts your email for you, puts what matters on top, and warns you before you click on a scam.",
+   {t:"It starts by getting to know you. There are no videos to watch and nothing to install. A friendly helper asks a few easy questions, one at a time.", js:"try{porchTour.scene('welcome')}catch(e){}", point:".btn-big"},
+   {t:"What should I call you? What would you like help with? Your email, your calendar, a to-do list, the weather, a Bible verse each morning. You tap what you want, and it builds your page around your answers.", js:"try{porchTour.scene('goals')}catch(e){}", point:".choices"},
+   {t:"Then it asks whose emails should always come first. Your children, your doctor, your church.", js:"try{porchTour.scene('vips')}catch(e){}", point:".chips"},
+   {t:"Here is the Home page it built. Good morning, by name, and only the things you asked for.", js:"try{porchTour.scene('home')}catch(e){}", point:".hello"},
+   {t:"Tap Go through my mail, and it reads your newest emails and sorts them into four piles. Red needs your answer. Orange might be a scam. Blue is good to know. Gray can wait.", js:"try{porchTour.scene('mail')}catch(e){}", point:".group-title"},
+   {t:"Look at this one. Amazon spelled with a zero, an urgent warning, and a request for your password. Porchlight says it in plain words: be careful, and don't click.", js:"try{porchTour.scene('scam')}catch(e){}", point:".note"},
+   {t:"For the email from your daughter, tap Help me answer. Say what you mean in your own words, and it writes a kind reply. Nothing is sent until you tap Send, and then say yes.", js:"try{porchTour.scene('reply')}catch(e){}", point:"#f-draft"},
+   {t:"There is a to-do list with big check boxes, a place to talk with your helper, and a board where the family can leave notes. Every question can be read out loud, and the words come in three sizes.", js:"try{porchTour.scene('todo')}catch(e){}", point:".todo"},
+   {t:"Sorting your real Gmail works when you open Porchlight inside Claude, with your own Claude account. The try-it page below shows example emails, so you can see how it works first.", js:"try{porchTour.scene('home')}catch(e){}", point:".card .btn-big"},
+   "Porchlight is twenty-nine dollars, once. If you know someone who dreads their inbox, show them this one. Try it below."
+  ],
+  train:[
+   "Let's set up Porchlight together. It takes about ten minutes, once.",
+   {t:"Step one: open Porchlight inside Claude, at claude dot A I, or in the Claude app. That is what lets it read your Gmail. Tap Let's get started.", js:"try{porchTour.scene('welcome')}catch(e){}", point:".btn-big"},
+   {t:"Step two: type the name you'd like to be called, and tap Next. Then give your helper a name. Sunny, Grace, Buddy, Penny, or one of your own.", js:"try{porchTour.scene('name')}catch(e){}", point:"#f-name"},
+   {t:"Step three: tap everything you want help with. Tap again to undo. You can change these any time.", js:"try{porchTour.scene('goals')}catch(e){}", point:".choices"},
+   {t:"Step four: pick your email. Gmail connects directly. For Outlook, Yahoo, AOL or iCloud, Porchlight shows the steps to send a copy to a free Gmail account. A family member can do it in five minutes.", js:"try{porchTour.scene('provider')}catch(e){}", point:".choices"},
+   {t:"Step five: tap Connect my Gmail. Claude asks if Porchlight may use Gmail. Tap Allow. If Google asks you to sign in, you type your password into Google, never into Porchlight. When it works, a green note says it can see your mailbox.", js:"try{porchTour.scene('connect')}catch(e){}", point:".card .btn-big"},
+   {t:"Step six: add the people whose emails should always come first. Type a name or an email address, and tap Add this person.", js:"try{porchTour.scene('vips')}catch(e){}", point:"#f-vip"},
+   {t:"Then answer the rest: your zip code for the weather, your favorite websites, a verse or a joke each day. Last, pick the word size that's comfortable, and tap Take me to my Home page.", js:"try{porchTour.scene('size')}catch(e){}", point:".sizes"},
+   {t:"This is your Home page. Each morning, tap Go through my mail. The first time, Claude asks if Porchlight may use Claude to sort your mail. Tap Allow.", js:"try{porchTour.scene('home')}catch(e){}", point:".card .btn-big"},
+   {t:"Start with the red pile: Needs your answer. Tap Read it to open an email. Inside, Read it to me says it out loud, and Explain it simply tells you what it wants from you.", js:"try{porchTour.scene('mail')}catch(e){}", point:".mail.reply"},
+   {t:"To answer, tap Help me answer. In the top box, say what you mean, like: Yes, I'll be there Sunday. Tap Write it for me, and change anything you like. Then tap Send my answer, and Yes, send it. Or save it as a draft.", js:"try{porchTour.scene('reply')}catch(e){}", point:"#f-wish"},
+   {t:"Orange means be careful. Don't click links or call numbers in those emails. When you're finished with any email, tap I'm done with this, and it moves out of the way.", js:"try{porchTour.scene('scam')}catch(e){}", point:".note"},
+   {t:"On the To-Do page, type something to remember and tap Add to my list. Tap the big box when it's done. From any email, Add to my to-do list puts it here too.", js:"try{porchTour.scene('todo')}catch(e){}", point:"#f-task"},
+   {t:"On the Talk page, ask your helper anything. Paste a text message you got, and it tells you if it looks like a scam. Say: remind me to call Sarah, and it adds that to your list.", js:"try{porchTour.scene('talk')}catch(e){}", point:"#chatlog .say"},
+   {t:"My Setup lets you change any answer, make the words bigger, or start fresh. And if you ever get stuck, tap Help at the top of any screen.", js:"try{porchTour.scene('settings')}catch(e){}", point:".card .btn-big"},
+   {t:"That's it. One easy page, every morning, and your helper is always one tap away.", js:"try{porchTour.scene('help')}catch(e){}"}
   ]},
 };
