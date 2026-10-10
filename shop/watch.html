@@ -1996,7 +1996,8 @@
   <button class="cbtn" onclick="restart()">↻ Start over</button>
   <button class="cbtn" id="sndBtn" onclick="toggleSound()">🔊 Sound on</button>
 </div>
-<div id="ver">Daraja Store video player v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
+<div id="vidHub" style="display:none"></div>
+<div id="ver">Daraja Store video player v3.2 · 2026-10-10 — 🎬 every video for this app in one row (2 minutes · Explain it to me · step by step), and a Next video button at the end; the first line's scene now runs once the app has loaded · ?mode=explain plays the Kenya Student Test Week explainers (kenya/&lt;app&gt;.json) · v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
 
 <script>document.write('<scr'+'ipt src="apps_data.js?v='+Date.now()+'"></scr'+'ipt>')</script>
 <script>
@@ -2004,7 +2005,12 @@ const params = new URLSearchParams(location.search);
 const id = params.get('app') || 'nownext';
 const app = APPS[id] || APPS.nownext;
 const UNKNOWN = !APPS[id];   /* 7 Oct: an unknown ?app= used to play the One Thing video without a word */
-const EXTRA = (app.extra && params.get('mode') && app.extra[params.get('mode')]) || null; /* extra short videos, e.g. ?mode=draft */
+/* v3.1 · 10 Oct 2026 — ?mode=explain: the Kenya Student Test Week explainer for first-timers. Lines come from
+   kenya/<app>.json (app=tester → kenya/_kickoff.json), next to this page; recorded voice is voice/<app>-explain.m4a.
+   (The general-audience first-timer video is a normal extra mode: ?mode=firsttime, lines in apps_data.js.) */
+let KZ = null;
+if(params.get('mode')==='explain'){ try{ const x=new XMLHttpRequest(); x.open('GET','kenya/'+(id==='tester'?'_kickoff':id)+'.json?v='+Date.now(), false); x.send(); if(x.status===200){ const d=JSON.parse(x.responseText); const L=(d.explainer&&d.explainer.lines)||d.lines; if(L&&L.length) KZ={title:'Explained for first-timers', sub:'About four minutes: what it is for, who uses it, and the main screens. Sound on.', lines:L}; } }catch(e){} }
+const EXTRA = KZ || (app.extra && params.get('mode') && app.extra[params.get('mode')]) || null; /* extra short videos, e.g. ?mode=draft · ?mode=firsttime */
 const MODE = (params.get('mode')==='train' && app.train) ? 'train' : EXTRA ? 'extra' : 'overview';
 const LINES = MODE==='train' ? app.train : EXTRA ? EXTRA.lines : app.lines;
 /* v3 · 7 Oct 2026 — RECORDED narration (voicemaker.py). Jerry on the iPad: the browser's own voice waited 10–15 s,
@@ -2051,6 +2057,29 @@ if(MODE==='train'){
   $('ovSub').textContent = 'Five minutes: how to set it up and use it, step by step. Sound on.';
   $('slidePrice').textContent = '🎓 Training';
 }
+
+const OPEN_TITLE = $('ovTitle').textContent, OPEN_SUB = $('ovSub').textContent;
+/* v3.2 · 10 Oct 2026 — Jerry: "put all the videos you can on everything you can, so it's very clear and everything is
+   available to each app." Every app has up to three: the 2-minute video, Explain it to me (a first-timer's four minutes)
+   and the step-by-step training. One row under the player lists them all; the end screen offers the next one. */
+const VIDS = (function(){ const v=[], base='watch.html?app='+encodeURIComponent(id);
+  if(app.lines && app.lines.length && app.video!==false) v.push({m:'overview', em:'▶', t:'2-minute video', href:base});
+  if(app.extra && app.extra.firsttime) v.push({m:'firsttime', em:'💡', t:app.extra.firsttime.title||'Explain it to me', href:base+'&mode=firsttime'});
+  if(app.train && app.train.length) v.push({m:'train', em:'🎓', t:'Step by step', href:base+'&mode=train'});
+  if(app.extra) Object.keys(app.extra).forEach(function(k){ if(k!=='firsttime') v.push({m:k, em:'▶', t:app.extra[k].title||k, href:base+'&mode='+k}); });
+  return v; })();
+const CUR = MODE==='extra' ? params.get('mode') : MODE;
+(function(){ const h=$('vidHub'); if(!h || UNKNOWN || VIDS.length<2) return;
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  h.innerHTML='<div style="font:800 14px -apple-system,system-ui,sans-serif;color:#6B6355;margin:0 0 8px">🎬 All the videos for '+esc(app.name)+'</div>'
+    + VIDS.map(function(x){ const on=x.m===CUR;
+      return on ? '<span class="cbtn" aria-current="true" style="display:inline-flex;align-items:center;min-height:44px;background:#221F1A;color:#fff;border-color:#221F1A">'+x.em+' '+esc(x.t)+' · playing</span>'
+                : '<a class="cbtn" href="'+x.href+'" style="display:inline-flex;align-items:center;min-height:44px;text-decoration:none">'+x.em+' '+esc(x.t)+'</a>'; }).join(' ');
+  h.style.cssText='display:block;text-align:center;padding:4px 14px 14px;line-height:2.6';
+  const k=VIDS.findIndex(x=>x.m===CUR), nx=VIDS[k+1] || (k>0 ? VIDS[0] : null);
+  if(nx){ const a=document.createElement('a'); a.className='btn'; a.id='nextVid'; a.href=nx.href; a.textContent='🎬 Next video: '+nx.t;
+    a.style.cssText='background:#221F1A;color:#fff;text-decoration:none;border:1.5px solid #6b6353'; $('endBtns').appendChild(a); }
+})();
 
 let i=-1, playing=false, paused=false, soundOn=true;
 /* v2.2 — narration used to hand the whole caption to the voice as ONE utterance, so it
@@ -2149,6 +2178,8 @@ function play(){
   if(fr && !fr.src){
     fr.src = app.try + (app.try.includes('?')?'&':'?') + 'v=' + Date.now();
     fr.addEventListener('load', function(){
+      /* v3.2: the first line's scene (js/point) used to run before the app had loaded, so it silently did nothing. Run it again now. */
+      if(playing && i===0 && !fr.__djFirstDone){ fr.__djFirstDone=true; setTimeout(function(){ if(playing && i===0) direct(LINES[0]); }, 700); }
       var quiet=function(){ try{
         const d=fr.contentDocument;
         if(d){
@@ -2251,8 +2282,8 @@ function restart(){
   $('shield').style.display='block'; $('liveBar').style.display='none';
   playing=false; paused=false;
   $('bigPlay').style.display='flex'; $('endBtns').style.display='none';
-  $('ovTitle').textContent = app.name;
-  $('ovSub').textContent = 'Two minutes: what it does, how it works, and why it\'s worth it. Sound on.';
+  $('ovTitle').textContent = OPEN_TITLE;   /* v3.2: Start over keeps this video's own title, not the 2-minute words */
+  $('ovSub').textContent = OPEN_SUB;
   $('prog').style.width='0';
   $('pBtn').textContent='⏸ Pause';
   play();
@@ -2397,3 +2428,4 @@ try{
 }catch(e){}
 })();
 </script>
+
