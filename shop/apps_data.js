@@ -28,9 +28,14 @@ const APPS = {
   try:BASE+'advent/', video:false
  },
  quickquote: {
-  name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'off', off:'merged into Business Manager (Jerry, 9 Oct 2026) — its quote builder, price list and three options live on there', price:'$29 one-time', testing:true,
-  tag:'Describe the job, get a priced estimate from YOUR price list: three options, the customer signs on your phone, one tap turns it into an invoice. Works with no signal.',
-  try:BASE+'quickquote/', video:false
+  name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', price:'$49 a year', testing:true,
+  tag:'Describe the job, get a priced estimate from YOUR price list: three options, the customer signs on your phone, photos on the quote. Works with no signal. The quotes-only edition of Business Manager: move up any time and your quotes come with you.',
+  try:BASE+'business-manager/?mode=quotes', video:false
+ },
+ businessmanager: {
+  name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', price:'$149 a year', testing:true,
+  tag:'Quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, to-dos and tax dates. Includes Next Step Board, Message Assistant and Feedback Studio.',
+  try:BASE+'business-manager/?mode=full', video:false
  },
  tester: {
   name:'How to be a tester', em:'🧪', sub:'three minutes: a real test, start to finish', cat:'off', price:'', testing:true, video:true,
