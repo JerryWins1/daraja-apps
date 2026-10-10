@@ -1988,6 +1988,8 @@
       <!-- v1.22 (7 Oct): Jerry: "we have Zuri testers, we have Daraja testers, can we have church testers also? It's a different group." -->
       <h2 id="secChurch">⛪ Church testers <small id="ctCount"></small></h2>
       <div class="card" id="churchLive"><p class="muted" style="margin:0">Loading…</p></div>
+      <h2 id="secKenya">🇰🇪 Kenya students <small id="ktCount"></small></h2>
+      <div class="card" id="kenyaLive"><p class="muted" style="margin:0">Loading…</p></div>
       <div hidden><h2 id="secMsgs">New messages <small id="msgCount"></small></h2>
       <div class="card" id="newMsgs"></div>
       <h2 id="secWaiting">Waiting on you</h2>
@@ -2061,7 +2063,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.25 · 2026-10-08 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.27 · 2026-10-10 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2084,6 +2086,18 @@ async function hq(body){
   const r=await fetch(HQ,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(Object.assign({key:KEY},body))});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'That did not go through'); return j;
 }
+/* 10 Oct: students who fill in the Kenya join link (daraja-apps/join/kenya/) arrive as a help message from app 'kenya-join'.
+   HQ files each one under 🇰🇪 Kenya students by itself and closes the note — Jerry only checks the list and removes anyone who doesn't belong. */
+let KSORT=false; const KDONE=new Set();
+async function sortKenya(){
+  if(KSORT||!D) return; const todo=(D.requests||[]).filter(r=>r.app==='kenya-join'&&['new','stack'].indexOf(r.status)>=0&&!KDONE.has(r.id));
+  if(!todo.length) return; KSORT=true; let n=0;
+  try{ for(const r of todo){ KDONE.add(r.id); const p=P(r.person_id); if(!p.id) continue;
+      if(p.project!=='kenya'||p.role!=='tester'){ await hq({action:'person.set',id:p.id,project:'kenya',role:'tester'}); n++; }
+      try{ await hq({action:'request.set',id:r.id,status:'told'}); }catch(e){} }
+    if(n) toast(n+' new Kenya student'+(n>1?'s':'')+' added'); }
+  catch(e){} finally{ KSORT=false; await load(); }
+}
 async function act(body,okMsg){ try{ const j=await hq(body); if(okMsg) toast(okMsg); await load(); return j; }catch(e){ toast(e.message,true); return null; } }
 
 async function start(){
@@ -2096,7 +2110,7 @@ async function start(){
 }
 async function load(manual){
   if(busy || !KEY || !HQ) return; busy=true; if(manual) $('reload').textContent='…';
-  try{ const r=await hq({action:'read',days:45}); D=r; render(); if(manual) toast('Up to date'); }
+  try{ const r=await hq({action:'read',days:45}); D=r; render(); if(manual) toast('Up to date'); setTimeout(sortKenya,50); }
   catch(e){ toast(e.message==='Not allowed'?'This key is not accepted — ask Claude for a fresh link':'HQ did not answer — try ↻ in a minute',true); if(e.message==='Not allowed'){ store('jhq_key',null); $('gate').hidden=false; $('app').hidden=true; $('reload').hidden=true; } } /* 7 Oct deep check: it stayed on an empty panel */
   finally{ busy=false; $('reload').textContent='↻'; }
 }
@@ -2197,8 +2211,8 @@ window.focusLater=async id=>{ const l=(settingJSON('focus_later',[])||[]).filter
 window.focusUndo=async id=>{ await focusSave((settingJSON('focus_done',[])||[]).filter(x=>x!==id), settingJSON('focus_later',[])||[]); };
 /* v1.21 (7 Oct) — the Daraja testers panel, the twin of Zuri's: one tile per tester, what they did, their latest words. */
 function renderDarajaLive(proj){
-  proj=proj||'daraja'; const CH=proj==='church';
-  const el=$(CH?'churchLive':'darajaLive'); if(!el||!D) return;
+  proj=proj||'daraja'; const CH=proj==='church', KE=proj==='kenya';
+  const el=$(KE?'kenyaLive':CH?'churchLive':'darajaLive'); if(!el||!D) return;
   const ppl=((D&&D.people)||[]).filter(p=>shown(p)&&p.project===proj&&p.role==='tester');
   const evs=D.events||[], ms=D.messages||[];
   const rows=ppl.map(p=>{ const ev=evs.filter(e=>e.person_id===p.id), inn=ms.filter(m=>m.person_id===p.id&&m.direction==='in'), out=ms.filter(m=>m.person_id===p.id&&m.direction==='out');
@@ -2208,11 +2222,11 @@ function renderDarajaLive(proj){
     const st=!last?(out.length?'warn':'hot'):cls==='quiet'?'warn':'ok';
     const note=inn.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
     return {p,tried,said,what,st,note}; });
-  $(CH?'ctCount':'dtCount').textContent=ppl.length?ppl.length+' testers':'';
+  $(KE?'ktCount':CH?'ctCount':'dtCount').textContent=ppl.length?ppl.length+' testers':'';
   el.innerHTML=(ppl.length?`<div class="tiles" style="margin-top:0">${rows.map(r=>`<div class="tile ${r.st}" style="cursor:pointer" onclick="openPerson('${r.p.id}')"><div class="k">${esc(String(r.p.name).split(' ')[0])}</div><div class="v">${r.tried}</div><div class="s">apps tried · ${r.said} note${r.said===1?'':'s'} · ${esc(r.what)}</div></div>`).join('')}</div>`
-      :`<p class="muted" style="margin:0">No ${CH?'church':'Daraja'} testers yet — tap ＋ Add a person on the People tab and choose “Part of: ${CH?'church':'daraja'}”.</p>`)
+      :KE?`<p class="muted" style="margin:0">No students yet. Post the join link in the students' WhatsApp group: <b>jerrywins1.github.io/daraja-apps/join/kenya/</b> — whoever fills it in appears here by themselves.</p>`:`<p class="muted" style="margin:0">No ${CH?'church':'Daraja'} testers yet — tap ＋ Add a person on the People tab and choose “Part of: ${CH?'church':'daraja'}”.</p>`)
     +rows.filter(r=>r.note).slice(0,3).map(r=>`<div class="item"><b>${esc(String(r.p.name).split(' ')[0])}:</b> ${esc(String(r.note.text||'').replace(/^'/,'').slice(0,160))} <span class="meta">${ago(r.note.at)}</span></div>`).join('')
-    +`<div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('${proj}')">📣 Message the ${CH?'church':'Daraja'} testers</button><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/testers/${CH?'?line=church':''}" target="_blank" rel="noopener">🧪 ${CH?'Church apps list':'Testers’ List'}</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/welcome/" target="_blank" rel="noopener">👋 Welcome page</a></div>`;
+    +`<div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('${proj}')">📣 Message the ${KE?'Kenya students':CH?'church':'Daraja'}${KE?'':' testers'}</button><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/testers/${CH?'?line=church':''}" target="_blank" rel="noopener">🧪 ${CH?'Church apps list':'Testers’ List'}</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/welcome/" target="_blank" rel="noopener">👋 Welcome page</a></div>`;
 }
 /* v1.25 — ✅ Needs you now: ONLY things that need Jerry — unread messages, fixes to tell, new tester notes, drafts to send.
    Everything else is folded under "The testers, dates & more", and the History tab keeps the record. */
@@ -2275,7 +2289,7 @@ function renderToday(){
   $('waiting').innerHTML=w||'<p class="muted" style="margin:0">Nothing waiting on you.</p>';
   const quiet=((D&&D.people)||[]).filter(p=>shown(p)&&['tester','staff','customer'].indexOf(p.role)>=0||(p.project==='zuri'&&shown(p))).filter(p=>lastSeenClass(p)==='quiet');
   $('quiet').innerHTML=quiet.length?quiet.map(p=>`<div class="item"><span class="who">${esc(p.name)}</span> <span class="meta">${esc(p.project)} · last heard from ${ago(lastActive(p))}</span> <button class="chip small" onclick="openPerson('${p.id}',true)">💬 Check in</button></div>`).join(''):'<p class="muted" style="margin:0">Everyone has shown up in the last three days.</p>';
-  renderDates(); try{ renderDarajaLive('daraja'); renderDarajaLive('church'); renderNeedsYou(); }catch(e){}
+  renderDates(); try{ renderDarajaLive('daraja'); renderDarajaLive('church'); renderDarajaLive('kenya'); renderNeedsYou(); }catch(e){}
 }
 
 let BIZ_DATES=[];
@@ -2376,7 +2390,7 @@ function personForm(p){
   p=p||{}; const sel=(n,v,opts)=>`<select id="${n}">${opts.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`;
   return `<label for="fName">Name</label><input id="fName" value="${esc(p.name||'')}">
     <label for="fPhone">WhatsApp number (with country code)</label><input id="fPhone" inputmode="tel" value="${p.phone?'+'+esc(p.phone):''}" placeholder="+254 7…">
-    <label for="fProject">Part of</label>${sel('fProject',p.project||'daraja',['daraja','church','zuri','personal'])}
+    <label for="fProject">Part of</label>${sel('fProject',p.project||'daraja',['daraja','church','zuri','kenya','personal'])}
     <label for="fRole">Who they are</label>${sel('fRole',p.role||'tester',['tester','customer','staff','family','unknown','hidden'])}
     <label for="fNotes">Notes</label><input id="fNotes" value="${esc(p.notes||'')}">
     <div class="chips" style="margin-top:10px"><button class="chip main" onclick="savePerson(${p.id?`'${p.id}'`:'null'})">Save</button></div>`;
@@ -2410,7 +2424,7 @@ async function stackIt(mid){ const m=D.messages.find(x=>x.id===mid); await act({
 /* ---------- 📣 message a group (v1.17, 5 Oct): write once, then one tap per person ---------- */
 // No WhatsApp sending from HQ yet (Meta verification), so each tap opens WhatsApp with the words typed in; Jerry presses send.
 const GROUPS={zuri:['Zuri testers',p=>p.project==='zuri'&&['staff','hidden','family','customer'].indexOf(p.role)<0],
-  daraja:['Daraja testers',p=>p.project==='daraja'&&p.role==='tester'],church:['Church testers',p=>p.project==='church'&&p.role==='tester'],customer:['Customers',p=>p.role==='customer']};
+  daraja:['Daraja testers',p=>p.project==='daraja'&&p.role==='tester'],church:['Church testers',p=>p.project==='church'&&p.role==='tester'],kenya:['🇰🇪 Kenya students',p=>p.project==='kenya'&&p.role==='tester'], /* 10 Oct: the twelve student testers */customer:['Customers',p=>p.role==='customer']};
 let GM=null;
 const firstName=p=>String(p.name||'').trim().split(/\s+/)[0];
 const fillName=(t,p)=>t.replace(/\{name\}/gi,firstName(p)).replace(/\{link\}/gi,inviteLink(p)); /* 7 Oct: {link} = this person's own testers link, so what they do lands under their name */
