@@ -2246,7 +2246,7 @@
     <div class="pills"><button aria-label="choose my voice" onclick="R.voice()" title="choose my voice">🗣 voice</button><button aria-label="sound on or off" onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button aria-label="start over" onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.14 · 2026-10-10 · by Daraja Studio · your friend lives only on this device — no account, nothing you tell it is sent anywhere (the weather, only if you say yes, uses your rough location)<!-- 7 Oct deep check --><br>
+  <div class="foot">Rafiki v1.16 · 2026-10-11 · by Daraja Studio · your friend lives only on this device — no account, nothing you tell it is sent anywhere (the weather, only if you say yes, uses your rough location)<!-- 7 Oct deep check --><br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -2256,6 +2256,7 @@
 var KEY='rafiki_v1';
 function db(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
 function save(d){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+var RAF_BLANK = !localStorage.getItem(KEY);   /* 11 Oct (pass B): nothing saved yet — a first visit, or Rafiki was erased */
 var S = db();
 S.p = S.p||{}; S.notes = S.notes||[]; S.places = S.places||[]; S.jokeIx = S.jokeIx||0; S.visits = S.visits||0;
 function esc(s){ return String(s||'').replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -2477,12 +2478,46 @@ function nnEnsure(){
   }catch(e){ return null; }
 }
 function nnDB(){ var k=nnKey(); if(!k) return null; try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+/* 11 Oct (pass B): erasing Rafiki left its reminders behind on the One Thing list. Now everything Rafiki writes
+   there carries src:'rafiki' and its id is noted under dj_rafiki_nn_made (a dj_ name, so the start menu's
+   “Start fresh” leaves the note in place and the next open can still tidy up). Erasing takes away ONLY Rafiki's
+   things. Older ones (before the mark) are known by their shape: Rafiki signs them “from” its name and no other
+   app writes “from” without its own little picture (fromEm). The person's own things are never touched. */
+var NN_MADE='dj_rafiki_nn_made';
+function nnMadeList(){ try{ var a=JSON.parse(localStorage.getItem(NN_MADE)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function nnMade(id, text){ try{ var a=nnMadeList(); a.push({id:id, t:String(text||'').slice(0,160)}); if(a.length>500) a=a.slice(-500); localStorage.setItem(NN_MADE, JSON.stringify(a)); }catch(e){} }
+function nnListKeys(){ var out=[]; try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i);
+  if(k==='now_next_v1' || (k && k.indexOf('now_next_v1_')===0 && k!=='now_next_v1_tmp')) out.push(k); } }catch(e){} return out; }
+function nnForget(){
+  var ids={}, gone=0; nnMadeList().forEach(function(m){ if(m && m.id) ids[m.id]=1; });
+  function mine(x, task){ if(!x || typeof x!=='object') return false;
+    if(x.src==='rafiki' || (x.id && ids[x.id])) return true;
+    if(!x.from || x.fromEm) return false;           /* typed in One Thing, or sent by family / another app */
+    return task ? !!x.said : true; }
+  nnListKeys().forEach(function(k){ try{
+    var d=JSON.parse(localStorage.getItem(k)); if(!d || typeof d!=='object') return;
+    var n=0, regGone={};
+    if(Array.isArray(d.regulars)) d.regulars=d.regulars.filter(function(r){ if(mine(r,false)){ regGone[r.id]=1; n++; return false; } return true; });
+    if(Array.isArray(d.upcoming)) d.upcoming=d.upcoming.filter(function(u){ if(mine(u,false)){ n++; return false; } return true; });
+    if(Array.isArray(d.tasks)) d.tasks=d.tasks.filter(function(t){ if(mine(t,true) || (t && t.reg && regGone[t.reg])){ n++; return false; } return true; });
+    if(d.regDone) Object.keys(regGone).forEach(function(id){ delete d.regDone[id]; });
+    var empty=function(a){ return !a || !a.length; };
+    if(d.made_by==='rafiki' && !d.routines && empty(d.tasks) && empty(d.regulars) && empty(d.upcoming) && empty(d.dump)) localStorage.removeItem(k);   /* a list only Rafiki ever used */
+    else if(n) localStorage.setItem(k, JSON.stringify(d));
+    gone+=n;
+  }catch(e){} });
+  try{ localStorage.removeItem(NN_MADE); }catch(e){}
+  return gone;
+}
+/* the start menu's “Start fresh” erased Rafiki's own notebook; on this open, take its reminders off One Thing too */
+if(RAF_BLANK){ try{ nnForget(); }catch(e){} }
 function nnAdd(text){
   var k=nnEnsure();
   if(!k){ S.notes.push({t:text, at:Date.now()}); save(S); return 'note'; }
   try{ var d=JSON.parse(localStorage.getItem(k)); d.tasks=d.tasks||[];
-    d.tasks.push({id:Date.now().toString(36), text:text, mins:10, done:false, from:S.name||'your friend', said:true});
-    localStorage.setItem(k, JSON.stringify(d)); return 'task';
+    var tid=Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    d.tasks.push({id:tid, text:text, mins:10, done:false, from:S.name||'your friend', said:true, src:'rafiki'});
+    localStorage.setItem(k, JSON.stringify(d)); nnMade(tid, text); return 'task';
   }catch(e){ S.notes.push({t:text, at:Date.now()}); save(S); return 'note'; }
 }
 function nnFacts(){
@@ -2614,11 +2649,12 @@ function captureTask(t){
 
 /* ── FIX 8: start over — forget everything ── */
 function startOver(){
-  bubAI('Are you sure? That erases <b>everything</b> — my name, what I know about your family, the spots and notes you’ve given me. I’d wake up a stranger again.');
+  bubAI('Are you sure? That erases <b>everything</b> — my name, what I know about your family, the spots and notes you’ve given me, and the reminders I put on your '+NN+' list (the things you added yourself stay). I’d wake up a stranger again.');
   setTimeout(function(){ ask(understand, 'type here…', [
     ['Yes — forget everything', function(){
       bubAI('Alright. It’s been a pleasure knowing you, '+esc(S.p.userName||'friend')+'. Thank you for that. 💛');
       setTimeout(function(){
+        try{ nnForget(); }catch(e){}
         try{ localStorage.removeItem(KEY); localStorage.removeItem('rafiki_aa'); }catch(e){}
         location.replace(location.pathname);
       }, 2600);
@@ -2851,8 +2887,7 @@ function q_weekly(){
   bubAI('What do you do <b>every week</b>? Trash out, church, the golf game, a standing call — one to a box.');
   setTimeout(function(){ listBoxes(3, 'weekly', 'wkList', function(items){
     wkList=items;
-    if(items.length){ items.forEach(function(x){ nnAddRepeat(x, 'weekly'); });
-      bubAI('Got it — '+esc(items.join(', '))+'. Those are on your list now, and they’ll come back every week without you asking.'); }
+    if(items.length){ bubAI(repeatSay(items.map(function(x){ return [x, nnAddRepeat(x, 'weekly')]; }), 'weekly')); }
     else bubAI('Nothing weekly. Simple life — I approve.');
     setTimeout(q_monthly, 1100);
   }); }, 1000);
@@ -2862,8 +2897,7 @@ function q_monthly(){
   bubAI('And <b>every month</b>? Bills, the water softener, a meeting you always forget.');
   setTimeout(function(){ listBoxes(3, 'monthly', 'moList', function(items){
     moList=items;
-    if(items.length){ items.forEach(function(x){ nnAddRepeat(x, 'monthly'); });
-      bubAI('Right — '+esc(items.join(', '))+'. Monthly, on the list, my problem now.'); }
+    if(items.length){ bubAI(repeatSay(items.map(function(x){ return [x, nnAddRepeat(x, 'monthly')]; }), 'monthly')); }
     else bubAI('Nothing monthly. Good.');
     setTimeout(q_docs, 1100);
   }); }, 1000);
@@ -2893,14 +2927,41 @@ function nnAddRepeat(text, every){
   try{ var d=JSON.parse(localStorage.getItem(k)); d.tasks=d.tasks||[]; d.regulars=d.regulars||[];
     /* 7 Oct deep check: running "Tell me about my week" again must not add everything twice */
     var nrm=function(x){ return String(x||'').toLowerCase().replace(/\s+/g,' ').trim(); };
-    if(d.regulars.concat(d.upcoming||[]).some(function(r){ return nrm(r.text)===nrm(text); })) return 'dup';
+    /* 11 Oct (pass B): a weekly thing was silently skipped when the same words were already there as a monthly one.
+       Now the one already there moves to the schedule the person just gave, and Rafiki says so plainly. */
+    var hit=null; d.regulars.concat(d.upcoming||[]).forEach(function(r){ if(!hit && r && nrm(r.text)===nrm(text)) hit=r; });
+    if(hit){
+      var want=every==='monthly'?'monthly':(every==='daily'?'daily':'weekly');
+      if(every!=='yearly' && d.regulars.indexOf(hit)>=0 && hit.kind!==want){
+        var was=hit.kind||'', t0=new Date(); hit.kind=want;
+        if(want==='weekly' && !(hit.days && hit.days.length)) hit.days=[t0.getDay()];
+        if(want==='monthly' && !hit.dom) hit.dom=t0.getDate();
+        localStorage.setItem(k, JSON.stringify(d)); return {changed:true, was:was};
+      }
+      return {dup:true, kind:d.regulars.indexOf(hit)>=0 ? (hit.kind||'') : 'date'};
+    }
     var now=new Date(), rid='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-    if(every==='yearly'){ var ny=new Date(now.getFullYear()+1, now.getMonth(), now.getDate()); (d.upcoming=d.upcoming||[]).push({id:rid, text:text, mins:15, date:ny.getFullYear()+'-'+String(ny.getMonth()+1).padStart(2,'0')+'-'+String(ny.getDate()).padStart(2,'0'), notes:[], att:null, from:S.name||'your friend'}); }
-    else d.regulars.push({id:rid, text:text, mins:15, kind:every==='monthly'?'monthly':(every==='daily'?'daily':'weekly'), days:[now.getDay()], dom:now.getDate(), from:S.name||'your friend'});
-    if(every!=='yearly') /* 7 Oct deep check: a once-a-year check-in waits for next year, not today's list */
-    d.tasks.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5), text:text, mins:15, done:false, every:every, from:S.name||'your friend', said:true});
+    if(every==='yearly'){ var ny=new Date(now.getFullYear()+1, now.getMonth(), now.getDate()); (d.upcoming=d.upcoming||[]).push({id:rid, text:text, mins:15, date:ny.getFullYear()+'-'+String(ny.getMonth()+1).padStart(2,'0')+'-'+String(ny.getDate()).padStart(2,'0'), notes:[], att:null, from:S.name||'your friend', src:'rafiki'}); }
+    else d.regulars.push({id:rid, text:text, mins:15, kind:every==='monthly'?'monthly':(every==='daily'?'daily':'weekly'), days:[now.getDay()], dom:now.getDate(), from:S.name||'your friend', src:'rafiki'});
+    nnMade(rid, text);
+    if(every!=='yearly'){ /* 7 Oct deep check: a once-a-year check-in waits for next year, not today's list */
+      var tid=Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      d.tasks.push({id:tid, text:text, mins:15, done:false, every:every, from:S.name||'your friend', said:true, src:'rafiki', reg:rid}); nnMade(tid, text); }
     localStorage.setItem(k, JSON.stringify(d)); return 'task';
   }catch(e){ S.notes.push({t:text, at:Date.now()}); save(S); return 'note'; }
+}
+/* 11 Oct (pass B): what Rafiki says after weekly / monthly boxes — new ones, moved ones and ones already there, in plain words */
+function repeatSay(R, every){
+  var word={daily:'every day', weekly:'every week', monthly:'once a month', date:'on its date'};
+  var add=[], more=[];
+  R.forEach(function(r){ var x=r[0], res=r[1];
+    if(res && res.changed) more.push('“'+esc(x)+'” was on your list '+(word[res.was]||'on another schedule')+' — I’ve changed it to <b>'+word[every]+'</b>.');
+    else if(res && res.dup) more.push('“'+esc(x)+'” was already on your list'+(word[res.kind]?' '+word[res.kind]:'')+', so I didn’t add it twice.');
+    else add.push(x); });
+  var head = !add.length ? '' : (every==='weekly'
+    ? 'Got it — '+esc(add.join(', '))+'. '+(add.length>1?'Those are':'That is')+' on your list now, and '+(add.length>1?'they’ll':'it’ll')+' come back every week without you asking.'
+    : 'Right — '+esc(add.join(', '))+'. Monthly, on the list, my problem now.');
+  return (head+' '+more.join(' ')).trim();
 }
 /* a reusable stack of numbered boxes — the shape Jerry asked for with the kids */
 function listBoxes(n, label, key, done){
@@ -3219,7 +3280,8 @@ window.R={
   voice:function(){ if(!chat){ begin(); return; } /* 7 Oct deep check: was a dead button before Say hello */ unlock(); hush(); pickVoice(offerMenu); },
   reset:function(){
     if(chat){ unlock(); hush(); startOver(); return; }
-    if(confirm('Erase everything and start over as strangers?\n\nMy name, your family, your notes and spots — all of it goes.')){
+    if(confirm('Erase everything and start over as strangers?\n\nMy name, your family, your notes and spots, and the reminders I put on your '+NN+' list — all of it goes. The things you added yourself stay.')){
+      try{ nnForget(); }catch(e){}
       try{ localStorage.removeItem(KEY); localStorage.removeItem('rafiki_aa'); }catch(e){}
       location.replace(location.pathname);
     }
