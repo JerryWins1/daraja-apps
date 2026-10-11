@@ -2411,7 +2411,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.24 · 2026-10-10</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.26 · 2026-10-11</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -2559,7 +2559,7 @@ input, textarea, select{ background:var(--surface-2); }
       <input type="tel" id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)" autocomplete="tel">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">One Thing v7.24 River · 2026-10-10 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">One Thing v7.26 River · 2026-10-11 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -5191,6 +5191,9 @@ body.river #warmDoor{ border:1.5px solid rgba(255,255,255,.32) !important; }
   box-shadow:0 14px 40px rgba(0,0,0,.5); display:none; max-width:560px; margin:0 auto;
   font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
 #r7Tip.show{ display:block; animation:r7up .3s ease-out; }
+#r7Tip.inflow{ position:relative; left:auto; right:auto; bottom:auto; z-index:1; margin:0 0 14px; max-width:none; }
+body.focusing #v-today > #r7Tip.show.inflow:not(#nowCard){ display:block !important; margin-top:14px; }
+#r7Tip .tr button{ min-height:44px; }
 @keyframes r7up{ from{ transform:translateY(16px); opacity:0; } to{ transform:none; opacity:1; } }
 #r7Tip .tt{ display:flex; gap:10px; align-items:center; font-size:17px; font-weight:900; }
 #r7Tip .tb{ font-size:14.5px; line-height:1.55; margin:8px 0 12px; color:rgba(242,239,232,.9); }
@@ -5337,11 +5340,18 @@ var tipText='';
 function tipSeen(){ return prefs().tips||{}; }
 function tip(key){
   var seen=tipSeen(); if(seen[key]||!TIPS[key]) return;
+  if(document.getElementById('djTour')) return;   /* 11 Oct (pass B): never during the welcome tour — it sat over the tour's “Add someone” step */
   var t=TIPS[key]; tipText=t[1]+'. '+t[2];
   tipCard.innerHTML='<div class="tt"><span style="font-size:26px">'+t[0]+'</span><span>'+t[1]+'</span></div>'
     +'<div class="tb">'+t[2]+'</div>'
     +'<div class="tr"><button class="rd" onclick="R7.say()">🔊 Read it to me</button><button class="ok" onclick="R7.tipOk(\''+key+'\')">Got it ✓</button></div>';
+  /* 11 Oct (pass B): the card was pinned over the bottom of the screen and covered buttons until “Got it”.
+     It now sits in the page itself, at the top of the open tab (after the timer in focus mode), so it can never cover a control. */
+  try{ var host=document.querySelector('main .view.on'); if(!host || !host.offsetHeight) host=document.querySelector('main'); var nc=document.getElementById('nowCard');
+    if(key==='focus' && nc && nc.parentNode===host) host.insertBefore(tipCard, nc.nextSibling); else if(host) host.insertBefore(tipCard, host.firstChild);
+    tipCard.classList.add('inflow'); }catch(e){}
   tipCard.classList.add('show');
+  try{ if(key!=='focus') setTimeout(function(){ tipCard.scrollIntoView({block:'nearest'}); },60); }catch(e){}
 }
 R7.say=function(){ try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(tipText); u.rate=.95; speechSynthesis.speak(u); }catch(e){} };
 R7.tipOk=function(key){ try{ speechSynthesis.cancel(); }catch(e){} tipCard.classList.remove('show');
@@ -5401,8 +5411,13 @@ body.river #djDays{ display:block; }
 var KK='nn_code_v1';
 var CODES={ TESTING:{days:30,label:'tester'}, FRIEND:{days:90,label:'friend'},
             THANKYOU:{days:0,label:'owner'}, LOOKAROUND:{days:7,label:'preview'}, GRANDFATHER:{days:0,label:'early user'} };
-function st(){ try{ return JSON.parse(localStorage.getItem(KK))||null; }catch(e){ return null; } }
-function sv(o){ try{ localStorage.setItem(KK, JSON.stringify(o)); }catch(e){} }
+/* 11 Oct (pass B): “Start fresh” erased the code too, and reloaded without ?code= — a tester landed on “type your code here”.
+   The code is testing scaffolding, not the person's data: a copy lives under dj_nn_code_keep (never part of the erase) and comes back. */
+var KEEP='dj_nn_code_keep';
+function st(){ var o=null; try{ o=JSON.parse(localStorage.getItem(KK))||null; }catch(e){}
+  if(!o){ try{ o=JSON.parse(localStorage.getItem(KEEP))||null; if(o && o.code) localStorage.setItem(KK, JSON.stringify(o)); else o=null; }catch(e){ o=null; } }
+  return o; }
+function sv(o){ try{ localStorage.setItem(KK, JSON.stringify(o)); localStorage.setItem(KEEP, JSON.stringify(o)); }catch(e){} }
 function daysLeft(s){ var c=CODES[s.code]; if(!c) return -1; if(c.days===0) return 9999;
   var used=(Date.now()-s.at)/86400000; return Math.ceil(c.days-used); }
 
@@ -5462,6 +5477,7 @@ function paint(){ var s=st(); if(!s){ badge.style.display='none'; return; }
 (function init(){
   if(framed) return;                        /* demo & store player: never gate */
   var s=st();
+  if(s){ try{ if(!localStorage.getItem(KEEP)) localStorage.setItem(KEEP, JSON.stringify(s)); }catch(e){} }
   if(!s && hasHistory()){ sv({code:'GRANDFATHER', at:Date.now()}); paint(); return; }
   /* 4 Oct: the store's Try it carries ?code=TESTING, so a stranger opens straight in (only TESTING; never resets a running clock) */
   if((!s || s.code==='LOOKAROUND') && /[?&]code=testing\b/i.test(location.search)){ sv({code:'TESTING', at:Date.now()}); s=st(); }
@@ -5472,6 +5488,31 @@ function paint(){ var s=st(); if(!s){ badge.style.display='none'; return; }
 })();
 </script>
 
+<script id="nnOneCard">
+/* 11 Oct (pass B): on first open several cards piled up — the start menu over the Level chooser, the
+   “Show me how it works” splash over “Who's first?”. Now only one card shows at a time, in this order:
+   code box → splash (waiting for a tap) → “Show me how it works” film → Who's first? → Level chooser → start menu. The rest wait their turn.
+   While the welcome tour is open nothing is touched (the tour opens screens on purpose). */
+(function(){
+  var ORDER=['#djGate.show','#splash','#fsIntro.show','#modewrap.show','#nnLevelSheet','#djLevelSheet','#djMenu'];
+  try{ var st=document.createElement('style'); st.textContent='[data-nnwait]{display:none !important}'; document.head.appendChild(st); }catch(e){}
+  function showing(e){ if(!e || !e.isConnected) return false; if(e.hasAttribute('data-nnwait')) return true;
+    var cs=getComputedStyle(e); return cs.display!=='none' && cs.visibility!=='hidden' && +cs.opacity>0.05; }
+  function tick(){
+    var all=[].slice.call(document.querySelectorAll('[data-nnwait]'));
+    if(document.getElementById('djTour')){ all.forEach(function(e){ e.removeAttribute('data-nnwait'); }); return; }
+    var top=null;
+    ORDER.forEach(function(sel){ var e=document.querySelector(sel); if(!e) return;
+      if(sel==='#splash' && !document.getElementById('spGo')){ e.removeAttribute('data-nnwait'); return; }   /* the 1-second name splash is not a card */
+      if(!showing(e)) return;
+      if(!top){ top=e; e.removeAttribute('data-nnwait'); } else e.setAttribute('data-nnwait','1');
+    });
+    all.forEach(function(e){ if(!e.isConnected || (e!==top && !ORDER.some(function(sel){ return e.matches(sel); }))) e.removeAttribute('data-nnwait'); });
+  }
+  window.nnOneCard=tick; tick(); setInterval(tick, 300);
+  try{ new MutationObserver(tick).observe(document.body,{childList:true}); }catch(e){}
+})();
+</script>
 <style id="framedLite"></style>
 <script>try{ if(window.self!==window.top){ document.getElementById('framedLite').textContent='*{-webkit-backdrop-filter:none!important;backdrop-filter:none!important} body.river .card,body.river .now,body.river .next{background:rgba(22,25,34,.85)!important}'; } }catch(e){}</script>
 <script id="dj-menu-v1">window.DJ_MENU = {"slug": "nownext", "name": "One Thing", "em": "🎯", "items": [{"id": "next", "em": "🎯", "t": "Do my next thing", "sub": "One thing, a timer, and Done", "go": "go('today')"}, {"id": "plan", "em": "📝", "t": "Plan my day", "sub": "Add what needs doing today", "go": "go('today'); setTimeout(function(){ var n=document.getElementById('newTask'); if(n){ n.scrollIntoView({block:'center'}); n.focus(); } },350)"}, {"id": "routines", "em": "🔁", "t": "My routines", "sub": "Morning, bedtime and the regulars", "go": "go('routines')", "show": "(function(){ var e=document.querySelector(\"#n-routines\"); return !!(e && e.offsetParent!==null); })()"}, {"id": "dump", "em": "🧠", "t": "Get a thought out of my head", "sub": "Park it now, deal with it later", "go": "go('dump')", "show": "(function(){ var e=document.querySelector(\"#n-dump\"); return !!(e && e.offsetParent!==null); })()"}, {"id": "videos", "em": "🎬", "t": "Watch how it works", "sub": "2-minute video · Explain it to me · Step by step", "go": "location.href='https://jerrywins1.github.io/daraja-apps/shop/watch.html?app=nownext'"}]};</script>
