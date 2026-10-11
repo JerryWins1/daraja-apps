@@ -6,7 +6,7 @@
 <title>Kenya Student Test Week</title>
 <meta name="theme-color" content="#1C2B29">
 <meta name="robots" content="noindex">
-<!-- Kenya Student Test Week · v1.0 · 2026-10-11
+<!-- Kenya Student Test Week · v1.1 · 2026-10-11
      The page each Kenyan student opens from the personal link Jerry sends: daraja-apps/kenya/?who=<HQ token>&n=<first name>.
      Kickoff → practice app (Break-Even) → "Your next app" queue. Each app: (a) persona + explainer video, (b) the test script
      one step at a time, (c) the final challenge checked against the apps' real saved data (same origin: jerrywins1.github.io),
@@ -87,12 +87,12 @@ details.more[open]{padding-bottom:14px}
 <main>
   <header class="top"><span class="flag" aria-hidden="true">🇰🇪</span><div><b>Daraja Student Test Week</b><small id="hdrName"></small></div></header>
   <div id="view"><p class="muted">Loading…</p></div>
-  <div id="ver">Kenya Student Test Week v1.0 · 2026-10-11</div>
+  <div id="ver">Kenya Student Test Week v1.1 · 2026-10-11</div>
 </main>
 <script>
 (function(){
 'use strict';
-var VERSION = 'v1.0 · 2026-10-11';
+var VERSION = 'v1.1 · 2026-10-11';
 var BASE = 'https://jerrywins1.github.io/daraja-apps/';
 var MAILBOX_FALLBACK = 'https://script.google.com/macros/s/AKfycbw1hgXVj5E8x8Ampm1fYK9po07pmSh9zrHfyVn3RvEYOR15_xb2jNPdlgzUuariPPrp/exec';
 var KENYA_DIRS = ['../shop/kenya/', './'];            /* persona · explainer · challenge · ownWords (watch.html reads shop/kenya/ too) */
@@ -143,12 +143,17 @@ var okTok = function(t){ return /^[A-Za-z0-9_-]{6,40}$/.test(String(t||'')); };
 var WHO = qs.get('who'), NAME = (qs.get('n') || qs.get('name') || '').trim().slice(0,40);
 if (okTok(WHO)) { lsSet('dj_kenya_who', WHO); lsSet('dj_who', WHO); } else WHO = lsGet('dj_kenya_who');
 if (!okTok(WHO)) WHO = null;
+/* 11 Oct: students who just joined come from the join page with ?n=First&full=Full Name and no HQ token yet.
+   Give this phone its own id; HQ files their results by the full name they joined with (personFor_ name match). */
+var FULL = (qs.get('full') || '').trim().replace(/\s+/g,' ').slice(0,40);
+if (FULL) lsSet('dj_kenya_full', FULL); else FULL = lsGet('dj_kenya_full') || '';
+if (!WHO && FULL) { WHO = 'jn' + Math.random().toString(36).slice(2,12) + Date.now().toString(36); lsSet('dj_kenya_who', WHO); }
 var SKEY = WHO ? 'dj_kenya_v1:' + WHO : null;
 var S = WHO ? jget(SKEY, null) : null;
 if (WHO && !S) S = { v:1, who:WHO, name:'', kick:false, cur:null, apps:{}, born:Date.now() };
 if (S && NAME) S.name = NAME;
 if (S && S.name && !lsGet('dj_name')) lsSet('dj_name', S.name);
-if (WHO && (qs.get('who') || qs.get('n'))) { try{ history.replaceState(null,'',location.pathname); }catch(e){} }  /* keep the token out of screenshots */
+if (WHO && (qs.get('who') || qs.get('n') || qs.get('full'))) { try{ history.replaceState(null,'',location.pathname); }catch(e){} }  /* keep the token out of screenshots */
 function save(){ if (S) jset(SKEY, S); }
 
 /* ---------- the order of apps for this student ---------- */
@@ -471,7 +476,7 @@ document.addEventListener('click', function(e){
     case 'skipapp': S.skip=S.skip||{}; S.skip[k]=1; save(); var nk=nextApp(); if (nk && nk!==k) startApp(nk); else { VIEW='home'; render(); } break;
     case 'ask': { var q=($('askT').value||'').trim(); if (q.length<3){ $('askErr').textContent='Please type your question first.'; return; }
       var where=''; if (VIEW==='app' && k && d){ where=' — on '+(d.k.name||k)+', '+({watch:'watching the video',steps:'step '+(a.step+1),challenge:'the challenge',words:'own words',send:'sending'})[a.stage]; }
-      queue({ action:'help', who:WHO, name:S.name, app:'kenya-q', contact:'', text:(q.slice(0,800)+where).slice(0,1000) });
+      queue({ action:'help', who:WHO, name:(FULL||S.name), app:'kenya-q', contact:'', text:(q.slice(0,800)+where).slice(0,1000) });
       $('askT').value=''; $('askBox').open=false; toast('Saved ✓ — it sends now, or when you have internet. Keep going meanwhile!'); flush(); break; }
     case 'check': {
       tick(a); var c=d.k.challenge, res2=runChecks(c.tasks); a.ch.tries.push(res2);
@@ -483,7 +488,7 @@ document.addEventListener('click', function(e){
       tick(a); a.words=w.slice(0,2000); a.stage='send'; save(); render(); break; }
     case 'send': {
       tick(a); var s=summary(k,d); a.fails=s.fail+s.un; a.ch=a.ch||{tries:[]}; a.ch.pass=s.pass;
-      queue({ action:'report', who:WHO, name:S.name, app:k, contact:'', text:reportText(k,d) });
+      queue({ action:'report', who:WHO, name:(FULL||S.name), app:k, contact:'', text:reportText(k,d) });
       a.stage='done'; a.doneAt=Date.now(); save(); render();
       flush(); break; }
   }
@@ -498,7 +503,7 @@ function advance(a,d){ var steps=d.s.steps; var i=a.step; while (i<steps.length 
   if (i>=steps.length) { a.stage='challenge'; } else a.step=i; save(); render(); }
 function startApp(k){
   if (!APPS[k]) return; S.cur=k; VIEW='app'; var a=A(k); if (S.skip && S.skip[k] && nextApp()===k) delete S.skip[k];
-  if (!a.tried){ a.tried=true; a.t0=a.t0||Date.now(); queue({ action:'tried', who:WHO, name:S.name, app:k }); flush(); }
+  if (!a.tried){ a.tried=true; a.t0=a.t0||Date.now(); queue({ action:'tried', who:WHO, name:(FULL||S.name), app:k }); flush(); }
   a.last=Date.now(); save(); render();
 }
 
