@@ -2296,7 +2296,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.31 · 2026-10-11 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.32 · 2026-10-11 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2328,12 +2328,13 @@ async function hq(body){
    HQ files each one under 🇰🇪 Kenya students by itself and closes the note — Jerry only checks the list and removes anyone who doesn't belong. */
 let KSORT=false; const KDONE=new Set();
 async function sortKenya(){
-  if(KSORT||!D) return; const todo=(D.requests||[]).filter(r=>r.app==='kenya-join'&&['new','stack'].indexOf(r.status)>=0&&!KDONE.has(r.id));
+  if(KSORT||!D) return; const todo=(D.requests||[]).filter(r=>(r.app==='kenya-join'||r.app==='friends-join'||r.app==='church-join')&&['new','stack'].indexOf(r.status)>=0&&!KDONE.has(r.id));   /* v1.32: friends who join at join/friends/ → Daraja testers; join/church/ → ⛪ Church testers */
   if(!todo.length) return; KSORT=true; let n=0;
   try{ for(const r of todo){ KDONE.add(r.id); const p=P(r.person_id); if(!p.id) continue;
-      if(p.project!=='kenya'||p.role!=='tester'){ await hq({action:'person.set',id:p.id,project:'kenya',role:'tester'}); n++; }
+      const proj=r.app==='friends-join'?'daraja':r.app==='church-join'?'church':'kenya';
+      if(p.project!==proj||p.role!=='tester'){ await hq({action:'person.set',id:p.id,project:proj,role:'tester'}); n++; }
       try{ await hq({action:'request.set',id:r.id,status:'told'}); }catch(e){} }
-    if(n) toast(n+' new Kenya student'+(n>1?'s':'')+' added'); }
+    if(n) toast(n+' new tester'+(n>1?'s':'')+' filed (Kenya / Daraja friends / church)'); }
   catch(e){} finally{ KSORT=false; await load(); }
 }
 async function act(body,okMsg){ try{ const j=await hq(body); if(okMsg) toast(okMsg); await load(); return j; }catch(e){ toast(e.message,true); return null; } }
@@ -2451,18 +2452,20 @@ window.focusUndo=async id=>{ await focusSave((settingJSON('focus_done',[])||[]).
 /* 11 Oct: the Kenya Test Week page (daraja-apps/kenya/) sends each finished app as a report whose first line is
    KENYA|key|steps:18/20 ok,1 fail,1 unsure|challenge:5/6 PASS|minutes:34|fails:3,7|skipped:-|… — the latest report per app counts.
    Pay: 120 KES per app with challenge PASS; ❌/🤷 steps are problems pending Jerry's confirmation (50 KES each). */
-function kenyaStats(inn){
-  const by={}; inn.forEach(m=>{ const L=String(m.text||'').replace(/^'/,'').split('\n')[0]; if(!/^KENYA\|/.test(L)) return; const f=L.split('|'), o={app:f[1],at:m.at};
+/* v1.32: the Friends Test page (daraja-apps/friends/) sends the same line with FRIEND| — kenyaStats(inn,'FRIEND') */
+function kenyaStats(inn,tag){
+  const TG=new RegExp('^'+(tag||'KENYA')+'\\|');
+  const by={}; inn.forEach(m=>{ const L=String(m.text||'').replace(/^'/,'').split('\n')[0]; if(!TG.test(L)) return; const f=L.split('|'), o={app:f[1],at:m.at};
     f.slice(2).forEach(x=>{ const i=x.indexOf(':'); if(i>0) o[x.slice(0,i)]=x.slice(i+1); });
     if(!by[o.app]||String(m.at)>String(by[o.app].at)) by[o.app]=o; });
   const apps=Object.values(by); let pass=0, probs=0;
   apps.forEach(o=>{ if(/PASS/.test(o.challenge||'')) pass++; const s=String(o.steps||''), n=k=>+((s.match(new RegExp('(\\d+) '+k))||[])[1]||0); probs+=n('fail')+n('unsure'); });
   return {done:apps.length, pass, probs, apps};
 }
-function kenyaFailLine(rows){
+function kenyaFailLine(rows,dir){
   const c={}; rows.forEach(r=>((r.k&&r.k.apps)||[]).forEach(o=>String(o.fails||'').split(',').filter(x=>/^\d+$/.test(x)).forEach(n=>{ const k=o.app+' step '+n; (c[k]=c[k]||new Set()).add(r.p.id); })));
   const hot=Object.keys(c).filter(k=>c[k].size>=2).sort((a,b)=>c[b].size-c[a].size);
-  return hot.length?`<div class="item"><b>⚠️ Same step failing for 2+ testers:</b> ${hot.slice(0,8).map(k=>esc(k)+' ('+c[k].size+')').join(' · ')} <span class="meta">— if it is broken, pause that app in kenya/news.json</span></div>`:'';
+  return hot.length?`<div class="item"><b>⚠️ Same step failing for 2+ testers:</b> ${hot.slice(0,8).map(k=>esc(k)+' ('+c[k].size+')').join(' · ')} <span class="meta">— if it is broken, pause that app in ${dir||'kenya'}/news.json</span></div>`:'';
 }
 function renderDarajaLive(proj){
   proj=proj||'daraja'; const CH=proj==='church', KE=proj==='kenya';
@@ -2475,12 +2478,12 @@ function renderDarajaLive(proj){
     const what=!last?(out.length?'invited · not started yet':'not invited yet'):cls==='today'?'active today':'last seen '+ago(last);
     const st=!last?(out.length?'warn':'hot'):cls==='quiet'?'warn':'ok';
     const note=inn.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
-    return {p,tried,said,what,st,note,k:KE?kenyaStats(inn):null}; });
+    return {p,tried,said,what,st,note,k:KE?kenyaStats(inn):(proj==='daraja'||CH)?kenyaStats(inn,'FRIEND'):null}; });
   $(KE?'ktCount':CH?'ctCount':'dtCount').textContent=ppl.length?ppl.length+' testers':'';
-  el.innerHTML=(ppl.length?`<div class="tiles" style="margin-top:0">${rows.map(r=>`<div class="tile ${r.st}" style="cursor:pointer" onclick="openPerson('${r.p.id}')"><div class="k">${esc(String(r.p.name).split(' ')[0])}</div>${r.k?`<div class="v">${r.k.done}</div><div class="s">apps finished · ${r.k.pass} passed · ${r.k.probs} problem${r.k.probs===1?'':'s'} · <b>${r.k.pass*120} KES</b>${r.k.probs?' (+'+r.k.probs*50+' if confirmed)':''} · ${esc(r.what)}</div>`:`<div class="v">${r.tried}</div><div class="s">apps tried · ${r.said} note${r.said===1?'':'s'} · ${esc(r.what)}</div>`}</div>`).join('')}</div>`+(KE?kenyaFailLine(rows):'')
+  el.innerHTML=(ppl.length?`<div class="tiles" style="margin-top:0">${rows.map(r=>`<div class="tile ${r.st}" style="cursor:pointer" onclick="openPerson('${r.p.id}')"><div class="k">${esc(String(r.p.name).split(' ')[0])}</div>${r.k&&(KE||r.k.done)?`<div class="v">${r.k.done}</div><div class="s">apps finished · ${r.k.pass} passed · ${r.k.probs} problem${r.k.probs===1?'':'s'}${KE?` · <b>${r.k.pass*120} KES</b>${r.k.probs?' (+'+r.k.probs*50+' if confirmed)':''}`:''} · ${esc(r.what)}</div>`:`<div class="v">${r.tried}</div><div class="s">apps tried · ${r.said} note${r.said===1?'':'s'} · ${esc(r.what)}</div>`}</div>`).join('')}</div>`+(KE?kenyaFailLine(rows):(proj==='daraja'||CH)?kenyaFailLine(rows,'friends'):'')
       :KE?`<p class="muted" style="margin:0">No testers yet. Post the join link in the testers' WhatsApp group: <b>jerrywins1.github.io/daraja-apps/join/kenya/</b> — whoever fills it in appears here by themselves.</p>`:`<p class="muted" style="margin:0">No ${CH?'church':'Daraja'} testers yet — tap ＋ Add a person on the People tab and choose “Part of: ${CH?'church':'daraja'}”.</p>`)
     +rows.filter(r=>r.note).slice(0,3).map(r=>`<div class="item"><b>${esc(String(r.p.name).split(' ')[0])}:</b> ${esc(String(r.note.text||'').replace(/^'/,'').slice(0,160))} <span class="meta">${ago(r.note.at)}</span></div>`).join('')
-    +`<div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('${proj}')">📣 Message the ${KE?'Kenya testers':CH?'church':'Daraja'}${KE?'':' testers'}</button><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/testers/${CH?'?line=church':''}" target="_blank" rel="noopener">🧪 ${CH?'Church apps list':'Testers’ List'}</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/welcome/" target="_blank" rel="noopener">👋 Welcome page</a></div>`;
+    +`<div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('${proj}')">📣 Message the ${KE?'Kenya testers':CH?'church':'Daraja'}${KE?'':' testers'}</button><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/testers/${CH?'?line=church':''}" target="_blank" rel="noopener">🧪 ${CH?'Church apps list':'Testers’ List'}</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/welcome/" target="_blank" rel="noopener">👋 Welcome page</a>${proj==='daraja'?'<a class="chip small" href="https://jerrywins1.github.io/daraja-apps/join/friends/" target="_blank" rel="noopener">🌉 Friends join link</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/join/friends/?set=business" target="_blank" rel="noopener">🧰 Business join link</a>':CH?'<a class="chip small" href="https://jerrywins1.github.io/daraja-apps/join/church/" target="_blank" rel="noopener">⛪ Church join link</a>':''}</div>`;
 }
 /* v1.25 — ✅ Needs you now: ONLY things that need Jerry — unread messages, fixes to tell, new tester notes, drafts to send.
    Everything else is folded under "The testers, dates & more", and the History tab keeps the record. */
@@ -2607,7 +2610,7 @@ function renderPeople(){
 }
 $('psearch').addEventListener('input',()=>D&&renderPeople());
 
-function inviteLink(p){ if(p.project==='kenya') return 'https://jerrywins1.github.io/daraja-apps/kenya/?who='+p.token+'&n='+encodeURIComponent(String(p.name||'').trim().split(/\s+/)[0]); /* 11 Oct: Kenya students → their own Test Week page */ return p.project==='zuri' ? 'https://jerrywins1.github.io/zuri-system/testers/?code=ZURI-TEST' : 'https://jerrywins1.github.io/daraja-apps/testers/?who='+p.token+(p.project==='church'?'&line=church':''); }
+function inviteLink(p){ if(p.project==='kenya') return 'https://jerrywins1.github.io/daraja-apps/kenya/?who='+p.token+'&n='+encodeURIComponent(String(p.name||'').trim().split(/\s+/)[0]); /* 11 Oct: Kenya students → their own Test Week page */ if(p.project==='daraja'||p.project==='church') return 'https://jerrywins1.github.io/daraja-apps/friends/?'+(p.project==='church'?'set=church&':'')+'who='+p.token+'&n='+encodeURIComponent(String(p.name||'').trim().split(/\s+/)[0]); /* v1.32: Daraja testers (Jerry's friends) → the Friends Test page; church testers → its church set */ return p.project==='zuri' ? 'https://jerrywins1.github.io/zuri-system/testers/?code=ZURI-TEST' : 'https://jerrywins1.github.io/daraja-apps/testers/?who='+p.token+(p.project==='church'?'&line=church':''); }
 
 function openPerson(id,compose,draftId){
   const p=P(id); if(!p.id) return;
@@ -2686,7 +2689,7 @@ const fillName=(t,p)=>t.replace(/\{name\}/gi,firstName(p)).replace(/\{link\}/gi,
 function groupMsg(g){
   g=GROUPS[g]?g:'zuri';
   const list=((D&&D.people)||[]).filter(p=>shown(p)&&GROUPS[g][1](p)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  GM={g,list,sel:new Set(list.filter(p=>p.phone).map(p=>p.id)),text:(GM&&GM.g===g&&GM.text)||(g==='daraja'?"Hi {name}! Thank you for testing our apps. Here's your own link — everything you try and say lands with me: {link} Start with One Thing and Our Table (they're ready). Tap 🎙 Open in the tester and just talk while you use it. Thank you! – Jerry":g==='church'?"Hi {name}! Thank you for helping test our church apps — The Church App, Serve Board, Church Key, the Christmas-box counter and Receipt Maker. Here's your own link; everything you try and say lands with me: {link} Open one, use it the way your church would, and tap 🎙 to just talk about what you notice. Thank you! – Jerry":g==='zuri'?'':''),done:new Set()};
+  GM={g,list,sel:new Set(list.filter(p=>p.phone).map(p=>p.id)),text:(GM&&GM.g===g&&GM.text)||(g==='daraja'?"Hi {name}! Thank you for helping test our family's apps. Here's your own test page — it walks you through each app one step at a time (a short video, simple steps, a small challenge): {link} Start with the practice app, then do as many as you like, whenever you like. Use Safari on iPhone or Chrome on Android. Thank you! – Jerry":g==='church'?"Hi {name}! Thank you for helping test our church apps. Here's your own test page — it walks you through each church app one step at a time (a short video, simple steps, a small challenge): {link} Do as many as you like, whenever you like. Use Safari on iPhone or Chrome on Android. Thank you! – Jerry":g==='zuri'?'':''),done:new Set()};
   drawGM();
 }
 function drawGM(){
