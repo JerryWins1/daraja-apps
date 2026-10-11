@@ -1940,6 +1940,7 @@
   #toast.show{ opacity:1; } #toast.bad{ background:var(--warn); }
   .foot{ text-align:center; color:var(--soft); font-size:13px; margin-top:24px; }
   details summary{ cursor:pointer; font-weight:800; min-height:36px; }
+  .tsGrid{ display:grid; gap:2px; align-items:center; margin-top:8px; font-size:11px; } .tsGrid i{ display:block; height:16px; border-radius:3px; } .tsGrid .h{ text-align:center; color:var(--soft); font-weight:800; } .tsGrid .nm{ font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:4px; }
 </style>
 </head>
 <body>
@@ -1957,6 +1958,10 @@
       <p style="font-size:40px;margin:0">🔐</p>
       <h3 style="margin:6px 0">This is Jerry's private panel</h3>
       <p class="muted">Open it with the link Claude gave you — that link carries your key and this phone will remember it.</p>
+      <p class="muted" style="margin-top:14px">Opened from the Home Screen icon? Paste the whole link here once:</p>
+      <input id="gateKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your HQ link" style="width:100%;font:inherit;font-size:16px;padding:12px;border-radius:12px;border:1.5px solid #c9c1ae;margin-top:4px">
+      <button class="chip main" type="button" id="gateGo" style="margin-top:10px;min-height:48px;width:100%;justify-content:center">Open HQ</button>
+      <p class="muted" id="gateMsg" style="min-height:1em"></p>
     </div>
   </div>
 
@@ -1967,6 +1972,7 @@
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
       <button data-t="stack">The stack<span class="n" id="nStack" hidden></span></button>
+      <button data-t="scripts">🧪 Test scripts<span class="n" id="nTs" hidden></span></button>
       <button data-t="history">History</button>
     </nav>
 
@@ -2002,6 +2008,9 @@
       <div class="card"><div class="chips" id="words"></div></div>
       </details>
     </section>
+
+    <!-- 🧪 TEST SCRIPTS (v1.28, 10 Oct 2026): coverage, problems to confirm, nudges, coins, the reward -->
+    <section class="tab" id="t-scripts"><div id="tsHQ"><p class="muted">Loading the test scripts…</p></div></section>
 
     <!-- HISTORY (v1.25): everything that has happened, newest first -->
     <section class="tab" id="t-history">
@@ -2063,7 +2072,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.27 · 2026-10-10 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.30 · 2026-10-11 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2079,6 +2088,11 @@ function ago(iso){ if(!iso) return 'never'; const s=(Date.now()-new Date(iso))/1
 function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){ return null; } }
 
 /* ---------- key + connection ---------- */
+/* 11 Oct: a Home Screen icon has its own memory, so the key from the Safari link isn't there — paste the link (or key) once. */
+document.addEventListener('click',function(e){ if(!e.target||e.target.id!=='gateGo') return;
+  var v=(document.getElementById('gateKey').value||'').trim(), k=v; try{ if(/^https?:/i.test(v)) k=new URL(v).searchParams.get('key')||''; }catch(x){ k=''; }
+  if(!/^[A-Za-z0-9_-]{12,}$/.test(k)){ document.getElementById('gateMsg').textContent='That does not look like your HQ link — copy the whole link Claude sent.'; return; }
+  try{ localStorage.setItem('jhq_key',k); }catch(x){} location.replace(location.pathname); });
 (function(){ const u=new URL(location.href), k=u.searchParams.get('key'); if(k){ store('jhq_key',k); u.searchParams.delete('key'); history.replaceState(null,'',u.pathname+u.search+u.hash); } })();
 const KEY=store('jhq_key');
 let HQ='', D=null, busy=false;
@@ -2139,7 +2153,7 @@ function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h
 
 /* ---------- render ---------- */
 function render(){
-  renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
+  renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
   const nNew=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
   const nStack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
@@ -2210,20 +2224,36 @@ window.focusDone=async id=>{ const d=settingJSON('focus_done',[])||[]; const l=(
 window.focusLater=async id=>{ const l=(settingJSON('focus_later',[])||[]).filter(x=>x!==id); l.push(id); await focusSave(settingJSON('focus_done',[])||[],l); };
 window.focusUndo=async id=>{ await focusSave((settingJSON('focus_done',[])||[]).filter(x=>x!==id), settingJSON('focus_later',[])||[]); };
 /* v1.21 (7 Oct) — the Daraja testers panel, the twin of Zuri's: one tile per tester, what they did, their latest words. */
+/* 11 Oct: the Kenya Test Week page (daraja-apps/kenya/) sends each finished app as a report whose first line is
+   KENYA|key|steps:18/20 ok,1 fail,1 unsure|challenge:5/6 PASS|minutes:34|fails:3,7|skipped:-|… — the latest report per app counts.
+   Pay: 120 KES per app with challenge PASS; ❌/🤷 steps are problems pending Jerry's confirmation (50 KES each). */
+function kenyaStats(inn){
+  const by={}; inn.forEach(m=>{ const L=String(m.text||'').replace(/^'/,'').split('\n')[0]; if(!/^KENYA\|/.test(L)) return; const f=L.split('|'), o={app:f[1],at:m.at};
+    f.slice(2).forEach(x=>{ const i=x.indexOf(':'); if(i>0) o[x.slice(0,i)]=x.slice(i+1); });
+    if(!by[o.app]||String(m.at)>String(by[o.app].at)) by[o.app]=o; });
+  const apps=Object.values(by); let pass=0, probs=0;
+  apps.forEach(o=>{ if(/PASS/.test(o.challenge||'')) pass++; const s=String(o.steps||''), n=k=>+((s.match(new RegExp('(\\d+) '+k))||[])[1]||0); probs+=n('fail')+n('unsure'); });
+  return {done:apps.length, pass, probs, apps};
+}
+function kenyaFailLine(rows){
+  const c={}; rows.forEach(r=>((r.k&&r.k.apps)||[]).forEach(o=>String(o.fails||'').split(',').filter(x=>/^\d+$/.test(x)).forEach(n=>{ const k=o.app+' step '+n; (c[k]=c[k]||new Set()).add(r.p.id); })));
+  const hot=Object.keys(c).filter(k=>c[k].size>=2).sort((a,b)=>c[b].size-c[a].size);
+  return hot.length?`<div class="item"><b>⚠️ Same step failing for 2+ students:</b> ${hot.slice(0,8).map(k=>esc(k)+' ('+c[k].size+')').join(' · ')} <span class="meta">— if it is broken, pause that app in kenya/news.json</span></div>`:'';
+}
 function renderDarajaLive(proj){
   proj=proj||'daraja'; const CH=proj==='church', KE=proj==='kenya';
   const el=$(KE?'kenyaLive':CH?'churchLive':'darajaLive'); if(!el||!D) return;
   const ppl=((D&&D.people)||[]).filter(p=>shown(p)&&p.project===proj&&p.role==='tester');
   const evs=D.events||[], ms=D.messages||[];
   const rows=ppl.map(p=>{ const ev=evs.filter(e=>e.person_id===p.id), inn=ms.filter(m=>m.person_id===p.id&&m.direction==='in'), out=ms.filter(m=>m.person_id===p.id&&m.direction==='out');
-    const tried=new Set(ev.filter(e=>e.kind==='tried').map(e=>e.app)).size, said=inn.length;
+    const tried=new Set(ev.filter(e=>e.kind==='tried'&&String(e.app).indexOf('ts:')!==0).map(e=>e.app)).size, said=inn.length;
     const last=[p.last_seen,...ev.map(e=>e.at),...inn.map(m=>m.at)].filter(Boolean).sort().pop()||''; const hrs=last?(Date.now()-new Date(last))/36e5:1e9; const cls=hrs<24?'today':hrs<72?'week':'quiet';   /* real activity only — being added today is not using the apps */
     const what=!last?(out.length?'invited · not started yet':'not invited yet'):cls==='today'?'active today':'last seen '+ago(last);
     const st=!last?(out.length?'warn':'hot'):cls==='quiet'?'warn':'ok';
     const note=inn.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
-    return {p,tried,said,what,st,note}; });
+    return {p,tried,said,what,st,note,k:KE?kenyaStats(inn):null}; });
   $(KE?'ktCount':CH?'ctCount':'dtCount').textContent=ppl.length?ppl.length+' testers':'';
-  el.innerHTML=(ppl.length?`<div class="tiles" style="margin-top:0">${rows.map(r=>`<div class="tile ${r.st}" style="cursor:pointer" onclick="openPerson('${r.p.id}')"><div class="k">${esc(String(r.p.name).split(' ')[0])}</div><div class="v">${r.tried}</div><div class="s">apps tried · ${r.said} note${r.said===1?'':'s'} · ${esc(r.what)}</div></div>`).join('')}</div>`
+  el.innerHTML=(ppl.length?`<div class="tiles" style="margin-top:0">${rows.map(r=>`<div class="tile ${r.st}" style="cursor:pointer" onclick="openPerson('${r.p.id}')"><div class="k">${esc(String(r.p.name).split(' ')[0])}</div>${r.k?`<div class="v">${r.k.done}</div><div class="s">apps finished · ${r.k.pass} passed · ${r.k.probs} problem${r.k.probs===1?'':'s'} · <b>${r.k.pass*120} KES</b>${r.k.probs?' (+'+r.k.probs*50+' if confirmed)':''} · ${esc(r.what)}</div>`:`<div class="v">${r.tried}</div><div class="s">apps tried · ${r.said} note${r.said===1?'':'s'} · ${esc(r.what)}</div>`}</div>`).join('')}</div>`+(KE?kenyaFailLine(rows):'')
       :KE?`<p class="muted" style="margin:0">No students yet. Post the join link in the students' WhatsApp group: <b>jerrywins1.github.io/daraja-apps/join/kenya/</b> — whoever fills it in appears here by themselves.</p>`:`<p class="muted" style="margin:0">No ${CH?'church':'Daraja'} testers yet — tap ＋ Add a person on the People tab and choose “Part of: ${CH?'church':'daraja'}”.</p>`)
     +rows.filter(r=>r.note).slice(0,3).map(r=>`<div class="item"><b>${esc(String(r.p.name).split(' ')[0])}:</b> ${esc(String(r.note.text||'').replace(/^'/,'').slice(0,160))} <span class="meta">${ago(r.note.at)}</span></div>`).join('')
     +`<div class="chips" style="margin-top:10px"><button class="chip main small" onclick="groupMsg('${proj}')">📣 Message the ${KE?'Kenya students':CH?'church':'Daraja'}${KE?'':' testers'}</button><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/testers/${CH?'?line=church':''}" target="_blank" rel="noopener">🧪 ${CH?'Church apps list':'Testers’ List'}</a><a class="chip small" href="https://jerrywins1.github.io/daraja-apps/welcome/" target="_blank" rel="noopener">👋 Welcome page</a></div>`;
@@ -2239,6 +2269,7 @@ function renderNow(){
   (D.requests||[]).filter(r=>r.status==='done').forEach(r=>out.push(`<div class="item"><div><span class="who">✅ Fixed for ${esc(r.name)}</span> <span class="meta">${r.app?esc(r.app)+' · ':''}${ago(r.at)}</span></div><div class="txt">“${esc(String(r.text).slice(0,160))}”</div>${r.fixed?`<div class="meta">${esc(r.fixed)}</div>`:''}<div class="chips"><button class="chip small wa" onclick="replyDone('${r.id}')">📨 Tell them</button><button class="chip small" onclick="moveReq('${r.id}','told')">No need to tell</button></div></div>`));
   ZNEW.forEach(z=>out.push(`<div class="item"><div><span class="who">📶 ${esc(z.who)} (Zuri)</span> <span class="meta">${ago(z.at)}</span></div><div class="txt">${esc(z.note)}</div><div class="chips">${z.pid&&!z.auto?`<button class="chip small main" onclick="zAnswer('${z.pid}','${esc(z.at)}',this)" data-q="${esc(z.note)}">↩︎ Answer</button>`:''}<button class="chip small" onclick="zHandled('${esc(z.at)}')">✓ Handled</button></div></div>`));
   (D.messages||[]).filter(m=>m.direction==='out'&&(m.status==='draft'||m.status==='failed')).forEach(m=>out.push(msgItem(m,`<span class="pill">${m.status==='failed'?'didn’t send':'draft'}</span><button class="chip small main" onclick="openPerson('${m.person_id}',true,'${m.id}')">Review &amp; send</button>`)));
+  try{ const tn=tsNeeds(); if(tn.conf||tn.nudge) out.push(`<div class="item"><span class="who">🧪 Test scripts</span> <span class="meta">${tn.conf?pl(tn.conf,'problem')+' to confirm':''}${tn.conf&&tn.nudge?' · ':''}${tn.nudge?pl(tn.nudge,'tester')+' to nudge':''}</span> <button class="chip small main" onclick="show('scripts')">Open →</button></div>`); }catch(e){}
   const nNew=(D.requests||[]).filter(r=>r.status==='new'||r.status==='stack').length;
   if(nNew) out.push(`<div class="item"><span class="who">📥 ${nNew} new in the stack</span> <span class="meta">— nothing to do yourself: say “work the stack” and Claude fixes them</span></div>`);
   $('nowCount').textContent=out.length?out.length+(out.length===1?' thing':' things'):'';
@@ -2255,7 +2286,7 @@ function renderHistory(){
   $('hFilter').innerHTML=F.map(f=>`<button class="chip small ${HF===f[0]?'main':''}" onclick="HF='${f[0]}';renderHistory()">${f[1]}</button>`).join('');
   const list=ev.filter(e=>HF==='all'||e.k===HF).slice(0,250); let day='';
   el.innerHTML=list.length?list.map(e=>{ const d=String(e.at||'').slice(0,10), head=d!==day?`<h2>${d?new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}):'Earlier'}</h2>`:''; day=d;
-    return head+`<div class="card" style="margin-bottom:8px"><div>${e.h} <span class="meta">${ago(e.at)}</span></div><div class="txt" style="white-space:pre-wrap;margin-top:4px">${esc(String(e.t||'').slice(0,400))}</div></div>`; }).join(''):'<p class="muted">Nothing yet.</p>';
+    return head+`<div class="card" style="margin-bottom:8px"><div>${e.h} <span class="meta">${ago(e.at)}</span></div><div class="txt" style="white-space:pre-wrap;margin-top:4px">${esc(noImg(e.t).slice(0,400))}</div></div>`; }).join(''):'<p class="muted">Nothing yet.</p>';
 }
 /* v1.21 — "Needs you": everything waiting, as counts; tap one to jump there. */
 function renderNeedsYou(){
@@ -2346,13 +2377,13 @@ function renderPeople(){
     const unread=msgs.filter(m=>m.person_id===p.id&&m.direction==='in'&&m.status==='new').length;
     return `<div class="person" onclick="openPerson('${p.id}')"><span class="dot ${lastSeenClass(p)}"></span><div class="body">
       <div><span class="who" style="font-weight:800">${esc(p.name)}</span><span class="pill">${esc(p.project||'—')}</span><span class="pill">${esc(p.role)}</span>${unread?`<span class="pill hot">${unread} new</span>`:''}</div>
-      <div class="meta muted">last heard from ${ago(lastActive(p))}${p.last_app?' · '+esc(p.last_app):''} · ${pl(acts,'thing')} this week${openR?' · '+pl(openR,'open request'):''}</div>
+      <div class="meta muted">last heard from ${ago(lastActive(p))}${p.last_app?' · '+esc(tsPretty(p.last_app)):''} · ${pl(acts,'thing')} this week${openR?' · '+pl(openR,'open request'):''}</div>
       ${p.summary?`<div class="sum">🧠 ${esc(p.summary)}</div>`:last?`<div class="sum muted">${last.direction==='in'?'“':'You: “'}${esc(String(last.text).slice(0,110))}”</div>`:''}
     </div></div>`; }).join('') : '<p class="muted" style="margin:0">Nobody here yet.</p>';
 }
 $('psearch').addEventListener('input',()=>D&&renderPeople());
 
-function inviteLink(p){ return p.project==='zuri' ? 'https://jerrywins1.github.io/zuri-system/testers/?code=ZURI-TEST' : 'https://jerrywins1.github.io/daraja-apps/testers/?who='+p.token+(p.project==='church'?'&line=church':''); }
+function inviteLink(p){ if(p.project==='kenya') return 'https://jerrywins1.github.io/daraja-apps/kenya/?who='+p.token+'&n='+encodeURIComponent(String(p.name||'').trim().split(/\s+/)[0]); /* 11 Oct: Kenya students → their own Test Week page */ return p.project==='zuri' ? 'https://jerrywins1.github.io/zuri-system/testers/?code=ZURI-TEST' : 'https://jerrywins1.github.io/daraja-apps/testers/?who='+p.token+(p.project==='church'?'&line=church':''); }
 
 function openPerson(id,compose,draftId){
   const p=P(id); if(!p.id) return;
@@ -2366,7 +2397,7 @@ function openPerson(id,compose,draftId){
     <div class="muted">${esc(p.project||'—')} · ${esc(p.role)} · ${p.phone?'+'+esc(p.phone):'no WhatsApp number yet'} · last seen ${ago(p.last_seen)}</div>
     ${p.summary?`<p style="margin:8px 0">🧠 ${esc(p.summary)}</p>`:''}
     <h2>Conversation</h2>
-    <div class="thread">${msgs.length?msgs.map(m=>`<div class="bub ${m.direction==='out'?'out':''}">${esc(m.text)}<span class="m">${ICON[m.channel]||''} ${ago(m.at)}${m.direction==='out'?' · '+esc(m.status):''}</span>${m.direction==='in'?`<button class="chip small" style="margin-top:6px" onclick="replyMsg('${m.id}')">↩︎ Answer this one</button>`:''}</div>`).join(''):'<p class="muted">No messages yet.</p>'}</div>
+    <div class="thread">${msgs.length?msgs.map(m=>`<div class="bub ${m.direction==='out'?'out':''}">${esc(noImg(m.text))}<span class="m">${ICON[m.channel]||''} ${ago(m.at)}${m.direction==='out'?' · '+esc(m.status):''}</span>${m.direction==='in'?`<button class="chip small" style="margin-top:6px" onclick="replyMsg('${m.id}')">↩︎ Answer this one</button>`:''}</div>`).join(''):'<p class="muted">No messages yet.</p>'}</div>
     <label for="cmp">Message ${esc(String(p.name).split(' ')[0])}</label>
     <textarea id="cmp" placeholder="Write it the way you'd say it">${draft?esc(draft.text):''}</textarea>
     <div class="chips" style="margin-top:8px">
@@ -2377,7 +2408,7 @@ function openPerson(id,compose,draftId){
     ${!D.whatsapp&&p.phone?'<p class="muted" style="font-size:13px;margin:6px 0 0">This opens WhatsApp with your words already typed in. <b>Press the green send arrow there</b> — HQ logs it for you.</p>':''}
     ${reqs.length?`<h2>Their requests</h2>`+reqs.map(r=>`<div class="item"><span class="pill">${esc(r.status)}</span> ${esc(r.text)}</div>`).join(''):''}
     <h2>What they’ve been doing</h2>
-    ${ev.length?ev.map(e=>`<div class="item meta">${ago(e.at)} · ${esc(e.kind)}${e.app?' · '+esc(e.app):''}${e.detail?' · '+esc(e.detail):''}</div>`).join(''):'<p class="muted">Nothing recorded yet.</p>'}
+    ${ev.length?ev.map(e=>`<div class="item meta">${ago(e.at)} · ${esc(e.kind)}${e.app?' · '+esc(tsPretty(e.app)):''}${e.detail?' · '+esc(e.detail):''}</div>`).join(''):'<p class="muted">Nothing recorded yet.</p>'}
     <h2>Their invite link</h2>
     <div class="chips"><button class="chip small" onclick="copy('${esc(inviteLink(p))}')">📋 Copy the link</button></div>
     <p class="muted" style="font-size:13px">${p.project==='zuri'?'Zuri testers join with the Zuri Testers’ List link.':'Opening this link once tells their phone who they are, so what they do shows up here.'}</p>
@@ -2474,6 +2505,133 @@ async function gmSend(id){
   catch(e){ toast('Opened it, but HQ could not log it: '+e.message,true); }
 }
 
+/* ---------- 🧪 Test scripts (v1.26 · 10 Oct 2026) ----------
+   Jerry approved the TEST SCRIPT standard: numbered steps, ✅ / ❌ / 🤷, coins, a reward, nudges he sends with one tap.
+   Testers' answers arrive as 'tried' events with app 'ts:<key>:<step>:<y|n|u>:<seconds>' ('ts:<key>:done:<coins>' when they
+   send the report); ❌ / 🤷 words arrive as reports marked [ts:<key>:<step>:<n|u>]. Confirmed problems, the reward and the
+   nudges are HQ settings (ts_confirmed, ts_reward, ts_nudged). Nothing here sends anything until Jerry taps. */
+let TSI=null, TSPUB=null;
+const TS_REWARD0={kind:'code',text:'A keep-forever code for the app you tested',code:'THANKYOU',currency:'',value:'',cap:0};
+const TS_ZURI='https://jerrywins1.github.io/zuri-system/testers/?board';
+function tsLoadIndex(){
+  if(TSI) return; TSI={scripts:{}};
+  fetch('../testers/scripts/index.json?cb='+Date.now()).then(r=>r.json()).then(j=>{ TSI=j&&j.scripts?j:{scripts:{}}; if(D){ try{ renderScripts(); renderNow(); }catch(e){} } }).catch(()=>{});
+  fetch(HQ+(HQ.indexOf('?')>=0?'&':'?')+'cb='+Date.now()).then(r=>r.json()).then(j=>{ TSPUB=!!(j&&j.ts); if(D) try{ renderScripts(); }catch(e){} }).catch(()=>{ TSPUB=null; });
+}
+function tsParse(e){
+  if(!e||e.kind!=='tried'||String(e.app||'').indexOf('ts:')!==0) return null;
+  const p=String(e.app).split(':');
+  return p[2]==='done'?{key:p[1],done:true,coins:+p[3]||0,at:e.at,pid:e.person_id,name:e.name}:{key:p[1],sid:p[2],a:p[3],secs:+p[4]||0,at:e.at,pid:e.person_id,name:e.name};
+}
+const tsAppName=k=>(typeof APPS!=='undefined'&&APPS[k])?APPS[k].name:((TSI&&TSI.scripts&&TSI.scripts[k]&&TSI.scripts[k].name)||k);
+function tsPretty(app){ const p=String(app||'').split(':'); if(p[0]!=='ts'||p.length<3) return app; return p[2]==='done'?'🧪 finished the '+tsAppName(p[1])+' test':'🧪 '+tsAppName(p[1])+' test · step '+String(p[2]).replace(/^s0?/,'')+' '+({y:'✅',n:'❌',u:'🤷'}[p[3]]||''); }
+function noImg(t){ return String(t==null?'':t).replace(/data:image\/[a-z]+;base64,[A-Za-z0-9+\/=]+/g,'[screenshot]'); }
+function tsReward(){ return Object.assign({},TS_REWARD0,settingJSON('ts_reward',{})||{}); }
+function tsData(){
+  const out={};
+  ((D&&D.events)||[]).slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))).forEach(e=>{ const x=tsParse(e); if(!x) return;
+    const k=out[x.key]=out[x.key]||{}, id=x.pid||('n:'+x.name), r=k[id]=k[id]||{pid:x.pid,name:(P(x.pid).name)||x.name,ans:{},first:x.at,last:x.at,done:null,coins:0};
+    r.last=x.at; if(x.done){ r.done=x.at; r.coins=x.coins; } else r.ans[x.sid]={a:x.a,at:x.at,secs:x.secs}; });
+  return out;
+}
+function tsProblems(){
+  const conf=settingJSON('ts_confirmed',{})||{};
+  return ((D&&D.messages)||[]).filter(m=>m.direction==='in'&&/\[ts:[a-z0-9]+:s\d+:[nu]\]/.test(m.text||'')).map(m=>{
+    const g=/\[ts:([a-z0-9]+):(s\d+):([nu])\]/.exec(m.text), shot=(/data:image\/jpeg;base64,[A-Za-z0-9+\/=]+/.exec(m.text)||[''])[0];
+    return {id:m.id,pid:m.person_id,name:(P(m.person_id).name)||m.name,key:g[1],sid:g[2],a:g[3],what:(/What happened: (.*)/.exec(m.text)||['',''])[1],shot,at:m.at,c:conf[m.id]||null}; })
+   .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+function tsNudges(){
+  const data=tsData(), sent=settingJSON('ts_nudged',{})||{}, out=[], now=Date.now();
+  Object.keys(data).forEach(k=>Object.values(data[k]).forEach(r=>{
+    const n=Object.keys(r.ans).length, N=(TSI&&TSI.scripts&&TSI.scripts[k]&&TSI.scripts[k].steps)||0;
+    if(r.done||!n||(N&&n>=N)) return;
+    const idle=(now-new Date(r.last))/864e5, last=sent[(r.pid||r.name)+'|'+k];
+    if(idle<2||(last&&(now-new Date(last))/864e5<2)) return;
+    out.push({k,r,n,N,idle:Math.floor(idle),by:new Date(new Date(r.first).getTime()+7*864e5)}); }));
+  return out.sort((a,b)=>b.idle-a.idle);
+}
+function tsNeeds(){ return {conf:tsProblems().filter(x=>!x.c).length, nudge:tsNudges().length}; }
+function tsCoinsOf(id){
+  const data=tsData(), conf=settingJSON('ts_confirmed',{})||{}, R=tsReward(), wk=new Date(); wk.setHours(0,0,0,0); wk.setDate(wk.getDate()-((wk.getDay()+6)%7));
+  let all=0, week=0; const add=(n,at)=>{ all+=n; if(new Date(at)>=wk) week+=n; };
+  Object.values(data).forEach(k=>{ const r=k[id]; if(!r) return; Object.values(r.ans).forEach(a=>add(1,a.at)); if(r.done) add(10,r.done); });
+  Object.keys(conf).forEach(m=>{ const c=conf[m]; if(c&&c.ok&&(c.pid||('n:'+c.name))===id) add(5,c.at); });
+  return {all, week, capped:R.cap>0&&week>R.cap};
+}
+function tsNudgeText(x){
+  const p=P(x.r.pid), first=String(p.name||x.r.name||'').split(' ')[0]||'there', S=(TSI&&TSI.scripts&&TSI.scripts[x.k])||{}, left=Math.max(0,(x.N||0)-x.n);
+  const mins=x.N?Math.max(3,Math.round((S.minutes||15)*left/x.N)):5;
+  return `Hi ${first}! You're ${x.n}${x.N?' of '+x.N:''} steps into the ${tsAppName(x.k)} test${left?` — ${left} to go, about ${mins} minutes`:''}. It picks up right where you stopped: ${p.id?inviteLink(p):'https://jerrywins1.github.io/daraja-apps/testers/'}${new Date()<x.by?' Finish by '+x.by.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' if you can.':''} Thank you! – Jerry`;
+}
+function renderScripts(){
+  const el=$('tsHQ'); if(!el||!D) return; tsLoadIndex();
+  const S=(TSI&&TSI.scripts)||{}, data=tsData(), probs=tsProblems(), nud=tsNudges(), R=tsReward();
+  const need=probs.filter(x=>!x.c), cnt=need.length+nud.length; $('nTs').hidden=!cnt; $('nTs').textContent=cnt;
+  const people=[]; Object.values(data).forEach(k=>Object.keys(k).forEach(id=>{ if(people.indexOf(id)<0) people.push(id); }));
+  const keys=Object.keys(S).sort((a,b)=>Object.keys(data[b]||{}).length-Object.keys(data[a]||{}).length||String(S[a].name).localeCompare(S[b].name));
+  const cell=a=>a?(a.a==='y'?'#2F6E52':a.a==='n'?'#B4352E':'#C9982A'):'var(--line)';
+  const cov=k=>{ const s=S[k], rows=Object.values(data[k]||{}), ids=s.ids||[];
+    const green=ids.filter(id=>rows.some(r=>r.ans[id]&&r.ans[id].a==='y')).length, full=ids.length&&green===ids.length;
+    const grid=`grid-template-columns:minmax(64px,90px) repeat(${ids.length},minmax(9px,1fr))`;
+    return `<div class="card"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b style="font-size:16.5px">${esc(s.em||'')} ${esc(s.name)}</b><span class="muted">${ids.length} steps · ${pl(rows.length,'tester')}</span>${full?'<span class="pill" style="background:var(--ok);color:#fff;border-color:transparent">✅ fully tested</span>':`<span class="pill">${green} of ${ids.length} steps have a ✅</span>`}${s.starter?'<span class="pill hot">starter — not verified</span>':''}</div>
+      ${rows.length?`<div class="tsGrid" style="${grid}"><span></span>${ids.map((id,j)=>`<span class="h" title="${esc(s.short&&s.short[j]||'')}">${j+1}</span>`).join('')}
+        ${rows.map(r=>{ const rush=Object.values(r.ans).filter(a=>a.secs<6).length;
+          return `<span class="nm" title="${esc(r.name)}">${esc(String(r.name).split(' ')[0])}${r.done?' ✓':''}${rush>=3?' ⚡':''}</span>`+ids.map((id,j)=>{ const a=r.ans[id]; return `<i style="background:${cell(a)}" title="${esc(r.name)} · step ${j+1}: ${a?(a.a==='y'?'✅ worked':a.a==='n'?'❌ didn’t':'🤷 not sure')+(a.secs<6?' · '+a.secs+'s ⚡':''):'not yet'}"></i>`; }).join(''); }).join('')}
+        <span class="nm" style="font-weight:900">anyone</span>${ids.map(id=>`<i style="background:${rows.some(r=>r.ans[id]&&r.ans[id].a==='y')?'#2F6E52':'var(--line)'}"></i>`).join('')}</div>
+        ${rows.filter(r=>Object.values(r.ans).filter(a=>a.secs<6).length>=3).map(r=>{ const n=Object.values(r.ans).filter(a=>a.secs<6).length; return `<div class="meta" style="margin-top:4px">⚡ ${esc(r.name)} answered ${n} of ${Object.keys(r.ans).length} steps less than 6 seconds apart — maybe rushing; worth a look.</div>`; }).join('')}`
+      :'<p class="muted" style="margin:6px 0 0">Nobody has started it yet.</p>'}</div>`; };
+  const started=keys.filter(k=>data[k]), waiting=keys.filter(k=>!data[k]);
+  el.innerHTML=`
+    <div class="card"><b>Every app has a test script: numbered steps, “Do this” → “You should see” → ✅ / ❌ / 🤷.</b>
+      <p class="muted" style="margin:4px 0 8px">Testers run them from the Testers’ List. Green = it worked, red = it didn’t, amber = not sure, grey = not yet. An app is <b>fully tested</b> when every step has a ✅. ⚡ = answers less than 6 seconds apart.</p>
+      <div class="chips"><a class="chip small" href="../testers/" target="_blank" rel="noopener">🧪 Testers’ List</a><a class="chip small" href="${TS_ZURI}" target="_blank" rel="noopener">📶 Zuri testers’ board (KES rewards live there)</a></div></div>
+    <h2>❌ Problems to confirm <small>${need.length?need.length+' waiting · a real one earns the tester +5 coins':'none waiting'}</small></h2>
+    <div class="card">${probs.length?probs.slice(0,40).map(x=>`<div class="item"><div><span class="who">${x.a==='n'?'❌':'🤷'} ${esc(x.name)}</span> <span class="meta">${esc(tsAppName(x.key))} · step ${esc(String(x.sid).replace(/^s0?/,''))} · ${ago(x.at)}</span>${x.c?` <span class="pill">${x.c.ok?'✓ confirmed · +5':'not a problem'}</span>`:''}</div>
+        <div class="txt">${esc(x.what||'(no words)')}</div>${x.shot?`<img src="${x.shot}" alt="their screenshot" style="max-width:160px;border-radius:10px;border:1px solid var(--line);display:block;margin:4px 0 6px">`:''}
+        <div class="chips">${x.c?`<button class="chip small" onclick="tsConfirm('${x.id}',null)">Undo</button>`:`<button class="chip small main" onclick="tsConfirm('${x.id}',true)">✓ Real problem · +5</button><button class="chip small" onclick="tsConfirm('${x.id}',false)">Not a problem</button>`}${x.pid?`<button class="chip small" onclick="openPerson('${x.pid}')">👤</button>`:''}</div></div>`).join(''):'<p class="muted" style="margin:0">No ❌ or 🤷 yet. When a tester taps one, their words land here (and in the stack for Claude).</p>'}</div>
+    <h2>💬 Needs a nudge <small>stopped part-way, quiet 2+ days</small></h2>
+    <div class="card">${nud.length?nud.map((x,i)=>{ const p=P(x.r.pid); return `<div class="item"><div><span class="who">${esc(x.r.name)}</span> <span class="meta">${esc(tsAppName(x.k))} · ${x.n}${x.N?' of '+x.N:''} steps · quiet ${x.idle} days · finish by ${x.by.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div>
+        <div class="sum muted" style="margin:4px 0 6px">${esc(tsNudgeText(x))}</div>
+        <div class="chips">${p.phone?`<button class="chip small wa" onclick="tsNudge(${i})">📱 Send it</button>`:`<button class="chip small" onclick="openPerson('${x.r.pid}')">＋ Add their number</button>`}<button class="chip small" onclick="copy(${esc(JSON.stringify(tsNudgeText(x)))})">📋 Copy</button></div></div>`; }).join(''):'<p class="muted" style="margin:0">Nobody is stuck part-way. Testers who stop for 2+ days show up here with a message ready — one tap opens Messages (US) or WhatsApp (Kenya); you press send.</p>'}</div>
+    <h2>🪙 Coins <small>1 a step · +5 a confirmed problem · +10 for finishing & sending${R.cap>0?' · weekly cap '+esc(R.cap):''}</small></h2>
+    <div class="card">${people.length?`<div class="tiles" style="margin:0">${people.map(id=>{ const c=tsCoinsOf(id), r=Object.values(data).map(k=>k[id]).find(Boolean); return `<div class="tile"><div class="k">${esc(String(r.name).split(' ')[0])}</div><div class="v">${c.all}</div><div class="s">${c.week} this week${c.capped?' · over the cap':''}</div></div>`; }).join('')}</div>`:'<p class="muted" style="margin:0">No coins yet.</p>'}</div>
+    <h2>🧪 Coverage <small>steps × testers</small></h2>
+    ${started.map(cov).join('')||'<div class="card"><p class="muted" style="margin:0">No tester has started a script yet.</p></div>'}
+    ${waiting.length?`<details class="card"><summary>Not started yet <small class="muted">${waiting.length} apps</small></summary><p class="muted" style="margin:6px 0 0">${waiting.map(k=>esc((S[k].em||'')+' '+S[k].name)+' ('+(S[k].ids||[]).length+')').join(' · ')}</p></details>`:''}
+    <h2>🎁 Testing reward <small>what a finished script earns</small></h2>
+    <div class="card">
+      <label for="trKind">What a tester gets</label><select id="trKind">${[['code','A keep-forever code for the app'],['recognition','Recognition — a thank-you on What’s New'],['cash','Money (future use)']].map(o=>`<option value="${o[0]}" ${R.kind===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
+      <label for="trText">The words testers see</label><input id="trText" value="${esc(R.text)}">
+      <label for="trCode">The code (shown after they send their report)</label><input id="trCode" value="${esc(R.code||'')}" placeholder="THANKYOU">
+      <label for="trVal">Value of one coin (optional — only for any future cash use)</label><div style="display:flex;gap:8px"><select id="trCur" style="max-width:110px">${['','$','KES'].map(c=>`<option ${R.currency===c?'selected':''} value="${c}">${c||'—'}</option>`).join('')}</select><input id="trVal" inputmode="decimal" value="${esc(R.value||'')}" placeholder="e.g. 0.10"></div>
+      <label for="trCap">Weekly cap — coins one tester can earn in a week (0 = no cap)</label><input id="trCap" inputmode="numeric" value="${esc(R.cap||0)}">
+      <div class="chips" style="margin-top:10px"><button class="chip main" onclick="tsSaveReward()">Save the reward</button></div>
+      <p class="muted" style="font-size:13px;margin:8px 0 0">US Daraja testers get a keep-forever code or recognition — not cash. Zuri’s KES rewards stay on the <a href="${TS_ZURI}" target="_blank" rel="noopener" style="color:var(--brand);font-weight:800">Zuri testers’ board</a>.${TSPUB===false?' <b>Testers still see the default reward and no confirmed coins until the HQ script update is pasted</b> (hq/HQ_patch_v1.6_test_scripts.gs — ask Claude to walk you through it).':''}</p>
+    </div>`;
+}
+window.tsConfirm=async function(mid,ok){
+  const m=((D&&D.messages)||[]).find(x=>x.id===mid); if(!m) return; const g=/\[ts:([a-z0-9]+):(s\d+):[nu]\]/.exec(m.text||'')||[];
+  const conf=settingJSON('ts_confirmed',{})||{};
+  if(ok===null) delete conf[mid]; else conf[mid]={ok:!!ok,pid:m.person_id,name:(P(m.person_id).name)||m.name,app:g[1]||'',sid:g[2]||'',at:new Date().toISOString()};
+  D.settings.ts_confirmed=JSON.stringify(conf); renderScripts();
+  await act({action:'settings.set',k:'ts_confirmed',value:conf},ok===null?'Undone':ok?'✓ Confirmed — +5 coins for them':'Marked not a problem');
+};
+window.tsSaveReward=async function(){
+  const v={kind:$('trKind').value,text:($('trText').value||'').trim()||TS_REWARD0.text,code:($('trCode').value||'').trim(),currency:$('trCur').value,value:($('trVal').value||'').trim(),cap:Math.max(0,parseInt($('trCap').value,10)||0)};
+  D.settings.ts_reward=JSON.stringify(v); await act({action:'settings.set',k:'ts_reward',value:v},'Reward saved');
+};
+window.tsNudge=async function(i){
+  /* open Messages / WhatsApp INSIDE the tap (Safari blocks it after an await) — the same way 📣 group messages do */
+  const x=tsNudges()[i]; if(!x) return; const p=P(x.r.pid); if(!p.phone) return; const t=tsNudgeText(x);
+  const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
+  const url=us?(apple?'sms://open?addresses=+'+p.phone+'&body='+encodeURIComponent(t):'sms:+'+p.phone+'?body='+encodeURIComponent(t)):'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
+  if(us) location.href=url; else { const w=window.open(url,'_blank'); if(!w) location.href=url; }
+  const sent=settingJSON('ts_nudged',{})||{}; sent[(x.r.pid||x.r.name)+'|'+x.k]=new Date().toISOString(); D.settings.ts_nudged=JSON.stringify(sent); renderScripts();
+  try{ const r=await hq({action:'message.draft',person_id:p.id,text:t}); await hq({action:'message.mark',id:r.id,status:'sent by hand'}); await hq({action:'settings.set',k:'ts_nudged',value:sent}); toast('Press send there — logged in HQ'); }
+  catch(e){ toast('Opened it, but HQ could not log it: '+e.message,true); }
+};
+
 /* ---------- the stack ---------- */
 /* v1.24 (8 Oct 2026). Jerry: "I don't understand what the choices are to move them… do we log them as done so I don't have to message
    them? … put the question, then I type the answer, and that's what goes in WhatsApp, so they know what I'm answering."
@@ -2555,3 +2713,4 @@ start();
 </script>
 </body>
 </html>
+
