@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v63">
+<script id="dj-house-v64">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -37,7 +37,7 @@
     if(!on) return;
     var S = window.sessionStorage, P = 'sbx:';
     function keys(){ var ks = []; for(var i = 0; i < S.length; i++){ var k = S.key(i); if(k && k.indexOf(P) === 0) ks.push(k.slice(P.length)); } return ks; }
-    var api = { getItem:function(k){ return S.getItem(P + k); }, setItem:function(k, v){ S.setItem(P + k, String(v)); }, removeItem:function(k){ S.removeItem(P + k); },
+    var api = { getItem:function(k){ return S.getItem(P + k); }, setItem:function(k, v){ if(window.__djErasing && window.__djErasing[String(k)]) return; S.setItem(P + k, String(v)); }, removeItem:function(k){ S.removeItem(P + k); },
       clear:function(){ keys().forEach(function(k){ S.removeItem(P + k); }); }, key:function(n){ var ks = keys(); return ks[n] == null ? null : ks[n]; } };
     var fake = new Proxy({}, {
       get:function(t, p){ if(p === 'length') return keys().length; if(Object.prototype.hasOwnProperty.call(api, p)) return api[p]; if(typeof p === 'string'){ var v = S.getItem(P + p); return v === null ? undefined : v; } return undefined; },
@@ -56,14 +56,118 @@
     try{ var idb = window.indexedDB, o = idb.open.bind(idb), d = idb.deleteDatabase.bind(idb);
       idb.open = function(n, v){ return v === undefined ? o('sbx_' + n) : o('sbx_' + n, v); }; idb.deleteDatabase = function(n){ return d('sbx_' + n); }; }catch(e){}
     window.__djSandbox = true;
-    function bar(){
-      if(!document.body || document.getElementById('djSbx')) return;
-      var b = document.createElement('div'); b.id = 'djSbx'; b.setAttribute('role', 'status');
-      b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(6px + env(safe-area-inset-bottom));z-index:2147482900;background:#5B3FA0;color:#fff;font:700 14px/1.3 -apple-system,system-ui,sans-serif;padding:8px 10px 8px 12px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px';
-      b.innerHTML = '<span style="flex:1">🧪 Test copy: you’re a brand-new user here. Your real data is safe.</span><button type="button" style="font:inherit;font-weight:800;font-size:13px;background:#fff;color:#5B3FA0;border:0;border-radius:999px;padding:7px 12px;min-height:36px;cursor:pointer">Leave</button>';
-      b.querySelector('button').onclick = function(){ try{ api.clear(); window.sessionStorage.removeItem('dj_sandbox'); }catch(e){} location.href = location.href.replace(/([?&])dj_sandbox=1&?/, '$1').replace(/[?&]$/, ''); };
-      document.body.appendChild(b);
+    function leave(){ try{ api.clear(); window.sessionStorage.removeItem('dj_sandbox'); }catch(e){} location.href = location.href.replace(/([?&])dj_sandbox=1&?/, '$1').replace(/[?&]$/, ''); }
+    window.djSandboxLeave = leave;
+    /* v64 (10 Oct 2026, the test-script builders): the purple bar sat across the bottom 64px of every app and covered
+       Save/Cancel rows, bottom tabs, "Start it", toasts — and it printed. It is now a small "🧪 Test copy" pill that
+       looks for a free spot (top band first, then the bottom band, then the sides), never on a button, a word, a box
+       or anything floating, and moves when the screen changes. Tap it for the words and Leave. Never printed. */
+    var SBX_OBST = 'a[href],button,input,select,textarea,label,summary,[onclick],[role="button"],[role="tab"],[role="link"],[role="checkbox"],[contenteditable="true"]';
+    function sbxCSS(){ if(document.getElementById('djSbxCSS') || !document.head) return; var st = document.createElement('style'); st.id = 'djSbxCSS';
+      st.textContent = '@media print{#djSbx,#djSbxPop{display:none !important}}#djSbx{position:fixed;z-index:2147483001;display:flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:0;background:#5B3FA0;color:#fff;font:800 14px/1 -apple-system,system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;white-space:nowrap;box-sizing:border-box;transition:opacity .2s}#djSbx.djSbxTight{visibility:hidden;pointer-events:none}#djSbx.djSbxMini{width:44px;padding:0;justify-content:center}#djSbx.djSbxMini span+span{display:none}#djSbxPop{position:fixed;z-index:2147483002;left:8px;right:8px;max-width:360px;margin:0 auto;background:#fff;color:#1F2622;border:2px solid #5B3FA0;border-radius:16px;padding:12px 14px;font:15px/1.4 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);box-sizing:border-box}#djSbxPop b{color:#5B3FA0}#djSbxPop .djSbxRow{display:flex;gap:8px;margin-top:10px}#djSbxPop button{flex:1;font:inherit;font-weight:800;min-height:44px;border-radius:12px;cursor:pointer}';
+      document.head.appendChild(st); }
+    function safeTop(){ try{ var p = document.createElement('div'); p.style.cssText = 'position:fixed;top:0;left:0;width:1px;visibility:hidden;padding-top:env(safe-area-inset-top)'; document.body.appendChild(p); var h = p.offsetHeight; p.remove(); return h; }catch(e){ return 0; } }
+    function obstacles(pill){
+      /* everything the pill must not sit on, each with a kind: tap (a control), box (something floating), head (a title),
+         txt (words), media (a picture). Only what is really on top counts — the page under an open sheet or the tour is not in the way. */
+      var out = [], W = window.innerWidth, H = window.innerHeight, all = document.documentElement.getElementsByTagName('*'), pop = document.getElementById('djSbxPop');
+      var vis0 = pill ? pill.style.visibility : ''; if(pill) pill.style.visibility = 'hidden';
+      try{
+      for(var i = 0; i < all.length; i++){
+        var el = all[i], tn = el.tagName;
+        if(tn === 'HTML' || tn === 'BODY' || tn === 'HEAD' || tn === 'SCRIPT' || tn === 'STYLE' || tn === 'LINK' || tn === 'META' || tn === 'TITLE' || tn === 'NOSCRIPT' || tn === 'BR' || tn === 'OPTION') continue;
+        if(el === pill || (pill && pill.contains(el)) || el === pop || (pop && pop.contains(el))) continue;
+        var r = el.getBoundingClientRect(); if(r.width < 2 || r.height < 2 || r.bottom <= 0 || r.top >= H || r.right <= 0 || r.left >= W) continue;
+        var kind = '';
+        try{ if(el.matches(SBX_OBST)) kind = 'tap'; }catch(e){}
+        if(!kind && (tn === 'IMG' || tn === 'SVG' || tn === 'svg' || tn === 'CANVAS' || tn === 'VIDEO' || tn === 'IFRAME')) kind = 'media';
+        if(!kind){ for(var c = el.firstChild; c; c = c.nextSibling){ if(c.nodeType === 3 && /\S/.test(c.nodeValue)){ kind = /^H[1-3]$/.test(tn) || (el.closest && el.closest('header,h1,h2,h3,[role="banner"]')) ? 'head' : 'txt'; break; } } }
+        var cs = null;
+        if(!kind){ cs = getComputedStyle(el); if(cs.position === 'fixed' || cs.position === 'sticky') kind = 'box'; }
+        if(!kind) continue;
+        cs = cs || getComputedStyle(el);
+        if(cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+        if(kind === 'box' && cs.pointerEvents === 'none' && !/\S/.test(el.textContent || '')) continue;   /* a painted background (OCC's #djBg) is not in the way */
+        if(r.width * r.height > W * H * 0.5) continue;   /* a full-screen card or shade: its own buttons and words count, not the whole sheet */
+        if(kind === 'box' && cs.position === 'sticky'){ var top0 = parseFloat(cs.top); if(isNaN(top0)) kind = ''; }   /* sticky with no top is just in the flow */
+        if(!kind) continue;
+        /* covered by something else (an open sheet, the tour)? then it cannot be tapped or read, and is not in the way */
+        var cx = Math.min(W - 1, Math.max(0, (r.left + r.right) / 2)), cy = Math.min(H - 1, Math.max(0, (r.top + r.bottom) / 2)), top = null;
+        try{ top = document.elementFromPoint(cx, cy); }catch(e){}
+        if(top && top !== el && !el.contains(top) && !top.contains(el)) continue;
+        out.push({ r:r, k:kind });
+      }
+      }catch(e){}
+      if(pill) pill.style.visibility = vis0;
+      return out;
     }
+    /* tier 0: nothing at all under it · tier 1: plain words may sit under it (never a control, a title, a picture or a floating thing) */
+    var TIER_KINDS = [ {tap:1, box:1, head:1, txt:1, media:1}, {tap:1, box:1, head:1, media:1} ];
+    function freeAt(x, y, w, h, obs, tier){ var a = x - 4, b = y - 4, c = x + w + 4, d = y + h + 4, ks = TIER_KINDS[tier || 0];
+      for(var i = 0; i < obs.length; i++){ var o = obs[i], r = o.r; if(!ks[o.k]) continue; if(!(c <= r.left || r.right <= a || d <= r.top || r.bottom <= b)) return false; } return true; }
+    var placing = false, lastPos = null;
+    var fullW = 0;
+    function place(){
+      var b = document.getElementById('djSbx'); if(!b || placing) return; placing = true;
+      try{
+        if(!fullW){ b.classList.remove('djSbxMini'); fullW = b.offsetWidth || 120; }
+        var W = window.innerWidth, H = window.innerHeight, h = b.offsetHeight || 44, st = safeTop(), obs = obstacles(b);
+        var wNow = b.classList.contains('djSbxMini') ? 44 : fullW;
+        if(lastPos && lastPos.W === W && lastPos.H === H && lastPos.tier === 0 && !lastPos.mini && freeAt(lastPos.x, lastPos.y, wNow, h, obs, 0)){ b.classList.remove('djSbxTight'); placing = false; return; }
+        function search(w, tier){
+          var xs = [W - w - 8, 8, Math.round((W - w) / 2)], x;
+          for(x = W - w - 8 - 24; x > 8; x -= 24) xs.push(x);
+          var spots = [], y;
+          for(y = st + 4; y <= Math.max(st + 4, H * 0.28); y += 6) xs.forEach(function(x){ spots.push([x, y]); });
+          for(y = H - h - 8; y >= H * 0.6; y -= 6) xs.forEach(function(x){ spots.push([x, y]); });
+          for(y = Math.round(H * 0.28); y < H * 0.6; y += 8) [xs[0], xs[1]].forEach(function(x){ spots.push([x, y]); });
+          if(lastPos && lastPos.W === W && lastPos.H === H && lastPos.w === w && freeAt(lastPos.x, lastPos.y, w, h, obs, tier)) return [lastPos.x, lastPos.y, tier];   /* stay put when the spot is still good enough */
+          for(var i = 0; i < spots.length; i++){ if(freeAt(spots[i][0], spots[i][1], w, h, obs, tier)) return [spots[i][0], spots[i][1], tier]; }
+          return null;
+        }
+        /* full "🧪 Test copy" first; then just the 🧪 (44px); and when even that has nowhere to go, it steps out of
+           sight until the screen changes — it never sits on a control or a title. Leave is in the ? sheet too. */
+        /* 11 Oct: a clear spot for the small 🧪 beats the full pill sitting on words; words only as a last resort */
+        var w = fullW, pick = search(w, 0), mini = false;
+        if(!pick){ w = 44; pick = search(w, 0); mini = !!pick; }
+        if(!pick){ w = 44; pick = search(w, 1); mini = !!pick; }
+        b.classList.toggle('djSbxMini', mini);
+        b.classList.toggle('djSbxTight', !pick);
+        if(!pick) pick = [W - fullW - 8, st + 4, 9];
+        b.style.left = pick[0] + 'px'; b.style.top = pick[1] + 'px'; b.style.right = 'auto'; b.style.bottom = 'auto';
+        lastPos = { x:pick[0], y:pick[1], W:W, H:H, w:w, tier:pick[2], mini:mini };
+      }catch(e){}
+      placing = false;
+    }
+    function pop(){
+      var old = document.getElementById('djSbxPop'); if(old){ old.remove(); return; }
+      var b = document.getElementById('djSbx'); if(!b) return; var r = b.getBoundingClientRect(), H = window.innerHeight;
+      var p = document.createElement('div'); p.id = 'djSbxPop'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Test copy');
+      p.innerHTML = '<b>🧪 This is a test copy.</b><br>You are a brand-new user here. Nothing you do is kept, and your real information is safe.<div class="djSbxRow"><button type="button" data-a="leave" style="background:#5B3FA0;color:#fff;border:0">Leave the test copy</button><button type="button" data-a="close" style="background:#fff;color:#1F2622;border:1.5px solid #C9C1AE">Close</button></div>';
+      if(r.top < H / 2) p.style.top = Math.round(r.bottom + 8) + 'px'; else p.style.bottom = Math.round(H - r.top + 8) + 'px';
+      p.addEventListener('click', function(e){ var t = e.target.closest && e.target.closest('button[data-a]'); if(!t) return; if(t.getAttribute('data-a') === 'leave') leave(); else p.remove(); });
+      document.body.appendChild(p);
+      setTimeout(function(){ document.addEventListener('click', function off(e){ if(!p.contains(e.target) && e.target !== b){ p.remove(); document.removeEventListener('click', off, true); } }, true); }, 0);
+    }
+    /* a throttle, not a debounce: the house and the apps change the page many times a second, and a debounce never fired */
+    var placeT = null; function placeSoon(ms){ if(placeT) return; placeT = setTimeout(function(){ placeT = null; place(); setTimeout(place, 400); }, ms == null ? 200 : ms); }
+    function bar(){
+      if(!document.body) return; sbxCSS();
+      if(document.getElementById('djSbx')){ placeSoon(0); return; }
+      var b = document.createElement('button'); b.type = 'button'; b.id = 'djSbx'; b.setAttribute('aria-label', 'Test copy — you are a brand-new user here. Tap for more, or to leave.');
+      b.innerHTML = '<span aria-hidden="true">🧪</span><span>Test copy</span>';
+      b.style.top = '-200px'; b.style.left = '8px';
+      b.onclick = pop;
+      document.body.appendChild(b); place();
+      window.addEventListener('resize', function(){ lastPos = null; placeSoon(150); });
+      window.addEventListener('scroll', function(){ placeSoon(200); }, true);
+      document.addEventListener('transitionend', function(e){ if(e.target && e.target.id !== 'djSbx') placeSoon(60); }, true);   /* a sheet that slides in changes no attribute when it arrives */
+      document.addEventListener('animationend', function(){ placeSoon(60); }, true);
+      try{ new MutationObserver(function(recs){ for(var i = 0; i < recs.length; i++){ var t = recs[i].target; if(t && t.id !== 'djSbx' && t.id !== 'djSbxPop' && !(t.closest && t.closest('#djSbx,#djSbxPop'))){ placeSoon(); return; } } })
+        .observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style','hidden','open'] }); }catch(e){}
+      setInterval(function(){ if(!document.hidden) place(); }, 2000);
+    }
+    window.djSandboxPlace = function(){ lastPos = null; place(); };
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bar); else bar();
     setTimeout(bar, 1500);
   })();
@@ -100,6 +204,7 @@
          so skipping every dj_ key meant they never said "Saved ✓". Skip only the house's own bookkeeping. */
       var HOUSE_KEY = /^dj_(textsize|hello_|tour_|seen_|a2hs_|tipseen_|lastopen|menu_seen_|voice|ai_choice|circle_include|sandbox|level_|glass_|tester_code|idb_wipe|name$|.*_seen$|.*_tip|.*_intro)/;
       proto.setItem = function(k, v){
+        if(window.__djErasing && window.__djErasing[String(k)]) return undefined;   /* v64: an app saving on its way out must not put back what Start fresh just erased */
         try{ var r = realSet.call(this, k, v); if(!HOUSE_KEY.test(String(k)) && String(k).indexOf('sbx:dj_tour') !== 0) savedPulse(); return r; }
         catch(err){ djSaveFailed(err); return undefined; }
       };
@@ -320,8 +425,40 @@
     clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
     gameday:      {k:[], p:['gameday_','church_gameday_']},
     goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
-    receipts:     {k:['receiptmaker_org_v1'], p:['receiptmaker_','receipts_']}
+    receipts:     {k:['receiptmaker_org_v1','receipts_v1'], p:['receiptmaker_','receipts_']},
+    /* v64 (10 Oct): the newer apps keep their data under dj_ names, which the old erase skipped outright.
+       Read out of each app's own source; each app ALSO declares window.DJ_OWNS, and that wins when present. */
+    advent:       {k:['dj_advent_v1'], p:['dj_advent_']},
+    everyday:     {k:['dj_everyday_v1','dj_everyday_seen'], p:['dj_everyday_']},
+    whoscoming:   {k:['dj_whoscoming_v1','dj_whoscoming_seen'], p:['dj_whoscoming_']},
+    ourtable:     {k:['dj_ourtable_v1','dj_ourtable_plan','dj_ourtable_seen'], p:['dj_ourtable_']},
+    quickquote:   {k:['dj_quickquote_v1'], p:['dj_quickquote_']},
+    businessmanager: {k:['bizmgr_v1'], p:['bizmgr_'], idb:['bizmgr_files']},
+    circle:       {k:['dj_circle_v1'], p:[]},
+    ff:           {k:['myscores.mgr.v1','myscores.picks','myscores.picks.v2','ff_push','sleeper.players.cache'], p:['myscores.']},
+    keepsake:     {k:[], p:['keepsake_']}
   };
+  /* v64: names several apps read and write together (your name, My Circle, the tester sign-in, One Thing's
+     profiles, the house's own settings). Start fresh in one app never erases these — only My Circle's own
+     Start fresh may clear My Circle. */
+  var SHARED_KEYS = { dj_name:1, dj_who:1, dj_line:1, dj_family:1, dj_testers_v1:1, dj_founding:1, dj_tester_code:1, dj_circle_v1:1,
+                      dj_textsize:1, dj_voice:1, dj_ai_choice:1, dj_circle_include:1, dj_lastopen:1, dj_sandbox:1, dj_idb_wipe:1,
+                      now_next_profiles_v1:1, occ_counter_v1:1, occTipSeen:1, pwaTipSeen:1 };
+  var SHARED_PAT = /^dj_(textsize|hello_|tour_|seen_|a2hs_|tipseen_|lastopen|menu_seen_|voice|ai_choice|circle_include|sandbox|level_|glass_|tester|idb_wipe|start_)/;
+  /* an app's own declaration: window.DJ_OWNS = ['key', …]  or  { k:[…], p:[prefixes], idb:[databases] } */
+  function declared(){
+    var d = window.DJ_OWNS; if(!d) return null;
+    if(Array.isArray(d)) return { k:d.map(String), p:[], idb:[] };
+    if(typeof d === 'object') return { k:(d.k || d.keys || []).map(String), p:(d.p || d.prefixes || []).map(String), idb:(d.idb || []).map(String) };
+    return null;
+  }
+  function ownsFor(me){
+    var a = OWNS[me], d = declared();
+    if(!a && !d) return null;
+    var o = { k:[], p:[], idb:[] };
+    [a, d].forEach(function(x){ if(!x) return; o.k = o.k.concat(x.k || []); o.p = o.p.concat(x.p || []); o.idb = o.idb.concat(x.idb || []); });
+    return o;
+  }
 
   function slugOf(){
     var s = (window.DJ_START && window.DJ_START.slug) ||
@@ -330,46 +467,51 @@
     var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
                  churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
                  churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
-                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper'};
+                 f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper', bizmgr:'businessmanager'};
     return alias[s] || s;
   }
 
   function myKeys(){
-    var me = slugOf(), mine = OWNS[me];
+    var me = slugOf(), mine = ownsFor(me);
     if(!mine) return null;                            /* unknown app — do not guess */
     var guard = {};
     Object.keys(OWNS).forEach(function(a){
       if(a === me) return;
       OWNS[a].k.forEach(function(x){ guard[x] = a; });
     });
-    /* two apps genuinely share the shoebox count, so neither may erase it */
-    var shared = {'occ_counter_v1':1, 'occTipSeen':1, 'now_next_v1':(me !== 'nownext') ? 1 : 0};
+    /* two apps genuinely share the shoebox count, so neither may erase it; the shared names are never erased
+       by any app except the one that owns them by name (My Circle may clear dj_circle_v1) */
+    var shared = {'now_next_v1':(me !== 'nownext') ? 1 : 0};
     var out = [];
     try{
       for(var i=0; i<localStorage.length; i++){
         var k = localStorage.key(i); if(!k) continue;
-        if(k.indexOf('dj_') === 0) continue;
+        var named = mine.k.indexOf(k) >= 0;
         if(shared[k]) continue;
-        var owned = mine.k.indexOf(k) >= 0;
-        if(!owned) for(var j=0; j<mine.p.length; j++) if(k.indexOf(mine.p[j]) === 0){ owned = true; break; }
+        if((SHARED_KEYS[k] || SHARED_PAT.test(k)) && !(named && me === 'circle' && k === 'dj_circle_v1')) continue;
+        if(/(_seen|TipSeen|_intro(_.*)?)$/.test(k) || /^daraja_intro_/.test(k)) continue;   /* v64: "I have seen the welcome" flags stay — erasing them made Every Day, Our Table and Who's Coming put their examples straight back */
+        var owned = named;
+        if(!owned) for(var j=0; j<mine.p.length; j++) if(mine.p[j] && k.indexOf(mine.p[j]) === 0){ owned = true; break; }
         if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
         if(!owned) continue;
-        if(guard[k] && mine.k.indexOf(k) < 0) continue;   /* another app's, by name */
+        if(guard[k] && !named) continue;   /* another app's, by name */
         out.push(k);
       }
     }catch(e){}
     return out;
   }
+  window.djOwnedKeys = myKeys;   /* for the checks: which saved names Start fresh would erase here */
 
   function startFresh(){
     var keys = myKeys();
     if(keys === null){ alert('This app is not set up to erase itself yet — tell Jerry.'); return; }
-    var dbs = (OWNS[slugOf()] || {}).idb || [];
+    var dbs = (ownsFor(slugOf()) || {}).idb || [];
     if(!keys.length && !dbs.length){ alert('There is nothing saved in this app yet — nothing to erase.'); return; }
     var appNm = ''; try{ appNm = (document.title || '').split(/ [·|—–-] /)[0].trim(); }catch(e){}
     if(!confirm('Erase your ' + (appNm || 'app') + ' information on this phone?' + (dbs.length ? '\n\nThis includes the files and recordings you added.' : '') +
                 '\n\nYour other Daraja apps are not touched. This cannot be undone.')) return;   /* v63: plain words, not storage key names */
     if(!confirm('Last check — erase this app’s data?')) return;
+    try{ window.__djErasing = {}; keys.forEach(function(k){ window.__djErasing[k] = 1; }); }catch(e){}   /* v64: Our Table, Every Day and Who's Coming save again as the page closes — that brought it all back */
     try{ keys.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
     /* v62 (7 Oct deep check): Start fresh left Ahead of It's attached papers on the phone. The person chose to erase,
        so the app's own file store goes too. The page reloads once the phone says it is gone (or after 2 s). */
@@ -549,7 +691,7 @@
     var VH = window.innerHeight, VW = window.innerWidth;
     for(var i=0; i<all.length; i++){
       var el = all[i];
-      if(el.id === 'djDock' || (dockEl && dockEl.contains(el))) continue;
+      if(el.id === 'djDock' || (dockEl && dockEl.contains(el)) || el.id === 'djSbx' || el.id === 'djSbxPop') continue;   /* v64: the test-copy pill finds its own free spot */
       var cs = getComputedStyle(el);
       if(cs.position !== 'fixed' && cs.position !== 'sticky') continue;
       if(cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
@@ -730,6 +872,21 @@
       nu.onclick = function(){ w.remove(); var u = location.href.split('#')[0]; u = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'dj_sandbox=1'; var t = null; try{ t = window.open(u, '_blank'); }catch(e){} if(!t) location.href = u; };
       box.appendChild(nu);
     }
+    if(window.__djSandbox){   /* v64: Leave is always here too — the pill steps out of sight when a screen has no free spot */
+      var lv = document.createElement('button'); lv.type = 'button';
+      lv.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #5B3FA0;background:#fff;color:#1F2622;cursor:pointer';
+      lv.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">Leave the test copy<br><small style="font-weight:600;color:#55605B">back to your real information</small></span>';
+      lv.onclick = function(){ w.remove(); try{ window.djSandboxLeave(); }catch(e){} };
+      box.appendChild(lv);
+    }
+    /* v64: apps without the older welcome-card "?" (Advent, Every Day, Who's Coming, Our Table…) had no Start fresh at all */
+    if(!document.getElementById('djHelp') && window.djStartFresh && myKeys() !== null && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect|kenya)\//.test(location.pathname)){   /* not on the shared pages: a tester's sign-in lives there */
+      var sf = document.createElement('button'); sf.type = 'button';
+      sf.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      sf.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧹</span><span style="flex:1">Start fresh — erase this app’s data<br><small style="font-weight:600;color:#55605B">asks twice before anything is erased</small></span>';
+      sf.onclick = function(){ w.remove(); window.djStartFresh(); };
+      box.appendChild(sf);
+    }
     if(window.DJ_MENU){
       var mr = document.createElement('button'); mr.type = 'button';
       mr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
@@ -867,6 +1024,9 @@
 
   /* offline: say so once, calmly — the app keeps working, everything saves on the phone */
   function offlineNote(){
+    /* v64 (10 Oct): inside Feedback Studio (or the Daraja door) the page around the app already says "No connection",
+       so the app inside showed a second strip right under it. One is enough: the outer page speaks. */
+    try{ if(window.top !== window.self && window.parent.__djHouse) return; }catch(e){}
     var bar = null;
     function paintNet(){
       var off = (navigator.onLine === false);
@@ -974,7 +1134,7 @@
     st.textContent = '@media print{'
       + '@page{margin:16mm 14mm;}'
       + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
-      + '#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
       + 'a{color:#000 !important;text-decoration:none !important;}'
       + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
       + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
@@ -1359,6 +1519,28 @@
      came back, and one warm sentence from a pool of forty. Seven seconds, or tap it away.
      Never on the store, the tools, or inside a frame. */
   var HELLO = ['You showed up. That is most of it.','Small steps count double on the hard days.','Nothing here needs to be perfect. It just needs to be yours.','One thing at a time is not slow. It is how things get done.','If today is heavy, do the smallest thing on the list and call it a win.','Somebody is glad you are here today. Probably several somebodies.','You do not have to feel ready. You just have to start.','A day you kept going is a good day, whatever else happened.','It is fine to rest. The list will keep.','The people who love you would rather have you tired than absent.','Three deep breaths cost nothing and change the next ten minutes.','You have handled every day so far. Today is another one of those.','Call someone today. It counts for both of you.','Drink some water. Old advice, still true.','The garden does not hurry, and it still blooms.','Progress that nobody sees is still progress.','If you are stuck, tell one person. Stuck things move when they are spoken.','Today you get to be a beginner at something. That is a gift.','Whatever you are carrying, you can set it down for ten minutes.','Sunshine on your face for five minutes is medicine.','Look at one old photo today, and let it be a good thing.','Being kind to yourself is not lazy. It is maintenance.','Nobody is keeping score except you. Be a generous scorekeeper.','Ask for the help you would happily give someone else.','The next right thing is usually small and close.','A short walk beats a long worry.','It is never too late in the day to make it a decent day.','The grandkids will remember the time, not the tidiness.','Write one sentence about today. Future you will thank you.','A meal cooked slowly is a way of saying you matter.','You are allowed to change your mind about anything.','Laugh at one thing today, on purpose.','What you finished last week still counts this week.','Feeling behind is a feeling, not a fact.','Say thank you to someone today, out loud.','The list is not the boss of you. You are.','A quiet day is not a wasted day.','You have taught more people more things than you know.','Do the thing you keep putting off, badly, for five minutes.','You are here. That is the whole first step.'];
+  /* v64 (10 Oct): GameDay — a kids' church sports league — greeted its coaches with "The grandkids will remember the time,
+     not the tidiness." Each app now draws from a pool that fits who uses it. An app can say so itself with
+     window.DJ_AUDIENCE = 'church' | 'kids' | 'business' | 'later' | 'neutral' (or <meta name="dj-audience">); otherwise
+     the store's shelf decides, and an app on no shelf gets the neutral pool. */
+  var HELLO_LATER_ONLY = /grandkids|old photo|taught more people/i;
+  var HELLO_POOLS = {
+    later: HELLO,
+    neutral: HELLO.filter(function(l){ return !HELLO_LATER_ONLY.test(l); }),
+    church: ['Thank you for serving. It matters more than anyone says out loud.','Many hands, light work. You are one of the hands.','Small faithful things, done again and again, build a church.','You do not have to carry the whole ministry. Just today’s part.','Somebody will feel welcomed because of what you set up here.','Rest is part of the work too.','The list can wait for a prayer. A short one counts.','Every name on these pages is a person someone loves.','A thank-you note to one volunteer can carry them for a month.','Behind every Sunday is a lot of Monday. Thank you.','Done with love beats done perfectly.','Ask for help early. People like being asked.','Ten quiet minutes of planning saves an hour of scrambling.','Joy is allowed in the details.','You are building something that will outlast the week.','One step at a time is still moving forward.','Count the good that happened, not only the gaps.','Grace for yourself today, the same as you would give anyone else.','A full room starts with one person who said yes.','Whatever you are carrying, you can set it down for ten minutes.'],
+    kids: ['Game day energy! Let’s have a good one.','Every kid on the roster matters, the bench too.','Cheer loud for effort, not just for goals.','Good sports win even when the score says otherwise.','Water, snacks, sunscreen. The big three.','Learn one new name today, and use it.','Practice makes progress.','High fives are free. Hand them out.','Mistakes mean you are trying. Keep trying.','The best teams look out for each other.','Have fun out there. That is the whole point.','Show up, play hard, be kind.','A coach’s smile can make a kid’s whole week.','Win or learn. Never lose.','Thank a ref today. Their job is hard too.','Teamwork makes the dream work.'],
+    business: ['One invoice out today beats five planned for tomorrow.','Write the price down before you forget what it cost you.','A quick reply wins more jobs than a perfect one.','Follow up once. Most people just forgot.','Your time is part of the price.','Small, steady habits keep the books calm.','Today is a good day to send that quote.','Every satisfied customer is a future referral.','Protect an hour for the work that pays.','Done is better than perfect for most paperwork.','Know your numbers and the rest gets easier.','Say thank you to a good customer today.','Ten minutes of tidying the books now saves an evening later.','It is fine to say no to a job that does not fit.','The next right thing is usually small and close.','You built this. Give yourself some credit today.']
+  };
+  var AUDIENCE_OF = { advent:'church', steward:'church', serve:'church', drive:'church', occ:'church', churchkey:'church', church:'church', churchhq:'church', receipts:'church',
+                      clubhouse:'kids', gameday:'kids',
+                      businessmanager:'business', quickquote:'business', nextstep:'business', drumbeat:'business', goodstanding:'business', zuri:'business', flipkit:'business', breakeven:'business',
+                      everyday:'later', storykeeper:'later', academy:'later', rafiki:'later', keepsake:'later', porchlight:'later' };
+  function audience(){
+    var a = ''; try{ a = String(window.DJ_AUDIENCE || ((document.querySelector('meta[name="dj-audience"]') || {}).content) || '').toLowerCase(); }catch(e){}
+    if(!HELLO_POOLS[a]) a = kidsPage() ? 'kids' : (AUDIENCE_OF[slugOf()] || 'neutral');
+    return a;
+  }
+  window.djAudience = audience;
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
@@ -1371,7 +1553,7 @@
     try{ localStorage.setItem(key, JSON.stringify({ last: today, run: run, days: (rec.days||0) + 1 })); }catch(e){}
     var h = new Date().getHours(), g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     var nm = djName(); var seed = 0; for(var i = 0; i < today.length; i++) seed += today.charCodeAt(i) * (i + 3);
-    var line = HELLO[(seed + slug.length) % HELLO.length];
+    var pool = HELLO_POOLS[audience()] || HELLO_POOLS.neutral, line = pool[(seed + slug.length) % pool.length];
     var back = run >= 3 ? ' Day ' + run + ' in a row here.' : (rec.days >= 2 && run === 1 ? ' Welcome back.' : '');
     /* "we missed you": the last time ANY Daraja app was opened on this phone. Three days or more
        away, and the hello says so kindly and asks for the smallest thing — never a guilt trip. */
@@ -1408,7 +1590,12 @@
     var big = false;
     Array.prototype.forEach.call(document.body.children, function(el){
       if(big || el.id === 'pwaTip' || el.id === 'djA2HS') return; var c = getComputedStyle(el);
-      if(c.position === 'fixed' && c.display !== 'none' && c.visibility !== 'hidden' && +c.opacity > 0){ var r = el.getBoundingClientRect(); if(r.height > H * 0.6 && r.width > window.innerWidth * 0.8) big = true; }
+      if(c.position === 'fixed' && c.display !== 'none' && c.visibility !== 'hidden' && +c.opacity > 0){
+        /* v64 (10 Oct): OCC Assistant and Ahead of It · Church paint a full-screen background (#djBg: fixed, behind
+           everything, pointer-events:none, no words). It counted as "a card is open", so the Home Screen card never came. */
+        if(c.pointerEvents === 'none' || (parseInt(c.zIndex, 10) || 0) < 0 || !/\S/.test(el.textContent || '')) return;
+        if(el.id === 'djSbx' || el.id === 'djSbxPop' || el.id === 'djHello') return;
+        var r = el.getBoundingClientRect(); if(r.height > H * 0.6 && r.width > window.innerWidth * 0.8) big = true; }
     });
     return big;
   }
@@ -1420,7 +1607,7 @@
     if(hide) return;
     var H = window.innerHeight, top = H;
     Array.prototype.forEach.call(document.body.querySelectorAll('*'), function(el){
-      if(el === t || t.contains(el) || el.id === 'djHello' || el.id === 'djOffline') return;
+      if(el === t || t.contains(el) || el.id === 'djHello' || el.id === 'djOffline' || el.id === 'djSbx' || el.id === 'djSbxPop') return;
       var c = getComputedStyle(el); if(c.position !== 'fixed' || c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return;
       var r = el.getBoundingClientRect(); if(r.width < 24 || r.height < 24 || r.bottom <= H * 0.45 || r.height > H * 0.5 || r.top < 0) return;   /* a full-screen card is not a bar */
       if(r.top < top) top = r.top;
@@ -1436,7 +1623,7 @@
     try{
       if(!document.body) return; var H = window.innerHeight, top = H;
       Array.prototype.forEach.call(document.body.querySelectorAll('*'), function(el){
-        if(el.id === 'djHello' || el.id === 'djOffline' || el.id === 'djSaved') return;
+        if(el.id === 'djHello' || el.id === 'djOffline' || el.id === 'djSaved' || el.id === 'djSbx' || el.id === 'djSbxPop') return;
         var c = getComputedStyle(el); if(c.position !== 'fixed' || c.display === 'none' || c.visibility === 'hidden' || +c.opacity === 0) return;
         var r = el.getBoundingClientRect(); if(r.width < 24 || r.height < 24 || r.bottom < H - 2 || r.top < H * 0.55) return;   /* only things sitting on the bottom edge */
         if(r.top < top) top = r.top;
@@ -1680,7 +1867,23 @@
        killed, the page reloaded) the person stayed on Level 3. The level is written down here and put back on the
        next open unless the tour finished. */
     try{ if(!localStorage.getItem('dj_tour_lvl_' + T.slug)){ var lk = {}, LK = ['dj_level_' + T.slug].concat(T.slug === 'nownext' ? ['nn_level_v1'] : []); LK.forEach(function(k){ lk[k] = localStorage.getItem(k); }); localStorage.setItem('dj_tour_lvl_' + T.slug, JSON.stringify({ path:location.pathname, keys:lk })); } }catch(e){}
-    var steps = [], i = 0, phase = '';
+    var steps = [], i = 0, phase = '', demoRan = false;
+    /* v64 (10 Oct): "Start fresh? The examples will be cleared." came up when the person had skipped the tour and
+       no example was ever added. Ask only when there is something to clear: the demo put examples in, the app says
+       it holds examples (DJ_TOUR.hasExamples), or this app's saved data has real entries in it. */
+    function filled(v){ if(v == null) return false; if(Array.isArray(v)) return v.length > 0; if(typeof v === 'object'){ for(var k in v){ if(Object.prototype.hasOwnProperty.call(v, k) && filled(v[k]) && (Array.isArray(v[k]) || typeof v[k] === 'object')) return true; } return false; } return false; }
+    function examplesThere(){
+      if(demoRan) return true;
+      if(T.hasExamples){ try{ return !!(new Function('return (' + T.hasExamples + ')'))(); }catch(e){ return true; } }
+      var ks = null; try{ ks = myKeys(); }catch(e){}
+      if(ks === null) return !!force;   /* an app the house cannot read: only ask when the tour was opened again on purpose */
+      for(var n = 0; n < ks.length; n++){ var raw = null; try{ raw = localStorage.getItem(ks[n]); }catch(e){} if(raw == null || raw === '') continue;
+        if(force) return true;   /* the tour opened again on purpose: whatever is saved is theirs — always ask */
+        var v; try{ v = JSON.parse(raw); }catch(e){ return true; }   /* plain words saved: something is there */
+        if(filled(v)) return true; }
+      try{ if((ownsFor(slugOf()) || {}).idb && (ownsFor(slugOf()).idb || []).length && force) return true; }catch(e){}
+      return false;
+    }
     function build(){
       steps = [];
       (T.intro || []).forEach(function(s, k){ steps.push({ kind:'slide', part:'What it does', em:s.em, h:s.h, p:s.p, first:k === 0 }); });
@@ -1695,15 +1898,17 @@
     function jump(id){ for(var k = 0; k < steps.length; k++) if(steps[k].id === id){ i = k; show(); return; } }
     function dots(){ var parts = ['What it does','See it work','Every screen','Your turn']; return '<div style="display:flex;gap:6px;margin-bottom:10px">' + parts.map(function(p){ var on = p === steps[i].part; return '<span style="flex:1;height:5px;border-radius:9px;background:' + (on ? '#F2B134' : '#E2DCCF') + '"></span>'; }).join('') + '</div><div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#B5832A;margin-bottom:4px">' + esc(T.name) + ' · ' + esc(steps[i].part) + '</div>'; }
     function quietBtn(){ var q = false; try{ q = localStorage.getItem('dj_tour_quiet') !== '0'; }catch(e){} return '<button type="button" id="djTourQ" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:36px;cursor:pointer">' + (q ? '🔈 Turn the voice on' : '🔊 Voice is on (tap to turn off)') + '</button>'; }
-    function nav(nextLabel){ return '<div style="display:flex;gap:8px;margin-top:12px">' + (i > 0 ? '<button type="button" id="djTourB" style="' + BIG + 'background:#fff;border:1.5px solid #C9C1AE;color:' + INK + '">‹</button>' : '') + '<button type="button" id="djTourN" style="' + BIG + 'flex:1;background:' + BR + ';border:0;color:#fff">' + nextLabel + '</button></div><div style="display:flex;justify-content:space-between;margin-top:6px">' + quietBtn() + '<button type="button" id="djTourS" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:36px;cursor:pointer">skip the tour</button></div>'; }
+    function nav(nextLabel){ return '<div class="djTourNav" style="position:sticky;bottom:-2px;background:#FFFDF8;padding:2px 0 2px;margin:0 -2px"><div style="display:flex;gap:8px;margin-top:12px">' + (i > 0 ? '<button type="button" id="djTourB" style="' + BIG + 'background:#fff;border:1.5px solid #C9C1AE;color:' + INK + '">‹</button>' : '') + '<button type="button" id="djTourN" style="' + BIG + 'flex:1;background:' + BR + ';border:0;color:#fff">' + nextLabel + '</button></div><div style="display:flex;justify-content:space-between;margin-top:6px">' + quietBtn() + '<button type="button" id="djTourS" style="font:inherit;font-size:13px;background:none;border:0;color:' + SOFT + ';text-decoration:underline;min-height:44px;cursor:pointer">skip the tour</button></div></div>'; }
     /* v59: the box stays in ONE place — the bottom of what the person can actually see — and the page scrolls
        so the gold ring sits above it. Jerry: "can you just stay one spot"; in Every Day the box went off the top
        and he was stuck. Inside a frame (Feedback Studio) the visible band is worked out from the parent. */
     function band(){ var t = 0, b = innerHeight; try{ if(window.top !== window.self && window.frameElement){ var r = window.frameElement.getBoundingClientRect(), ph = parent.innerHeight; t = Math.max(0, -r.top); b = Math.min(innerHeight, ph - r.top); if(b - t < 200){ t = 0; b = innerHeight; } } }catch(e){} return [t, b]; }
-    function pin(top){ var bd = band(); if(top){ card.style.bottom = ''; card.style.top = ((bd[0] + 10) / Z) + 'px'; } else { card.style.top = ''; card.style.bottom = (Math.max(10, innerHeight - bd[1] + 10) / Z) + 'px'; } card.style.maxHeight = (Math.max(220, (bd[1] - bd[0]) * 0.55) / Z) + 'px'; }
+    /* v64 (10 Oct): in Feedback Studio's small app window the box was capped at 55% and "skip the tour" sat below the fold of it.
+       With nothing to point at (slides, questions) the box may use most of the screen; the Next / skip row always stays in view. */
+    function pin(top, tall){ var bd = band(); if(top){ card.style.bottom = ''; card.style.top = ((bd[0] + 10) / Z) + 'px'; } else { card.style.top = ''; card.style.bottom = (Math.max(10, innerHeight - bd[1] + 10) / Z) + 'px'; } card.style.maxHeight = (Math.max(220, (bd[1] - bd[0]) * (tall ? 0.86 : 0.55) - (tall ? 20 : 0)) / Z) + 'px'; }
     function place(target){
       var el = null; try{ el = target ? document.querySelector(target) : null; }catch(e){}
-      card.style.transform = 'translateX(-50%)'; pin();
+      card.style.transform = 'translateX(-50%)'; pin(false, !target);
       if(el && el.getBoundingClientRect().width > 0){
         shade.style.display = 'none';
         var bd = band(), ch = card.getBoundingClientRect().height || 260, room = (bd[1] - bd[0]) - ch - 30;
@@ -1731,6 +1936,7 @@
     }
     function show(){
       var st = steps[i]; tourHush();
+      card.style.cursor = (st.kind === 'slide' || st.kind === 'point') ? 'pointer' : '';
       if(st.kind === 'slide'){
         place(null);
         card.innerHTML = dots() + '<div style="font-size:54px;line-height:1;margin:4px 0 8px">' + (st.em || '') + '</div><div style="font-weight:900;font-size:24px;line-height:1.2;margin-bottom:8px">' + st.h + '</div><p style="margin:0;color:' + SOFT + ';font-size:17px">' + st.p + '</p>' + nav(st.first ? '▶ Start the tour' : 'Next ›');
@@ -1747,6 +1953,7 @@
         tourSpeak(st.h + '. ' + st.p); return;
       }
       if(st.kind === 'point'){
+        if(st.go && st.part === 'See it work') demoRan = true;
         tourRun(st.go);
         setTimeout(function(){ place(st.target); }, 350);
         card.innerHTML = dots() + '<p style="margin:0;font-size:18px;font-weight:700">' + st.say + '</p>' + nav(i + 1 < steps.length && steps[i+1].kind === 'point' ? 'Next ›' : 'Done with this part ›');
@@ -1769,10 +1976,21 @@
           + '<button type="button" id="djTourKeep" style="' + BIG + 'width:100%;text-align:left;background:#fff;border:1.5px solid ' + BR + ';color:' + INK + ';margin-bottom:8px">🧪 Keep the examples to play with<br><span style="font-weight:500;font-size:14px;color:' + SOFT + '">' + esc(T.keepNote || 'Try everything on pretend information. Clear it when you are ready.') + '</span></button>'
           + '<button type="button" id="djTourFresh" style="' + BIG + 'width:100%;text-align:left;background:' + BR + ';border:0;color:#fff">✨ Start fresh with my own<br><span style="font-weight:500;font-size:14px;opacity:.9">' + esc(T.freshNote || 'An empty app, ready for your real information.') + '</span></button>';
         card.querySelector('#djTourKeep').onclick = function(){ finish('keep'); };
-        card.querySelector('#djTourFresh').onclick = function(){ if(confirm('Start fresh? The examples will be cleared.')) finish('fresh'); };
+        card.querySelector('#djTourFresh').onclick = function(){ if(!examplesThere() || confirm(force ? 'Start fresh? What is in this app now will be cleared.' : 'Start fresh? The examples will be cleared.')) finish('fresh'); };
         tourSpeak('How do you want to start? Keep the examples to play with, or start fresh with your own.'); return;
       }
     }
+    /* v64 (11 Oct, a Kenya tester on Android inside Feedback Studio tapped a slide's words ~10 times expecting it to move on):
+       a tap anywhere on the words of a slide or a "watch this" step does what Next does. Buttons, links and boxes inside
+       the card keep their own job; a question step (two choices) and the last step never advance on a stray tap. */
+    var lastTap = 0;
+    card.addEventListener('click', function(e){ try{
+      var st = steps[i]; if(!st || (st.kind !== 'slide' && st.kind !== 'point')) return;
+      var t = e.target; if(t && t.closest && t.closest('button,a,input,select,textarea,label,iframe,video,summary,[role="button"],[onclick],[contenteditable="true"]')) return;
+      try{ var sel = window.getSelection && String(getSelection()); if(sel && sel.length > 2) return; }catch(x){}
+      if(Date.now() - lastTap < 450) return; lastTap = Date.now();
+      var n = card.querySelector('#djTourN'); if(n) n.click();
+    }catch(err){} });
     build(); show();
     window.addEventListener('resize', function(){ var st = steps[i]; if(st && st.kind === 'point') place(st.target); });
   }
@@ -1830,7 +2048,8 @@
     try{ w.querySelector('button').focus(); }catch(e){}
   }
   window.djMenu = { open:function(){ openMenu(true); } };
-  function menuLater(){
+  function menuLater(tries){
+    tries = tries || 0;
     setTimeout(function(){
       var M = window.DJ_MENU; if(!M) return;
       var go = ''; try{ go = new URLSearchParams(location.search).get('dj_go') || ''; }catch(e){}
@@ -1839,13 +2058,18 @@
         if(it) setTimeout(function(){ menuRun(it.go); }, 400); return; }
       try{ if(window.top !== window.self && /\/home\//.test(parent.location.pathname)) return; }catch(e){}
       if(document.getElementById('djTour') || guestVisit()) return;
+      /* v64 (10 Oct, Business Manager): the menu opened on top of the setup interview when the tour was done but setup
+         was not. An app says when its menu makes sense with DJ_MENU.when (a test, e.g. "setup finished"); and the menu
+         never opens over a welcome card or anything full-screen of the app's own. Not recorded as seen, so it comes next time. */
+      if(M.when){ var ok = false; try{ ok = typeof M.when === 'function' ? !!M.when() : !!(new Function('return (' + M.when + ')'))(); }catch(e){ ok = false; } if(!ok) return; }
+      try{ if(cardOpen()){ if(tries < 6) menuLater(tries + 1); return; } }catch(e){}   /* a splash still fading: look again for a few seconds */
       if(window.DJ_TOUR){ var td = null; try{ td = localStorage.getItem('dj_tour_' + window.DJ_TOUR.slug); }catch(e){} if(!td) return; }
       var last = 0; try{ last = +localStorage.getItem('dj_menu_seen_' + M.slug) || 0; }catch(e){}
       if(!last){ try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){} if(!window.DJ_TOUR) return; }
       var now = Date.now(), newDay = new Date(last).toDateString() !== new Date(now).toDateString();
       if(!last || newDay || now - last > 4 * 3600e3) openMenu(false);
       else try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(now)); }catch(e){}
-    }, 1300);
+    }, tries ? 1000 : 1300);
   }
 
   function seniorsPass(){ try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} }, 1200); }
@@ -1871,6 +2095,7 @@
   else boot();
 })();
 </script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
@@ -2857,7 +3082,9 @@ function mailCard(m) {
 /* reader sheet */
 function openSheet(nodes) {
   const s = $("#sheet"), inner = $("#sheetInner");
-  inner.replaceChildren(...nodes);
+  /* 11 Oct (pass B): an optional part that isn't there (the scam warning on an ordinary email, the
+     "Ask a question" button on some Help pages) is null — replaceChildren printed it as the word "null". */
+  inner.replaceChildren(...nodes.flat().filter((n) => n != null && n !== false));
   s.hidden = false;
   inner.scrollTop = 0;
   const first = inner.querySelector("button"); if (first) first.focus();
@@ -3162,6 +3389,7 @@ function viewSettings() {
             h("button", { class: "btn btn-danger", type: "button", onclick: eraseAll }, "Yes, erase everything"),
             h("button", { class: "btn btn-quiet", type: "button", onclick: () => { confirmErase = false; render(); } }, "No, keep it"))
         : h("button", { class: "btn btn-quiet", type: "button", onclick: () => { confirmErase = true; render(); } }, "Erase my information")),
+    h("p", { class: "muted small", id: "plVer", style: "text-align:center" }, "Porchlight v1.1 · 2026-10-11 · Daraja Studio"),
   ];
   return out;
 }
