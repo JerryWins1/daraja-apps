@@ -6,11 +6,20 @@
 <title>Daraja Test Week</title>
 <meta name="theme-color" content="#1C2B29">
 <meta name="robots" content="noindex">
-<!-- Daraja Test Week (shared page) · v1.6 · 2026-10-11 — ONE file, two editions, picked by the address:
+<!-- Daraja Test Week (shared page) · v1.7 · 2026-10-13 — ONE file, two editions, picked by the address:
        daraja-apps/kenya/   → EDITION kenya   (Kenya Student Test Week: KES pay, Swahili greetings, shop/kenya/<key>.json, KENYA| lines)
        daraja-apps/friends/ → EDITION friends (Jerry's friends in the US: no pay, Founding-Tester thank-you, shop/friends/<key>.json, FRIEND| lines,
                                                videos mode=firsttime, bigger text + Aa button, "choose any app")
      Ship the SAME file to kenya/index.html and friends/index.html, so a fix lands in both. Edition text lives in EDITIONS below.
+     v1.7 = DAILY USE + STREAKS (+ Kenya weekly competition). A finished app joins “📅 Today’s uses” on the home screen; from the next day
+           the tester does its small daily job (shop/<edition>/<key>.json → daily.task) and taps “✅ I used it today”. The page reads the
+           app's own saved data (same origin; OWN below) and hashes it: the day counts only if the hash differs from the last counted one.
+           GameDay (no saved data) asks a short answer instead (daily.ask; must differ from yesterday's). Streaks per app + an overall
+           testing streak (any finished app / survey / daily use); one rest day per 7 days in each streak. Kenya: +150 KES per app at 7
+           days in a row (once), overall +50 at 3 days and +150 at 7 (once each), shown as earned. Each counted use = one small report,
+           first line DAILY|key|day:YYYY-MM-DD|streak:n|v1.7 (+ STREAK|days:n when the overall streak changed; STREAK| is also added as
+           the LAST line of a finished-app or survey report when it changes). Kenya only: “🏆 This week” card from kenya/leaderboard.json
+           (written by Kenya Test Week/tally.py), viewer matched by 't:'+fnv('dj|'+who) or 'n:'+fnv('dj|'+full name, lowercased).
      v1.6 = Part 5 “Quick survey” after Own words (like/use/easy/videos/NPS/buy+fair price/who for + 4 short texts; first two needed,
            “Skip the survey” still sends). ONCE per app per tester: at the end, or when they leave the app unfinished for another
            (then sent as its own small report whose FIRST line is SURVEY|…, so HQ never counts it as a finished app). Never asked twice
@@ -122,6 +131,11 @@ html.ed-friends #ver{font-size:14px}
 .scale{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--mute);margin-top:6px}
 .q textarea{min-height:64px}
 .linkbtn{display:block;margin:14px auto 0;background:none;border:0;color:var(--mute);text-decoration:underline;font:16px/1.3 inherit;font-family:inherit;min-height:48px;padding:8px 16px;cursor:pointer}
+.card.dcard{background:var(--soft);border-color:var(--brand)}
+ul.daily{list-style:none;padding:0;margin:0}ul.daily li{border-top:1px solid var(--line);padding:10px 0}ul.daily li:first-child{border-top:0}
+.dh{display:flex;justify-content:space-between;align-items:center;gap:8px}.fire{font-weight:700;white-space:nowrap}
+.dok{color:var(--ok);font-weight:700;margin:4px 0 0}.dwarn{background:var(--warnbg);padding:8px 10px;border-radius:10px;margin:8px 0 0;font-size:15px}
+.aw{border-top:1px solid var(--line);padding:10px 0}.aw:first-of-type{border-top:0}ol.lbtop{margin:4px 0 0;padding-left:22px}ol.lbtop li{padding:2px 0}ol.lbtop li span:first-child{margin-right:8px}
 html.ed-friends .opt{font-size:18px;min-height:56px}html.ed-friends .qt{font-size:20px}html.ed-friends .qt.sub{font-size:18px}
 html.ed-friends .chips.faces .opt small{font-size:12px}html.ed-friends .scale{font-size:15px}html.ed-friends .linkbtn{font-size:18px}
 </style>
@@ -130,12 +144,12 @@ html.ed-friends .chips.faces .opt small{font-size:12px}html.ed-friends .scale{fo
 <main>
   <header class="top"><span class="flag" id="hdrFlag" aria-hidden="true">🇰🇪</span><div><b id="hdrTitle">Daraja Test Week</b><small id="hdrName"></small></div><button id="tsz" type="button" data-a="tsz" aria-label="Make the words bigger">Aa+</button></header>
   <div id="view"><p class="muted">Loading…</p></div>
-  <div id="ver">Daraja Test Week v1.6 · 2026-10-11</div>
+  <div id="ver">Daraja Test Week v1.7 · 2026-10-13</div>
 </main>
 <script>
 (function(){
 'use strict';
-var VERSION = 'v1.6 · 2026-10-11';
+var VERSION = 'v1.7 · 2026-10-13';
 var BASE = 'https://jerrywins1.github.io/daraja-apps/';
 var MAILBOX_FALLBACK = 'https://script.google.com/macros/s/AKfycbw1hgXVj5E8x8Ampm1fYK9po07pmSh9zrHfyVn3RvEYOR15_xb2jNPdlgzUuariPPrp/exec';
 var PRACTICE = 'nownext';   /* 11 Oct (Jerry): everyone tests One Thing first and most */
@@ -160,7 +174,7 @@ var EDITIONS = {
   kenya: {
     pre:'dj_kenya', dir:'kenya', tag:'KENYA', qApp:'kenya-q', ping:'kenya', title:'Kenya Test Week', flag:'🇰🇪', head:'Daraja Test Week',
     hi:'Habari, ', welcome:'Karibu! What is your first name?', thanks:'Asante sana.', wordsHint:'There is no wrong answer. Two or three sentences is perfect. Swahili or English is fine.',
-    pay:true, PAY_APP:120, PAY_PROBLEM:50, pick:false, explainVoice:['breakeven','safety'],
+    pay:true, PAY_APP:120, PAY_PROBLEM:50, STREAK_APP7:150, STREAK_O3:50, STREAK_O7:150, compete:true, pick:false, explainVoice:['breakeven','safety'],
     apps:{}, rotate:ROTATE_BASE, last:['safety'],
     behind:'Jerry is 8 hours behind Kenya. His answer will appear on this page under “Answers to your questions”, usually within a day.',
     faq:[
@@ -168,6 +182,8 @@ var EDITIONS = {
       ['The app looks different from the steps. What do I do?', 'Tap ❌ It didn’t and write what you see instead. Apps change while we fix them. A difference is useful to us — it is not your mistake.'],
       ['A button is hidden or covered.', 'Scroll a little, close any card or box on top, or turn the phone sideways. If you still cannot reach it, tap ❌ It didn’t and say which button was hidden. That is a real problem.'],
       ['How and when am I paid?', '120 KES for each app you finish with the challenge passed, and 50 KES for each real problem Jerry confirms. Jerry checks every report first (he is 8 hours behind Kenya), then pays by M-Pesa. Your total on this page is “pending” until then.'],
+      ['What is “Today’s uses” and the streak pay?', 'When you finish an app, it joins your daily list. From the next day, do the small daily job for each app (2–5 minutes) and tap ✅ I used it today. The page checks that something really changed in the app — just opening it does not count. 7 days in a row with one app = +150 KES (once per app). Your testing streak counts every day you do anything (finish an app, send a survey or a daily use): +50 KES at 3 days and +150 KES at 7 days (once each). Missed a day? Each streak gets one rest day every 7 days, so it keeps going (the rest day itself does not add a day). Miss two days in a row and it starts again at 1. Streak bonuses are counted by the page itself.'],
+      ['How does the weekly competition work?', 'Every week (Friday to Thursday, Kenya time) Jerry gives five awards, announced on Friday: 🔥 Longest streak, 🐞 Bug hunter (most CONFIRMED real problems — only problems Jerry has checked and confirmed count), 💡 Best idea (an idea we decide to build), 📱 Most apps finished (challenge passed) and ⭐ Tester of the week (Jerry’s pick). Each award is 500 KES, ⭐ Tester of the week is 1,000 KES. A tie shares the prize. The board shows first names only — never amounts or phone numbers. The first week runs until Thursday 22 October.'],
       ['What counts as a real problem?', 'Something that does not work, a button you cannot find, words that confuse you, a wrong number, or the app not keeping what you typed. A fast tick with no testing is not useful — honesty beats speed.'],
       ['How do I save data (bundles)?', 'Watch videos on Wi-Fi when you can, or tap “Read it instead”. The apps themselves are small. Your answers are saved on your phone and send when you have internet.'],
       ['The page will not load or looks broken.', 'Open it in Chrome (if it opened inside WhatsApp, tap ⋮ → Open in Chrome). Pull down to refresh. Your progress is saved on the phone, so nothing is lost. Always use the same phone and the same link.'],
@@ -193,6 +209,7 @@ var EDITIONS = {
       ['A button is hidden or covered.', 'Scroll a little, close any card or box on top, or turn the phone sideways. If you still cannot reach it, tap ❌ It didn’t and say which button was hidden. That is a real problem.'],
       ['I can’t hear the video.', 'Turn the volume up, check the silent switch on the side of an iPhone, and tap 🔊 inside the video if you see it. Or tap “Read it instead” under the video button.'],
       ['Does this cost anything? Am I paid?', 'It costs nothing, and you will never be asked for a card. There is no payment for testing. As a thank-you, Founding Testers get their first year of the Family & Later-life membership free, then half price for life.'],
+      ['What is “Today’s uses” and the streak?', 'When you finish an app, it joins your daily list. From the next day, do the small daily job for each app (2–5 minutes) and tap ✅ I used it today. The page checks that something really changed in the app — just opening it does not count. Using an app for a week is the best test there is: it shows what you would really keep using. 🔥 shows how many days in a row. Missed a day? Each streak gets one rest day every 7 days, so it keeps going. There is no money for streaks — just our thanks (and the Founding Tester thank-you).'],
       ['What counts as a real problem?', 'Something that does not work, a button you cannot find, words that confuse you, a wrong number, or the app not keeping what you typed. You are not being tested — the app is. Honesty beats speed.'],
       ['Is what I type private?', 'The apps keep what you type on your own phone. This page sends Jerry only your answers, your notes, your first name and full name. Please type only the made-up examples the test gives you — never real passwords, bank details or private family information.'],
       ['I am waiting for an answer from Jerry.', 'Do not wait — keep going with the next step or the next app. If you cannot do a step, use 😕 I’m stuck → Skip. Answers appear on this page under “Answers to your questions”, usually within a day.']
@@ -272,7 +289,172 @@ function nextApp(){ var o=order(), later=null; for (var i=0;i<o.length;i++){ var
 function totals(){
   var done=0, paid=0, probs=0, steps=0;
   Object.keys(S.apps).forEach(function(k){ var a=S.apps[k]; steps += Object.keys(a.ans||{}).length; if (a.stage!=='done') return; done++; if (a.ch && a.ch.pass) paid++; probs += a.fails||0; });
-  return { done:done, paid:paid, kes:paid*PAY_APP, probs:probs, steps:steps };
+  var sk=S.daily?streakKES():0;
+  return { done:done, paid:paid, kes:paid*PAY_APP+sk, streakKes:sk, probs:probs, steps:steps };
+}
+
+/* ---------- v1.7 · daily use + streaks ---------- */
+/* Each app's own saved data (localStorage, same origin). k = key prefixes, x = prefixes to leave out, i = JSON fields that change
+   by themselves when the app is only opened (found by opening every app on three different days), self = no saved data → a short answer. */
+var OWN = {
+  nownext:{k:['now_next_profiles_v1','now_next_v1_'],x:['now_next_v1_tmp']}, everyday:{k:['dj_everyday_'],x:['dj_everyday_seen']},
+  ourtable:{k:['dj_ourtable_'],x:['dj_ourtable_seen']}, church:{k:['note:','imm_sermon_notes_me']}, storykeeper:{k:['story_keeper_v1'],i:['prompts']},
+  ahead:{k:['ahead_v1']}, thekey:{k:['daraja_thekey_v']}, whoscoming:{k:['dj_whoscoming_v1']}, rafiki:{k:['rafiki_v1']}, advent:{k:['dj_advent_']},
+  churchserve:{k:['serveboard_v1']}, npreceipts:{k:['receipts_v1','receiptmaker_org_v1']}, churchdrive:{k:['church_drive_v1']},
+  churchsteward:{k:['steward_v1']}, npgoodstanding:{k:['goodstanding_v1']}, churchclubhouse:{k:['clubhouse_stars','clubhouse_done_']},
+  churchgameday:{self:true}, churchkey:{k:['daraja_churchkey_v1']}, nextstep:{k:['nextstep_board_v1']},
+  drumbeat:{k:['drumbeat_v1','drumbeat_groups_v1','drumbeat_q_v1']}, feedback:{k:['feedback_studio_v1']}, academy:{k:['daraja_academy_v1']},
+  compass:{k:['daraja_compass_v1']}, breakeven:{k:['breakeven_nums']}, safety:{k:['my_safety_plan_v1']}, porchlight:{k:['porchlight.v1']},
+  ff:{k:['myscores.picks','myscores.mgr.v1']}, pitwall:{k:['pitwall_state_v1'],i:['deadlines']}, bizmgr:{k:['bizmgr_v1']}
+};
+var R_APP7 = E.STREAK_APP7||0, R_O3 = E.STREAK_O3||0, R_O7 = E.STREAK_O7||0;
+function dayOf(t){ var off = EDITION==='kenya' ? 3*3600000 : -new Date(t).getTimezoneOffset()*60000; return new Date(t+off).toISOString().slice(0,10); }   /* Kenya = UTC+3, no summer time */
+function today(){ return dayOf(Date.now()); }
+function dnum(s){ return Math.round(Date.parse(s+'T00:00:00Z')/86400000); }
+function hex8(s){ return ('0000000'+hash(s).toString(16)).slice(-8); }
+function strip(v,ig){ if (Array.isArray(v)) return v.map(function(x){ return strip(x,ig); }); if (v && typeof v==='object'){ var o={}; Object.keys(v).sort().forEach(function(k){ if (ig.indexOf(k)<0) o[k]=strip(v[k],ig); }); return o; } return v; }
+function fingerprint(k){
+  var c=OWN[k]; if (!c || c.self) return '';
+  var keys=[], s='', m=function(n,p){ return n===p || n.indexOf(p)===0; };
+  try{ for (var i=0;i<localStorage.length;i++){ var n=localStorage.key(i); if (c.k.some(function(p){ return m(n,p); }) && !(c.x||[]).some(function(p){ return m(n,p); })) keys.push(n); } }catch(e){ return ''; }
+  if (!keys.length) return '';
+  keys.sort().forEach(function(n){ var v=lsGet(n)||''; if (c.i){ try{ v=JSON.stringify(strip(JSON.parse(v),c.i)); }catch(e){} } s+=n+'='+v+'\n'; });
+  return hash(s).toString(36)+'.'+s.length.toString(36);
+}
+function normAns(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9\u00c0-\uffff]+/g,' ').trim(); }
+function DS(){ if (!S.daily) S.daily={ apps:{}, act:[], bonus:{ apps:{} }, streakSent:0 }; S.daily.bonus.apps=S.daily.bonus.apps||{}; return S.daily; }
+function dailyList(){
+  return Object.keys(S.apps).filter(function(k){ return finished(k) && APPS[k] && OWN[k]; })
+    .sort(function(a,b){ return (S.apps[a].doneAt||0)-(S.apps[b].doneAt||0); });
+}
+function ensureDaily(k){
+  var D=DS(); if (!D.apps[k]) { var a=S.apps[k]||{}; D.apps[k]={ fp:fingerprint(k), since:dayOf(a.doneAt||Date.now()), days:[] }; save(); }
+  return D.apps[k];
+}
+/* consecutive counted days ending today or yesterday; one missing day (a rest day) may be bridged once in any 7 days */
+function streakOf(days, td){
+  var t=dnum(td), seen={}, nums=[];
+  (days||[]).forEach(function(d){ var n=dnum(d); if (n<=t && !seen[n]) { seen[n]=1; nums.push(n); } });
+  nums.sort(function(a,b){ return b-a; });
+  if (!nums.length) return { n:0, rests:[], ever:false };
+  var g=t-nums[0], rests=[], n=1;
+  if (g>2) return { n:0, rests:[], ever:true };
+  if (g===2) rests.push(t-1);
+  for (var i=1;i<nums.length;i++){ var gap=nums[i-1]-nums[i];
+    if (gap===1) { n++; continue; }
+    if (gap===2) { var r=nums[i-1]-1; if (rests.length && rests[rests.length-1]-r<7) break; rests.push(r); n++; continue; }
+    break; }
+  return { n:n, rests:rests, today:g===0, ever:true, restNow:g===2 };
+}
+function actDays(){
+  var D=DS(), out=D.act.slice();
+  Object.keys(S.apps).forEach(function(k){ var a=S.apps[k]; if (a.stage==='done' && a.doneAt) out.push(dayOf(a.doneAt)); if (a.svAt && a.svDone) out.push(dayOf(a.svAt)); });
+  Object.keys(D.apps).forEach(function(k){ out=out.concat(D.apps[k].days||[]); });
+  return out;
+}
+function overall(){ return streakOf(actDays(), today()); }
+/* a day with activity: returns the STREAK| line when the overall streak changed (and books the overall bonuses, Kenya) */
+function noteActivity(){
+  var D=DS(), td=today(); if (D.act.indexOf(td)<0) D.act.push(td);
+  var n=overall().n, note='';
+  if (R_O3 && n>=3 && !D.bonus.o3) { D.bonus.o3=td; note='🔥 3-day testing streak: +'+R_O3+' KES!'; }
+  if (R_O7 && n>=7 && !D.bonus.o7) { D.bonus.o7=td; note='🔥 7-day testing streak: +'+R_O7+' KES!'; }
+  if (note) setTimeout(function(){ toast(note); }, 900);
+  save();
+  if (n!==D.streakSent) { D.streakSent=n; save(); return 'STREAK|days:'+n; }
+  return '';
+}
+function streakKES(){ var D=S.daily; if (!D || !E.pay) return 0; return Object.keys(D.bonus.apps||{}).length*R_APP7 + (D.bonus.o3?R_O3:0) + (D.bonus.o7?R_O7:0); }
+var DMSG={}, DDRAFT={}, DTRY={};
+function dailyTask(k){ var d=DATA[k]; return (d && d.k && d.k.daily) || null; }
+function countUse(k){
+  var e=ensureDaily(k), td=today(), c=OWN[k], ans='';
+  if (e.days.indexOf(td)>=0) return { r:'already' };
+  if (dnum(td)<=dnum(e.since)) return { r:'tomorrow' };
+  var fp;
+  if (c.self) { ans=String(DDRAFT[k]||'').trim(); if (ans.split(/\s+/).filter(Boolean).length<2) return { r:'short' }; fp='a'+hex8(normAns(ans)); }
+  else fp=fingerprint(k);
+  if (!fp || fp===e.fp) return { r:c.self?'sameans':'same' };
+  e.fp=fp; e.days.push(td); if (ans) { e.ans=ans.slice(0,300); DDRAFT[k]=''; }
+  var st=streakOf(e.days, td), D=DS(), bonus='';
+  if (R_APP7 && st.n>=7 && !D.bonus.apps[k]) { D.bonus.apps[k]=td; bonus='+'+R_APP7+' KES for 7 days in a row with '+APPS[k][0]+'!'; }
+  else if (!E.pay && st.n===7) bonus='7 days in a row with '+APPS[k][0]+' — thank you!';
+  var sl=noteActivity(), t=dailyTask(k);
+  var L=['DAILY|'+k+'|day:'+td+'|streak:'+st.n+'|'+VERSION.split(' ')[0]];
+  if (sl) L.push(sl);
+  L.push(E.title+' — daily use — '+APPS[k][0]+' — '+S.name);
+  L.push('Counted '+td+' · 🔥 '+st.n+' day'+(st.n>1?'s':'')+' in a row'+(st.rests.length?' (with '+st.rests.length+' rest day'+(st.rests.length>1?'s':'')+')':'')+(bonus&&E.pay?' · 7-day bonus earned':'')+' · testing streak '+overall().n+' days');
+  if (t && t.task) L.push('Daily job: '+t.task);
+  if (ans) L.push('Their answer: “'+ans.slice(0,300)+'”');
+  L.push('Page '+VERSION+' · '+navigator.userAgent.replace(/^Mozilla\/5\.0 \(/,'').slice(0,90));
+  queue({ action:'report', kind:'daily', who:WHO, name:(FULL||S.name), app:k, contact:'', text:L.join('\n') });
+  save(); flush();
+  return { r:'ok', n:st.n, bonus:bonus };
+}
+function todayCard(){
+  var list=dailyList(), td=today(), ov=overall(), h='<div class="card dcard" id="todayCard"><h2>☀️ Today’s uses</h2>';
+  var how='<details><summary>How daily use and streaks work</summary><p class="small">Each app you finish joins this list. From the next day, do its small daily job in the app (2–5 minutes), come back here and tap <b>✅ I used it today</b>. The page looks at the app’s saved data: the day counts only if something really changed — just opening the app does not count.</p>'+
+    '<p class="small">🔥 = days in a row with that app. 📅 = your testing streak: every day you do anything here (finish an app, send a survey or a daily use). Missed a day? Each streak gets <b>one rest day every 7 days</b>, so it keeps going (the rest day itself does not add a day). Miss two days in a row and it starts again at 1 — that is OK, just start again.</p>'+
+    (E.pay?'<p class="small"><b>Streak pay:</b> 7 days in a row with one app = +'+R_APP7+' KES (once per app). Testing streak: +'+R_O3+' KES at 3 days, +'+R_O7+' KES at 7 days (once each). The page checks the work, so these count as earned.</p>':'<p class="small">Using an app for a whole week is the best test there is — it shows what you would really keep using.</p>')+'</details>';
+  if (!list.length) return h+'<p class="small">When you finish an app, it joins this list. From the next day, you do one small job in it each day (2–5 minutes) and tap ✅ I used it today.'+(E.pay?' 7 days in a row with one app = <b>+'+R_APP7+' KES</b>.':'')+'</p>'+how+'</div>';
+  var left=list.filter(function(k){ var e=ensureDaily(k); return e.days.indexOf(td)<0 && dnum(td)>dnum(e.since); }).length;
+  h+='<p style="margin:0 0 6px"><b>📅 '+ov.n+'-day testing streak</b>'+(ov.restNow?' <span class="small muted">(yesterday was your rest day — do something today to keep it)</span>':'')+'</p>'+
+     '<p class="small" style="margin:0 0 8px">'+(left?'<b>'+left+' left today.</b> Do the small job in each app, then tap ✅.':'All done for today ✓ Come back tomorrow.')+'</p><ul class="daily">';
+  list.forEach(function(k){
+    var e=ensureDaily(k), st=streakOf(e.days, td), m=APPS[k], t=dailyTask(k), done=e.days.indexOf(td)>=0, wait=dnum(td)<=dnum(e.since), msg=DMSG[k];
+    h+='<li><div class="dh"><b>'+m[1]+' '+esc(m[0])+'</b><span class="fire">🔥 '+st.n+'</span></div>'+
+      '<p class="small" style="margin:2px 0 6px">'+esc((t&&t.task)||'Do one small thing in the app that changes something (2–5 minutes).')+'</p>';
+    if (done) h+='<p class="dok">✓ Done today'+(st.n>1?' · '+st.n+' days in a row':'')+'</p>';
+    else if (wait) h+='<p class="small muted">Starts tomorrow — you finished the test today.</p>';
+    else {
+      if (st.ever && !st.n && (e.days||[]).length) h+='<p class="small muted">Your streak with this app ended — no problem, start again today.</p>';
+      else if (st.restNow) h+='<p class="small muted">Yesterday was a rest day — do it today to keep your 🔥 '+st.n+'.</p>';
+      if (OWN[k].self) h+='<label class="lbl" for="da_'+k+'">'+esc((t&&t.ask)||'What did you find?')+'</label><textarea id="da_'+k+'" data-da="'+k+'" maxlength="300" style="min-height:64px">'+esc(DDRAFT[k]||'')+'</textarea>';
+      h+='<div class="row">'+(DATA[k]?'<a class="btn ghost" href="'+esc(appURL(DATA[k]))+'" target="dj_app" rel="noopener">↗ Open</a>':'')+'<button class="btn ok" data-a="dused" data-k="'+k+'">✅ I used it today</button></div>';
+    }
+    if (msg && !(done && msg.ok && !msg.b)) h+='<p class="'+(msg.ok?'dok':'dwarn')+'" role="status">'+esc(msg.t)+'</p>';
+    h+='</li>';
+  });
+  return h+'</ul>'+how+'</div>';
+}
+function loadDailyData(){
+  dailyList().forEach(function(k){ if (DATA[k] || DTRY[k]) return; DTRY[k]=1;
+    loadApp(k).then(function(){ if (VIEW==='home' && S && S.kick && !(document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-da'))) render(); }).catch(function(){}); });
+}
+
+/* ---------- v1.7 · Kenya weekly competition (kenya/leaderboard.json, written by tally.py) ---------- */
+var LB = E.compete ? jget(PRE+'_lb', null) : null;
+function loadLB(){
+  if (!E.compete) return;
+  fetch('leaderboard.json?cb='+Date.now()).then(function(r){ if (!r.ok) throw 0; return r.json(); })
+    .then(function(j){ if (j && Array.isArray(j.awards)) { LB=j; jset(PRE+'_lb', j); if (VIEW==='home' && S && S.kick) render(); } }).catch(function(){});
+}
+function normName(n){ return String(n||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function myStanding(){
+  if (!LB || !LB.players) return null;
+  var ids=['t:'+hex8('dj|'+WHO)]; if (FULL) ids.push('n:'+hex8('dj|'+normName(FULL)));
+  for (var i=0;i<ids.length;i++) if (LB.players[ids[i]]) return LB.players[ids[i]];
+  return null;
+}
+function ordinal(n){ var s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function lbCard(){
+  if (!E.compete || !LB || !Array.isArray(LB.awards) || !LB.awards.length) return '';
+  var me=myStanding(), wk=LB.week||{}, h='<div class="card" id="lbCard"><h2>🏆 This week</h2>';
+  var fmt=function(s){ try{ return new Date(s+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'}); }catch(e){ return s; } };
+  if (wk.start && wk.end) h+='<p class="small muted" style="margin:0 0 8px">'+esc(fmt(wk.start))+' – '+esc(fmt(wk.end))+' · winners announced Friday · ties share the prize</p>';
+  LB.awards.forEach(function(aw){
+    var top=aw.top||[], mine=me&&me[aw.id];
+    h+='<div class="aw"><div class="dh"><b>'+esc(aw.emoji||'')+' '+esc(aw.title||aw.id)+'</b>'+(aw.prize?'<span class="small muted">'+esc(Number(aw.prize).toLocaleString('en-US'))+' KES</span>':'')+'</div>';
+    if (top.length) h+='<ol class="lbtop">'+top.slice(0,5).map(function(x){ return '<li><span>'+esc(x.name)+'</span><span class="small muted">'+esc(x.label||x.score)+'</span></li>'; }).join('')+'</ol>';
+    else h+='<p class="small muted" style="margin:2px 0 0">'+esc(aw.empty||'Nobody yet — this could be you!')+'</p>';
+    if (mine && mine.rank) {
+      var unit=function(n){ return n+' '+(n===1?(aw.unit||'point'):(aw.units||((aw.unit||'point')+'s'))); };
+      h+='<p class="dok" style="margin:4px 0 0">'+(mine.rank===1?'You’re '+(mine.tie?'joint ':'')+'1st in '+esc(aw.title)+'! 🎉':'You’re '+(mine.tie?'joint ':'')+ordinal(mine.rank)+' in '+esc(aw.title)+(mine.behind?' — '+esc(unit(mine.behind))+' behind!':'!'))+'</p>';
+    }
+    h+='</div>';
+  });
+  if (LB.updated) h+='<p class="small muted" style="margin:8px 0 0">Updated '+esc(LB.updated)+' · first names only · only problems Jerry confirmed count</p>';
+  return h+'</div>';
 }
 
 /* ---------- HQ: outbox that survives no-data days ---------- */
@@ -298,7 +480,7 @@ function flush(){
         .then(function(r){ return r.json(); })
         .then(function(j){ if (j && j.ok===false && !/empty/i.test(j.error||'')) throw new Error(j.error||'not ok');
           var left=jget(OUTK,[]).filter(function(x){ return x.qid!==b.qid; }); jset(OUTK,left);
-          if (b.action==='report' && b.kind!=='survey' && S && S.apps[b.app]) { S.apps[b.app].sent = Date.now(); save(); } });
+          if (b.action==='report' && !b.kind && S && S.apps[b.app]) { S.apps[b.app].sent = Date.now(); save(); } });
     }); });
     return chain;
   }).catch(function(){}).then(function(){ flushing=false; if (S && (VIEW==='home' || (S.cur && A(S.cur).stage==='done'))) render(); if (flushAgain) { flushAgain=false; return flush(); } });   /* v1.6: something queued mid-send goes now too */
@@ -384,7 +566,7 @@ function kickoff(){
   '<div class="card"><h2>🧪 How one test works</h2><p>Every app has four parts, always in this order:</p>'+
   '<p><b>1. Watch</b> a short video about the app.<br><b>2. Steps</b> — do one step at a time and say if it worked.<br><b>3. Challenge</b> — the app starts empty, you do a few jobs on your own, then tap <b>Check my work</b>.<br><b>4. Your own words</b> — what is this app for?</p>'+
   '<p>Then you tap <b>Send my results</b>. Your phone saves everything as you go, so you can stop and come back later.</p></div>'+
-  '<div class="card okc"><h2>💵 What you earn</h2><p><b>'+PAY_APP+' KES</b> for every app you finish with the challenge passed.<br><b>'+PAY_PROBLEM+' KES</b> for every real problem you report that Jerry confirms.</p>'+
+  '<div class="card okc"><h2>💵 What you earn</h2><p><b>'+PAY_APP+' KES</b> for every app you finish with the challenge passed.<br><b>'+PAY_PROBLEM+' KES</b> for every real problem you report that Jerry confirms.<br><b>Daily use:</b> each finished app joins your daily list — use it a little every day. 7 days in a row with one app = <b>+'+R_APP7+' KES</b>; a 3-day testing streak +'+R_O3+' KES, 7 days +'+R_O7+' KES.<br><b>🏆 Weekly awards:</b> longest streak, bug hunter, best idea, most apps finished (500 KES each) and tester of the week (1,000 KES).</p>'+
   '<p class="small muted">The video talks about “coins”. This week you are paid in shillings, as above. Jerry checks every report before paying.</p></div>'+
   '<div class="card warn"><h2>⭐ Honesty beats speed</h2><p>Do each step for real. If something did not work, tap <b>❌ It didn’t</b> and say what happened. A real problem you explain is worth more than a fast tick. If a word confused you, that is a problem too — say so.</p></div>'+
   '<div class="card"><h2>📱 Good to know</h2><p>• Use <b>Chrome</b>. If this opened inside WhatsApp, tap ⋮ and choose <b>Open in Chrome</b>.<br>• Videos use data. Watch on Wi-Fi when you can, or tap <b>Read it instead</b>.<br>• Type only the made-up names and numbers in the test — never your real passwords, money details or family secrets.</p></div>'+
@@ -414,8 +596,9 @@ function loadKickLines(){
 function home(){
   var t=totals(), nx=nextApp(), o=order(), q=pending();
   var h=newsHTML();
+  h+=todayCard()+lbCard();
   if (E.pay) h+='<div class="stats"><div class="stat"><b>'+t.done+'</b><span>apps done</span></div><div class="stat"><b>'+t.kes+'</b><span>KES earned*</span></div><div class="stat"><b>'+t.probs+'</b><span>problems found</span></div></div>'+
-    '<p class="small muted">Done: '+t.done+' · Earned so far: '+t.kes+' KES (pending Jerry’s check)'+(t.probs?' · plus up to '+(t.probs*PAY_PROBLEM)+' KES for the '+t.probs+' problem'+(t.probs>1?'s':'')+' you reported, if Jerry confirms them':'')+'.</p>';
+    '<p class="small muted">Done: '+t.done+' · Earned so far: '+t.kes+' KES'+(t.streakKes?' (incl. '+t.streakKes+' KES streak bonuses)':'')+' (pending Jerry’s check)'+(t.probs?' · plus up to '+(t.probs*PAY_PROBLEM)+' KES for the '+t.probs+' problem'+(t.probs>1?'s':'')+' you reported, if Jerry confirms them':'')+'.</p>';
   else h+='<div class="stats"><div class="stat"><b>'+t.done+'</b><span>apps done</span></div><div class="stat"><b>'+t.steps+'</b><span>steps checked</span></div><div class="stat"><b>'+t.probs+'</b><span>problems found</span></div></div>'+
     (t.done?'<p class="small muted">Thank you — every report helps make the apps better.</p>':'');
   if (q) h+='<div class="card warn"><b>📮 '+q+' result'+(q>1?'s':'')+' saved on this phone.</b><p class="small">They will send by themselves when you have internet.</p><button class="btn ghost" data-a="flush">Try sending now</button></div>';
@@ -436,6 +619,7 @@ function home(){
   if (pz.length) h+='<div class="card"><div class="lbl">Skipped for now</div>'+pz.map(function(k){ return '<p class="small" style="margin:0 0 4px">⏸ '+APPS[k][1]+' '+esc(APPS[k][0])+' — this app is being fixed, we skipped it for now.</p>'; }).join('')+'</div>';
   var PH=prof();
   if (PH.asked || profHas(PH)) h+='<details class="more" id="aboutYou"><summary>🙋 About you (change any time)</summary><p class="small muted">Saved as you tap. It goes to Jerry with your next result.</p>'+profQs(PH)+'</details>';
+  loadDailyData();
   h+=footHTML('home')+'<button class="btn ghost" data-a="rekick">📘 How the test'+(E.pay?' week':'')+' works</button>';
   return h;
 }
@@ -532,7 +716,7 @@ function appHTML(k,d){
     var sum=summary(k,d);
     if (a.stage==='send') h+='<div class="card"><h2>Ready to send</h2><p>'+esc(sum.line)+'</p><p class="small muted">Jerry gets your step answers, your notes, your challenge result, your own words and your survey answers.</p><button class="btn" data-a="send">📨 Send my results</button></div>';
     else {
-      var waiting = jget(OUTK,[]).some(function(b){ return b.action==='report' && b.kind!=='survey' && b.app===k; });
+      var waiting = jget(OUTK,[]).some(function(b){ return b.action==='report' && !b.kind && b.app===k; });
       h+='<div class="card '+(waiting?'warn':'okc')+'"><div class="big">'+(waiting?'📮':'✅')+'</div><h2>'+(waiting?'Saved — will send when you have internet':'Sent! '+E.thanks)+'</h2><p>'+esc(sum.line)+'</p>'+
         (!E.pay?'<p>Jerry reads every report. Thank you for your honest eyes.</p>':a.ch&&a.ch.pass?'<p><b>+'+PAY_APP+' KES</b> (pending Jerry’s check)'+(a.fails?' and up to '+(a.fails*PAY_PROBLEM)+' KES more if Jerry confirms your '+a.fails+' problem'+(a.fails>1?'s':''):'')+'.</p>':(a.fails?'<p>Up to '+(a.fails*PAY_PROBLEM)+' KES if Jerry confirms your '+a.fails+' problem'+(a.fails>1?'s':'')+'.</p>':''))+
         (waiting?'<button class="btn ghost" data-a="flush">Try sending now</button>':'')+'</div>';
@@ -634,6 +818,7 @@ function afterSurvey(k){
     L.push(''); svReadable(L,k,a);
     if (L[1].indexOf('PROFILE|')===0){ L.push(''); L.push('About the tester: '+profReadable(P)); }
     L.push(''); L.push('Page '+VERSION+' · '+navigator.userAgent.replace(/^Mozilla\/5\.0 \(/,'').slice(0,90));
+    var sl2=noteActivity(); if (sl2) L.push(sl2);
     queue({ action:'report', kind:'survey', who:WHO, name:(FULL||S.name), app:k, contact:'', text:L.join('\n') });
     save(); flush();
     if (then && APPS[then]) startApp(then, true); else { VIEW='home'; render(); }
@@ -710,6 +895,14 @@ document.addEventListener('click', function(e){
       if (a && a.svMid && !a.svDone) delete a.svMid;   /* backed out of leaving: no survey yet */
       save(); VIEW='home'; render(); window.scrollTo(0,0); flush(); break;
     case 'start': startApp(b.getAttribute('data-k')); break;
+    case 'dused': { var dk=b.getAttribute('data-k'), res=countUse(dk), nm2=APPS[dk][0];
+      DMSG[dk] = res.r==='ok' ? { ok:true, b:!!res.bonus, t:'Counted ✓ 🔥 '+res.n+' day'+(res.n>1?'s':'')+' in a row'+(res.bonus?' · '+res.bonus:'') }
+        : res.r==='same' ? { t:'We couldn’t see a change in '+nm2+' yet — do today’s task in the app, then tap again.' }
+        : res.r==='sameans' ? { t:'That is the same answer as last time — look up something new in '+nm2+' today, then tap again.' }
+        : res.r==='short' ? { t:'Please write what you found (a few words), then tap again.' }
+        : res.r==='tomorrow' ? { t:'This one starts tomorrow.' } : { ok:true, t:'Already counted today ✓' };
+      if (res.r==='ok' && res.bonus) toast(res.bonus);
+      render(); break; }
     case 'retryload': appView(k); break;
     case 'flush': toast('Sending…'); flush().then(function(){ toast(pending()?'Still no internet — saved on this phone.':'All sent ✓'); render(); }); break;
     case 'watched': tick(a); a.watched=true; a.stage='steps'; a.step=0; save(); render(); break;
@@ -766,15 +959,16 @@ document.addEventListener('click', function(e){
     case 'pfdone': case 'pfskip': { var PP=prof(); PP.asked=true; if (act==='pfskip') PP.skipped=true; setProf(PP); afterSurvey(k); break; }
     case 'send': {
       tick(a); var s=summary(k,d); a.fails=s.fail+s.un; a.ch=a.ch||{tries:[]}; a.ch.pass=s.pass;
-      var rtxt=reportText(k,d);
+      a.stage='done'; a.doneAt=Date.now(); var rtxt=reportText(k,d), sl=noteActivity(); if (sl) rtxt+='\n'+sl;
       queue({ action:'report', who:WHO, name:(FULL||S.name), app:k, contact:'', text:rtxt });
       if (rtxt.indexOf('\nPROFILE|')>=0){ var P2=prof(); P2.sent=true; setProf(P2); }
-      a.stage='done'; a.doneAt=Date.now(); save(); render();
+      ensureDaily(k); save(); render();
       flush(); break; }
   }
 });
 /* keep half-typed notes through a reload */
 document.addEventListener('input', function(e){
+  if (e.target.getAttribute && e.target.getAttribute('data-da')) { DDRAFT[e.target.getAttribute('data-da')]=e.target.value.slice(0,300); return; }
   if (!S || !S.cur) return; var a=A(S.cur);
   if (e.target.id==='note') { a.draft=e.target.value; save(); }
   else if (e.target.id==='words') { a.words=e.target.value; save(); }
@@ -806,6 +1000,7 @@ if (S) {
 }
 render();
 loadNews();
+loadLB();
 })();
 </script>
 </body>
