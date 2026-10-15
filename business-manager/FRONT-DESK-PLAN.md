@@ -78,6 +78,63 @@ The owner sets up **action codes** ahead of time. Each one is a ready plan:
 
 When there's an outage, phones ring off the hook. One `OUT` message to the right zone **heads off most of those calls before they happen.** Front Desk answers the rest with the live status ("Yes, Kilimani is affected. Expected back by 4 pm."). The same tool sells upgrades on quiet days. For any business that serves customers by area, such as internet providers, water, solar, security or delivery, this alone is worth paying for.
 
+## Connecting to Zuri Fiber (first pilot)
+
+Zuri already has its own system (the Zuri staff app on its own Supabase database), with everything Alerts needs:
+
+| Zuri already has | Alerts uses it for |
+|---|---|
+| `customers` (via `v_customers`): name, phone, second phone, `area`, GPS pin, `status`, `plan`, `paid_until` | Who to message, in which zone, in which language, and who is active |
+| `areas` | The zones in the Alert picker |
+| `hubs`: office, OLT, splitter cabinets, towers, with GPS | **Fault by equipment:** "Cabinet K3 is down" → message only the homes it serves |
+| `tickets` with kind `fault` | Spotting an outage early: several fault tickets in one area in a short time |
+| The Zuri manager (`agent_runs`, `nudges`) | Already runs at 6:30am and 3pm. It can **propose** alerts for a person to approve |
+
+**Rule: Zuri stays the record.** Front Desk and Alerts don't copy Zuri's customers into Business Manager. They read them from Zuri when needed, and write tickets back into Zuri. One customer list, one source of truth.
+
+### How the connection works
+
+```
+ Zuri staff app ──(tap "Alert customers" on an area or hub)──┐
+ Zuri manager (agent) ──(proposes OUT when faults cluster)───┤
+                                                             ▼
+                                         Daraja server (Cloudflare Worker)
+                                           │  reads a limited customer view from Zuri's database
+                                           │  sends SMS / WhatsApp via the Kenyan provider
+                                           │  logs every alert back to Zuri
+                                           ▼
+ Customer replies or calls ──► Front Desk ──► answers with live outage status,
+                                              or opens a fault ticket in Zuri's `tickets`
+```
+
+- **A narrow, read-only view of customers for alerts.** We add a database view in Zuri with only what messaging needs: id, name, phone(s), area, serving hub, status, language and consent. **No national ID, money or notes.** The server reads it with its own restricted key, which is never stored in any app.
+- **Two new Zuri tables:** `alerts` (what was sent, to which zones, by whom, when, delivery counts) and `alert_codes` (the action codes and their messages). Zuri staff see the history right in the Zuri app.
+- **Customers record which cabinet serves them.** Today the map works out the *nearest* hub by distance, but fibre is wired to a specific cabinet, which isn't always the nearest. Adding a "served by" field to each customer (set at install, defaulting to the nearest hub) makes "Cabinet K3 is down" messages accurate.
+
+### What it looks like for Zuri
+
+1. **Outage:** three fault tickets come in from one area within 20 minutes. The Zuri manager spots it and sends the on-call person: *"Possible outage in Kilimani (3 faults in 20 min). Send OUT to 214 customers? Est. cost KES ___."* One tap approves it. When the techs close the fault, it offers to send `FIX` to the same 214 people.
+2. **Planned work:** in the Zuri app, open a cabinet on the map → **Alert customers** → `MAINT` → set the date and time → Send.
+3. **Renewals:** two days before `paid_until`, an automatic reminder: *"Your Zuri package ends on {date}. Renew with M-Pesa Paybill {paybill}, account {account_no}."* It goes only to customers who agreed to reminders. This alone could noticeably cut lost renewals; measure it in the pilot.
+4. **Upgrades:** `UPGRADE` to customers on a given plan in areas where faster plans are available, only those who opted in to offers. A YES reply opens an upgrade ticket in Zuri.
+5. **During an outage, the calls are answered:** a customer WhatsApps "no internet." Front Desk sees the open outage in their area and replies with the status and ETA. No ticket is needed unless their area is fine, in which case it opens a fault ticket for them in Zuri.
+
+### One rule to change on purpose
+
+The Zuri manager currently promises that it **never sends messages to customers**. Alerts changes that. Keep the promise in spirit: **the manager can only propose; a named person approves every send**, except reminder types the partners have switched to automatic in writing. Every send is logged in Zuri.
+
+### Zuri build steps (inside phases F2 and F5)
+
+| Step | What | Where |
+|---|---|---|
+| **Z1** | Alerts view + `alerts` and `alert_codes` tables; "served by" cabinet on customers; consent and language fields | Zuri database + Zuri customer form |
+| **Z2** | "Alert customers" button on areas and hubs in the Zuri app; alert history page | Zuri app |
+| **Z3** | Server sends through the Kenyan SMS/WhatsApp provider; delivery counts back to Zuri | Daraja server |
+| **Z4** | Zuri manager proposes `OUT` / `FIX` from fault clusters; renewal reminders | Zuri manager + server |
+| **Z5** | Front Desk answers Zuri customers and opens tickets in Zuri | Daraja server |
+
+**Before Z1:** build and test everything against the **Zuri test and training databases** first (Zuri already has both), and only switch to the live data once the partners sign off.
+
 ## Rules it never breaks
 
 1. **Emergencies first.** Gas smell, fire, sparks, flooding near electricity, someone hurt: tell the caller to leave and call emergency services (911 in the US; 999 or 112 in Kenya), *then* alert the on-call person. This line is written by us, not the owner, and can't be turned off.
@@ -199,5 +256,5 @@ Each phase is usable on its own. It starts after SERVER-PLAN phases 1–3 (accou
 2. **Pilot businesses.** 3 in the US and 3 in Kenya, one of them with two departments or areas.
 3. **Kenyan provider.** Test 2–3 for voice quality, per-second billing and support.
 4. **Quick Quote price.** The shop says $49 a year; the app's code says $29 (`PRICE` in `index.html`). Business Manager is confirmed at $149 a year. Make the code, the shop and the videos agree.
-5. **First Alerts customer.** Any business that serves customers by area and has outages (internet, water, power, solar, security) is the ideal pilot.
+5. **First Alerts customer: Zuri Fiber (decided).** See *Connecting to Zuri Fiber*. Still to decide with the Zuri partners: which reminders may go automatically, and the consent wording customers see.
 6. **"No subscriptions, ever."** The shop's tagline conflicts with Business Manager at $149 a year and with Front Desk. Suggested wording: *"Fair, simple prices. No contracts. Your data stays yours."*
