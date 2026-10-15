@@ -127,8 +127,8 @@ The Zuri manager currently promises that it **never sends messages to customers*
 
 | Step | What | Where |
 |---|---|---|
-| **Z1** | Alerts view + `alerts` and `alert_codes` tables; "served by" cabinet on customers; consent and language fields | Zuri database + Zuri customer form |
-| **Z2** | "Alert customers" button on areas and hubs in the Zuri app; alert history page | Zuri app |
+| **Z1** ✅ built | Alerts view + `alerts` and `alert_codes` tables; "served by" cabinet on customers; consent and language fields | `supabase/28_alerts.sql` in zuri-system (PR #7), not yet run on Supabase |
+| **Z2** ✅ built | "Alert customers" from areas, cabinets (map) and the outage card; approval; bulk-SMS CSV export; alert history | Zuri preview app v2.39 (zuri-system PR #7) |
 | **Z3** | Server sends through the Kenyan SMS/WhatsApp provider; delivery counts back to Zuri | Daraja server |
 | **Z4** | Zuri manager proposes `OUT` / `FIX` from fault clusters; renewal reminders | Zuri manager + server |
 | **Z5** | Front Desk answers Zuri customers and opens tickets in Zuri | Daraja server |
