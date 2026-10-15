@@ -26,6 +26,58 @@ A one-truck business can't afford an office manager. Front Desk is one: it answe
 | **Daily briefing** | Each morning in the app: "Overnight: 4 calls, 2 booked, 1 urgent sent to Luis, 1 needs you." |
 | **Every call becomes a job** | A short summary, the transcript and (where allowed) the recording are attached to the customer and job. No retyping. |
 
+## Module: Alerts & Broadcasts (outgoing messages)
+
+Front Desk answers people who contact the business. **Alerts** goes the other way: it reaches out to many customers at once, by area, with messages written ahead of time.
+
+### Action codes: plans written before anything goes wrong
+
+The owner sets up **action codes** ahead of time. Each one is a ready plan:
+
+| Code | When | Who gets it | Message (example) | Follow-up |
+|---|---|---|---|---|
+| `OUT` | Outage or fault in an area | Every customer in the chosen zones | "Service is down in {zone}. Our team is on it. Expected back by {eta}. No need to call; we'll text you when it's fixed." | Front Desk answers "Is my area affected?" with the live status |
+| `FIX` | Outage fixed | Everyone who got that `OUT` | "Service is back in {zone}. Thanks for your patience. If you're still down, reply HELP." | Replies of HELP become jobs |
+| `MAINT` | Planned maintenance | Chosen zones, 24 hours before | "Planned work in {zone} on {date}, {time}. Service may drop for about {duration}." | Reminder 1 hour before |
+| `DELAY` | Running late | Today's booked customers | "Running about {minutes} minutes behind today. Sorry, and thank you." | — |
+| `WEATHER` | Storm or flood | Chosen zones | Safety tips and how to reach the business | — |
+| `SALE` / `UPGRADE` | Offers, new plans, upgrades | Customers who **opted in** to offers, by zone or plan | "{name}, faster plans are now available in {zone}. Reply YES to upgrade." | YES becomes an upgrade job or estimate in Business Manager |
+
+- **Placeholders** like {zone}, {eta} and {name} fill in automatically. The owner only types what changed (for example, the ETA).
+- **Bilingual:** each code can have an English and a Swahili version, and each customer gets their own language.
+
+### Zones and the customer list
+
+- Every customer in Business Manager gets a **zone**: an area name ("Kilimani", "North side"), a route, or a site. Later this can be drawn on a map.
+- **Already have a customer list in another system** (billing system, network monitor, spreadsheet)? Import it once by CSV, or keep it synced through a simple connection to the server.
+
+### Three ways to start a broadcast
+
+1. **From the app (the usual way):** tap **Alert** → pick a code → pick zones → check the preview → **Send**.
+2. **By text from the field:** a technician texts `OUT KILIMANI 4PM` to the business number. Front Desk replies with the preview, and the technician replies YES to send. Only approved staff numbers can do this.
+3. **Automatically:** a network monitor or other system sends the code to the server (a webhook) when a fault is detected. **Automatic sending is off by default.** It sends a "Ready to send. Approve?" alert to the on-call person unless the owner has switched that code to fully automatic.
+
+### Channels
+
+| Channel | Best for | Notes |
+|---|---|---|
+| **SMS** | Everyone, every phone | Cheapest per message and most reliable |
+| **WhatsApp** | Kenya, longer messages, photos | Messages the business starts need Meta-approved templates, and Meta charges per conversation. The action codes become those templates |
+| **Voice call** | Urgent safety messages, older customers | A recorded or AI-spoken message. Costs the most, and the strictest legal rules apply (see *Legal*). Use only for urgent alerts |
+
+### Safety catches (built in, not optional)
+
+- **Preview before every send:** how many people, which zones, which channels and **the estimated cost**, plus one more confirmation for anything over 100 people.
+- **Quiet hours:** offers never go out at night. Urgent alerts (`OUT`, `WEATHER`) can, but only to customers who said yes to urgent alerts.
+- **Nobody gets the same alert twice,** and every alert has a "cancel the follow-up" button.
+- **Opt-outs are honoured everywhere:** STOP removes someone from offers immediately. Service alerts and offers are kept as separate permissions.
+- **Delivery report:** sent, delivered and failed for each zone. Failed SMS can retry on WhatsApp.
+- **Spending cap** applies to broadcasts too. A big send that would cross the cap needs the owner's approval.
+
+### Why this is worth a lot
+
+When there's an outage, phones ring off the hook. One `OUT` message to the right zone **heads off most of those calls before they happen.** Front Desk answers the rest with the live status ("Yes, Kilimani is affected. Expected back by 4 pm."). The same tool sells upgrades on quiet days. For any business that serves customers by area, such as internet providers, water, solar, security or delivery, this alone is worth paying for.
+
 ## Rules it never breaks
 
 1. **Emergencies first.** Gas smell, fire, sparks, flooding near electricity, someone hurt: tell the caller to leave and call emergency services (911 in the US; 999 or 112 in Kenya), *then* alert the on-call person. This line is written by us, not the owner, and can't be turned off.
@@ -83,6 +135,22 @@ For comparison: AI receptionists for service businesses commonly run **$150–40
 - No bill ever arrives: when credits run low, the owner gets a reminder and a one-tap top-up.
 - **Credit prices are set after the pilot**, once we know real per-minute and per-message costs in Kenya. **Rule: credits sell for at least 3× what they cost us**, which still leaves Front Desk far cheaper than a receptionist's salary.
 
+### Modules: pay only for what you use
+
+Everything is a module that runs on the same server, phone numbers and customer list, so adding one is a switch in Settings, not a new system.
+
+| Module | US | Kenya | What it adds |
+|---|---|---|---|
+| **Business Manager** (core) | $149/year | Shillings | Customers, jobs, estimates, invoices, schedule, money |
+| **Front Desk Text** | $49/mo | Credits | Text and WhatsApp answering, missed-call text-back, booking, after hours |
+| **Front Desk Voice** | $149/mo | Credits | AI answers calls, transfers, on-call alerts, departments |
+| **Alerts & Broadcasts** | $39/mo + messages at cost plus a margin | Credits | Zones, action codes, outage and maintenance alerts, offers and upgrades, delivery reports |
+| **Done-for-you setup** | $299 one-time | Shillings | We set up answers, zones and action codes with them |
+
+**Why modules:** Alerts is mostly the same machinery as Front Desk Text (the same phone number, provider and customer list). The extra build is the zones, the codes and the safety catches. A business that only wants outage alerts can buy Business Manager + Alerts; a plumber who never broadcasts never pays for it.
+
+**Message costs:** broadcasts can be large (2,000 customers × one SMS each), so messages are always billed by use. In the US they're billed at cost plus a margin; in Kenya they come out of credits. The preview always shows the cost before sending.
+
 ### Bundles
 
 | Bundle | US price | What's in it |
@@ -111,7 +179,8 @@ Each phase is usable on its own. It starts after SERVER-PLAN phases 1–3 (accou
 | **F2. Kenya desk** | WhatsApp + SMS answering, Swahili, M-Pesa deposits, prepaid credits with M-Pesa top-up, shilling prices | 2–3 weeks + Meta and Safaricom approvals | Choose a Kenyan provider after testing; WhatsApp Business Platform access; Safaricom Daraja API access |
 | **F3. Voice desk** | AI answers calls, transfers, on-call rotation with escalation, recordings and transcripts on the job | 3–4 weeks | Voice testing with real callers in both countries |
 | **F4. Departments, areas and learning** | Multiple departments and areas, each with its own people, hours and answers; "suggested answers" for the owner to approve | 2 weeks | — |
-| **Later** | Website chat widget, Google review requests after each finished job, call analytics ("busiest hours", "jobs lost") | — | — |
+| **F5. Alerts & Broadcasts** | Customer zones, CSV import, action codes with placeholders, send from app / staff text / webhook, previews and cost estimates, opt-in and opt-out, quiet hours, delivery reports, live outage status for Front Desk | 2–3 weeks (reuses F1–F2) | The first codes and messages from a pilot business; written consent wording |
+| **Later** | Website chat widget, map-drawn zones, Google review requests after each finished job, call analytics ("busiest hours", "jobs lost") | — | — |
 
 ## Legal and trust (have a lawyer confirm before launch)
 
@@ -119,6 +188,9 @@ Each phase is usable on its own. It starts after SERVER-PLAN phases 1–3 (accou
 - **US texting:** carrier registration (A2P 10DLC) and opt-out handling ("Reply STOP") are required. Marketing texts need consent. Front Desk only sends service messages.
 - **Kenya:** the **Data Protection Act 2019** covers customer data and recordings. Registration with the Office of the Data Protection Commissioner may be required, so check this.
 - **AI disclosure:** it always says it's an assistant.
+- **Broadcasts, US:** offers and upgrades need customers' prior consent, and **pre-recorded or AI-voice calls have the strictest rules** (the TCPA). Keep voice broadcasts to urgent service alerts, to customers who agreed to them. Every text includes how to opt out.
+- **Broadcasts, Kenya:** promotional messages need customer consent and an opt-out under the Data Protection Act, and communications regulations may add rules for bulk SMS. Confirm with a Kenyan lawyer.
+- **WhatsApp:** business-started messages must use Meta-approved templates and follow Meta's policies, or the number can be blocked.
 - **Data promise** (as in SERVER-PLAN): each business's data is theirs, exportable any time, never sold.
 
 ## Things to decide
@@ -127,4 +199,5 @@ Each phase is usable on its own. It starts after SERVER-PLAN phases 1–3 (accou
 2. **Pilot businesses.** 3 in the US and 3 in Kenya, one of them with two departments or areas.
 3. **Kenyan provider.** Test 2–3 for voice quality, per-second billing and support.
 4. **Quick Quote price.** The shop says $49 a year; the app's code says $29 (`PRICE` in `index.html`). Business Manager is confirmed at $149 a year. Make the code, the shop and the videos agree.
-5. **"No subscriptions, ever."** The shop's tagline conflicts with Business Manager at $149 a year and with Front Desk. Suggested wording: *"Fair, simple prices. No contracts. Your data stays yours."*
+5. **First Alerts customer.** Any business that serves customers by area and has outages (internet, water, power, solar, security) is the ideal pilot.
+6. **"No subscriptions, ever."** The shop's tagline conflicts with Business Manager at $149 a year and with Front Desk. Suggested wording: *"Fair, simple prices. No contracts. Your data stays yours."*
