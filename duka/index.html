@@ -1,0 +1,1109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Duka · Electronics Shop</title>
+<meta name="theme-color" content="#0F6E5C">
+<meta name="description" content="Run a phone and electronics shop from your phone: sales, stock, cash count, M-Pesa, bills, customers and offers. Works with no signal. Daraja Studio.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<!-- Duka · Electronics Shop · v1.0 · 2026-10-16 — Daraja Studio
+     The cash-management and marketing parts of Zuri (Cash today, Count the cash, Money out / in with the M-Pesa paste,
+     Bills, the Friday report, ready-written WhatsApp / SMS messages), rebuilt for one retail shop that sells phones and
+     electronics, plus what a shop needs that Zuri did not have: selling, stock, deni (customers who owe), repairs and offers.
+     Everything is saved on this phone only (localStorage dj_duka_v1). Nothing is ever sent by itself: a text or WhatsApp
+     opens on the person's own phone and they press Send.
+     ?dj_sandbox=1 → a test copy in this tab only (sessionStorage), the real data is never touched.
+     ?demo=1, or opened inside the store's video player (shop/watch.html) → the example shop, in memory, never saved. -->
+<style>
+  :root {
+    --bg:#F4F6F5; --surface:#FFFFFF; --surface-2:#EDF1EF; --ink:#152322; --ink-soft:#3F4F4C; --ink-faint:#56645F;
+    --brand:#0F6E5C; --brand-soft:#0F6E5C18; --accent:#F2A93B; --accent-soft:#F2A93B22;
+    --ok:#2E8B57; --ok-soft:#2E8B5718; --warn-ink:#8F4C00; --warn-soft:#D9822B1E; --bad:#C0392B; --bad-soft:#C0392B1A;
+    --line:#D8DFDC; --line-strong:#B9C4C0; --on-brand:#FFFFFF; --sbx:#6B3FA0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#0F1614; --surface:#18221F; --surface-2:#1F2B27; --ink:#E6ECEA; --ink-soft:#B4C2BE; --ink-faint:#93A39F;
+      --brand:#3FB79A; --brand-soft:#3FB79A22; --accent:#F2B857; --accent-soft:#F2B85726; --ok:#5DC48A; --ok-soft:#5DC48A22;
+      --warn-ink:#F0A05A; --warn-soft:#F0A05A22; --bad:#E76F5F; --bad-soft:#E76F5F22; --line:#2A3733; --line-strong:#3A4A45; --on-brand:#0F1614; --sbx:#B48AE0; }
+  }
+  :root[data-theme="dark"] { --bg:#0F1614; --surface:#18221F; --surface-2:#1F2B27; --ink:#E6ECEA; --ink-soft:#B4C2BE; --ink-faint:#93A39F;
+    --brand:#3FB79A; --brand-soft:#3FB79A22; --accent:#F2B857; --accent-soft:#F2B85726; --ok:#5DC48A; --ok-soft:#5DC48A22;
+    --warn-ink:#F0A05A; --warn-soft:#F0A05A22; --bad:#E76F5F; --bad-soft:#E76F5F22; --line:#2A3733; --line-strong:#3A4A45; --on-brand:#0F1614; --sbx:#B48AE0; }
+
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body { background:var(--bg); color:var(--ink); font:16px/1.45 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  .num { font-variant-numeric:tabular-nums; }
+  a { color:var(--brand); }
+  [hidden] { display:none !important; }
+
+  header { background:var(--brand); color:var(--on-brand); position:sticky; top:0; z-index:20; padding:10px 16px; padding-top:max(10px, env(safe-area-inset-top)); }
+  header .bar { display:flex; align-items:center; gap:8px; max-width:760px; margin:0 auto; }
+  header h1 { font-size:17px; margin:0; font-weight:800; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header h1 small { font-weight:500; opacity:.85; font-size:12px; margin-left:4px; }
+  .hpill { font-size:12px; font-weight:800; border-radius:999px; padding:4px 9px; background:#fff; color:var(--brand); white-space:nowrap; }
+  .hpill.sbx { background:#fff; color:#6B3FA0; }
+
+  main { max-width:760px; margin:0 auto; padding:14px 16px 110px; }
+  nav.tabs { position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--surface); border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom); }
+  nav.tabs button { flex:1; min-width:0; background:none; border:none; font:inherit; font-size:11px; font-weight:700; color:var(--ink-soft); padding:7px 0 8px; cursor:pointer; min-height:56px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  nav.tabs button .ic { display:block; font-size:21px; line-height:1.2; }
+  nav.tabs button.on { color:var(--brand); }
+
+  h2 { font-size:21px; margin:4px 0 10px; }
+  h3 { font-size:13px; margin:18px 0 8px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.4px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .card.note { border-left:4px solid var(--accent); }
+  .card.brand { border-left:4px solid var(--brand); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .row > .grow { flex:1; min-width:0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  @media (max-width: 420px) { .grid3 { grid-template-columns:1fr 1fr; } }
+  label { display:block; font-size:13px; font-weight:700; color:var(--ink-soft); margin:10px 0 4px; }
+  input, select, textarea { width:100%; font:inherit; font-size:16px; color:var(--ink); background:var(--surface); border:1px solid var(--line-strong); border-radius:10px; padding:10px 12px; }
+  input[type=checkbox] { width:24px; height:24px; flex:none; accent-color:var(--brand); margin:0; }
+  .check { display:flex; gap:10px; align-items:center; font-weight:600; font-size:15px; color:var(--ink); margin:12px 0 4px; cursor:pointer; }
+  textarea { min-height:76px; resize:vertical; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--brand); outline-offset:1px; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; font:inherit; font-weight:800; font-size:15px; border:none; border-radius:12px; padding:11px 16px; background:var(--brand); color:var(--on-brand); cursor:pointer; text-decoration:none; min-height:46px; }
+  .btn.sec { background:var(--surface-2); color:var(--ink); border:1px solid var(--line); }
+  .btn.acc { background:var(--accent); color:#152322; }
+  .btn.bad { background:var(--bad); color:#fff; }
+  .btn.small { padding:8px 12px; font-size:14px; min-height:44px; }
+  .btn.block { width:100%; }
+  .btn.big { font-size:17px; min-height:56px; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .muted { color:var(--ink-faint); }
+  .hint { font-size:14px; color:var(--ink-faint); margin:6px 0; }
+  .pill { display:inline-block; font-size:12px; font-weight:800; padding:2px 8px; border-radius:999px; background:var(--surface-2); color:var(--ink-soft); white-space:nowrap; }
+  .pill.ok { background:var(--ok-soft); color:var(--ok); } .pill.warn { background:var(--warn-soft); color:var(--warn-ink); }
+  .pill.bad { background:var(--bad-soft); color:var(--bad); } .pill.brand { background:var(--brand-soft); color:var(--brand); }
+  .list .item { display:flex; gap:10px; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line); color:inherit; text-decoration:none; }
+  .list .item:last-child { border-bottom:none; }
+  .list .item .grow { flex:1; min-width:0; }
+  .list .item .t { font-weight:700; }
+  .list .item .m { font-size:14px; color:var(--ink-faint); }
+  .list .item.tap { cursor:pointer; }
+  .kpis { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+  .kpi { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px; min-width:0; }
+  .kpi .k { font-size:12px; color:var(--ink-soft); font-weight:700; }
+  .kpi .v { font-size:21px; font-weight:800; margin-top:2px; overflow-wrap:anywhere; }
+  .kpi .v.ok { color:var(--ok); } .kpi .v.warn { color:var(--warn-ink); } .kpi .v.bad { color:var(--bad); }
+  .kpi .f { font-size:12px; color:var(--ink-faint); }
+  .subtabs { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 14px; }
+  .subtabs button { flex:none; min-height:44px; padding:8px 13px; border-radius:999px; background:var(--surface); border:1px solid var(--line); color:var(--ink-soft); font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
+  .subtabs button.on { background:var(--brand); border-color:var(--brand); color:var(--on-brand); }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; }
+  .seg > button { flex:1 1 auto; min-height:46px; padding:9px 10px; border-radius:10px; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
+  .seg > button.on { background:var(--brand-soft); border-color:var(--brand); color:var(--brand); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+  .chips button { min-height:40px; padding:7px 12px; border-radius:999px; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); font:inherit; font-size:14px; cursor:pointer; }
+  .chips button.on { background:var(--brand); border-color:var(--brand); color:var(--on-brand); }
+  .alert { border-radius:10px; padding:10px 12px; margin:8px 0; font-weight:700; font-size:14px; }
+  .alert.ok { background:var(--ok-soft); color:var(--ok); } .alert.warn { background:var(--warn-soft); color:var(--warn-ink); } .alert.bad { background:var(--bad-soft); color:var(--bad); }
+  .need { display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); }
+  .need:last-child { border-bottom:none; }
+  .need .em { font-size:22px; flex:none; width:30px; text-align:center; }
+  .need .grow { flex:1; min-width:0; font-size:15px; }
+  .line { display:grid; grid-template-columns:1fr auto; gap:6px 10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .line:last-child { border-bottom:none; }
+  .line .nm { font-weight:700; }
+  .qty { display:flex; align-items:center; gap:6px; }
+  .qty button { width:44px; height:44px; border-radius:10px; border:1px solid var(--line-strong); background:var(--surface-2); color:var(--ink); font-size:20px; font-weight:800; cursor:pointer; }
+  .qty b { min-width:26px; text-align:center; font-size:17px; }
+  .line input.price { width:120px; padding:8px 10px; text-align:right; }
+  .total { display:flex; justify-content:space-between; align-items:baseline; font-size:20px; font-weight:800; padding:10px 0 2px; }
+  .pick { display:flex; justify-content:space-between; gap:10px; align-items:center; width:100%; text-align:left; font:inherit; padding:11px 12px; margin:0 0 6px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); cursor:pointer; min-height:48px; }
+  .pick small { color:var(--ink-faint); }
+  pre.report { white-space:pre-wrap; background:var(--surface-2); border-radius:10px; padding:12px; font-size:14px; line-height:1.5; font-family:ui-monospace,Menlo,Consolas,monospace; margin:0 0 10px; overflow-wrap:anywhere; }
+  .empty { text-align:center; padding:22px 10px; color:var(--ink-faint); }
+  .big-n { font-size:30px; font-weight:800; }
+  .toast { position:fixed; left:50%; bottom:92px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:11px 16px; border-radius:12px; font-weight:700; font-size:14px; z-index:70; max-width:90vw; opacity:0; transition:opacity .2s; pointer-events:none; text-align:center; }
+  .toast.show { opacity:1; }
+  .sheet-bg { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; }
+  .sheet { background:var(--surface); color:var(--ink); width:100%; max-width:560px; max-height:90vh; overflow:auto; border-radius:18px 18px 0 0; padding:16px 16px calc(22px + env(safe-area-inset-bottom)); }
+  .sheet h2 { margin-top:0; }
+  .sheet .x { float:right; background:none; border:none; font-size:26px; line-height:1; color:var(--ink-soft); cursor:pointer; min-width:44px; min-height:44px; }
+  @media (min-width: 700px) { .sheet-bg { align-items:center; } .sheet { border-radius:18px; } }
+  footer.ver { text-align:center; font-size:11px; color:var(--ink-faint); padding:0 16px 90px; }
+  .welcome { position:fixed; inset:0; z-index:60; background:var(--bg); overflow:auto; padding:max(28px, env(safe-area-inset-top)) 18px 30px; }
+  .welcome .in { max-width:460px; margin:0 auto; }
+  .welcome .logo { font-size:58px; text-align:center; margin-top:4vh; }
+  .welcome h2 { text-align:center; font-size:26px; margin:6px 0 4px; }
+  .welcome p.lede { text-align:center; color:var(--ink-soft); margin:0 0 18px; }
+  .choice { display:flex; gap:12px; align-items:center; width:100%; text-align:left; font:inherit; font-size:17px; font-weight:800; padding:15px 16px; margin-bottom:10px; border-radius:16px; border:1.5px solid var(--line-strong); background:var(--surface); color:var(--ink); cursor:pointer; }
+  .choice .em { font-size:26px; } .choice small { display:block; font-weight:500; font-size:13px; color:var(--ink-faint); }
+  .tag-ex { display:inline-block; font-size:11px; font-weight:800; color:var(--warn-ink); background:var(--warn-soft); border-radius:6px; padding:1px 6px; margin-left:6px; }
+  @media print { nav.tabs, header, .no-print, footer.ver { display:none !important; } body { background:#fff; color:#000; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <h1><span id="hdrName">Duka</span> <small id="hdrDate"></small></h1>
+    <span class="hpill sbx" id="sbxPill" hidden>🧪 Test copy</span>
+    <span class="hpill" id="demoPill" hidden>Example shop</span>
+  </div>
+</header>
+
+<main id="view"><p class="muted">Loading…</p></main>
+
+<nav class="tabs" id="nav" aria-label="Main">
+  <button id="nav-today" data-tab="today" onclick="go('today')"><span class="ic">🏠</span>Today</button>
+  <button id="nav-sell" data-tab="sell" onclick="go('sell')"><span class="ic">🛒</span>Sell</button>
+  <button id="nav-stock" data-tab="stock" onclick="go('stock')"><span class="ic">📦</span>Stock</button>
+  <button id="nav-people" data-tab="people" onclick="go('people')"><span class="ic">👥</span>Customers</button>
+  <button id="nav-offers" data-tab="offers" onclick="go('offers')"><span class="ic">📣</span>Offers</button>
+  <button id="nav-money" data-tab="money" onclick="go('money')"><span class="ic">💵</span>Money</button>
+</nav>
+
+<div id="sheetHost"></div>
+<div class="toast" id="toast" role="status"></div>
+<footer class="ver" id="ver"></footer>
+
+<script>
+'use strict';
+const VERSION = 'v1.0 · 2026-10-16';
+const KEY = 'dj_duka_v1';
+window.DJ_OWNS = { k:['dj_duka_v1'], p:['dj_duka_'] };
+
+/* ---------- where the data lives ---------- */
+const QS = new URLSearchParams(location.search);
+const SBX = QS.get('dj_sandbox') === '1';
+let DEMO = QS.get('demo') === '1';
+try { if (window.parent !== window && /\/shop\/watch\.html$/.test(window.parent.location.pathname)) DEMO = true; } catch (e) {}
+const STORE = (function () { try { const s = SBX ? sessionStorage : localStorage; s.setItem('__dk', '1'); s.removeItem('__dk'); return s; } catch (e) { return null; } })();
+const SKEY = (SBX ? 'sbx:' : '') + KEY;
+
+/* ---------- small helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const N = (v) => { const n = Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : 0; };
+const money = (n) => 'KSh ' + Math.round(N(n)).toLocaleString('en-KE');
+const pad = (n) => String(n).padStart(2, '0');
+const dstr = (t) => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+const today = () => dstr(Date.now());
+const ym = (t) => dstr(t == null ? Date.now() : t).slice(0, 7);
+const fdate = (t) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+const fday = (t) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const ftime = (t) => new Date(t).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+const DAY = 864e5;
+const daysAgo = (t) => Math.floor((startOf(Date.now()) - startOf(t)) / DAY);
+function startOf(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function first(name) { return String(name || '').trim().split(/\s+/)[0] || ''; }
+function phone254(p) { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('254')) return d; if (d.startsWith('0')) return '254' + d.slice(1); if (d.length === 9) return '254' + d; return d; }
+function waHref(phone, text) { return 'https://wa.me/' + phone254(phone) + '?text=' + encodeURIComponent(text); }
+function smsHref(phone, text) { return 'sms:' + String(phone || '').replace(/[^\d+]/g, '') + '?&body=' + encodeURIComponent(text); }
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 3000); }
+function copyText(text, ok) {
+  const done = () => toast(ok || 'Copied.');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done)); else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('Select the text and copy it by hand.'); } ta.remove(); }
+function opts(list, sel) { return list.map((o) => { const v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return `<option value="${esc(v)}" ${String(v) === String(sel) ? 'selected' : ''}>${esc(t)}</option>`; }).join(''); }
+
+/* ---------- the data ---------- */
+const CATS = ['Phones', 'Accessories', 'TV & Sound', 'Solar & Power', 'Computers & Storage'];
+const EXP_CATS = ['Stock purchase', 'Rent', 'Electricity (KPLC)', 'Internet & airtime', 'Salaries & wages', 'Transport', 'Marketing & ads', 'Licences & permits', 'Repair parts', 'Other'];
+const IN_CATS = ['Repair fee', 'Deni payment', 'Owner put money in', 'Other'];
+const RECEIPTS = ['Paper receipt — kept', 'M-Pesa message', 'No — chase it'];
+function blank() {
+  return { v: 1, shop: { name: '', town: '', owner: '', phone: '', whatsapp: '', till: '', paybill: '', acct: '', kra: '', stop: true },
+    staff: [], cats: CATS.slice(), expCats: EXP_CATS.slice(), items: [], sales: [], inn: [], out: [], counts: [], bills: [], custs: [], repairs: [], offers: [],
+    n: { sale: 0, rep: 0 }, example: false, made: Date.now() };
+}
+let D = null;
+function load() {
+  if (DEMO) { D = example(); return; }
+  let d = null; try { d = JSON.parse((STORE && STORE.getItem(SKEY)) || 'null'); } catch (e) { d = null; }
+  D = d && d.v ? Object.assign(blank(), d) : null;
+}
+function save() {
+  if (DEMO || !D) return;
+  try { STORE && STORE.setItem(SKEY, JSON.stringify(D)); } catch (e) { toast('Could not save — the phone may be full.'); }
+}
+
+/* ---------- the example shop (Baraka Electronics, Nakuru) — dates are counted back from today ---------- */
+function example() {
+  const d = blank(); d.example = true;
+  d.shop = { name: 'Baraka Electronics', town: 'Nakuru', owner: 'Wanjiru', phone: '0712 345 678', whatsapp: '0712 345 678', till: '512734', paybill: '', acct: '', kra: 'P051234567X', stop: true };
+  d.staff = ['Wanjiru', 'Brian'];
+  const at = (days, h, m) => { const x = new Date(); x.setDate(x.getDate() - days); x.setHours(h, m || 0, 0, 0); return Math.min(x.getTime(), Date.now() - 60e3 * (days === 0 ? 5 : 0)); };
+  const I = (name, cat, cost, price, qty, low, wty) => { const it = { id: uid(), name, cat, cost, price, qty, low, wty }; d.items.push(it); return it; };
+  const spark = I('Tecno Spark 20', 'Phones', 14500, 16999, 6, 2, 12);
+  const a15 = I('Samsung Galaxy A15', 'Phones', 19800, 22500, 3, 2, 12);
+  const hot = I('Infinix Hot 40i', 'Phones', 12900, 14999, 1, 2, 12);
+  const nokia = I('Nokia 105 (kabambe)', 'Phones', 1900, 2600, 12, 4, 6);
+  const charger = I('Fast charger 25W (Type-C)', 'Accessories', 350, 800, 25, 8, 3);
+  const cable = I('USB-C cable 1m', 'Accessories', 120, 300, 40, 10, 0);
+  const ear = I('Oraimo earphones', 'Accessories', 450, 950, 14, 5, 3);
+  const pbank = I('Power bank 10,000mAh', 'Accessories', 1300, 2200, 7, 3, 6);
+  const glass = I('Screen protector (glass)', 'Accessories', 60, 300, 60, 15, 0);
+  const cover = I('Phone cover', 'Accessories', 100, 400, 3, 10, 0);
+  const tv = I('Vitron 32" smart TV', 'TV & Sound', 13500, 16500, 2, 1, 12);
+  const spk = I('Bluetooth speaker', 'TV & Sound', 1600, 2800, 5, 2, 6);
+  const ext = I('Extension cable 4-way', 'Solar & Power', 450, 900, 9, 3, 0);
+  const solar = I('Solar lamp + phone charging', 'Solar & Power', 1500, 2500, 4, 2, 12);
+  const flash = I('Flash disk 32GB', 'Computers & Storage', 450, 900, 10, 4, 0);
+  I('Memory card 64GB', 'Computers & Storage', 550, 1100, 0, 4, 0);
+  const C = (name, phone, ok, days) => { const c = { id: uid(), name, phone, ok, notes: '', added: at(days || 40, 10) }; d.custs.push(c); return c; };
+  const njeri = C('Mama Njeri', '0722 111 222', true), kamau = C('John Kamau', '0711 222 333', true), faith = C('Faith Achieng', '0733 444 555', true);
+  const peter = C('Peter Otieno', '0700 555 666', true), grace = C('Grace Wambui', '0745 666 777', false), kiprop = C('Samuel Kiprop', '0798 777 888', true, 120);
+  const halima = C('Halima Hassan', '0757 888 999', true), dennis = C('Dennis Mutua', '0768 999 000', true);
+  const S = (days, h, m, lines, pay, cust, ref) => {
+    const t = at(days, h, m);
+    const L = lines.map(([it, qty, price]) => ({ iid: it.id, name: it.name, qty, price: price || it.price, cost: it.cost, wty: it.wty ? addMonths(t, it.wty) : 0 }));
+    const s = { id: uid(), no: ++d.n.sale, at: t, lines: L, total: L.reduce((a, l) => a + l.qty * l.price, 0), pay, ref: ref || '', cid: cust ? cust.id : '', by: 'Wanjiru' };
+    d.sales.push(s); return s;
+  };
+  S(70, 11, 20, [[pbank, 1]], 'M-Pesa', kiprop, 'PJK7HQ2M1A');
+  S(6, 9, 40, [[charger, 1], [cable, 1]], 'Cash');
+  S(6, 14, 5, [[nokia, 1]], 'M-Pesa', njeri, 'QJA1B2C3D4');
+  S(5, 11, 30, [[ear, 2, 900]], 'M-Pesa', null, 'QJB2C3D4E5');
+  S(5, 16, 10, [[tv, 1, 16000]], 'M-Pesa', halima, 'QJB7Y6T5R4');
+  S(4, 10, 15, [[glass, 3], [cover, 2]], 'Cash');
+  S(4, 13, 45, [[a15, 1], [glass, 1]], 'M-Pesa', dennis, 'QJC4D5E6F7');
+  const deni = S(3, 12, 0, [[spark, 1]], 'Deni', peter);
+  S(3, 17, 30, [[pbank, 1], [cable, 1]], 'M-Pesa', kamau, 'QJD5E6F7G8');
+  S(2, 10, 0, [[ext, 1], [flash, 1]], 'Cash');
+  S(2, 15, 20, [[spk, 1, 2700]], 'M-Pesa', faith, 'QJE6F7G8H9');
+  S(1, 9, 50, [[solar, 1]], 'M-Pesa', grace, 'QJF7G8H9J1');
+  S(1, 13, 10, [[charger, 2], [glass, 2]], 'Cash');
+  S(1, 18, 5, [[hot, 1]], 'Card', null, 'VISA 4421');
+  S(0, 9, 15, [[glass, 1], [cover, 1]], 'Cash');
+  S(0, 10, 40, [[spark, 1, 16500], [glass, 1]], 'M-Pesa', kamau, 'QJH9J1K2L3');
+  S(0, 11, 5, [[ear, 1]], 'M-Pesa', null, 'QJH2K3L4M5');
+  d.inn.push({ id: uid(), at: at(2, 9, 0), cat: 'Deni payment', amt: 10000, to: 'M-Pesa', from: 'Peter Otieno', ref: 'QJE1A2B3C4', sid: deni.id, by: 'Wanjiru' });
+  d.inn.push({ id: uid(), at: at(5, 12, 0), cat: 'Repair fee', amt: 500, to: 'Cash', from: 'Halima Hassan', ref: 'Radio — no sound', by: 'Brian' });
+  const mStart = new Date(); mStart.setDate(1); mStart.setHours(9, 0, 0, 0);
+  const O = (t, payee, cat, amt, from, ref, rcpt, note) => d.out.push({ id: uid(), at: t, payee, cat, amt, from, ref, rcpt, note, by: 'Wanjiru' });
+  O(Math.min(mStart.getTime(), at(6, 9, 0)), 'Landlord — Kenyatta Ave shop', 'Rent', 25000, 'Bank', 'Standing order', 'Paper receipt — kept', '');
+  O(at(4, 8, 30), 'KPLC prepaid tokens', 'Electricity (KPLC)', 2000, 'M-Pesa', 'QJC1X2Y3Z4', 'M-Pesa message', '');
+  O(at(3, 16, 0), 'Matatu — stock from town', 'Transport', 600, 'Cash', '', 'No — chase it', 'Carried 10 chargers back');
+  O(at(2, 11, 30), 'Facebook page boost', 'Marketing & ads', 1000, 'M-Pesa', 'QJE9Z8Y7X6', 'M-Pesa message', 'Weekend phones offer');
+  O(at(1, 10, 0), 'Safaricom airtime', 'Internet & airtime', 500, 'M-Pesa', 'QJF1Q2W3E4', 'M-Pesa message', '');
+  d.counts.push({ id: uid(), at: at(1, 19, 0), cash: 9550, mpesa: 61450, bank: 86000, exp: { cash: 9550, mpesa: 61450, bank: 86000 }, by: 'Wanjiru', note: '' });
+  const m = ym();
+  [['Shop rent', 25000, 'Rent', 1, true], ['Internet — Safaricom Home', 2999, 'Internet & airtime', 5, true], ['Watchman — night security', 3000, 'Salaries & wages', 28, false], ['Brian — shop assistant pay', 12000, 'Salaries & wages', 30, false]]
+    .forEach(([name, amt, cat, due, paid]) => d.bills.push({ id: uid(), month: m, name, amt, cat, due, paid, paidAt: paid ? mStart.getTime() : 0 }));
+  d.repairs.push({ id: uid(), no: ++d.n.rep, cid: faith.id, item: 'Samsung A10', problem: 'Cracked screen — new screen fitted', price: 2500, status: 'ready', inAt: at(3, 10, 0), readyAt: at(0, 9, 30), told: false });
+  d.repairs.push({ id: uid(), no: ++d.n.rep, cid: kamau.id, item: 'Tecno Camon 18', problem: 'Charging port loose', price: 800, status: 'in', inAt: at(1, 15, 0), told: false });
+  d.repairs.push({ id: uid(), no: ++d.n.rep, cid: halima.id, item: 'Radio (Sayona)', problem: 'No sound', price: 500, status: 'done', inAt: at(8, 11, 0), readyAt: at(6, 10, 0), outAt: at(5, 12, 0), told: true });
+  const off = { id: uid(), title: 'New stock: Samsung Galaxy A15', kind: 'stock', aud: 'phones', at: at(5, 9, 0),
+    text: 'Habari {name}! New at {shop}: the Samsung Galaxy A15 is here, KSh 22,500 with 12 months warranty. Come and see it in {town}. Till {till}.', sent: {} };
+  [njeri, kiprop, halima, dennis].forEach((c, i) => (off.sent[c.id] = at(5, 9, 10 + i)));
+  d.offers.push(off);
+  return d;
+}
+function addMonths(t, m) { const x = new Date(t); x.setMonth(x.getMonth() + m); return x.getTime(); }
+
+/* ---------- lookups and sums ---------- */
+const item = (id) => D.items.find((x) => x.id === id);
+const cust = (id) => D.custs.find((x) => x.id === id);
+const custName = (id) => (cust(id) || {}).name || '';
+const saleProfit = (s) => s.lines.reduce((a, l) => a + l.qty * (l.price - (l.cost || 0)), 0);
+const salesBetween = (a, b) => D.sales.filter((s) => s.at >= a && s.at < b);
+function owed(s) { if (s.pay !== 'Deni') return 0; const paid = D.inn.filter((x) => x.sid === s.id).reduce((a, x) => a + N(x.amt), 0); return Math.max(0, s.total - paid); }
+function deniList() { return D.sales.filter((s) => owed(s) > 0).sort((a, b) => a.at - b.at); }
+function lastBuy(cid) { const s = D.sales.filter((x) => x.cid === cid).sort((a, b) => b.at - a.at)[0]; return s ? s.at : 0; }
+function spent(cid) { return D.sales.filter((x) => x.cid === cid).reduce((a, s) => a + s.total, 0); }
+function lowItems() { return D.items.filter((i) => N(i.qty) <= N(i.low)).sort((a, b) => a.qty - b.qty); }
+function lastCount() { return D.counts.slice().sort((a, b) => b.at - a.at)[0] || null; }
+/* What should be in the drawer, on M-Pesa and in the bank now: the last count plus everything recorded since. */
+function expected(until) {
+  until = until || Infinity;
+  const c = D.counts.filter((x) => x.at < until).sort((a, b) => b.at - a.at)[0] || null;
+  const since = c ? c.at : 0; const e = { cash: c ? c.cash : 0, mpesa: c ? c.mpesa : 0, bank: c ? c.bank : 0, since, has: !!c };
+  const add = (how, amt) => { if (how === 'Cash') e.cash += amt; else if (how === 'M-Pesa') e.mpesa += amt; else if (how === 'Bank' || how === 'Card') e.bank += amt; };
+  D.sales.forEach((s) => { if (s.at > since && s.at < until && s.pay !== 'Deni') add(s.pay, s.total); });
+  D.inn.forEach((x) => { if (x.at > since && x.at < until) add(x.to, N(x.amt)); });
+  D.out.forEach((x) => { if (x.at > since && x.at < until) add(x.from, -N(x.amt)); });
+  return e;
+}
+function billsFor(m) { return D.bills.filter((b) => b.month === m).sort((a, b) => (a.due || 99) - (b.due || 99)); }
+function fill(text, c) {
+  const s = D.shop;
+  return String(text).replace(/\{name\}/g, (c && c.name === '(their name)') ? '(their name)' : first(c && c.name) || 'there').replace(/\{shop\}/g, s.name || 'our shop').replace(/\{town\}/g, s.town || 'town')
+    .replace(/\{till\}/g, s.till || '—').replace(/\{phone\}/g, s.phone || '');
+}
+function payLine() { const s = D.shop; return s.till ? 'Till ' + s.till : s.paybill ? 'Paybill ' + s.paybill + (s.acct ? ' acc ' + s.acct : '') : ''; }
+
+/* ---------- routing ---------- */
+let TAB = 'today', SUB = '', ARG = '';
+function go(tab, sub, arg) { const h = '#' + [tab, sub, arg].filter(Boolean).join('/'); if (location.hash === h) route(); else location.hash = h; }
+function route() {
+  const p = (location.hash || '#today').slice(1).split('/');
+  const dec = (x) => { try { return decodeURIComponent(x || ''); } catch (e) { return x || ''; } };
+  TAB = VIEWS[p[0]] ? p[0] : 'today'; SUB = dec(p[1]); ARG = dec(p[2]);
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === TAB));
+  closeSheet(true);
+  if (!D) { welcome(); return; }
+  head();
+  VIEWS[TAB]($('view'));
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+function head() {
+  $('hdrName').textContent = D.shop.name || 'Duka';
+  $('hdrDate').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  $('sbxPill').hidden = !SBX; $('demoPill').hidden = !(D.example && !SBX);
+}
+function subtabs(list, cur, tab) { return `<div class="subtabs">${list.map(([k, t]) => `<button class="${k === cur ? 'on' : ''}" onclick="go('${tab}','${k}')">${t}</button>`).join('')}</div>`; }
+
+/* ---------- sheets (the small window that slides up) ---------- */
+function openSheet(html) { $('sheetHost').innerHTML = `<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true"><button class="x" aria-label="Close" onclick="closeSheet()">×</button>${html}</div></div>`; $('sheetBg').onclick = (e) => { if (e.target.id === 'sheetBg') closeSheet(); }; }
+function closeSheet(quiet) { $('sheetHost').innerHTML = ''; }
+
+/* =====================================================================================
+   WELCOME — first time on this phone
+   ===================================================================================== */
+function welcome() {
+  $('view').innerHTML = '';
+  $('sheetHost').innerHTML = `<div class="welcome" id="welcome"><div class="in">
+    <div class="logo">📱</div><h2>Karibu to Duka</h2>
+    <p class="lede">Run your phone and electronics shop from your phone: sales, stock, the cash count, M-Pesa, bills, customers who owe, repairs and offers. Works with no signal.</p>
+    <p class="hint" style="text-align:center;margin-bottom:12px"><b>How do you want to start?</b></p>
+    <button class="choice" id="wExample" onclick="startExample()"><span class="em">🧪</span><span>Keep the example shop to play with<small>Baraka Electronics in Nakuru, with a week of pretend sales. Nothing is real.</small></span></button>
+    <button class="choice" id="wFresh" onclick="startFresh()"><span class="em">✨</span><span>Start fresh with my own shop<small>An empty shop. Two minutes to set up.</small></span></button>
+    <p class="hint" style="text-align:center">${SBX ? '🧪 This is a test copy: it disappears when you close this tab.' : 'Everything stays on this phone. Nothing is sent anywhere unless you send it.'}</p>
+  </div></div>`;
+}
+function startExample() { D = example(); save(); $('sheetHost').innerHTML = ''; go('today'); setTimeout(() => toast('This is an example shop. Play with anything.'), 300); }
+function startFresh() {
+  $('sheetHost').innerHTML = `<div class="welcome" id="welcome"><div class="in">
+    <div class="logo">✨</div><h2>Your shop</h2><p class="lede">You can change all of this later under 💵 Money → ⚙️ Settings.</p>
+    <div class="card">
+      <label for="fName">Shop name</label><input id="fName" placeholder="e.g. Baraka Electronics" autocomplete="off">
+      <label for="fOwner">Your first name</label><input id="fOwner" placeholder="e.g. Wanjiru" autocomplete="off">
+      <label for="fTown">Town</label><input id="fTown" placeholder="e.g. Nakuru" autocomplete="off">
+      <label for="fTill">M-Pesa till number (optional)</label><input id="fTill" inputmode="numeric" placeholder="e.g. 512734" autocomplete="off">
+      <div style="height:12px"></div>
+      <button class="btn block big" id="fGo" onclick="finishFresh()">Open my shop ›</button>
+    </div>
+    <button class="btn sec block" onclick="welcome()">‹ Back</button>
+  </div></div>`;
+}
+function finishFresh() {
+  const name = $('fName').value.trim(), owner = $('fOwner').value.trim();
+  if (!name) { toast('What is the shop called?'); $('fName').focus(); return; }
+  if (!owner) { toast('What is your first name?'); $('fOwner').focus(); return; }
+  D = blank(); Object.assign(D.shop, { name, owner, town: $('fTown').value.trim(), till: $('fTill').value.trim() }); D.staff = [owner];
+  save(); $('sheetHost').innerHTML = ''; go('today'); setTimeout(() => toast('Karibu, ' + owner + '! Add your first item under 📦 Stock.'), 300);
+}
+
+/* =====================================================================================
+   TODAY
+   ===================================================================================== */
+function needs() {
+  const out = [];
+  const low = lowItems();
+  if (low.length) out.push({ em: '📦', html: `<b>${low.length} item${low.length > 1 ? 's' : ''} running low:</b> ${low.slice(0, 3).map((i) => `${esc(i.name)} (${i.qty} left)`).join(', ')}${low.length > 3 ? '…' : ''}`, act: `<button class="btn sec small" onclick="go('stock','low')">See</button>` });
+  D.repairs.filter((r) => r.status === 'ready' && !r.told).forEach((r) => out.push({ em: '🔧', html: `<b>${esc(custName(r.cid))}'s ${esc(r.item)} is ready.</b> Tell them to collect it.`, act: `<button class="btn small" onclick="tellRepair('${r.id}')">Tell</button>` }));
+  deniList().slice(0, 3).forEach((s) => out.push({ em: '💳', html: `<b>${esc(custName(s.cid) || 'A customer')} owes ${money(owed(s))}</b> · since ${fdate(s.at)}`, act: `<button class="btn sec small" onclick="go('people','deni')">Deni</button>` }));
+  const d = new Date().getDate();
+  billsFor(ym()).filter((b) => !b.paid && b.due && b.due - d <= 5).forEach((b) => out.push({ em: '🧾', html: `<b>${esc(b.name)}</b> ${money(b.amt)} — ${b.due < d ? '<span class="pill bad">late</span>' : 'due on the ' + ord(b.due)}`, act: `<button class="btn sec small" onclick="go('money','bills')">Bills</button>` }));
+  const w = warrantyEnding(); if (w.length) out.push({ em: '🛡️', html: `<b>${w.length} warrant${w.length > 1 ? 'ies end' : 'y ends'} within 30 days.</b> A quick check-in brings people back.`, act: `<button class="btn sec small" onclick="newOffer('warranty')">Message</button>` });
+  const quiet = quietCustomers(); if (quiet.length) out.push({ em: '👋', html: `<b>${quiet.length} customer${quiet.length > 1 ? 's have' : ' has'} not been in for 60+ days.</b>`, act: `<button class="btn sec small" onclick="newOffer('miss')">Invite</button>` });
+  const lc = lastCount(); if ((!lc || dstr(lc.at) !== today()) && new Date().getHours() >= 17) out.push({ em: '🧮', html: '<b>Count the cash before you close.</b> Two minutes.', act: `<button class="btn small" onclick="go('money','cash')">Count</button>` });
+  return out;
+}
+function ord(n) { return n + ([11, 12, 13].includes(n % 100) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th')); }
+function warrantyEnding() { const now = Date.now(), seen = {}; const out = []; D.sales.forEach((s) => s.lines.forEach((l) => { if (l.wty && l.wty > now && l.wty - now < 30 * DAY && s.cid && !seen[s.cid + l.name]) { seen[s.cid + l.name] = 1; out.push({ cid: s.cid, name: l.name, until: l.wty }); } })); return out; }
+function quietCustomers() { return D.custs.filter((c) => c.ok && c.phone && lastBuy(c.id) && daysAgo(lastBuy(c.id)) >= 60); }
+const VIEWS = {};
+VIEWS.today = function (el) {
+  const t0 = startOf(Date.now()), ts = salesBetween(t0, t0 + DAY), tot = ts.reduce((a, s) => a + s.total, 0), prof = ts.reduce((a, s) => a + saleProfit(s), 0);
+  const e = expected(), h = new Date().getHours(), hi = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  const nd = needs();
+  const recent = D.sales.slice().sort((a, b) => b.at - a.at).slice(0, 6);
+  el.innerHTML = `
+    ${D.example ? `<div class="card note" id="exNote"><b>This is an example shop.</b> Play with anything — nothing is real. <div class="row" style="margin-top:8px"><button class="btn sec small" id="exMine" onclick="startOverAsk()">Start my own shop</button></div></div>` : ''}
+    <h2>${hi}, ${esc(D.shop.owner || 'boss')} 👋</h2>
+    <div class="kpis">
+      <div class="kpi" id="kpiSales"><div class="k">Sales today</div><div class="v num">${money(tot)}</div><div class="f">${ts.length} sale${ts.length === 1 ? '' : 's'}</div></div>
+      <div class="kpi" id="kpiProfit"><div class="k">Profit today</div><div class="v num ok">${money(prof)}</div><div class="f">price − what you paid</div></div>
+      <div class="kpi" id="kpiCash"><div class="k">Cash in the drawer</div><div class="v num">${money(e.cash)}</div><div class="f">${e.has ? 'since the count ' + fday(e.since) : 'no count yet'}</div></div>
+      <div class="kpi" id="kpiMpesa"><div class="k">M-Pesa</div><div class="v num">${money(e.mpesa)}</div><div class="f">${e.has ? 'should be on the till' : 'count the cash to start'}</div></div>
+    </div>
+    <button class="btn block big acc" id="newSaleBtn" onclick="go('sell')">🛒 New sale</button>
+    <h3>Needs you (${nd.length})</h3>
+    <div class="card" id="needs">${nd.length ? nd.map((n) => `<div class="need"><span class="em">${n.em}</span><div class="grow">${n.html}</div>${n.act || ''}</div>`).join('') : '<div class="empty">✅ Nothing needs you right now.</div>'}</div>
+    <h3>Recent sales</h3>
+    <div class="card"><div class="list" id="recent">${recent.length ? recent.map(saleRow).join('') : '<div class="empty">No sales yet. Tap 🛒 New sale.</div>'}</div></div>
+    <p class="hint">Shop rule: every shilling recorded the moment it moves · a receipt for every expense · count the cash every evening.</p>`;
+};
+function saleRow(s) {
+  const who = custName(s.cid), what = s.lines.map((l) => (l.qty > 1 ? l.qty + '× ' : '') + l.name).join(', ');
+  return `<div class="item tap" onclick="showReceipt('${s.id}')"><div class="grow"><div class="t">${esc(what)}</div><div class="m">#${s.no} · ${daysAgo(s.at) === 0 ? ftime(s.at) : fday(s.at)}${who ? ' · ' + esc(who) : ''}</div></div><div style="text-align:right"><div class="t num">${money(s.total)}</div><span class="pill ${s.pay === 'Deni' ? (owed(s) ? 'warn' : 'ok') : 'brand'}">${s.pay === 'Deni' ? (owed(s) ? 'Deni' : 'Deni · paid') : esc(s.pay)}</span></div></div>`;
+}
+
+/* =====================================================================================
+   SELL
+   ===================================================================================== */
+let CART = [], SELL = null;
+function sellReset() { CART = []; SELL = { q: '', cname: '', phone: '', ok: true, pay: 'M-Pesa', ref: '', msgAmt: null, given: '' }; }
+sellReset();
+VIEWS.sell = function (el) {
+  const top = topSellers(6);
+  el.innerHTML = `
+    <h2>New sale</h2>
+    <div class="card">
+      <label for="sSearch">Find an item</label>
+      <input id="sSearch" placeholder="Type: spark, charger, TV…" autocomplete="off" value="${esc(SELL.q)}" oninput="SELL.q=this.value;sellResults()">
+      <div class="chips" id="sTop">${top.map((i) => `<button onclick="addToCart('${i.id}')">＋ ${esc(i.name)}</button>`).join('')}</div>
+      <div id="sResults"></div>
+    </div>
+    <div class="card" id="cartCard"><div id="cart"></div></div>
+    <div class="card" id="custBox">
+      <label for="sCust">Customer (optional — needed for Deni and offers)</label>
+      <input id="sCust" list="custNames" placeholder="Name" autocomplete="off" value="${esc(SELL.cname)}" oninput="SELL.cname=this.value;custPicked()">
+      <datalist id="custNames">${D.custs.map((c) => `<option value="${esc(c.name)}">`).join('')}</datalist>
+      <div id="custMore"></div>
+    </div>
+    <div class="card" id="payBox"></div>
+    <button class="btn block big" id="sSave" onclick="saveSale()">✅ Save sale</button>
+    <div style="height:8px"></div>
+    <button class="btn sec block" onclick="sellReset();go('sell')">Clear and start again</button>`;
+  sellResults(); renderCart(); custPicked(); renderPay();
+};
+function topSellers(n) { const c = {}; D.sales.forEach((s) => s.lines.forEach((l) => (c[l.iid] = (c[l.iid] || 0) + l.qty))); return D.items.filter((i) => i.qty > 0).sort((a, b) => (c[b.id] || 0) - (c[a.id] || 0)).slice(0, n); }
+function sellResults() {
+  const q = SELL.q.trim().toLowerCase(), box = $('sResults'); if (!box) return;
+  if (!q) { box.innerHTML = ''; return; }
+  const hits = D.items.filter((i) => (i.name + ' ' + i.cat).toLowerCase().includes(q)).slice(0, 8);
+  box.innerHTML = hits.length ? hits.map((i) => `<button class="pick" onclick="addToCart('${i.id}')"><span><b>${esc(i.name)}</b><br><small>${esc(i.cat)} · ${i.qty > 0 ? i.qty + ' in stock' : '<span style="color:var(--bad)">out of stock</span>'}</small></span><b class="num">${money(i.price)}</b></button>`).join('')
+    : `<p class="hint">Not in your stock. <a href="#" onclick="event.preventDefault();itemSheet('',SELL.q)">＋ Add “${esc(SELL.q)}” to stock</a></p>`;
+}
+function addToCart(id) {
+  const it = item(id); if (!it) return;
+  const l = CART.find((x) => x.iid === id);
+  if (l) l.qty++; else CART.push({ iid: id, name: it.name, qty: 1, price: it.price, cost: it.cost });
+  SELL.q = ''; const s = $('sSearch'); if (s) s.value = ''; sellResults(); renderCart(); renderPay();
+  toast('＋ ' + it.name);
+}
+function cartTotal() { return CART.reduce((a, l) => a + l.qty * N(l.price), 0); }
+function renderCart() {
+  const box = $('cart'); if (!box) return;
+  if (!CART.length) { box.innerHTML = '<div class="empty">Nothing yet. Tap an item above.</div>'; return; }
+  box.innerHTML = CART.map((l, i) => {
+    const it = item(l.iid) || {}, below = N(l.price) < N(l.cost), over = it.qty != null && l.qty > it.qty;
+    return `<div class="line"><div><div class="nm">${esc(l.name)}</div>
+        <div class="qty"><button aria-label="One less" onclick="cartQty(${i},-1)">−</button><b>${l.qty}</b><button aria-label="One more" onclick="cartQty(${i},1)">＋</button></div></div>
+      <div style="text-align:right"><input class="price num" inputmode="numeric" aria-label="Price each" value="${l.price}" onchange="cartPrice(${i},this.value)"><div class="hint" style="margin:4px 0 0">each</div></div>
+      ${below ? `<div class="alert warn" style="grid-column:1/-1;margin:0">⚠️ Below what you paid (${money(l.cost)}). You lose ${money((N(l.cost) - N(l.price)) * l.qty)}.</div>` : ''}
+      ${over ? `<div class="alert warn" style="grid-column:1/-1;margin:0">Stock says only ${it.qty} left. Check the shelf — you can still sell.</div>` : ''}</div>`;
+  }).join('') + `<div class="total"><span>Total</span><span class="num" id="cartTotal">${money(cartTotal())}</span></div>`;
+}
+function cartQty(i, d) { CART[i].qty += d; if (CART[i].qty <= 0) CART.splice(i, 1); renderCart(); renderPay(); }
+function cartPrice(i, v) { CART[i].price = Math.max(0, N(v)); renderCart(); renderPay(); }
+function custPicked() {
+  const box = $('custMore'); if (!box) return;
+  const n = SELL.cname.trim(), c = D.custs.find((x) => x.name.toLowerCase() === n.toLowerCase());
+  if (!n) { box.innerHTML = ''; return; }
+  if (c) { box.innerHTML = `<p class="hint">✓ ${esc(c.name)} · ${esc(c.phone || 'no phone')} · ${c.ok ? 'OK with offers' : 'no offers'}</p>`; return; }
+  box.innerHTML = `<p class="hint">New customer — they will be saved.</p>
+    <label for="sPhone">Phone</label><input id="sPhone" inputmode="tel" placeholder="07…" value="${esc(SELL.phone)}" oninput="SELL.phone=this.value">
+    <label class="check"><input type="checkbox" id="sOk" ${SELL.ok ? 'checked' : ''} onchange="SELL.ok=this.checked"> They said yes to offers by WhatsApp / SMS</label>
+    <p class="hint">Ask first. Kenya's Data Protection Act says people must agree before you send them offers.</p>`;
+}
+function renderPay() {
+  const box = $('payBox'); if (!box) return;
+  const tot = cartTotal(), p = SELL.pay;
+  let more = '';
+  if (p === 'M-Pesa') {
+    const m = SELL.msgAmt;
+    more = `<label for="sMsg">📲 Paste the M-Pesa message (optional)</label>
+      <textarea id="sMsg" placeholder="e.g. QJK3XYZ12A Confirmed. Ksh16,999.00 received from JOHN KAMAU 0711…" onchange="sellMsg(this.value)"></textarea>
+      <button class="btn sec small" style="margin-top:6px" onclick="sellMsg($('sMsg').value)">Fill from message</button>
+      <label for="sRef">M-Pesa code</label><input id="sRef" placeholder="e.g. QJK3XYZ12A" value="${esc(SELL.ref)}" oninput="SELL.ref=this.value.toUpperCase()" autocomplete="off">
+      ${m != null ? (Math.round(m) === Math.round(tot) ? `<div class="alert ok">✓ The message says ${money(m)} — it matches.</div>` : `<div class="alert bad">The message says ${money(m)} but the total is ${money(tot)}. Check before you save.</div>`) : ''}`;
+  } else if (p === 'Cash') {
+    const g = N(SELL.given);
+    more = `<label for="sGiven">Cash given (optional)</label><input id="sGiven" inputmode="numeric" placeholder="${tot}" value="${esc(SELL.given)}" oninput="SELL.given=this.value;$('sChange').innerHTML=changeLine()"><div id="sChange">${changeLine()}</div>`;
+  } else if (p === 'Card') {
+    more = `<label for="sRef">Card slip number (optional)</label><input id="sRef" value="${esc(SELL.ref)}" oninput="SELL.ref=this.value" autocomplete="off">`;
+  } else {
+    more = `<p class="hint">💳 <b>Deni</b>: the customer takes it now and pays later. Put in their name and phone above. It shows under 👥 Customers → Owe me until it is paid.</p>`;
+  }
+  box.innerHTML = `<label style="margin-top:0">Paid by</label><div class="seg" id="paySeg">${['M-Pesa', 'Cash', 'Card', 'Deni'].map((x) => `<button class="${x === p ? 'on' : ''}" onclick="SELL.pay='${x}';SELL.msgAmt=null;renderPay()">${{ 'M-Pesa': '📲', Cash: '💵', Card: '💳', Deni: '📒' }[x]} ${x}</button>`).join('')}</div>${more}`;
+}
+function changeLine() { const g = N(SELL.given), tot = cartTotal(); if (!SELL.given) return ''; return g >= tot ? `<div class="alert ok">Change to give back: <b>${money(g - tot)}</b></div>` : `<div class="alert bad">That is ${money(tot - g)} short.</div>`; }
+function sellMsg(text) { const m = parseMpesa(text); if (!m) { toast('That does not look like an M-Pesa message.'); return; } SELL.ref = m.ref || SELL.ref; SELL.msgAmt = m.amt; if (m.name && !SELL.cname) SELL.cname = titleCase(m.name); const sc = $('sCust'); if (sc) sc.value = SELL.cname; custPicked(); renderPay(); toast('Filled from the message.'); }
+function titleCase(s) { return String(s).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
+/* M-Pesa confirmations: received / sent / paid to / buy goods. Returns {ref, amt, name, phone, date, bal, dir}. */
+function parseMpesa(t) {
+  t = String(t || '').replace(/\s+/g, ' ').trim(); if (!t) return null;
+  const ref = (t.match(/\b([A-Z0-9]{10})\b/) || [])[1] || '';
+  const am = t.match(/K\s?sh\.?\s?([\d,]+(?:\.\d{1,2})?)/i); if (!am) return null;
+  const amt = N(am[1]);
+  let dir = '', name = '', phone = '';
+  let m = t.match(/received from ([A-Za-z .'&-]+?)(?:\s+(\+?\d[\d*x ]{6,}\d))?\s+on\b/i) || t.match(/from ([A-Za-z .'&-]+?)(?:\s+(\+?\d[\d*x ]{6,}\d))?\s+on\b/i);
+  if (m) { dir = 'in'; name = m[1].trim(); phone = (m[2] || '').replace(/\s/g, ''); }
+  else if ((m = t.match(/(?:sent to|paid to) ([A-Za-z0-9 .'&-]+?)(?:\s+(?:for account|\+?\d[\d ]{6,}\d)|\s+on\b|\.)/i))) { dir = 'out'; name = m[1].trim(); }
+  const dm = t.match(/on (\d{1,2})\/(\d{1,2})\/(\d{2,4})/); let date = '';
+  if (dm) { let y = +dm[3]; if (y < 100) y += 2000; date = y + '-' + pad(+dm[2]) + '-' + pad(+dm[1]); }
+  const bal = (t.match(/balance is K\s?sh\.?\s?([\d,]+(?:\.\d{1,2})?)/i) || [])[1];
+  return { ref, amt, name, phone, date, bal: bal ? N(bal) : null, dir };
+}
+function saveSale() {
+  if (!CART.length) { toast('Add something to the sale first.'); return; }
+  const n = SELL.cname.trim(); let c = n ? D.custs.find((x) => x.name.toLowerCase() === n.toLowerCase()) : null;
+  if (SELL.pay === 'Deni' && (!n || (!c && !String(SELL.phone).trim()))) { toast('Deni needs the customer’s name and phone.'); const s = $('sCust'); if (s) s.focus(); return; }
+  if (SELL.pay === 'M-Pesa' && SELL.msgAmt != null && Math.round(SELL.msgAmt) !== Math.round(cartTotal()) && !confirm('The M-Pesa message amount does not match the total. Save anyway?')) return;
+  if (n && !c) { c = { id: uid(), name: n, phone: String(SELL.phone).trim(), ok: !!SELL.ok, notes: '', added: Date.now() }; D.custs.push(c); }
+  const t = Date.now();
+  const s = { id: uid(), no: ++D.n.sale, at: t, lines: CART.map((l) => { const it = item(l.iid) || {}; return { iid: l.iid, name: l.name, qty: l.qty, price: N(l.price), cost: N(l.cost), wty: it.wty ? addMonths(t, it.wty) : 0 }; }),
+    total: cartTotal(), pay: SELL.pay, ref: SELL.pay === 'M-Pesa' || SELL.pay === 'Card' ? SELL.ref.trim() : '', cid: c ? c.id : '', by: D.shop.owner };
+  s.lines.forEach((l) => { const it = item(l.iid); if (it) it.qty = Math.max(0, N(it.qty) - l.qty); });
+  D.sales.push(s); save(); sellReset();
+  if (TAB === 'sell') VIEWS.sell($('view')); else go('sell');
+  setTimeout(() => showReceipt(s.id, true), TAB === 'sell' ? 0 : 80);
+}
+function receiptText(s) {
+  const sh = D.shop, c = cust(s.cid);
+  const L = [sh.name + (sh.town ? ', ' + sh.town : ''), 'Receipt #' + s.no + ' · ' + fdate(s.at) + ' ' + ftime(s.at), ''];
+  s.lines.forEach((l) => L.push(l.qty + ' × ' + l.name + ' — ' + money(l.qty * l.price)));
+  L.push('', 'TOTAL ' + money(s.total), 'Paid: ' + (s.pay === 'Deni' ? 'Deni (to pay later)' + (owed(s) ? ' — still owed ' + money(owed(s)) : ' — fully paid') : s.pay + (s.ref ? ' ' + s.ref : '')));
+  const w = s.lines.filter((l) => l.wty); if (w.length) { L.push(''); w.forEach((l) => L.push('🛡️ Warranty: ' + l.name + ' until ' + new Date(l.wty).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + '. Keep this message.')); }
+  L.push('', 'Asante' + (c ? ' ' + first(c.name) : '') + ' for shopping with us! 🙏' + (payLine() ? ' ' + payLine() : '') + (sh.phone ? ' · ' + sh.phone : ''));
+  if (sh.kra) L.push('KRA PIN ' + sh.kra);
+  return L.join('\n');
+}
+function showReceipt(id, fresh) {
+  const s = D.sales.find((x) => x.id === id); if (!s) return;
+  const c = cust(s.cid), txt = receiptText(s);
+  openSheet(`<h2>${fresh ? '✅ Sale saved' : 'Receipt #' + s.no}</h2>
+    ${fresh ? `<p class="hint">Stock is updated. Send the receipt so they have the warranty date.</p>` : ''}
+    <pre class="report" id="rcptText">${esc(txt)}</pre>
+    ${c && c.phone ? `<div class="row"><a class="btn" id="rcptWa" target="_blank" rel="noopener" href="${esc(waHref(c.phone, txt))}">💬 WhatsApp ${esc(first(c.name))}</a><a class="btn sec" id="rcptSms" href="${esc(smsHref(c.phone, txt))}">📩 Text it</a></div><div style="height:8px"></div>` : ''}
+    <div class="row"><button class="btn sec" onclick="copyText($('rcptText').textContent,'Receipt copied.')">📋 Copy</button>${fresh ? `<button class="btn" id="rcptNext" onclick="closeSheet();go('sell')">Next sale ›</button>` : ''}${!fresh ? `<button class="btn sec bad" onclick="deleteSale('${s.id}')">Delete sale</button>` : ''}</div>
+    <p class="hint">This is a shop receipt, not a KRA eTIMS invoice. If a customer needs an eTIMS invoice, make it on the KRA eTIMS app.</p>`);
+}
+function deleteSale(id) {
+  const s = D.sales.find((x) => x.id === id); if (!s) return;
+  if (!confirm('Delete sale #' + s.no + '? The items go back into stock.')) return;
+  s.lines.forEach((l) => { const it = item(l.iid); if (it) it.qty = N(it.qty) + l.qty; });
+  D.sales = D.sales.filter((x) => x.id !== id); D.inn = D.inn.filter((x) => x.sid !== id); save(); closeSheet(); route(); toast('Sale deleted. Stock is back.');
+}
+
+/* =====================================================================================
+   STOCK
+   ===================================================================================== */
+let STOCKQ = '';
+VIEWS.stock = function (el) {
+  const f = SUB || 'all', low = lowItems();
+  const atCost = D.items.reduce((a, i) => a + N(i.qty) * N(i.cost), 0), atPrice = D.items.reduce((a, i) => a + N(i.qty) * N(i.price), 0);
+  el.innerHTML = `
+    <h2>Stock</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="k">Stock at what you paid</div><div class="v num">${money(atCost)}</div><div class="f">${D.items.length} items</div></div>
+      <div class="kpi"><div class="k">Stock at selling price</div><div class="v num ok">${money(atPrice)}</div><div class="f">profit inside: ${money(atPrice - atCost)}</div></div>
+    </div>
+    <div class="row"><button class="btn" id="addItemBtn" onclick="itemSheet('')">＋ Add item</button><button class="btn sec" id="reorderBtn" onclick="reorderSheet()">📋 Reorder list (${low.length})</button></div>
+    <div class="chips" id="stockCats" style="margin-top:10px">${[['all', 'All'], ['low', `⚠️ Running low (${low.length})`]].concat(D.cats.map((c) => [c, c])).map(([k, t]) => `<button class="${k === f ? 'on' : ''}" data-k="${esc(k)}" onclick="go('stock',this.dataset.k)">${esc(t)}</button>`).join('')}</div>
+    <input id="stockQ" placeholder="Search stock" value="${esc(STOCKQ)}" oninput="STOCKQ=this.value;stockList()" autocomplete="off" style="margin:6px 0 10px">
+    <div class="card"><div class="list" id="stockList"></div></div>
+    <p class="hint">Tap an item to change it or 📥 restock it. Selling takes it out of stock by itself.</p>`;
+  stockList();
+};
+function stockList() {
+  const f = SUB || 'all', q = STOCKQ.trim().toLowerCase();
+  let L = f === 'low' ? lowItems() : D.items.filter((i) => f === 'all' || i.cat === f);
+  if (q) L = L.filter((i) => i.name.toLowerCase().includes(q));
+  L = L.slice().sort((a, b) => (f === 'low' ? a.qty - b.qty : a.name.localeCompare(b.name)));
+  $('stockList').innerHTML = L.length ? L.map((i) => `<div class="item tap" onclick="itemSheet('${i.id}')"><div class="grow"><div class="t">${esc(i.name)}</div><div class="m">${esc(i.cat)} · ${money(i.price)}${i.wty ? ' · ' + i.wty + ' mo warranty' : ''}</div></div>
+      <span class="pill ${N(i.qty) === 0 ? 'bad' : N(i.qty) <= N(i.low) ? 'warn' : 'ok'}">${N(i.qty) === 0 ? 'Out' : i.qty + ' left'}</span></div>`).join('')
+    : `<div class="empty">${D.items.length ? 'Nothing here.' : 'No items yet. Tap ＋ Add item.'}</div>`;
+}
+function itemSheet(id, name) {
+  const i = id ? item(id) : { name: name || '', cat: D.cats[0], cost: '', price: '', qty: '', low: 2, wty: 0 };
+  if (!i) return;
+  openSheet(`<h2>${id ? esc(i.name) : 'New item'}</h2>
+    <label for="iName">Name</label><input id="iName" value="${esc(i.name)}" placeholder="e.g. Tecno Spark 20" autocomplete="off">
+    <label for="iCat">Category</label><select id="iCat">${opts(D.cats, i.cat)}</select>
+    <div class="grid2"><div><label for="iCost">You paid (each)</label><input id="iCost" inputmode="numeric" value="${esc(i.cost)}" placeholder="0"></div>
+      <div><label for="iPrice">You sell at</label><input id="iPrice" inputmode="numeric" value="${esc(i.price)}" placeholder="0"></div></div>
+    <div class="grid2"><div><label for="iQty">In stock now</label><input id="iQty" inputmode="numeric" value="${esc(i.qty)}" placeholder="0"></div>
+      <div><label for="iLow">Warn me at</label><input id="iLow" inputmode="numeric" value="${esc(i.low)}"></div></div>
+    <label for="iWty">Warranty</label><select id="iWty">${opts([[0, 'None'], [3, '3 months'], [6, '6 months'], [12, '12 months'], [24, '24 months']], i.wty || 0)}</select>
+    <div style="height:12px"></div>
+    <button class="btn block" id="iSave" onclick="saveItem('${id}')">Save item</button>
+    ${id ? `<div style="height:8px"></div><div class="row"><button class="btn sec grow" id="iRestock" onclick="restockSheet('${id}')">📥 Restock</button><button class="btn sec" onclick="sellOne('${id}')">🛒 Sell</button><button class="btn sec bad" onclick="deleteItem('${id}')">Delete</button></div>` : ''}`);
+}
+function saveItem(id) {
+  const name = $('iName').value.trim(); if (!name) { toast('Give the item a name.'); return; }
+  const v = { name, cat: $('iCat').value, cost: N($('iCost').value), price: N($('iPrice').value), qty: Math.max(0, Math.round(N($('iQty').value))), low: Math.max(0, Math.round(N($('iLow').value))), wty: N($('iWty').value) };
+  if (!v.price) { toast('What do you sell it at?'); return; }
+  if (v.cost && v.price < v.cost && !confirm('You sell it for less than you paid. Save anyway?')) return;
+  let nid = id; if (id) Object.assign(item(id), v); else { nid = uid(); D.items.push(Object.assign({ id: nid }, v)); }
+  save(); closeSheet(); route(); toast('Saved.');
+  if (TAB === 'sell' && !id) addToCart(nid);
+}
+function deleteItem(id) { if (!confirm('Delete this item? Past sales keep their record.')) return; D.items = D.items.filter((x) => x.id !== id); save(); closeSheet(); route(); }
+function sellOne(id) { closeSheet(); sellReset(); go('sell'); setTimeout(() => addToCart(id), 50); }
+function restockSheet(id) {
+  const i = item(id);
+  openSheet(`<h2>📥 Restock ${esc(i.name)}</h2><p class="hint">Now ${i.qty} in stock. It also records the money you paid the supplier.</p>
+    <div class="grid2"><div><label for="rQty">How many came in</label><input id="rQty" inputmode="numeric" placeholder="0"></div><div><label for="rCost">Paid each</label><input id="rCost" inputmode="numeric" value="${esc(i.cost)}"></div></div>
+    <label for="rSup">Supplier</label><input id="rSup" placeholder="e.g. Luthuli Ave wholesaler" autocomplete="off">
+    <label for="rFrom">Paid from</label><select id="rFrom">${opts(['M-Pesa', 'Cash', 'Bank', 'Not paid yet'], 'M-Pesa')}</select>
+    <label for="rRef">M-Pesa / bank code (optional)</label><input id="rRef" autocomplete="off">
+    <div style="height:12px"></div><button class="btn block" id="rSave" onclick="saveRestock('${id}')">Add to stock</button>`);
+}
+function saveRestock(id) {
+  const i = item(id), q = Math.round(N($('rQty').value)), cost = N($('rCost').value);
+  if (q <= 0) { toast('How many came in?'); return; }
+  i.qty = N(i.qty) + q; if (cost) i.cost = cost;
+  const from = $('rFrom').value;
+  if (from !== 'Not paid yet' && cost) D.out.push({ id: uid(), at: Date.now(), payee: $('rSup').value.trim() || 'Supplier', cat: 'Stock purchase', amt: q * cost, from, ref: $('rRef').value.trim(), rcpt: from === 'M-Pesa' ? 'M-Pesa message' : 'No — chase it', note: q + ' × ' + i.name, by: D.shop.owner });
+  save(); closeSheet(); route(); toast(q + ' added. ' + i.name + ': ' + i.qty + ' in stock.');
+}
+function reorderText() {
+  const low = lowItems(); if (!low.length) return '';
+  return 'Order for ' + (D.shop.name || 'the shop') + ' — ' + fdate(Date.now()) + '\n' + low.map((i) => '• ' + i.name + ' × ' + Math.max(1, N(i.low) * 2 - N(i.qty)) + ' (we have ' + i.qty + ')').join('\n') + '\nAsante!';
+}
+function reorderSheet() {
+  const t = reorderText();
+  openSheet(`<h2>📋 Reorder list</h2>${t ? `<p class="hint">Everything at or below its warning level, with how many to order to get back to double the warning level. Send it to your supplier.</p><pre class="report" id="reorderText">${esc(t)}</pre>
+    <div class="row"><button class="btn" onclick="copyText($('reorderText').textContent,'Copied — paste it to your supplier.')">📋 Copy</button><a class="btn sec" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(t)}">💬 WhatsApp</a></div>` : '<div class="empty">✅ Nothing is running low.</div>'}`);
+}
+
+/* =====================================================================================
+   CUSTOMERS — all · owe me (deni) · repairs
+   ===================================================================================== */
+let CUSTQ = '';
+VIEWS.people = function (el) {
+  const sub = ['all', 'deni', 'repairs'].includes(SUB) ? SUB : 'all';
+  const dl = deniList(), owedAll = dl.reduce((a, s) => a + owed(s), 0), rOpen = D.repairs.filter((r) => r.status !== 'done').length;
+  el.innerHTML = `<h2>Customers</h2>${subtabs([['all', `👥 All (${D.custs.length})`], ['deni', `📒 Owe me${dl.length ? ' (' + dl.length + ')' : ''}`], ['repairs', `🔧 Repairs${rOpen ? ' (' + rOpen + ')' : ''}`]], sub, 'people')}<div id="pBody"></div>`;
+  const b = $('pBody');
+  if (sub === 'all') {
+    b.innerHTML = `<div class="row"><button class="btn" id="addCustBtn" onclick="custSheet('')">＋ Add customer</button></div>
+      <input id="custQ" placeholder="Search name or phone" value="${esc(CUSTQ)}" oninput="CUSTQ=this.value;custList()" autocomplete="off" style="margin:10px 0">
+      <div class="card"><div class="list" id="custList"></div></div>
+      <p class="hint">👍 = said yes to offers. Only they get offers from 📣 Offers.</p>`;
+    custList();
+  } else if (sub === 'deni') {
+    b.innerHTML = `<div class="kpis"><div class="kpi"><div class="k">Customers owe you</div><div class="v num warn">${money(owedAll)}</div><div class="f">${dl.length} sale${dl.length === 1 ? '' : 's'} on deni</div></div><div class="kpi"><div class="k">Oldest</div><div class="v num">${dl.length ? daysAgo(dl[0].at) + ' days' : '—'}</div><div class="f">${dl.length ? esc(custName(dl[0].cid)) : 'nobody owes'}</div></div></div>
+      <div class="card"><div class="list" id="deniList">${dl.length ? dl.map((s) => { const c = cust(s.cid) || {}, msg = deniMsg(s); return `<div class="item"><div class="grow"><div class="t">${esc(c.name || '?')} · <span class="num">${money(owed(s))}</span></div><div class="m">${esc(s.lines.map((l) => l.name).join(', '))} · ${fdate(s.at)} · ${daysAgo(s.at)} days</div>
+        <div class="row" style="margin-top:6px">${c.phone ? `<a class="btn sec small" target="_blank" rel="noopener" href="${esc(waHref(c.phone, msg))}">💬 Remind</a><a class="btn sec small" href="${esc(smsHref(c.phone, msg))}">📩 Text</a>` : ''}<button class="btn small" onclick="payDeniSheet('${s.id}')">Record payment</button></div></div></div>`; }).join('') : '<div class="empty">✅ Nobody owes you.</div>'}</div></div>
+      <p class="hint">A reminder is polite and private: it opens on your phone, you press Send.</p>`;
+  } else {
+    const R = D.repairs.slice().sort((a, b) => ({ ready: 0, in: 1, done: 2 }[a.status] - { ready: 0, in: 1, done: 2 }[b.status]) || b.inAt - a.inAt);
+    b.innerHTML = `<div class="row"><button class="btn" id="repairInBtn" onclick="repairSheet()">＋ Repair came in</button></div><div style="height:10px"></div>
+      <div class="card"><div class="list" id="repairList">${R.length ? R.map((r) => { const c = cust(r.cid) || {};
+        const pill = r.status === 'ready' ? '<span class="pill warn">Ready</span>' : r.status === 'in' ? '<span class="pill brand">Fixing</span>' : '<span class="pill ok">Collected</span>';
+        const act = r.status === 'in' ? `<button class="btn small" onclick="repairReady('${r.id}')">Mark ready</button>` : r.status === 'ready' ? `<button class="btn sec small" onclick="tellRepair('${r.id}')">💬 Tell ${r.told ? 'again' : 'them'}</button><button class="btn small" onclick="repairOutSheet('${r.id}')">Collected & paid</button>` : '';
+        return `<div class="item"><div class="grow"><div class="t">#R${r.no} · ${esc(r.item)} ${pill}</div><div class="m">${esc(c.name || '?')} · ${esc(r.problem)} · ${money(r.price)} · in ${fdate(r.inAt)}${r.told && r.status === 'ready' ? ' · told ✓' : ''}</div>${act ? `<div class="row" style="margin-top:6px">${act}</div>` : ''}</div></div>`; }).join('') : '<div class="empty">No repairs yet.</div>'}</div></div>`;
+  }
+};
+function custList() {
+  const q = CUSTQ.trim().toLowerCase();
+  const L = D.custs.filter((c) => !q || (c.name + ' ' + c.phone).toLowerCase().includes(q)).sort((a, b) => (lastBuy(b.id) || b.added) - (lastBuy(a.id) || a.added));
+  $('custList').innerHTML = L.length ? L.map((c) => { const lb = lastBuy(c.id); return `<div class="item tap" onclick="custSheet('${c.id}')"><div class="grow"><div class="t">${esc(c.name)} ${c.ok ? '👍' : ''}</div><div class="m">${esc(c.phone || 'no phone')} · ${lb ? 'last in ' + fdate(lb) : 'no purchases yet'}</div></div><span class="num muted">${money(spent(c.id))}</span></div>`; }).join('')
+    : `<div class="empty">${D.custs.length ? 'Nobody matches.' : 'No customers yet. They are added when you sell, or tap ＋ Add customer.'}</div>`;
+}
+function custSheet(id) {
+  const c = id ? cust(id) : { name: '', phone: '', ok: false, notes: '' };
+  const hist = id ? D.sales.filter((s) => s.cid === id).sort((a, b) => b.at - a.at) : [];
+  openSheet(`<h2>${id ? esc(c.name) : 'New customer'}</h2>
+    <label for="cName">Name</label><input id="cName" value="${esc(c.name)}" autocomplete="off">
+    <label for="cPhone">Phone</label><input id="cPhone" inputmode="tel" value="${esc(c.phone)}" placeholder="07…" autocomplete="off">
+    <label class="check"><input type="checkbox" id="cOk" ${c.ok ? 'checked' : ''}> Said yes to offers by WhatsApp / SMS</label>
+    <label for="cNotes">Notes</label><textarea id="cNotes" placeholder="e.g. wants an iPhone when the price drops">${esc(c.notes)}</textarea>
+    <div style="height:12px"></div><button class="btn block" id="cSave" onclick="saveCust('${id}')">Save</button>
+    ${id && c.phone ? `<div style="height:8px"></div><div class="row"><a class="btn sec" href="tel:${esc(c.phone)}">📞 Call</a><a class="btn sec" target="_blank" rel="noopener" href="${esc(waHref(c.phone, 'Habari ' + first(c.name) + ', '))}">💬 WhatsApp</a><button class="btn sec bad" onclick="deleteCust('${id}')">Delete</button></div>` : ''}
+    ${hist.length ? `<h3>Bought (${money(spent(id))})</h3><div class="list">${hist.map(saleRow).join('')}</div>` : ''}`);
+}
+function saveCust(id) {
+  const name = $('cName').value.trim(); if (!name) { toast('Name, please.'); return; }
+  const v = { name, phone: $('cPhone').value.trim(), ok: $('cOk').checked, notes: $('cNotes').value.trim() };
+  if (id) Object.assign(cust(id), v); else D.custs.push(Object.assign({ id: uid(), added: Date.now() }, v));
+  save(); closeSheet(); route(); toast('Saved.');
+}
+function deleteCust(id) { if (!confirm('Delete this customer? Their past sales stay, without a name.')) return; D.custs = D.custs.filter((x) => x.id !== id); save(); closeSheet(); route(); }
+function deniMsg(s) { const c = cust(s.cid) || {}; return `Habari ${first(c.name)}, this is ${D.shop.owner || ''} from ${D.shop.name}. A friendly reminder: ${money(owed(s))} is still open for the ${s.lines.map((l) => l.name).join(', ')} from ${fdate(s.at)}.${payLine() ? ' You can pay to ' + payLine() + '.' : ''} Asante sana! 🙏`; }
+function payDeniSheet(sid) {
+  const s = D.sales.find((x) => x.id === sid);
+  openSheet(`<h2>Record a deni payment</h2><p class="hint">${esc(custName(s.cid))} owes ${money(owed(s))}.</p>
+    <label for="dAmt">Amount paid</label><input id="dAmt" inputmode="numeric" value="${owed(s)}">
+    <label for="dTo">Paid by</label><select id="dTo">${opts(['M-Pesa', 'Cash', 'Bank'], 'M-Pesa')}</select>
+    <label for="dRef">M-Pesa code (optional)</label><input id="dRef" autocomplete="off">
+    <div style="height:12px"></div><button class="btn block" id="dSave" onclick="saveDeniPay('${sid}')">Save payment</button>`);
+}
+function saveDeniPay(sid) {
+  const s = D.sales.find((x) => x.id === sid), amt = N($('dAmt').value);
+  if (amt <= 0) { toast('How much did they pay?'); return; }
+  if (amt > owed(s) && !confirm('That is more than they owe. Save anyway?')) return;
+  D.inn.push({ id: uid(), at: Date.now(), cat: 'Deni payment', amt, to: $('dTo').value, from: custName(s.cid), ref: $('dRef').value.trim(), sid, by: D.shop.owner });
+  save(); closeSheet(); route(); toast(owed(s) ? 'Saved. Still owed: ' + money(owed(s)) : 'Saved. Fully paid ✅');
+}
+function repairSheet() {
+  openSheet(`<h2>🔧 Repair came in</h2>
+    <label for="rpName">Customer</label><input id="rpName" list="custNames2" autocomplete="off"><datalist id="custNames2">${D.custs.map((c) => `<option value="${esc(c.name)}">`).join('')}</datalist>
+    <label for="rpPhone">Phone (if new)</label><input id="rpPhone" inputmode="tel" placeholder="07…" autocomplete="off">
+    <label for="rpItem">What is it?</label><input id="rpItem" placeholder="e.g. Samsung A10" autocomplete="off">
+    <label for="rpProb">The problem</label><input id="rpProb" placeholder="e.g. cracked screen" autocomplete="off">
+    <label for="rpPrice">Price agreed</label><input id="rpPrice" inputmode="numeric" placeholder="0">
+    <div style="height:12px"></div><button class="btn block" id="rpSave" onclick="saveRepair()">Save</button>`);
+}
+function saveRepair() {
+  const n = $('rpName').value.trim(), it = $('rpItem').value.trim();
+  if (!n || !it) { toast('Customer and item, please.'); return; }
+  let c = D.custs.find((x) => x.name.toLowerCase() === n.toLowerCase());
+  if (!c) { c = { id: uid(), name: n, phone: $('rpPhone').value.trim(), ok: false, notes: '', added: Date.now() }; D.custs.push(c); }
+  D.repairs.push({ id: uid(), no: ++D.n.rep, cid: c.id, item: it, problem: $('rpProb').value.trim(), price: N($('rpPrice').value), status: 'in', inAt: Date.now(), told: false });
+  save(); closeSheet(); go('people', 'repairs'); toast('Repair #R' + D.n.rep + ' saved.');
+}
+function repairReady(id) { const r = D.repairs.find((x) => x.id === id); r.status = 'ready'; r.readyAt = Date.now(); save(); route(); toast('Ready. Now tell the customer.'); }
+function repairMsg(r) { const c = cust(r.cid) || {}; return `Habari ${first(c.name)}! Your ${r.item} is fixed and ready to collect at ${D.shop.name}${D.shop.town ? ', ' + D.shop.town : ''}. The charge is ${money(r.price)}. Karibu! 🔧`; }
+function tellRepair(id) {
+  const r = D.repairs.find((x) => x.id === id), c = cust(r.cid) || {}, msg = repairMsg(r);
+  openSheet(`<h2>🔧 Tell ${esc(first(c.name))}</h2><pre class="report" id="repMsg">${esc(msg)}</pre>
+    ${c.phone ? `<div class="row"><a class="btn" id="repWa" target="_blank" rel="noopener" href="${esc(waHref(c.phone, msg))}" onclick="markTold('${id}')">💬 WhatsApp</a><a class="btn sec" href="${esc(smsHref(c.phone, msg))}" onclick="markTold('${id}')">📩 Text it</a></div>` : '<p class="alert warn">No phone number for this customer. Add one under 👥 Customers.</p>'}
+    <div style="height:8px"></div><button class="btn sec block" onclick="markTold('${id}');closeSheet();route()">I told them another way</button>`);
+}
+function markTold(id) { const r = D.repairs.find((x) => x.id === id); if (r) { r.told = true; save(); setTimeout(() => { if (!$('sheetBg')) route(); }, 300); } }
+function repairOutSheet(id) {
+  const r = D.repairs.find((x) => x.id === id);
+  openSheet(`<h2>Collected & paid</h2><p class="hint">#R${r.no} · ${esc(r.item)} · ${esc(custName(r.cid))}</p>
+    <label for="roAmt">Amount paid</label><input id="roAmt" inputmode="numeric" value="${r.price}">
+    <label for="roTo">Paid by</label><select id="roTo">${opts(['M-Pesa', 'Cash', 'Bank'], 'M-Pesa')}</select>
+    <label for="roRef">M-Pesa code (optional)</label><input id="roRef" autocomplete="off">
+    <div style="height:12px"></div><button class="btn block" id="roSave" onclick="saveRepairOut('${id}')">Save</button>`);
+}
+function saveRepairOut(id) {
+  const r = D.repairs.find((x) => x.id === id), amt = N($('roAmt').value);
+  if (amt > 0) D.inn.push({ id: uid(), at: Date.now(), cat: 'Repair fee', amt, to: $('roTo').value, from: custName(r.cid), ref: $('roRef').value.trim() || r.item, rid: id, by: D.shop.owner });
+  r.status = 'done'; r.outAt = Date.now(); save(); closeSheet(); route(); toast('Collected. ' + (amt > 0 ? money(amt) + ' recorded.' : ''));
+}
+
+/* =====================================================================================
+   OFFERS — marketing by WhatsApp / SMS, one tap per customer, only to people who said yes
+   ===================================================================================== */
+const AUDS = [['all', 'Everyone who said yes'], ['phones', 'Bought a phone'], ['acc', 'Bought accessories'], ['tv', 'Bought TV & sound'], ['solar', 'Bought solar & power'], ['recent', 'Bought in the last 30 days'], ['quiet', 'Not seen for 60+ days'], ['warranty', 'Warranty ends within 30 days']];
+const AUDCAT = { phones: 'Phones', acc: 'Accessories', tv: 'TV & Sound', solar: 'Solar & Power' };
+const TEMPLATES = {
+  stock: { em: '🆕', t: 'New stock', text: 'Habari {name}! New at {shop}: {item} is here, {price}. Come and see it in {town}. Till {till}.' },
+  offer: { em: '🏷️', t: 'Weekend offer', text: 'Habari {name}! This weekend only at {shop}: 10% off all phone accessories — chargers, earphones, power banks and covers. Karibu {town}!' },
+  miss: { em: '👋', t: 'We miss you', text: 'Habari {name}, it has been a while! Come and see what is new at {shop} in {town}. Show this message for a free screen protector with any phone. 🙏' },
+  warranty: { em: '🛡️', t: 'Warranty check-in', text: 'Habari {name}, this is {shop}. Your warranty ends soon. Is everything working well? If anything is wrong, bring it in before then and we will check it free.' },
+  thanks: { em: '🙏', t: 'Thank you', text: 'Asante {name} for choosing {shop}! If you need anything for your phone, we are here in {town}. Till {till}.' }
+};
+function audience(a) {
+  const now = Date.now();
+  let L = D.custs.filter((c) => c.ok && c.phone);
+  if (AUDCAT[a]) L = L.filter((c) => D.sales.some((s) => s.cid === c.id && s.lines.some((l) => (item(l.iid) || {}).cat === AUDCAT[a])));
+  else if (a === 'recent') L = L.filter((c) => lastBuy(c.id) && now - lastBuy(c.id) <= 30 * DAY);
+  else if (a === 'quiet') L = L.filter((c) => lastBuy(c.id) && daysAgo(lastBuy(c.id)) >= 60);
+  else if (a === 'warranty') { const w = warrantyEnding().map((x) => x.cid); L = L.filter((c) => w.includes(c.id)); }
+  return L;
+}
+function offerResults(o) {
+  const ids = Object.keys(o.sent || {}); let n = 0, amt = 0;
+  ids.forEach((cid) => { const t = o.sent[cid]; const b = D.sales.filter((s) => s.cid === cid && s.at > t && s.at - t <= 7 * DAY); if (b.length) { n++; amt += b.reduce((a, s) => a + s.total, 0); } });
+  return { sent: ids.length, came: n, amt };
+}
+VIEWS.offers = function (el) {
+  if (SUB) { return offerView(el, SUB); }
+  const yes = D.custs.filter((c) => c.ok && c.phone).length, mStart = startOf(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  let sentM = 0, came = 0, amt = 0; D.offers.forEach((o) => { Object.values(o.sent || {}).forEach((t) => { if (t >= mStart) sentM++; }); const r = offerResults(o); came += r.came; amt += r.amt; });
+  const O = D.offers.slice().sort((a, b) => b.at - a.at);
+  el.innerHTML = `<h2>Offers & messages</h2>
+    <p class="hint" style="margin-top:0">Write one offer, then send it to each customer with one tap. It opens WhatsApp or SMS on your phone, with their name already in — you press Send. Only customers who said yes get offers.</p>
+    <div class="kpis">
+      <div class="kpi"><div class="k">Said yes to offers</div><div class="v num">${yes}</div><div class="f">of ${D.custs.length} customers</div></div>
+      <div class="kpi"><div class="k">Came back and bought</div><div class="v num ok">${came}</div><div class="f">${money(amt)} within 7 days of a message</div></div>
+    </div>
+    <button class="btn block big acc" id="offerNew" onclick="newOffer('stock')">📣 New offer</button>
+    <h3>Ready-made messages</h3>
+    <div class="chips" id="offerTpl">${Object.keys(TEMPLATES).filter((k) => k !== 'thanks').map((k) => `<button onclick="newOffer('${k}')">${TEMPLATES[k].em} ${TEMPLATES[k].t}</button>`).join('')}</div>
+    <h3>Your offers</h3>
+    <div class="card"><div class="list" id="offerList">${O.length ? O.map((o) => { const r = offerResults(o), n = audience(o.aud).length; return `<div class="item tap" onclick="go('offers','${o.id}')"><div class="grow"><div class="t">${esc(o.title)}</div><div class="m">${fdate(o.at)} · ${esc((AUDS.find((a) => a[0] === o.aud) || [, ''])[1])} · sent ${r.sent} of ${Math.max(n, r.sent)}${r.came ? ` · <b style="color:var(--ok)">${r.came} came back</b>` : ''}</div></div><span class="muted">›</span></div>`; }).join('') : '<div class="empty">No offers yet. Tap 📣 New offer.</div>'}</div></div>
+    <p class="hint">Messages sent this month: ${sentM}. Tip: also paste an offer into your WhatsApp Status — everyone who has your number sees it.</p>`;
+  if (PENDING_OFFER) { const k = PENDING_OFFER; PENDING_OFFER = ''; newOffer(k); }
+};
+function newOffer(kind) {
+  const tpl = TEMPLATES[kind] || TEMPLATES.stock;
+  const newest = D.items.filter((i) => i.qty > 0).sort((a, b) => b.price - a.price);
+  const defAud = kind === 'miss' ? 'quiet' : kind === 'warranty' ? 'warranty' : kind === 'stock' ? 'all' : 'all';
+  if (TAB !== 'offers' || SUB) { PENDING_OFFER = kind; go('offers'); return; }
+  {
+    openSheet(`<h2>${tpl.em} ${esc(tpl.t)}</h2>
+      ${kind === 'stock' ? `<label for="ofItem">Which item?</label><select id="ofItem" onchange="offerStockText()">${opts(newest.map((i) => [i.id, i.name + ' — ' + money(i.price)]))}</select>` : ''}
+      <label for="ofTitle">Name this offer (only you see it)</label><input id="ofTitle" value="${esc(tpl.t)}" autocomplete="off">
+      <label for="ofText">The message</label><textarea id="ofText" style="min-height:120px" oninput="offerCount()">${esc(tpl.text)}</textarea>
+      <p class="hint">{name} becomes each customer's first name. {shop}, {town} and {till} come from Settings.</p>
+      <label>Who gets it?</label><div class="chips" id="ofAud">${AUDS.map(([k, t]) => `<button data-aud="${k}" class="${k === defAud ? 'on' : ''}" onclick="document.querySelectorAll('#ofAud button').forEach(b=>b.classList.toggle('on',b===this));offerCount()">${t}</button>`).join('')}</div>
+      <div id="ofCount" class="alert ok"></div>
+      <button class="btn block" id="ofSave" onclick="saveOffer('${kind}')">Save and start sending ›</button>`);
+    if (kind === 'stock') offerStockText();
+    offerCount();
+  }
+}
+let PENDING_OFFER = '';
+function offerStockText() { const i = item($('ofItem') && $('ofItem').value); if (!i) return; $('ofTitle').value = 'New stock: ' + i.name; $('ofText').value = TEMPLATES.stock.text.replace('{item}', i.name).replace('{price}', money(i.price) + (i.wty ? ' with ' + i.wty + ' months warranty' : '')); offerCount(); }
+function curAud() { const b = document.querySelector('#ofAud button.on'); return b ? b.dataset.aud : 'all'; }
+function offerCount() {
+  const a = curAud(), n = audience(a).length, no = D.custs.filter((c) => !c.ok || !c.phone).length, box = $('ofCount'); if (!box) return;
+  const sample = audience(a)[0];
+  box.className = 'alert ' + (n ? 'ok' : 'warn');
+  box.innerHTML = n ? `${n} customer${n === 1 ? '' : 's'} will get it.${no ? ` ${no} left out (no yes to offers, or no phone).` : ''}${sample ? `<div style="font-weight:500;margin-top:6px">${esc(first(sample.name))} will see: “${esc(fill(withStop($('ofText').value), sample)).slice(0, 160)}…”</div>` : ''}` : 'Nobody in this group has said yes to offers yet.';
+}
+function withStop(t) { return D.shop.stop ? String(t).trim() + '\nReply STOP if you do not want these messages.' : String(t).trim(); }
+function saveOffer(kind) {
+  const text = $('ofText').value.trim(); if (!text) { toast('Write the message first.'); return; }
+  const o = { id: uid(), title: $('ofTitle').value.trim() || TEMPLATES[kind].t, kind, aud: curAud(), text, at: Date.now(), sent: {} };
+  D.offers.push(o); save(); closeSheet(); go('offers', o.id);
+}
+function offerView(el, id) {
+  const o = D.offers.find((x) => x.id === id); if (!o) { go('offers'); return; }
+  const L = audience(o.aud), extra = Object.keys(o.sent).filter((cid) => !L.some((c) => c.id === cid)).map(cust).filter(Boolean);
+  const all = L.concat(extra), r = offerResults(o), statusText = fill(o.text.replace(/\{name\}/g, 'friend'), null);
+  el.innerHTML = `<button class="btn sec small" onclick="go('offers')">‹ Offers</button>
+    <h2 style="margin-top:10px">${esc(o.title)}</h2>
+    <pre class="report" id="ofMsg">${esc(fill(withStop(o.text), { name: '(their name)' }))}</pre>
+    <div class="kpis"><div class="kpi"><div class="k">Sent</div><div class="v num" id="ofSent">${r.sent} of ${all.length}</div></div><div class="kpi"><div class="k">Came back and bought</div><div class="v num ok">${r.came}</div><div class="f">${money(r.amt)} · within 7 days</div></div></div>
+    <p class="hint">Tap 💬 or 📩 for each person. WhatsApp or SMS opens with the message — press Send there, then come back for the next one. ✓ means sent.</p>
+    <div class="card"><div class="list" id="ofPeople">${all.length ? all.map((c) => { const msg = fill(withStop(o.text), c), s = o.sent[c.id]; return `<div class="item"><div class="grow"><div class="t">${s ? '✅ ' : ''}${esc(c.name)}</div><div class="m">${esc(c.phone)}${s ? ' · sent ' + fdate(s) : ''}</div></div>
+      <a class="btn ${s ? 'sec' : ''} small" target="_blank" rel="noopener" href="${esc(waHref(c.phone, msg))}" onclick="markSent('${o.id}','${c.id}')">💬</a><a class="btn sec small" href="${esc(smsHref(c.phone, msg))}" onclick="markSent('${o.id}','${c.id}')">📩</a></div>`; }).join('') : '<div class="empty">Nobody in this group has said yes to offers yet.</div>'}</div></div>
+    <div class="row no-print"><button class="btn sec" onclick="copyText(${esc(JSON.stringify(statusText))},'Copied — paste it in your WhatsApp Status or group.')">📋 Copy for WhatsApp Status</button><button class="btn sec bad" onclick="deleteOffer('${o.id}')">Delete offer</button></div>`;
+}
+function markSent(oid, cid) { const o = D.offers.find((x) => x.id === oid); if (!o) return; if (!o.sent[cid]) o.sent[cid] = Date.now(); save(); setTimeout(() => { if (TAB === 'offers') route(); }, 400); }
+function deleteOffer(id) { if (!confirm('Delete this offer?')) return; D.offers = D.offers.filter((x) => x.id !== id); save(); go('offers'); }
+
+/* =====================================================================================
+   MONEY — cash · money out · money in · bills · report · settings
+   ===================================================================================== */
+VIEWS.money = function (el) {
+  const sub = ['cash', 'out', 'in', 'bills', 'report', 'settings'].includes(SUB) ? SUB : 'cash';
+  el.innerHTML = `<h2>Money</h2>${subtabs([['cash', '🧮 Cash'], ['out', '➖ Money out'], ['in', '➕ Money in'], ['bills', '🧾 Bills'], ['report', '📊 Report'], ['settings', '⚙️ Settings']], sub, 'money')}<div id="mBody"></div>`;
+  MONEY[sub]($('mBody'));
+};
+const MONEY = {};
+MONEY.cash = function (b) {
+  const e = expected(), lc = lastCount(), bills = billsFor(ym()).filter((x) => !x.paid).reduce((a, x) => a + N(x.amt), 0);
+  const C = D.counts.slice().sort((a, b) => b.at - a.at).slice(0, 10);
+  b.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><div class="k">💵 Cash in the drawer</div><div class="v num">${money(e.cash)}</div><div class="f">should be there now</div></div>
+      <div class="kpi"><div class="k">📲 M-Pesa</div><div class="v num">${money(e.mpesa)}</div><div class="f">should be on the till</div></div>
+      <div class="kpi"><div class="k">🏦 Bank</div><div class="v num">${money(e.bank)}</div><div class="f">incl. card payments</div></div>
+      <div class="kpi"><div class="k">After this month's bills</div><div class="v num ${e.cash + e.mpesa + e.bank - bills < 0 ? 'bad' : 'ok'}">${money(e.cash + e.mpesa + e.bank - bills)}</div><div class="f">${money(bills)} of bills still to pay</div></div>
+    </div>
+    <p class="hint">“Should be” = your last count ${lc ? '(' + fday(lc.at) + ' ' + ftime(lc.at) + ')' : ''} plus every sale, money in and money out recorded since.</p>
+    <div class="card brand" id="countCard"><b>🧮 Count the cash</b><p class="hint" style="margin-top:2px">Every evening before you close. Count the drawer, check the M-Pesa balance on the till phone, and the bank if you can.</p>
+      <div class="grid3"><div><label for="cCash">Cash counted</label><input id="cCash" inputmode="numeric" placeholder="${Math.round(e.cash)}"></div>
+        <div><label for="cMp">M-Pesa balance</label><input id="cMp" inputmode="numeric" placeholder="${Math.round(e.mpesa)}"></div>
+        <div><label for="cBank">Bank balance</label><input id="cBank" inputmode="numeric" placeholder="${Math.round(e.bank)}"></div></div>
+      <label for="cNote">Note (optional)</label><input id="cNote" placeholder="e.g. gave Brian 500 for lunch" autocomplete="off">
+      <div style="height:10px"></div><button class="btn block" id="cSaveBtn" onclick="saveCount()">Save the count</button><div id="cResult"></div></div>
+    <h3>Past counts</h3>
+    <div class="card"><div class="list" id="countList">${C.length ? C.map((c) => { const dc = c.cash - c.exp.cash, dm = c.mpesa - c.exp.mpesa; return `<div class="item"><div class="grow"><div class="t">${fday(c.at)} · ${ftime(c.at)}</div><div class="m">Cash ${money(c.cash)} · M-Pesa ${money(c.mpesa)} · Bank ${money(c.bank)}${c.note ? ' · ' + esc(c.note) : ''}</div></div>${diffPill(dc + dm)}</div>`; }).join('') : '<div class="empty">No counts yet.</div>'}</div></div>`;
+};
+function diffPill(d) { d = Math.round(d); return d === 0 ? '<span class="pill ok">Matched ✓</span>' : d < 0 ? `<span class="pill bad">Short ${money(-d)}</span>` : `<span class="pill warn">Over ${money(d)}</span>`; }
+function saveCount() {
+  const e = expected(), v = (id, d) => ($(id).value.trim() === '' ? d : N($(id).value));
+  if ($('cCash').value.trim() === '' && $('cMp').value.trim() === '') { toast('Type the cash you counted, and the M-Pesa balance.'); $('cCash').focus(); return; }
+  const c = { id: uid(), at: Date.now(), cash: v('cCash', e.cash), mpesa: v('cMp', e.mpesa), bank: v('cBank', e.bank), exp: { cash: e.cash, mpesa: e.mpesa, bank: e.bank }, by: D.shop.owner, note: $('cNote').value.trim() };
+  D.counts.push(c); save();
+  const dc = Math.round(c.cash - e.cash), dm = Math.round(c.mpesa - e.mpesa);
+  const words = (d, what) => (d === 0 ? `${what} matches ✓` : d < 0 ? `${what} is SHORT by ${money(-d)}` : `${what} is OVER by ${money(d)}`);
+  route();
+  $('cResult').innerHTML = `<div class="alert ${dc === 0 && dm === 0 ? 'ok' : 'bad'}" id="countResult">${words(dc, 'Cash')} · ${words(dm, 'M-Pesa')}${dc || dm ? '<div style="font-weight:500;margin-top:4px">Check today’s sales and money out — was something not recorded? The count is saved, and tomorrow starts from what you counted.</div>' : ''}</div>`;
+  $('cResult').scrollIntoView({ block: 'center' });
+}
+MONEY.out = function (b) {
+  const m = ym(), L = D.out.filter((x) => ym(x.at) === m).sort((a, b) => b.at - a.at), tot = L.reduce((a, x) => a + N(x.amt), 0);
+  const chase = D.out.filter((x) => x.rcpt === 'No — chase it').length;
+  b.innerHTML = `<div class="card">
+      <div class="card" style="background:var(--brand-soft);border-color:var(--brand);margin:0 0 6px">
+        <label for="oMsg" style="margin-top:0">📲 Paste the M-Pesa message (optional)</label>
+        <textarea id="oMsg" placeholder="e.g. QJK7X2K9LM Confirmed. Ksh2,000.00 paid to KPLC PREPAID. on 14/10/26 at 8:30 AM…" style="min-height:60px"></textarea>
+        <button class="btn sec small" style="margin-top:6px" id="oFill" onclick="outFill()">Fill from message</button></div>
+      <label for="oPayee">Paid to</label><input id="oPayee" list="payees" placeholder="e.g. KPLC, landlord, supplier" autocomplete="off"><datalist id="payees">${[...new Set(D.out.map((x) => x.payee))].map((p) => `<option value="${esc(p)}">`).join('')}</datalist>
+      <label for="oCat">What for</label><select id="oCat"><option value="">— choose —</option>${opts(D.expCats)}</select>
+      <div class="grid2"><div><label for="oAmt">Amount</label><input id="oAmt" inputmode="numeric" placeholder="0"></div><div><label for="oFrom">Paid from</label><select id="oFrom">${opts(['M-Pesa', 'Cash', 'Bank'])}</select></div></div>
+      <div class="grid2"><div><label for="oRef">M-Pesa / bank code</label><input id="oRef" autocomplete="off"></div><div><label for="oRcpt">Receipt?</label><select id="oRcpt">${opts(RECEIPTS, 'No — chase it')}</select></div></div>
+      <label for="oNote">Note (optional)</label><input id="oNote" placeholder="what was it for?" autocomplete="off">
+      <div style="height:10px"></div><button class="btn block" id="oSave" onclick="saveOut()">Save money out</button></div>
+    <h3>This month · ${money(tot)}${chase ? ` · <span class="pill bad">${chase} receipt${chase > 1 ? 's' : ''} to chase</span>` : ''}</h3>
+    <div class="card"><div class="list" id="outList">${L.length ? L.map((x) => `<div class="item"><div class="grow"><div class="t">${esc(x.payee)}</div><div class="m">${fdate(x.at)} · ${esc(x.cat)} · ${esc(x.from)}${x.ref ? ' · ' + esc(x.ref) : ''}${x.note ? ' · ' + esc(x.note) : ''}</div></div><div style="text-align:right"><div class="t num">${money(x.amt)}</div>${x.rcpt === 'No — chase it' ? '<span class="pill bad">no receipt</span>' : ''}</div><button class="btn sec small" aria-label="Delete" onclick="delMoney('out','${x.id}')">🗑</button></div>`).join('') : '<div class="empty">Nothing yet this month.</div>'}</div></div>`;
+};
+function outFill() {
+  const m = parseMpesa($('oMsg').value); if (!m) { toast('That does not look like an M-Pesa message.'); return; }
+  $('oAmt').value = m.amt; if (m.ref) $('oRef').value = m.ref; if (m.name) $('oPayee').value = titleCase(m.name); $('oFrom').value = 'M-Pesa'; $('oRcpt').value = 'M-Pesa message';
+  if (/kplc/i.test(m.name)) $('oCat').value = 'Electricity (KPLC)'; else if (/safaricom|airtel|airtime|zuku|faiba/i.test(m.name)) $('oCat').value = 'Internet & airtime';
+  toast('Filled: ' + money(m.amt) + (m.name ? ' to ' + titleCase(m.name) : '') + '. Choose “What for”.');
+}
+function saveOut() {
+  const amt = N($('oAmt').value), payee = $('oPayee').value.trim(), cat = $('oCat').value;
+  if (!payee) { toast('Who did you pay?'); return; } if (!cat) { toast('Choose what it was for.'); return; } if (amt <= 0) { toast('How much?'); return; }
+  const ref = $('oRef').value.trim();
+  if (ref && D.out.some((x) => x.ref && x.ref.toUpperCase() === ref.toUpperCase()) && !confirm('This code ' + ref + ' is already recorded. Save it twice?')) return;
+  D.out.push({ id: uid(), at: Date.now(), payee, cat, amt, from: $('oFrom').value, ref, rcpt: $('oRcpt').value, note: $('oNote').value.trim(), by: D.shop.owner });
+  save(); route(); toast('Saved: ' + money(amt) + ' to ' + payee + '.');
+}
+MONEY.in = function (b) {
+  const m = ym(), L = D.inn.filter((x) => ym(x.at) === m).sort((a, b) => b.at - a.at), tot = L.reduce((a, x) => a + N(x.amt), 0);
+  b.innerHTML = `<p class="hint" style="margin-top:0">Money that is not a sale: repair fees, deni payments, money you put into the shop. (Sales go in by themselves.)</p>
+    <div class="card">
+      <label for="iMsg" style="margin-top:0">📲 Paste the M-Pesa message (optional)</label><textarea id="iMsg" style="min-height:56px" placeholder="e.g. QJK… Confirmed. You have received Ksh500.00 from…"></textarea>
+      <button class="btn sec small" style="margin-top:6px" onclick="inFill()">Fill from message</button>
+      <label for="iCat">What is it?</label><select id="iCat">${opts(IN_CATS)}</select>
+      <div class="grid2"><div><label for="iAmt">Amount</label><input id="iAmt" inputmode="numeric" placeholder="0"></div><div><label for="iTo">Came in by</label><select id="iTo">${opts(['M-Pesa', 'Cash', 'Bank'])}</select></div></div>
+      <label for="iFrom">From</label><input id="iFrom" placeholder="name" autocomplete="off">
+      <label for="iRef">Code / note</label><input id="iRef" autocomplete="off">
+      <div style="height:10px"></div><button class="btn block" id="iSaveBtn" onclick="saveIn()">Save money in</button></div>
+    <h3>This month · ${money(tot)}</h3>
+    <div class="card"><div class="list">${L.length ? L.map((x) => `<div class="item"><div class="grow"><div class="t">${esc(x.cat)}${x.from ? ' · ' + esc(x.from) : ''}</div><div class="m">${fdate(x.at)} · ${esc(x.to)}${x.ref ? ' · ' + esc(x.ref) : ''}</div></div><div class="t num">${money(x.amt)}</div><button class="btn sec small" aria-label="Delete" onclick="delMoney('inn','${x.id}')">🗑</button></div>`).join('') : '<div class="empty">Nothing yet this month.</div>'}</div></div>`;
+};
+function inFill() { const m = parseMpesa($('iMsg').value); if (!m) { toast('That does not look like an M-Pesa message.'); return; } $('iAmt').value = m.amt; if (m.ref) $('iRef').value = m.ref; if (m.name) $('iFrom').value = titleCase(m.name); $('iTo').value = 'M-Pesa'; toast('Filled from the message.'); }
+function saveIn() {
+  const amt = N($('iAmt').value); if (amt <= 0) { toast('How much came in?'); return; }
+  D.inn.push({ id: uid(), at: Date.now(), cat: $('iCat').value, amt, to: $('iTo').value, from: $('iFrom').value.trim(), ref: $('iRef').value.trim(), by: D.shop.owner });
+  save(); route(); toast('Saved: ' + money(amt) + ' in.');
+}
+function delMoney(list, id) { if (!confirm('Delete this entry?')) return; D[list] = D[list].filter((x) => x.id !== id); save(); route(); }
+MONEY.bills = function (b) {
+  const m = ARG && /^\d{4}-\d{2}$/.test(ARG) ? ARG : ym(), L = billsFor(m), left = L.filter((x) => !x.paid).reduce((a, x) => a + N(x.amt), 0);
+  const [y, mo] = m.split('-').map(Number), prev = ym(new Date(y, mo - 2, 1).getTime()), next = ym(new Date(y, mo, 1).getTime());
+  const name = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), d = new Date().getDate();
+  b.innerHTML = `<div class="row" style="justify-content:space-between"><button class="btn sec small" onclick="go('money','bills','${prev}')">‹</button><b>${name}</b><button class="btn sec small" onclick="go('money','bills','${next}')">›</button></div>
+    <div class="kpis" style="margin-top:10px"><div class="kpi"><div class="k">Still to pay</div><div class="v num ${left ? 'warn' : 'ok'}">${money(left)}</div><div class="f">${L.filter((x) => !x.paid).length} of ${L.length} bills</div></div><div class="kpi"><div class="k">Paid</div><div class="v num">${money(L.filter((x) => x.paid).reduce((a, x) => a + N(x.amt), 0))}</div></div></div>
+    <div class="card"><div class="list" id="billList">${L.length ? L.map((x) => `<div class="item"><div class="grow"><div class="t">${x.paid ? '✅ ' : ''}${esc(x.name)}</div><div class="m">${esc(x.cat)} · ${x.due ? 'due ' + ord(x.due) : 'any day'}${x.paid ? ' · paid ' + fdate(x.paidAt) : !x.paid && m === ym() && x.due && x.due < d ? ' · <b style="color:var(--bad)">late</b>' : ''}</div></div><span class="num">${money(x.amt)}</span>${x.paid ? `<button class="btn sec small" onclick="unpayBill('${x.id}')">Undo</button>` : `<button class="btn small" onclick="payBillSheet('${x.id}')">Pay</button>`}</div>`).join('') : `<div class="empty">No bills for ${name}.${D.bills.length ? '' : ' Add rent, KPLC, wages…'}</div>`}</div></div>
+    <div class="row"><button class="btn sec" id="addBillBtn" onclick="billSheet('${m}')">＋ Add a bill</button>${!L.length && billsFor(prev).length ? `<button class="btn sec" id="copyBills" onclick="copyBills('${prev}','${m}')">Copy last month's bills</button>` : ''}</div>
+    <p class="hint">Paying a bill here also records it under ➖ Money out, so you never enter it twice.</p>`;
+};
+function billSheet(m) {
+  openSheet(`<h2>＋ Add a bill</h2>
+    <label for="bName">Bill</label><input id="bName" placeholder="e.g. Shop rent" autocomplete="off">
+    <div class="grid2"><div><label for="bAmt">Amount</label><input id="bAmt" inputmode="numeric"></div><div><label for="bDue">Due day</label><input id="bDue" inputmode="numeric" placeholder="1–31"></div></div>
+    <label for="bCat">What for</label><select id="bCat">${opts(D.expCats, 'Rent')}</select>
+    <div style="height:12px"></div><button class="btn block" id="bSave" onclick="saveBill('${m}')">Add bill</button>`);
+}
+function saveBill(m) { const name = $('bName').value.trim(), amt = N($('bAmt').value); if (!name || amt <= 0) { toast('Bill name and amount, please.'); return; } D.bills.push({ id: uid(), month: m, name, amt, cat: $('bCat').value, due: Math.min(31, Math.max(0, Math.round(N($('bDue').value)))), paid: false, paidAt: 0 }); save(); closeSheet(); route(); }
+function copyBills(from, to) { billsFor(from).forEach((x) => D.bills.push({ id: uid(), month: to, name: x.name, amt: x.amt, cat: x.cat, due: x.due, paid: false, paidAt: 0 })); save(); route(); toast('Copied. Change any amount that is different.'); }
+function payBillSheet(id) {
+  const x = D.bills.find((b) => b.id === id);
+  openSheet(`<h2>Pay ${esc(x.name)}</h2><label for="pbAmt">Amount</label><input id="pbAmt" inputmode="numeric" value="${x.amt}">
+    <label for="pbFrom">Paid from</label><select id="pbFrom">${opts(['M-Pesa', 'Cash', 'Bank'], 'M-Pesa')}</select>
+    <label for="pbRef">M-Pesa / bank code</label><input id="pbRef" autocomplete="off">
+    <div style="height:12px"></div><button class="btn block" id="pbSave" onclick="payBill('${id}')">Paid — record it</button>`);
+}
+function payBill(id) {
+  const x = D.bills.find((b) => b.id === id), amt = N($('pbAmt').value); if (amt <= 0) { toast('How much?'); return; }
+  const from = $('pbFrom').value, ref = $('pbRef').value.trim();
+  const o = { id: uid(), at: Date.now(), payee: x.name, cat: x.cat, amt, from, ref, rcpt: from === 'M-Pesa' ? 'M-Pesa message' : 'No — chase it', note: 'Bill', bill: id, by: D.shop.owner };
+  D.out.push(o); x.paid = true; x.paidAt = o.at; x.outId = o.id; save(); closeSheet(); route(); toast('Paid and recorded.');
+}
+function unpayBill(id) { const x = D.bills.find((b) => b.id === id); if (!confirm('Mark as not paid? The money-out entry is removed too.')) return; D.out = D.out.filter((o) => o.id !== x.outId); x.paid = false; x.paidAt = 0; x.outId = ''; save(); route(); }
+
+/* ---------- the report (Zuri's Friday report, for a shop) ---------- */
+function periodRange(p) {
+  const t0 = startOf(Date.now());
+  if (p === 'today') return [t0, t0 + DAY, 'Today, ' + fdate(t0)];
+  if (p === 'month') { const a = new Date(); a.setDate(1); a.setHours(0, 0, 0, 0); return [a.getTime(), t0 + DAY, new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })]; }
+  const dow = (new Date(t0).getDay() + 6) % 7, a = t0 - dow * DAY; return [a, t0 + DAY, 'Week ' + fdate(a) + ' – ' + fdate(t0)];
+}
+function buildReport(p) {
+  const [a, b, label] = periodRange(p), S = salesBetween(a, b), sh = D.shop;
+  const tot = S.reduce((x, s) => x + s.total, 0), prof = S.reduce((x, s) => x + saleProfit(s), 0);
+  const byPay = {}; S.forEach((s) => (byPay[s.pay] = (byPay[s.pay] || 0) + s.total));
+  const top = {}; S.forEach((s) => s.lines.forEach((l) => { top[l.name] = top[l.name] || { q: 0, amt: 0 }; top[l.name].q += l.qty; top[l.name].amt += l.qty * l.price; }));
+  const topL = Object.entries(top).sort((x, y) => y[1].amt - x[1].amt).slice(0, 5);
+  const outs = D.out.filter((x) => x.at >= a && x.at < b), outT = outs.reduce((x, o) => x + N(o.amt), 0), stockBuy = outs.filter((o) => o.cat === 'Stock purchase').reduce((x, o) => x + N(o.amt), 0);
+  const byCat = {}; outs.forEach((o) => (byCat[o.cat] = (byCat[o.cat] || 0) + N(o.amt)));
+  const ins = D.inn.filter((x) => x.at >= a && x.at < b), inT = ins.reduce((x, o) => x + N(o.amt), 0), repairT = ins.filter((x) => x.cat === 'Repair fee').reduce((x, o) => x + N(o.amt), 0);
+  const billsLeft = billsFor(ym()).filter((x) => !x.paid), dl = deniList(), low = lowItems(), lc = lastCount();
+  const chase = outs.filter((o) => o.rcpt === 'No — chase it');
+  let sentN = 0, came = 0, cameAmt = 0; D.offers.forEach((o) => { Object.values(o.sent).forEach((t) => { if (t >= a && t < b) sentN++; }); }); D.offers.forEach((o) => { const r = offerResults(o); if (o.at >= a - 7 * DAY) { came += r.came; cameAmt += r.amt; } });
+  const L = [];
+  L.push('📊 ' + (sh.name || 'Shop') + (sh.town ? ', ' + sh.town : '') + ' — ' + label);
+  L.push('');
+  L.push('💰 Sales: ' + money(tot) + ' (' + S.length + ' sale' + (S.length === 1 ? '' : 's') + ') · profit on goods ' + money(prof));
+  if (S.length) L.push('   ' + ['M-Pesa', 'Cash', 'Card', 'Deni'].filter((k) => byPay[k]).map((k) => k + ' ' + money(byPay[k])).join(' · '));
+  if (topL.length) { L.push('🏆 Top sellers:'); topL.forEach(([n, v]) => L.push('   ' + v.q + ' × ' + n + ' — ' + money(v.amt))); }
+  if (inT) L.push('➕ Other money in: ' + money(inT) + (repairT ? ' (repairs ' + money(repairT) + ')' : ''));
+  L.push('➖ Money out: ' + money(outT) + (stockBuy ? ' (of which new stock ' + money(stockBuy) + ')' : ''));
+  Object.entries(byCat).filter(([k]) => k !== 'Stock purchase').sort((x, y) => y[1] - x[1]).forEach(([k, v]) => L.push('   ' + k + ' ' + money(v)));
+  L.push('📈 Profit after running costs: ' + money(prof + repairT - (outT - stockBuy)));
+  L.push('');
+  L.push('🧮 Last cash count: ' + (lc ? fday(lc.at) + ' — ' + (Math.round(lc.cash - lc.exp.cash + lc.mpesa - lc.exp.mpesa) === 0 ? 'matched ✓' : (lc.cash - lc.exp.cash + lc.mpesa - lc.exp.mpesa < 0 ? 'SHORT ' : 'over ') + money(Math.abs(lc.cash - lc.exp.cash + lc.mpesa - lc.exp.mpesa))) : 'none yet'));
+  const e = expected(); L.push('💵 Now: cash ' + money(e.cash) + ' · M-Pesa ' + money(e.mpesa) + ' · bank ' + money(e.bank));
+  L.push('🧾 Bills still to pay this month: ' + (billsLeft.length ? money(billsLeft.reduce((x, y) => x + N(y.amt), 0)) + ' — ' + billsLeft.map((x) => x.name).join(', ') : 'none ✓'));
+  L.push('📒 Customers owe (deni): ' + (dl.length ? money(dl.reduce((x, s) => x + owed(s), 0)) + ' — ' + dl.map((s) => custName(s.cid) + ' ' + money(owed(s))).join(', ') : 'nobody ✓'));
+  L.push('📦 Running low: ' + (low.length ? low.map((i) => i.name + ' (' + i.qty + ')').join(', ') : 'nothing ✓'));
+  const rIn = D.repairs.filter((r) => r.status === 'in').length, rReady = D.repairs.filter((r) => r.status === 'ready').length;
+  L.push('🔧 Repairs: ' + rIn + ' being fixed · ' + rReady + ' ready to collect');
+  L.push('📣 Offers: ' + sentN + ' message' + (sentN === 1 ? '' : 's') + ' sent' + (came ? ' · ' + came + ' came back and bought ' + money(cameAmt) : ''));
+  if (chase.length) L.push('⚠️ Receipts to chase: ' + chase.map((o) => o.payee + ' ' + money(o.amt)).join(', '));
+  L.push('', '— from Duka');
+  return L.join('\n');
+}
+let REPORT_P = 'week';
+MONEY.report = function (b) {
+  const t = buildReport(REPORT_P);
+  b.innerHTML = `<div class="card brand"><b>📊 The report writes itself</b><div class="hint" style="margin:2px 0 0">Sales, profit, money out, the cash count, bills, deni, low stock, repairs and offers — from what you recorded. Copy it to your WhatsApp, or to a partner.</div></div>
+    <div class="seg" id="repPeriod" style="margin-bottom:10px">${[['today', 'Today'], ['week', 'This week'], ['month', 'This month']].map(([k, l]) => `<button class="${k === REPORT_P ? 'on' : ''}" onclick="REPORT_P='${k}';route()">${l}</button>`).join('')}</div>
+    <pre class="report" id="repText">${esc(t)}</pre>
+    <div class="row no-print"><button class="btn" id="repCopy" onclick="copyText($('repText').textContent,'Copied — paste it in WhatsApp.')">📋 Copy for WhatsApp</button><button class="btn sec" onclick="window.print()">🖨 Print / PDF</button><button class="btn sec" id="repCsv" onclick="exportCsv()">⬇ Sales spreadsheet (CSV)</button></div>`;
+};
+function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/plain' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function csvCell(v) { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function exportCsv() {
+  const rows = [['Date', 'Time', 'Sale #', 'Item', 'Qty', 'Price each', 'Line total', 'Cost each', 'Profit', 'Paid by', 'Code', 'Customer']];
+  D.sales.slice().sort((a, b) => a.at - b.at).forEach((s) => s.lines.forEach((l) => rows.push([dstr(s.at), ftime(s.at), s.no, l.name, l.qty, l.price, l.qty * l.price, l.cost, l.qty * (l.price - l.cost), s.pay, s.ref, custName(s.cid)])));
+  download((D.shop.name || 'duka').replace(/\W+/g, '-') + '-sales-' + today() + '.csv', rows.map((r) => r.map(csvCell).join(',')).join('\n'), 'text/csv');
+}
+MONEY.settings = function (b) {
+  const s = D.shop;
+  const F = [['name', 'Shop name'], ['town', 'Town'], ['owner', 'Your first name'], ['phone', 'Shop phone'], ['whatsapp', 'WhatsApp number'], ['till', 'M-Pesa till number'], ['paybill', 'Paybill (if you use one)'], ['acct', 'Paybill account'], ['kra', 'KRA PIN (shows on receipts)']];
+  b.innerHTML = `<div class="card">${F.map(([k, l]) => `<label for="st_${k}">${l}</label><input id="st_${k}" value="${esc(s[k] || '')}" autocomplete="off">`).join('')}
+      <label for="stStaff">People who use the shop phone (one per line)</label><textarea id="stStaff">${esc(D.staff.join('\n'))}</textarea>
+      <label for="stCats">Stock categories (one per line)</label><textarea id="stCats">${esc(D.cats.join('\n'))}</textarea>
+      <label for="stExp">Money-out categories (one per line)</label><textarea id="stExp">${esc(D.expCats.join('\n'))}</textarea>
+      <label class="check"><input type="checkbox" id="stStop" ${s.stop ? 'checked' : ''}> Add “Reply STOP if you do not want these messages” to every offer</label>
+      <div style="height:10px"></div><button class="btn block" id="stSave" onclick="saveSettings()">Save settings</button></div>
+    <h3>Backup</h3>
+    <div class="card"><p class="hint" style="margin-top:0">Everything is saved on this phone only. Once a week, download a backup and send it to yourself on WhatsApp or email. If the phone is lost, Restore brings it all back on a new phone.</p>
+      <div class="row"><button class="btn sec" id="bkDown" onclick="backup()">⬇ Download backup</button><label class="btn sec" style="margin:0">⬆ Restore<input type="file" accept=".json,application/json" hidden onchange="restore(this.files[0])"></label></div></div>
+    <h3>Start over</h3>
+    <div class="card"><div class="row">${D.example ? '' : '<button class="btn sec" onclick="loadExample()">🧪 Load the example shop</button>'}<button class="btn sec bad" id="startOver" onclick="startOverAsk()">🧹 Start over — clear everything</button></div>
+      <p class="hint">Start over removes every sale, item, customer and count on this phone. Download a backup first if you might need it.</p></div>
+    <p class="hint">Duka ${VERSION} · Daraja Studio${SBX ? ' · 🧪 test copy' : ''}</p>`;
+};
+function lines(id) { return $(id).value.split('\n').map((x) => x.trim()).filter(Boolean); }
+function saveSettings() {
+  ['name', 'town', 'owner', 'phone', 'whatsapp', 'till', 'paybill', 'acct', 'kra'].forEach((k) => (D.shop[k] = $('st_' + k).value.trim()));
+  if (!D.shop.name) { toast('The shop needs a name.'); return; }
+  D.shop.stop = $('stStop').checked; D.staff = lines('stStaff'); const c = lines('stCats'), e = lines('stExp'); if (c.length) D.cats = c; if (e.length) D.expCats = e;
+  save(); route(); toast('Settings saved.');
+}
+function backup() { download('duka-backup-' + today() + '.json', JSON.stringify(D, null, 1), 'application/json'); toast('Backup downloaded. Send it to yourself.'); }
+function restore(f) {
+  if (!f) return; const r = new FileReader();
+  r.onload = () => { try { const d = JSON.parse(r.result); if (!d || !d.v || !Array.isArray(d.sales)) throw 0; if (!confirm('Replace everything on this phone with this backup?')) return; D = Object.assign(blank(), d); save(); go('today'); toast('Restored.'); } catch (e) { toast('That file is not a Duka backup.'); } };
+  r.readAsText(f);
+}
+function loadExample() { if (!confirm('Replace your shop with the example shop? Download a backup first if you need your data.')) return; D = example(); save(); go('today'); }
+function startOverAsk() {
+  if (DEMO) { toast('This is the video copy — nothing to clear.'); return; }
+  if (!confirm(D.example ? 'Leave the example shop and set up your own? The example is cleared.' : 'Clear EVERYTHING on this phone and start over? This cannot be undone.')) return;
+  try { STORE && STORE.removeItem(SKEY); } catch (e) {}
+  D = null; CART = []; sellReset(); try { history.replaceState(null, '', location.pathname + location.search + '#today'); } catch (e) {} TAB = 'today'; welcome(); startFresh();
+}
+
+/* ---------- start ---------- */
+$('ver').textContent = 'Duka ' + VERSION + ' · Daraja Studio' + (SBX ? ' · 🧪 test copy' : '') + (DEMO ? ' · example (not saved)' : '');
+load();
+route();
+if ('serviceWorker' in navigator && !DEMO && /^https?:/.test(location.protocol)) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); }
+</script>
+</body>
+</html>
