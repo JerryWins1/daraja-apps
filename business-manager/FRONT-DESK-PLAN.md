@@ -192,6 +192,19 @@ For comparison: AI receptionists for service businesses commonly run **$150–40
 - No bill ever arrives: when credits run low, the owner gets a reminder and a one-tap top-up.
 - **Credit prices are set after the pilot**, once we know real per-minute and per-message costs in Kenya. **Rule: credits sell for at least 3× what they cost us**, which still leaves Front Desk far cheaper than a receptionist's salary.
 
+### The rule: free first, add-ons when you grow
+
+Every feature works on a **free level** first. Anything that costs money (texts, calls, AI minutes) is an **add-on a partner switches on**, and it stays off until then.
+- **Screens show only what's switched on.** A locked add-on appears as one quiet grey card that says what it adds and what it costs. No pop-ups and no nagging.
+- **Paid usage is prepaid** (M-Pesa credit in Kenya, a capped plan in the US). When credit runs out, the app **falls back to the free level** instead of stopping.
+- **Switching up or down never changes existing data**: the same alerts, customers and history.
+- **Built once and shared:** one "Plan & add-ons" settings page that every Daraja app reuses.
+
+**First built in Zuri Alerts** (zuri-system PR #7):
+- **Free:** WhatsApp broadcast groups, a contacts file per group, and one-by-one texts for small groups.
+- **Bulk SMS list:** pay as you go.
+- **Automatic sending:** prepaid credit, coming with the server.
+
 ### Modules: pay only for what you use
 
 Everything is a module that runs on the same server, phone numbers and customer list, so adding one is a switch in Settings, not a new system.
