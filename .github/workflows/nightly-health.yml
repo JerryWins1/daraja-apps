@@ -1,0 +1,60 @@
+# Daraja nightly health check · v1.0 · 2026-10-14
+# Every live page as an iPhone 12 mini; one issue (label nightly-check) when something breaks, closed on a clean night;
+# one plain-words line to Daraja HQ only when something is wrong. Free: public repo, ~5 min a night.
+# Source: Daraja Studio/_build tools/health/ on Jerry's Mac. "Run the nightly check" = workflow_dispatch.
+name: Nightly health check
+on:
+  schedule:
+    - cron: '30 2 * * *'   # 02:30 UTC = 5:30 Kenya, 9:30pm Illinois (CDT)
+  workflow_dispatch:
+    inputs:
+      quiet:
+        description: 'Quiet: update the GitHub issue but do not post to Daraja HQ'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: nightly-health
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: .github/health
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: npm install --no-audit --no-fund
+      - name: Cache the browser
+        id: pwcache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-1.52.0
+      - name: Browser (download on a cache miss)
+        if: steps.pwcache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Browser system libraries (cache hit)
+        if: steps.pwcache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Check every page
+        run: node check.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QUIET: ${{ inputs.quiet }}
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-results
+          path: .github/health/health-results.json
+          retention-days: 14
