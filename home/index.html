@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v64">
+<script id="dj-house-v65">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -488,7 +488,7 @@
         var k = localStorage.key(i); if(!k) continue;
         var named = mine.k.indexOf(k) >= 0;
         if(shared[k]) continue;
-        if((SHARED_KEYS[k] || SHARED_PAT.test(k)) && !(named && me === 'circle' && k === 'dj_circle_v1')) continue;
+        if((SHARED_KEYS[k] || SHARED_PAT.test(k)) && !(named && ((me === 'circle' && k === 'dj_circle_v1') || (me === 'nownext' && k === 'now_next_profiles_v1')))) continue;   /* 14 Oct: One Thing's own Start fresh clears its people too */
         if(/(_seen|TipSeen|_intro(_.*)?)$/.test(k) || /^daraja_intro_/.test(k)) continue;   /* v64: "I have seen the welcome" flags stay — erasing them made Every Day, Our Table and Who's Coming put their examples straight back */
         var owned = named;
         if(!owned) for(var j=0; j<mine.p.length; j++) if(mine.p[j] && k.indexOf(mine.p[j]) === 0){ owned = true; break; }
@@ -758,7 +758,9 @@
     /* On a 5.4" phone three floating helpers stacked up the right-hand edge still
        sit on the words underneath. Below 560px they fold into ONE button that opens
        them, so nothing covers the page until the person asks for it. */
-    var narrow = window.innerWidth <= 560;
+    /* v65 (17 Oct, Kenya testers on computers): the one ? button now shows on EVERY screen size — on a computer
+       the helpers used to spread out as separate icons and the ? (Start menu, tour, start fresh) never appeared. */
+    var narrow = true;
     if(narrow && !toggleBtn){
       toggleBtn = document.createElement('button');
       toggleBtn.type = 'button';
@@ -936,7 +938,7 @@
   }
   function paint(){
     if(!dockEl) return;
-    var narrow = window.innerWidth <= 560;
+    var narrow = true;   /* v65: same folded dock everywhere */
     for(var i=0; i<dockEl.children.length; i++){
       var c = dockEl.children[i];
       if(c === toggleBtn){ show(c, narrow); continue; }
@@ -1088,26 +1090,18 @@
      Home Screen on their own, and most never do. So on the second visit in Safari
      — not the first, not while installed, not inside Feedback Studio — one card
      shows the three taps, with a real arrow to where the Share button lives. */
-  /* v65: Chrome on Android offers its install prompt once it decides the page can be installed; keep it for our own button. */
-  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
-  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + slugOf(), 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); }catch(err){} });
   function homeScreenGuide(){
-    if(document.getElementById('djA2HS')) return;
     try{
       var ua = navigator.userAgent || '';
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
       var force = /[?&]dj_a2hs=1/.test(location.search);
-      /* v65 (15 Oct, Jerry: "there should be a way to load it on their Home Screen easier"): Android too. Chrome hands us
-         its install prompt, so there it is ONE tap (Install); without it, the card shows Chrome's own two taps. */
-      var android = /Android/.test(ua), bip = window.__djBIP || null;
-      var installed = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-      if(embedded || installed || (!ios && !android) || (!force && !ios && !bip)) return;
+      if(embedded || (!force && (!ios || navigator.standalone))) return;
       if(!force && guestVisit()) return;
       if(!force && /\/(welcome|watch\.html|feedback-studio|testers|help|testday|control|safety)(\/|$)/.test(location.pathname)) return;   /* v47: tester and helper pages are visited, not kept */
       var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
       if(st === 'done' || st === 'no') return;
       var visits = parseInt(st || '0', 10) || 0;
-      if(!force && visits < 1){ if(!window.__djA2C){ window.__djA2C = 1; localStorage.setItem(key, String(visits + 1)); } return; }   /* first visit: just count (once, even if Chrome's prompt calls again) */
+      if(!force && visits < 1){ localStorage.setItem(key, String(visits + 1)); return; }   /* first visit: just count */
       if(!force && cardOpen()){ setTimeout(homeScreenGuide, 4000); return; }   /* v47: wait until the welcome card is closed */
       var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
       var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
@@ -1115,24 +1109,16 @@
       w.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
         + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
         + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
-      var btn = 'font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer';
       w.innerHTML = '<div style="font-weight:800;font-size:17px;margin-bottom:6px">Keep ' + name.replace(/[<>&]/g,'') + ' on your Home Screen</div>'
-        + (!ios ? (bip ? '<p style="margin:0 0 10px">One tap puts it next to your other apps. It opens full screen, and every Daraja app is inside.</p>'
-            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="install" style="' + btn + '">📲 Install ' + name.replace(/[<>&]/g,'') + '</button>'
-          : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>⋮</b> menu at the top right of Chrome</li><li>Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li><li>Tap <b>Install</b>. It opens like any other app, full screen.</li></ol>'
-            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="' + btn + '">I did it</button>')
-          + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
-          + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>' : '')
-        + (!ios ? '' : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+        + '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
         + '<li>Scroll the list and tap <b>Add to Home Screen</b></li><li>Tap <b>Add</b>. It opens like any other app, full screen.</li></ol>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer">I did it</button>'
         + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
-        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>')
-        + (ios && shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
+        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>'
+        + (shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
       w.addEventListener('click', function(e){
         var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
         var a = b.getAttribute('data-a');
-        if(a === 'install' && bip){ bip.prompt(); bip.userChoice.then(function(c){ localStorage.setItem(key, c && c.outcome === 'accepted' ? 'done' : '0'); }).catch(function(){}); window.__djBIP = null; w.remove(); return; }
         if(a === 'done' || a === 'no') localStorage.setItem(key, a); else localStorage.setItem(key, '0');   /* later: ask again in two visits */
         w.remove();
       });
