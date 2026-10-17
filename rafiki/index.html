@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v64">
+<script id="dj-house-v65">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -488,7 +488,7 @@
         var k = localStorage.key(i); if(!k) continue;
         var named = mine.k.indexOf(k) >= 0;
         if(shared[k]) continue;
-        if((SHARED_KEYS[k] || SHARED_PAT.test(k)) && !(named && me === 'circle' && k === 'dj_circle_v1')) continue;
+        if((SHARED_KEYS[k] || SHARED_PAT.test(k)) && !(named && ((me === 'circle' && k === 'dj_circle_v1') || (me === 'nownext' && k === 'now_next_profiles_v1')))) continue;   /* 14 Oct: One Thing's own Start fresh clears its people too */
         if(/(_seen|TipSeen|_intro(_.*)?)$/.test(k) || /^daraja_intro_/.test(k)) continue;   /* v64: "I have seen the welcome" flags stay — erasing them made Every Day, Our Table and Who's Coming put their examples straight back */
         var owned = named;
         if(!owned) for(var j=0; j<mine.p.length; j++) if(mine.p[j] && k.indexOf(mine.p[j]) === 0){ owned = true; break; }
@@ -758,7 +758,9 @@
     /* On a 5.4" phone three floating helpers stacked up the right-hand edge still
        sit on the words underneath. Below 560px they fold into ONE button that opens
        them, so nothing covers the page until the person asks for it. */
-    var narrow = window.innerWidth <= 560;
+    /* v65 (17 Oct, Kenya testers on computers): the one ? button now shows on EVERY screen size — on a computer
+       the helpers used to spread out as separate icons and the ? (Start menu, tour, start fresh) never appeared. */
+    var narrow = true;
     if(narrow && !toggleBtn){
       toggleBtn = document.createElement('button');
       toggleBtn.type = 'button';
@@ -936,7 +938,7 @@
   }
   function paint(){
     if(!dockEl) return;
-    var narrow = window.innerWidth <= 560;
+    var narrow = true;   /* v65: same folded dock everywhere */
     for(var i=0; i<dockEl.children.length; i++){
       var c = dockEl.children[i];
       if(c === toggleBtn){ show(c, narrow); continue; }
@@ -2265,7 +2267,7 @@
     <div class="pills"><button aria-label="choose my voice" onclick="R.voice()" title="choose my voice">🗣 voice</button><button aria-label="sound on or off" onclick="R.mute()" id="muteB" title="sound on or off">🔊 on</button><button onclick="R.aa()">Aa</button><button aria-label="start over" onclick="R.reset()" title="start over" style="border-color:rgba(255,140,110,.55)">🧹</button></div>
   </header>
   <div id="chat"></div>
-  <div class="foot">Rafiki v1.16 · 2026-10-11 · by Daraja Studio · your friend lives only on this device — no account, nothing you tell it is sent anywhere (the weather, only if you say yes, uses your rough location)<!-- 7 Oct deep check --><br>
+  <div class="foot">Rafiki v1.17 · 2026-10-17 · by Daraja Studio · your friend lives only on this device — no account, nothing you tell it is sent anywhere (the weather, only if you say yes, uses your rough location)<!-- 7 Oct deep check --><br>
   a friend on your shoulder, not a doctor — for heavy times, real people help most 💛</div>
 </div>
 
@@ -2362,7 +2364,8 @@ function speak(text, isSample){
    2. anything spoken within a moment of speechSynthesis.cancel()
    3. anything spoken while the engine is sitting in a stuck "paused" state
    All three hit exactly when you restart the app or start over — so we guard all three. ── */
-var lastCancel = 0, unlocked = false;
+var lastCancel = 0, unlocked = false, voiceWaitDone = false; /* 17 Oct Kenya testers: wait once for a late voice list (not on iPhone) */
+var iosSpeech = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 /* NEVER speak a blank/zero-volume "warm-up" utterance to unlock audio — Safari answers it
    with an 'interrupted' error and then wedges: the engine reports speaking:true forever and
    every real sentence queues behind it in silence. The rule is satisfied instead by speaking
@@ -2383,7 +2386,16 @@ function pump(){
       var u = new SpeechSynthesisUtterance(text);
       u.rate  = (typeof S.rate==='number' ? S.rate : .90);
       u.pitch = 1.0;
-      var v = voiceFor(); if(v){ u.voice = v; u.lang = v.lang || 'en-US'; }
+      var v = voiceFor();
+      if(!v && !voiceWaitDone && !iosSpeech && (function(){ try{ return !(speechSynthesis.getVoices() || []).length; }catch(e){ return false; } })()){
+        /* 17 Oct Kenya testers: voices not loaded yet — speaking now would use the device default (a different voice) */
+        voiceWaitDone = true; var t0 = Date.now();
+        (function wv(){ if(done) return; var ok = true; try{ ok = (speechSynthesis.getVoices() || []).length > 0; }catch(e){}
+          if(ok || Date.now() - t0 > 1500) go(); else setTimeout(wv, 100); })();
+        return;
+      }
+      voiceWaitDone = true;
+      if(v){ u.voice = v; u.lang = v.lang || 'en-US'; }
       var started = false;
       u.onstart = function(){ started = true; };
       u.onend   = fin;
