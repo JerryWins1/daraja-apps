@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Short videos · Daraja Test Week</title>
+<meta name="theme-color" content="#0f1c1b">
+<!--
+  Daraja · Kenya short videos page · v1.0 · 2026-10-17
+  daraja-apps/kenya/videos/ — every new-style how-to short (portrait, real screens, English + Swahili lines).
+  The list comes from videos.json (written by _build tools/video/publish_shorts.py). Nothing autoplays; a video downloads
+  only when tapped (preload=none), so the page itself is small on data.
+  👍/👎 and "What video do you wish you had?" go to the HQ mailbox as action 'help', app 'kenya-videos', with the
+  tester's token if this phone already has one from the Kenya page (dj_kenya_who). Unsent notes wait and retry.
+-->
+<style>
+:root{--bg:#0f1c1b;--card:#16302d;--line:#24443f;--ink:#F4F1E8;--muted:#a9bdb8;--gold:#F2B134;--ok:#6DC296;--bad:#e8826b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.45 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;padding:0 16px 40px}
+header{padding:18px 0 6px}
+h1{font-size:26px;margin:0 0 4px}
+.sw{color:var(--gold);font-style:italic}
+.lead{color:var(--muted);margin:6px 0 14px}
+h2{font-size:20px;margin:26px 0 4px}
+.sec-sub{color:var(--muted);font-size:15px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.v{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.v button.play{all:unset;cursor:pointer;display:block;position:relative;aspect-ratio:9/16;background:#05090a}
+.v button.play img{width:100%;height:100%;object-fit:cover;display:block}
+.v button.play span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:rgba(15,28,27,.82);border:3px solid var(--gold);display:grid;place-items:center;font-size:24px;color:var(--gold)}
+.v button.play:focus-visible{outline:3px solid var(--gold);outline-offset:-3px}
+.v video{width:100%;aspect-ratio:9/16;background:#000;display:block}
+.v .t{padding:9px 10px 4px;font-weight:700;font-size:15px;line-height:1.25}
+.v .m{padding:0 10px;color:var(--muted);font-size:13px}
+.v .fb{display:flex;gap:6px;padding:8px 10px 10px;margin-top:auto}
+.v .fb button{flex:1;min-height:44px;border-radius:10px;border:1px solid var(--line);background:#0f1c1b;color:var(--ink);font-size:15px;cursor:pointer}
+.v .fb button.on{border-color:var(--gold);background:#2b2410}
+.v .why{padding:0 10px 10px}
+textarea{width:100%;min-height:70px;border-radius:10px;border:1px solid var(--line);background:#0b1514;color:var(--ink);font:inherit;padding:8px}
+.btn{display:block;width:100%;min-height:48px;margin-top:8px;border:0;border-radius:12px;background:var(--gold);color:#1b1505;font-weight:800;font-size:17px;cursor:pointer}
+.ask{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:28px}
+.ask h2{margin-top:0}
+.back{display:inline-block;color:var(--gold);margin-top:22px}
+.toast{position:fixed;left:16px;right:16px;bottom:18px;background:#e9f6ef;color:#0f1c1b;padding:12px 14px;border-radius:12px;font-weight:700;text-align:center}
+#ver{color:#6f8783;font-size:12px;margin-top:24px;text-align:center}
+@media (min-width:700px){.grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 Short videos</h1>
+  <div class="sw">Video fupi — tazama, kisha jaribu</div>
+  <p class="lead">Each video shows the real screens and where to tap, in about one minute. Watch one, then do it yourself. Wi-Fi is best. Each video is about 2–5 MB.</p>
+</header>
+<main id="list"><p class="lead">Loading…</p></main>
+<section class="ask">
+  <h2>💡 What video do you wish you had?</h2>
+  <p class="sec-sub">What confused you this week? What should a video show you? Any idea helps. Jerry reads every one.</p>
+  <label for="wish" class="sec-sub" style="display:block;margin:0 0 4px">Your idea</label>
+  <textarea id="wish" maxlength="800"></textarea>
+  <button class="btn" id="sendWish" type="button">Send my idea</button>
+</section>
+<a class="back" href="../">‹ Back to my test page</a>
+<div id="ver">Daraja short videos v1.0 · 2026-10-17</div>
+<script>
+(function(){
+  var OUTK='dj_kenya_videos_outbox', FALLBACK='https://script.google.com/macros/s/AKfycbw1hgXVj5E8x8Ampm1fYK9po07pmSh9zrHfyVn3RvEYOR15_xb2jNPdlgzUuariPPrp/exec', MAIL=null;
+  function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
+  function jget(k,d){ try{ var v=JSON.parse(ls(k)||'null'); return v==null?d:v; }catch(e){ return d; } }
+  function jset(k,v){ ls(k, JSON.stringify(v)); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function toast(t){ var d=document.createElement('div'); d.className='toast'; d.setAttribute('role','status'); d.textContent=t; document.body.appendChild(d); setTimeout(function(){ d.remove(); },3000); }
+  var WHO = ls('dj_kenya_who') || ls('dj_who') || '';
+  var NAME = (jget('dj_kenya_v1:'+WHO, {})||{}).name || '';
+  var VOTES = jget('dj_kenya_videos_votes', {});
+
+  function mailbox(){
+    if (MAIL) return Promise.resolve(MAIL);
+    return fetch('../../testers/config.json?cb='+Date.now()).then(function(r){ return r.json(); })
+      .then(function(c){ MAIL=(c&&c.mailbox)||ls('dj_kenya_mailbox')||FALLBACK; return MAIL; })
+      .catch(function(){ return ls('dj_kenya_mailbox')||FALLBACK; });
+  }
+  function queue(text){ var q=jget(OUTK,[]); q.push({ action:'help', who:WHO, name:NAME, app:'kenya-videos', contact:'', text:text.slice(0,1000) }); jset(OUTK,q); return flush(); }
+  var busy=false;
+  function flush(){
+    if (busy) return Promise.resolve(); var q=jget(OUTK,[]); if (!q.length || !navigator.onLine) return Promise.resolve();
+    busy=true;
+    return mailbox().then(function(u){
+      var chain=Promise.resolve();
+      q.forEach(function(b){ chain=chain.then(function(){
+        return fetch(u,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(b)}).then(function(){
+          jset(OUTK, jget(OUTK,[]).filter(function(x){ return JSON.stringify(x)!==JSON.stringify(b); }));
+        });
+      }); });
+      return chain;
+    }).catch(function(){}).then(function(){ busy=false; });
+  }
+  window.addEventListener('online', flush); setInterval(flush, 60000); flush();
+
+  function card(v){
+    var vote=VOTES[v.id]||'';
+    return '<div class="v" data-id="'+esc(v.id)+'">'+
+      '<button class="play" type="button" data-play="'+esc(v.id)+'" aria-label="Play: '+esc(v.title)+'"><img loading="lazy" alt="" src="'+esc(v.poster)+'"><span aria-hidden="true">▶</span></button>'+
+      '<div class="t">'+esc(v.title)+'</div><div class="m">'+(v.seconds?Math.round(v.seconds)+' s · ':'')+(v.mb?v.mb.toFixed(1)+' MB':'')+'</div>'+
+      '<div class="fb"><button type="button" data-vote="up" class="'+(vote==='up'?'on':'')+'" aria-label="Helpful">👍</button><button type="button" data-vote="down" class="'+(vote==='down'?'on':'')+'" aria-label="Confusing">👎</button></div>'+
+      '<div class="why" hidden><label class="m" style="padding:0;display:block;margin-bottom:4px">What was confusing?</label><textarea maxlength="500"></textarea><button class="btn" type="button" data-why>Send</button></div>'+
+      '</div>';
+  }
+  fetch('videos.json?cb='+Date.now()).then(function(r){ return r.json(); }).then(function(d){
+    var h='';
+    (d.sections||[]).forEach(function(s){
+      if (!s.videos || !s.videos.length) return;
+      h+='<h2>'+esc(s.title)+'</h2>'+(s.sub?'<p class="sec-sub">'+esc(s.sub)+'</p>':'')+'<div class="grid">'+s.videos.map(card).join('')+'</div>';
+    });
+    var L=document.getElementById('list'); L.innerHTML=h||'<p class="lead">No videos yet.</p>';
+    var byId={}; (d.sections||[]).forEach(function(s){ (s.videos||[]).forEach(function(v){ byId[v.id]=v; }); });
+    L.addEventListener('click', function(e){
+      var p=e.target.closest('[data-play]');
+      if (p){ var v=byId[p.dataset.play]; var el=document.createElement('video'); el.controls=true; el.playsInline=true; el.preload='auto'; el.poster=v.poster; el.src=v.file;
+        p.replaceWith(el); el.play().catch(function(){}); el.addEventListener('ended', function(){ var c=el.closest('.v'); if(c) c.querySelector('[data-vote="up"]').focus(); }); return; }
+      var b=e.target.closest('[data-vote]');
+      if (b){ var c=b.closest('.v'), id=c.dataset.id, val=b.dataset.vote; VOTES[id]=val; jset('dj_kenya_videos_votes',VOTES);
+        c.querySelectorAll('[data-vote]').forEach(function(x){ x.classList.toggle('on', x===b); });
+        if (val==='up'){ c.querySelector('.why').hidden=true; queue('VIDEO|'+id+'|👍'); toast('Asante! 👍'); }
+        else { c.querySelector('.why').hidden=false; c.querySelector('.why textarea').focus(); queue('VIDEO|'+id+'|👎'); }
+        return; }
+      var w=e.target.closest('[data-why]');
+      if (w){ var c2=w.closest('.v'), t=c2.querySelector('.why textarea').value.trim(); if(!t){ toast('Type a few words first.'); return; }
+        queue('VIDEO|'+c2.dataset.id+'|👎|'+t); c2.querySelector('.why').hidden=true; toast('Sent — thank you!'); }
+    });
+  }).catch(function(){ document.getElementById('list').innerHTML='<p class="lead">Could not load the list. Check your internet and open this page again.</p>'; });
+
+  document.getElementById('sendWish').onclick=function(){
+    var t=document.getElementById('wish').value.trim(); if (t.length<3){ toast('Type your idea first.'); return; }
+    queue('VIDEO-IDEA|'+t); document.getElementById('wish').value=''; toast('Sent — asante sana! Jerry reads every idea.');
+  };
+})();
+</script>
+</body>
+</html>
