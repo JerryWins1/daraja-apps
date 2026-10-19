@@ -2101,6 +2101,16 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>Daraja HQ</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<style id="chats-css">
+  .chat{ border-left:4px solid var(--line); padding-left:10px; }
+  .chat.needs{ border-left-color:var(--now); } .chat.review{ border-left-color:var(--gold); }
+  .chat .ask{ margin:4px 0 6px; font-weight:700; overflow-wrap:anywhere; }
+  .chat .det{ margin:2px 0 4px; color:var(--soft); font-size:14px; overflow-wrap:anywhere; }
+  #t-chats details > summary{ cursor:pointer; font-weight:800; min-height:44px; display:flex; align-items:center; }
+  .chbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:2px 0 10px; }
+  .chstale{ background:var(--gold); color:#221; border-radius:12px; padding:8px 12px; font-weight:700; margin-bottom:10px; }
+</style>
 <style>
   :root{ color-scheme:light dark; --bg:#F7F4EC; --surface:#fff; --ink:#1F2622; --soft:#55605B; --line:#E2DCCF; --brand:#23504F; --gold:#C9982A; --ok:#2F6E52; --warn:#B4352E; --now:#D96C4F; --wa:#1F8A4C; }
   @media (prefers-color-scheme:dark){ :root{ --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336; --brand:#7FB4B1; --gold:#E0B04A; --ok:#6DC296; --warn:#E8886A; --now:#F08A6A; --wa:#5CCB8A; } }
@@ -2193,6 +2203,7 @@
 
   <div id="app" hidden>
     <nav id="tabs">
+      <button data-t="chats">💬 Chats<span class="n" id="nChats" hidden></span></button>
       <button data-t="today">Today<span class="n" id="nToday" hidden></span></button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
@@ -2201,6 +2212,13 @@
       <button data-t="scripts">🧪 Test scripts<span class="n" id="nTs" hidden></span></button>
       <button data-t="history">History</button>
     </nav>
+
+    <!-- CHATS (19 Oct 2026): every Claude chat in one place — what each is waiting for, grouped Business / Personal / Money -->
+    <section class="tab" id="t-chats">
+      <div class="chbar" id="chFilter"></div>
+      <div id="chStale"></div>
+      <div id="chList"></div>
+    </section>
 
     <!-- TODAY -->
     <section class="tab" id="t-today">
@@ -2298,7 +2316,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.34 · 2026-10-17 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.35 · 2026-10-19 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2360,7 +2378,7 @@ async function load(manual){
 /* ---------- tabs ---------- */
 function wireTabs(){
   $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-t]'); if(b) show(b.dataset.t); });
-  show((location.hash||'').slice(1)||store('jhq_tab')||'today');
+  show((location.hash||'').slice(1)||store('jhq_tab')||'chats');
 }
 function show(t){
   if(!$('t-'+t)) t='today';
@@ -2381,7 +2399,7 @@ function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h
 
 /* ---------- render ---------- */
 function render(){
-  renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
+  try{ renderChats(); }catch(e){} renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
   const nNew=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
   const nStack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
@@ -2506,6 +2524,40 @@ function renderNow(){
   el.innerHTML=out.length?out.join(''):'<div style="font-size:34px">✓</div><b>Nothing needs you right now.</b> <span class="muted">New messages and fixes to tell people about show up here. What already happened is under History.</span>';
 }
 let HF='all';
+/* ---------- 💬 Chats ---------- */
+let CHT=store('jhq_chat_t')||'all';
+const CH_TYPES=[['all','Everything'],['biz','🏢 Business'],['pers','🏠 Personal'],['money','📈 Money']];
+function chSeen(){ try{ return JSON.parse(store('jhq_chat_seen')||'{}'); }catch(e){ return {}; } }
+function chHandled(id,at){ const m=chSeen(); m[id]=at; store('jhq_chat_seen',JSON.stringify(m)); renderChats(); }
+function chRow(r,kind){
+  const link=r.link?`<a class="chip small main" href="${esc(r.link)}">Open chat ↗</a>`:'';
+  const done=(kind==='needs'||kind==='review')?`<button class="chip small" onclick="chHandled('${esc(r.id)}','${esc(r.at)}')">✓ Handled</button>`:'';
+  const txt=kind==='needs'?(r.ask?`<div class="ask">👉 ${esc(r.ask)}</div>`:''):(r.ask||r.detail?`<div class="det">${esc(r.ask||r.detail)}</div>`:'');
+  return `<div class="item chat ${kind}"><div><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span>${r.kind==='routine'?'<span class="pill">routine</span>':''} <span class="meta">${r.at?ago(r.at):''}</span></div>${txt}<div class="chips">${link}${done}</div></div>`;
+}
+function renderChats(){
+  const el=$('chList'); if(!el) return;
+  const S=settingJSON('chats',null);
+  if(!S||!S.items){ el.innerHTML='<div class="card muted">The chats board has not been built yet. In any Claude chat say “update my board”.</div>'; $('chFilter').innerHTML=''; return; }
+  const seen=chSeen(), open=r=>!(seen[r.id]&&seen[r.id]===r.at);
+  const all=S.items, mine=all.filter(r=>CHT==='all'||r.type===CHT);
+  const count=t=>all.filter(r=>r.state==='needs'&&open(r)&&(t==='all'||r.type===t)).length;
+  $('chFilter').innerHTML=CH_TYPES.map(([k,t])=>`<button class="chip small ${CHT===k?'main':''}" onclick="CHT='${k}';store('jhq_chat_t',CHT);renderChats()">${t}${count(k)?' · '+count(k):''}</button>`).join('')+`<span class="muted" style="font-size:13px">updated ${ago(S.at)}</span>`;
+  const hrs=(Date.now()-new Date(S.at))/36e5;
+  $('chStale').innerHTML=hrs>6?`<div class="chstale">The board is ${Math.round(hrs)} hours old. Say “update my board” in any Claude chat to refresh it.</div>`:'';
+  const needs=mine.filter(r=>r.state==='needs'&&open(r)), review=mine.filter(r=>r.state==='review'&&open(r));
+  const working=mine.filter(r=>r.state==='working'), idle=mine.filter(r=>r.state==='idle'||((r.state==='needs'||r.state==='review')&&!open(r)));
+  const cloud=mine.filter(r=>r.state==='cloud');
+  const sec=(h,rows,kind,empty)=>`<h2>${h} <small>${rows.length}</small></h2><div class="card">${rows.length?rows.map(r=>chRow(r,kind)).join(''):`<p class="muted" style="margin:0">${empty}</p>`}</div>`;
+  el.innerHTML=sec('⏳ Needs you',needs,'needs','Nothing is waiting on you. 🎉')+
+    (review.length?sec('👀 Ready to check',review,'review',''):'')+
+    (working.length?sec('🏃 Working now',working,'working',''):'')+
+    (idle.length?`<details class="card" style="margin-top:12px"><summary>💤 Quiet chats · ${idle.length}</summary>${idle.map(r=>chRow(r,'idle')).join('')}</details>`:'')+
+    (cloud.length?`<details class="card" style="margin-top:12px"><summary>☁️ Cloud chats · ${cloud.length} <span class="muted" style="font-weight:600;margin-left:8px">titles only</span></summary>${cloud.map(r=>`<div class="item"><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span></div>`).join('')}<p class="muted" style="font-size:13px;margin:8px 0 0">Cloud chats live on Anthropic's computers, not this Mac, so I can see their names but not what they are waiting for.</p></details>`:'');
+  const n=all.filter(r=>r.state==='needs'&&open(r)).length;
+  $('nChats').hidden=!n; $('nChats').textContent=n;
+  try{ window.webkit.messageHandlers.djBadge.postMessage(n); }catch(e){}
+}
 function renderHistory(){
   const el=$('hList'); if(!el||!D) return; const ev=[];
   (D.messages||[]).forEach(m=>{ if(m.direction==='in') ev.push({at:m.at,k:'in',h:`<span class="who">${esc((P(m.person_id).name)||m.name)}</span> wrote <span class="meta">${ICON[m.channel]||''} ${esc(m.channel||'')}${m.app?' · '+esc(m.app):''}</span>`,t:m.text});
