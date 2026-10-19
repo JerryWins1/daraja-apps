@@ -192,7 +192,7 @@ html.ed-friends .devn{font-size:16px}
 <script>
 (function(){
 'use strict';
-var VERSION = 'v1.9.1 · 2026-10-17';
+var VERSION = 'v1.9.2 · 2026-10-17';
 var BASE = 'https://jerrywins1.github.io/daraja-apps/';
 var MAILBOX_FALLBACK = 'https://script.google.com/macros/s/AKfycbw1hgXVj5E8x8Ampm1fYK9po07pmSh9zrHfyVn3RvEYOR15_xb2jNPdlgzUuariPPrp/exec';
 var PRACTICE = 'nownext';   /* 11 Oct (Jerry): everyone tests One Thing first and most */
@@ -324,6 +324,60 @@ if (S && NAME) S.name = NAME;
 if (S && S.name && !lsGet('dj_name')) lsSet('dj_name', S.name);
 if (WHO && (qs.get('who') || qs.get('n') || qs.get('full'))) { try{ history.replaceState(null,'',location.pathname); }catch(e){} }  /* keep the token out of screenshots */
 function save(){ if (S) jset(SKEY, S); }
+
+/* ---------- v1.9.2 (17 Oct): 📲 move my progress to another phone or laptop ----------
+   Each phone keeps its own progress, so a tester who switched from a laptop to a phone started again at app 1 (Zippy, 15 Oct).
+   “Make my move link” packs this phone's progress into a link (nothing goes through a server). Opening it on the other device
+   merges it in: for each app the further-along copy wins, streak days are joined, and the results keep going to the same name. */
+function b64u(bytes){ var s='', i; for (i=0;i<bytes.length;i+=8192) s+=String.fromCharCode.apply(null, bytes.subarray(i,i+8192)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function unb64u(t){ var s=atob(String(t).replace(/-/g,'+').replace(/_/g,'/')), b=new Uint8Array(s.length); for (var i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b; }
+function zpipe(bytes, Stream){ return new Response(new Blob([bytes]).stream().pipeThrough(new Stream('deflate-raw'))).arrayBuffer().then(function(b){ return new Uint8Array(b); }); }
+function moveLink(){
+  var raw=new TextEncoder().encode(JSON.stringify({ v:1, who:WHO, full:FULL, name:(S&&S.name)||lsGet('dj_name')||'', prof:jget(PRE+'_profile',null), s:S }));
+  var url=location.origin+location.pathname+'#move=';
+  if (!window.CompressionStream || raw.length<1500) return Promise.resolve(url+'j'+b64u(raw));
+  return zpipe(raw, CompressionStream).then(function(z){ return url+'z'+b64u(z); }, function(){ return url+'j'+b64u(raw); });
+}
+function appScore(a){ if (!a) return -1; return (a.stage==='done'?1e6:0)+(a.runs||[]).length*1e5+Object.keys(a.ans||{}).length*10+(a.ch?5:0)+(a.stage!=='watch'||a.watched?1:0); }
+function joinDays(x,y){ var o={}; (x||[]).concat(y||[]).forEach(function(d){ o[d]=1; }); return Object.keys(o).sort(); }
+function mergeMove(p){
+  if (!p || !okTok(p.who) || !p.s || typeof p.s.apps!=='object') throw new Error('not a move link');
+  var out=JSON.parse(JSON.stringify(p.s)), mine=S;
+  if (mine && mine.apps) {
+    Object.keys(mine.apps).forEach(function(k){ if (appScore(mine.apps[k]) > appScore(out.apps[k])) out.apps[k]=mine.apps[k]; });
+    var md=mine.daily, od=out.daily;
+    if (md && !od) out.daily=md;
+    else if (md && od) {
+      od.act=joinDays(od.act, md.act); od.apps=od.apps||{}; od.bonus=od.bonus||{ apps:{} }; od.bonus.apps=od.bonus.apps||{};
+      Object.keys(md.apps||{}).forEach(function(k){ var m=md.apps[k]; if (!od.apps[k]) od.apps[k]=m; else od.apps[k].days=joinDays(od.apps[k].days, m.days); });
+      Object.keys((md.bonus||{}).apps||{}).forEach(function(k){ if (!od.bonus.apps[k]) od.bonus.apps[k]=md.bonus.apps[k]; });
+      if (md.bonus && md.bonus.o3 && !od.bonus.o3) od.bonus.o3=md.bonus.o3;
+      if (md.bonus && md.bonus.o7 && !od.bonus.o7) od.bonus.o7=md.bonus.o7;
+    }
+    out.kick=out.kick||mine.kick; out.name=out.name||mine.name;
+  }
+  out.who=p.who; out.cur=null;
+  lsSet(PRE+'_who', p.who); lsSet('dj_who', p.who);
+  if (p.full) lsSet(PRE+'_full', String(p.full).slice(0,40));
+  if (p.name && !lsGet('dj_name')) lsSet('dj_name', String(p.name).slice(0,40));
+  if (p.prof && typeof p.prof==='object' && !lsGet(PRE+'_profile')) jset(PRE+'_profile', p.prof);
+  jset(PRE+'_v1:'+p.who, out);
+  return Object.keys(out.apps).filter(function(k){ return out.apps[k].stage==='done'; }).length;
+}
+var MOVED = lsGet(PRE+'_moved'); if (MOVED!=null) { try{ localStorage.removeItem(PRE+'_moved'); }catch(e){} }   /* shown on home for this visit */
+var MOVE_IN = location.hash.indexOf('#move=')===0 ? location.hash.slice(6) : '';
+window.addEventListener('hashchange', function(){ if (location.hash.indexOf('#move=')===0) location.reload(); });   /* the link opened in a tab that already had this page */
+if (MOVE_IN) {
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  (function(){
+    var kind=MOVE_IN.charAt(0), p;
+    try{ var bytes=unb64u(MOVE_IN.slice(1)); p = kind==='z' ? (window.DecompressionStream ? zpipe(bytes, DecompressionStream) : Promise.reject(new Error('old browser'))) : Promise.resolve(bytes); }
+    catch(e){ p=Promise.reject(e); }
+    p.then(function(b){ var n=mergeMove(JSON.parse(new TextDecoder().decode(b))); lsSet(PRE+'_moved', String(n)); location.replace(location.pathname); })
+     .catch(function(e){ var msg=/old browser/.test(String(e&&e.message)) ? 'This browser is too old to open a move link. Please update Chrome, then open the link again.' : 'That move link did not work. Make a new one on your other device, and copy the whole link.';
+       setTimeout(function(){ toast(msg); }, 600); });
+  })();
+}
 
 /* ---------- the order of apps for this student ---------- */
 function hash(s){ var h=2166136261; for (var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
@@ -773,6 +827,8 @@ function home(){
   var PH=prof();
   if (PH.asked || profHas(PH)) h+='<details class="more" id="aboutYou"><summary>🙋 About you (change any time)</summary><p class="small muted">Saved as you tap. It goes to Jerry with your next result.</p>'+profQs(PH)+'</details>';
   loadDailyData();
+  if (MOVED!=null && !MOVE_IN) h='<div class="card okc"><b>📲 Your progress moved to this device ✓</b><p class="small">'+esc(MOVED)+' finished app'+(MOVED==='1'?'':'s')+' came with it. Carry on here.</p></div>'+h;
+  h+='<details class="more" id="moveBox"><summary>📲 Continue on another phone or laptop</summary><p class="small">Each phone or laptop keeps its own progress. To carry on somewhere else, make a link here and open it there. It brings your finished apps, where you stopped and your streak. <b>Send it only to yourself</b> (WhatsApp to yourself, or email).</p><button class="btn ghost" data-a="movelink">Make my move link</button><div id="moveOut"></div></details>';
   h+=footHTML('home')+'<button class="btn ghost" data-a="rekick">📘 How the test'+(E.pay?' week':'')+' works</button>';
   return h;
 }
@@ -1147,6 +1203,13 @@ document.addEventListener('click', function(e){
       ra.runs=ra.runs||[]; ra.runs.push({ at:ra.doneAt||0, appv:ra.appv||'', pass:!!(ra.ch&&ra.ch.pass), fails:ra.fails||0 });
       ra.stage='steps'; ra.step=0; ra.ans={}; delete ra.ch; ra.pick=''; ra.draft=''; ra.ms=0; ra.last=0; ra.t0=0; ra.shown=null; ra.ease=''; ra.stk={}; ra.fs=0; ra.fails=0; delete ra.sent;
       save(); startApp(rk); window.scrollTo(0,0); break; }
+    case 'movelink': { var mo=$('moveOut'); if (!mo) break; mo.innerHTML='<p class="small muted">Making your link…</p>';
+      moveLink().then(function(u){ mo.innerHTML='<label class="small" for="moveTxt">Your move link</label><textarea id="moveTxt" readonly rows="3" style="width:100%;box-sizing:border-box;font-size:13px">'+esc(u)+'</textarea>'+
+        '<button class="btn" data-a="movecopy">📋 Copy the link</button><a class="btn ghost" href="https://wa.me/?text='+encodeURIComponent('My Daraja test progress — open this on my other device: '+u)+'" target="_blank" rel="noopener">💬 Send it on WhatsApp</a>'+
+        '<p class="small muted">Open it on the other device. Then use that device from now on.</p>'; })
+        .catch(function(){ mo.innerHTML='<p class="small">Sorry, this browser could not make the link.</p>'; }); break; }
+    case 'movecopy': { var mt=$('moveTxt'); if (!mt) break; var done=function(){ toast('Copied ✓ — now paste it to yourself'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(mt.value).then(done, function(){ mt.select(); document.execCommand('copy'); done(); }); else { mt.select(); document.execCommand('copy'); done(); } break; }
     case 'flush': toast('Sending…'); flush().then(function(){ toast(pending()?'Still no internet — saved on this phone.':'All sent ✓'); render(); }); break;
     case 'watched': tick(a); a.watched=true; a.stage='steps'; a.step=0; save(); render(); break;
     case 'ans': {
