@@ -2175,7 +2175,8 @@
     <h1>🎛 Daraja HQ <small id="stamp">Everything going on, and everyone in it.</small></h1>
     <div class="chips">
       <button class="chip small" id="reload" onclick="load(true)">↻</button>
-      <a class="chip small main" href="https://claude.ai/code/artifact/e5353624-9579-478a-9287-207ac2acae61" target="_blank" rel="noopener">📋 Jerry's List</a>
+      <!-- v1.35 (19 Oct): Jerry: "it opens a new window and gets lost — make it one of the lines and go screen to screen." The list is a tab now. -->
+      <button class="chip small main" onclick="show('list')">📋 Jerry's List</button>
     </div>
   </header>
 
@@ -2194,6 +2195,7 @@
   <div id="app" hidden>
     <nav id="tabs">
       <button data-t="today">Today<span class="n" id="nToday" hidden></span></button>
+      <button data-t="list">📋 Jerry's List</button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
@@ -2206,7 +2208,7 @@
     <section class="tab" id="t-today">
       <div id="digest"></div>
       <!-- v1.18 (6 Oct): Jerry: "I wish we only had one thing." The to-do list lives in Jerry's List only; HQ is people & messages. -->
-      <a class="card" href="https://claude.ai/code/artifact/e5353624-9579-478a-9287-207ac2acae61" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border:2px solid var(--accent,#23504F)"><span style="font-size:30px">📋</span><span style="flex:1"><b style="font-size:18px">Jerry's List</b><br><span class="muted">Your one list: 🏢 Business and 🏠 Personal, one next step at a time.</span></span><span style="font-size:22px">›</span></a>
+      <a class="card" href="#list" onclick="show('list');return false" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border:2px solid var(--accent,#23504F)"><span style="font-size:30px">📋</span><span style="flex:1"><b style="font-size:18px">Jerry's List</b><br><span class="muted">Your one list: 🏢 Business and 🏠 Personal, one next step at a time.</span></span><span style="font-size:22px">›</span></a>
       <!-- v1.21 (7 Oct): Jerry: "a little dashboard of everything that needs to be done, and a section for Zuri testers and a section for Daraja testers rather than a button." -->
       <!-- v1.25 (8 Oct): Jerry: "the panel only had things that I need to do right now, but keep a history of what's happened." -->
       <h2>✅ Needs you now <small id="nowCount"></small></h2>
@@ -2233,6 +2235,12 @@
       <h2>Say these words to Claude <small>tap to copy</small></h2>
       <div class="card"><div class="chips" id="words"></div></div>
       </details>
+    </section>
+
+    <!-- 📋 JERRY'S LIST (v1.35, 19 Oct 2026): the whole list as a screen of HQ, no new window. Claude keeps control/onelist.json
+         current from the list's own chat; ticks made here stay on this device until the list itself catches up. -->
+    <section class="tab" id="t-list">
+      <div id="listFull"><p class="muted">Loading the list…</p></div>
     </section>
 
     <!-- 🧪 TEST SCRIPTS (v1.28, 10 Oct 2026): coverage, problems to confirm, nudges, coins, the reward -->
@@ -2262,6 +2270,9 @@
       </div>
       <h2>📶 Zuri Fiber</h2>
       <div class="card" id="zuri"></div>
+      <!-- v1.35 (19 Oct): Jerry: "can you put an investment section in Daraja HQ, business and personal." Reads control/invest.json, which Steward writes every Monday. -->
+      <h2>💰 Investments <small>Steward · paper money</small></h2>
+      <div class="card" data-invest>Loading…</div>
       <h2>Jerry's List, at a glance</h2>
       <div class="card" id="onelist">Loading…</div>
     </section>
@@ -2270,6 +2281,8 @@
     <section class="tab" id="t-personal">
       <h2>My things</h2>
       <div class="pcards" id="pcards"></div>
+      <h2>💰 Investments <small>Steward · paper money</small></h2>
+      <div class="card" data-invest>Loading…</div>
       <h2>My dates</h2>
       <div class="card"><div id="pdates"></div>
         <details style="margin-top:8px"><summary>＋ Add a date</summary>
@@ -2298,7 +2311,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.34 · 2026-10-17 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.35 · 2026-10-19 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2357,6 +2370,49 @@ async function load(manual){
   finally{ busy=false; $('reload').textContent='↻'; }
 }
 
+/* ── 📋 Jerry's List as a screen (v1.35, 19 Oct 2026) ──
+   Jerry: "it opens a new window and then it's in a different area on my screen and it gets lost." The list stays here.
+   control/onelist.json is the list as Claude last wrote it from the list's own chat. A tick here is remembered on this
+   device (jhq_list_done) so the screen is useful between updates; the list itself is the record. ── */
+let ONELIST=null;
+async function renderList(){
+  const el=$('listFull'); if(!el) return;
+  if(!ONELIST){ try{ ONELIST=await (await fetch('onelist.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the list just now.</p>'; return; } }
+  let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
+  const L=ONELIST, total=L.sections.reduce((n,s)=>n+s.items.length,0), nd=L.sections.reduce((n,s)=>n+s.items.filter(i=>done.indexOf(i)>=0).length,0);
+  el.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:30px">📋</span><div style="flex:1;min-width:200px"><b style="font-size:18px">Jerry's List</b> <span class="muted">${esc(L.version)} · updated ${esc(L.updated)}</span><br><span class="muted">${nd} of ${total} ticked on this device · say <b>"update my list"</b> to Claude and the rest catches up.</span></div>
+      <a class="chip small" href="${esc(L.url)}" target="_blank" rel="noopener">✎ Edit the list</a></div>`
+    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((it,i)=>{ const d=done.indexOf(it)>=0; return `<label class="dl" style="cursor:pointer;align-items:flex-start"><input type="checkbox" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand)"><span style="${d?'text-decoration:line-through;opacity:.55':''}">${esc(it)}</span></label>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
+}
+window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=ONELIST.sections[si].items[i]; done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
+
+/* ── 💰 Investments (v1.35, 19 Oct 2026) ──
+   Jerry: "can you put an investment section in Daraja HQ, business and personal." Steward (the private steward repo)
+   writes control/invest.json every Monday after it reads the economy and places the week's paper trades: paper money,
+   no keys, no tax settings. The full dashboard lives at control/invest/ in this same window. ── */
+let INVEST=null;
+const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+const pct=x=>(x>=0?'+':'')+(x*100).toFixed(1)+'%';
+async function renderInvest(){
+  const els=document.querySelectorAll('[data-invest]'); if(!els.length) return;
+  if(!INVEST){ try{ INVEST=await (await fetch('invest.json?cb='+Date.now())).json(); }catch(e){ els.forEach(el=>el.innerHTML='<p class="muted" style="margin:0">Steward hasn’t posted numbers yet. They arrive each Monday.</p>'); return; } }
+  const I=INVEST, a=I.account||{}, r=I.regime, up=(a.change||0)>=0;
+  const html=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div><div class="tile k" style="padding:0;border:0;background:none;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);font-weight:800">Paper account · ${esc(I.updated)}</div>
+        <div style="font-size:30px;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums">${money(a.now||0)}</div>
+        <div class="muted">since start (${money(a.start||0)}) · <b style="color:var(--${up?'ok':'warn'})">${pct(a.change||0)}</b></div></div>
+      ${r?`<div style="text-align:right"><span class="pill ${/contraction/i.test(r.name)?'hot':''}" style="font-size:13px;padding:4px 12px">Economy: ${esc(r.name)}</span><div class="muted" style="margin-top:4px">stocks capped at ${Math.round((r.stock_cap||1)*100)}%</div></div>`:''}
+    </div>
+    ${r&&r.reasons&&r.reasons.length?`<ul class="muted" style="margin:8px 0 0 18px;padding:0;font-size:13.5px">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+    <div class="tiles" style="margin:12px 0 6px">${(I.dials||[]).map(d=>`<div class="tile"><div class="k">${esc(d.label)}</div><div class="v" style="font-size:20px">${esc(d.value)}</div></div>`).join('')}</div>
+    <table><thead><tr><th>Sleeve</th><th>Started</th><th>Now</th><th>Change</th></tr></thead><tbody>${(I.sleeves||[]).map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${money(s.start)}</td><td>${money(s.now)}</td><td style="color:var(--${s.change>=0?'ok':'warn'})">${pct(s.change)}</td></tr>`).join('')}</tbody></table>
+    ${(I.orders||[]).length?`<h2 style="margin:12px 0 4px">Recent orders</h2>${I.orders.slice(0,6).map(o=>`<div class="dl"><span class="d" style="min-width:76px">${esc(o.date)}</span><span><b>${esc(o.side)} ${esc(o.symbol)}</b> ${money(o.dollars)} <span class="muted">· ${esc(o.sleeve)} · ${esc(o.status)}</span><br><span class="muted" style="font-size:13px">${esc(o.why)}</span></span></div>`).join('')}`:'<p class="muted" style="margin:10px 0 0">No orders yet. Steward trades each Monday at about 10:40am Eastern and posts the orders here.</p>'}
+    ${I.next_review?`<p class="muted" style="margin:8px 0 0">Next quarterly scorecard: ${esc(I.next_review)}.</p>`:''}
+    <div class="chips" style="margin-top:10px"><a class="chip small main" href="invest/">📊 Open the dashboard</a><button class="chip small" onclick="copy('what did Steward do this week?')">📋 what did Steward do this week?</button></div>
+    <p class="muted" style="font-size:12.5px;margin:10px 0 0">${esc(I.note||'Paper money only. Educational, not financial advice.')}</p>`;
+  els.forEach(el=>el.innerHTML=html);
+}
+
 /* ---------- tabs ---------- */
 function wireTabs(){
   $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-t]'); if(b) show(b.dataset.t); });
@@ -2364,6 +2420,7 @@ function wireTabs(){
 }
 function show(t){
   if(!$('t-'+t)) t='today';
+  if(t==='list') renderList(); if(t==='business'||t==='personal') renderInvest();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
@@ -2432,7 +2489,7 @@ let FOCUS=null;
 async function renderFocus(){
   const el=$('focus'); if(!el) return;
   if(!FOCUS){ try{ FOCUS=await (await fetch('focus.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted" style="margin:0">Couldn’t load the list.</p>'; return; } }
-  const done=settingJSON('focus_done',[])||[], later=settingJSON('focus_later',[])||[];
+  const done=(settingJSON('focus_done',[])||[]).concat(FOCUS.steps.filter(x=>x.done).map(x=>x.id)), later=settingJSON('focus_later',[])||[]; /* v1.35: done:true in focus.json counts too */
   const left=FOCUS.steps.filter(x=>done.indexOf(x.id)<0);
   const order=left.filter(x=>later.indexOf(x.id)<0).concat(left.filter(x=>later.indexOf(x.id)>=0));
   $('ftCount').textContent=(FOCUS.steps.length-left.length)+' of '+FOCUS.steps.length+' done';
