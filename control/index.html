@@ -2101,6 +2101,16 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>Daraja HQ</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<style id="chats-css">
+  .chat{ border-left:4px solid var(--line); padding-left:10px; }
+  .chat.needs{ border-left-color:var(--now); } .chat.review{ border-left-color:var(--gold); }
+  .chat .ask{ margin:4px 0 6px; font-weight:700; overflow-wrap:anywhere; }
+  .chat .det{ margin:2px 0 4px; color:var(--soft); font-size:14px; overflow-wrap:anywhere; }
+  #t-chats details > summary{ cursor:pointer; font-weight:800; min-height:44px; display:flex; align-items:center; }
+  .chbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:2px 0 10px; }
+  .chstale{ background:var(--gold); color:#221; border-radius:12px; padding:8px 12px; font-weight:700; margin-bottom:10px; }
+</style>
 <style>
   :root{ color-scheme:light dark; --bg:#F7F4EC; --surface:#fff; --ink:#1F2622; --soft:#55605B; --line:#E2DCCF; --brand:#23504F; --gold:#C9982A; --ok:#2F6E52; --warn:#B4352E; --now:#D96C4F; --wa:#1F8A4C; }
   @media (prefers-color-scheme:dark){ :root{ --bg:#14181A; --surface:#1D2224; --ink:#ECEAE3; --soft:#B0B7B1; --line:#2C3336; --brand:#7FB4B1; --gold:#E0B04A; --ok:#6DC296; --warn:#E8886A; --now:#F08A6A; --wa:#5CCB8A; } }
@@ -2175,7 +2185,8 @@
     <h1>🎛 Daraja HQ <small id="stamp">Everything going on, and everyone in it.</small></h1>
     <div class="chips">
       <button class="chip small" id="reload" onclick="load(true)">↻</button>
-      <a class="chip small main" href="https://claude.ai/code/artifact/e5353624-9579-478a-9287-207ac2acae61" target="_blank" rel="noopener">📋 Jerry's List</a>
+      <!-- v1.35 (19 Oct): Jerry: "it opens a new window and gets lost — make it one of the lines and go screen to screen." The list is a tab now. -->
+      <button class="chip small main" onclick="show('list')">📋 Jerry's List</button>
     </div>
   </header>
 
@@ -2193,7 +2204,9 @@
 
   <div id="app" hidden>
     <nav id="tabs">
+      <button data-t="chats">💬 Chats<span class="n" id="nChats" hidden></span></button>
       <button data-t="today">Today<span class="n" id="nToday" hidden></span></button>
+      <button data-t="list">📋 Jerry's List</button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
@@ -2202,11 +2215,18 @@
       <button data-t="history">History</button>
     </nav>
 
+    <!-- CHATS (19 Oct 2026): every Claude chat in one place — what each is waiting for, grouped Business / Personal / Money -->
+    <section class="tab" id="t-chats">
+      <div class="chbar" id="chFilter"></div>
+      <div id="chStale"></div>
+      <div id="chList"></div>
+    </section>
+
     <!-- TODAY -->
     <section class="tab" id="t-today">
       <div id="digest"></div>
       <!-- v1.18 (6 Oct): Jerry: "I wish we only had one thing." The to-do list lives in Jerry's List only; HQ is people & messages. -->
-      <a class="card" href="https://claude.ai/code/artifact/e5353624-9579-478a-9287-207ac2acae61" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border:2px solid var(--accent,#23504F)"><span style="font-size:30px">📋</span><span style="flex:1"><b style="font-size:18px">Jerry's List</b><br><span class="muted">Your one list: 🏢 Business and 🏠 Personal, one next step at a time.</span></span><span style="font-size:22px">›</span></a>
+      <a class="card" href="#list" onclick="show('list');return false" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border:2px solid var(--accent,#23504F)"><span style="font-size:30px">📋</span><span style="flex:1"><b style="font-size:18px">Jerry's List</b><br><span class="muted">Your one list: 🏢 Business and 🏠 Personal, one next step at a time.</span></span><span style="font-size:22px">›</span></a>
       <!-- v1.21 (7 Oct): Jerry: "a little dashboard of everything that needs to be done, and a section for Zuri testers and a section for Daraja testers rather than a button." -->
       <!-- v1.25 (8 Oct): Jerry: "the panel only had things that I need to do right now, but keep a history of what's happened." -->
       <h2>✅ Needs you now <small id="nowCount"></small></h2>
@@ -2233,6 +2253,12 @@
       <h2>Say these words to Claude <small>tap to copy</small></h2>
       <div class="card"><div class="chips" id="words"></div></div>
       </details>
+    </section>
+
+    <!-- 📋 JERRY'S LIST (v1.35, 19 Oct 2026): the whole list as a screen of HQ, no new window. Claude keeps control/onelist.json
+         current from the list's own chat; ticks made here stay on this device until the list itself catches up. -->
+    <section class="tab" id="t-list">
+      <div id="listFull"><p class="muted">Loading the list…</p></div>
     </section>
 
     <!-- 🧪 TEST SCRIPTS (v1.28, 10 Oct 2026): coverage, problems to confirm, nudges, coins, the reward -->
@@ -2262,6 +2288,9 @@
       </div>
       <h2>📶 Zuri Fiber</h2>
       <div class="card" id="zuri"></div>
+      <!-- v1.35 (19 Oct): Jerry: "can you put an investment section in Daraja HQ, business and personal." Reads control/invest.json, which Steward writes every Monday. -->
+      <h2>💰 Investments <small>Steward · paper money</small></h2>
+      <div class="card" data-invest>Loading…</div>
       <h2>Jerry's List, at a glance</h2>
       <div class="card" id="onelist">Loading…</div>
     </section>
@@ -2270,6 +2299,8 @@
     <section class="tab" id="t-personal">
       <h2>My things</h2>
       <div class="pcards" id="pcards"></div>
+      <h2>💰 Investments <small>Steward · paper money</small></h2>
+      <div class="card" data-invest>Loading…</div>
       <h2>My dates</h2>
       <div class="card"><div id="pdates"></div>
         <details style="margin-top:8px"><summary>＋ Add a date</summary>
@@ -2298,7 +2329,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.34 · 2026-10-17 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.35 · 2026-10-19 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2357,13 +2388,57 @@ async function load(manual){
   finally{ busy=false; $('reload').textContent='↻'; }
 }
 
+/* ── 📋 Jerry's List as a screen (v1.35, 19 Oct 2026) ──
+   Jerry: "it opens a new window and then it's in a different area on my screen and it gets lost." The list stays here.
+   control/onelist.json is the list as Claude last wrote it from the list's own chat. A tick here is remembered on this
+   device (jhq_list_done) so the screen is useful between updates; the list itself is the record. ── */
+let ONELIST=null;
+async function renderList(){
+  const el=$('listFull'); if(!el) return;
+  if(!ONELIST){ try{ ONELIST=await (await fetch('onelist.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the list just now.</p>'; return; } }
+  let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
+  const L=ONELIST, total=L.sections.reduce((n,s)=>n+s.items.length,0), nd=L.sections.reduce((n,s)=>n+s.items.filter(i=>done.indexOf(i)>=0).length,0);
+  el.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:30px">📋</span><div style="flex:1;min-width:200px"><b style="font-size:18px">Jerry's List</b> <span class="muted">${esc(L.version)} · updated ${esc(L.updated)}</span><br><span class="muted">${nd} of ${total} ticked on this device · say <b>"update my list"</b> to Claude and the rest catches up.</span></div>
+      <a class="chip small" href="${esc(L.url)}" target="_blank" rel="noopener">✎ Edit the list</a></div>`
+    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((it,i)=>{ const d=done.indexOf(it)>=0; return `<label class="dl" style="cursor:pointer;align-items:flex-start"><input type="checkbox" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand)"><span style="${d?'text-decoration:line-through;opacity:.55':''}">${esc(it)}</span></label>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
+}
+window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=ONELIST.sections[si].items[i]; done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
+
+/* ── 💰 Investments (v1.35, 19 Oct 2026) ──
+   Jerry: "can you put an investment section in Daraja HQ, business and personal." Steward (the private steward repo)
+   writes control/invest.json every Monday after it reads the economy and places the week's paper trades: paper money,
+   no keys, no tax settings. The full dashboard lives at control/invest/ in this same window. ── */
+let INVEST=null;
+const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+const pct=x=>(x>=0?'+':'')+(x*100).toFixed(1)+'%';
+async function renderInvest(){
+  const els=document.querySelectorAll('[data-invest]'); if(!els.length) return;
+  if(!INVEST){ try{ INVEST=await (await fetch('invest.json?cb='+Date.now())).json(); }catch(e){ els.forEach(el=>el.innerHTML='<p class="muted" style="margin:0">Steward hasn’t posted numbers yet. They arrive each Monday.</p>'); return; } }
+  const I=INVEST, a=I.account||{}, r=I.regime, up=(a.change||0)>=0;
+  const html=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div><div class="tile k" style="padding:0;border:0;background:none;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);font-weight:800">Paper account · ${esc(I.updated)}</div>
+        <div style="font-size:30px;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums">${money(a.now||0)}</div>
+        <div class="muted">since start (${money(a.start||0)}) · <b style="color:var(--${up?'ok':'warn'})">${pct(a.change||0)}</b></div></div>
+      ${r?`<div style="text-align:right"><span class="pill ${/contraction/i.test(r.name)?'hot':''}" style="font-size:13px;padding:4px 12px">Economy: ${esc(r.name)}</span><div class="muted" style="margin-top:4px">stocks capped at ${Math.round((r.stock_cap||1)*100)}%</div></div>`:''}
+    </div>
+    ${r&&r.reasons&&r.reasons.length?`<ul class="muted" style="margin:8px 0 0 18px;padding:0;font-size:13.5px">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+    <div class="tiles" style="margin:12px 0 6px">${(I.dials||[]).map(d=>`<div class="tile"><div class="k">${esc(d.label)}</div><div class="v" style="font-size:20px">${esc(d.value)}</div></div>`).join('')}</div>
+    <table><thead><tr><th>Sleeve</th><th>Started</th><th>Now</th><th>Change</th></tr></thead><tbody>${(I.sleeves||[]).map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${money(s.start)}</td><td>${money(s.now)}</td><td style="color:var(--${s.change>=0?'ok':'warn'})">${pct(s.change)}</td></tr>`).join('')}</tbody></table>
+    ${(I.orders||[]).length?`<h2 style="margin:12px 0 4px">Recent orders</h2>${I.orders.slice(0,6).map(o=>`<div class="dl"><span class="d" style="min-width:76px">${esc(o.date)}</span><span><b>${esc(o.side)} ${esc(o.symbol)}</b> ${money(o.dollars)} <span class="muted">· ${esc(o.sleeve)} · ${esc(o.status)}</span><br><span class="muted" style="font-size:13px">${esc(o.why)}</span></span></div>`).join('')}`:'<p class="muted" style="margin:10px 0 0">No orders yet. Steward trades each Monday at about 10:40am Eastern and posts the orders here.</p>'}
+    ${I.next_review?`<p class="muted" style="margin:8px 0 0">Next quarterly scorecard: ${esc(I.next_review)}.</p>`:''}
+    <div class="chips" style="margin-top:10px"><a class="chip small main" href="invest/">📊 Open the dashboard</a><button class="chip small" onclick="copy('what did Steward do this week?')">📋 what did Steward do this week?</button></div>
+    <p class="muted" style="font-size:12.5px;margin:10px 0 0">${esc(I.note||'Paper money only. Educational, not financial advice.')}</p>`;
+  els.forEach(el=>el.innerHTML=html);
+}
+
 /* ---------- tabs ---------- */
 function wireTabs(){
   $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-t]'); if(b) show(b.dataset.t); });
-  show((location.hash||'').slice(1)||store('jhq_tab')||'today');
+  show((location.hash||'').slice(1)||store('jhq_tab')||'chats');
 }
 function show(t){
   if(!$('t-'+t)) t='today';
+  if(t==='list') renderList(); if(t==='business'||t==='personal') renderInvest();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
@@ -2381,7 +2456,7 @@ function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h
 
 /* ---------- render ---------- */
 function render(){
-  renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
+  try{ renderChats(); }catch(e){} renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
   const nNew=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
   const nStack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
@@ -2432,7 +2507,7 @@ let FOCUS=null;
 async function renderFocus(){
   const el=$('focus'); if(!el) return;
   if(!FOCUS){ try{ FOCUS=await (await fetch('focus.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted" style="margin:0">Couldn’t load the list.</p>'; return; } }
-  const done=settingJSON('focus_done',[])||[], later=settingJSON('focus_later',[])||[];
+  const done=(settingJSON('focus_done',[])||[]).concat(FOCUS.steps.filter(x=>x.done).map(x=>x.id)), later=settingJSON('focus_later',[])||[]; /* v1.35: done:true in focus.json counts too */
   const left=FOCUS.steps.filter(x=>done.indexOf(x.id)<0);
   const order=left.filter(x=>later.indexOf(x.id)<0).concat(left.filter(x=>later.indexOf(x.id)>=0));
   $('ftCount').textContent=(FOCUS.steps.length-left.length)+' of '+FOCUS.steps.length+' done';
@@ -2506,6 +2581,40 @@ function renderNow(){
   el.innerHTML=out.length?out.join(''):'<div style="font-size:34px">✓</div><b>Nothing needs you right now.</b> <span class="muted">New messages and fixes to tell people about show up here. What already happened is under History.</span>';
 }
 let HF='all';
+/* ---------- 💬 Chats ---------- */
+let CHT=store('jhq_chat_t')||'all';
+const CH_TYPES=[['all','Everything'],['biz','🏢 Business'],['pers','🏠 Personal'],['money','📈 Money']];
+function chSeen(){ try{ return JSON.parse(store('jhq_chat_seen')||'{}'); }catch(e){ return {}; } }
+function chHandled(id,at){ const m=chSeen(); m[id]=at; store('jhq_chat_seen',JSON.stringify(m)); renderChats(); }
+function chRow(r,kind){
+  const link=r.link?`<a class="chip small main" href="${esc(r.link)}">Open chat ↗</a>`:'';
+  const done=(kind==='needs'||kind==='review')?`<button class="chip small" onclick="chHandled('${esc(r.id)}','${esc(r.at)}')">✓ Handled</button>`:'';
+  const txt=kind==='needs'?(r.ask?`<div class="ask">👉 ${esc(r.ask)}</div>`:''):(r.ask||r.detail?`<div class="det">${esc(r.ask||r.detail)}</div>`:'');
+  return `<div class="item chat ${kind}"><div><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span>${r.kind==='routine'?'<span class="pill">routine</span>':''} <span class="meta">${r.at?ago(r.at):''}</span></div>${txt}<div class="chips">${link}${done}</div></div>`;
+}
+function renderChats(){
+  const el=$('chList'); if(!el) return;
+  const S=settingJSON('chats',null);
+  if(!S||!S.items){ el.innerHTML='<div class="card muted">The chats board has not been built yet. In any Claude chat say “update my board”.</div>'; $('chFilter').innerHTML=''; return; }
+  const seen=chSeen(), open=r=>!(seen[r.id]&&seen[r.id]===r.at);
+  const all=S.items, mine=all.filter(r=>CHT==='all'||r.type===CHT);
+  const count=t=>all.filter(r=>r.state==='needs'&&open(r)&&(t==='all'||r.type===t)).length;
+  $('chFilter').innerHTML=CH_TYPES.map(([k,t])=>`<button class="chip small ${CHT===k?'main':''}" onclick="CHT='${k}';store('jhq_chat_t',CHT);renderChats()">${t}${count(k)?' · '+count(k):''}</button>`).join('')+`<span class="muted" style="font-size:13px">updated ${ago(S.at)}</span>`;
+  const hrs=(Date.now()-new Date(S.at))/36e5;
+  $('chStale').innerHTML=hrs>6?`<div class="chstale">The board is ${Math.round(hrs)} hours old. Say “update my board” in any Claude chat to refresh it.</div>`:'';
+  const needs=mine.filter(r=>r.state==='needs'&&open(r)), review=mine.filter(r=>r.state==='review'&&open(r));
+  const working=mine.filter(r=>r.state==='working'), idle=mine.filter(r=>r.state==='idle'||((r.state==='needs'||r.state==='review')&&!open(r)));
+  const cloud=mine.filter(r=>r.state==='cloud');
+  const sec=(h,rows,kind,empty)=>`<h2>${h} <small>${rows.length}</small></h2><div class="card">${rows.length?rows.map(r=>chRow(r,kind)).join(''):`<p class="muted" style="margin:0">${empty}</p>`}</div>`;
+  el.innerHTML=sec('⏳ Needs you',needs,'needs','Nothing is waiting on you. 🎉')+
+    (review.length?sec('👀 Ready to check',review,'review',''):'')+
+    (working.length?sec('🏃 Working now',working,'working',''):'')+
+    (idle.length?`<details class="card" style="margin-top:12px"><summary>💤 Quiet chats · ${idle.length}</summary>${idle.map(r=>chRow(r,'idle')).join('')}</details>`:'')+
+    (cloud.length?`<details class="card" style="margin-top:12px"><summary>☁️ Cloud chats · ${cloud.length} <span class="muted" style="font-weight:600;margin-left:8px">titles only</span></summary>${cloud.map(r=>`<div class="item"><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span></div>`).join('')}<p class="muted" style="font-size:13px;margin:8px 0 0">Cloud chats live on Anthropic's computers, not this Mac, so I can see their names but not what they are waiting for.</p></details>`:'');
+  const n=all.filter(r=>r.state==='needs'&&open(r)).length;
+  $('nChats').hidden=!n; $('nChats').textContent=n;
+  try{ window.webkit.messageHandlers.djBadge.postMessage(n); }catch(e){}
+}
 function renderHistory(){
   const el=$('hList'); if(!el||!D) return; const ev=[];
   (D.messages||[]).forEach(m=>{ if(m.direction==='in') ev.push({at:m.at,k:'in',h:`<span class="who">${esc((P(m.person_id).name)||m.name)}</span> wrote <span class="meta">${ICON[m.channel]||''} ${esc(m.channel||'')}${m.app?' · '+esc(m.app):''}</span>`,t:m.text});
