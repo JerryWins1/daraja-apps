@@ -2207,6 +2207,7 @@
       <button data-t="chats">💬 Chats<span class="n" id="nChats" hidden></span></button>
       <button data-t="today">Today<span class="n" id="nToday" hidden></span></button>
       <button data-t="list">📋 Jerry's List</button>
+      <button data-t="where">🗂 Where</button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
@@ -2259,6 +2260,12 @@
          current from the list's own chat; ticks made here stay on this device until the list itself catches up. -->
     <section class="tab" id="t-list">
       <div id="listFull"><p class="muted">Loading the list…</p></div>
+    </section>
+
+    <!-- 🗂 WHERE EVERYTHING IS (v1.36, 19 Oct 2026): Jerry: "it's done, but I forget where it is. I lose it."
+         Every app, tool and Claude page, tap to open. Reads control/where.json (hq/make_where.py builds it). -->
+    <section class="tab" id="t-where">
+      <div id="whereFull"><p class="muted">Loading…</p></div>
     </section>
 
     <!-- 🧪 TEST SCRIPTS (v1.28, 10 Oct 2026): coverage, problems to confirm, nudges, coins, the reward -->
@@ -2329,7 +2336,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.35 · 2026-10-19 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.36 · 2026-10-19 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2404,6 +2411,25 @@ async function renderList(){
 }
 window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=ONELIST.sections[si].items[i]; done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
 
+/* ── 🗂 Where everything is (v1.36, 19 Oct 2026) ── one page, every link; a search box finds an app by name. ── */
+let WHERE=null;
+async function renderWhere(){
+  const el=$('whereFull'); if(!el) return;
+  if(!WHERE){ try{ WHERE=await (await fetch('where.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the list of places just now.</p>'; return; } }
+  const W=WHERE, q=(($('whereQ')||{}).value||'').trim().toLowerCase();
+  const hit=i=>!q||(i.name+' '+(i.note||'')).toLowerCase().indexOf(q)>=0;
+  const row=i=>`<a class="dl" href="${esc(i.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;align-items:center;min-height:44px"><span style="flex:1"><b>${esc(i.name)}</b>${i.note?`<br><span class="muted">${esc(i.note)}</span>`:''}</span><span style="font-size:20px">›</span></a>`;
+  const groups=W.groups.map(g=>({...g,items:g.items.filter(hit)})).filter(g=>g.items.length);
+  if(!$('whereQ')) el.innerHTML=`<div class="card"><b style="font-size:18px">🗂 Where everything is</b> <span class="muted">${esc(W.v)} · ${esc(W.updated)}</span><br><span class="muted">Tap a name to open it. Lost something? Type part of its name.</span>
+      <input id="whereQ" type="search" placeholder="Find an app…" oninput="renderWhere()" style="width:100%;box-sizing:border-box;margin-top:10px;font:inherit;font-size:16px;min-height:44px;padding:8px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)"></div><div id="whereBody"></div>`;
+  $('whereBody').innerHTML=(groups.length?groups.map(g=>`<h2>${esc(g.name)} <small>${g.items.length}</small></h2>${g.about?`<p class="muted" style="margin:-4px 0 8px">${esc(g.about)}</p>`:''}<div class="card">${g.items.map(row).join('')}</div>`).join(''):'<p class="muted">Nothing by that name. Ask Claude: “where is …?”</p>')
+    + (q?'':`<h2>🖥️ On your Mac</h2><div class="card">${W.mac.map(m=>`<div class="dl"><span><b>${esc(m.name)}</b><br><span class="muted">${esc(m.note)}</span></span></div>`).join('')}</div>
+      <h2>🗣️ Say these words to Claude</h2><div class="card">${W.say.map(m=>`<div class="dl"><span><b>${esc(m.words)}</b><br><span class="muted">${esc(m.does)}</span></span></div>`).join('')}</div>
+      <h2>🗄️ Retired — don’t use</h2><div class="card"><p class="muted" style="margin:0">${W.retired.map(esc).join(' · ')}</p></div>`);
+}
+
+window.renderWhere=renderWhere;
+
 /* ── 💰 Investments (v1.35, 19 Oct 2026) ──
    Jerry: "can you put an investment section in Daraja HQ, business and personal." Steward (the private steward repo)
    writes control/invest.json every Monday after it reads the economy and places the week's paper trades: paper money,
@@ -2438,7 +2464,7 @@ function wireTabs(){
 }
 function show(t){
   if(!$('t-'+t)) t='today';
-  if(t==='list') renderList(); if(t==='business'||t==='personal') renderInvest();
+  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='business'||t==='personal') renderInvest();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
