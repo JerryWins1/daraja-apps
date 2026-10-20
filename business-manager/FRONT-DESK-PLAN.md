@@ -63,6 +63,7 @@ The owner sets up **action codes** ahead of time. Each one is a ready plan:
 |---|---|---|
 | **SMS** | Everyone, every phone | Cheapest per message and most reliable |
 | **WhatsApp** | Kenya, longer messages, photos | Messages the business starts need Meta-approved templates, and Meta charges per conversation. The action codes become those templates |
+| **Email** | Newsletters, planned work, offers, receipts | Free for small lists. Longer messages with pictures and links. Needs an email address (Zuri already has a field for one) and an unsubscribe link in every email |
 | **Voice call** | Urgent safety messages, older customers | A recorded or AI-spoken message. Costs the most, and the strictest legal rules apply (see *Legal*). Use only for urgent alerts |
 
 ### Safety catches (built in, not optional)
@@ -132,8 +133,11 @@ The Zuri manager currently promises that it **never sends messages to customers*
 | **Z3** | Server sends through the Kenyan SMS/WhatsApp provider; delivery counts back to Zuri | Daraja server |
 | **Z4** | Zuri manager proposes `OUT` / `FIX` from fault clusters; renewal reminders | Zuri manager + server |
 | **Z5** | Front Desk answers Zuri customers and opens tickets in Zuri | Daraja server |
+| **Z6** | **Bulk email (Zuri has none yet).** Free first: Alerts makes an email list per area or cabinet (BCC batches or a CSV) to send from the office email. Add-on: a bulk email provider sends it for you, with unsubscribe and delivery counts | Zuri app (Alerts) for the free way; Daraja server for the add-on |
 
 **Before Z1:** build and test everything against the **Zuri test and training databases** first (Zuri already has both), and only switch to the live data once the partners sign off.
+
+**Before Z6:** collect customer emails (most records may have none, so ask at install and on calls), add "yes to emails" to each customer's message choices, and pick a provider after checking current prices (Brevo, Mailchimp and Amazon SES are options to compare; free limits change).
 
 ## Rules it never breaks
 
