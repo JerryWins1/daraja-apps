@@ -2336,7 +2336,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.39 · 2026-10-19 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.40 · 2026-10-20 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2614,11 +2614,31 @@ let CH_MAC=/Macintosh/.test(navigator.userAgent)&&!(navigator.maxTouchPoints>1);
 const CH_TYPES=[['all','Everything'],['biz','🏢 Business'],['pers','🏠 Personal'],['money','📈 Money']];
 function chSeen(){ try{ return JSON.parse(store('jhq_chat_seen')||'{}'); }catch(e){ return {}; } }
 function chHandled(id,at){ const m=chSeen(); m[id]=at; store('jhq_chat_seen',JSON.stringify(m)); renderChats(); }
+function chSent(){ try{ return JSON.parse(store('jhq_chat_sent')||'{}'); }catch(e){ return {}; } }
+function chReply(id){ const b=$('chr-'+id); if(!b) return; b.hidden=!b.hidden; if(!b.hidden){ const t=b.querySelector('textarea'); if(t) t.focus(); } }
+/* ✉️ Send to Claude: the answer goes into HQ's inbox (setting chat_replies); a Claude chat passes it to the right chat as a relayed note. */
+async function chSend(id){
+  const b=$('chr-'+id); if(!b) return; const ta=b.querySelector('textarea'), text=ta.value.trim();
+  if(!text){ toast('Write your answer first',true); return; }
+  const r=((chBoard().S||{}).items||[]).find(x=>x.id===id)||{title:id};
+  try{
+    let cur=[]; try{ cur=JSON.parse((D&&D.settings&&D.settings.chat_replies)||'[]'); }catch(e){ cur=[]; }
+    cur=cur.filter(x=>x.state!=='delivered'||(Date.now()-new Date(x.at))<7*864e5);
+    cur.push({id:Date.now().toString(36),chat:id,title:r.title,text:text,at:new Date().toISOString(),state:'new'});
+    await hq({action:'settings.set',k:'chat_replies',value:cur});
+    if(D&&D.settings) D.settings.chat_replies=JSON.stringify(cur);
+    const m=chSent(); m[id]=new Date().toISOString(); store('jhq_chat_sent',JSON.stringify(m));
+    toast('Sent — Claude will pass it on'); renderChats();
+  }catch(e){ toast(e.message||'That did not go through',true); }
+}
 function chRow(r,kind){
   const link=r.link?(CH_MAC?`<a class="chip small main" href="${esc(r.link)}">Open chat ↗</a>`:(r.web?`<a class="chip small main" href="${esc(r.web)}" target="_blank" rel="noopener">📱 Open chat ↗</a>`:`<div class="det" style="margin:0 8px 0 0">📱 In the Claude app: Code tab → “${esc(r.title)}”</div>`)):'';
-  const done=(kind==='needs'||kind==='review')?`<button class="chip small" onclick="chHandled('${esc(r.id)}','${esc(r.at)}')">✓ Handled</button>`:'';
+  const act=(kind==='needs'||kind==='review');
+  const done=act?`<button class="chip small" onclick="chHandled('${esc(r.id)}','${esc(r.at)}')">✓ Handled</button><button class="chip small" onclick="chReply('${esc(r.id)}')">✉️ Send to Claude</button>`:'';
+  const sentAt=chSent()[r.id], sentPill=(act&&sentAt&&(!r.at||sentAt>r.at))?`<span class="pill">✉️ sent ${ago(sentAt)}</span>`:'';
+  const box=act?`<div id="chr-${esc(r.id)}" hidden style="margin-top:8px"><textarea rows="3" placeholder="Your answer for this chat…"></textarea><div class="chips" style="margin-top:6px"><button class="chip small main" onclick="chSend('${esc(r.id)}')">Send</button></div></div>`:'';
   const txt=kind==='needs'?(r.ask?`<div class="ask">👉 ${esc(r.ask)}</div>`:''):(r.ask||r.detail?`<div class="det">${esc(r.ask||r.detail)}</div>`:'');
-  return `<div class="item chat ${kind}"><div><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span>${r.kind==='routine'?'<span class="pill">routine</span>':''} <span class="meta">${r.at?ago(r.at):''}</span></div>${txt}<div class="chips">${link}${done}</div></div>`;
+  return `<div class="item chat ${kind}"><div><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span>${r.kind==='routine'?'<span class="pill">routine</span>':''} <span class="meta">${r.at?ago(r.at):''}</span> ${sentPill}</div>${txt}<div class="chips">${link}${done}</div>${box}</div>`;
 }
 /* HQ's data service can take 10-30 s (or fail) on a phone, so the last good board is kept on this device and shown at once. */
 function chBoard(){
