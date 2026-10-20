@@ -53,13 +53,17 @@
 <div class="doc" id="doc"><div class="paper">Opening…</div></div>
 <script>
 /* Customer view for Business Manager. The estimate or invoice is carried inside the link (after #),
-   so nothing is stored on a server. Nothing on this page sends anything anywhere by itself. */
+   so nothing is stored on a server. Nothing on this page sends anything anywhere by itself.
+   v1.4 (20 Oct 2026): the Kenya region — a link made in business-manager-ke/ carries rg:'ke' (and this page under
+   business-manager-ke/ is Kenyan anyway): KES in whole shillings, VAT, the KRA PIN, and how to pay by M-Pesa
+   (Till, Paybill, Send Money), bank transfer or cash. A US link reads exactly as before. */
 (function(){
   'use strict';
+  var KE = /\/business-manager-ke(\/|$)/.test(location.pathname);
   function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-  function money(n){ n = Math.round((+n || 0) * 100) / 100; return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+  function money(n){ if(KE){ n = Math.round(+n || 0); return (n < 0 ? '-KES ' : 'KES ') + Math.abs(n).toLocaleString('en-KE'); } n = Math.round((+n || 0) * 100) / 100; return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
   var MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  function fd(s){ if(!s) return ''; var p = s.split('-'); return MON[+p[1] - 1] + ' ' + (+p[2]) + ', ' + p[0]; }
+  function fd(s){ if(!s) return ''; var p = s.split('-'); if(KE) return (+p[2]) + ' ' + MON[+p[1] - 1] + ' ' + p[0]; return MON[+p[1] - 1] + ' ' + (+p[2]) + ', ' + p[0]; }
   function today(){ var d = new Date(), m = d.getMonth() + 1, x = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (x < 10 ? '0' : '') + x; }
   function unb64(s){ s = s.replace(/-/g, '+').replace(/_/g, '/'); while(s.length % 4) s += '='; var bin = atob(s), u = new Uint8Array(bin.length); for(var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
   async function decode(h){
@@ -73,10 +77,11 @@
     var h = location.hash.replace(/^#/, '');
     if(!h){ fail('The link looks cut short.'); return; }
     try{ D = await decode(h); }catch(e){ fail(window.DecompressionStream ? 'The link may have been cut short when it was copied.' : 'This browser is too old to open it — try a different browser.'); return; }
+    if(D && D.rg === 'ke') KE = true;
     draw();
   }
   function draw(){
-    var b = D.b || {}, c = D.c || {}, est = D.k === 'est';
+    var b = D.b || {}, c = D.c || {}, est = D.k === 'est', TAXN = KE ? 'VAT' : 'Sales tax';
     document.title = (est ? 'Estimate' : 'Invoice') + ' #' + D.n + ' — ' + (b.n || '');
     /* v1.1: three options (D.op = [[name, lines]]) — the customer taps one, then signs for that one */
     var ops = Array.isArray(D.op) && D.op.length > 1 ? D.op : null;
@@ -86,7 +91,7 @@
     var sub = L.reduce(function(a, l){ return a + (+l[1]) * (+l[2]); }, 0);
     var tax = Math.round(sub * (+D.tx || 0)) / 100, cr = (D.cr || []).reduce(function(a, x){ return a + (+x[1]); }, 0);
     var total = Math.round((sub + tax - cr) * 100) / 100, paid = +D.pd || 0, bal = Math.round((total - paid) * 100) / 100;
-    var h = '<div class="paper"><div class="hd"><div class="logo">' + esc(b.em || '🧰') + '</div><div style="flex:1;min-width:0"><div class="bn">' + esc(b.n) + '</div><div class="muted">' + esc([b.o, b.p, b.e].filter(Boolean).join(' · ')) + (b.a ? '<br>' + esc(b.a) : '') + (b.l ? '<br>' + esc(b.l) : '') + '</div></div></div>';
+    var h = '<div class="paper"><div class="hd"><div class="logo">' + esc(b.em || '🧰') + '</div><div style="flex:1;min-width:0"><div class="bn">' + esc(b.n) + '</div><div class="muted">' + esc([b.o, b.p, b.e].filter(Boolean).join(' · ')) + (b.a ? '<br>' + esc(b.a) : '') + (b.l ? '<br>' + esc(b.l) : '') + (KE && b.k ? '<br>KRA PIN: ' + esc(b.k) : '') + '</div></div></div>';
     h += '<div class="kind">' + (est ? 'Estimate' : (D.kd === 'deposit' ? 'Deposit invoice' : D.kd === 'progress' ? 'Progress invoice' : 'Invoice')) + ' #' + esc(D.n) + '</div>';
     h += '<div class="meta" style="margin-top:8px"><div><div class="muted">For</div><b>' + esc(c.n) + '</b>' + (c.a ? '<div class="muted">' + esc(c.a) + '</div>' : '') + '</div><div><div class="muted">' + (est ? 'Date' : 'Invoice date') + '</div><b>' + fd(D.d) + '</b>'
       + (est && D.x ? '<div class="muted">Good until ' + fd(D.x) + '</div>' : '') + (!est && D.du ? '<div class="muted">Due ' + fd(D.du) + '</div>' : '') + '</div></div>';
@@ -96,13 +101,13 @@
       h += '<div style="font-weight:800;margin-top:6px">' + (D.sg ? 'The option chosen:' : 'Choose one option:') + '</div>' + ops.map(function(o, k){ var s2 = (o[1] || []).reduce(function(a, l){ return a + (+l[1]) * (+l[2]); }, 0), t2 = Math.round((s2 + Math.round(s2 * (+D.tx || 0)) / 100) * 100) / 100;
         return '<button type="button" class="vopt' + (D._pick === k ? ' on' : '') + '" data-k="' + k + '" aria-pressed="' + (D._pick === k) + '"' + (D.sg && D._pick !== k ? ' disabled style="opacity:.55"' : '') + '><div class="on-name">' + (D._pick === k ? '✔ ' : '') + esc(o[0]) + '</div><div class="ol">' + (o[1] || []).map(function(l){ return esc(l[0]) + ((+l[1]) !== 1 ? ' × ' + (+l[1]) : '') + ' — ' + money((+l[1]) * (+l[2])); }).join('<br>') + '</div><div class="ot">' + money(t2) + '</div></button>'; }).join('');
       if(D._pick != null && ops[D._pick]){
-        if(tax) h += '<div class="tot" style="margin-top:8px"><span>Subtotal</span><span>' + money(sub) + '</span></div><div class="tot"><span>Sales tax (' + (+D.tx) + '%)</span><span>' + money(tax) + '</span></div>';
+        if(tax) h += '<div class="tot" style="margin-top:8px"><span>Subtotal</span><span>' + money(sub) + '</span></div><div class="tot"><span>' + TAXN + ' (' + (+D.tx) + '%)</span><span>' + money(tax) + '</span></div>';
         h += '<div class="tot grand"><span>Total — ' + esc(ops[D._pick][0]) + '</span><span>' + money(total) + '</span></div>';
-      } else if(tax) h += '<div class="muted" style="margin-top:6px">Option totals include ' + (+D.tx) + '% sales tax.</div>';
+      } else if(tax) h += '<div class="muted" style="margin-top:6px">Option totals include ' + (+D.tx) + '% ' + (KE ? 'VAT' : 'sales tax') + '.</div>';
     } else {
     h += '<table>' + (D.li || []).map(function(l){ return '<tr><td>' + esc(l[0]) + ((+l[1]) !== 1 ? '<div class="muted">' + (+l[1]) + ' × ' + money(l[2]) + '</div>' : '') + '</td><td class="n">' + money((+l[1]) * (+l[2])) + '</td></tr>'; }).join('') + '</table>';
     if(tax || cr) h += '<div class="tot" style="margin-top:6px"><span>Subtotal</span><span>' + money(sub) + '</span></div>';
-    if(tax) h += '<div class="tot"><span>Sales tax (' + (+D.tx) + '%)</span><span>' + money(tax) + '</span></div>';
+    if(tax) h += '<div class="tot"><span>' + TAXN + ' (' + (+D.tx) + '%)</span><span>' + money(tax) + '</span></div>';
     (D.cr || []).forEach(function(x){ h += '<div class="tot"><span>' + esc(x[0]) + '</span><span>−' + money(x[1]) + '</span></div>'; });
     h += '<div class="tot grand"><span>Total</span><span>' + money(total) + '</span></div>';
     }
@@ -161,6 +166,7 @@
     var p = D.py || {}, b = D.b || {}, amt = bal.toFixed(2), note = 'Invoice ' + D.n + ' - ' + (b.n || '');
     if(bal <= 0.004) return '<div class="box" style="text-align:center"><span class="paid">✓ Paid in full</span><p class="muted">Thank you!</p></div>';
     var h = '<div class="box noprint"><div class="muted">Amount due</div><div class="big">' + money(bal) + '</div>';
+    if(KE) return h + kePay(p, b, bal) + '<button class="btn" id="paidTell">📨 Tell them I’ve paid</button></div>';
     if(p.card) h += '<a class="btn main" href="' + esc(safeUrl(p.card)) + '" target="_blank" rel="noopener">💳 Pay by card</a><div class="muted" style="text-align:center;font-size:13px">Enter ' + money(bal) + ' on the next page.</div>';
     if(p.paypal) h += '<a class="btn" href="https://paypal.me/' + encodeURIComponent(p.paypal) + '/' + amt + 'USD" target="_blank" rel="noopener">Pay with PayPal</a>';
     if(p.venmo) h += '<a class="btn" href="https://venmo.com/' + encodeURIComponent(p.venmo) + '?txn=pay&amount=' + amt + '&note=' + encodeURIComponent(note) + '" target="_blank" rel="noopener">Pay with Venmo</a>';
@@ -171,10 +177,23 @@
     h += '<button class="btn" id="paidTell">📨 Tell them I’ve paid</button></div>';
     return h;
   }
+  /* Kenya: how to pay, step by step, as people say it — Lipa na M-Pesa → Buy Goods → Till */
+  function kePay(p, b, bal){
+    var h = '', row = function(head, steps){ return '<div class="btn" style="cursor:default;flex-direction:column;align-items:flex-start;gap:2px;text-align:left"><span>' + head + '</span><span class="muted" style="font-weight:600">' + steps + '</span></div>'; };
+    if(p.mpesaTill) h += row('📲 Pay by M-Pesa: Lipa na M-Pesa → Buy Goods → Till ' + esc(p.mpesaTill), 'Till number <b>' + esc(p.mpesaTill) + '</b> · Amount <b>' + money(bal) + '</b>');
+    if(p.paybill) h += row('🏦 Pay by M-Pesa: Lipa na M-Pesa → Pay Bill → Business no. ' + esc(p.paybill), 'Business no. <b>' + esc(p.paybill) + '</b> · Account no. <b>' + esc(p.paybillAcct || D.n) + '</b> · Amount <b>' + money(bal) + '</b>');
+    if(p.mpesaPhone) h += row('📱 Pay by M-Pesa: Send Money → ' + esc(p.mpesaPhone), (p.mpesaName ? 'To <b>' + esc(p.mpesaName) + '</b> · ' : '') + 'Amount <b>' + money(bal) + '</b>');
+    if(p.bank) h += row('🏛️ Bank transfer', esc(p.bank) + ' · Reference: invoice ' + esc(D.n));
+    if(p.cash) h += '<div class="muted" style="margin-top:10px;text-align:center">Cash is fine too.</div>';
+    if(p.mpesaTill || p.paybill || p.mpesaPhone) h += '<p class="muted" style="margin:10px 0 0">After paying, keep the M-Pesa message and send the code (for example SJK4XY12AB) with “Tell them I’ve paid”.</p>';
+    if(!h) h = '<p class="muted">Contact ' + esc(b.o || b.n) + ' to pay' + (b.p ? ' at ' + esc(b.p) : '') + '.</p>';
+    return h;
+  }
+  function phoneNo(p){ var t = String(p || '').replace(/[^\d+]/g, ''); if(KE && /^0[17]\d{8}$/.test(t)) t = '+254' + t.slice(1); return t; }
   function safeUrl(u){ return /^https:\/\//i.test(u) ? u : 'https://' + String(u).replace(/^\w+:\/*/, ''); }
   function reply(text, subject){
     var b = D.b || {}; window.__bmLastMessage = text;
-    if(b.p && (/iphone|ipad|android/i.test(navigator.userAgent) || !b.e)) location.href = 'sms:' + b.p.replace(/[^\d+]/g, '') + '?&body=' + encodeURIComponent(text);
+    if(b.p && (/iphone|ipad|android/i.test(navigator.userAgent) || !b.e)) location.href = 'sms:' + phoneNo(b.p) + '?&body=' + encodeURIComponent(text);
     else if(b.e) location.href = 'mailto:' + encodeURIComponent(b.e) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
     else alert(text);
   }
@@ -187,7 +206,7 @@
     if(t.id === 'apGo') approve();
     if(t.id === 'apSend') reply(D._msg, 'Approved: Estimate #' + D.n);
     if(t.id === 'apQ') reply('Hi, I have a question about Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + ': ', 'Question: Estimate #' + D.n);
-    if(t.id === 'paidTell') reply('Hi, I just paid invoice #' + D.n + '. Thank you!', 'Paid: Invoice #' + D.n);
+    if(t.id === 'paidTell') reply(KE ? 'Hi, I just paid invoice #' + D.n + '. My M-Pesa code is: ' : 'Hi, I just paid invoice #' + D.n + '. Thank you!', 'Paid: Invoice #' + D.n);
   });
   async function approve(){
     var nm = document.getElementById('nm').value.trim();
