@@ -2336,7 +2336,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.37 · 2026-10-19 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.38 · 2026-10-19 · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2385,7 +2385,7 @@ async function start(){
   $('app').hidden=false;
   try{ HQ=(await (await fetch('../testers/config.json?cb='+Date.now())).json()).mailbox||''; }catch(e){}
   if(!HQ){ $('gate').hidden=false; $('app').hidden=true; $('gate').querySelector('p.muted').textContent='The HQ address is missing from testers/config.json — tell Claude.'; return; }
-  wireTabs(); staticBits(); await load();
+  wireTabs(); staticBits(); try{ renderChats(); }catch(e){} await load();
   setInterval(()=>{ if(!document.hidden && !$('sheet').classList.contains('on')) load(); },120000);
 }
 async function load(manual){
@@ -2620,16 +2620,23 @@ function chRow(r,kind){
   const txt=kind==='needs'?(r.ask?`<div class="ask">👉 ${esc(r.ask)}</div>`:''):(r.ask||r.detail?`<div class="det">${esc(r.ask||r.detail)}</div>`:'');
   return `<div class="item chat ${kind}"><div><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span>${r.kind==='routine'?'<span class="pill">routine</span>':''} <span class="meta">${r.at?ago(r.at):''}</span></div>${txt}<div class="chips">${link}${done}</div></div>`;
 }
+/* HQ's data service can take 10-30 s (or fail) on a phone, so the last good board is kept on this device and shown at once. */
+function chBoard(){
+  let S=null; try{ S=D?JSON.parse(D.settings.chats):null; }catch(e){ S=null; }
+  if(S&&S.items){ store('jhq_chats_cache',JSON.stringify(S)); return {S:S,cached:false}; }
+  try{ const c=JSON.parse(store('jhq_chats_cache')||'null'); if(c&&c.items) return {S:c,cached:true}; }catch(e){}
+  return {S:null,cached:false};
+}
 function renderChats(){
   const el=$('chList'); if(!el) return;
-  const S=settingJSON('chats',null);
-  if(!S||!S.items){ el.innerHTML='<div class="card muted">The chats board has not been built yet. In any Claude chat say “update my board”.</div>'; $('chFilter').innerHTML=''; return; }
+  const B=chBoard(), S=B.S;
+  if(!S||!S.items){ el.innerHTML=D?'<div class="card muted">The chats board has not been built yet. In any Claude chat say “update my board”.</div>':'<div class="card muted">Loading HQ… the first load can take up to half a minute.</div>'; $('chFilter').innerHTML=''; return; }
   const seen=chSeen(), open=r=>!(seen[r.id]&&seen[r.id]===r.at);
   const all=S.items, mine=all.filter(r=>CHT==='all'||r.type===CHT);
   const count=t=>all.filter(r=>r.state==='needs'&&open(r)&&(t==='all'||r.type===t)).length;
   $('chFilter').innerHTML=CH_TYPES.map(([k,t])=>`<button class="chip small ${CHT===k?'main':''}" onclick="CHT='${k}';store('jhq_chat_t',CHT);renderChats()">${t}${count(k)?' · '+count(k):''}</button>`).join('')+`<span class="muted" style="font-size:13px">updated ${ago(S.at)}</span>`;
   const hrs=(Date.now()-new Date(S.at))/36e5;
-  $('chStale').innerHTML=hrs>6?`<div class="chstale">The board is ${Math.round(hrs)} hours old. Say “update my board” in any Claude chat to refresh it.</div>`:'';
+  $('chStale').innerHTML=(B.cached&&!D)?'<div class="chstale">Showing the last board saved on this device — HQ is still loading…</div>':(hrs>6?`<div class="chstale">The board is ${Math.round(hrs)} hours old. Say “update my board” in any Claude chat to refresh it.</div>`:'');
   const needs=mine.filter(r=>r.state==='needs'&&open(r)), review=mine.filter(r=>r.state==='review'&&open(r));
   const working=mine.filter(r=>r.state==='working'), idle=mine.filter(r=>r.state==='idle'||((r.state==='needs'||r.state==='review')&&!open(r)));
   const cloud=mine.filter(r=>r.state==='cloud');
