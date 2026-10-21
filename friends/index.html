@@ -196,12 +196,12 @@ html.ed-friends .devn{font-size:16px}
 <main>
   <header class="top"><span class="flag" id="hdrFlag" aria-hidden="true">🇰🇪</span><div><b id="hdrTitle">Daraja Test Week</b><small id="hdrName"></small></div><button id="tsz" type="button" data-a="tsz" aria-label="Make the words bigger">Aa+</button></header>
   <div id="view"><p class="muted">Loading…</p></div>
-  <div id="ver">Daraja Test Week v1.9.6 · 2026-10-20</div>
+  <div id="ver">Daraja Test Week v1.10 · 2026-10-21</div>
 </main>
 <script>
 (function(){
 'use strict';
-var VERSION = 'v1.9.6 · 2026-10-20';
+var VERSION = 'v1.10 · 2026-10-21';
 var BASE = 'https://jerrywins1.github.io/daraja-apps/';
 var MAILBOX_FALLBACK = 'https://script.google.com/macros/s/AKfycbw1hgXVj5E8x8Ampm1fYK9po07pmSh9zrHfyVn3RvEYOR15_xb2jNPdlgzUuariPPrp/exec';
 var PRACTICE = 'nownext';   /* 11 Oct (Jerry): everyone tests One Thing first and most */
@@ -686,6 +686,19 @@ function mailbox(){
     MAILBOX = (c && c.mailbox) || MAILBOX_FALLBACK; lsSet(PRE+'_mailbox', MAILBOX); return MAILBOX;
   }).catch(function(){ return MAILBOX_FALLBACK; });
 }
+/* v1.10: the survey answers leave the phone WITHOUT the name or the tester's token, 2–6 hours later (so the time can't
+   point to a person), as a report from "Anonymous tester". They wait in ANONK until then and go on a later visit. */
+var ANONK = PRE+'_anonq';
+function anonSurvey(k,a){
+  var v=a.sv||{}, f=function(x){ return (x==null||x==='')?'-':String(x); };
+  var L=['SURVEY2|'+k+'|use:'+f(v.use)+'|rank:'+f(v.rank)+'|easy:'+f(v.easy)+'|videos:'+f(v.videos)+'|pay:'+f(v.pay)+'|for:'+((v['for']||[]).join(',')||'-')+'|keep:'+f(v.keep)+'|drop:'+f(v.drop)+'|'+E.tag+'|'+VERSION.split(' ')[0]];
+  L.push('Anonymous survey — '+(APPS[k]?APPS[k][0]:k)+' (no name, sent a few hours later)');
+  [['best','Most useful part'],['missing','Missing (a feature it needs)'],['remove','Remove or make simpler'],['confusing','Confusing or frustrating']].forEach(function(t){ var x=String(v[t[0]]||'').trim(); if (x) L.push(t[1]+': '+x); });
+  var q=jget(ANONK,[]); q.push({ t: Date.now()+Math.round((2+Math.random()*4)*3600000), body:{ action:'report', kind:'survey', who:'', name:'Anonymous tester ('+(EDITION==='kenya'?'Kenya':'Friends')+')', app:k, contact:'', text:L.join('\n') } });
+  jset(ANONK,q);
+}
+function releaseAnon(){ var q=jget(ANONK,[]); if (!q.length) return; var now=Date.now(), keep=[];
+  q.forEach(function(x){ if (x.t<=now) queue(x.body); else keep.push(x); }); if (keep.length!==q.length){ jset(ANONK,keep); flush(); } }
 function queue(body){ var q=jget(OUTK,[]); body.qid = Date.now().toString(36)+Math.random().toString(36).slice(2,6); q.push(body); jset(OUTK,q); return body.qid; }
 var flushing = false, flushAgain = false;
 function flush(){
@@ -753,6 +766,7 @@ function tick(a){ var n=Date.now(); if (a.last) a.ms += Math.min(n-a.last, 20*60
 /* ---------- views ---------- */
 var VIEW = 'home';
 function render(){
+  try { releaseAnon(); } catch (e) {}   /* v1.10: send anonymous survey answers whose wait is over */
   var v=$('view');
   $('hdrName').textContent = S && S.name ? E.hi+S.name+'!' : '';
   if (!S) { v.innerHTML = noLink(); return; }
@@ -980,6 +994,17 @@ var SV_VID=[['very','Very helpful'],['a-bit','A bit'],['not-really','Not really'
 var SV_VIDR=[['very','Very helpful'],['a-bit','A bit'],['not-really','Not really'],['didnt-watch','I didn’t read it']];
 var SV_NPS=[0,1,2,3,4,5,6,7,8,9,10].map(function(n){ return [String(n),String(n)]; });
 var SV_BUY=[['yes','Yes'],['maybe','Maybe'],['no','No']];
+/* v1.10 (21 Oct, Jerry: the ratings looked too high to be honest): the survey is ANONYMOUS (sent without the name, a few
+   hours later, as its own report from "Anonymous tester"), asks to PICK and RANK instead of star ratings, uses realistic prices,
+   and says plainly that pay does not depend on it. The tester's own report only says "survey answered". */
+var SV_RANK=[['top3','One of the best I’ve tried'],['middle','In the middle'],['weak','One of the weakest'],['first','It’s the first app I’ve tried']];
+function svPay(k){
+  if (EDITION==='kenya') return { q:'If it cost money, what would YOU really pay for a whole year?', o:[['0','0 — I wouldn’t pay'],['KES100','100 KES'],['KES300','300 KES'],['KES500','500 KES'],['KES1000','1,000 KES']] };
+  if (SET==='church') return { q:'What would your church really pay for a year?', o:[['0','$0 — we wouldn’t pay'],['$25','$25'],['$50','$50'],['$100','$100'],['$200','$200']] };
+  if (SET==='business' || k==='bizmgr') return { q:'What would you really pay for a year?', o:[['0','$0 — I wouldn’t pay'],['$25','$25'],['$50','$50'],['$100','$100'],['$150','$150']] };
+  return { q:'What would you really pay for a year?', o:[['0','$0 — I wouldn’t pay'],['$5','$5'],['$10','$10'],['$20','$20'],['$40','$40']] };
+}
+function finishedApps(k){ return Object.keys(S.apps).filter(function(x){ return APPS[x] && (S.apps[x].stage==='done' || x===k); }); }
 var SV_FOR=[['me','Me'],['parents','My parents or grandparents'],['children','My children'],['church','A church'],['business','A small business'],['other','Someone else']];
 var PF_SOC=[['whatsapp','WhatsApp'],['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['youtube','YouTube'],['x','X / Twitter'],['telegram','Telegram'],['linkedin','LinkedIn'],['pinterest','Pinterest'],['none','None of these']];
 var PF_FIND=[['friends','Friends or family'],['church','Church'],['social','Social media'],['appstore','Browsing the app store'],['ads','Ads'],['other','Other']];
@@ -999,8 +1024,7 @@ function profLine(P){ return 'PROFILE|social:'+(P.social.join(',')||'-')+'|find:
 function labelOf(list,v){ var o=list.filter(function(x){ return x[0]===v; })[0]; return o ? String(o[2]||o[1]).replace(/<[^>]+>/g,'') : v; }
 function profReadable(P){ return 'social media: '+(P.social.map(function(x){ return labelOf(PF_SOC,x); }).join(', ')||'-')+' · finds new apps: '+(P.find?labelOf(PF_FIND,P.find):'-')+' · age: '+(P.age?labelOf(PF_AGE,P.age):'-')+' · phone: '+phoneType(); }
 function svLine(k,a){
-  var v=a.sv||{}, f=function(x){ return (x==null||x==='')?'-':String(x); };
-  var p=['SURVEY',k,'like:'+f(v.like),'use:'+f(v.use),'easy:'+f(v.easy),'videos:'+f(v.videos),'nps:'+f(v.nps),'buy:'+f(v.buy),'fair:'+f(v.fair),'for:'+((v['for']||[]).join(',')||'-')];
+  var p=['SURVEY',k,'anon:'+(a.svDone==='answered'?'sent':'-')];   /* v1.10: the answers themselves go anonymously (anonSurvey) */
   if (a.svDone==='skipped') p.push('skipped:yes'); else if (!a.svDone) p.push('asked:no');
   if (a.svWhen==='mid') p.push('when:mid');
   p.push(VERSION.split(' ')[0]); return p.join('|');
@@ -1008,8 +1032,8 @@ function svLine(k,a){
 function svReadable(L,k,a){
   if (a.svDone==='skipped'){ L.push('Survey: skipped'+(a.svWhen==='mid'?' (asked when they left the app)':'')); return; }
   if (!a.svDone){ L.push('Survey: not asked (started before v1.6)'); return; }
+  L.push('Survey: answered 🔒 anonymously — sent separately, without the name'+(a.svWhen==='mid'?' (asked when they left the app before finishing)':'')+'.'); return;
   var v=a.sv||{}, d=function(x,t){ return x?t:'-'; };
-  L.push('Survey'+(a.svWhen==='mid'?' (asked when they left the app before finishing)':'')+':');
   L.push('   Liked it: '+d(v.like, v.like+'/5 ('+labelOf(SV_FACES,v.like)+')')+' · Would use it: '+d(v.use, labelOf(SV_USE,v.use))+' · Easy to understand: '+d(v.easy, v.easy+'/5'));
   L.push('   Videos: '+d(v.videos, labelOf(SV_VID,v.videos))+' · Recommend to a friend: '+d(v.nps, v.nps+'/10')+' · Would buy: '+d(v.buy, labelOf(SV_BUY,v.buy))+' · Fair per year: '+d(v.fair, labelOf(svFair(k).o,v.fair)));
   L.push('   Really for: '+((v['for']||[]).map(function(x){ return labelOf(SV_FOR,x); }).join(', ')||'-'));
@@ -1026,13 +1050,18 @@ function paint(scope,q,val,multi){
 function svText(n,label,key,v){ return '<div class="q"><label class="qt" for="sv_'+key+'">'+n+'. '+label+' <span>(optional)</span></label><textarea id="sv_'+key+'" data-sv="'+key+'" maxlength="300">'+esc(v[key]||'')+'</textarea></div>'; }
 function svHTML(k,d,mid){
   var a=A(k), v=a.sv||(a.sv={'for':[]}), nm=esc(d.k.name||APPS[k][0]), fair=svFair(k), noVid=!!d.k.noVideo;
+  var pay=svPay(k), fin=finishedApps(k).map(function(x){ return [x, esc(APPS[x][0])]; });
   var h='<div class="card"><h2>'+(mid?'Before you go · a quick survey':'Part 5 · Quick survey')+'</h2><p class="small muted">'+(mid?'You are leaving '+nm+' for now. ':'')+'About 2 minutes, mostly taps. Only the first two questions are needed.'+(mid?' We won’t ask about this app again.':'')+'</p>';
-  h+='<div class="q"><div class="qt">1. Overall, what did you think of '+nm+'?</div>'+opts('s','like',SV_FACES,v.like,false,'faces')+'</div>';
-  h+='<div class="q"><div class="qt">2. Would you use it in your own life?</div>'+opts('s','use',SV_USE,v.use)+'</div>';
+  h+='<div class="anon" style="background:#E8F3EE;border-radius:12px;padding:10px 12px;margin:6px 0 12px;font-size:15px;line-height:1.45">🔒 <b>Anonymous.</b> Your answers reach Jerry <b>without your name</b>, a few hours later. <b>Your pay does not depend on them.</b> Honest answers help most — even “I wouldn’t use this”.</div>';
+  h+='<div class="q"><div class="qt">1. Would you use '+nm+' in your own life — without being paid to test it?</div>'+opts('s','use',SV_USE,v.use)+'</div>';
+  h+='<div class="q"><div class="qt">2. Compared with the other apps you’ve tried, '+nm+' is…</div>'+opts('s','rank',SV_RANK,v.rank)+'</div>';
   h+='<div class="q"><div class="qt">3. How easy was it to understand?</div>'+opts('s','easy',SV_EASY,v.easy,false,'five')+'<div class="scale"><span>1 = Very hard</span><span>5 = Very easy</span></div></div>';
   h+='<div class="q"><div class="qt">4. '+(noVid?'How helpful was the explainer?':'How helpful were the videos?')+'</div>'+opts('s','videos',noVid?SV_VIDR:SV_VID,v.videos)+'</div>';
-  h+='<div class="q"><div class="qt">5. How likely are you to recommend it to a friend?</div>'+opts('s','nps',SV_NPS,v.nps,false,'nps')+'<div class="scale"><span>0 = Not at all</span><span>10 = Definitely</span></div></div>';
-  h+='<div class="q"><div class="qt">6. Would you buy it?</div>'+opts('s','buy',SV_BUY,v.buy,false,'three')+'<div class="qt sub">'+esc(fair.q)+'</div>'+opts('s','fair',fair.o,v.fair)+'</div>';
+  h+='<div class="q"><div class="qt">5. '+esc(pay.q)+'</div>'+opts('s','pay',pay.o,v.pay)+'</div>';
+  if (fin.length>=3){
+    h+='<div class="q"><div class="qt">6. Of all the apps you’ve finished, if you could keep only ONE, which?</div>'+opts('s','keep',fin,v.keep)+'</div>';
+    h+='<div class="q"><div class="qt">And which one would you NOT miss?</div>'+opts('s','drop',fin,v.drop)+'</div>';
+  }
   h+='<div class="q"><div class="qt">7. Who is it really for? <span>(tap all that fit)</span></div>'+opts('s','for',SV_FOR,v['for'],true)+'</div>';
   h+=svText(8,'What is the most useful part?','best',v)+svText(9,'What is missing — a feature it needs?','missing',v)+svText(10,'What should be removed or made simpler?','remove',v)+svText(11,'Anything confusing or frustrating?','confusing',v);
   h+='<div class="err" id="svErr"></div><button class="btn" data-a="svnext">'+(mid?'Save my answers ›':'Next ›')+'</button><button type="button" class="linkbtn" data-a="svskip">Skip the survey</button></div>';
@@ -1288,9 +1317,9 @@ document.addEventListener('click', function(e){
       break; }
     case 'svnext': {
       var sv=a.sv||{};
-      if (!sv.like || !sv.use){ $('svErr').textContent='Please answer the first two questions — or tap “Skip the survey” below.';
-        var g=document.querySelector('[data-g="s:'+(!sv.like?'like':'use')+'"]'); if (g) g.scrollIntoView({block:'center'}); return; }
-      tick(a); a.svDone='answered'; a.svAt=Date.now(); a.svWhen=a.svMid?'mid':'end'; finishSurvey(k); break; }
+      if (!sv.use || !sv.rank){ $('svErr').textContent='Please answer the first two questions — or tap “Skip the survey” below.';
+        var g=document.querySelector('[data-g="s:'+(!sv.use?'use':'rank')+'"]'); if (g) g.scrollIntoView({block:'center'}); return; }
+      anonSurvey(k,a); tick(a); a.svDone='answered'; a.svAt=Date.now(); a.svWhen=a.svMid?'mid':'end'; finishSurvey(k); break; }
     case 'svskip': tick(a); a.svDone='skipped'; a.svAt=Date.now(); a.svWhen=a.svMid?'mid':'end'; afterSurvey(k); break;
     case 'pfdone': case 'pfskip': { var PP=prof(); PP.asked=true; if (act==='pfskip') PP.skipped=true; setProf(PP); afterSurvey(k); break; }
     case 'send': {
