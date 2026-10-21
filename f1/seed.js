@@ -4,7 +4,7 @@
    canceled race never shifts anyone's picks. Rounds with no entry here are auto-drafted until the
    commissioner backfills them in Setup. */
 const PITWALL_SEED = {
-  seedVersion: 5, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
+  seedVersion: 6, // bump when the starting point below changes; devices not yet on a mailbox adopt the new one automatically
   league: { name: 'F1 Group', key: 'f1', commissioner: 'steve', deadlineRule: 'friday', tz: 'America/Chicago', currentSeason: 2026, mailboxUrl: '' },
   players: [
     { id: 'steve', name: 'Steve', active: true },
@@ -57,18 +57,18 @@ const PITWALL_SEED = {
       // Starting point: Steve's post after the ITALIAN GP (standings + driver usage list), copied exactly.
       // The app scores every race from the Spanish GP on; the commissioner can move or overwrite this in Setup.
       start: {
-        afterKey: 'italian',
-        standings: { robbi: 808, mark: 765, steve: 754, jerry: 728, ryan: 469 },
+        afterKey: 'singapore',
+        standings: { robbi: 1039, jerry: 975, steve: 931, mark: 928, ryan: 603 },
         usage: {
-          steve: { max_verstappen: 2, hadjar: 3, perez: 11, hulkenberg: 10, _wild: 0 },
-          ryan:  { norris: 6, bottas: 7, stroll: 6, bortoleto: 5, _wild: 1 },
-          jerry: { russell: 5, alonso: 12, sainz: 6, lawson: 2, _wild: 1 },
-          mark:  { leclerc: 5, hamilton: 5, ocon: 8, albon: 8, _wild: 0 },
-          robbi: { piastri: 7, antonelli: 6, gasly: 7, bearman: 6, _wild: 0 }
+          steve: { max_verstappen: 0, hadjar: 0, perez: 9, hulkenberg: 9, _wild: 0 },
+          ryan:  { norris: 4, bottas: 5, stroll: 4, bortoleto: 3, _wild: 1 },
+          jerry: { russell: 3, alonso: 11, sainz: 3, lawson: 2, _wild: 0 },
+          mark:  { leclerc: 3, hamilton: 2, ocon: 7, albon: 6, _wild: 0 },
+          robbi: { piastri: 4, antonelli: 3, gasly: 7, bearman: 6, _wild: 0 }
         },
-        note: 'Steve\'s post after the Italian GP (Sept 2026), copied exactly. Moved forward from the Dutch GP because the app\'s own scoring of Italy came out 4 to 19 points light against Steve\'s hand-scoring — Steve scored it, so Steve\'s numbers are the truth. The app scores the Spanish GP onward.'
+        note: 'Steve\'s driver-usage and standings post after the Singapore GP (Oct 2026), copied exactly. It replaces the Italian GP starting point and covers the four races the app never got picks for: Spain, Azerbaijan, Bahrain-in-Malaysia and Singapore. The app scores the United States GP onward. Steve hand-scores, and where his numbers and the app\'s have differed his have been right, so his are entered as the truth. ONE THING TO CHECK WITH STEVE: four of the five players reconcile exactly against the previous post — eight drives used over four races, or six plus a wild card. Robbi comes out at six drives and no wild card, which is one race short; Gasly and Bearman are unchanged at 7 and 6. Most likely one of Robbi\'s four numbers is a slip. His numbers are entered exactly as posted; correct them in Setup → Usage if Steve confirms.'
       },
-      note: 'Picks through Monaco are complete from the group text. From Spain on, only the picks that came through are here; Steve has the rest.'
+      note: 'Picks through Monaco are complete from the group text. From Spain on, only the picks that came through are here; Steve has the rest. Races before the starting point above no longer affect the standings, so the auto-drafted lineups still shown for Spain through Singapore are a record of what the app guessed, not something that is being scored.'
     }
   }
 };
