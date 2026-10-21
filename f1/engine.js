@@ -263,5 +263,126 @@
     return year + ' drivers\n\n' + Object.keys(rosters).map(p => String(nm(p)).toLowerCase() + '\n' + rosters[p].map((d, i) => (i + 1) + ') ' + String(dn(d)).toLowerCase() + ' ' + drivesPer + '/' + drivesPer).join('\n')).join('\n\n');
   }
 
-  return { snakeOrder, draftTurn, draftTaken, draftCheck, draftRosters, formatDraftOrder, formatDraftResult, DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs };
+
+  /* ---------------------- planning the rest of the season ----------------------
+     One fact drives all of this: a driver can run at most once in a race. So a
+     driver's drives are only worth something up to the number of races left —
+     eleven drives with eight races to go is eight drives and three wasted, and no
+     amount of cleverness changes that. Everything below is that arithmetic, laid
+     out so a player can check it against his own card. It makes no prediction
+     about who will be fast; that part is left to the briefing and a human. */
+  function seasonPlan(o) {
+    const allRaces = Math.max(0, (o.racesLeft || []).length);
+    const perRace = o.perRace || 2;
+    // Picks already in for the next race have ALREADY come off that player's drives, so for him
+    // that weekend is settled: counting it as a slot again would invent a shortfall that is not real.
+    const picked = o.alreadyPicked || {};
+    const nm = o.name || (x => x);
+    const lead = (o.standings && o.standings.length) ? (+o.standings[0].pts || 0) : 0;
+
+    const rows = (o.players || []).map(p => {
+      const races = Math.max(0, allRaces - (picked[p.id] ? 1 : 0));
+      const roster = (o.roster && o.roster[p.id]) || [];
+      const rem = (o.remaining && o.remaining[p.id]) || {};
+      const left = d => Math.max(0, +rem[d] || 0);
+      const wild = Math.max(0, +rem._wild || 0);
+
+      const usable = roster.filter(d => left(d) > 0);
+      const spent = roster.filter(d => left(d) <= 0);
+      // what a driver's drives are actually worth, and what can never be spent
+      const effective = roster.reduce((a, d) => a + Math.min(left(d), races), 0);
+      const stranded = roster.reduce((a, d) => a + Math.max(0, left(d) - races), 0);
+      // a wild card weekend fills every slot and uses nobody's drives
+      const capNoWild = races * perRace;
+      const capAllWild = Math.max(0, (races - wild) * perRace);
+      const surplus = Math.max(0, effective - capNoWild);
+      const shortfall = Math.max(0, capNoWild - effective);
+      const wildCost = Math.max(0, effective - capAllWild) - surplus;
+      // a driver with at least as many drives as there are races has to run every one
+      const forced = usable.filter(d => left(d) >= races);
+      const locked = races > 0 && usable.length > 0 && usable.length <= perRace;
+
+      const st = (o.standings || []).find(x => x.id === p.id);
+      const pts = st ? (+st.pts || 0) : 0;
+      const behind = Math.max(0, lead - pts);
+
+      const lines = [];
+      if (!races) lines.push({ k: 'done', t: 'The season is over — nothing left to plan.' });
+      else if (!usable.length) lines.push({ k: 'bad', t: 'No drives left on anybody. Every remaining weekend will be auto-drafted and score nothing.' });
+      else {
+        if (locked) lines.push({ k: 'forced', t: 'Your lineup is already decided: <b>' + usable.map(nm).join('</b> and <b>') + '</b> every weekend, because nobody else has a drive left.' });
+        else forced.forEach(d => lines.push({ k: 'forced', t: '<b>' + nm(d) + '</b> has ' + left(d) + ' drives and only ' + races + ' races left, so he has to run every single weekend.' }));
+        if (stranded) lines.push({ k: 'waste', t: '<b>' + stranded + ' drive' + (stranded > 1 ? 's' : '') + ' can never be spent</b> — a driver can only run once in a race, and there are not enough races left.' });
+        else if (surplus) lines.push({ k: 'waste', t: '<b>' + surplus + ' drive' + (surplus > 1 ? 's' : '') + ' more than slots</b> — that many will go unused whatever you do.' });
+        if (shortfall) lines.push({ k: 'short', t: '<b>' + shortfall + ' slot' + (shortfall > 1 ? 's' : '') + ' you cannot fill.</b> Those weekends get auto-drafted from whoever still has a drive.' });
+        if (wild && wildCost) lines.push({ k: 'wild', t: 'Playing ' + (wild > 1 ? 'both wild cards' : 'your wild card') + ' would strand ' + wildCost + ' more drive' + (wildCost > 1 ? 's' : '') + ', because a wild card weekend uses none.' });
+        else if (wild) lines.push({ k: 'wild', t: 'Your wild card costs you nothing in drives — there is room for it.' });
+        if (!wild) lines.push({ k: 'wild', t: 'No wild cards left.' });
+        if (spent.length) lines.push({ k: 'spent', t: 'Used up: <b>' + spent.map(nm).join('</b>, <b>') + '</b>.' });
+        if (!surplus && !shortfall && !stranded) lines.push({ k: 'ok', t: 'Your drives fit the races left exactly — nothing wasted, nothing short.' });
+      }
+
+      return {
+        id: p.id, name: p.name, pts, behind, races, settledNext: !!picked[p.id],
+        drives: roster.reduce((a, d) => a + left(d), 0),
+        effective, stranded, surplus, shortfall, wild, wildCost,
+        slots: capNoWild, locked,
+        usable: usable.map(d => ({ id: d, name: nm(d), left: left(d), mustRunEvery: left(d) >= races })),
+        spent: spent.map(d => ({ id: d, name: nm(d) })),
+        lines
+      };
+    });
+
+    return { races: allRaces, perRace, slots: allRaces * perRace, rows };
+  }
+
+  // The whole picture in plain words, for pasting into a chat. Everything the app
+  // knows and nothing it doesn't: no guesses about pace, tracks or form.
+  function seasonBrief(o) {
+    const plan = seasonPlan(o);
+    const nm = o.name || (x => x);
+    const L = [];
+    L.push('I am in a homegrown fantasy motor racing league with four friends. Help me plan the rest of the season.');
+    L.push('');
+    L.push('HOW IT WORKS');
+    L.push('  Each player has ' + ((o.roster && o.players && o.players[0] && (o.roster[o.players[0].id] || []).length) || 4) + ' drivers for the year.');
+    L.push('  Each race you run ' + plan.perRace + ' of them, and that uses one drive from each.');
+    L.push('  Every driver starts the season with a fixed number of drives, so you cannot run a favourite every week.');
+    L.push('  A wild card runs all your drivers at once and uses no drives at all.');
+    L.push('  A driver can only be run once in a race, so drives beyond the number of races left are wasted.');
+    L.push('  Points come from where your drivers qualify and finish, so a good car scores more.');
+    L.push('');
+    L.push('RACES LEFT (' + plan.races + ')');
+    (o.racesLeft || []).forEach((r, i) => L.push('  ' + (i + 1) + '. ' + r.name + (r.sprint ? '  (sprint weekend — extra points)' : '') + (r.date ? '  ' + r.date : '')));
+    L.push('');
+    L.push('WHERE EVERYONE STANDS');
+    (o.standings || []).forEach((t, i) => L.push('  ' + (i + 1) + '. ' + t.name + ' ' + t.pts + (i ? '  (' + (((+o.standings[0].pts) || 0) - (+t.pts || 0)) + ' behind)' : '  (leader)')));
+    L.push('');
+    plan.rows.forEach(r => {
+      L.push((o.me && r.id === o.me ? 'MY TEAM — ' : '') + r.name.toUpperCase() + '  (' + r.pts + ' points)');
+      r.usable.forEach(d => L.push('  ' + d.name + ': ' + d.left + ' drives left' + (d.mustRunEvery ? '  — more drives than races left, so he has to run every weekend' : '')));
+      r.spent.forEach(d => L.push('  ' + d.name + ': none left'));
+      L.push('  wild cards left: ' + r.wild);
+      if (r.settledNext) L.push('  (picks are already in for the next race, so the numbers below cover the ' + r.races + ' races after it)');
+      L.push('  Totals: ' + r.drives + ' drives on paper. Only ' + r.effective + ' of those can actually be run in ' +
+        r.races + ' races, and there are ' + (r.races * (o.perRace || 2)) + ' slots to fill.');
+      const why = [];
+      if (r.stranded) why.push(r.stranded + ' drive' + (r.stranded > 1 ? 's are' : ' is') + ' stuck on drivers who already have more drives than there are races left');
+      if (r.surplus) why.push(r.surplus + ' more drive' + (r.surplus > 1 ? 's' : '') + ' than slots, so that many go unused whichever drivers I pick');
+      if (r.shortfall) why.push(r.shortfall + ' slot' + (r.shortfall > 1 ? 's' : '') + ' cannot be filled and will be auto-drafted');
+      if (why.length) L.push('  So: ' + why.join('; ') + '.');
+      else L.push('  So: an exact fit — nothing wasted, nothing short.');
+      L.push('');
+    });
+    L.push('WHAT I WANT FROM YOU');
+    L.push('1. Race by race, which drivers should I run, and why? Say where my hands are tied by the arithmetic and where I actually have a choice.');
+    L.push('2. Which races should I save my best drivers for, and which are worth spending a weak driver on?');
+    if (plan.rows.some(r => r.id === o.me && r.wild)) L.push('3. Which race should I use my wild card on?');
+    L.push((plan.rows.some(r => r.id === o.me && r.wild) ? '4' : '3') + '. Can I still catch the leader? If not, who can I realistically finish above?');
+    L.push('');
+    L.push('Use what you know about the cars and the circuits this season. Keep it short and say plainly where you are guessing. If anything above looks wrong or out of date, tell me.');
+    return L.join('\n');
+  }
+
+  return { snakeOrder, draftTurn, draftTaken, draftCheck, draftRosters, formatDraftOrder, formatDraftResult, DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs, seasonPlan, seasonBrief };
 });
