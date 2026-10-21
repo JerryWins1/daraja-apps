@@ -2194,6 +2194,16 @@
 
   /* usage */
   .usage { display:grid; gap:10px; }
+  /* the season planner: same shape as the usage blocks it sits above */
+  .plan-p { border:1px solid var(--line); border-radius:14px; padding:11px 13px; margin-top:10px; }
+  .plan-p h3 { display:flex; justify-content:space-between; align-items:center; gap:8px;
+    margin:0 0 7px; font-size:15.5px; font-weight:700; }
+  .plan-l { display:flex; gap:8px; align-items:flex-start; font-size:13.5px; line-height:1.45;
+    padding:4px 0; border-top:1px solid var(--line); }
+  .plan-l:first-of-type { border-top:0; }
+  .plan-l .pf { flex:none; }
+  .planToggle { width:100%; margin-top:8px; }
+
   .u-p { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--paper); }
   .u-p h3 { margin:0 0 6px; font-family:"Barlow Condensed", sans-serif; font-weight:700; font-size:19px; display:flex; justify-content:space-between; }
   .u-d { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; font-size:14.5px; padding:3px 0; }
@@ -2733,10 +2743,52 @@ function rStandings() {
   html += `<div class="card"><h2>Champions</h2><div class="grid4">${hist.map(h => `<div style="background:var(--paper-2);border-radius:8px;padding:8px 10px"><div class="lab">${h.year}</div><div class="disp" style="font-size:22px;font-weight:700">${esc(h.champion)}</div>${h.note ? `<div class="small muted">${esc(h.note)}</div>` : ''}</div>`).join('')}</div></div>`;
   return html;
 }
+// What is left of the season, as arithmetic anyone can check against their own card, plus a
+// briefing to hand the whole picture to an AI for the part arithmetic cannot do — which car is
+// quick where. Lives on Usage because it is fundamentally about spending drives.
+function racesLeftList() {
+  const nr = nextRace(); const all = activeRaces();
+  const i = nr ? all.findIndex(r => r.key === nr.key) : all.length;
+  return i < 0 ? [] : all.slice(i);
+}
+function planInput() {
+  const s = season(); const left = racesLeftList();
+  const firstKey = left.length ? left[0].key : null;
+  const already = {};
+  if (firstKey && s.picks && s.picks[firstKey]) Object.keys(s.picks[firstKey]).forEach(pid => already[pid] = true);
+  return {
+    players: playersActive().map(p => ({ id: p.id, name: p.name })),
+    roster: s.roster || {}, remaining: computed.usage || {},
+    standings: computed.standings || [], racesLeft: left,
+    perRace: s.perRace || 2, alreadyPicked: already, me: who() || null, name: dname
+  };
+}
+function copySeasonBrief() { copyText(E.seasonBrief(planInput())); }
+function rPlanCard() {
+  const left = racesLeftList();
+  if (!left.length) return '';
+  const plan = E.seasonPlan(planInput());
+  const w = who();
+  const mine = plan.rows.find(r => r.id === w);
+  const others = plan.rows.filter(r => r.id !== w);
+  const ICON = { forced: '🔒', waste: '🗑', short: '⚠️', wild: '🃏', spent: '✔️', ok: '✅', bad: '⛔', done: '🏁' };
+  const block = r => `<div class="plan-p"><h3><span>${esc(r.name)}${r.id === w ? ' <span class="pill acc" style="font-size:10px">you</span>' : ''}</span><span class="pill">${r.effective} drives · ${r.races * plan.perRace} slots</span></h3>
+    ${r.lines.map(l => `<div class="plan-l"><span class="pf">${ICON[l.k] || '•'}</span><span>${l.t}</span></div>`).join('')}</div>`;
+  return `<div class="card"><h2>🔭 The rest of the season <span class="sub">${left.length} race${left.length > 1 ? 's' : ''} left</span></h2>
+    <p class="small muted">A driver can only run once in a race, so drives beyond the races left can never be spent. Everything here is that arithmetic — check it against your own card. It says nothing about which car will be quick; that is what the briefing is for.</p>
+    <button class="btn sm planToggle" type="button" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden;this.textContent=this.nextElementSibling.hidden?'🔭 Show the plan ▾':'🔭 Hide the plan ▴'">🔭 Show the plan ▾</button>
+    <div hidden>
+      ${mine ? block(mine) : ''}
+      ${others.map(block).join('')}
+      <button class="btn sm primary" style="width:100%;margin-top:10px" onclick="copySeasonBrief()">🤖 Copy a briefing for my AI</button>
+      <p class="small muted" style="margin-top:6px">That copies the whole picture — every race left, everyone's drivers and drives, the standings — then paste it into Claude or ChatGPT and ask it to plan your season. Nothing leaves this app until you paste it.</p>
+    </div></div>`;
+}
 function rUsage() {
   const s = season(); const last = lastScored();
   const nr0 = nextRace(); const pending = nr0 && s.picks && s.picks[nr0.key] && Object.keys(s.picks[nr0.key]).length;
-  let html = `<div class="card"><h2>Driver usage <span class="sub">${last ? 'after ' + esc(last.race.name.replace(' Grand Prix', ' GP')) : 'season start'}</span></h2><p class="small muted">Each driver gets <b>${s.drivesPer} drives</b> a season, and each player <b>${s.wildcardsPer} wild cards</b>. The number is what is <b>left</b>. Wild card weekends don't use drives.${(isCommish() || testMode()) ? ' Commissioner: type the number in the box, tab down to the next — it saves as you go.' : ''}${pending ? ' Picks already in for the ' + esc(nr0.name.replace(' Grand Prix', ' GP')) + ' are counted as used.' : ''}</p><div class="usage">
+  let html = rPlanCard();
+  html += `<div class="card"><h2>Driver usage <span class="sub">${last ? 'after ' + esc(last.race.name.replace(' Grand Prix', ' GP')) : 'season start'}</span></h2><p class="small muted">Each driver gets <b>${s.drivesPer} drives</b> a season, and each player <b>${s.wildcardsPer} wild cards</b>. The number is what is <b>left</b>. Wild card weekends don't use drives.${(isCommish() || testMode()) ? ' Commissioner: type the number in the box, tab down to the next — it saves as you go.' : ''}${pending ? ' Picks already in for the ' + esc(nr0.name.replace(' Grand Prix', ' GP')) + ' are counted as used.' : ''}</p><div class="usage">
     ${playersActive().map(p => { const u = computed.usage[p.id] || {}; const roster = (s.roster && s.roster[p.id]) || []; return `<div class="u-p"><h3><span>${esc(p.name)}</span><span class="pill ${u._wild > 0 ? 'acc' : ''}">wild card ${Math.max(0, u._wild || 0)}/${s.wildcardsPer}</span></h3>
       ${roster.map(d => { const left = u[d] == null ? s.drivesPer : u[d]; const adj = (s.driveAdj && s.driveAdj[p.id] && s.driveAdj[p.id][d]) || 0; const edit = (isCommish() || testMode()); return `<div class="u-d ${edit ? 'edit' : ''} ${left <= 0 ? 'out' : ''}">${edit ? `<input class="uin" type="number" inputmode="numeric" min="0" max="${s.drivesPer}" value="${left}" data-p="${p.id}" data-d="${d}" aria-label="${esc(dname(d))} — drives left for ${esc(p.name)}" oninput="usageBar(this)" onchange="usageType(this)">` : ''}<span>${esc(dname(d))}${adj ? ' <span class="pill" style="font-size:10px">corrected</span>' : ''}</span>${edit ? '' : `<span class="n">${left} left</span>`}<div class="bar"><i style="width:${Math.max(0, Math.min(100, left / s.drivesPer * 100))}%"></i></div></div>`; }).join('')}
       ${(isCommish() || testMode()) ? `<div class="u-d edit"><input class="uin" type="number" inputmode="numeric" min="0" max="${s.wildcardsPer}" value="${Math.max(0, u._wild || 0)}" data-p="${p.id}" data-d="_wild" aria-label="Wild cards left for ${esc(p.name)}" onchange="usageType(this)"><span>Wild cards left</span></div>` : ''}</div>`; }).join('')}
@@ -3710,7 +3762,7 @@ async function refresh() {
     border:1.5px solid var(--line-strong,#555); background:var(--surface-2,rgba(128,128,128,.12)); color:inherit; padding:4px 6px; }
   .u-d .uin:focus{ outline:3px solid var(--acc,#B48CFF); outline-offset:1px; }
 </style>
-<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v1.9 · 2026-10-10 · Daraja Studio</p>
+<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v2.0 · 2026-10-21 · Daraja Studio</p>
 <script id="dj-usage-v1">
 /* 11 Sep 2026, Jerry: "just do this like a table — the number in a box on the left, change it,
    tab down to the next one, done." The old way was one question box per driver, twenty taps. */
