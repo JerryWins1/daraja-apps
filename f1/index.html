@@ -2763,7 +2763,66 @@ function planInput() {
     perRace: s.perRace || 2, alreadyPicked: already, me: who() || null, name: dname
   };
 }
-function copySeasonBrief() { copyText(E.seasonBrief(planInput())); }
+// What each driver has ACTUALLY been worth in this league's points this season. Not a guess
+// and not a borrowed ranking: for every weekend the app has scored, score that driver on his
+// own and average it. Sprint weekends are averaged separately because they pay more.
+let formRank = null;   // driverId -> championship points, the fallback when the app has scored nothing yet
+function driverForm() {
+  const s = season(); const sc = s.scoring || E.DEFAULT_SCORING;
+  const all = []; Object.values(s.roster || {}).forEach(r => (r || []).forEach(d => { if (all.indexOf(d) < 0) all.push(d); }));
+  const tally = {}; all.forEach(d => tally[d] = { n: 0, sum: 0, sn: 0, ssum: 0 });
+  activeRaces().forEach(r => {
+    const R = computed.rounds[r.key];
+    if (!R || R.carried || !R.results) return;
+    all.forEach(d => {
+      const pts = E.scoreLineup([d], R.results, sc).total;
+      const t = tally[d];
+      if (R.results.hasSprint) { t.sn++; t.ssum += pts; } else { t.n++; t.sum += pts; }
+    });
+  });
+  const form = {};
+  const anyScored = all.some(d => tally[d].n + tally[d].sn > 0);
+  if (anyScored) {
+    all.forEach(d => {
+      const t = tally[d];
+      const normal = t.n ? t.sum / t.n : null;
+      const sprint = t.sn ? t.ssum / t.sn : (normal != null ? normal * 1.35 : null);
+      form[d] = { normal: normal == null ? 0 : Math.round(normal * 10) / 10,
+        sprint: sprint == null ? 0 : Math.round(sprint * 10) / 10,
+        races: t.n + t.sn, known: t.n + t.sn > 0, source: 'scored' };
+    });
+    return form;
+  }
+  // Nothing scored by the app yet — which is exactly where this league is, because the starting
+  // point was moved to the Singapore GP. Fall back to the championship order and convert it into
+  // THIS league's points: a driver who runs about Nth is worth what Nth place pays here.
+  const pts = formRank || {};
+  const ranked = all.slice().sort((a, b) => (+pts[b] || 0) - (+pts[a] || 0));
+  const haveRank = Object.keys(pts).length > 0;
+  ranked.forEach((d, i) => {
+    const pos = i + 1;
+    const normal = haveRank ? E.racePlacePoints(pos, sc) + E.rowPoints(pos, sc) : 0;
+    form[d] = { normal, sprint: haveRank ? normal + E.rowPoints(pos, sc) : 0,
+      races: 0, known: haveRank, source: haveRank ? 'standings' : 'none', champPos: pos };
+  });
+  return form;
+}
+function allocInput(pid) {
+  const s = season(); const left = racesLeftList();
+  const firstKey = left.length ? left[0].key : null;
+  const settled = !!(firstKey && s.picks && s.picks[firstKey] && s.picks[firstKey][pid]);
+  return { roster: (s.roster && s.roster[pid]) || [], remaining: (computed.usage || {})[pid] || {},
+    form: driverForm(), racesLeft: settled ? left.slice(1) : left, perRace: s.perRace || 2 };
+}
+function copySeasonBrief() {
+  const w = who(); const o = planInput();
+  if (w) {
+    o.allocation = E.seasonAllocate(allocInput(w));
+    const f = driverForm();
+    o.formRows = ((season().roster || {})[w] || []).map(d => Object.assign({ name: dname(d) }, f[d] || {}));
+  }
+  copyText(E.seasonBrief(o));
+}
 function rPlanCard() {
   const left = racesLeftList();
   if (!left.length) return '';
@@ -2774,10 +2833,34 @@ function rPlanCard() {
   const ICON = { forced: '🔒', waste: '🗑', short: '⚠️', wild: '🃏', spent: '✔️', ok: '✅', bad: '⛔', done: '🏁' };
   const block = r => `<div class="plan-p"><h3><span>${esc(r.name)}${r.id === w ? ' <span class="pill acc" style="font-size:10px">you</span>' : ''}</span><span class="pill">${r.effective} drives · ${r.races * plan.perRace} slots</span></h3>
     ${r.lines.map(l => `<div class="plan-l"><span class="pf">${ICON[l.k] || '•'}</span><span>${l.t}</span></div>`).join('')}</div>`;
+  // the race-by-race running order for whoever is signed in
+  let sched = '';
+  if (w) {
+    const A = E.seasonAllocate(allocInput(w));
+    const f = driverForm();
+    const known = A.roster.filter(d => (f[d] || {}).known).length;
+    if (A.plan.length) {
+      sched = `<div class="plan-p"><h3><span>Your running order</span><span class="pill acc">${A.total} pts if it goes to form</span></h3>
+        <p class="small muted" style="margin:0 0 8px">${(f[A.roster[0]] || {}).source === 'standings'
+          ? `Each driver ranked by <b>where he sits in the real championship</b>, converted into this league's points. The app has not scored a race of its own since the starting point, so this is a standing rather than form.`
+          : `Each driver ranked by what he has actually been worth <b>in this league's points</b> over the ${Math.max(...A.roster.map(d => (f[d] || {}).races || 0))} weekends the app has scored.`} Best drivers go to the weekends that pay most, and nobody is asked to run twice in a day.</p>
+        <div class="tablewrap"><table><tr><th>Race</th><th>Run</th><th>Worth</th></tr>
+        ${A.plan.map(p => `<tr><td><b>${esc(p.race.name.replace(' Grand Prix', ''))}</b>${p.race.sprint ? '<br><span class="small muted">sprint — pays more</span>' : ''}</td>
+          <td>${p.wildcard ? '<b>WILD CARD</b> — all four' : (p.drivers.map(dname).map(esc).join(' + ') || '<span class="muted">nobody has a drive left</span>')}</td>
+          <td style="text-align:right">${p.expected ? Math.round(p.expected) : '—'}</td></tr>`).join('')}
+        </table></div>
+        ${A.wildcard ? `<div class="plan-l"><span class="pf">🃏</span><span>Play your wild card at <b>${esc(A.wildcard.race.name.replace(' Grand Prix', ''))}</b> — worth about <b>${A.wildcard.gain} more points</b> than any other weekend, after re-planning the rest around it.</span></div>` : ''}
+        ${A.unspent ? `<div class="plan-l"><span class="pf">🗑</span><span>${A.unspent} drive${A.unspent > 1 ? 's' : ''} still cannot be spent, even run perfectly.</span></div>` : ''}
+        ${known < A.roster.length ? `<div class="plan-l"><span class="pf">⚠️</span><span>${A.roster.length - known} of your drivers have never been scored by the app, so they are ranked at zero. Treat their rows as a guess.</span></div>` : ''}
+        <div class="plan-l"><span class="pf">🧠</span><span>Where two weekends pay the same, the order between them is arbitrary — <b>that is where track knowledge matters</b>, and what the briefing below is for.</span></div>
+      </div>`;
+    }
+  }
   return `<div class="card"><h2>🔭 The rest of the season <span class="sub">${left.length} race${left.length > 1 ? 's' : ''} left</span></h2>
     <p class="small muted">A driver can only run once in a race, so drives beyond the races left can never be spent. Everything here is that arithmetic — check it against your own card. It says nothing about which car will be quick; that is what the briefing is for.</p>
     <button class="btn sm planToggle" type="button" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden;this.textContent=this.nextElementSibling.hidden?'🔭 Show the plan ▾':'🔭 Hide the plan ▴'">🔭 Show the plan ▾</button>
     <div hidden>
+      ${sched}
       ${mine ? block(mine) : ''}
       ${others.map(block).join('')}
       <button class="btn sm primary" style="width:100%;margin-top:10px" onclick="copySeasonBrief()">🤖 Copy a briefing for my AI</button>
@@ -3306,6 +3389,10 @@ async function refresh() {
     if (!Object.keys(drivers).length) drivers = await loadDrivers(seasonYear);
     if (!schedule.length) loadError = 'No ' + seasonYear + ' calendar published yet.';
     await computeSeason();
+    // The running order needs to know who is quick. When the app has scored races of its own it
+    // uses those; before that it has to fall back on the championship, so fetch it either way.
+    try { const done = activeRaces().filter(r => new Date(r.date + 'T23:59:00Z') < new Date());
+      if (done.length) formRank = await loadRank(seasonYear, done[done.length - 1].round); } catch (e) { }
   } catch (e) { loadError = 'Could not load F1 data: ' + e.message; }
   render();
 }
@@ -3762,7 +3849,7 @@ async function refresh() {
     border:1.5px solid var(--line-strong,#555); background:var(--surface-2,rgba(128,128,128,.12)); color:inherit; padding:4px 6px; }
   .u-d .uin:focus{ outline:3px solid var(--acc,#B48CFF); outline-offset:1px; }
 </style>
-<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v2.0 · 2026-10-21 · Daraja Studio</p>
+<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v2.1 · 2026-10-22 · Daraja Studio</p>
 <script id="dj-usage-v1">
 /* 11 Sep 2026, Jerry: "just do this like a table — the number in a box on the left, change it,
    tab down to the next one, done." The old way was one question box per driver, twenty taps. */
