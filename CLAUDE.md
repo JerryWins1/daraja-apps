@@ -16,8 +16,13 @@ a value.
 
 **End every step with these two options:**
 
-> Hit **Done** when it's finished, or **Ask a question** if anything looks
+> Reply **done** when it's finished, or **ask a question** if anything looks
 > different from what I described.
+
+Word it as replying, not as hitting a button. An ordinary chat message has no
+buttons in it, and "Hit Done" sends Jerry hunting the screen for one that
+isn't there. Only an AskUserQuestion prompt renders real tappable options, so
+save that for genuine forks in the road, not for routine step confirmations.
 
 **Then wait.** Don't send the next step until he replies. Don't batch them, don't
 run ahead.
