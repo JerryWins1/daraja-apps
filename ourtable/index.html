@@ -2263,7 +2263,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.17 · 2026-10-13 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Our Table v1.18 · 2026-10-22 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
 </div>
 
 <nav>
@@ -2276,7 +2276,7 @@
 <div class="sheet" id="pickSheet" onclick="if(event.target===this)closePick()"><div class="in"><h3 id="pickTitle">Pick a dinner</h3><div id="pickList"></div><div class="row" style="margin-top:10px"><button class="ghost" onclick="setDay(pickDay,null);closePick()">Leave blank</button><button class="ghost" onclick="closePick()">Cancel</button></div></div></div>
 
 <!-- recipe editor sheet -->
-<div class="sheet" id="editSheet" onclick="if(event.target===this)closeEdit()"><div class="in">
+<div class="sheet" id="editSheet" onclick="if(event.target===this)editOutside()"><div class="in">
   <h3 id="editTitle">New recipe</h3>
   <label for="rName">Name</label><input id="rName" placeholder="Diane’s chicken pot pie" oninput="if(!editPhoto){ const g=guessEm(this.value); if(g && !editEm){ editEm=g; drawEmChips(); } }">
       <input type="file" id="photoIn" accept="image/*" style="display:none" onchange="readPhoto(this)" aria-label="A photo for this recipe">
@@ -2389,7 +2389,17 @@ function renderRecipes(){
 let editId=null, editEm='', editPhoto='', editTags=[];
 function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?(r.em||''):''; editPhoto=r?(r.photo||''):''; editTags=r?[...(r.tags||[])]:[];
   $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('rServes').value=(r&&+r.serves>0)?r.serves:''; $('delBtn').style.display=r?'':'none';
-  drawEmChips(); drawTagPick(); $('editSheet').classList.add('on'); closeView(); setTimeout(()=>$('rName').focus(),100); }
+  drawEmChips(); drawTagPick(); editAskHide(); $('editSheet').classList.add('on'); closeView(); editStart=editSnap(); setTimeout(()=>$('rName').focus(),100); }
+/* v1.18 (22 Oct, tester audit: a tap on the dim area above the edit sheet closed it and threw the typing away):
+   if anything changed, it asks first — Save / Discard / Keep editing. Cancel still closes straight away. */
+let editStart='';
+function editSnap(){ return JSON.stringify([$('rName').value,$('rIng').value,$('rSteps').value,$('rTime').value,$('rServes').value,editEm,editPhoto,editTags]); }
+function editOutside(){ if(editSnap()===editStart){ closeEdit(); return; }
+  let A=$('editAsk'); if(!A){ A=document.createElement('div'); A.id='editAsk'; A.className='note'; A.setAttribute('role','alertdialog'); A.setAttribute('aria-label','Save your changes?'); A.style.cssText='display:block;margin:0 0 12px'; }
+  A.innerHTML='<b style="display:block;margin-bottom:8px">Save your changes?</b><div class="row"><button type="button" class="ok" data-act="edit-ask" data-w="save" style="flex:1">Save</button><button type="button" class="ghost" data-act="edit-ask" data-w="discard">Discard</button><button type="button" class="primary" data-act="edit-ask" data-w="keep">Keep editing</button></div>';
+  const inn=$('editSheet').querySelector('.in'); inn.insertBefore(A,inn.firstChild); inn.scrollTop=0; try{ A.querySelector('button').focus(); }catch(e){} }
+function editAskHide(){ const A=$('editAsk'); if(A) A.remove(); }
+function editAsk(w){ editAskHide(); if(w==='save') saveRecipe(); else if(w==='discard') closeEdit(); }
 /* Jerry, 21 Sep, pointing at the 🍗 while typing “Ribs”: “what if I don’t want a picture, or
    those pictures don’t resemble what I’m trying to do… have the user add one if they wanted to.” */
 function drawEmChips(){
@@ -2407,24 +2417,42 @@ window.readPhoto=function(inp){ const f=(inp.files||[])[0]; if(!f) return; const
   fr.readAsDataURL(f); inp.value=''; };
 function drawTagPick(){ $('tagPick').innerHTML=TAGS.map(t=>`<span class="chip ${editTags.includes(t)?'on':''}" onclick="toggleTag('${t}')">${t}</span>`).join(''); }
 function toggleTag(t){ editTags=editTags.includes(t)?editTags.filter(x=>x!==t):[...editTags,t]; drawTagPick(); }
-function closeEdit(){ $('editSheet').classList.remove('on'); }
+function closeEdit(){ editAskHide(); $('editSheet').classList.remove('on'); }
+/* v1.18 (22 Oct, tester audit: “rice, beef, onions” on one line stayed one ingredient and one shopping line):
+   a line is also split at ; and at a comma before a word (or “, 2 …” after a word) — never inside ( ), never in 1,5 kg or 1,000, and not
+   before a note like “, chopped” / “, to taste”. */
+const ING_NOTE=/^(to|or|and|about|optional|divided|plus|for|cut|beaten|torn|at|room|if|as|each|skin|skinless|boneless|bone|no|more|extra|i\.e|e\.g|etc|finely|thinly|roughly|coarsely|freshly|lightly|loosely|firmly|well|very|into|in|with|without)\b/i;
+function ingNote(rest){ if(ING_NOTE.test(rest)) return true; const w=rest.split(/[,;]/)[0].trim().toLowerCase().split(/\s+/);   /* “chopped”, “peeled and diced” — but “dried beans” is a thing to buy */
+  return w[0].length>=5&&/ed$/.test(w[0])&&(w.length===1||/^(and|or|into|in|to|with|from|until|for|at|thin|thinly|finely|fine|well|lightly|small|large|very)$/.test(w[1])); }
+function splitIng(text){ const out=[];
+  String(text||'').split('\n').forEach(line=>{ const parts=[]; let cur='', depth=0;
+    for(let i=0;i<line.length;i++){ const c=line[i];
+      if(c==='('||c==='[') depth++; else if((c===')'||c===']')&&depth>0) depth--;
+      if(!depth&&c===';'){ parts.push(cur); cur=''; continue; }
+      if(!depth&&c===','){ const rest=line.slice(i+1).replace(/^\s+/,''); if((/^\p{L}/u.test(rest)&&!ingNote(rest))||(/^\s+\d/.test(line.slice(i+1))&&/[\p{L})]\s*$/u.test(cur))){ parts.push(cur); cur=''; continue; } }   /* “beans, 1 onion” splits; “1,5 kg” does not */
+      cur+=c; }
+    parts.push(cur); parts.forEach(x=>{ x=x.trim(); if(x) out.push(x); }); });
+  return out; }
 function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName').focus(); return; }
-  const rec={ name, em:(editPhoto?'':(editEm||guessEm(name))), photo:editPhoto, tags:editTags, ing:$('rIng').value.split('\n').map(s=>s.trim()).filter(Boolean), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() }; const sv=parseInt($('rServes').value,10); rec.serves=(sv>0&&sv<=60)?sv:undefined;
+  const rec={ name, em:(editPhoto?'':(editEm||guessEm(name))), photo:editPhoto, tags:editTags, ing:splitIng($('rIng').value), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() }; const sv=parseInt($('rServes').value,10); rec.serves=(sv>0&&sv<=60)?sv:undefined;
   if(editId){ Object.assign(db.recipes.find(x=>x.id===editId),rec); } else db.recipes.unshift({id:uid(),made:0,...rec});
   save(); closeEdit(); render(); toast('Saved ✓'); }
 function delRecipe(id){ id=id||editId; const r=db.recipes.find(x=>x.id===id); if(!r) return; if(!confirm('Delete “'+r.name+'”? It also comes off any night it is on.')) return; const u=otSnap();
   db.recipes=db.recipes.filter(x=>x.id!==id); DAYS.forEach(d=>{ if(db.week[d]===id) delete db.week[d]; }); save(); closeEdit(); closeView(); render(); otUndoOffer('Deleted '+r.name, u); }
 let viewId='', viewDay='';
 function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return; viewId=id; viewDay=day||''; const keep=$('viewSheet').classList.contains('on')?$('viewIn').scrollTop:0;
-  $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}</p>
+  $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}${r.made>0?` <button type="button" class="ghost" data-act="made-less" data-r="${esc(r.id)}" aria-label="Take one off the made count" style="min-height:44px;min-width:44px;padding:2px 10px;font-size:14px">−1</button>`:''}</p>
     <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
     ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
     ${r.serves?`<p class="small">Feeds ${esc(r.serves)}, as written.</p>`:''}
-    <div class="row" style="margin-top:8px"><button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="closeView();openPick('${day}')">🔁 Swap ${day}</button><button onclick="clearNight('${day}')">Clear ${day}</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
+    <div class="row" style="margin-top:8px">${day?`<button onclick="closeView();openPick('${day}')">🔁 Swap ${day}</button>`:`<button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>`}${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="clearNight('${day}')">Clear ${day}</button><button onclick="madeIt('${r.id}')">✓ Made it tonight</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
     ${day?nightServHTML(r,day):''}${likesHTML(r,false)}`;
   $('viewSheet').classList.add('on'); if(keep) $('viewIn').scrollTop=keep; }
 function closeView(){ $('viewSheet').classList.remove('on'); }
-function madeIt(id){ const r=db.recipes.find(x=>x.id===id); r.made=(r.made||0)+1; r.last=ymd(new Date()); save(); closeView(); render(); toast('Nice — '+r.made+(r.made===1?' time':' times')+' now'); }
+/* v1.18 (22 Oct, tester audit: “Made it tonight” was the first button on a planned night and could not be taken back):
+   it now offers ↩︎ Undo, the count has a small −1, and on a night 🔁 Swap comes first and “Made it” is a plain button. */
+function madeIt(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return; const u=otSnap(); r.made=(r.made||0)+1; r.last=ymd(new Date()); save(); closeView(); render(); otUndoOffer('Nice — '+r.made+(r.made===1?' time':' times')+' now', u); }
+function madeLess(id){ const r=db.recipes.find(x=>x.id===id); if(!r||!(r.made>0)) return; const u=otSnap(); r.made=r.made-1; save(); render(); if($('viewSheet').classList.contains('on')&&viewId===id) openView(id,viewDay); otUndoOffer(r.name+' — made '+r.made+(r.made===1?' time':' times'), u); }
 function pickNightFor(id){ closeView(); go('week'); const free=DAYS.find(d=>!db.week[d]); if(!free){ toast('Every night is full — tap a night to swap it',3500); return; } setDay(free,id); toast('Put on '+free); }
 
 /* ── week ─────────────────────────────────────────────────── */
@@ -2487,14 +2515,22 @@ function sendToOneThing(){ /* One Thing keeps one list per person: now_next_v1_<
 /* ── shopping ─────────────────────────────────────────────── */
 function aisleOf(s){ if(/\bcans?\b|canned|\bjars?\b/i.test(s)) return 'Pantry'; /* 7 Oct deep check: spices, broth, soup and frozen things were landing in Produce or Meat */ if(/\bfrozen\b/i.test(s)) return 'Frozen'; if(/\bchuck\b|\broast\b(?! (potato|vegetable|veggie))/i.test(s)) return 'Meat & fish'; if(/powder|broth|stock\b|\bsoup\b|peanut butter|black pepper|\bground (cinnamon|pepper|cumin|ginger|nutmeg|cloves?|mustard|allspice)|seasoning|\bdried\b|\bspice/i.test(s)) return 'Pantry'; for(const [a,re] of AISLES){ if(re.test(s)) return a; } return 'Other'; }
 function norm(s){ return s.toLowerCase().replace(/^\d+[\d\/.\s]*(lb|lbs|oz|cups?|tbsp|tsp|cans?|cloves?|whole|large|small|bunch|pkg|bag|box)?\s*(of\s+)?/,'').trim(); }
+/* v1.18 (22 Oct, tester audit: “onion”, “onions” and “1 onion” were three shopping lines): the list merges on the
+   last word made singular — onions→onion, tomatoes→tomato, potatoes→potato. Kept simple; norm() itself is unchanged
+   so “already have it” ticks saved before v1.18 still match (see pantryHit). */
+function sing1(w){ if(w.length<4||/(ss|us|is|ys|as)$/.test(w)) return w; if(/oes$/.test(w)) return w.slice(0,-2); if(/(ches|shes|xes)$/.test(w)) return w.slice(0,-2); return w.replace(/s$/,''); }
+function sing(k){ k=String(k||'').trim(); const m=k.match(/^(.*?)([a-z]+)$/); return m?m[1]+sing1(m[2]):k; }
+function shopKey(s){ let k=norm(String(s)); const m=k.match(/^(.+?),\s*(\S.*)$/); if(m&&ingNote(m[2])) k=m[1].trim(); /* “2 onions, chopped” is onions */ return sing(k); }
 /* the same line twice adds up: "1 lb ground beef" + "1 lb ground beef" → "2 lb ground beef"; anything it can't add is joined with + so nothing is lost */
 function qtyOf(s){ const m=String(s).trim().match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s+(.+)$/); if(!m) return null; let n=0; m[1].split(/\s+/).forEach(x=>{ if(x.includes('/')){ const [a,b]=x.split('/').map(Number); n+=b?a/b:0; } else n+=Number(x); });
   const rest=m[2].trim().replace(/^(lbs|cans|cups|cloves|bags|jars|boxes|bunches|heads)\b/i,w=>({lbs:'lb',cans:'can',cups:'cup',cloves:'clove',bags:'bag',jars:'jar',boxes:'box',bunches:'bunch',heads:'head'})[w.toLowerCase()]); return {n,rest}; }
 function fmtQty(n){ const w=Math.floor(n+1e-9), f=n-w; const F=[[.25,'1/4'],[1/3,'1/3'],[.5,'1/2'],[2/3,'2/3'],[.75,'3/4']].find(x=>Math.abs(x[0]-f)<.02); if(f<.02) return String(w); if(F) return (w?w+' ':'')+F[1]; return String(Math.round(n*100)/100); }
-function addQty(a,b){ const A=qtyOf(a), B=qtyOf(b); if(A&&B&&A.rest.toLowerCase()===B.rest.toLowerCase()){ const n=A.n+B.n; const rest=n>1?A.rest.replace(/^(can|cup|clove|bag|jar|head)\b/i,'$1s').replace(/^(box|bunch)\b/i,'$1es'):A.rest; return fmtQty(n)+' '+rest; } if(String(a).split(' + ').some(x=>x.trim().toLowerCase()===String(b).trim().toLowerCase())) return a; /* 7 Oct deep check: the same words with no amount are listed once */ return a+' + '+b; }
+function addQty(a,b){ const parts=String(a).split(' + '), B=qtyOf(b);   /* v1.18: each part is tried, and onion/onions count as one — 1 onion + 2 onions → 3 onions */
+  if(B) for(let j=0;j<parts.length;j++){ const A=qtyOf(parts[j]); if(A&&sing(A.rest.toLowerCase())===sing(B.rest.toLowerCase())){ const n=A.n+B.n; if(A.rest.toLowerCase()!==B.rest.toLowerCase()) A.rest=A.rest.length>=B.rest.length?A.rest:B.rest; const rest=n>1?A.rest.replace(/^(can|cup|clove|bag|jar|head)\b/i,'$1s').replace(/^(box|bunch)\b/i,'$1es'):A.rest; parts[j]=fmtQty(n)+' '+rest; return parts.join(' + '); } }
+  if(parts.some(x=>x.trim().toLowerCase()===String(b).trim().toLowerCase()||(!B&&!qtyOf(x)&&shopKey(x)===shopKey(b)))) return a; /* 7 Oct deep check: the same words with no amount are listed once */ return a+' + '+b; }
 function buildList(quiet){ const seen={}; const out=[];
-  DAYS.forEach(d=>{ const r=db.week[d]&&db.recipes.find(x=>x.id===db.week[d]); if(!r) return; const f=scaleFor(d,r); (r.ing||[]).forEach(i0=>{ const i=scaleLine(String(i0),f); const k=norm(String(i0)); if(!k) return; if(seen[k]){ seen[k].for.push(d); seen[k].text=addQty(seen[k].text,i); return; } const o={id:uid(),text:i,key:k,for:[d],aisle:aisleOf(String(i0)),done:false}; seen[k]=o; out.push(o); }); });
-  const oldDone=new Set(db.shop.filter(x=>x.done).map(x=>x.key)); out.forEach(o=>{ if(oldDone.has(o.key)) o.done=true; });
+  DAYS.forEach(d=>{ const r=db.week[d]&&db.recipes.find(x=>x.id===db.week[d]); if(!r) return; const f=scaleFor(d,r); (r.ing||[]).forEach(i0=>{ const i=scaleLine(String(i0),f); const k=shopKey(i0); if(!k) return; if(seen[k]){ seen[k].for.push(d); seen[k].text=addQty(seen[k].text,i); return; } const o={id:uid(),text:i,key:k,for:[d],aisle:aisleOf(String(i0)),done:false}; seen[k]=o; out.push(o); }); });
+  const oldDone=new Set(db.shop.filter(x=>x.done).map(x=>sing(x.key))); out.forEach(o=>{ if(oldDone.has(o.key)) o.done=true; if(!db.pantry[o.key]&&atHome(o)) db.pantry[o.key]=1; /* v1.18: an older “have it” tick follows the merged line */ });
   db.shop=out; db.shopSig=shopSig(); save(); render(); if(quiet) return; go('shop'); toast(out.length+' things on the list'); }
 /* 11 Oct (pass B): the list was made once and never changed when a night was swapped. Remember which dinners it came from;
    when the week is different, say so and offer “Update the list” (ticks are kept for things still on it). */
@@ -2615,9 +2651,10 @@ document.addEventListener('keydown',e=>{ if(!cookR) return; if(e.key==='ArrowRig
 
 /* ── ④ already have it (kept week to week, by the ingredient's words) ── */
 function homeKey(x){ return x.key||norm(String(x.text||'')); }
-function atHome(x){ const k=homeKey(x); return !!(k&&db.pantry&&db.pantry[k]); }
+function pantryHit(k){ const P=db.pantry||{}; if(P[k]) return true; const s=sing(k); return Object.keys(P).some(p=>P[p]&&sing(p)===s); }
+function atHome(x){ const k=homeKey(x); return !!(k&&pantryHit(k)); }
 function pantryClearHTML(){ const n=Object.keys(db.pantry||{}).length; return n?`<button type="button" class="ghost" data-act="pantry-clear" style="width:100%;margin-top:10px">Clear “already have it” (${n})</button>`:''; }
-function setHome(kind,id,on){ const arr=kind==='s'?db.shop:db.extras; const o=arr.find(x=>x.id===id); if(!o) return; const k=homeKey(o); if(!k) return; db.pantry=db.pantry||{}; if(on){ db.pantry[k]=1; o.done=false; } else delete db.pantry[k]; save(); renderShop(); hostLine(); }
+function setHome(kind,id,on){ const arr=kind==='s'?db.shop:db.extras; const o=arr.find(x=>x.id===id); if(!o) return; const k=homeKey(o); if(!k) return; db.pantry=db.pantry||{}; if(on){ db.pantry[k]=1; o.done=false; } else { const s=sing(k); Object.keys(db.pantry).forEach(p=>{ if(p===k||sing(p)===s) delete db.pantry[p]; }); } save(); renderShop(); hostLine(); }
 
 /* ── ⑤ bring your dinners over: read pasted recipes on the phone ── */
 const IMP={ ing:/^(ingredients?|what you.{0,3}ll need|you.{0,3}ll need|shopping list)\b[^a-z0-9]{0,3}(\(.{0,40}\)|for .{0,30}|\d+\s*(servings?|people|portions?))?\s*[:.\-–—]?\s*$/i,
@@ -2758,6 +2795,8 @@ document.addEventListener('click',function(e){ const b=e.target&&e.target.closes
   else if(a==='shop-rm-ticked') rmTicked();
   else if(a==='shop-clear') clearShop();
   else if(a==='rec-del') delRecipe(D('r'));
+  else if(a==='made-less') madeLess(D('r'));
+  else if(a==='edit-ask') editAsk(D('w'));
   else if(a==='clear-menu') openClearMenu();
   else if(a==='clr'){ closeClearMenu(); clearWhat(D('w')); }
   else if(a==='clr-close') closeClearMenu();
