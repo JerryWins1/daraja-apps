@@ -336,6 +336,88 @@
     return { races: allRaces, perRace, slots: allRaces * perRace, rows };
   }
 
+  /* --------------------- who to run, race by race, to the end ---------------------
+     Given what each driver has actually been worth in THIS league's points this season,
+     and how many drives each has left, work out the best weekend-by-weekend allocation.
+     Two things make it more than "run your best two every time": drives run out, and a
+     sprint weekend scores more than a normal one, so the good drivers belong there.
+     It knows nothing about which circuit suits which car — that is a judgement, and it
+     is exactly what the briefing hands to a human or an AI. */
+  function seasonAllocate(o) {
+    const races = (o.racesLeft || []).slice();
+    const perRace = o.perRace || 2;
+    const roster = (o.roster || []).slice();
+    const form = o.form || {};
+    const rem = o.remaining || {};
+    const val = (d, r) => {
+      const f = form[d] || {};
+      const v = r && r.sprint && f.sprint != null ? f.sprint : f.normal;
+      return +v || 0;
+    };
+    const start = {}; roster.forEach(d => start[d] = Math.max(0, +rem[d] || 0));
+    const wild = Math.max(0, +rem._wild || 0);
+    const weight = r => roster.length ? roster.reduce((a, d) => a + val(d, r), 0) / roster.length : 0;
+
+    // Fill the most valuable weekends first — but a driver can only run ONCE in a race, so
+    // spending the scarce drivers early can leave one man trying to cover two slots. Before
+    // taking a driver, check the weekends still to come can all be filled without him:
+    // every remaining weekend needs perRace DIFFERENT drivers, so what is left has to satisfy
+    // sum over drivers of min(drives left, weekends left) >= perRace * weekends left.
+    function allocate(skipIndex) {
+      const left = Object.assign({}, start);
+      const order = races.map((r, i) => ({ r, i, w: weight(r) }))
+        .filter(x => x.i !== skipIndex)
+        .sort((a, b) => b.w - a.w || a.i - b.i);
+      const chosenBy = {};
+      order.forEach(({ r, i }, n) => {
+        const after = order.length - n - 1;                       // weekends still to come after this one
+        const capacity = () => roster.reduce((a, d) => a + Math.min(left[d], after), 0);
+        const take = [];
+        roster.filter(d => left[d] > 0)
+          .sort((a, b) => val(b, r) - val(a, r) || (left[b] - left[a]) || String(a).localeCompare(String(b)))
+          .forEach(d => {
+            if (take.length >= perRace || left[d] <= 0) return;
+            // If the weekends to come already cannot all be filled, holding a driver back saves
+            // nothing — take the points now rather than leaving this weekend short as well.
+            const doomed = capacity() < perRace * after;
+            left[d]--;
+            if (doomed || capacity() >= perRace * after) take.push(d);   // still fillable to the end
+            else left[d]++;                                              // he is needed later; leave him
+          });
+        chosenBy[i] = take;
+      });
+      const plan = races.map((r, i) => {
+        if (i === skipIndex) {
+          const all = roster.filter(d => start[d] > 0);
+          return { race: r, sprint: !!r.sprint, drivers: all, wildcard: true, short: 0,
+            expected: all.reduce((a, d) => a + val(d, r), 0) };
+        }
+        const ds = chosenBy[i] || [];
+        return { race: r, sprint: !!r.sprint, drivers: ds, wildcard: false,
+          expected: ds.reduce((a, d) => a + val(d, r), 0), short: Math.max(0, perRace - ds.length) };
+      });
+      const unspent = roster.reduce((a, d) => a + left[d], 0);
+      return { plan, unspent, total: plan.reduce((a, p) => a + p.expected, 0),
+        leftAfter: roster.map(d => ({ id: d, left: left[d] })).filter(x => x.left > 0) };
+    }
+
+    const base = allocate(-1);
+    // A wild card runs everybody and uses no drives, so the two drives it saves get spent
+    // somewhere else. The only honest way to price that is to lay the whole season out again
+    // with the card on each weekend in turn and see which total comes out highest.
+    let wc = null, best = base;
+    if (wild) {
+      races.forEach((r, i) => {
+        const trial = allocate(i);
+        if (trial.total > best.total + 1e-9) { best = trial; wc = { index: i, race: r,
+          gain: Math.round((trial.total - base.total) * 10) / 10, cards: wild }; }
+      });
+    }
+    const out = wc ? best : base;
+    return { plan: out.plan, wildcard: wc, unspent: out.unspent,
+      total: Math.round(out.total * 10) / 10, leftAfter: out.leftAfter, perRace, roster };
+  }
+
   // The whole picture in plain words, for pasting into a chat. Everything the app
   // knows and nothing it doesn't: no guesses about pace, tracks or form.
   function seasonBrief(o) {
@@ -374,8 +456,34 @@
       else L.push('  So: an exact fit — nothing wasted, nothing short.');
       L.push('');
     });
+    if (o.allocation && o.allocation.plan && o.allocation.plan.length) {
+      const src = (o.formRows || []).length ? ((o.formRows[0] || {}).source || 'scored') : 'scored';
+      L.push('MY BEST RUNNING ORDER BY THE NUMBERS ALONE');
+      L.push(src === 'standings'
+        ? '  Ranked by where each of my drivers sits in the real championship, converted into this'
+        : '  Worked out from what each of my drivers has actually scored in this league this season,');
+      L.push(src === 'standings'
+        ? "  league's points. The app has scored no race of its own since the starting point, so this"
+        : '  spreading the drives so no weekend is left short. It knows nothing about circuits.');
+      if (src === 'standings') L.push('  is a standing, not form. It knows nothing about circuits either.');
+      o.allocation.plan.forEach(p => L.push('  ' + p.race.name + (p.race.sprint ? ' (sprint)' : '') + ': ' +
+        (p.wildcard ? 'WILD CARD, all four' : (p.drivers.map(nm).join(' + ') || 'nobody left'))));
+      if (o.allocation.wildcard) L.push('  Wild card best spent at: ' + o.allocation.wildcard.race.name);
+      L.push('');
+      L.push(src === 'standings'
+        ? "DRIVER FORM (what each driver is worth in this league's points at his championship position)"
+        : 'DRIVER FORM (average league points per weekend, from races the app has scored)');
+      (o.formRows || []).forEach(r => L.push('  ' + r.name + ': ' + r.normal + ' a weekend' +
+        (r.sprint && r.sprint !== r.normal ? ', ' + r.sprint + ' on a sprint weekend' : '') +
+        (r.races ? '  (over ' + r.races + ' races the app scored)'
+                 : (r.champPos ? '  (championship position ' + r.champPos + ')' : '  (no data — treat as unknown)'))));
+      L.push('');
+    }
+    const hasOrder = !!(o.allocation && o.allocation.plan && o.allocation.plan.length);
     L.push('WHAT I WANT FROM YOU');
-    L.push('1. Race by race, which drivers should I run, and why? Say where my hands are tied by the arithmetic and where I actually have a choice.');
+    L.push(hasOrder
+      ? '1. Take the running order above and change it where a circuit suits a car. That is the one thing the numbers cannot see. Tell me which swaps you would make and why.'
+      : '1. Race by race, which drivers should I run, and why? Say where my hands are tied by the arithmetic and where I actually have a choice.');
     L.push('2. Which races should I save my best drivers for, and which are worth spending a weak driver on?');
     if (plan.rows.some(r => r.id === o.me && r.wild)) L.push('3. Which race should I use my wild card on?');
     L.push((plan.rows.some(r => r.id === o.me && r.wild) ? '4' : '3') + '. Can I still catch the leader? If not, who can I realistically finish above?');
@@ -384,5 +492,5 @@
     return L.join('\n');
   }
 
-  return { snakeOrder, draftTurn, draftTaken, draftCheck, draftRosters, formatDraftOrder, formatDraftResult, DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs, seasonPlan, seasonBrief };
+  return { snakeOrder, draftTurn, draftTaken, draftCheck, draftRosters, formatDraftOrder, formatDraftResult, DEFAULT_SCORING, suggestDrives, racePlacePoints, rowPoints, scoreLineup, usage, remaining, autoDraft, deadlineFor, fridayBefore, formatPost, formatUsage, ordinalList, deepMerge, mergeStream, liveBoard, fastestOf, lapToMs, seasonPlan, seasonBrief, seasonAllocate };
 });
