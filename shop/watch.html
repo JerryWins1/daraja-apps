@@ -2223,7 +2223,7 @@
   <button class="cbtn" id="sndBtn" onclick="toggleSound()">🔊 Sound on</button>
 </div>
 <div id="vidHub" style="display:none"></div>
-<div id="ver">Daraja Store video player v3.3 · 2026-10-21 — the membership each app comes with under its name (no old one-time prices); “Back to the store” returns to the store you came from · v3.2 · 2026-10-10 — 🎬 every video for this app in one row (2 minutes · Explain it to me · step by step), and a Next video button at the end; the first line's scene now runs once the app has loaded · ?mode=explain plays the Kenya Student Test Week explainers (kenya/&lt;app&gt;.json) · v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
+<div id="ver">Daraja Store video player v3.4 · 2026-10-22 — a video left open in another tab no longer puts its example person (Porchlight’s “Margaret”) into the real app · v3.3 · 2026-10-21 — the membership each app comes with under its name (no old one-time prices); “Back to the store” returns to the store you came from · v3.2 · 2026-10-10 — 🎬 every video for this app in one row (2 minutes · Explain it to me · step by step), and a Next video button at the end; the first line's scene now runs once the app has loaded · ?mode=explain plays the Kenya Student Test Week explainers (kenya/&lt;app&gt;.json) · v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
 
 <script>document.write('<scr'+'ipt src="apps_data.js?v='+Date.now()+'"></scr'+'ipt>')</script>
 <script>
@@ -2455,7 +2455,38 @@ function play(){
 function lineText(l){ return typeof l==='string' ? l : l.t; }
 /* 7 Oct: a training can show the screens a new user has not unlocked yet (One Thing / Ahead of It levels).
    tourSet() changes a setting for the tour only and remembers the old value; tourPut() puts every one back. */
-window.tourSet=function(k,v){ try{ const m=JSON.parse(sessionStorage.getItem('__djTourKeep')||'{}'); if(!(k in m)) m[k]=localStorage.getItem(k); sessionStorage.setItem('__djTourKeep',JSON.stringify(m)); localStorage.setItem(k,v); }catch(e){} };
+/* v3.4 (22 Oct, Kenya tester Shamsuddin): tourSet wrote the tour's setting (Porchlight: the whole example person "Margaret")
+   into the REAL saved data and only put it back when the video ended or this tab closed. The Kenya page opens the video in
+   its own tab and the app for the steps in another, so with the video tab still open (paused, half way, or just left behind)
+   Porchlight opened as Margaret, already set up, and steps 1–12 failed — and closing the video tab later wiped whatever the
+   tester had done meanwhile. Now the tour's values live only in the app window inside this player (a layer over its
+   localStorage, gone when that window reloads or closes); the real saved data is never written. The old copy-and-put-back
+   is kept only for a browser that refuses the layer. */
+function tourLayer(w){
+  try{
+    if(w.__djTourMem) return w.__djTourMem;
+    const base=w.localStorage, mem=Object.create(null), has=function(k){ return Object.prototype.hasOwnProperty.call(mem, String(k)); };
+    const api={ getItem:function(k){ return has(k) ? mem[String(k)] : base.getItem(k); },
+      setItem:function(k, v){ if(has(k)) mem[String(k)]=String(v); else base.setItem(k, v); },
+      removeItem:function(k){ if(has(k)) mem[String(k)]=null; else base.removeItem(k); },
+      clear:function(){ Object.keys(mem).forEach(function(k){ mem[k]=null; }); base.clear(); },
+      key:function(n){ return base.key(n); } };
+    const fake=new Proxy({}, {
+      get:function(t, p){ if(p==='length') return base.length; if(Object.prototype.hasOwnProperty.call(api, p)) return api[p]; if(typeof p==='string'){ const v=api.getItem(p); return v===null ? undefined : v; } return undefined; },
+      set:function(t, p, v){ api.setItem(p, v); return true; }, deleteProperty:function(t, p){ api.removeItem(p); return true; },
+      has:function(t, p){ return Object.prototype.hasOwnProperty.call(api, p) || p==='length' || api.getItem(p)!==null; },
+      ownKeys:function(){ const ks=[]; for(let i=0;i<base.length;i++){ const k=base.key(i); if(k!=null) ks.push(k); } return ks; },
+      getOwnPropertyDescriptor:function(t, p){ const v=api.getItem(p); return v===null ? undefined : { value:v, enumerable:true, configurable:true, writable:true }; } });
+    Object.defineProperty(w, 'localStorage', { configurable:true, get:function(){ return fake; } });
+    if(w.localStorage!==fake) return null;
+    w.__djTourMem=mem; return mem;
+  }catch(e){ return null; }
+}
+window.tourSet=function(k,v){
+  try{ const fr=$('appFrame'), wins=[]; if(fr && fr.contentWindow) wins.push(fr.contentWindow); else for(let i=0;i<window.frames.length;i++) wins.push(window.frames[i]);
+    let ok=wins.length>0; wins.forEach(function(w){ const mem=tourLayer(w); if(mem) mem[String(k)]=String(v); else ok=false; });
+    if(ok) return; }catch(e){}
+  try{ const m=JSON.parse(sessionStorage.getItem('__djTourKeep')||'{}'); if(!(k in m)) m[k]=localStorage.getItem(k); sessionStorage.setItem('__djTourKeep',JSON.stringify(m)); localStorage.setItem(k,v); }catch(e){} };
 window.tourPut=function(){ try{ const m=JSON.parse(sessionStorage.getItem('__djTourKeep')||'null'); if(!m) return; Object.keys(m).forEach(function(k){ if(m[k]==null) localStorage.removeItem(k); else localStorage.setItem(k,m[k]); }); sessionStorage.removeItem('__djTourKeep'); }catch(e){} };
 tourPut(); window.addEventListener('pagehide', tourPut);
 let pointDot=null, pointTmr=null;
