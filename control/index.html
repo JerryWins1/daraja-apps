@@ -2159,6 +2159,13 @@
   .badge{ font-size:11px; font-weight:800; padding:2px 7px; border-radius:999px; background:var(--gold); color:#221; margin-left:6px; }
   textarea,input,select{ width:100%; font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg); color:var(--ink); }
   textarea{ min-height:110px; }
+  .tk{ text-align:center; } .tk textarea, .tk select, .tk label{ text-align:left; }
+  .tkmic{ font:inherit; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:150px; height:150px; border-radius:50%; border:none; background:var(--now); color:#fff; cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.18); margin:6px auto 4px; }
+  .tkmic span:first-child{ font-size:52px; line-height:1; } .tkmic span:last-child{ font-size:14px; font-weight:800; padding:0 10px; }
+  .tkmic.on{ background:var(--warn); animation:tkpulse 1.4s ease-in-out infinite; }
+  @keyframes tkpulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(217,108,79,.55);} 50%{ box-shadow:0 0 0 18px rgba(217,108,79,0);} }
+  @media (prefers-reduced-motion:reduce){ .tkmic.on{ animation:none; } }
+  .tkst{ min-height:2.6em; margin:6px 0 10px; font-size:15px; }
   .chshots{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; } .chshots:empty{ display:none; }
   .chshot{ position:relative; display:inline-block; } .chshot img{ height:72px; max-width:140px; object-fit:cover; border-radius:10px; border:1px solid var(--line); display:block; }
   .chshot button{ position:absolute; top:-8px; right:-8px; width:28px; height:28px; border-radius:50%; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:13px; cursor:pointer; padding:0; } label{ display:block; font-size:13px; font-weight:800; color:var(--soft); margin:10px 0 4px; }
@@ -2208,6 +2215,7 @@
   <div id="app" hidden>
     <nav id="tabs">
       <button data-t="chats">💬 Chats<span class="n" id="nChats" hidden></span></button>
+      <button data-t="talk">🎤 Talk</button>
       <button data-t="today">Today<span class="n" id="nToday" hidden></span></button>
       <button data-t="list">📋 Jerry's List</button>
       <button data-t="where">🗂 Where</button>
@@ -2224,6 +2232,20 @@
       <div class="chbar" id="chFilter"></div>
       <div id="chStale"></div>
       <div id="chList"></div>
+    </section>
+
+    <!-- TALK (v1.44, 23 Oct 2026): Jerry: "build a real Talk page in HQ: tap, speak, words go straight to Claude." -->
+    <section class="tab" id="t-talk">
+      <div class="card tk">
+        <button id="tkMic" class="tkmic" type="button" onclick="tkToggle()" aria-label="Tap and talk"><span id="tkIco">🎤</span><span id="tkLbl">Tap and talk</span></button>
+        <p class="muted tkst" id="tkState">Tap the microphone, say what you want, tap again to stop.</p>
+        <textarea id="tkText" rows="4" placeholder="Your words show up here. You can fix them before sending. Return sends." onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){ event.preventDefault(); tkSend(); }"></textarea>
+        <label for="tkTo">Send it to</label>
+        <select id="tkTo" onchange="store('jhq_talk_to',this.value)"></select>
+        <div class="chips" style="margin-top:10px"><button class="chip main" style="flex:1;justify-content:center;min-height:52px;font-size:17px" onclick="tkSend()">Send to Claude</button><button class="chip" onclick="tkClear()">Clear</button></div>
+      </div>
+      <h2>Sent from here <small id="tkCount"></small></h2>
+      <div class="card" id="tkList"></div>
     </section>
 
     <!-- TODAY -->
@@ -2339,7 +2361,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.43 · 2026-10-23 · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.44 · 2026-10-23 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2460,6 +2482,65 @@ async function renderInvest(){
   els.forEach(el=>el.innerHTML=html);
 }
 
+/* ---------- 🎤 Talk (v1.44) ----------
+   Three ways to hear Jerry, best first:
+   1. inside the Daraja HQ Mac app — the app's own dictation (Apple speech) through webkit messageHandler djTalk;
+   2. Safari / Chrome on the iPhone, iPad or Mac — the browser's speech recognition;
+   3. neither — the box gets focus and the keyboard's own microphone does it.
+   Sending adds to HQ's chat_replies, the same inbox ✉️ Send to Claude uses: to one chat, or to 'inbox'
+   (any Claude chat picks those up on “hand-offs” and does them). */
+const TK={on:false,base:'',rec:null};
+const tkNative=()=>{ try{ return !!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.djTalk); }catch(e){ return false; } };
+const tkWeb=()=>window.SpeechRecognition||window.webkitSpeechRecognition||null;
+function tkSay(t){ const e=$('tkState'); if(e) e.textContent=t; }
+function tkUI(on){ TK.on=on; const b=$('tkMic'); if(!b) return; b.classList.toggle('on',on); $('tkIco').textContent=on?'⏹':'🎤'; $('tkLbl').textContent=on?'Listening… tap to stop':'Tap and talk'; }
+function tkPut(words){ const t=$('tkText'); if(!t) return; t.value=(TK.base?TK.base.replace(/\s+$/,'')+' ':'')+words; }
+/* the Mac app calls these two */
+window.djTalkText=(words,final)=>{ tkPut(words); if(final){ TK.base=$('tkText').value; } };
+window.djTalkState=s=>{
+  if(s==='listening'){ tkUI(true); tkSay('Listening — talk now. Tap ⏹ when you’re done.'); }
+  else if(s==='stopped'){ tkUI(false); tkSay('Got it. Fix anything, then Send (or press Return).'); TK.base=$('tkText').value; }
+  else if(s==='denied'){ tkUI(false); tkSay('The Mac said no to the microphone. System Settings → Privacy & Security → Microphone and Speech Recognition → turn on Daraja HQ.'); }
+  else { tkUI(false); tkSay('The microphone didn’t start. Try again, or use the keyboard’s 🎤.'); }
+};
+function tkToggle(){
+  const t=$('tkText');
+  if(TK.on){ if(tkNative()) window.webkit.messageHandlers.djTalk.postMessage('stop'); else if(TK.rec) try{ TK.rec.stop(); }catch(e){} tkUI(false); return; }
+  TK.base=t.value;
+  if(tkNative()){ tkSay('Starting the microphone…'); window.webkit.messageHandlers.djTalk.postMessage('start'); return; }
+  const SR=tkWeb();
+  if(SR){ const r=new SR(); TK.rec=r; r.lang='en-US'; r.continuous=true; r.interimResults=true;
+    r.onresult=e=>{ let s=''; for(let i=0;i<e.results.length;i++) s+=e.results[i][0].transcript; tkPut(s.trim()); };
+    r.onerror=e=>{ tkUI(false); tkSay(e.error==='not-allowed'||e.error==='service-not-allowed'?'This browser was told no to the microphone. Allow it for this site (the 🎤 or ⓘ by the address), then tap again.':'The microphone stopped ('+e.error+'). Tap to try again.'); };
+    r.onend=()=>{ if(TK.on){ tkUI(false); tkSay('Got it. Fix anything, then Send (or press Return).'); } TK.base=t.value; };
+    try{ r.start(); tkUI(true); tkSay('Listening — talk now. Tap ⏹ when you’re done.'); }catch(e){ tkUI(false); tkSay('The microphone didn’t start: '+e.message); }
+    return; }
+  t.focus(); tkSay(/iPhone|iPad/.test(navigator.userAgent)?'Tap the 🎤 on your keyboard (by the space bar) and talk.':'This window can’t hear you. Press the 🌐 Fn key twice and talk — or open HQ in Safari or Chrome.');
+}
+function tkTargets(){ const S=(chBoard().S||{}).items||[]; return S.filter(r=>r.state==='needs'||r.state==='review'||r.state==='working').slice(0,25); }
+function renderTalk(){
+  const sel=$('tkTo'); if(!sel) return; const keep=store('jhq_talk_to')||'inbox';
+  sel.innerHTML=`<option value="inbox">📥 Claude’s inbox — any chat does it when you say “hand-offs”</option>`+tkTargets().map(r=>`<option value="${esc(r.id)}">💬 ${esc(r.title)}</option>`).join('');
+  sel.value=[...sel.options].some(o=>o.value===keep)?keep:'inbox';
+  const mine=(settingJSON('chat_replies',[])||[]).filter(x=>x.via==='talk').slice(-12).reverse();
+  $('tkCount').textContent=mine.length?pl(mine.length,'message'):'';
+  $('tkList').innerHTML=mine.length?mine.map(x=>`<div class="item"><div><span class="who">${x.chat==='inbox'?'📥 Claude’s inbox':'💬 '+esc(x.title||x.chat)}</span> <span class="meta">${ago(x.at)}</span> <span class="pill">${x.state==='delivered'?'✅ Claude has it':'⏳ waiting for Claude'}</span></div><div class="txt">${esc(x.text)}</div></div>`).join(''):'<p class="muted" style="margin:0">Nothing yet. What you send shows here, and turns ✅ when Claude has it.</p>';
+}
+async function tkSend(){
+  const t=$('tkText'), text=t.value.trim(); if(!text){ toast('Say or type something first',true); return; }
+  if(TK.on) tkToggle();
+  const to=$('tkTo').value||'inbox', item=tkTargets().find(r=>r.id===to);
+  try{
+    let cur=[]; try{ cur=JSON.parse((D&&D.settings&&D.settings.chat_replies)||'[]'); }catch(e){ cur=[]; }
+    cur=cur.filter(x=>x.state!=='delivered'||(Date.now()-new Date(x.at))<7*864e5);
+    cur.push({id:Date.now().toString(36),chat:to,title:to==='inbox'?'🎤 Talk':item?item.title:to,text:text,via:'talk',at:new Date().toISOString(),state:'new'});
+    await hq({action:'settings.set',k:'chat_replies',value:cur});
+    if(D&&D.settings) D.settings.chat_replies=JSON.stringify(cur);
+    t.value=''; TK.base=''; tkSay(to==='inbox'?'✅ Sent. Say “hand-offs” in any Claude chat on the Mac and Claude does it.':'✅ Sent. Claude passes it to that chat.'); renderTalk();
+  }catch(e){ toast(e.message||'That did not go through',true); }
+}
+function tkClear(){ $('tkText').value=''; TK.base=''; tkSay('Tap the microphone, say what you want, tap again to stop.'); }
+
 /* ---------- tabs ---------- */
 function wireTabs(){
   $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-t]'); if(b) show(b.dataset.t); });
@@ -2467,7 +2548,7 @@ function wireTabs(){
 }
 function show(t){
   if(!$('t-'+t)) t='today';
-  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='business'||t==='personal') renderInvest();
+  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
@@ -2485,7 +2566,7 @@ function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h
 
 /* ---------- render ---------- */
 function render(){
-  try{ renderChats(); }catch(e){} renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
+  try{ renderChats(); }catch(e){} try{ renderTalk(); }catch(e){} renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
   const nNew=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
   const nStack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
