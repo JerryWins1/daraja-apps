@@ -1,4 +1,4 @@
-/* Daraja Store — one shared catalog. v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
@@ -50,7 +50,7 @@ const APPS = {
     {"t": "The kit makes a one-page bulletin insert with all twenty-four readings, ready to print, and a Sunday announcement to copy. Nothing in the kit is sent anywhere.", "point": "#insertPreview", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{openChurch();}catch(e){}"},
     {"t": "At the bottom is Settings. Bigger type makes the words larger. Preview mode, for pastors and teachers, opens every door now so you can read ahead. Stars still only come on the real day.", "point": "#settings", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{var s=document.getElementById('settings');s.open=true;s.scrollIntoView({block:'center'});}catch(e){}"},
     {"t": "How to start: try the Day 1 sample, type your family's names, and if you lead a church, open the church kit. Then come back on the first of December.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"},
-    {"t": "Everything stays on this phone. There is no account, and nothing to sign up for. Advent Together is seven dollars for a family, or forty-nine dollars for a whole church.", "point": ".foot", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,99999);"},
+    {"t": "Everything stays on this phone. There is no account, and nothing to sign up for. Advent Together comes with the Family membership, or the Church membership for a whole church.", "point": ".foot", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,99999);"},
     {"t": "And when you open the app itself, the question mark button in the bottom corner has the tour and help any time.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} "}]} },
   train:[
    {"t": "Getting Advent Together ready takes a few minutes, and you can do it any time before December.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"},
@@ -76,7 +76,7 @@ const APPS = {
    {"t": "For churches, the church kit prints a one-page bulletin insert with all twenty-four days, and gives you a Sunday announcement to read out.", "point": "#insertPreview", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{openChurch();}catch(e){}"},
    {"t": "Pastors and teachers can turn on Preview mode in Settings, to read every door ahead of time.", "point": "#settings", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{var s=document.getElementById('settings');s.open=true;s.scrollIntoView({block:'center'});}catch(e){}"},
    {"t": "Everything stays on this phone. No account, nothing to sign up for. The verses are from the King James Bible.", "point": ".foot", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,99999);"},
-   {"t": "Advent Together is seven dollars for a family, or forty-nine dollars for a whole church. Try the Day 1 sample below. And every app helps a student in Kenya stay in school.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"}],
+   {"t": "Advent Together comes with the Family membership, and a whole church gets it with the Church membership. Founding members get their first year free. Try the Day 1 sample below. Any profit helps orphans and students in Kenya.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"}],
   name:'Advent Together', em:'🕯️', sub:'24 days to Christmas: one prayer, one reading, one small thing to do together', fresh:true, cat:'church', mem:'Family membership · churches: Church membership', price:'$7 a family · $49 a whole church', testing:true,
   tag:'24 days to Christmas: one prayer, one reading, one small thing to do together',
   try:BASE+'advent/', video:true
@@ -97,7 +97,7 @@ const APPS = {
   try:BASE+'feedback-studio/?app='+encodeURIComponent(BASE+'ourtable/'),
   lines:[
    "Hello, and thank you for testing. In the next three minutes you will watch one whole test, start to finish. Then you do the same.",
-   "First, what this is. Daraja Studio makes small phone apps for households, churches and later life. One price, no subscription, no account. Your information stays on your phone.",
+   "First, what this is. Daraja Studio makes small phone apps for households, churches and later life. One small yearly membership, no account, no ads. Your information stays on your phone.",
    "You are not being tested. The app is. If something confuses you, that is the app's fault, and that is exactly what we need to hear.",
    {t:"Here is the trick that makes it easy. Every app opens inside a wrapper called Feedback Studio. The app is in the middle. The tools are around it. Every tap you make is written down for us, so you never have to remember what you did.", point:"#appframe"},
    {t:"Watch me do a short test. This app is Our Table. It plans a week of dinners. I will just use it, the way I would at home.", js:"try{sessionStorage.setItem('__djDemo',JSON.stringify({o:localStorage.getItem('dj_ourtable_v1'),f:localStorage.getItem('feedback_studio_v1')}));document.getElementById('appframe').contentWindow.go('week')}catch(e){}"},
@@ -318,7 +318,7 @@ const APPS = {
     {"t": "The round calendar button opens Our Week. Type the family's week, tap Spread the week for me, then Send to everyone's lists.", "js": "try{go('today');var b=document.getElementById('wkBtn');if(b)b.click();}catch(e){}", "point": "#wkText"},
     {"t": "To start: add yourself, load one routine, and add one small thing. Then tap Start on the Now card, and finish it. That is your first two minutes.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#nowCard"},
     "Everything stays on this phone. No account, no adverts, and it works with no signal.",
-    "One Thing is four ninety-nine, once. The profits help students in Kenya stay in school.",
+    "One Thing comes with the Family membership. Any profit helps orphans and students in Kenya.",
     {"t": "The round question mark button in the corner has the tour, help and settings, any time.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Let's set up One Thing. Five minutes, then it runs your mornings.", "keep": ".modewrap.show"},
@@ -346,7 +346,7 @@ const APPS = {
    {"t": "You can make it yours: your own family photo as the background, and three different looks — including a points-and-levels one that teenagers actually like.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#r7Pills"},
    {"t": "Once a week it can also go looking for gentle things to do near you — the open gym, the beginner chess night. It uses a grown-up's A.I. to find them. No feed, no pressure.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('wins');window.scrollTo(0,0)}catch(e){};setTimeout(function(){try{var h=document.getElementById('hzCard');if(h)h.scrollIntoView({block:'center'})}catch(e){}},300)", "point": "#hzCard"},
    {"t": "Every new part of it explains itself the first time you touch it, in plain words, out loud if you like.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}"},
-   "Four ninety-nine, once. No account, no adverts, it works with no signal, and your list stays on your phone. Try the whole thing right now with the button below."],
+   "It comes with the Family membership, and founding members get their first year free. No account, no adverts, it works with no signal, and your list stays on your phone. Try the whole thing right now with the button below."],
   buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
   name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'home', mem:'Family membership', price:'$4.99', testing:true,
   tag:'Your whole list is in there — it just shows one step at a time, so the day stops looking like a pile. For kids and grown-ups whose brains run fast.',
@@ -378,7 +378,7 @@ const APPS = {
     {"t": "The Hand-off tab is the list someone else would need if you were ever not around. Copy it into a note or an email, or print it. Save a backup file here too.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('more');window.scrollTo(0,0)}catch(e){}", "point": "#v-more .card"},
     {"t": "Here is how to start. Tap Quick setup, tick three real things from your own house, and save. Then look at the Next page. That is your first two minutes.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
     "Everything stays on this phone. There is no account and no bank login, and nothing is sent anywhere.",
-    "Ahead of It is nine dollars, once. The profits help students in Kenya stay in school.",
+    "Ahead of It comes with the Family membership. Any profit helps orphans and students in Kenya.",
     {"t": "The round question mark button in the corner has the tour, help and settings, any time.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Setting up Ahead of It takes about five minutes, once. Then nothing catches you off guard again.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ahead')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('dj_level_ahead',JSON.stringify(s));}catch(e){} try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
@@ -404,7 +404,7 @@ const APPS = {
    {"t": "And it can add every date to your phone's calendar in one go, so they sit right beside the rest of your week.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('year');window.scrollTo(0,0)}catch(e){}", "point": "#v-year .row"},
    {"t": "And there is a hand-off list, so if you are ever not the one carrying the household, somebody else can pick it up without detective work.", "js": "try{go('more')}catch(e){}", "point": "nav button[data-v='more']"},
    {"t": "Nothing catches you off guard. No late fees, no lapsed insurance, no 'I thought you renewed it.'", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
-   "Nine dollars, once. Try it below — put three real things from your own house in and see how it feels."],
+   "It comes with the Family membership. Try it below — put three real things from your own house in and see how it feels."],
   name:'Ahead of It', em:'🧾', sub:'never miss a deadline', fresh:true, cat:'home', mem:'Family membership', price:'$9', testing:true,
   tag:'Taxes, renewals, insurance, the dog’s shots: every date that costs money if you miss it, on one calm page, with the next 30 days always in view. No bank login, ever.',
   try:A+'ahead/', video:true,
@@ -437,7 +437,7 @@ const APPS = {
     "Add one real project and write its next step. Delete the examples with the red X when you are ready.",
     "Then the habit. Every morning, read down the board and do the next steps that are yours.",
     {"t": "Your board saves on this phone by itself. No account, nothing to sign up for, and it works without internet. Tap Backup once a week to keep a copy.", "point": ".foot button[onclick='exportJSON()']"},
-    "Next Step Board is nine dollars, once. No subscription.",
+    "Next Step Board comes with the Business membership.",
     {"t": "And the question mark button in the corner has the tour and help any time you need them.", "point": "#djDockToggle", "js": "try{ window.scrollTo(0,0); }catch(e){}"}]} },
   name:'Next Step Board', em:'🗂', sub:'every project\'s next move', fresh:true, cat:'work', mem:'Comes with the Business membership', price:'$9', testing:true,
   tag:'Every project, its next step, whose turn — one screen',
@@ -458,7 +458,7 @@ const APPS = {
    "Add a task in one tap, send a date to your calendar in one tap.",
    "Sit down with your coffee, open the board, and go down the list — business person or household manager, it's the same relief.",
    "The benefit: nothing stalls, nothing gets forgotten, and you always know what to do next.",
-   "Nine dollars, once. No subscription, no account, works offline.",
+   "It comes with the Business membership. No account, and it works offline.",
    "Try it below — put your three real projects in and watch your morning get simpler."]},
  breakeven: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -590,7 +590,7 @@ const APPS = {
     {"t": "How to start, in your first two minutes. Tap a quick pick, press the red button, and say one thing you notice. Then open Comments and see it written down with its time.", "point": "#quickList", "js": "try{ if(document.body.classList.contains('fsSideOn')) document.getElementById('fsSideBtn').click(); window.scrollTo(0,0); }catch(e){}"},
     "A good comment is short and specific. Not, this is bad. Better: I did not understand the word variable in the second box.",
     "Your comments stay on your device until you clear them. If you come back later, it asks whether to keep adding or start fresh. There is no account.",
-    "Feedback Studio is twelve dollars, once.",
+    "Feedback Studio is the tool my testers use to tell me what they find.",
     "That is all you need. Open an app, talk while you use it, and let the report do the remembering."]} },
   train:[
    {"t": "Using Feedback Studio for the first time. Here is the whole routine. It works on a phone or a computer.", "js": "try{ var af=document.getElementById('appframe'); if(af && af.style.display==='none' && !document.getElementById('vidWel')){ var w=document.createElement('style'); w.id='vidWel'; w.textContent='#welcome{display:flex!important}'; document.head.appendChild(w); } }catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djStart,#djTip{display:none!important}'; document.head.appendChild(s); } }catch(e){} try{ if(document.body.classList.contains('fsSideOn')) document.getElementById('fsSideBtn').click(); }catch(e){}"},
@@ -614,7 +614,7 @@ const APPS = {
    "Copy it or download it, and hand it to whoever is fixing the app. It works with any of them.",
    {"t": "The benefit: honest feedback in five minutes, instead of a meeting nobody schedules. One session can save a week of guessing.", "js": "try{ if(document.body.classList.contains('fsSideOn')) document.getElementById('fsSideBtn').click(); }catch(e){}"},
    "Your comments stay on your own device. There is no account to make.",
-   "Twelve dollars, once. If you build anything, it pays for itself the first afternoon.",
+   "If you build anything, it saves you an afternoon of notes.",
    "Try it below, on any app you like."],
   name:'Feedback Studio', em:'🎙', sub:'talk while you test', cat:'work', mem:'Comes with the Business membership', price:'$12', testing:true,
   tag:'Use an app, talk out loud — your voice becomes the builder\'s to-do list',
@@ -709,7 +709,7 @@ const APPS = {
     {"t": "Finish all six, and this card opens your diploma, with your name and the date, ready to print.", "point": ".lcard.grad"},
     "Your first ten minutes: type your first name, tap Start lesson one, and go page by page. You'll finish having asked an A I your very first question.",
     "Privacy: everything stays on this device. No account and no password. Nothing you type is sent anywhere, unless you choose to take your question to ChatGPT or Claude yourself.",
-    {"t": "The price: lesson one is free, and the whole course is nineteen dollars.", "point": "#stage > p.soft"},
+    {"t": "The price: lesson one is free, and the whole course comes with the Family membership.", "point": "#stage > p.soft"},
     {"t": "And the question mark button in the corner has the tour, bigger text and help, any time.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Taking a Daraja Academy lesson. Here's all there is to it.", "point": "#top", "js": "try{ if(!window.__acSave){ window.__acSave=save; save=function(){}; } try{ voiceOn=false; }catch(e){} if(window.speechSynthesis) speechSynthesis.cancel(); home(); window.scrollTo(0,0); }catch(e){}"},
@@ -733,7 +733,7 @@ const APPS = {
    {"t": "And the grandparent safety rule: a real A I helper never calls you and never asks for money. The quiz is a voice that sounds just like your grandson, asking for gift cards.", "point": ".quizBtn", "js": "try{ if(!window.__acSave){ window.__acSave=save; save=function(){}; } try{ voiceOn=false; }catch(e){} if(window.speechSynthesis) speechSynthesis.cancel(); lesson=1; go(6); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Five more lessons follow: Spot the fake, where you practice telling scam messages from real ones. Then Ask it better, Trust but check, Let it write with you, and A I in your pocket.", "point": "#fakeBox", "js": "try{ if(!window.__acSave){ window.__acSave=save; save=function(){}; } try{ voiceOn=false; }catch(e){} if(window.speechSynthesis) speechSynthesis.cancel(); lesson=2; go(3); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Finish all six and you get a diploma with your name on it, ready to print. Send a picture to the grandkids. Frame it.", "point": ".lcard.grad", "js": "try{ if(!window.__acSave){ window.__acSave=save; save=function(){}; } try{ voiceOn=false; }catch(e){} if(window.speechSynthesis) speechSynthesis.cancel(); home(); window.scrollTo(0,0); }catch(e){}"},
-   "Lesson one is free. The full course is nineteen dollars, and it's a beautiful gift for a parent or grandparent.",
+   "Lesson one is free. The full course comes with the Family membership, and it's a beautiful gift for a parent or grandparent.",
    "Try lesson one below. It only takes ten minutes to feel ten years younger."],
   name:'Daraja Academy', em:'🎓', sub:'six lessons · AI for Grandparents', cat:'later', mem:'Family membership', price:'Lesson 1 free · course $19', testing:true,
   tag:'AI for Grandparents — learn to use AI, the patient way. Why not just open ChatGPT? Because nobody shows you how. This does: big print, one step at a time, out loud.',
@@ -792,7 +792,7 @@ const APPS = {
   tag:'One page that tells your family where everything lives',
   },
  occ: {
-  name:'OCC Box Counter', em:'📦', sub:'count what\'s ready', cat:'off', off:'absorbed — OCC Assistant is the same app, and this free twin competed with it', mem:'Church membership', price:'Free', testing:false,
+  name:'OCC Box Counter', em:'📦', sub:'count what\'s ready', cat:'off', off:'absorbed — Shoebox Counter is the same app, and this free twin competed with it', mem:'Church membership', price:'Free', testing:false,
   tag:'Shoebox-packing inventory — how many boxes can we build?',
   try:A+'occ/', video:true,
   train:[
@@ -803,11 +803,11 @@ const APPS = {
    "Step four: as you pack, count down. When it says you're short on washcloths — that's your shopping list.",
    "You'll know it's working when the dashboard says READY TO BUILD and a number. That number is the whole answer."],
   lines:[
-   "This is the OCC Box Counter — free, for shoebox-packing teams.",
+   "This is the Box Counter — free, for shoebox-packing teams.",
    "The problem: a table full of soap, toothbrushes, and toys — and no idea how many complete boxes you can actually build.",
    "How it works: count your items with big plus and minus buttons. Mark what goes in every box.",
    "The dashboard answers the only question that matters: 'READY TO BUILD: this many boxes' — and exactly what you're short on.",
-   "Made for Operation Christmas Child packing parties, church tables, and garage inventories.",
+   "Made for shoebox packing parties, church tables, and garage inventories.",
    "It's free. Try it below — your next packing day will thank you."]},
  zuri: {
   name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'off', off:'private — the tool for running the ISP in Maai Mahiu, not for sale', price:'Ask us', testing:false,
@@ -917,7 +917,7 @@ const APPS = {
     "How to start, in your first two minutes. Fill in the five questions for one real event. Then tap Show me a finished example first, so you know what you are about to get.",
     "When you are ready, copy the prompt into your A.I., paste the answer back, and put the pieces on your calendar.",
     "Everything stays on this phone. There are no accounts and no mailing service to sign up for.",
-    "Message Assistant is nineteen dollars, one time.",
+    "Message Assistant comes with the Business membership.",
     {"t": "And the question mark button in the corner has the tour and help any time you need them.", "point": "#djDockToggle", "js": "try{ window.scrollTo(0,0); }catch(e){}"}]} },
   train:[
    "Using Message Assistant. Ten minutes, and your whole campaign is planned.",
@@ -942,7 +942,7 @@ const APPS = {
    "It lays them out day by day, so you can see the drumbeat build — the announcement, the reminder, the day-before nudge, the thank you.",
    "Download the calendar file and your phone buzzes when each piece is due. Open Message Assistant, tap the piece, and fire it.",
    "And here is the part that matters: nothing sends itself. It goes from your own email, your own Messages, your own account — so there is no mailing service to sign up for and no monthly bill. Message Assistant plans and writes; you press send.",
-   "Nineteen dollars, once. Try it below."]},
+   "It comes with the Business membership. Try it below."]},
 
 
  /* ── TEMPLATES & PLANS — the things you download rather than open.
@@ -1153,9 +1153,9 @@ const APPS = {
    "Church HQ hands that job back to you. Everything the congregation sees lives on four simple pages: the basics, this week's news, your people, and your ministries.",
    "Change a service time, type Sunday's announcement, add the new youth leader. Then tap Publish, and every phone in the congregation has it before the sun goes down.",
    "You do not need a website. Plenty of churches have none, and this works exactly the same. Church HQ is where your information lives.",
-   "It publishes through a free mailbox on your own Google account — a five minute setup, once, that belongs to you. No account with us, no monthly fee, nothing that can be taken away.",
+   "It publishes through a free mailbox on your own Google account — a five minute setup, once, that belongs to you. No account with us, and the mailbox stays yours.",
    "And if the person who set it up ever leaves, the passphrase hands the whole thing to the next person in about a minute.",
-   "Twenty-nine dollars, once, for the church that would rather not phone anybody. Try it below."]},
+   "It comes with the Church membership, for the church that would rather not phone anybody. Try it below."]},
  /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1185,7 +1185,7 @@ const APPS = {
     {"t": "How to start: open the app and tap the latest message. On Sunday, open Sermon Notes and tap Record. That is your first two minutes.", "js": "try{ go('home'); }catch(e){}", "point": "#heroBtn"},
     "The church office has a simple update page and a key. Post Sunday's message, the verses and new events from a phone, and every member sees them. No web designer, no monthly bill.",
     "Members need no account. Notes, recordings and prayer lists stay on each person's own phone.",
-    "The Church App is one hundred forty-nine dollars, once, set up for your church with your own name on it. Profits help students in Kenya stay in school.",
+    "The Church App comes with the Church membership, set up for your church with your own name on it. Any profit helps orphans and students in Kenya.",
     "If you get lost, tap Home at the bottom, and you are back at the start."]} },
   train:[
    {"t": "This is the five-minute training for Sermon Notes in The Church App: how to use it on a Sunday, and what to do with it afterwards.", "js": "try{ go('home'); openSermonNotes(); }catch(e){}"},
@@ -1209,7 +1209,7 @@ const APPS = {
    {t:"Sermon Notes are built right in. Tap record and set the phone on your lap: it records the sermon, writes down the words, and keeps your own notes beside it.", js:"openSermonNotes()", point:"#sn2 [data-a=rec]"},
    {t:"Afterwards it lists every scripture that was mentioned, gives you questions to take home, and with your own AI app, a summary in a minute. Events, prayer requests, giving and your staff page all live in the app too.", js:"(function(){var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click();})()"},
    "And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.",
-   "It is one hundred forty-nine dollars, once, with setup included, and it grows with you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
+   "It comes with the Church membership, priced by the size of your church, and I set it up for you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
   ],
   /* 7 Oct 2026: the 5-minute training — Sermon Notes v2 (record, notes, scriptures, questions, summary, library) */
   },
@@ -1239,7 +1239,7 @@ const APPS = {
     {"t": "Your first two minutes: open Library or Quick setup, tick two or three things your building really has, and put in their real dates.", "js": "try{ if(window.closeSheet) closeSheet(); if(window.closeQS) closeQS(); }catch(e){} try{ document.querySelectorAll('.view').forEach(function(x){ x.classList.toggle('on', x.id==='v-next'); }); document.querySelectorAll('nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.v==='next'); }); window.scrollTo(0,0); }catch(e){}", "point": "#qsBtn"},
     "Then glance at the Next tab once a week. If it says Nothing overdue, you are ahead of it.",
     "Your list stays on this device. There is no account, no cloud, and nothing is sent to anyone.",
-    "Ahead of It, church edition costs twenty-nine dollars, once. No subscription.",
+    "Ahead of It, church edition comes with the Church membership.",
     {"t": "And the round question mark button has the tour and help, any time. Profits help students in Kenya stay in school.", "point": "#djDockToggle"}]} },
   train:[
    "Here is how to set up Ahead of It, church edition, one step at a time.",
@@ -1263,7 +1263,7 @@ const APPS = {
    "Ahead of It gathers every one of those dates onto one calm page, and starts whispering thirty days before anything comes due.",
    "It arrives already loaded with the twenty-four things churches most often forget, so setup is just ticking the ones your building actually has and typing in your real dates.",
    "And here is the part trustees love: when the role changes hands, and it always does, it prints a complete hand-off list, so nothing lives in only one person's head anymore.",
-   "It costs twenty-nine dollars, once, which is a good deal less than one missed inspection fine. Go ahead and try it below."
+   "It comes with the Church membership, and it costs a good deal less than one missed inspection fine. Go ahead and try it below."
   ]},
  churchserve: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1289,7 +1289,7 @@ const APPS = {
     {"t": "Start fresh near the top only clears the names off the board, after asking. Your people and jobs stay.", "point": "button[onclick=\"resetAll()\"]"},
     "How to start? Add three or four people, then fill next Sunday. That is your first two minutes, and the board already looks less empty.",
     "Privacy: everything stays on this phone. There is no account, and nothing is sent unless you send the message yourself.",
-    "Serve Board is nineteen dollars, once. Profits help students in Kenya stay in school.",
+    "Serve Board comes with the Church membership. Any profit helps orphans and students in Kenya.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "This is the training for Serve Board: how to set it up and fill your first month.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "header"},
@@ -1317,15 +1317,15 @@ const APPS = {
    {"t": "Roles and requirements: rename the jobs, add new ones, and note what a job needs, like a background check. That reminder shows every time you fill that slot.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); openRoles(); }catch(e){}", "point": "#svOv input[placeholder^=\"what this role requires\"]"},
    {"t": "And when it is set, print it for the bulletin board, because some of your best volunteers do not do phones, and that is fine.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "button[onclick=\"window.print()\"]"},
    "It lives on your phone, and keeps working without a signal. No account, nothing for your volunteers to sign up for, and no ads.",
-   "Nineteen dollars, once, for every ministry team you have. Try it below."],
+   "It comes with the Church membership, for every ministry team you have. Try it below."],
   name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', mem:'Church membership', price:'$19 one-time', video:true,
   tag:'The month of volunteers on one page. No ads to your volunteers.',
   try:'https://jerrywins1.github.io/daraja-apps/church-serve/',
   },
  churchdrive: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
-    {"t": "This short video explains the Operation Christmas Child Assistant. In about four minutes you will know what it is for and how to use it.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
-    {"t": "First, what is Operation Christmas Child? Each fall, churches fill shoeboxes with small gifts, like a toothbrush, a notebook, pencils and a toy, and the boxes go to children around the world.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
+    {"t": "This short video explains the Shoebox Counter. In about four minutes you will know what it is for and how to use it.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
+    {"t": "First, what is a shoebox drive? Each fall, churches fill shoeboxes with small gifts, like a toothbrush, a notebook, pencils and a toy, and the boxes go to children around the world.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
     {"t": "Now the problem. People bring in bags of crayons, socks and toothbrushes. They pile up in the hallway, and nobody knows how many full boxes that makes, or what to buy next.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
     {"t": "Here is the key idea. A box is only complete if it has one of every important thing. Ninety toothbrushes and four notebooks make four complete boxes, not ninety.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
     "This app counts what comes in, and does that math for you. It works for any collection where you count things: a food drive, a school supplies drive, a coat drive.",
@@ -1347,10 +1347,10 @@ const APPS = {
     {"t": "Next year, tap start a new drive at the very bottom. Counts go to zero, and your item list stays.", "point": ".foot button"},
     "How to start? Set your goal, then count the first bag of donations. That is your first two minutes, and the big number starts to move.",
     "Privacy: your counts stay on this phone. There is no account, and nothing is sent anywhere unless you send the message yourself.",
-    "The Operation Christmas Child Assistant is nineteen dollars, once. Profits help students in Kenya stay in school.",
+    "The Shoebox Counter comes with the Church membership. Any profit helps orphans and students in Kenya.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
-   {"t": "This is the training for the Operation Christmas Child Assistant: how to set up a drive and count what comes in.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
+   {"t": "This is the training for the Shoebox Counter: how to set up a drive and count what comes in.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
    {"t": "Step one: the welcome card. Choose Keep the examples to play with, or Start fresh with my own, for your item list with every count at zero.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
    {"t": "Step two: tap the goal box and type how many boxes your church is aiming for. Everything else measures against it.", "point": "#goal", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
    {"t": "Step three: check the list. Items with a gold EVERY SET tag go in every box, and only those decide the big number.", "point": "#listBox .row .nm", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
@@ -1364,7 +1364,7 @@ const APPS = {
    {"t": "Next year, tap start a new drive at the bottom. Every count goes back to zero, and your item list stays.", "point": ".foot button"},
    {"t": "And the question mark button has help, a backup copy, and the tour, any time.", "point": "#djDockToggle"}],
   lines:[
-   {"t": "This is the Operation Christmas Child Assistant, built for shoebox season, and just as good for a food drive or a coat drive.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
+   {"t": "This is the Shoebox Counter, built for shoebox season, and just as good for a food drive or a coat drive.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
    {"t": "The question that matters is not how much stuff do we have. It is how many complete boxes can we pack and hand out right now?", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
    {"t": "A box needs one of every important thing. Ninety toothbrushes and four notebooks make four complete boxes, not ninety.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
    {"t": "This app does that math live, as donations come in. The big number at the top is complete sets, right now.", "point": "#canN", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){}"},
@@ -1375,8 +1375,8 @@ const APPS = {
    {"t": "And the green button writes the message for you: everything still needed, with the not-allowed list and the drop-off week. Text it, email it, or copy it.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); window.scrollTo(0,0); var p=document.getElementById('occPreview'); if(p && !p.classList.contains('show')) document.getElementById('occShareBtn').click(); }catch(e){}", "point": "#occShareBtn"},
    {"t": "It even adds up the shipping donation for your goal, and counts the days to drop-off week.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); }catch(e){}", "point": ".occFactRow"},
    "Your counts stay on this phone. No account, nothing to sign up for, and it keeps working without a signal in the church basement.",
-   "Nineteen dollars, once, for every drive you will ever run. Try it below."],
-  name:'Operation Christmas Child Assistant', em:'📦', sub:'how many full boxes can we pack?', cat:'church', mem:'Church membership', showName:'Shoebox Counter', price:'$19 one-time', video:true,
+   "It comes with the Church membership, for every drive you will ever run. Try it below."],
+  name:'Shoebox Counter', em:'📦', sub:'how many full boxes can we pack?', cat:'church', mem:'Church membership', showName:'Shoebox Counter', price:'$19 one-time', video:true,
   tag:'Count what’s been donated and it tells you how many complete boxes or kits you can make right now, and what to ask for on Sunday. Works for food and coat drives too.',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   },
@@ -1405,7 +1405,7 @@ const APPS = {
     "Then add it to your Home Screen from the Share button, so it opens like any other app, full screen.",
     "For the leader, keeping it fresh means changing one short block of words each week: the hello, the lesson, the verse, the challenge, and the dates. Everything else draws itself.",
     "Nothing is collected from families. The only thing saved is your child's stars, on your own device.",
-    "The Clubhouse costs twenty-nine dollars, once, for your church. Families pay nothing and sign up for nothing.",
+    "The Clubhouse comes with the Church membership. Families pay nothing and sign up for nothing.",
     {"t": "And the round question mark button has text size, the tour, and help, any time. Profits help students in Kenya stay in school.", "point": "#djDockToggle"}]} },
   train:[
    "Here is how a family uses The Clubhouse, one step at a time.",
@@ -1428,7 +1428,7 @@ const APPS = {
    {"t": "And countdowns show how many days until the fun things coming up, like Trunk or Treat and the Christmas pageant.", "point": ".count"},
    "So when a kid opens it on a Tuesday night, church is still with them, right there in the middle of the week. Kids come back for the stars, and parents know exactly what was taught on Sunday.",
    "Each week the leader changes one short block of words: the hello, the lesson, the verse, the challenge, and the dates. Everything else draws itself.",
-   "It costs twenty-nine dollars, once, for your church, and families sign up for nothing. Safer than social media, warmer than a flyer. Try it below."],
+   "It comes with the Church membership, and families sign up for nothing. Safer than social media, warmer than a flyer. Try it below."],
   name:'The Clubhouse', em:'🏠', sub:'church-to-kids, safely', cat:'church', mem:'Church membership', price:'$29 one-time', video:true,
   tag:'Church-to-kids, one way — no accounts, no chat, no strangers, and no ads to kids or parents',
   try:'https://jerrywins1.github.io/daraja-apps/church-clubhouse/',
@@ -1457,7 +1457,7 @@ const APPS = {
     "Make it a habit: open GameDay before you drive. No red banner means you are playing.",
     "For the league director: you fill in the teams, games, practices, and gym once, in one short block of the app's file. After each game day, you update the wins and losses.",
     "Nothing is collected from families. There are no accounts, no group texts, and no ads to your parents. The schedule still reads without a connection.",
-    "GameDay costs twenty-nine dollars, once, for your league, and it is yours for every season after.",
+    "GameDay comes with the Church membership, for every season of your league.",
     {"t": "And the round question mark button has text size, the tour, and help, any time. Profits help students in Kenya stay in school.", "point": "#djDockToggle"}]} },
   train:[
    "Here is how families and the league director use GameDay, one step at a time.",
@@ -1482,7 +1482,7 @@ const APPS = {
    "Open it before you drive. If there is no red banner, you are playing. That one banner replaces the whole phone tree, forty calls nobody has to make.",
    "The league director sets it up once at the start of the season, and updates the scores after each game day.",
    {"t": "Families never sign up and never type anything. No accounts, no group texts, and no ads to your parents.", "js": "try{ var b=document.getElementById('banner'); if(b && b.getAttribute('data-djx')){ b.textContent=''; b.classList.remove('show'); b.removeAttribute('data-djx'); } }catch(e){}"},
-   "It costs twenty-nine dollars, once, and it is yours for every season after. No subscription. Try it below."],
+   "It comes with the Church membership, for every season. Try it below."],
   name:'GameDay', em:'🏀', sub:'the league, organized', cat:'church', mem:'Church membership', price:'$29 one-time', video:true,
   tag:'The league schedule that replaces the 40-family phone tree. No ads to your parents.',
   try:'https://jerrywins1.github.io/daraja-apps/church-gameday/',
@@ -1511,7 +1511,7 @@ const APPS = {
     "How to start? Pick the section you know best and write three lines. That is your first two minutes. The bar at the top fills as you go, and the rest can wait for another evening.",
     "When you change something, like a new plumber or a new alarm company, open the app, fix the line, and print it again.",
     "Privacy: everything stays only on this phone. There is no account, and nothing is sent to anyone.",
-    "The Key, church edition is nineteen dollars, once. Profits help students in Kenya stay in school.",
+    "The Key, church edition comes with the Church membership. Any profit helps orphans and students in Kenya.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "This is the training for The Key, church edition: how to fill it in, print it, and keep it current.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "#top"},
@@ -1538,7 +1538,7 @@ const APPS = {
    {"t": "There is no Save button. Every word saves on this phone as you type, and this bar fills up as you go.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "#djKeyMeter"},
    {"t": "Then tap Print my Key. One clean page with today's date. Print two: one for the office cabinet, and one for the person you trust most.", "point": "button[onclick=\"printKey()\"]"},
    {"t": "It lives only on your own phone. Nothing is sent anywhere, there is no account to make, and it keeps working without a signal.", "point": ".safety"},
-   "Nineteen dollars, once, and the building stops depending on any one memory. Try it below."],
+   "It comes with the Church membership, and the building stops depending on any one memory. Try it below."],
   name:'The Key · Church Edition', em:'🔑', sub:'the building’s memory, on paper', cat:'church', mem:'Church membership', price:'$19 one-time', video:true,
   tag:'The water shutoff, the alarm, who has keys, which plumber knows the pipes, all on one printed page, so the next trustee isn’t starting from zero.',
   try:'https://jerrywins1.github.io/daraja-apps/church-key/',
@@ -1570,7 +1570,7 @@ const APPS = {
     {"t": "Your first two minutes: open Quick setup, tick Form nine-ninety and your state registration, and put in your real dates.", "js": "try{ if(window.closeSheet) closeSheet(); if(window.closeQS) closeQS(); }catch(e){} try{ document.querySelectorAll('.view').forEach(function(x){ x.classList.toggle('on', x.id==='v-next'); }); document.querySelectorAll('nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.v==='next'); }); window.scrollTo(0,0); }catch(e){}", "point": "#qsBtn"},
     "Then glance at the Next tab once a week. If it says Nothing overdue, you are ahead of it.",
     "Your list stays on this device. There is no account, no cloud, and nothing is sent to anyone.",
-    "Ahead of It, nonprofit edition costs twenty-nine dollars, once. No subscription.",
+    "Ahead of It, nonprofit edition comes with the Small charity membership, or with the Church membership.",
     {"t": "And the round question mark button has the tour and help, any time. Profits help students in Kenya stay in school.", "point": "#djDockToggle"}]} },
   train:[
    "Here is how to set up Ahead of It, nonprofit edition, one step at a time.",
@@ -1592,7 +1592,7 @@ const APPS = {
    "Here is the fact that keeps founders up at night: if a small nonprofit misses its IRS nine-ninety three years in a row, its tax-exempt status is revoked automatically, and that happens to thousands of good organizations every single year.",
    "So it holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
    "It comes pre-loaded with the filings small nonprofits actually face, so you just tick what applies to you and enter your real dates.",
-   "Twenty-nine dollars, one time. It may be the cheapest insurance a mission ever bought. Try it below."
+   "It comes with the Small charity membership, forty-nine dollars a year. It may be the cheapest insurance a mission ever bought. Try it below."
   ]},
  npreceipts: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1620,7 +1620,7 @@ const APPS = {
     {"t": "Your organization and gift rows stay saved on this device. The letters are made fresh each time, with one tap. Start fresh, at the very bottom, clears it all, and asks twice first.", "point": "footer"},
     "No account is needed, and donor names stay on your own device. It works without a connection, too.",
     "One honest note, printed right in the app: this is not tax advice. When in doubt, ask your accountant.",
-    "Receipt Maker costs nineteen dollars, once. No subscription. Profits help students in Kenya stay in school.",
+    "Receipt Maker comes with the Small charity membership, or with the Church membership. Any profit helps orphans and students in Kenya.",
     {"t": "And the round question mark button has the tour and help, any time.", "point": "#djDockToggle"}]} },
   train:[
    "Here is how to set up Receipt Maker and make your first letters. Everything happens on one page, from top to bottom.",
@@ -1641,7 +1641,7 @@ const APPS = {
    "Donors need proper acknowledgment letters, with the exact IRS language, or their deduction is at risk — and your credibility with it.",
    "Paste your donor list. Receipt Maker builds a proper letter for each one — right language, right layout, one page each.",
    "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
-   "Nineteen dollars, once. Your treasurer will hug you. Try it below."]},
+   "It comes with the Small charity membership, or with the Church membership. Your treasurer will hug you. Try it below."]},
  flipkit: {
   name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', off:'parked — Meta has never allowed an outside app to create a Marketplace listing', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money. Why not just ChatGPT? FlipKit asks it the right question, then keeps your floor price and your cash total.',
@@ -1655,7 +1655,7 @@ const APPS = {
    "You tap copy, paste it into Facebook Marketplace, and the whole job took about ninety seconds.",
    "Meanwhile the big number at the top shows what all of your stuff is worth together, and every time something sells, the cash line climbs. That number gets addictive in the best way.",
    "There is even a selling-safely card: meet in public, take cash, and trust your gut.",
-   "Nine dollars, once. Your first flip pays for it, and everything after that is yours. Go add the thing you almost sold last spring."
+   "Your first flip shows you how it works, and everything after that is yours. Go add the thing you almost sold last spring."
   ],
   train:[
    "Let's flip your first thing — five minutes, real money.",
@@ -1693,7 +1693,7 @@ const APPS = {
     {"t": "Along the top: voice, the speaker to turn talking off and on, Aa for bigger words, and the brush to start over. It always asks before erasing anything.", "point": "header .pills", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('menu'); window.scrollTo(0,0); }catch(e){}"},
     "Your first two minutes: tap Say hello, give it a name, pick a voice, and tell it your name. You can stop there; it keeps everything.",
     {"t": "Privacy: everything you tell Rafiki stays on this phone. No account, no password, and nothing you tell it is sent anywhere. Only the weather uses the internet, and only if you say yes.", "point": "#hello .v", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
-    "Rafiki costs nineteen dollars, once. Nothing else to pay, ever.",
+    "Rafiki comes with the Family membership.",
     {"t": "And the question mark button in the corner has the tour, bigger text and help, any time.", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('menu'); window.scrollTo(0,0); }catch(e){}"}]} },
   train:[
    {"t": "Here is how to get started with Rafiki. It takes about five minutes, and you can stop whenever you like.", "point": "#hello button[onclick=\"begin()\"]", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
@@ -1719,7 +1719,7 @@ const APPS = {
    {"t": "Tell it what to remember, the way you would tell a friend, and it says it back to you and puts it on your list.", "point": "#rfxGot", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('remember'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Ask for a joke and you get a good clean one. Tell it you feel low, and it stays with you, and offers a real person to talk to.", "point": "#rfxJoke", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('joke'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Everything you tell it stays on your own phone. No account, nothing you tell it sent anywhere, nobody reading it. That is not a footnote. For a lot of people it is the whole reason they will answer honestly.", "point": "#hello .v", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
-   "It is nineteen dollars, once, and there is nothing else to pay, ever. Rather less than one afternoon of company usually costs.",
+   "It comes with the Family membership, which costs rather less than one afternoon of company usually does.",
    "If you know somebody who lives alone, this is the one to show them. Try it below."],
   name:'Rafiki', em:'💛', sub:'a friend who knows your family', cat:'later', mem:'Family membership', price:'$19 one-time', testing:true, fresh:true, video:true,
   tag:'For anybody who lives alone — a friend that learns your family, remembers what you tell it, and speaks first. Why not just ChatGPT? Rafiki says good morning by name, and nothing you tell it leaves your phone.',
@@ -1754,7 +1754,7 @@ const APPS = {
     {"t": "My Setup lets you redo the questions, change the word size, or erase everything and start fresh.", "js": "try{porchTour.scene('settings')}catch(e){}", "point": ".card .btn-big"},
     {"t": "To start, sit down once with someone you trust and answer the questions. Then each morning, open your Home page, go through your mail, and begin at the top.", "js": "try{porchTour.scene('home')}catch(e){}", "point": ".hello"},
     "Porchlight never asks for your passwords, and sends nothing unless you tap Send and say yes. Your answers stay on this device, or in your own Claude account.",
-    "Porchlight is twenty-nine dollars, once. The profits help students in Kenya stay in school.",
+    "Any profit helps orphans and students in Kenya.",
     {"t": "Stuck? Tap Help at the top of any screen. It explains the page you are on, in plain words.", "js": "try{porchTour.scene('help')}catch(e){}"}]} },
   train:[
    "Let's set up Porchlight together. It takes about ten minutes, once.",
@@ -1784,7 +1784,7 @@ const APPS = {
    {"t": "For the email from your daughter, tap Help me answer. Say what you mean in your own words, and it writes a kind reply. Nothing is sent until you tap Send, and then say yes.", "js": "try{porchTour.scene('reply')}catch(e){}", "point": "#f-draft"},
    {"t": "There is a to-do list with big check boxes, a place to talk with your helper, and a board where the family can leave notes. Every question can be read out loud, and the words come in three sizes.", "js": "try{porchTour.scene('todo')}catch(e){}", "point": ".todo"},
    {"t": "Sorting your real Gmail, talking with your helper and the family board all work when you open Porchlight inside Claude, with your own Claude account. The try-it page below shows example emails, so you can see how it works first.", "js": "try{porchTour.scene('home')}catch(e){}", "point": ".card .btn-big"},
-   "Porchlight is twenty-nine dollars, once. If you know someone who dreads their inbox, show them this one. Try it below."],
+   "If you know someone who dreads their inbox, show them this one. Try it below."],
   name:'Porchlight', em:'🏮', sub:'your mail sorted, scams caught', cat:'later', mem:'Family membership', price:'$29 one-time', testing:true, fresh:true, video:true,
   tag:'A patient helper that asks a few easy questions, then sorts your Gmail into what needs an answer, what can wait, and what looks like a scam. It reads mail aloud and helps you write back. The try-it page shows example mail; sorting your real Gmail works when you open it inside Claude.',
   try:BASE+'porchlight/',
