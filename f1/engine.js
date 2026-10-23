@@ -343,14 +343,62 @@
      sprint weekend scores more than a normal one, so the good drivers belong there.
      It knows nothing about which circuit suits which car — that is a judgement, and it
      is exactly what the briefing hands to a human or an AI. */
+  /* Assigning drivers to weekends is a transportation problem, not something greedy gets right.
+     Taking the best driver for the best weekend can block a weak driver out of the one circuit
+     that suits him, and cost more than it gains. This is a minimum-cost maximum-flow solver:
+     source -> each driver (capacity = his drives left) -> each weekend (capacity 1, so nobody
+     runs twice in a day) -> sink (capacity = drivers per race). Max flow fills as many slots as
+     possible; among those, minimum cost picks the highest-scoring set. Exact, and small enough
+     here to be instant: four drivers and a couple of dozen weekends. */
+  function assignFlow(supply, demand, value) {
+    const D = supply.length, R = demand.length, N = D + R + 2, S = 0, T = N - 1;
+    const to = [], cap = [], cost = [], next = [], head = new Array(N).fill(-1);
+    const add = (u, v, c, w) => {
+      to.push(v); cap.push(c); cost.push(w); next.push(head[u]); head[u] = to.length - 1;
+      to.push(u); cap.push(0); cost.push(-w); next.push(head[v]); head[v] = to.length - 1;
+    };
+    for (let d = 0; d < D; d++) if (supply[d] > 0) add(S, 1 + d, supply[d], 0);
+    for (let d = 0; d < D; d++) for (let r = 0; r < R; r++) add(1 + d, 1 + D + r, 1, -(value[d][r] || 0));
+    for (let r = 0; r < R; r++) if (demand[r] > 0) add(1 + D + r, T, demand[r], 0);
+
+    for (;;) {
+      // Bellman–Ford: the costs are negative by construction, so Dijkstra will not do.
+      const dist = new Array(N).fill(Infinity), inq = new Array(N).fill(false);
+      const prevE = new Array(N).fill(-1);
+      dist[S] = 0; const q = [S]; inq[S] = true;
+      while (q.length) {
+        const u = q.shift(); inq[u] = false;
+        for (let e = head[u]; e !== -1; e = next[e]) {
+          if (cap[e] <= 0) continue;
+          const v = to[e], nd = dist[u] + cost[e];
+          if (nd < dist[v] - 1e-9) { dist[v] = nd; prevE[v] = e; if (!inq[v]) { inq[v] = true; q.push(v); } }
+        }
+      }
+      if (dist[T] === Infinity) break;          // no augmenting path: flow is maximal
+      let push = Infinity;
+      for (let v = T; v !== S; v = to[prevE[v] ^ 1]) push = Math.min(push, cap[prevE[v]]);
+      for (let v = T; v !== S; v = to[prevE[v] ^ 1]) { cap[prevE[v]] -= push; cap[prevE[v] ^ 1] += push; }
+    }
+    // read the driver -> weekend arcs that carried flow
+    const out = [];
+    for (let r = 0; r < R; r++) out.push([]);
+    let e = 0;
+    for (let d = 0; d < D; d++) if (supply[d] > 0) e += 2;          // skip the source arcs
+    for (let d = 0; d < D; d++) for (let r = 0; r < R; r++) { if (cap[e] === 0) out[r].push(d); e += 2; }
+    return out;
+  }
+
   function seasonAllocate(o) {
     const races = (o.racesLeft || []).slice();
     const perRace = o.perRace || 2;
     const roster = (o.roster || []).slice();
     const form = o.form || {};
     const rem = o.remaining || {};
+    // A driver is not worth the same everywhere. If we know how he has gone at THIS circuit
+    // before, use that; otherwise fall back to his season-wide number.
     const val = (d, r) => {
       const f = form[d] || {};
+      if (r && r.key && f.byRace && f.byRace[r.key] != null) return +f.byRace[r.key] || 0;
       const v = r && r.sprint && f.sprint != null ? f.sprint : f.normal;
       return +v || 0;
     };
@@ -364,36 +412,36 @@
     // every remaining weekend needs perRace DIFFERENT drivers, so what is left has to satisfy
     // sum over drivers of min(drives left, weekends left) >= perRace * weekends left.
     function allocate(skipIndex) {
-      const left = Object.assign({}, start);
-      const order = races.map((r, i) => ({ r, i, w: weight(r) }))
-        .filter(x => x.i !== skipIndex)
-        .sort((a, b) => b.w - a.w || a.i - b.i);
+      const live = races.map((r, i) => ({ r, i })).filter(x => x.i !== skipIndex);
+      const supply = roster.map(d => start[d]);
+      const demand = live.map(() => perRace);
+      // When there are not enough drives to fill everything, leave the LATER weekends short:
+      // the next race is the one actually being submitted. A whisker of extra value on the
+      // earlier weekends settles ties without ever outweighing a real difference in points.
+      const TIE = 1e-6;
+      const value = roster.map(d => live.map((x, j) => val(d, x.r) + TIE * (live.length - j)));
+      const got = assignFlow(supply, demand, value);
       const chosenBy = {};
-      order.forEach(({ r, i }, n) => {
-        const after = order.length - n - 1;                       // weekends still to come after this one
-        const capacity = () => roster.reduce((a, d) => a + Math.min(left[d], after), 0);
-        const take = [];
-        roster.filter(d => left[d] > 0)
-          .sort((a, b) => val(b, r) - val(a, r) || (left[b] - left[a]) || String(a).localeCompare(String(b)))
-          .forEach(d => {
-            if (take.length >= perRace || left[d] <= 0) return;
-            // If the weekends to come already cannot all be filled, holding a driver back saves
-            // nothing — take the points now rather than leaving this weekend short as well.
-            const doomed = capacity() < perRace * after;
-            left[d]--;
-            if (doomed || capacity() >= perRace * after) take.push(d);   // still fillable to the end
-            else left[d]++;                                              // he is needed later; leave him
-          });
-        chosenBy[i] = take;
+      live.forEach((x, j) => {
+        // keep each weekend's names in the order they are worth, so the table reads sensibly
+        chosenBy[x.i] = got[j].map(di => roster[di]).sort((a, b) => val(b, x.r) - val(a, x.r));
       });
+      const used = {}; roster.forEach(d => used[d] = 0);
+      Object.values(chosenBy).forEach(ds => ds.forEach(d => used[d]++));
+      const left = {}; roster.forEach(d => left[d] = start[d] - used[d]);
+
       const plan = races.map((r, i) => {
         if (i === skipIndex) {
           const all = roster.filter(d => start[d] > 0);
           return { race: r, sprint: !!r.sprint, drivers: all, wildcard: true, short: 0,
+            worth: all.map(d => ({ id: d, pts: Math.round(val(d, r) * 10) / 10,
+              tracked: !!((form[d] || {}).byRace && (form[d] || {}).byRace[r.key] != null) })),
             expected: all.reduce((a, d) => a + val(d, r), 0) };
         }
         const ds = chosenBy[i] || [];
         return { race: r, sprint: !!r.sprint, drivers: ds, wildcard: false,
+          worth: ds.map(d => ({ id: d, pts: Math.round(val(d, r) * 10) / 10,
+            tracked: !!((form[d] || {}).byRace && (form[d] || {}).byRace[r.key] != null) })),
           expected: ds.reduce((a, d) => a + val(d, r), 0), short: Math.max(0, perRace - ds.length) };
       });
       const unspent = roster.reduce((a, d) => a + left[d], 0);
@@ -467,7 +515,10 @@
         : '  spreading the drives so no weekend is left short. It knows nothing about circuits.');
       if (src === 'standings') L.push('  is a standing, not form. It knows nothing about circuits either.');
       o.allocation.plan.forEach(p => L.push('  ' + p.race.name + (p.race.sprint ? ' (sprint)' : '') + ': ' +
-        (p.wildcard ? 'WILD CARD, all four' : (p.drivers.map(nm).join(' + ') || 'nobody left'))));
+        (p.wildcard ? 'WILD CARD, all four'
+          : ((p.worth || []).length
+              ? p.worth.map(x => nm(x.id) + ' (' + x.pts + (x.tracked ? ', from his record at this circuit' : ', season average') + ')').join(' + ')
+              : (p.drivers.map(nm).join(' + ') || 'nobody left')))));
       if (o.allocation.wildcard) L.push('  Wild card best spent at: ' + o.allocation.wildcard.race.name);
       L.push('');
       L.push(src === 'standings'
