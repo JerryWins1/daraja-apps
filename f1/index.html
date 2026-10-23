@@ -2480,7 +2480,7 @@ async function loadSchedule(year) {
   const d = await api(year + '.json', 6 * 3600e3);
   const races = (d.RaceTable && d.RaceTable.Races) || [];
   return races.map(r => ({
-    round: +r.round, key: slug(r.raceName), name: r.raceName, circuit: r.Circuit && r.Circuit.circuitName, country: r.Circuit && r.Circuit.Location && r.Circuit.Location.country,
+    round: +r.round, key: slug(r.raceName), name: r.raceName, circuit: r.Circuit && r.Circuit.circuitName, circuitId: r.Circuit && r.Circuit.circuitId, country: r.Circuit && r.Circuit.Location && r.Circuit.Location.country,
     date: r.date, time: r.time, qualifying: r.Qualifying, sprintQualifying: r.SprintQualifying || r.SprintShootout, sprint: r.Sprint,
   }));
 }
@@ -2766,6 +2766,42 @@ function planInput() {
 // What each driver has ACTUALLY been worth in this league's points this season. Not a guess
 // and not a borrowed ranking: for every weekend the app has scored, score that driver on his
 // own and average it. Sprint weekends are averaged separately because they pay more.
+/* ---- how each driver has gone at the circuits still to come ----------------------
+   The season average cannot tell a good track from a bad one for a given car, and that is
+   exactly the call Jerry wants help with: where to spend a weak driver. Every circuit's past
+   results are one request (most recent first), so the whole run-in costs one fetch per track
+   and is cached forever. A driver's value at a circuit is his average finishing position
+   there over recent years, run through THIS league's own scoring table. */
+let trackForm = {};    // circuitId -> { driverId: leaguePointsHere }
+const TRACK_YEARS = 3; // how far back to look; older than that and the cars are different
+async function loadTrackForm(races) {
+  const s = season(); const sc = s.scoring || E.DEFAULT_SCORING;
+  for (const r of races) {
+    const cid = r.circuitId; if (!cid || trackForm[cid]) continue;
+    try {
+      const d = await api('circuits/' + cid + '/results.json?limit=100', Infinity);
+      const past = ((d.RaceTable && d.RaceTable.Races) || [])
+        .filter(x => +x.season < seasonYear).sort((a, b) => +b.season - +a.season).slice(0, TRACK_YEARS);
+      if (!past.length) continue;
+      const pos = {};
+      past.forEach(race => (race.Results || []).forEach(x => {
+        const id = x.Driver && x.Driver.driverId; if (!id) return;
+        const finished = /^\d+$/.test(x.positionText || '');
+        (pos[id] = pos[id] || []).push(finished ? +x.position : null);
+      }));
+      const out = {};
+      Object.keys(pos).forEach(id => {
+        const runs = pos[id], ran = runs.filter(v => v != null);
+        // a retirement scores nothing here, exactly as it would in the league
+        const pts = runs.map(v => v == null ? 0 : E.racePlacePoints(v, sc) + E.rowPoints(v, sc));
+        out[id] = { pts: Math.round(pts.reduce((a, b) => a + b, 0) / pts.length * 10) / 10,
+          runs: runs.length, finishes: ran.length,
+          avgPos: ran.length ? Math.round(ran.reduce((a, b) => a + b, 0) / ran.length * 10) / 10 : null };
+      });
+      trackForm[cid] = out;
+    } catch (e) { /* no history for this circuit; the season average carries it */ }
+  }
+}
 let formRank = null;   // driverId -> championship points, the fallback when the app has scored nothing yet
 function driverForm() {
   const s = season(); const sc = s.scoring || E.DEFAULT_SCORING;
@@ -2807,12 +2843,31 @@ function driverForm() {
   });
   return form;
 }
+// Attach each driver's per-circuit record to his form, keyed by race.
+function withTrackForm(form, races) {
+  const out = {};
+  Object.keys(form).forEach(d => {
+    const byRace = {}; let any = false;
+    races.forEach(r => {
+      const t = r.circuitId && trackForm[r.circuitId] && trackForm[r.circuitId][d];
+      if (!t || !t.runs) return;
+      // Lean on the circuit record but keep the season form in the mix, so one freak result
+      // at a track years ago cannot outweigh how a driver is actually going now.
+      const season = r.sprint && form[d].sprint != null ? form[d].sprint : form[d].normal;
+      byRace[r.key] = Math.round((t.pts * 0.65 + (+season || 0) * 0.35) * 10) / 10;
+      any = true;
+    });
+    out[d] = Object.assign({}, form[d], any ? { byRace } : {});
+  });
+  return out;
+}
 function allocInput(pid) {
   const s = season(); const left = racesLeftList();
   const firstKey = left.length ? left[0].key : null;
   const settled = !!(firstKey && s.picks && s.picks[firstKey] && s.picks[firstKey][pid]);
+  const races = settled ? left.slice(1) : left;
   return { roster: (s.roster && s.roster[pid]) || [], remaining: (computed.usage || {})[pid] || {},
-    form: driverForm(), racesLeft: settled ? left.slice(1) : left, perRace: s.perRace || 2 };
+    form: withTrackForm(driverForm(), races), racesLeft: races, perRace: s.perRace || 2 };
 }
 function copySeasonBrief() {
   const w = who(); const o = planInput();
@@ -2846,13 +2901,19 @@ function rPlanCard() {
           : `Each driver ranked by what he has actually been worth <b>in this league's points</b> over the ${Math.max(...A.roster.map(d => (f[d] || {}).races || 0))} weekends the app has scored.`} Best drivers go to the weekends that pay most, and nobody is asked to run twice in a day.</p>
         <div class="tablewrap"><table><tr><th>Race</th><th>Run</th><th>Worth</th></tr>
         ${A.plan.map(p => `<tr><td><b>${esc(p.race.name.replace(' Grand Prix', ''))}</b>${p.race.sprint ? '<br><span class="small muted">sprint — pays more</span>' : ''}</td>
-          <td>${p.wildcard ? '<b>WILD CARD</b> — all four' : (p.drivers.map(dname).map(esc).join(' + ') || '<span class="muted">nobody has a drive left</span>')}</td>
+          <td>${p.wildcard ? '<b>WILD CARD</b> — all four'
+            : (p.worth && p.worth.length
+                ? p.worth.map(x => `${esc(dname(x.id))} <span class="small muted">${x.pts}${x.tracked ? '★' : ''}</span>`).join(' + ')
+                : '<span class="muted">nobody has a drive left</span>')}</td>
           <td style="text-align:right">${p.expected ? Math.round(p.expected) : '—'}</td></tr>`).join('')}
         </table></div>
         ${A.wildcard ? `<div class="plan-l"><span class="pf">🃏</span><span>Play your wild card at <b>${esc(A.wildcard.race.name.replace(' Grand Prix', ''))}</b> — worth about <b>${A.wildcard.gain} more points</b> than any other weekend, after re-planning the rest around it.</span></div>` : ''}
         ${A.unspent ? `<div class="plan-l"><span class="pf">🗑</span><span>${A.unspent} drive${A.unspent > 1 ? 's' : ''} still cannot be spent, even run perfectly.</span></div>` : ''}
         ${known < A.roster.length ? `<div class="plan-l"><span class="pf">⚠️</span><span>${A.roster.length - known} of your drivers have never been scored by the app, so they are ranked at zero. Treat their rows as a guess.</span></div>` : ''}
-        <div class="plan-l"><span class="pf">🧠</span><span>Where two weekends pay the same, the order between them is arbitrary — <b>that is where track knowledge matters</b>, and what the briefing below is for.</span></div>
+        ${A.plan.some(p => (p.worth || []).some(x => x.tracked))
+          ? `<div class="plan-l"><span class="pf">★</span><span>A star means that number comes from how the driver has <b>actually gone at that circuit</b> over the last ${TRACK_YEARS} years, not just his season average. That is what decides where your weaker drivers go.</span></div>`
+          : `<div class="plan-l"><span class="pf">🧠</span><span>No past results for these circuits yet, so every weekend is valued the same and the order between them is arbitrary. Tap Update once the calendar loads.</span></div>`}
+        <div class="plan-l"><span class="pf">🧠</span><span>It still cannot see this year's car, a wet forecast or a grid penalty — <b>that is what the briefing below is for</b>.</span></div>
       </div>`;
     }
   }
@@ -3393,6 +3454,7 @@ async function refresh() {
     // uses those; before that it has to fall back on the championship, so fetch it either way.
     try { const done = activeRaces().filter(r => new Date(r.date + 'T23:59:00Z') < new Date());
       if (done.length) formRank = await loadRank(seasonYear, done[done.length - 1].round); } catch (e) { }
+    try { await loadTrackForm(racesLeftList()); } catch (e) { }
   } catch (e) { loadError = 'Could not load F1 data: ' + e.message; }
   render();
 }
@@ -3849,7 +3911,7 @@ async function refresh() {
     border:1.5px solid var(--line-strong,#555); background:var(--surface-2,rgba(128,128,128,.12)); color:inherit; padding:4px 6px; }
   .u-d .uin:focus{ outline:3px solid var(--acc,#B48CFF); outline-offset:1px; }
 </style>
-<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v2.1 · 2026-10-22 · Daraja Studio</p>
+<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v2.2 · 2026-10-23 · Daraja Studio</p>
 <script id="dj-usage-v1">
 /* 11 Sep 2026, Jerry: "just do this like a table — the number in a box on the left, change it,
    tab down to the next one, done." The old way was one question box per driver, twenty taps. */
