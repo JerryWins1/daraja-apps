@@ -2158,7 +2158,10 @@
   .links a{ color:var(--brand); font-weight:800; text-decoration:none; margin-right:10px; white-space:nowrap; }
   .badge{ font-size:11px; font-weight:800; padding:2px 7px; border-radius:999px; background:var(--gold); color:#221; margin-left:6px; }
   textarea,input,select{ width:100%; font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1.5px solid var(--line); background:var(--bg); color:var(--ink); }
-  textarea{ min-height:110px; } label{ display:block; font-size:13px; font-weight:800; color:var(--soft); margin:10px 0 4px; }
+  textarea{ min-height:110px; }
+  .chshots{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; } .chshots:empty{ display:none; }
+  .chshot{ position:relative; display:inline-block; } .chshot img{ height:72px; max-width:140px; object-fit:cover; border-radius:10px; border:1px solid var(--line); display:block; }
+  .chshot button{ position:absolute; top:-8px; right:-8px; width:28px; height:28px; border-radius:50%; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:13px; cursor:pointer; padding:0; } label{ display:block; font-size:13px; font-weight:800; color:var(--soft); margin:10px 0 4px; }
   .sec{ margin:6px 0; } .sec b{ font-size:15px; } .sec ul{ margin:2px 0 8px 18px; padding:0; color:var(--soft); font-size:14px; }
   .pcards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; }
   .pcard{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:14px; }
@@ -2336,7 +2339,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.42 · 2026-10-20 · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.43 · 2026-10-23 · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2616,19 +2619,47 @@ function chSeen(){ try{ return JSON.parse(store('jhq_chat_seen')||'{}'); }catch(
 function chHandled(id,at){ const m=chSeen(); m[id]=at; store('jhq_chat_seen',JSON.stringify(m)); renderChats(); }
 function chSent(){ try{ return JSON.parse(store('jhq_chat_sent')||'{}'); }catch(e){ return {}; } }
 function chReply(id){ const b=$('chr-'+id); if(!b) return; b.hidden=!b.hidden; if(!b.hidden){ const t=b.querySelector('textarea'); if(t) t.focus(); } }
+/* v1.43 (23 Oct) — Jerry: "get the HQ app to accept screenshots in its chat box."
+   📎 Add screenshot, ⌘V paste or drag a file in. Each picture is shrunk on this device (max 1600 px, JPEG), then saved to HQ in
+   pieces of ≤45,000 characters, each starting with ~ (one Sheet cell each: settings shot_<reply>_<n>_<part>). chatboard.py --replies puts the pictures
+   back together as files for the Claude chat, and --delivered empties those cells again. */
+const CH_SHOTS={}; const CH_MAXSHOTS=3, CH_PART=45000;
+function chShrink(file){ return new Promise((ok,bad)=>{ const u=URL.createObjectURL(file), im=new Image();
+  im.onload=()=>{ let w=im.naturalWidth, hh=im.naturalHeight; const s=Math.min(1,1600/Math.max(w,hh)); w=Math.round(w*s); hh=Math.round(hh*s);
+    const c=document.createElement('canvas'); c.width=w; c.height=hh; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,w,hh); x.drawImage(im,0,0,w,hh); URL.revokeObjectURL(u);
+    let q=0.8, d=c.toDataURL('image/jpeg',q); while(d.length>300000&&q>0.4){ q-=0.1; d=c.toDataURL('image/jpeg',q); } ok(d); };
+  im.onerror=()=>{ URL.revokeObjectURL(u); bad(new Error('That file is not a picture HQ can read')); }; im.src=u; }); }
+async function chAddFiles(id,files){
+  const imgs=[...(files||[])].filter(f=>f&&/^image\//.test(f.type)); if(!imgs.length){ toast('That is not a picture',true); return; }
+  const L=CH_SHOTS[id]=CH_SHOTS[id]||[];
+  for(const f of imgs){ if(L.length>=CH_MAXSHOTS){ toast('Three pictures at most per answer',true); break; } try{ L.push(await chShrink(f)); }catch(e){ toast(e.message,true); } }
+  chDrawShots(id);
+}
+function chDrawShots(id){ const el=$('chs-'+id); if(!el) return; const L=CH_SHOTS[id]||[];
+  el.innerHTML=L.map((d,i)=>`<span class="chshot"><img src="${d}" alt="screenshot ${i+1}"><button type="button" aria-label="Remove this picture" onclick="chRmShot('${esc(id)}',${i})">✕</button></span>`).join(''); }
+function chRmShot(id,i){ (CH_SHOTS[id]||[]).splice(i,1); chDrawShots(id); }
+function chPick(ev,id){ chAddFiles(id,ev.target.files); ev.target.value=''; }
+function chPaste(ev,id){ const fs=[...((ev.clipboardData&&ev.clipboardData.items)||[])].filter(i=>i.kind==='file'&&/^image\//.test(i.type)).map(i=>i.getAsFile()); if(fs.length){ ev.preventDefault(); chAddFiles(id,fs); } }
+function chDrop(ev,id){ ev.preventDefault(); chAddFiles(id,ev.dataTransfer&&ev.dataTransfer.files); }
 /* ✉️ Send to Claude: the answer goes into HQ's inbox (setting chat_replies); a Claude chat passes it to the right chat as a relayed note. */
 async function chSend(id){
   const b=$('chr-'+id); if(!b) return; const ta=b.querySelector('textarea'), text=ta.value.trim();
-  if(!text){ toast('Write your answer first',true); return; }
+  const L=CH_SHOTS[id]||[];
+  if(!text&&!L.length){ toast('Write your answer or add a screenshot first',true); return; }
   const r=((chBoard().S||{}).items||[]).find(x=>x.id===id)||{title:id};
   try{
     let cur=[]; try{ cur=JSON.parse((D&&D.settings&&D.settings.chat_replies)||'[]'); }catch(e){ cur=[]; }
     cur=cur.filter(x=>x.state!=='delivered'||(Date.now()-new Date(x.at))<7*864e5);
-    cur.push({id:Date.now().toString(36),chat:id,title:r.title,text:text,at:new Date().toISOString(),state:'new'});
+    const rid=Date.now().toString(36), shots=[];
+    for(let i=0;i<L.length;i++){ const d=L[i], n=Math.ceil(d.length/CH_PART);
+      toast('Sending screenshot '+(i+1)+' of '+L.length+'…');
+      for(let k=0;k<n;k++) await hq({action:'settings.set',k:'shot_'+rid+'_'+i+'_'+k,value:'~'+d.slice(k*CH_PART,(k+1)*CH_PART)});
+      shots.push({k:'shot_'+rid+'_'+i,parts:n}); }
+    cur.push({id:rid,chat:id,title:r.title,text:text||'(see the screenshot)',shots:shots.length?shots:undefined,at:new Date().toISOString(),state:'new'});
     await hq({action:'settings.set',k:'chat_replies',value:cur});
     if(D&&D.settings) D.settings.chat_replies=JSON.stringify(cur);
     const m=chSent(); m[id]=new Date().toISOString(); store('jhq_chat_sent',JSON.stringify(m));
-    toast('Sent — Claude will pass it on'); renderChats();
+    delete CH_SHOTS[id]; toast(shots.length?'Sent with '+pl(shots.length,'screenshot')+' — Claude will pass it on':'Sent — Claude will pass it on'); renderChats();
   }catch(e){ toast(e.message||'That did not go through',true); }
 }
 function chRow(r,kind){
@@ -2636,7 +2667,7 @@ function chRow(r,kind){
   const act=(kind==='needs'||kind==='review');
   const done=act?`<button class="chip small" onclick="chHandled('${esc(r.id)}','${esc(r.at)}')">✓ Handled</button><button class="chip small" onclick="chReply('${esc(r.id)}')">✉️ Send to Claude</button>`:'';
   const sentAt=chSent()[r.id], sentPill=(act&&sentAt&&(!r.at||sentAt>r.at))?`<span class="pill">✉️ sent ${ago(sentAt)}</span>`:'';
-  const box=act?`<div id="chr-${esc(r.id)}" hidden style="margin-top:8px"><textarea rows="3" placeholder="Your answer for this chat…"></textarea><div class="chips" style="margin-top:6px"><button class="chip small main" onclick="chSend('${esc(r.id)}')">Send</button></div></div>`:'';
+  const box=act?`<div id="chr-${esc(r.id)}" hidden style="margin-top:8px"><textarea rows="3" placeholder="Your answer for this chat… (Return sends · Shift-Return for a new line · ⌘V pastes a screenshot)" onpaste="chPaste(event,'${esc(r.id)}')" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){ event.preventDefault(); chSend('${esc(r.id)}'); }" ondragover="event.preventDefault()" ondrop="chDrop(event,'${esc(r.id)}')"></textarea><div class="chshots" id="chs-${esc(r.id)}"></div><div class="chips" style="margin-top:6px"><button class="chip small main" onclick="chSend('${esc(r.id)}')">Send</button><label class="chip small" style="cursor:pointer">📎 Add screenshot<input type="file" accept="image/*" multiple hidden onchange="chPick(event,'${esc(r.id)}')"></label></div></div>`:'';
   const txt=kind==='needs'?(r.ask?`<div class="ask">👉 ${esc(r.ask)}</div>`:''):(r.ask||r.detail?`<div class="det">${esc(r.ask||r.detail)}</div>`:'');
   return `<div class="item chat ${kind}"><div><span class="who">${esc(r.title)}</span> <span class="pill">${esc(r.group||'—')}</span>${r.kind==='routine'?'<span class="pill">routine</span>':''} <span class="meta">${r.at?ago(r.at):''}</span> ${sentPill}</div>${txt}<div class="chips">${link}${done}</div>${box}</div>`;
 }
