@@ -2774,14 +2774,27 @@ function planInput() {
    there over recent years, run through THIS league's own scoring table. */
 let trackForm = {};    // circuitId -> { driverId: leaguePointsHere }
 const TRACK_YEARS = 3; // how far back to look; older than that and the cars are different
+const TRACK_SCAN = 6;  // at most this many seasons back to find TRACK_YEARS runnings (circuits come and go)
 async function loadTrackForm(races) {
   const s = season(); const sc = s.scoring || E.DEFAULT_SCORING;
   for (const r of races) {
     const cid = r.circuitId; if (!cid || trackForm[cid]) continue;
     try {
-      const d = await api('circuits/' + cid + '/results.json?limit=100', Infinity);
-      const past = ((d.RaceTable && d.RaceTable.Races) || [])
-        .filter(x => +x.season < seasonYear).sort((a, b) => +b.season - +a.season).slice(0, TRACK_YEARS);
+      /* 27 Oct 2026: this used to be one un-seasoned request, circuits/<id>/results.json, for every
+         year that circuit has ever run. The reply carried no Access-Control-Allow-Origin, so the
+         browser blocked it and the whole run-in silently lost its track form — the nightly check
+         caught it on all three remaining circuits at once. Ask one season at a time instead, the
+         same shape as every other call in this file, and name the years rather than trusting the
+         API to send the newest first: Ergast-style replies are oldest-first, so limit=100 was
+         fetching a long-lived circuit's 1950s races and never its recent ones. */
+      const past = [];
+      for (let y = seasonYear - 1; y >= seasonYear - TRACK_SCAN && past.length < TRACK_YEARS; y--) {
+        try {
+          const dy = await api(y + '/circuits/' + cid + '/results.json', Infinity);
+          const R = ((dy.RaceTable && dy.RaceTable.Races) || [])[0];
+          if (R && (R.Results || []).length) past.push(R);
+        } catch (e) { /* no race at this circuit that season */ }
+      }
       if (!past.length) continue;
       const pos = {};
       past.forEach(race => (race.Results || []).forEach(x => {
