@@ -133,11 +133,11 @@ The Zuri manager currently promises that it **never sends messages to customers*
 | **Z3** | Server sends through the Kenyan SMS/WhatsApp provider; delivery counts back to Zuri | Daraja server |
 | **Z4** | Zuri manager proposes `OUT` / `FIX` from fault clusters; renewal reminders | Zuri manager + server |
 | **Z5** | Front Desk answers Zuri customers and opens tickets in Zuri | Daraja server |
-| **Z6** | **Bulk email (Zuri has none yet).** Free first: Alerts makes an email list per area or cabinet (BCC batches or a CSV) to send from the office email. Add-on: a bulk email provider sends it for you, with unsubscribe and delivery counts | Zuri app (Alerts) for the free way; Daraja server for the add-on |
+| **Z6** 🟡 free part built | **Bulk email.** Free (built): an approved alert offers BCC batches by language for the office email, only to customers who said yes to emails, each ending with "reply STOP" (`supabase/29_alerts_email.sql`, zuri-system PR #17). Add-on (to build): a bulk email provider sends it for you, with unsubscribe links and delivery counts | Zuri app (Alerts) for the free way; Daraja server for the add-on |
 
 **Before Z1:** build and test everything against the **Zuri test and training databases** first (Zuri already has both), and only switch to the live data once the partners sign off.
 
-**Before Z6:** collect customer emails (most records may have none, so ask at install and on calls), add "yes to emails" to each customer's message choices, and pick a provider after checking current prices (Brevo, Mailchimp and Amazon SES are options to compare; free limits change).
+**Before Z6's add-on:** collect customer emails (most records may have none, so ask at install and on calls). The "yes to emails" choice is built (customer page → 📣 Messages → ✉️ Emails too). Pick a provider after checking current prices (Brevo, Mailchimp and Amazon SES are options to compare; free limits change).
 
 ## Rules it never breaks
 
@@ -205,7 +205,7 @@ Every feature works on a **free level** first. Anything that costs money (texts,
 - **Built once and shared:** one "Plan & add-ons" settings page that every Daraja app reuses.
 
 **First built in Zuri Alerts** (zuri-system PR #7):
-- **Free:** WhatsApp broadcast groups, a contacts file per group, and one-by-one texts for small groups.
+- **Free:** WhatsApp broadcast groups, a contacts file per group, one-by-one texts for small groups, and email batches from the office account (PR #17).
 - **Bulk SMS list:** pay as you go.
 - **Automatic sending:** prepaid credit, coming with the server.
 
