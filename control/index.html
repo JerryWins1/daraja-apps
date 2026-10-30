@@ -2219,6 +2219,7 @@
       <button data-t="today">Today<span class="n" id="nToday" hidden></span></button>
       <button data-t="list">📋 Jerry's List</button>
       <button data-t="where">🗂 Where</button>
+      <button data-t="apps">🧰 Apps</button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
@@ -2291,6 +2292,12 @@
          Every app, tool and Claude page, tap to open. Reads control/where.json (hq/make_where.py builds it). -->
     <section class="tab" id="t-where">
       <div id="whereFull"><p class="muted">Loading…</p></div>
+    </section>
+
+    <!-- 🧰 APPS (v1.0, 30 Oct 2026): one app, one chat. Each app's status, what it is waiting
+         for, and the chat that owns it. Reads control/apps.json, which the chats keep current. -->
+    <section class="tab" id="t-apps">
+      <div id="appsFull"><p class="muted">Loading…</p></div>
     </section>
 
     <!-- 🧪 TEST SCRIPTS (v1.28, 10 Oct 2026): coverage, problems to confirm, nudges, coins, the reward -->
@@ -2436,6 +2443,35 @@ async function renderList(){
 }
 window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=ONELIST.sections[si].items[i]; done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
 
+/* ── 🧰 Apps (v1.0, 30 Oct 2026) ── one app, one chat. Reads control/apps.json, which each
+   app's own chat keeps current: its status, what it is waiting for, and the chat that owns it.
+   The page only reads; the chats write. ── */
+let APPS=null, APPS_F='all';
+const APPS_ORDER=['needs','review','open','clear','no-chat'];
+const APPS_LABEL={needs:'Waiting on you',review:'Finished — worth a look',open:'Work still outstanding',clear:'Nothing waiting','no-chat':'No chat owns this app yet'};
+function appsSet(f){ APPS_F=f; renderApps(); }
+async function renderApps(){
+  const el=$('appsFull'); if(!el) return;
+  if(!APPS){ try{ APPS=await (await fetch('apps.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the app list just now.</p>'; return; } }
+  const A=(APPS&&APPS.apps)||[], q=(($('appsQ')||{}).value||'').trim().toLowerCase();
+  const hit=a=>!q||((a.name||'')+' '+(a.chat_name||'')+' '+(a.next||'')).toLowerCase().indexOf(q)>=0;
+  const n=st=>A.filter(a=>a.status===st).length;
+  if(!$('appsQ')) el.innerHTML=`<div class="card"><b style="font-size:18px">🧰 Apps</b> <span class="muted">${esc(APPS.v||'')} · ${esc(APPS.updated||'')}</span><br><span class="muted">One app, one chat. Open the chat that owns an app and it reads its own entry before it starts.</span>
+      <input id="appsQ" type="search" placeholder="Find an app…" oninput="renderApps()" style="width:100%;box-sizing:border-box;margin-top:10px;font:inherit;font-size:16px;min-height:44px;padding:8px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)">
+      <div class="chips" id="appsChips" style="margin-top:10px"></div></div><div id="appsBody"></div>`;
+  $('appsChips').innerHTML=[['all','Everything',A.length]].concat(APPS_ORDER.filter(st=>n(st)).map(st=>[st,APPS_LABEL[st],n(st)]))
+    .map(c=>`<button class="chip small ${APPS_F===c[0]?'main':''}" onclick="appsSet('${c[0]}')">${esc(c[1])} ${c[2]}</button>`).join('');
+  const rows=A.filter(a=>hit(a)&&(APPS_F==='all'||a.status===APPS_F));
+  $('appsBody').innerHTML=APPS_ORDER.map(st=>{
+    const mine=rows.filter(a=>a.status===st); if(!mine.length) return '';
+    return `<h2>${esc(APPS_LABEL[st])} <small>${mine.length}</small></h2>`+mine.map(a=>{
+      const chat=a.chat?`<a class="chip small main" href="https://claude.ai/code/${esc(a.chat)}" target="_blank" rel="noopener">Open the chat</a>`:'';
+      const app=a.url?`<a class="chip small" href="${esc(a.url)}" target="_blank" rel="noopener">Open the app</a>`:'';
+      return `<div class="card"><b>${esc(a.name)}</b>${st==='needs'?'<span class="pill hot">needs you</span>':''}<br><span class="muted">${esc(a.group||'')}${a.repo?' · '+esc(a.repo):''}</span>${a.next?`<p style="margin:8px 0 0">${esc(a.next)}</p>`:''}${a.chat_name?`<p class="muted" style="margin:6px 0 0">Chat: ${esc(a.chat_name)}</p>`:''}${(chat||app)?`<div class="chips" style="margin-top:10px">${chat}${app}</div>`:''}</div>`;
+    }).join('');
+  }).join('')||'<p class="muted">Nothing matches that filter.</p>';
+}
+
 /* ── 🗂 Where everything is (v1.36, 19 Oct 2026) ── one page, every link; a search box finds an app by name. ── */
 let WHERE=null;
 async function renderWhere(){
@@ -2548,7 +2584,7 @@ function wireTabs(){
 }
 function show(t){
   if(!$('t-'+t)) t='today';
-  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest();
+  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='apps') renderApps(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
