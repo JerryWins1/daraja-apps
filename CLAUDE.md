@@ -27,6 +27,42 @@ save that for genuine forks in the road, not for routine step confirmations.
 **Then wait.** Don't send the next step until he replies. Don't batch them, don't
 run ahead.
 
+## One app, one chat
+
+Jerry works on one app at a time, so every app gets exactly one chat and no chat
+collects several apps. `control/apps.json` is the list: one entry per app, naming
+the chat that owns it, its status, and what it is waiting for.
+
+**Read your app's entry before you start.** This is the whole point of the file. A
+chat does not inherit anything from the chat that spawned it — a new session starts
+blank, however it was created. The entry is what tells it where this app stands, so
+read it rather than asking Jerry to recap.
+
+**Write your entry back when you stop.** Set `status`, rewrite `next` in plain words
+Jerry can act on, and put today's date in `touched`. A stale entry is worse than an
+empty one, because the panel will show it as current.
+
+**Stay inside your own app.** If something turns up that belongs to another app, do
+not fix it here. Say which chat owns it — `apps.json` has the name — and leave it.
+Work that spans every app, like the shared house layer or the store catalogue, has
+its own entry and its own chat; it is the one exception, not a licence to widen.
+
+**Don't work an app whose entry names a different chat.** Tell Jerry which chat owns
+it and stop there. Two chats editing one app is how the same change gets made twice.
+
+The statuses, and nothing else:
+
+| status | means |
+| --- | --- |
+| `needs` | waiting on Jerry — `next` is the question or the tap |
+| `review` | finished work for him to look at when convenient |
+| `open` | work still outstanding on Claude's side |
+| `clear` | nothing waiting |
+| `no-chat` | no chat owns this app yet |
+
+`control/apps.html` renders the file as a panel: the apps waiting on Jerry first,
+each with a button through to its chat. The page only reads — the chats write.
+
 ## Secrets
 
 Never ask for a secret in chat, and never accept one: client secrets, API keys,
@@ -47,3 +83,9 @@ every ESPN host and every Yahoo host, including their developer and API domains.
 So Claude cannot read his fantasy leagues, open a link he pastes, or fill in a web
 form. Anything happening on a website is his hands on the keyboard. Pasting page
 text into chat works fine, and is the way to get page content to Claude.
+
+A chat also dies with the computer it runs on. A chat running through Remote Control
+on the Mac is archived the moment that host exits — laptop closed, Claude quit, Mac
+asleep. Nothing is lost and it can be unarchived, but it stops answering. So anything
+holding a question Jerry owes an answer to belongs in a cloud chat, and anything worth
+keeping belongs in this repo rather than in a chat's memory.
