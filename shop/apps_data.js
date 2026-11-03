@@ -1031,8 +1031,13 @@ const APPS = {
       and the Nourish Line, with the prices from their own listings. ── */
  tplcashflow: {
   name:'Cash Flow Tracker', em:'📈', sub:'know what is coming, and when', cat:'work',
-  price:'$12', kind:'download', file:'Excel or Google Sheets',
-  tag:'Twelve months of money in and money out, adding itself up — with a break-even line so you know the number you have to hit'},
+  price:'$12', kind:'download', file:'Excel · Google Sheets · Numbers',
+  tag:'Twelve months of money in and money out, adding itself up — with a break-even line so you know the number you have to hit',
+  inside:['12-month cash flow — income, fixed costs and variable costs, totalled by month and by year',
+   'Running cash balance — each month’s ending cash rolls into the next, so you can watch your runway',
+   'Break-even calculator — how many sales a month until you stop losing money',
+   'Price what-if table — your break-even at five different price points, before you change anything',
+   'Start Here guide — set up in under five minutes: blue cells you type in, black cells work themselves out']},
  tplinvoice: {
   name:'Invoice &amp; Estimate Pack', em:'💵', sub:'send it, and get paid', cat:'work',
   price:'$9', kind:'download', file:'Excel or Google Sheets + email scripts',
@@ -1047,8 +1052,14 @@ const APPS = {
   tag:'Write down how the work is actually done, so the job can be handed over without it living in one person\u2019s head'},
  tplonboard: {
   name:'Client Onboarding Kit', em:'🤝', sub:'start every job the same way', cat:'work',
-  price:'$18', kind:'download', file:'Word + Excel',
-  tag:'Welcome letter, questionnaire, agreement and checklist \u2014 so no new client ever starts with a blank page'},
+  price:'$18', kind:'download', file:'ZIP — a PDF, four editable documents and a spreadsheet',
+  tag:'The whole first fortnight with a new client: what to send, what to ask, what to say, and where to track it — so nobody ever starts from a blank page',
+  inside:['Start Here guide (PDF) — the order to use everything in',
+   'Client intake form — 18 questions that become your project brief, and your cover when the scope is questioned later',
+   'Contract checklist — 13 things the agreement must cover before you start, including the clause that stops scope creep',
+   'Kickoff call agenda — a 30-minute structure, the questions to ask, and the recap-email habit that turns a conversation into a written agreement',
+   'Six email scripts — welcome, gentle nudge, “that is extra”, late payment, final delivery, and the review ask',
+   'Project tracker (spreadsheet) — every client, milestone and unpaid balance on one screen, with status dropdowns and balances that add themselves']},
  tplbundle: {
   name:'The Whole Toolkit', em:'🧰', sub:'all five, together', cat:'work',
   price:'$49 (worth $75)', kind:'download', file:'everything above',
