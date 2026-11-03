@@ -82,14 +82,95 @@ const APPS = {
   try:BASE+'advent/', video:true
  },
  quickquote: {
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and every screen. Sound on.", lines:[
+    {t:"Welcome. This video explains Quick Quote: who it is for, and what it does.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"It is for one thing \u2014 getting a priced estimate in front of a customer before you leave their driveway.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Quick Quote is the quotes-only edition of Business Manager. The same app underneath, with invoices, expenses and profit kept out of your way.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Start with your price list. This is the heart of it \u2014 your work, at your prices.", js:"try{tourShow('prices')}catch(e){}"},
+    {t:"Now describe a job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"The estimate is built from your list. Fifteen hundred and twenty-five dollars, itemised in words the customer understands.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"Your prices always win. Even when the app drafts the quote for you, it never invents a number of its own.", js:"try{tourShow('prices')}catch(e){}"},
+    {t:"Offer three choices \u2014 Good, Better and Best. The church restroom job shows all three. Given three options, people choose the middle one far more often than they choose nothing.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"Add photos to the quote, so there is no argument later about what the job was.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"The customer signs on your phone, standing in their own kitchen. That is the moment most jobs are won or lost.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"It works with no signal. In a basement, in a crawlspace, out on a site with one bar \u2014 the quote still goes out.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"And if you later want invoices, receipts and profit, turning on the full office keeps every quote, price and signature. Nothing is retyped. Go and try it \u2014 you cannot break the example.", js:"try{tourShow('home')}catch(e){}"}
+  ]} },
   name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', mem:'Quotes-only membership', price:'$49 a year', testing:true,
   tag:'Describe the job, get a priced estimate from YOUR price list: three options, the customer signs on your phone, photos on the quote. Works with no signal. The quotes-only edition of Business Manager: move up any time and your quotes come with you.',
-  try:BASE+'business-manager/?mode=quotes', video:false
+  try:BASE+'business-manager/?mode=quotes',
+  train:[
+   'Quick Quote setup \u2014 about five minutes, and the quotes come fast afterwards.',
+   'First your business: name, trade and phone. That is the header on every estimate you send.',
+   'Then the price list, which is the whole engine. Pick your trade for a starting set, then go through and change every price to yours.',
+   'Set your trip charge and your hourly labour rate, so the short awkward jobs price themselves properly instead of being guessed at.',
+   'Add a deposit rule if you take one \u2014 a percentage or a flat amount, shown on the quote so it is agreed before you start.',
+   'Decide whether add-ons are included in a price or charged separately. Get this right once and every later quote is right.',
+   'That is setup. Quote your first job. If you ever want invoices, receipts and profit as well, turning on the full office keeps every quote you have written.'
+  ],
+  lines:[
+   'This is Quick Quote \u2014 a priced estimate in about a minute, from your own price list.',
+   'Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.',
+   'Describe the job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.',
+   'The estimate is built from YOUR price list \u2014 not a guess, and not somebody else\u2019s prices.',
+   'Fifteen hundred and twenty-five dollars, itemised in words the customer actually understands.',
+   'Offer three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.',
+   'Add photos to the quote, so there is no argument later about what the job was.',
+   'The customer signs on your phone, standing in their own kitchen.',
+   'It works with no signal \u2014 a basement, a crawlspace, a site with one bar. The quote still goes out.',
+   'It is the quotes-only edition of Business Manager. Turn on the full office any time and every quote comes with you.'
+  ]
  },
  businessmanager: {
+  extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every screen. Sound on.", lines:[
+    {t:"Welcome. This video explains Business Manager: who it is for, and what each screen does.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"It is built for a one-truck trade business. A plumber, an electrician, a painter, a landscaper \u2014 someone who does the work AND runs the office, usually at night.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Everything you are about to see is an example business, Miller Plumbing and Repair. It is not real, and nothing here is saved to your phone.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"This is the home screen. It opens on today: a water heater at nine this morning, a kitchen faucet tomorrow afternoon.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Jobs is every piece of work you have on, from a first estimate through to paid and closed.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"A job holds what you agreed: the work, the line items and the price. Fifteen hundred and twenty-five dollars to replace a fifty gallon heater and take the old one away.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"For the church restrooms, Dan offered three choices \u2014 Good, Better and Best. Given three options, people choose the middle one far more often than they choose nothing at all.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"The customer signs on your phone, at their kitchen table. No printing, no posting, no waiting for a reply.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"When the work is done, the quote becomes an invoice in one tap. You never retype a price.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"Money is who owes you what. That drain cleaning invoice went out twenty days ago and is six days overdue \u2014 on the screen, not lost in a notebook in the van.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"The invoice carries a pay link, so the money can arrive before you have packed up your tools.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"Deposits work the same way. The bathroom remodel took thirty percent up front, so the materials were not coming out of your own pocket.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"Receipts: photograph them as you buy. A thousand and twelve dollars at Home Depot, put against the water heater job.", js:"try{tourShow('receipts')}catch(e){}"},
+    {t:"Which gives you the number most trades never actually see \u2014 what each job made you, after the materials and the hours.", js:"try{tourShow('receipts')}catch(e){}"},
+    {t:"Customers keeps the history: what you did for them, what they paid, and when you were last there.", js:"try{tourShow('custs')}catch(e){}"},
+    {t:"Your price list is the engine. Describe a job in plain words and the estimate is built from your own numbers \u2014 never a guess, and never somebody else's prices.", js:"try{tourShow('prices')}catch(e){}"},
+    {t:"To-dos hold the dates that cost you money when they slip: the truck registration, the insurance renewal, the quarterly estimated taxes.", js:"try{tourShow('todo')}catch(e){}"},
+    {t:"It opens in your phone's browser. Nothing to install, no account to make, and what you type stays on your phone.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{tourShow('home')}catch(e){}"}
+  ]} },
   name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', mem:'Business membership', price:'$149 a year', testing:true,
   tag:'Quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, to-dos and tax dates. Includes Next Step Board, Message Assistant and Feedback Studio.',
-  try:BASE+'business-manager/?mode=full', video:false
+  try:BASE+'business-manager/?mode=full',
+  train:[
+   'Business Manager setup \u2014 about five minutes, and you only do it once.',
+   'Start with the business itself: your name, your trade, your phone, and whether you are licensed and insured. That is what prints at the top of every quote and every invoice you send.',
+   'Then your price list. Choose your trade and it starts you off with the usual work at typical prices. Go through and make them yours \u2014 this is the part worth the five minutes.',
+   'The price list is the engine of the whole app. Describe a job in plain words and the estimate is built from these numbers. Even when the app drafts one for you, your prices always win.',
+   'Next, how you get paid: card, PayPal, Venmo, Cash App, Zelle or a cheque. Whatever you fill in is what shows on the invoice, so leave blank anything you do not use.',
+   'If you work with crew, add them with their hourly rate. Then hours logged against a job turn into real labour cost, and the profit figure tells the truth.',
+   'If you only want quotes, choose quotes-only mode. Invoices, expenses, profit, schedule, crew and to-dos stay hidden \u2014 hidden, never deleted. Turn them on any time and every quote and price comes with you.',
+   'That is setup done. Add your first customer, then your first job, and the app follows the work from there.'
+  ],
+  lines:[
+   'This is Business Manager \u2014 the office for a one-truck trade business, in the phone in your pocket.',
+   'Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.',
+   'The home screen opens on today. A water heater to replace at nine, a kitchen faucet tomorrow afternoon.',
+   'A job holds what you agreed: the work, the line items, the price. Fifteen hundred and twenty-five dollars, heater replaced and the old one taken away.',
+   'For the church restrooms Dan offered three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.',
+   'The customer signs on your phone, right there at the kitchen table.',
+   'When the work is done the quote becomes an invoice in one tap, with a pay link on it, so the money can arrive before you have packed the van.',
+   'Money shows who still owes you. That drain cleaning invoice is six days overdue, and it is on the screen instead of lost in a notebook.',
+   'Photograph receipts as you buy them. A thousand and twelve dollars at Home Depot, against the water heater job.',
+   'Which gives you the number most trades never see: what each job actually made, after materials and hours.',
+   'To-dos carry the dates that cost you money if you miss them \u2014 truck registration, insurance renewal, the quarterly estimated taxes.',
+   'It opens in your phone browser. Nothing to install, no account, and what you type stays on your phone.'
+  ]
  },
  tester: {
   name:'How to be a tester', em:'🧪', sub:'three minutes: a real test, start to finish', cat:'off', price:'', testing:true, video:true,
@@ -114,9 +195,46 @@ const APPS = {
  },
 
  home: {
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what the front door is, and why you would put it on your phone. Sound on.", lines:[
+   'Welcome. This explains Daraja itself — not one of the apps, but the front door they all live behind.',
+   'Daraja means bridge in Swahili. That is the whole idea: a short way across from where you are to the thing you were trying to do.',
+   'Here is the problem it solves. Once you are using three or four small apps, you stop being able to find them. They scatter across your phone, buried in folders, and you end up not using the ones you liked.',
+   'Daraja is one page that holds them all. Put it on your home screen once, and it is the only icon you need.',
+   'The apps you use sit together under Mine, so the ones you actually open are the ones you see first.',
+   'Tap one and it opens right there inside Daraja, with a back arrow to bring you home again. No hunting, no going back to a browser.',
+   'If you would rather give an app its own window, there is open on its own — handy for the one you live in all day.',
+   'New apps turn up here by themselves as they are built. Nothing to update, nothing to reinstall.',
+   'It works with no signal. Once it has loaded, it keeps working on a train, in a basement, or out where the bars run out.',
+   'Nothing is sent anywhere. No account to make, no password, no ads. What each app knows stays on your phone.',
+   'Two links sit at the bottom: the store, for anything you have not got yet, and what’s new, for what has changed lately.',
+   'Daraja itself is free, and always will be. You only ever pay for an app you decide you want.',
+   'And every app that somebody buys helps a student in Kenya stay in school. That is not a slogan bolted on the end — it is why the whole thing exists.',
+   'That is the front door. Add it to your home screen, and everything else is one tap away.'
+  ]} },
   name:'Daraja', em:'🌉', sub:'your family of apps, one front door', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
   tag:'your family of apps, one front door',
-  try:BASE+'home/', video:false
+  try:BASE+'home/',
+  train:[
+   'Setting up your front door — about three minutes, once.',
+   'Open Daraja in your phone’s browser. That link is the only address you need to remember.',
+   'Now put it on your home screen. On an iPhone, tap the share button and choose Add to Home Screen. On Android, open the browser menu and choose Install or Add to Home screen.',
+   'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.',
+   'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.',
+   'If an app is one you use all day, open it on its own and give that its own home screen icon too. The two live happily side by side.',
+   'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.'
+  ],
+  lines:[
+   'This is Daraja — your family of apps behind one front door.',
+   'Daraja means bridge in Swahili.',
+   'Once you are using three or four small apps, you stop being able to find them. They scatter across your phone and you quietly stop using them.',
+   'This is one page that holds them all. Add it to your home screen and it is the only icon you need.',
+   'The apps you use gather under Mine, so what you actually open is what you see first.',
+   'Tap one and it opens inside Daraja, with a back arrow home. Or open it on its own if you prefer its own window.',
+   'New apps appear here by themselves. Nothing to update, nothing to reinstall.',
+   'It works with no signal, and nothing is sent anywhere — no account, no password, no ads.',
+   'Daraja is free and always will be. You only pay for an app you decide you want.',
+   'And every app bought helps a student in Kenya stay in school.'
+  ]
  },
  everyday: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -950,8 +1068,13 @@ const APPS = {
       and the Nourish Line, with the prices from their own listings. ── */
  tplcashflow: {
   name:'Cash Flow Tracker', em:'📈', sub:'know what is coming, and when', cat:'work',
-  price:'$12', kind:'download', file:'Excel or Google Sheets',
-  tag:'Twelve months of money in and money out, adding itself up — with a break-even line so you know the number you have to hit'},
+  price:'$12', kind:'download', file:'Excel · Google Sheets · Numbers',
+  tag:'Twelve months of money in and money out, adding itself up — with a break-even line so you know the number you have to hit',
+  inside:['12-month cash flow — income, fixed costs and variable costs, totalled by month and by year',
+   'Running cash balance — each month’s ending cash rolls into the next, so you can watch your runway',
+   'Break-even calculator — how many sales a month until you stop losing money',
+   'Price what-if table — your break-even at five different price points, before you change anything',
+   'Start Here guide — set up in under five minutes: blue cells you type in, black cells work themselves out']},
  tplinvoice: {
   name:'Invoice &amp; Estimate Pack', em:'💵', sub:'send it, and get paid', cat:'work',
   price:'$9', kind:'download', file:'Excel or Google Sheets + email scripts',
@@ -966,8 +1089,14 @@ const APPS = {
   tag:'Write down how the work is actually done, so the job can be handed over without it living in one person\u2019s head'},
  tplonboard: {
   name:'Client Onboarding Kit', em:'🤝', sub:'start every job the same way', cat:'work',
-  price:'$18', kind:'download', file:'Word + Excel',
-  tag:'Welcome letter, questionnaire, agreement and checklist \u2014 so no new client ever starts with a blank page'},
+  price:'$18', kind:'download', file:'ZIP — a PDF, four editable documents and a spreadsheet',
+  tag:'The whole first fortnight with a new client: what to send, what to ask, what to say, and where to track it — so nobody ever starts from a blank page',
+  inside:['Start Here guide (PDF) — the order to use everything in',
+   'Client intake form — 18 questions that become your project brief, and your cover when the scope is questioned later',
+   'Contract checklist — 13 things the agreement must cover before you start, including the clause that stops scope creep',
+   'Kickoff call agenda — a 30-minute structure, the questions to ask, and the recap-email habit that turns a conversation into a written agreement',
+   'Six email scripts — welcome, gentle nudge, “that is extra”, late payment, final delivery, and the review ask',
+   'Project tracker (spreadsheet) — every client, milestone and unpaid balance on one screen, with status dropdowns and balances that add themselves']},
  tplbundle: {
   name:'The Whole Toolkit', em:'🧰', sub:'all five, together', cat:'work',
   price:'$49 (worth $75)', kind:'download', file:'everything above',
@@ -1643,9 +1772,27 @@ const APPS = {
    "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
    "It comes with the Small charity membership, or with the Church membership. Your treasurer will hug you. Try it below."]},
  flipkit: {
-  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', off:'parked — Meta has never allowed an outside app to create a Marketplace listing', price:'$9', testing:true, fresh:true, video:true,
+  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'home', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money. Why not just ChatGPT? FlipKit asks it the right question, then keeps your floor price and your cash total.',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and how a flip works. Sound on.", lines:[
+   'Welcome. This video explains FlipKit: what it is for, and how one flip works start to finish.',
+   'It is for the stuff you already own and do not want. The garage, the back of the closet, the corner of the basement.',
+   'Most of that never gets sold, and it is not laziness. Selling is two separate chores: working out what a thing is worth, and then writing the listing. Either one is enough to put it off another year.',
+   'FlipKit takes both chores off you. Here is the whole loop.',
+   'You add a thing. A Weber grill, five years old, good condition. Brand and age matter, because they are what a price hangs on.',
+   'You pick the honest condition. Honest sells faster, and it stops the haggling when somebody turns up and sees a scratch you did not mention.',
+   'Then you tap Price it with my AI. FlipKit does not have its own AI and does not charge you for one. It writes the right question and copies it for you.',
+   'You open whichever AI you already use, paste the question in, and attach a photo of the thing.',
+   'Copy the whole answer back into FlipKit, and it reads out three things: an asking price, a floor you will not go below, and a finished listing with a title and description.',
+   'The floor is the part that earns its keep. It is decided while you are calm, not while somebody is standing in your driveway offering you half.',
+   'Tap Copy the listing, paste it into Facebook Marketplace or wherever you sell, and that is the job. About ninety seconds.',
+   'At the top sits the number that makes this addictive: what everything you have added is worth together. Every time something sells, the cash line climbs.',
+   'When it sells, tap Sold and type what you actually got. Not the asking price — what landed in your hand.',
+   'There is a selling-safely card too: meet in public, take cash, trust your gut. Read it once.',
+   'Nothing leaves your phone. No account, no listing fees to us, and we never see what you sold or what you got for it.',
+   'That is FlipKit. Go and add the thing you almost sold last spring — it is still in the garage.'
+  ]} },
   lines:[
    "This is FlipKit, the only app in this store that pays for itself the very first time you use it.",
    "Because here is the truth: your garage, your closets, and your basement are hiding a few hundred dollars, and the only reason it never gets sold is that selling is two chores. You have to figure out what a thing is worth, and then you have to write the listing.",
