@@ -1735,9 +1735,27 @@ const APPS = {
    "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
    "It comes with the Small charity membership, or with the Church membership. Your treasurer will hug you. Try it below."]},
  flipkit: {
-  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', off:'parked — Meta has never allowed an outside app to create a Marketplace listing', price:'$9', testing:true, fresh:true, video:true,
+  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'home', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money. Why not just ChatGPT? FlipKit asks it the right question, then keeps your floor price and your cash total.',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and how a flip works. Sound on.", lines:[
+   'Welcome. This video explains FlipKit: what it is for, and how one flip works start to finish.',
+   'It is for the stuff you already own and do not want. The garage, the back of the closet, the corner of the basement.',
+   'Most of that never gets sold, and it is not laziness. Selling is two separate chores: working out what a thing is worth, and then writing the listing. Either one is enough to put it off another year.',
+   'FlipKit takes both chores off you. Here is the whole loop.',
+   'You add a thing. A Weber grill, five years old, good condition. Brand and age matter, because they are what a price hangs on.',
+   'You pick the honest condition. Honest sells faster, and it stops the haggling when somebody turns up and sees a scratch you did not mention.',
+   'Then you tap Price it with my AI. FlipKit does not have its own AI and does not charge you for one. It writes the right question and copies it for you.',
+   'You open whichever AI you already use, paste the question in, and attach a photo of the thing.',
+   'Copy the whole answer back into FlipKit, and it reads out three things: an asking price, a floor you will not go below, and a finished listing with a title and description.',
+   'The floor is the part that earns its keep. It is decided while you are calm, not while somebody is standing in your driveway offering you half.',
+   'Tap Copy the listing, paste it into Facebook Marketplace or wherever you sell, and that is the job. About ninety seconds.',
+   'At the top sits the number that makes this addictive: what everything you have added is worth together. Every time something sells, the cash line climbs.',
+   'When it sells, tap Sold and type what you actually got. Not the asking price — what landed in your hand.',
+   'There is a selling-safely card too: meet in public, take cash, trust your gut. Read it once.',
+   'Nothing leaves your phone. No account, no listing fees to us, and we never see what you sold or what you got for it.',
+   'That is FlipKit. Go and add the thing you almost sold last spring — it is still in the garage.'
+  ]} },
   lines:[
    "This is FlipKit, the only app in this store that pays for itself the very first time you use it.",
    "Because here is the truth: your garage, your closets, and your basement are hiding a few hundred dollars, and the only reason it never gets sold is that selling is two chores. You have to figure out what a thing is worth, and then you have to write the listing.",
