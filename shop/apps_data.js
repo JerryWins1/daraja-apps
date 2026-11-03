@@ -195,9 +195,46 @@ const APPS = {
  },
 
  home: {
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what the front door is, and why you would put it on your phone. Sound on.", lines:[
+   'Welcome. This explains Daraja itself — not one of the apps, but the front door they all live behind.',
+   'Daraja means bridge in Swahili. That is the whole idea: a short way across from where you are to the thing you were trying to do.',
+   'Here is the problem it solves. Once you are using three or four small apps, you stop being able to find them. They scatter across your phone, buried in folders, and you end up not using the ones you liked.',
+   'Daraja is one page that holds them all. Put it on your home screen once, and it is the only icon you need.',
+   'The apps you use sit together under Mine, so the ones you actually open are the ones you see first.',
+   'Tap one and it opens right there inside Daraja, with a back arrow to bring you home again. No hunting, no going back to a browser.',
+   'If you would rather give an app its own window, there is open on its own — handy for the one you live in all day.',
+   'New apps turn up here by themselves as they are built. Nothing to update, nothing to reinstall.',
+   'It works with no signal. Once it has loaded, it keeps working on a train, in a basement, or out where the bars run out.',
+   'Nothing is sent anywhere. No account to make, no password, no ads. What each app knows stays on your phone.',
+   'Two links sit at the bottom: the store, for anything you have not got yet, and what’s new, for what has changed lately.',
+   'Daraja itself is free, and always will be. You only ever pay for an app you decide you want.',
+   'And every app that somebody buys helps a student in Kenya stay in school. That is not a slogan bolted on the end — it is why the whole thing exists.',
+   'That is the front door. Add it to your home screen, and everything else is one tap away.'
+  ]} },
   name:'Daraja', em:'🌉', sub:'your family of apps, one front door', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
   tag:'your family of apps, one front door',
-  try:BASE+'home/', video:false
+  try:BASE+'home/',
+  train:[
+   'Setting up your front door — about three minutes, once.',
+   'Open Daraja in your phone’s browser. That link is the only address you need to remember.',
+   'Now put it on your home screen. On an iPhone, tap the share button and choose Add to Home Screen. On Android, open the browser menu and choose Install or Add to Home screen.',
+   'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.',
+   'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.',
+   'If an app is one you use all day, open it on its own and give that its own home screen icon too. The two live happily side by side.',
+   'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.'
+  ],
+  lines:[
+   'This is Daraja — your family of apps behind one front door.',
+   'Daraja means bridge in Swahili.',
+   'Once you are using three or four small apps, you stop being able to find them. They scatter across your phone and you quietly stop using them.',
+   'This is one page that holds them all. Add it to your home screen and it is the only icon you need.',
+   'The apps you use gather under Mine, so what you actually open is what you see first.',
+   'Tap one and it opens inside Daraja, with a back arrow home. Or open it on its own if you prefer its own window.',
+   'New apps appear here by themselves. Nothing to update, nothing to reinstall.',
+   'It works with no signal, and nothing is sent anywhere — no account, no password, no ads.',
+   'Daraja is free and always will be. You only pay for an app you decide you want.',
+   'And every app bought helps a student in Kenya stay in school.'
+  ]
  },
  everyday: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
