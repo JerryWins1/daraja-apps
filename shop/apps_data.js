@@ -82,14 +82,95 @@ const APPS = {
   try:BASE+'advent/', video:true
  },
  quickquote: {
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and every screen. Sound on.", lines:[
+    {t:"Welcome. This video explains Quick Quote: who it is for, and what it does.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"It is for one thing \u2014 getting a priced estimate in front of a customer before you leave their driveway.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Quick Quote is the quotes-only edition of Business Manager. The same app underneath, with invoices, expenses and profit kept out of your way.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Start with your price list. This is the heart of it \u2014 your work, at your prices.", js:"try{tourShow('prices')}catch(e){}"},
+    {t:"Now describe a job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"The estimate is built from your list. Fifteen hundred and twenty-five dollars, itemised in words the customer understands.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"Your prices always win. Even when the app drafts the quote for you, it never invents a number of its own.", js:"try{tourShow('prices')}catch(e){}"},
+    {t:"Offer three choices \u2014 Good, Better and Best. The church restroom job shows all three. Given three options, people choose the middle one far more often than they choose nothing.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"Add photos to the quote, so there is no argument later about what the job was.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"The customer signs on your phone, standing in their own kitchen. That is the moment most jobs are won or lost.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"It works with no signal. In a basement, in a crawlspace, out on a site with one bar \u2014 the quote still goes out.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"And if you later want invoices, receipts and profit, turning on the full office keeps every quote, price and signature. Nothing is retyped. Go and try it \u2014 you cannot break the example.", js:"try{tourShow('home')}catch(e){}"}
+  ]} },
   name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', mem:'Quotes-only membership', price:'$49 a year', testing:true,
   tag:'Describe the job, get a priced estimate from YOUR price list: three options, the customer signs on your phone, photos on the quote. Works with no signal. The quotes-only edition of Business Manager: move up any time and your quotes come with you.',
-  try:BASE+'business-manager/?mode=quotes', video:false
+  try:BASE+'business-manager/?mode=quotes',
+  train:[
+   'Quick Quote setup \u2014 about five minutes, and the quotes come fast afterwards.',
+   'First your business: name, trade and phone. That is the header on every estimate you send.',
+   'Then the price list, which is the whole engine. Pick your trade for a starting set, then go through and change every price to yours.',
+   'Set your trip charge and your hourly labour rate, so the short awkward jobs price themselves properly instead of being guessed at.',
+   'Add a deposit rule if you take one \u2014 a percentage or a flat amount, shown on the quote so it is agreed before you start.',
+   'Decide whether add-ons are included in a price or charged separately. Get this right once and every later quote is right.',
+   'That is setup. Quote your first job. If you ever want invoices, receipts and profit as well, turning on the full office keeps every quote you have written.'
+  ],
+  lines:[
+   'This is Quick Quote \u2014 a priced estimate in about a minute, from your own price list.',
+   'Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.',
+   'Describe the job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.',
+   'The estimate is built from YOUR price list \u2014 not a guess, and not somebody else\u2019s prices.',
+   'Fifteen hundred and twenty-five dollars, itemised in words the customer actually understands.',
+   'Offer three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.',
+   'Add photos to the quote, so there is no argument later about what the job was.',
+   'The customer signs on your phone, standing in their own kitchen.',
+   'It works with no signal \u2014 a basement, a crawlspace, a site with one bar. The quote still goes out.',
+   'It is the quotes-only edition of Business Manager. Turn on the full office any time and every quote comes with you.'
+  ]
  },
  businessmanager: {
+  extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every screen. Sound on.", lines:[
+    {t:"Welcome. This video explains Business Manager: who it is for, and what each screen does.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"It is built for a one-truck trade business. A plumber, an electrician, a painter, a landscaper \u2014 someone who does the work AND runs the office, usually at night.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Everything you are about to see is an example business, Miller Plumbing and Repair. It is not real, and nothing here is saved to your phone.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"This is the home screen. It opens on today: a water heater at nine this morning, a kitchen faucet tomorrow afternoon.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Jobs is every piece of work you have on, from a first estimate through to paid and closed.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"A job holds what you agreed: the work, the line items and the price. Fifteen hundred and twenty-five dollars to replace a fifty gallon heater and take the old one away.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"For the church restrooms, Dan offered three choices \u2014 Good, Better and Best. Given three options, people choose the middle one far more often than they choose nothing at all.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"The customer signs on your phone, at their kitchen table. No printing, no posting, no waiting for a reply.", js:"try{tourShow('jobs')}catch(e){}"},
+    {t:"When the work is done, the quote becomes an invoice in one tap. You never retype a price.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"Money is who owes you what. That drain cleaning invoice went out twenty days ago and is six days overdue \u2014 on the screen, not lost in a notebook in the van.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"The invoice carries a pay link, so the money can arrive before you have packed up your tools.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"Deposits work the same way. The bathroom remodel took thirty percent up front, so the materials were not coming out of your own pocket.", js:"try{tourShow('money')}catch(e){}"},
+    {t:"Receipts: photograph them as you buy. A thousand and twelve dollars at Home Depot, put against the water heater job.", js:"try{tourShow('receipts')}catch(e){}"},
+    {t:"Which gives you the number most trades never actually see \u2014 what each job made you, after the materials and the hours.", js:"try{tourShow('receipts')}catch(e){}"},
+    {t:"Customers keeps the history: what you did for them, what they paid, and when you were last there.", js:"try{tourShow('custs')}catch(e){}"},
+    {t:"Your price list is the engine. Describe a job in plain words and the estimate is built from your own numbers \u2014 never a guess, and never somebody else's prices.", js:"try{tourShow('prices')}catch(e){}"},
+    {t:"To-dos hold the dates that cost you money when they slip: the truck registration, the insurance renewal, the quarterly estimated taxes.", js:"try{tourShow('todo')}catch(e){}"},
+    {t:"It opens in your phone's browser. Nothing to install, no account to make, and what you type stays on your phone.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{tourShow('home')}catch(e){}"}
+  ]} },
   name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', mem:'Business membership', price:'$149 a year', testing:true,
   tag:'Quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, to-dos and tax dates. Includes Next Step Board, Message Assistant and Feedback Studio.',
-  try:BASE+'business-manager/?mode=full', video:false
+  try:BASE+'business-manager/?mode=full',
+  train:[
+   'Business Manager setup \u2014 about five minutes, and you only do it once.',
+   'Start with the business itself: your name, your trade, your phone, and whether you are licensed and insured. That is what prints at the top of every quote and every invoice you send.',
+   'Then your price list. Choose your trade and it starts you off with the usual work at typical prices. Go through and make them yours \u2014 this is the part worth the five minutes.',
+   'The price list is the engine of the whole app. Describe a job in plain words and the estimate is built from these numbers. Even when the app drafts one for you, your prices always win.',
+   'Next, how you get paid: card, PayPal, Venmo, Cash App, Zelle or a cheque. Whatever you fill in is what shows on the invoice, so leave blank anything you do not use.',
+   'If you work with crew, add them with their hourly rate. Then hours logged against a job turn into real labour cost, and the profit figure tells the truth.',
+   'If you only want quotes, choose quotes-only mode. Invoices, expenses, profit, schedule, crew and to-dos stay hidden \u2014 hidden, never deleted. Turn them on any time and every quote and price comes with you.',
+   'That is setup done. Add your first customer, then your first job, and the app follows the work from there.'
+  ],
+  lines:[
+   'This is Business Manager \u2014 the office for a one-truck trade business, in the phone in your pocket.',
+   'Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.',
+   'The home screen opens on today. A water heater to replace at nine, a kitchen faucet tomorrow afternoon.',
+   'A job holds what you agreed: the work, the line items, the price. Fifteen hundred and twenty-five dollars, heater replaced and the old one taken away.',
+   'For the church restrooms Dan offered three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.',
+   'The customer signs on your phone, right there at the kitchen table.',
+   'When the work is done the quote becomes an invoice in one tap, with a pay link on it, so the money can arrive before you have packed the van.',
+   'Money shows who still owes you. That drain cleaning invoice is six days overdue, and it is on the screen instead of lost in a notebook.',
+   'Photograph receipts as you buy them. A thousand and twelve dollars at Home Depot, against the water heater job.',
+   'Which gives you the number most trades never see: what each job actually made, after materials and hours.',
+   'To-dos carry the dates that cost you money if you miss them \u2014 truck registration, insurance renewal, the quarterly estimated taxes.',
+   'It opens in your phone browser. Nothing to install, no account, and what you type stays on your phone.'
+  ]
  },
  tester: {
   name:'How to be a tester', em:'🧪', sub:'three minutes: a real test, start to finish', cat:'off', price:'', testing:true, video:true,
