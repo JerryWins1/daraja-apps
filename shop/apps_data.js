@@ -6,6 +6,14 @@
    Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps). */
 const PHASE = 'testing';
 
+/* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
+   to 'live' puts prices on all 29 cards and strands every app without a buy link on
+   "Coming soon". Naming an app here sells just that one — its card shows its real
+   membership and its Get button goes to its buy link — while the rest of the store stays
+   in test flight. Launching for real is still the one word above.
+   To put an app on sale it needs BOTH its id here AND a buy: link on its entry. */
+const LIVE = [];
+
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
