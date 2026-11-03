@@ -115,10 +115,12 @@ That is a real church catalogue sitting finished. Week two writes itself.
 
 Short list, in order. Only the first two need you.
 
-1. **Business bank account** — **[needs your Mac / your ID]**
-   The LLC is filed and approved (14 Oct). Relay or Mercury, about 15 minutes online,
-   or your own bank. Upload the LLC approval, the EIN letter, your ID.
-   *Text me the last four digits only.*
+1. **Business bank account** — **[needs your ID, not your Mac — a phone will do]**
+   Both papers exist. The LLC was filed 14 Oct and approved; the IRS issued the EIN on
+   **2 Nov 2026**, Notice **CP-575G**, Daraja Studio, Jerry L Winslow sole member, and the
+   letter is saved. Relay or Mercury, about 15 minutes online, or your own bank. Upload the
+   LLC approval, the CP-575 and your ID. *Text me the last four digits only.*
+   **Nothing is waiting on anybody for this one. It is open.**
 
 2. **Stripe account, in the right name** — your list already carries the warning and it
    is the most expensive mistake available here:
@@ -144,6 +146,47 @@ Short list, in order. Only the first two need you.
 
 **Nothing here is hard and nothing is weeks of work.** Items 1 and 2 are one afternoon
 when you are home. Items 3 and 4 are mine.
+
+---
+
+## 5a. The membership prices — you have already written three of the four
+
+You cannot make a Stripe link without a price, so this is the decision that gates §5
+item 3. The good news: most of it is already decided and written down in the catalogue.
+I added the apps up.
+
+| Membership | Apps | Ready | Their list prices add to | A yearly price already written in the catalogue |
+|---|---|---|---|---|
+| **Family** | 10 | 5 | **$87.99** | *nothing, anywhere* |
+| **Church** | 11 | 7 | **$370.00** | $149 (The Church App) · $49 small charity |
+| **Business** | 4 | **1** | $189.00 | **$149 a year** (Business Manager) |
+| Quotes-only | 1 | 0 | $49.00 | **$49 a year** (Quick Quote) |
+| Free | 6 | 3 | $0 | — |
+
+**So three of the four already have a number:**
+
+- **Business — $149 a year.** Business Manager's own entry already says `$149 a year`. Use it.
+- **Church — $149 a year, with $49 for a small church or charity.** $149 is what The Church
+  App already asks (just mislabelled "one-time"), and **$49 appears twice** in the
+  catalogue as the small-organisation price — on Receipt Maker and Ahead of It · Nonprofit
+  ("Small charity $49 a year"), and as Advent's "$49 a whole church". That matches the
+  prose that says the Church membership is "priced by the size of your church".
+- **Quotes-only — $49 a year.** Already written on Quick Quote.
+
+**Family is the only one with no price anywhere, and it is the one you need first**,
+because Advent Together is a Family app. The anchors you already have: Advent's own
+**$7 a family**, and The Family Pack bundle on the store page at **$12**. Against $88 of
+list prices, something in the **$29–$39 a year** range tells a clean story — one payment a
+year for ten apps, nothing renewing per app, versus $88 if you bought them one at a time.
+
+**That is the one number I need from you.** Everything else I can set from what you have
+already written. I have not changed any price in the catalogue — these are your call, and
+I would rather ask once than guess at your business.
+
+One more thing worth seeing: **the Business membership has four apps and only one is
+ready.** Business Manager, the app the $149 price hangs on, has zero tester passes and no
+ease score. Selling a Business membership next week would be selling mostly promises. I
+would hold it and sell Message Assistant on its own at $19 until Business Manager passes.
 
 ---
 
@@ -263,10 +306,17 @@ I will **not** merge any of it. You do that.
 
 ## 9. Contradictions I found — please settle these
 
-1. **Is the EIN done?** `control/focus.json` marks *"EIN — free, 10 minutes"* as **done**.
-   `control/onelist.json` lists *"EIN for Daraja Studio LLC: free, 10 minutes (the LLC was
-   approved 14 Oct)"* as **still open**. The bank account depends on it, and the bank
-   account is item 1 on the critical path. **One word from you settles it.**
+1. ~~**Is the EIN done?**~~ **Settled — I found the answer in the git history, so this needs
+   nothing from you.** The IRS issued it on 2 Nov 2026: Notice CP-575G, Daraja Studio,
+   Jerry L Winslow sole member, letter saved. The earlier muddle was Illinois *state*
+   numbers (packet 16 digits, authorization 8, file 8) being read as an EIN; the IRS's is
+   nine. `control/focus.json` is right and `control/onelist.json` is one day stale.
+
+   **I did not edit Jerry's List to fix it.** `onelist.json` is a mirror of the Jerry's
+   List artifact, and another chat writes both. Correcting the file without the artifact
+   would put them out of step and make the "two places disagree" problem worse rather than
+   better. It needs doing in one pass, in the chat that owns it. Say the word and I will
+   ask that chat, or do it myself if you would rather this chat owned Jerry's List.
 
 2. **Memberships or one-time prices?** The catalogue carries both. The videos say
    memberships (re-recorded 23 Oct). The store page says one-time. I will make the page
@@ -284,10 +334,10 @@ I will **not** merge any of it. You do that.
 
 One step at a time, nothing before it needed.
 
-**Step 1 of 4.** Tell me whether the EIN exists. If it does, go to Relay (relay.app) or
-Mercury (mercury.com) and open a business checking account for **Daraja Studio LLC** —
-about 15 minutes, free, online. You will need the LLC approval, the EIN letter and your
-driver's licence. Text me the last four digits only.
+**Step 1 of 4.** Open a business checking account for **Daraja Studio LLC** at Relay
+(relay.app) or Mercury (mercury.com) — about 15 minutes, free, online, and a phone is
+enough. You need three things, all of which you already have: the LLC approval, the IRS
+CP-575G letter and your driver's licence. Text me the last four digits only.
 
 **Step 2 of 4.** Open a Stripe account **in Daraja Studio LLC's name**, on that new bank
 account. Not the nonprofit. This is the one that is expensive to get wrong.
@@ -295,8 +345,11 @@ account. Not the nonprofit. This is the one that is expensive to get wrong.
 **Step 3 of 4.** Pay the Kenyan testers from the Payday sheet, and tell the tester-pack
 chat the pay rate for a re-test round. They earned next week.
 
-**Step 4 of 4.** Say "go" and I put the three payment links in, flip Advent Together,
-The Church App and Message Assistant live, and the store is selling.
+**Step 4 of 4.** Tell me the Family membership price (§5a — the only number missing; I
+suggest $29–$39 a year). Then say "go" and I put the payment links in, flip Advent
+Together and The Church App live, and the store is selling. Message Assistant can follow
+at $19 on its own; I would hold the Business membership until Business Manager passes
+testing.
 
 Then Monday's Facebook post with the Advent video goes out, 26 days before Advent, which
 is exactly where your own list already said it should be.
