@@ -2482,13 +2482,32 @@ async function renderApps(){
 
 /* ── 🗂 Where everything is (v1.36, 19 Oct 2026) ── one page, every link; a search box finds an app by name. ── */
 let WHERE=null;
+/* 💬 Your chats, built live from apps.json rather than stored in where.json (4 Nov 2026).
+   A stored copy of this list goes stale the moment a chat is renamed or an app changes hands,
+   and a wrong chat name sends Jerry hunting — which is the one thing this page exists to stop. */
+const WHERE_MAC={ '017FeofhUrzDjbXqZwKzsFmr':1 };   /* runs through Remote Control on the Mac, not in the cloud */
+function whereChats(){
+  const A=(APPSREG&&APPSREG.apps)||[]; if(!A.length) return null;
+  const by={};
+  A.forEach(a=>{ const c=(a.chat||'').trim(); if(!c) return;
+    if(!by[c]) by[c]={name:a.chat_name||c, apps:[]};
+    by[c].apps.push(a.name); });
+  const items=Object.keys(by).map(function(c){
+    const id=c.replace(/^session_/,'');
+    return { name:by[c].name, url:'https://claude.ai/code/session_'+id,
+             note:by[c].apps.join(', ')+(WHERE_MAC[id]?' — only runs on your Mac':'') };
+  }).sort(function(x,y){ return x.name.toLowerCase().localeCompare(y.name.toLowerCase()); });
+  return items.length?{ name:'💬 Your chats', about:'One app, one chat. Tap a name to open that conversation.', items:items }:null;
+}
 async function renderWhere(){
   const el=$('whereFull'); if(!el) return;
   if(!WHERE){ try{ WHERE=await (await fetch('where.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the list of places just now.</p>'; return; } }
+  if(!APPSREG){ try{ APPSREG=await (await fetch('apps.json?cb='+Date.now())).json(); }catch(e){} }  /* chats group; the page still works without it */
   const W=WHERE, q=(($('whereQ')||{}).value||'').trim().toLowerCase();
   const hit=i=>!q||(i.name+' '+(i.note||'')).toLowerCase().indexOf(q)>=0;
   const row=i=>`<a class="dl" href="${esc(i.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;align-items:center;min-height:44px"><span style="flex:1"><b>${esc(i.name)}</b>${i.note?`<br><span class="muted">${esc(i.note)}</span>`:''}</span><span style="font-size:20px">›</span></a>`;
-  const groups=W.groups.map(g=>({...g,items:g.items.filter(hit)})).filter(g=>g.items.length);
+  const all=W.groups.slice(); const ch=whereChats(); if(ch) all.splice(1,0,ch);   /* chats sit straight after Start here */
+  const groups=all.map(g=>({...g,items:g.items.filter(hit)})).filter(g=>g.items.length);
   if(!$('whereQ')) el.innerHTML=`<div class="card"><b style="font-size:18px">🗂 Where everything is</b> <span class="muted">${esc(W.v)} · ${esc(W.updated)}</span><br><span class="muted">Tap a name to open it. Lost something? Type part of its name.</span>
       <input id="whereQ" type="search" placeholder="Find an app…" oninput="renderWhere()" style="width:100%;box-sizing:border-box;margin-top:10px;font:inherit;font-size:16px;min-height:44px;padding:8px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)"></div><div id="whereBody"></div>`;
   $('whereBody').innerHTML=(groups.length?groups.map(g=>`<h2>${esc(g.name)} <small>${g.items.length}</small></h2>${g.about?`<p class="muted" style="margin:-4px 0 8px">${esc(g.about)}</p>`:''}<div class="card">${g.items.map(row).join('')}</div>`).join(''):'<p class="muted">Nothing by that name. Ask Claude: “where is …?”</p>')
