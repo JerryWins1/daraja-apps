@@ -2254,7 +2254,14 @@ const FS=B+'feedback-studio/?app=';
 function load(){ try{ const d=JSON.parse(localStorage.getItem(LS)||'{}'); return { name:d.name||'', tried:d.tried||{}, posts:Array.isArray(d.posts)?d.posts:[], likes:d.likes||{}, seenVideo:d.seenVideo||0, scripts:(d.scripts&&typeof d.scripts==='object')?d.scripts:{}, outbox:Array.isArray(d.outbox)?d.outbox:[] }; }catch(e){ return {name:'',tried:{},posts:[],likes:{},scripts:{},outbox:[]}; } }
 function save(){ localStorage.setItem(LS,JSON.stringify(db)); }
 let db=load(); try{ if(!db.name&&localStorage.getItem('dj_name')) db.name=localStorage.getItem('dj_name'); }catch(e){}
-try{ const l=new URLSearchParams(location.search).get('line'); if(l==='church'||l==='all'){ localStorage.setItem('dj_line',l==='all'?'':l); } }catch(e){}
+/* 4 Nov 2026: every shelf is a line now, not just church. A tester's link carries ?line=<name>
+   and their list shows only that shelf's apps. The friendly words Jerry uses — business,
+   household — map to the catalogue's own cat values. ?line=all clears it. */
+const LINES={church:'church',business:'work',work:'work',nonprofit:'work',household:'home',home:'home',family:'home',later:'later',free:'free',fun:'fun'};
+const LINE_LABEL={church:'the church apps',work:'the business and nonprofit apps',home:'the household apps',later:'the later-life apps',free:'the free apps',fun:'the just-for-fun apps'};
+try{ const l=String(new URLSearchParams(location.search).get('line')||'').trim().toLowerCase();
+     if(l==='all') localStorage.setItem('dj_line','');
+     else if(LINES[l]) localStorage.setItem('dj_line',LINES[l]); }catch(e){}
 /* An invite link (?who=…) tells this phone who it belongs to, so Jerry HQ knows whose post or tick it is. */
 try{ const w=new URLSearchParams(location.search).get('who'); if(w&&/^[a-z0-9]{8,40}$/i.test(w)){ localStorage.setItem('dj_who',w); history.replaceState(null,'',location.pathname+location.hash); } }catch(e){}
 const djWho=()=>{ try{ return localStorage.getItem('dj_who')||''; }catch(e){ return ''; } };
@@ -2317,7 +2324,7 @@ function renderApps(){
       <div class="vids">${vids(k,a).map(([u,l])=>`<a href="${u}" target="_blank" rel="noopener">${esc(l)}</a>`).join('')}</div>
       <div class="acts"><a class="btn primary" href="${FS+encodeURIComponent(a.try)}" target="_blank" rel="noopener">🎙 Open in the tester</a><a class="btn" href="${a.try}" target="_blank" rel="noopener">Open on its own</a><button class="${when?'ok':''}" onclick="tried('${k}')">${when?'Tried ✓':'I tried it'}</button>${tsButton(k)}</div>
     </div>`; }).join('')||'<div class="empty">Nothing on the list right now.</div>';
-  if(djLine) $('appList').insertAdjacentHTML('afterbegin','<p class="small" style="margin:0 0 8px">Showing the church apps only. <a href="?line=all" style="color:var(--brand);font-weight:800;display:inline-flex;align-items:center;min-height:44px">Show all the apps →</a></p>');
+  if(djLine) $('appList').insertAdjacentHTML('afterbegin','<p class="small" style="margin:0 0 8px">Showing '+esc(LINE_LABEL[djLine]||'these')+' only. <a href="?line=all" style="color:var(--brand);font-weight:800;display:inline-flex;align-items:center;min-height:44px">Show all the apps →</a></p>');
   if(vOpen){ const d=document.querySelector('#appList .vlist'); if(d) d.open=true; }
   const mOpen=!!document.querySelector('#tsMore .vlist[open]'); tsMoreList(); if(mOpen){ const d=document.querySelector('#tsMore .vlist'); if(d) d.open=true; }
 }
@@ -2595,7 +2602,8 @@ function go(p){ document.body.classList.toggle('tsRun',p==='script'); document.q
 function toast(t){ let e=document.getElementById('toast'); if(!e){ e=document.createElement('div'); e.id='toast'; e.style.cssText='position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ok);color:#fff;font-weight:800;padding:10px 16px;border-radius:999px;z-index:2147481600;max-width:92vw;text-align:center;line-height:1.3'; document.body.appendChild(e); } e.textContent=t; e.style.display=''; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none',1800); }
 function render(){ hostLine(); renderApps(); renderBoard(); renderFixed(); }
 window.DJ_AI={ title:'Help me say what’s wrong', prompt:function(){ return 'I am testing a phone app called '+appName($('postApp').value)+' for a small studio. Here is what bothered me, in rough words: "'+($('postText').value||'…')+'". Rewrite it as two clear sentences a developer can act on. Keep my tone.'; }, onResult:function(v,raw){ $('postText').value=String(raw).trim(); go('board'); } };
-if(djLine==='church'){ const t=$('tlTitle'); if(t) t.textContent='⛪ Church apps · Testers’ List'; }
+const LINE_TITLE={church:'⛪ Church apps',work:'🧰 Business apps',home:'🏠 Household apps',later:'🌿 Later-life apps',free:'🎁 Free apps',fun:'🎲 Just-for-fun apps'};
+if(djLine&&LINE_TITLE[djLine]){ const t=$('tlTitle'); if(t) t.textContent=LINE_TITLE[djLine]+' · Testers’ List'; }
 render(); loadAll();
 try{ const k=sessionStorage.getItem('dj_testers_run'); if(k) setTimeout(()=>tsStart(k),300); }catch(e){}
 setInterval(()=>{ if(!cfg.mailbox || document.hidden) return;
