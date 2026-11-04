@@ -4,7 +4,13 @@ Set by Jerry, 4 November 2026, app by app. This file is the record, so the order
 does not live only inside a chat.
 
 Every app with a tester script is here. Four were pulled out of the rounds
-altogether; the rest are in Group 1, 2 or 3, tested in that order.
+altogether; the rest are in Group 1, 2 or 3.
+
+**Live now: Groups 1 and 2 together — 20 apps.** Jerry chose on 4 November to run
+both at once rather than wait for Group 1 to close, so `TEST_NOW` in
+`shop/apps_data.js` holds all twenty. Group 1 still leads the list. Group 3 is
+held back. The pay gate still reads per group, so Group 1 can close and pay out
+while Group 2 is still running.
 
 ## Group 1 — first (9 apps)
 
