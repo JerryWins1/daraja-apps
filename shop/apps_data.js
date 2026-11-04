@@ -17,7 +17,10 @@ const LIVE = [];
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
-const TEST_NOW = ['nownext','ourtable','ahead','thekey','pitwall','rafiki','storykeeper','church','churchkey','churchserve','churchdrive','npreceipts','nextstep','whoscoming','everyday','academy','ff','porchlight'];
+/* 4 Nov 2026: Group 1 of the three testing groups Jerry set app by app — see
+   testers/groups.md. Advent Together leads because its 24 doors unlock 1 December.
+   Groups 2 and 3 are in that file; move them in here when Group 1 closes. */
+const TEST_NOW = ['advent','home','businessmanager','duka','nownext','everyday','whoscoming','nextstep','church'];
 /* 6 Oct 2026, Jerry: “One Thing is ready to go… Our Table looks good, post it to the testers.” READY apps lead the store, the Testers' List and Founding Testers. */
 const READY = ['nownext','ourtable'];
 
