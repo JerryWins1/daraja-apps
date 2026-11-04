@@ -39,6 +39,100 @@ const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
 const APPS = {
+ hq: {
+   "name": "Daraja HQ",
+   "em": "🧭",
+   "sub": "the one page that holds everything",
+   "cat": "off",
+   "off": "your own panel, not something sold in the store",
+   "video": true,
+   "tag": "Everything going on, and everyone in it — on one page",
+   "try": BASE+'control/',
+   "extra": {
+     "firsttime": {
+       "title": "Explain it to me",
+       "sub": "About three minutes: what each tab is for, and which one to open when. Sound on.",
+       "lines": [
+         {
+           "t": "Hello Jerry. This is a short walk through Daraja HQ — the one page that holds everything, so you never have to remember where anything is.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('today');}catch(e){}"
+         },
+         {
+           "t": "You do not need to remember its address. On the Mac it is the Daraja HQ app in your Dock, and on your phone it is one tap from Jerry's List."
+         },
+         {
+           "t": "Across the top is a row of tabs. Each one answers a different question. There are more than fit on a phone, so you can slide that row sideways with your finger.",
+           "point": "#tabs",
+           "js": "try{window.scrollTo(0,0);}catch(e){}"
+         },
+         {
+           "t": "Start with Apps. This is the tab that tells you what is waiting on you.",
+           "point": "#tabs button[data-t=\"apps\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
+         },
+         {
+           "t": "Every app we have is listed here with the one chat that looks after it. The ones needing you come first, and each says in plain words what it is waiting for."
+         },
+         {
+           "t": "Tap a chat's name and that conversation opens. You never have to work out which chat to go back to."
+         },
+         {
+           "t": "Next, Where.",
+           "point": "#tabs button[data-t=\"where\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
+         },
+         {
+           "t": "This is everything you own, in one list. Pages, apps, chats, and the things that only live on your Mac."
+         },
+         {
+           "t": "At the top is Start here — the handful you open most. Jerry's List, this page, Ready to Sell, and the Control Room, which tells you whether the robots are still running."
+         },
+         {
+           "t": "Under that is Your chats. Twelve of them, each saying which apps it looks after. One app, one chat — so two of them can never make the same change twice."
+         },
+         {
+           "t": "And if you cannot find something, type part of its name in this box. It searches the whole page.",
+           "point": "#whereQ"
+         },
+         {
+           "t": "Now Videos.",
+           "point": "#tabs button[data-t=\"videos\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('videos');}catch(e){}"
+         },
+         {
+           "t": "Thirty-seven of the apps have a narrated video, and every one of them is in this list."
+         },
+         {
+           "t": "There are three kinds. Explain it to me tells you what an app is for. Watch it work drives the real app while it talks. And Train me stops and waits for you to do each step yourself."
+         },
+         {
+           "t": "This is the tab to use when you have forgotten how something works. It is quicker than asking me, and it will not get tired of the question."
+         },
+         {
+           "t": "Jerry's List is a tab here too.",
+           "point": "#tabs button[data-t=\"list\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('list');}catch(e){}"
+         },
+         {
+           "t": "That is your to-do list — the same one pinned in your Claude sidebar. This page just shows it to you without you having to leave."
+         },
+         {
+           "t": "Chats shows the conversations that are going on, and Today shows what has happened lately.",
+           "point": "#tabs button[data-t=\"chats\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
+         },
+         {
+           "t": "So: four questions, four tabs. What is waiting on me — Apps. Where is that thing — Where. How does this work — Videos. What should I do next — Jerry's List.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
+         },
+         {
+           "t": "If you ever feel lost, open Daraja HQ and start at Apps. Everything else is one tap from here. That is the whole page — there is nothing else to learn."
+         }
+       ]
+     }
+   }
+ },
+
  advent: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
     {"t": "Welcome. This short video explains Advent Together: what it is for, and how to use it.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"},
