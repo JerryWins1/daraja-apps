@@ -21,6 +21,11 @@ HQ sheet already records every one, so nothing new is needed to check it:
 A round is finished when **every app in it has 2 or more passes on its current
 version**, or **7 days** have passed, whichever comes first.
 
+**A round is one group, not all the apps.** Jerry split the 31 scripted apps into
+three groups on 4 November — see `testers/groups.md`. Group 1's nine apps finish
+and those testers are paid while Group 2 is still running, so one stuck app in
+Group 3 never holds up anyone else's money.
+
 Not a fixed number of days. The last round was described as a week and actually
 ran 11–28 October: 18 days, in two waves, peaking at 60 reports on 22 October.
 Coverage is computed nightly for the Ready to Sell page, so the round's progress
