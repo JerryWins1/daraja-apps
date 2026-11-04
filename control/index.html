@@ -2220,6 +2220,7 @@
       <button data-t="list">📋 Jerry's List</button>
       <button data-t="where">🗂 Where</button>
       <button data-t="apps">🧰 Apps</button>
+      <button data-t="videos">🎬 Videos</button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
@@ -2298,6 +2299,13 @@
          for, and the chat that owns it. Reads control/apps.json, which the chats keep current. -->
     <section class="tab" id="t-apps">
       <div id="appsFull"><p class="muted">Loading…</p></div>
+    </section>
+
+    <!-- 🎬 VIDEOS (v1.0, 4 Nov 2026): every narrated video in one tappable list. Built from the
+         live store catalogue (APPS) at render time, so a new app's video appears here on its own
+         and nothing is hand-copied. Each button opens shop/watch.html, which does the narrating. -->
+    <section class="tab" id="t-videos">
+      <div id="vidHQ"><p class="muted">Loading the videos…</p></div>
     </section>
 
     <!-- 🧪 TEST SCRIPTS (v1.28, 10 Oct 2026): coverage, problems to confirm, nudges, coins, the reward -->
@@ -2577,6 +2585,103 @@ async function tkSend(){
 }
 function tkClear(){ $('tkText').value=''; TK.base=''; tkSay('Tap the microphone, say what you want, tap again to stop.'); }
 
+/* ---------- 🎬 videos (v1.0, 4 Nov 2026) ----------
+   One tappable list of every narrated video, built from the live catalogue so it cannot go stale.
+   Three kinds, and the wording below is what each one actually does:
+     firsttime -> "Explain it to me"  (what it is for, who it helps, every screen)
+     overview  -> "Watch it work"     (the catalogue's own walkthrough)
+     train     -> "Train me"          (it stops and makes you do each step)
+   The narrating is all shop/watch.html; this tab only builds the links. */
+/* Friendly shelf names for this tab. The 🧰 stack table has its own terse `shelfName` map further
+   down (local to that function); if a shelf is ever renamed, both want changing — and that one has
+   no 'fun' row, which is why this is not simply reused. */
+const VID_SHELF = { home:'🏡 Home & family', church:'⛪ Church', work:'💼 Business', later:'🌿 Later life', free:'🎁 Free tools', fun:'🏁 Just for fun' };
+const VID_SHELF_ORDER = ['home','church','work','later','free','fun'];
+const VID_KINDS = [
+  ['firsttime','Explain it to me','first'],
+  ['','Watch it work','work'],
+  ['train','Train me','train']
+];
+function vidUrl(k, mode){ return '../shop/watch.html?app=' + encodeURIComponent(k) + (mode ? '&mode=' + mode : ''); }
+function vidReal(k){ return !/^tpl/.test(k) && !/^nourish/.test(k); }   /* same exclusions the stack table uses */
+function vidKinds(a){
+  return VID_KINDS.filter(function(kd){
+    if(kd[0] === 'firsttime') return !!(a.extra && a.extra.firsttime);
+    if(kd[0] === 'train') return !!a.train;
+    return !!(a.lines && a.lines.length);
+  });
+}
+function vidCard(k, a){
+  var kinds = vidKinds(a);
+  if(!kinds.length) return '';
+  return '<div class="vrow"><div class="vnm">' + esc(a.em || '📱') + ' ' + esc(a.name || k) + '</div>'
+    + '<div class="vbtns">' + kinds.map(function(kd){
+        return '<a class="vb v-' + kd[2] + '" href="' + vidUrl(k, kd[0]) + '">▶ ' + kd[1] + '</a>';
+      }).join('') + '</div></div>';
+}
+function renderVideos(){
+  var box = $('vidHQ'); if(!box) return;
+  if(typeof APPS === 'undefined'){ box.innerHTML = '<p class="muted">The store catalogue has not loaded, so the video list cannot be built. Reload the page.</p>'; return; }
+  var shelfOf = function(k){ return (typeof DOOR !== 'undefined' && DOOR[k]) || (APPS[k] && APPS[k].cat) || ''; };
+  var START = ['home','tester'];
+  var out = ''
+    + '<style>'
+    + '#vidHQ .vhero{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#143d31,#23504F 60%,#2f6e52);'
+    + 'color:#fff;border-radius:16px;padding:18px 18px;margin:2px 0 6px}'
+    + '#vidHQ .vhero h3{margin:0 0 4px;font-size:1.25rem;line-height:1.15}'
+    + '#vidHQ .vhero p{margin:0;font-size:.92rem;opacity:.92}'
+    + '#vidHQ .vlogo{flex:0 0 auto}'
+    + '#vidHQ .vhow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0 18px;font-size:.93rem}'
+    + '#vidHQ .vhow b{color:var(--brand)}'
+    + '#vidHQ .vhow ul{margin:7px 0 0;padding-left:20px}'
+    + '#vidHQ .vhow li{margin:3px 0}'
+    + '#vidHQ h4.vshelf{margin:22px 0 8px;font-size:1.05rem}'
+    + '#vidHQ .vcount{font-weight:400;color:var(--soft);font-size:.86rem}'
+    + '#vidHQ .vrow{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:8px 0;background:var(--surface)}'
+    + '#vidHQ .vnm{font-weight:700;font-size:1.04rem;margin-bottom:8px}'
+    + '#vidHQ .vbtns{display:flex;flex-wrap:wrap;gap:7px}'
+    + '#vidHQ .vb{display:inline-block;text-decoration:none;font-weight:700;font-size:.88rem;'
+    + 'padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--brand);min-height:40px;box-sizing:border-box}'
+    + '#vidHQ .vb.v-first{background:var(--brand);border-color:var(--brand);color:var(--surface)}'
+    + '#vidHQ .vstart .vrow{border-color:var(--brand);border-width:2px}'
+    + '</style>'
+    + '<div class="vhero"><div class="vlogo">'
+    + '<svg width="54" height="54" viewBox="0 0 54 54" role="img" aria-label="Daraja videos">'
+    + '<circle cx="27" cy="27" r="26" fill="rgba(255,255,255,.14)"/>'
+    + '<path d="M8 36c6-13 13-19 19-19s13 6 19 19" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>'
+    + '<path d="M8 36h38" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".5"/>'
+    + '<path d="M23 20l12 7-12 7z" fill="#fff"/>'
+    + '</svg></div>'
+    + '<div><h3>Watch &amp; Learn</h3><p>Every video, in one list. Sound on, and nothing to type.</p></div></div>'
+    + '<div class="vhow"><b>Three kinds of video, and what each one does:</b><ul>'
+    + '<li><b>Explain it to me</b> — about four minutes. What the app is for, who it helps, and every screen. Start here if you have never opened it.</li>'
+    + '<li><b>Watch it work</b> — it drives the real app while it talks, so you see where each button is.</li>'
+    + '<li><b>Train me</b> — it stops and waits for you to do each step yourself.</li>'
+    + '</ul></div>';
+
+  out += '<div class="vstart"><h4 class="vshelf">⭐ Start with these two</h4>';
+  START.forEach(function(k){ if(APPS[k]) out += vidCard(k, APPS[k]); });
+  out += '</div>';
+
+  var seen = {}; START.forEach(function(k){ seen[k] = 1; });
+  VID_SHELF_ORDER.forEach(function(sh){
+    var keys = Object.keys(APPS).filter(function(k){
+      return !seen[k] && vidReal(k) && shelfOf(k) === sh && vidKinds(APPS[k]).length;
+    }).sort(function(x, y){ return (APPS[x].name || x).localeCompare(APPS[y].name || y); });
+    if(!keys.length) return;
+    out += '<h4 class="vshelf">' + VID_SHELF[sh] + ' <span class="vcount">' + pl(keys.length, 'app') + '</span></h4>';
+    keys.forEach(function(k){ seen[k] = 1; out += vidCard(k, APPS[k]); });
+  });
+
+  var rest = Object.keys(APPS).filter(function(k){ return !seen[k] && vidReal(k) && vidKinds(APPS[k]).length; })
+    .sort(function(x, y){ return (APPS[x].name || x).localeCompare(APPS[y].name || y); });
+  if(rest.length){
+    out += '<h4 class="vshelf">🔒 Off the shelf <span class="vcount">' + pl(rest.length, 'app') + ' you use, not sold in the store</span></h4>';
+    rest.forEach(function(k){ out += vidCard(k, APPS[k]); });
+  }
+  box.innerHTML = out;
+}
+
 /* ---------- tabs ---------- */
 function wireTabs(){
   $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-t]'); if(b) show(b.dataset.t); });
@@ -2584,7 +2689,7 @@ function wireTabs(){
 }
 function show(t){
   if(!$('t-'+t)) t='today';
-  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='apps') renderApps(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest();
+  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='apps') renderApps(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest(); if(t==='videos') renderVideos();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
