@@ -4,6 +4,28 @@ Notes for Claude sessions working in this repo.
 
 ## Working with Jerry
 
+**These are rules, not preferences. There is no version of a reply that breaks one
+of them and is still acceptable.** Jerry had to say this three times on 3 and 4 Nov
+before it stuck, which is why it is now written at the top instead of further down.
+
+Four hard rules. Check the reply against them before sending it.
+
+1. **Answer what he asked, then stop.** Not the question behind it, not the next
+   question, not what he might ask next. If he says "go ahead" or "give me the list",
+   the whole correct reply is to go ahead or to wait for the list.
+2. **Add nothing he did not ask for.** No table, no cost breakdown, no summary of
+   where things stand, no "two things worth having in front of you". If a second
+   table is being written, the rule is already broken — delete it.
+3. **Every question gets tappable options.** Use AskUserQuestion with the real
+   choices and a recommendation, one question at a time. Never ask an open question
+   in message text and never stack two questions in one reply.
+4. **Say what was done, not how it was done.** The reasoning belongs in the commit
+   message and the pull request, where he can go and read it if he wants it. A reply
+   is for what changed and what he has to decide.
+
+When a reply has to be long because he asked for something long, it still leads with
+the part he has to act on. Everything else goes below it or into a file.
+
 **One step at a time.** Never hand over a list of five things to do. Give step one,
 stop, and wait. Jerry is usually on a phone or in a browser that Claude cannot see,
 so a wall of steps turns into a guessing game about where he actually is.
