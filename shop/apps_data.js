@@ -17,10 +17,16 @@ const LIVE = [];
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
    these by default (the switch on the store turns the rest back on). Say "test these: …" */
-/* 4 Nov 2026: Group 1 of the three testing groups Jerry set app by app — see
-   testers/groups.md. Advent Together leads because its 24 doors unlock 1 December.
-   Groups 2 and 3 are in that file; move them in here when Group 1 closes. */
-const TEST_NOW = ['advent','home','businessmanager','duka','nownext','everyday','whoscoming','nextstep','church'];
+/* 4 Nov 2026: Groups 1 and 2 of the three testing groups Jerry set app by app — see
+   testers/groups.md. Jerry chose to run both at once rather than wait for Group 1 to
+   close. Group 1's nine lead, Advent Together first because its 24 doors unlock
+   1 December; Group 2's eleven follow. Group 3 is in that file, still held back.
+   The pay gate in kenya/pay.md still reads per group, so Group 1 can close and pay
+   out while Group 2 is still running. */
+const TEST_NOW = [
+  /* Group 1 */ 'advent','home','businessmanager','duka','nownext','everyday','whoscoming','nextstep','church',
+  /* Group 2 */ 'ahead','churchsteward','npgoodstanding','compass','drumbeat','safety','porchlight','rafiki','npreceipts','churchserve','churchclubhouse'
+];
 /* 6 Oct 2026, Jerry: “One Thing is ready to go… Our Table looks good, post it to the testers.” READY apps lead the store, the Testers' List and Founding Testers. */
 const READY = ['nownext','ourtable'];
 
