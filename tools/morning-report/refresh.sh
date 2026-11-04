@@ -23,4 +23,9 @@ if [ -d "$WORK/main" ]; then git -C "$WORK/main" checkout -q --detach origin/mai
 python3 -I "$HERE/compute.py" "$WORK/x" "$WORK/main" "$WORK/data.json"
 python3 -I "$HERE/build.py" "$HERE/template.html" "$WORK/data.json" "$WORK/ready_to_sell.html"
 echo "page: $WORK/ready_to_sell.html"; echo
+# the Kenya weekly leaderboard, from the same sheet. Written to the work dir, NOT the repo —
+# like ready_to_sell.html, what happens to it is the caller's decision.
+cp "$REPO/kenya/leaderboard.json" "$WORK/leaderboard.json"
+python3 -I "$REPO/tools/leaderboard/tally.py" "$WORK/x" "$REPO" "$WORK/leaderboard.json" || echo "leaderboard: FAILED — left kenya/leaderboard.json alone"
+echo "leaderboard file: $WORK/leaderboard.json"; echo
 python3 -I "$HERE/digest.py" "$WORK/x" "$SINCE" "$WORK/data.json" $( [ -f "$WORK/data.prev.json" ] && echo "$WORK/data.prev.json" )
