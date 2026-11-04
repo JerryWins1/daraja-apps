@@ -2348,6 +2348,7 @@
       </select>
       <button class="btn green" onclick="addPerson()">+ Add</button>
     </div>
+    <p class="soft" id="pHint" hidden style="margin:8px 0 0; color:var(--warm); font-weight:700;">Type a name first, then tap “+ Add”.</p>
   </div>
 
   <div class="card" style="border-color:var(--warm); background:#fdf3ee;">
@@ -2536,15 +2537,29 @@ function skFlush(){
 function skSoon(what){ _skWhat[what]=1; clearTimeout(_skT); _skT=setTimeout(skFlush, 700); }
 window.addEventListener('pagehide', skFlush);
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') skFlush(); });
+/* The relations offered, here as well as in the #pRel menu, so a person's relation
+   can be changed after they are added. 23 Oct, Fredrick: "Even after choosing
+   daughter+Add, it still says Ann . Spouse×" — he had added Ann while the menu still
+   read its default, and there was then no way to correct it. */
+const REL=['Spouse','Son','Daughter','Grandchild','Mother','Father','Brother','Sister','Friend','Other'];
 function addPerson(){
-  const n=$('pName').value.trim(); if(!n) return;
+  const n=$('pName').value.trim();
+  /* An empty Add used to do nothing at all and say nothing, which is what made the
+     above look like the relation had failed to apply. */
+  if(!n){ const hint=$('pHint'); if(hint) hint.hidden=false; $('pName').focus(); return; }
+  const hint=$('pHint'); if(hint) hint.hidden=true;
   db.cast.push({n, r:$('pRel').value}); $('pName').value='';
   save(); renderCast();
 }
+function setRel(i, r){ const p=db.cast[i]; if(!p) return; p.r=r; save(); renderCast(); }
 function delPerson(i){ const p=db.cast[i]; if(!p||!confirm('Remove '+p.n+' from the people in your story?')) return; db.cast.splice(i,1); save(); renderCast(); }
 function renderCast(){
   $('castList').innerHTML = db.cast.length
-    ? db.cast.map((p,i)=>`<span class="person">${esc(p.n)} <small style="color:var(--soft)">· ${esc(p.r)}</small><button type="button" class="x" aria-label="Remove ${esc(p.n)}" onclick="delPerson(${i})">×</button></span>`).join('')
+    ? db.cast.map((p,i)=>{
+        const opts=(REL.indexOf(p.r)<0 && p.r ? [p.r] : []).concat(REL)
+          .map(r=>`<option${r===p.r?' selected':''}>${esc(r)}</option>`).join('');
+        return `<span class="person">${esc(p.n)} <small style="color:var(--soft)">·</small> <select aria-label="Relation for ${esc(p.n)}" onchange="setRel(${i}, this.value)" style="font:inherit; color:var(--soft); background:transparent; border:0; border-bottom:1px dashed currentColor; padding:0 2px;">${opts}</select><button type="button" class="x" aria-label="Remove ${esc(p.n)}" onclick="delPerson(${i})">×</button></span>`;
+      }).join('')
     : '<span style="color:var(--soft)">No one added yet — start with your spouse or a child.</span>';
 }
 function chapProgress(c){
