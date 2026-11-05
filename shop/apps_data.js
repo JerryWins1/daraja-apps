@@ -1669,7 +1669,7 @@ const APPS = {
    "So when a kid opens it on a Tuesday night, church is still with them, right there in the middle of the week. Kids come back for the stars, and parents know exactly what was taught on Sunday.",
    "Each week the leader changes one short block of words: the hello, the lesson, the verse, the challenge, and the dates. Everything else draws itself.",
    "It comes with the Church membership, and families sign up for nothing. Safer than social media, warmer than a flyer. Try it below."],
-  name:'The Clubhouse', em:'🏠', sub:'church-to-kids, safely', cat:'church', mem:'Church membership', price:'$29 one-time', video:true,
+  name:'The Clubhouse', em:'🏠', sub:'church-to-kids, safely', cat:'church', mem:'Church membership', price:'$29 one-time', testing:true, video:true,
   tag:'Church-to-kids, one way — no accounts, no chat, no strangers, and no ads to kids or parents',
   try:'https://jerrywins1.github.io/daraja-apps/church-clubhouse/',
   },
