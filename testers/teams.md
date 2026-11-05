@@ -96,11 +96,16 @@ been tested against a stubbed browser and never a real Kenyan phone.
 
 ## What switching the teams on takes
 
-Nothing here is live yet. The `?line=` machinery exists — `testers/index.html` has handled
-every shelf since 4 November — but these are teams of people, not shelves, so the two leads
-would divide the apps between their own testers rather than each team being locked to one
-shelf.
+**Live from 5 November 2026.** Jerry sent Emmanuel and Veronicah their messages that
+morning, each naming their own team and the six apps that need passes first, so the seven
+days run to **12 November**. Nothing about pay was said in either message, because nothing
+about pay is decided.
 
-Sending each team their link is Jerry's hands on the keyboard, because Claude cannot send
-WhatsApp. The Kenyan squad still has no line and still sees all 20 apps, which was Jerry's
-call: let them test everything once, then place them on what the results show.
+The `?line=` machinery exists — `testers/index.html` has handled every shelf since
+4 November — but these are teams of people, not shelves, so the two leads divide the apps
+between their own testers rather than each team being locked to one shelf. The Kenyan squad
+still has no line and still sees all 20 apps, which was Jerry's call: let them test
+everything once, then place them on what the results show.
+
+Sending anything to the squad is always Jerry's hands on the keyboard, because Claude cannot
+send WhatsApp.
