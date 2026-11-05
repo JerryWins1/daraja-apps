@@ -781,7 +781,7 @@ const APPS = {
    {"t": "Your finished plan lives under My plan, easy to read on a hard day. Each person you added gets a Call button.", "point": "#t-plan", "js": "try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Right now is for a hard moment: an honest check-in, a breathing circle, and your reasons and your people in one place.", "point": "#t-now", "js": "try{ tab('now'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "And Talk to someone now is always at the bottom, one tap to nine-eight-eight. If you love someone who struggles, fill it out together.", "point": "#crisis .talk", "js": "try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"}],
-  name:'My Safety Plan', em:'🫶', sub:'a plan for hard days', cat:'free', mem:'Free', price:'Free forever', testing:false,
+  name:'My Safety Plan', em:'🫶', sub:'a plan for hard days', cat:'free', mem:'Free', price:'Free forever', testing:true,
   tag:'A private safety plan in your pocket — built in memory of Ryan',
   try:A+'safety/', video:true,
   
@@ -1111,7 +1111,7 @@ const APPS = {
    "A Bible verse at the start keeps it grounded.",
    "It takes about ten minutes. Everything stays on your phone. No account, and nothing is sent anywhere.",
    {"t": "It is free. Give it a quiet ten minutes, and see your next five years on one page.", "js": "try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
-  name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', mem:'Free', price:'Free', testing:false,
+  name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
   tag:'For a young person starting out: plain questions about school, work, family and money, and your next five years on one page. Written with Kenyan students in mind.',
   try:A+'compass/', video:true,
   
@@ -1160,7 +1160,7 @@ const APPS = {
    "Step eight: tap Put every piece on my calendar. Open the file, and your phone reminds you on the right day.",
    "Step nine: when a piece is due, tap Copy, or Open in Messages, or Open in email. Your own app opens with the words ready. You press send. Then tap mark sent, or mark done, and the piece turns green.",
    "You will know it is working when your phone buzzes, you open Message Assistant, and the next piece is already written. New campaign clears the plan for the next one, and keeps your groups."],
-  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', mem:'Comes with the Business membership', price:'$19 one-time', video:true,
+  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', mem:'Comes with the Business membership', price:'$19 one-time', testing:true, video:true,
   tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece. Why not just ChatGPT? You’d have to know what to ask. This asks for you, then lays out every piece on a calendar.',
   try:BASE+'drumbeat/',
   lines:[
@@ -1438,7 +1438,7 @@ const APPS = {
    {"t": "Tap Share this sermon to send the summary, questions and scriptures to your small group or your family.", "point": "#sn2 [data-a=share]"},
    {"t": "Everything is saved in your Library, on your own phone. Each recorded sermon lands there, ready to open again.", "js": "try{ var b=document.querySelector('#sn2 [data-a=lib]'); if(b) b.click(); }catch(e){}"},
    {"t": "And for the church office: when you post Sunday's message on the Weekly Update page, add the outline and the verses, and everyone's Sermon Notes has them before the service starts.", "js": "try{ var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click(); go('home'); }catch(e){}"}],
-  name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', mem:'Church membership', price:'$149 one-time', video:true,
+  name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', mem:'Church membership', price:'$149 one-time', testing:true, video:true,
   tag:'Sermons with notes you can record (with the scriptures and take-home questions pulled out), events, prayer requests and giving, in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
   try:'https://jerrywins1.github.io/immanuel-app/',
   lines:[
@@ -1493,7 +1493,7 @@ const APPS = {
    {"t": "Step seven: tap Save backup file now and then, because everything lives on this one device.", "point": "button[onclick='exportJson()']"},
    {"t": "When the job changes hands, tap Print the hand-off page or Copy hand-off summary, and give it to the next person.", "point": "button[onclick='copyHandoff()']"},
    {"t": "Last, the Year tab. Print the year map for the office wall, or tap Add all to my calendar.", "js": "try{ if(window.closeSheet) closeSheet(); if(window.closeQS) closeQS(); }catch(e){} try{ document.querySelectorAll('.view').forEach(function(x){ x.classList.toggle('on', x.id==='v-year'); }); document.querySelectorAll('nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.v==='year'); }); window.scrollTo(0,0); }catch(e){}", "point": "#v-year .row button"}],
-  name:'Ahead of It · Church', em:'📋', sub:'never miss an inspection', cat:'church', mem:'Church membership', price:'$29 one-time', video:true,
+  name:'Ahead of It · Church', em:'📋', sub:'never miss an inspection', cat:'church', mem:'Church membership', price:'$29 one-time', testing:true, video:true,
   tag:'Nothing catches the trustees by surprise',
   try:'https://jerrywins1.github.io/daraja-apps/church-steward/',
   lines:[
@@ -1558,7 +1558,7 @@ const APPS = {
    {"t": "And when it is set, print it for the bulletin board, because some of your best volunteers do not do phones, and that is fine.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "button[onclick=\"window.print()\"]"},
    "It lives on your phone, and keeps working without a signal. No account, nothing for your volunteers to sign up for, and no ads.",
    "It comes with the Church membership, for every ministry team you have. Try it below."],
-  name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', mem:'Church membership', price:'$19 one-time', video:true,
+  name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', mem:'Church membership', price:'$19 one-time', testing:true, video:true,
   tag:'The month of volunteers on one page. No ads to your volunteers.',
   try:'https://jerrywins1.github.io/daraja-apps/church-serve/',
   },
@@ -1824,7 +1824,7 @@ const APPS = {
    {"t": "Step seven: tap Save backup file now and then, because everything lives on this one device.", "point": "button[onclick='exportJson()']"},
    {"t": "When someone else steps in, tap Print the hand-off page or Copy hand-off summary, and send it to them or to the board.", "point": "button[onclick='copyHandoff()']"},
    {"t": "Last, the Year tab. Print the year map for the board, or tap Add all to my calendar.", "js": "try{ if(window.closeSheet) closeSheet(); if(window.closeQS) closeQS(); }catch(e){} try{ document.querySelectorAll('.view').forEach(function(x){ x.classList.toggle('on', x.id==='v-year'); }); document.querySelectorAll('nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.v==='year'); }); window.scrollTo(0,0); }catch(e){}", "point": "#v-year .row button"}],
-  name:'Ahead of It · Nonprofit', em:'🕊', sub:'certifications and legal dates', cat:'work', mem:'Church membership, or Small charity $49 a year', price:'$29 one-time', video:true,
+  name:'Ahead of It · Nonprofit', em:'🕊', sub:'certifications and legal dates', cat:'work', mem:'Church membership, or Small charity $49 a year', price:'$29 one-time', testing:true, video:true,
   tag:'The filings that quietly end small nonprofits — now they can\'t',
   try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
   lines:[
@@ -1873,7 +1873,7 @@ const APPS = {
    {"t": "Step five: tap Make the letters. You get one letter for each gift, and a note naming any row it skipped, and why.", "point": "button[onclick=\"makeLetters()\"]"},
    "Step six: tap any letter to add a personal line. Then tap Print them all, and each letter prints on its own page, ready to sign.",
    {"t": "Your organization and gift rows stay saved on this device, and the letters are made fresh with one tap. To clear everything, use Start fresh at the very bottom.", "point": "footer"}],
-  name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', mem:'Church membership, or Small charity $49 a year', price:'$19 one-time', video:true,
+  name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', mem:'Church membership, or Small charity $49 a year', price:'$19 one-time', testing:true, video:true,
   tag:'January\'s donor letters in ten minutes',
   try:'https://jerrywins1.github.io/daraja-apps/np-receipts/',
   lines:[
