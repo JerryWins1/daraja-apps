@@ -109,3 +109,23 @@ everything once, then place them on what the results show.
 
 Sending anything to the squad is always Jerry's hands on the keyboard, because Claude cannot
 send WhatsApp.
+
+## The clash this round ran into, found 5 November
+
+**Thirty hours in, not one Daraja app had been tested.** The last Daraja report of any kind
+was 28 October. All six apps that opened the round still sat at zero passes on their current
+versions.
+
+The cause is structural, not effort. **The five people who run these two teams are the Zuri
+Business Week squad**: Emmanuel Koki leads both, and Veronicah Kimani, Kevin Ngugi, Fredrick
+Nganga and Brian Maina Kamau are the squad he leads there. Zuri has a daily script, a morning
+breakage check and an evening watch all chasing it. Daraja has nobody chasing it. On 5 November
+Emmanuel, Fredrick and Brian filed 35 rows between them — every one of them Zuri.
+
+Four of the six testers marked **proven** at the top of these teams are in that squad. The
+exception is Veronicah's three: Faith Wangari, Frank Ndung'u and Ruth Waitherero Kiarie are
+free of Zuri entirely, and between them have tested nearly everything. None of them had filed
+anything either.
+
+Jerry's call on 5 November was to leave it — the round was one day old and Business Week looked
+close to finishing. A check is set for 7 November and the round still closes on the 12th.
