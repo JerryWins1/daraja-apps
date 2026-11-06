@@ -2486,18 +2486,44 @@ let WHERE=null;
    A stored copy of this list goes stale the moment a chat is renamed or an app changes hands,
    and a wrong chat name sends Jerry hunting — which is the one thing this page exists to stop. */
 const WHERE_MAC={ '017FeofhUrzDjbXqZwKzsFmr':1 };   /* runs through Remote Control on the Mac, not in the cloud */
+/* 6 Nov: one chat per app is Jerry's call, and it is the right one for reviewing
+   what was done — but it makes a long list, so the chats are filed by the shelf
+   their apps sit on rather than run together alphabetically. Seven short folders
+   beat one wall of fifty. Nothing here is kept by hand: a new app chat appears in
+   its folder the moment apps.json names it. */
+const CHAT_SHELF = {
+  '\u{1F9D1}\u200D\u{1F91D}\u200D\u{1F9D1} Testers':'Testers',
+  '\u{1F4BC} Business tools':'Business',
+  '\u26EA Church & Nonprofit':'Church & nonprofit',
+  '\u{1F33F} Family, Legacy & Seniors':'Family & later life',
+  '\u{1F4F1} Kenya':'Kenya',
+  '\u{1F4E1} Zuri Fiber':'Zuri Fiber',
+  '\u{1F3C1} Fun':'Just for fun',
+  '\u2B50 Start here':'Across all the apps'
+};
+const CHAT_ORDER = ['Testers','Business','Church & nonprofit','Family & later life','Kenya','Zuri Fiber','Just for fun','Across all the apps'];
 function whereChats(){
-  const A=(APPSREG&&APPSREG.apps)||[]; if(!A.length) return null;
+  const A=(APPSREG&&APPSREG.apps)||[]; if(!A.length) return [];
   const by={};
   A.forEach(a=>{ const c=(a.chat||'').trim(); if(!c) return;
-    if(!by[c]) by[c]={name:a.chat_name||c, apps:[]};
-    by[c].apps.push(a.name); });
-  const items=Object.keys(by).map(function(c){
-    const id=c.replace(/^session_/,'');
-    return { name:by[c].name, url:'https://claude.ai/code/session_'+id,
-             note:by[c].apps.join(', ')+(WHERE_MAC[id]?' — only runs on your Mac':'') };
-  }).sort(function(x,y){ return x.name.toLowerCase().localeCompare(y.name.toLowerCase()); });
-  return items.length?{ name:'💬 Your chats', about:'One app, one chat. Tap a name to open that conversation.', items:items }:null;
+    if(!by[c]) by[c]={name:a.chat_name||c, apps:[], shelves:{}};
+    by[c].apps.push(a.name);
+    const sh=CHAT_SHELF[a.group]||(a.group||'').replace(/^\S+\s*/,'')||'Other';
+    by[c].shelves[sh]=(by[c].shelves[sh]||0)+1; });
+  const folders={};
+  Object.keys(by).forEach(function(c){
+    const v=by[c], id=c.replace(/^session_/,'');
+    /* a chat whose apps span shelves is filed where most of them sit */
+    const sh=Object.keys(v.shelves).sort((x,y)=>v.shelves[y]-v.shelves[x])[0]||'Other';
+    (folders[sh]=folders[sh]||[]).push({ name:v.name, url:'https://claude.ai/code/session_'+id,
+      note:v.apps.join(', ')+(WHERE_MAC[id]?' — only runs on your Mac':'') });
+  });
+  const order=CHAT_ORDER.concat(Object.keys(folders).filter(k=>CHAT_ORDER.indexOf(k)<0).sort());
+  return order.filter(k=>folders[k]).map(function(k){
+    return { name:'\u{1F4AC} Chats — '+k,
+             about:folders[k].length===1?'One chat. Tap the name to open it.':'One app, one chat. Tap a name to open that conversation.',
+             items:folders[k].sort((x,y)=>x.name.toLowerCase().localeCompare(y.name.toLowerCase())) };
+  });
 }
 async function renderWhere(){
   const el=$('whereFull'); if(!el) return;
@@ -2506,7 +2532,7 @@ async function renderWhere(){
   const W=WHERE, q=(($('whereQ')||{}).value||'').trim().toLowerCase();
   const hit=i=>!q||(i.name+' '+(i.note||'')).toLowerCase().indexOf(q)>=0;
   const row=i=>`<a class="dl" href="${esc(i.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;align-items:center;min-height:44px"><span style="flex:1"><b>${esc(i.name)}</b>${i.note?`<br><span class="muted">${esc(i.note)}</span>`:''}</span><span style="font-size:20px">›</span></a>`;
-  const all=W.groups.slice(); const ch=whereChats(); if(ch) all.splice(1,0,ch);   /* chats sit straight after Start here */
+  const all=W.groups.slice(); const ch=whereChats(); if(ch.length) all.splice.apply(all,[1,0].concat(ch));   /* chats sit straight after Start here */
   const groups=all.map(g=>({...g,items:g.items.filter(hit)})).filter(g=>g.items.length);
   if(!$('whereQ')) el.innerHTML=`<div class="card"><b style="font-size:18px">🗂 Where everything is</b> <span class="muted">${esc(W.v)} · ${esc(W.updated)}</span><br><span class="muted">Tap a name to open it. Lost something? Type part of its name.</span>
       <input id="whereQ" type="search" placeholder="Find an app…" oninput="renderWhere()" style="width:100%;box-sizing:border-box;margin-top:10px;font:inherit;font-size:16px;min-height:44px;padding:8px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)"></div><div id="whereBody"></div>`;
