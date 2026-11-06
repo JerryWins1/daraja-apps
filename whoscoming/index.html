@@ -2192,6 +2192,9 @@
           <span class="chip" data-k="free">In their own words</span>
         </div>
         <div id="pickOpts" style="display:none"><label for="askOpts">The choices, one per line</label><textarea id="askOpts" rows="3" placeholder="Saturday&#10;Sunday&#10;Either"></textarea></div>
+        <div id="followWrap"><label for="askFollow">If they say yes, also ask them… <span class="small" style="font-weight:400">(optional)</span></label>
+        <input id="askFollow" maxlength="80" placeholder="e.g. What are you bringing?" aria-label="A follow-up question for the people who say yes">
+        <p class="small" style="margin:4px 0 0">Only the people who say yes see this. They can skip it. Whatever they type comes back with their answer.</p></div>
         <label for="askWhen">Answer by (optional)</label>
         <input id="askWhen" type="date">
         <div class="row" style="margin-top:12px"><button class="primary" style="flex:1" onclick="createAsk()">Save and send →</button><button class="ghost" onclick="toggleNew(false)">Cancel</button></div>
@@ -2278,25 +2281,31 @@ window.whyChip=function(b){ const box=b.parentNode, t=$('whyTxt'); const was=b.c
   if(b.textContent==='Something else'){ if(t){ t.value=''; try{ t.focus(); }catch(e){} } } else if(t && !was){ t.value=''; } };
 function whyValue(){ const t=$('whyTxt'), on=document.querySelector('.whyChips .chip.on'); const typed=t?t.value.trim():''; if(typed) return typed.slice(0,80); if(on && on.textContent!=='Something else') return on.textContent; return ''; }
 function whyFor(aid,pid){ const a=db.asks.find(x=>x.id===aid); if(!a) return; const ans=(a.answers||{})[pid]; if(!ans) return; const p=peopleOf(a.groupId).find(x=>x.id===pid)||{name:'them'};
-  sheet(`<h3>Why can’t ${esc(p.name)} come?</h3><p class="small">Only if they told you — it’s optional. It shows next to their name and in the copied tally.</p>${whyPicker(ans.why)}
+  /* 6 Nov: the same sheet serves both — a reason when they can't come, the organiser's own follow-up when they can */
+  const no=isNo(ans.a);
+  if(!no){ sheet(`<h3>${esc(a.followQ||'What did they say?')}</h3><p class="small">${esc(p.name)} said ${esc(ans.a)}. Only if they told you — it’s optional. It shows next to their name and in the copied tally.</p>
+    <input id="whyTxt" maxlength="80" autocomplete="off" placeholder="In a few words" aria-label="${esc(a.followQ||'Their answer')}" value="${esc(ans.why||'')}">
+    <div class="row" style="margin-top:12px"><button class="primary" style="flex:1" id="whySave">Save</button>${ans.why?'<button id="whyDel">Remove</button>':''}<button class="ghost" onclick="closeSheet()">Cancel</button></div>`); }
+  else sheet(`<h3>Why can’t ${esc(p.name)} come?</h3><p class="small">Only if they told you — it’s optional. It shows next to their name and in the copied tally.</p>${whyPicker(ans.why)}
     <div class="row" style="margin-top:12px"><button class="primary" style="flex:1" id="whySave">Save</button>${ans.why?'<button id="whyDel">Remove reason</button>':''}<button class="ghost" onclick="closeSheet()">Cancel</button></div>`);
-  $('whySave').onclick=()=>{ const v=whyValue(); if(v) ans.why=v; else delete ans.why; save(); closeSheet(); render(); toast(v?'Reason saved ✓':'No reason — that’s fine'); };
+  $('whySave').onclick=()=>{ const v=no?whyValue():($('whyTxt').value||'').trim().slice(0,80); if(v) ans.why=v; else delete ans.why; save(); closeSheet(); render(); toast(v?'Saved ✓':(no?'No reason — that’s fine':'Nothing recorded — that’s fine')); };
   if($('whyDel')) $('whyDel').onclick=()=>{ delete ans.why; save(); closeSheet(); render(); toast('Reason removed'); };
   $('whyTxt').onkeydown=e=>{ if(e.key==='Enter') $('whySave').click(); }; }
 function tallyText(a){ const t={}; Object.values(a.answers||{}).forEach(x=>{ t[x.a]=(t[x.a]||0)+1; }); return Object.entries(t).map(([k,v])=>v+' '+k).join(' · ')||'no answers yet'; }
 
 /* ── asks ────────────────────────────────────────────────────── */
 let askKind='yn';
-document.getElementById('askKind').addEventListener('click',e=>{ const c=e.target.closest('.chip'); if(!c) return; askKind=c.dataset.k; document.querySelectorAll('#askKind .chip').forEach(x=>x.classList.toggle('on',x===c)); $('pickOpts').style.display=askKind==='pick'?'':'none'; });
+document.getElementById('askKind').addEventListener('click',e=>{ const c=e.target.closest('.chip'); if(!c) return; askKind=c.dataset.k; document.querySelectorAll('#askKind .chip').forEach(x=>x.classList.toggle('on',x===c)); $('pickOpts').style.display=askKind==='pick'?'':'none'; $('followWrap').style.display=askKind==='free'?'none':''; });
 function toggleNew(on){ if(on && !db.groups.length){ go('people'); toast('First make a group — type its name, then tap Add group'); setTimeout(()=>{ try{ $('gName').focus(); }catch(e){} },300); return; } $('newAsk').style.display=on?'':'none'; $('newAskBtn').style.display=on?'none':''; if(on){ const na=$('newAsk'); na.style.scrollMarginTop='80px'; setTimeout(()=>{ na.scrollIntoView({block:'start',behavior:'smooth'}); },30); const keepG=$('askGroup').value; /* 7 Oct deep check: ✨ reset "Who are you asking?" to the first group */ $('askGroup').innerHTML=db.groups.map(g=>`<option value="${g.id}">${esc(g.name)} (${g.people.length})</option>`).join('')||'<option value="">— make a group first —</option>'; if(keepG && db.groups.some(g=>g.id===keepG)) $('askGroup').value=keepG; try{ $('askQ').focus({preventScroll:true}); }catch(e){} } }
 function createAsk(){
   const gid=$('askGroup').value, q=$('askQ').value.trim(); if(!gid){ alert('Make a group first (People tab).'); return; } if(!q){ $('askQ').focus(); return; }
   let options = askKind==='yn' ? ['Yes','No','Maybe'] : askKind==='pick' ? $('askOpts').value.split('\n').map(s=>s.trim()).filter(Boolean) : [];
   if(askKind==='pick' && options.length<2){ alert('Give them at least two choices.'); return; }
-  const a={id:uid(), groupId:gid, q, kind:askKind, options, when:$('askWhen').value||'', made:today(), answers:{}, closed:false};
-  db.asks.unshift(a); save(); $('askQ').value=''; $('askOpts').value=''; toggleNew(false); render(); sendAsk(a.id,false);
+  const followQ = askKind==='free' ? '' : ($('askFollow').value||'').trim().slice(0,80);
+  const a={id:uid(), groupId:gid, q, kind:askKind, options, followQ, when:$('askWhen').value||'', made:today(), answers:{}, closed:false};
+  db.asks.unshift(a); save(); $('askQ').value=''; $('askOpts').value=''; $('askFollow').value=''; toggleNew(false); render(); sendAsk(a.id,false);
 }
-function replyLink(a,p){ const u=new URL(location.href.split('?')[0]); u.searchParams.set('r',a.id); u.searchParams.set('p',p.id); u.searchParams.set('q',a.q); u.searchParams.set('o',a.options.join('|')); u.searchParams.set('to',db.me.phone||''); u.searchParams.set('from',db.me.name||''); return u.toString(); }
+function replyLink(a,p){ const u=new URL(location.href.split('?')[0]); u.searchParams.set('r',a.id); u.searchParams.set('p',p.id); u.searchParams.set('q',a.q); u.searchParams.set('o',a.options.join('|')); if(a.followQ) u.searchParams.set('f',a.followQ); u.searchParams.set('to',db.me.phone||''); u.searchParams.set('from',db.me.name||''); return u.toString(); }
 function sendAsk(id,nudge){
   /* 6 Oct: Diane got a bare link ("nothing — what is happening"): the sender's name was blank. Ask once, then send. */
   if(!db.me.name){ let dn=''; try{ dn=JSON.parse(localStorage.getItem('dj_name')||'""')||''; }catch(e){ dn=localStorage.getItem('dj_name')||''; }
@@ -2338,7 +2347,7 @@ function renderAsks(){
     const tally={}; a.options.forEach(o=>tally[o]=0); Object.values(a.answers||{}).forEach(x=>{ tally[x.a]=(tally[x.a]||0)+1; });
     return `<div class="card ask" id="ask-${a.id}" style="${a.closed?'opacity:.7':''}"><h2>${esc(a.q)}</h2><p>${g?esc(g.name)+' · '+(ppl.length?answered+' of '+ppl.length+' answered':'nobody in it yet — add people under People'):Object.keys(a.answers||{}).length+' answered before the group was removed'}${a.when?' · by '+esc(whenTxt(a.when)):''}${a.closed?' · closed':''}</p>
       ${a.options.length?`<div class="tally">${a.options.map(o=>`<div class="tile"><b>${tally[o]||0}</b><span>${esc(o)}</span></div>`).join('')}</div>`:''}
-      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+(ans.why?' · <span class="why">“'+esc(ans.why)+'”</span>':'')+' · '+esc(/^\d{4}-\d\d-\d\d$/.test(ans.at||'')?whenTxt(ans.at):(ans.at||'')):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'edit':'record what they said'}</button>`}${ans&&a.kind!=='free'&&isNo(ans.a)?`<button class="ghost whyBtn" aria-label="Reason ${esc(p.name)} can’t come (optional)" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit why':'Why?'}</button>`:''}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
+      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+(ans.why?' · <span class="why">“'+esc(ans.why)+'”</span>':'')+' · '+esc(/^\d{4}-\d\d-\d\d$/.test(ans.at||'')?whenTxt(ans.at):(ans.at||'')):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'edit':'record what they said'}</button>`}${ans&&a.kind!=='free'&&isNo(ans.a)?`<button class="ghost whyBtn" aria-label="Reason ${esc(p.name)} can’t come (optional)" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit why':'Why?'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&a.followQ?`<button class="ghost whyBtn" aria-label="${esc(a.followQ)} — ${esc(p.name)}" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit':'Add'}</button>`:''}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
       <div class="row" style="margin-top:10px">${ppl.length?`<button class="primary" onclick="sendAsk('${a.id}',false)">📨 Send to the group</button>${answered<ppl.length?`<button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button>`:''}`:''}<button onclick="copyTally('${a.id}')">📋 Copy the tally</button><button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
 }
 
@@ -2396,7 +2405,8 @@ function addPasted(gid){ const lines=$('pasteBox').value.split(/\n|;/).map(l=>l.
 function replyMode(){
   const u=new URL(location.href); if(!u.searchParams.get('r')) return false;
   const q=u.searchParams.get('q')||'', opts=(u.searchParams.get('o')||'').split('|').filter(Boolean), to=u.searchParams.get('to')||'', from=u.searchParams.get('from')||'';
-  window.__reply={q,to,from};
+  const followQ=(u.searchParams.get('f')||'').slice(0,80);
+  window.__reply={q,to,from,followQ};
   $('main').style.display='none'; const r=$('replyMode'); r.style.display='';
   /* the person answering is a guest here: no tabs, no daily hello, no dock */
   const nav=document.querySelector('nav'); if(nav) nav.style.display='none';
@@ -2406,7 +2416,18 @@ function replyMode(){
   return true;
 }
 /* 13 Oct (Kenya testers): "No" gets an optional reason before the text opens — kind, one line, skip is right there */
-window.replyPick=function(ans){ if(!isNo(ans)) return replyBack(ans); const R=window.__reply||{}, r=$('replyMode');
+window.replyPick=function(ans){ const RR=window.__reply||{};
+  /* 6 Nov: a yes can be asked one more thing — "what are you bringing?" — set by the organiser.
+     Mirrors the No→why screen below: optional, one line, and Skip is right there. */
+  if(!isNo(ans) && RR.followQ){ const r2=$('replyMode');
+    r2.innerHTML=`<div class="reply"><div class="small">Your answer: <b>${esc(ans)}</b></div><h2>${esc(RR.followQ)}</h2><p class="small" style="font-size:15px">Only if you like — you can skip it.</p>
+      <input id="followA" maxlength="80" autocomplete="off" placeholder="Type your answer" aria-label="${esc(RR.followQ)}">
+      <div class="opts" style="margin-top:12px"><button class="primary" id="followSend">Send my answer</button><button id="followSkip">Skip — just send &ldquo;${esc(ans)}&rdquo;</button><button class="ghost" onclick="replyHome()">&lsaquo; Change my answer</button></div></div>`;
+    const send=()=>{ const v=($('followA').value||'').trim().slice(0,80); replyBack(v?ans+' ('+v+')':ans); };
+    $('followSend').onclick=send; $('followSkip').onclick=()=>replyBack(ans);
+    $('followA').onkeydown=e=>{ if(e.key==='Enter') send(); };
+    window.scrollTo(0,0); setTimeout(()=>{ try{ $('followA').focus(); }catch(e){} },250); return; }
+  if(!isNo(ans)) return replyBack(ans); const R=window.__reply||{}, r=$('replyMode');
   r.innerHTML=`<div class="reply"><div class="small">Your answer: <b>${esc(ans)}</b></div><h2>Sorry you can’t make it.</h2><p class="small" style="font-size:15px">Want to tell ${esc(R.from||'them')} why? Only if you like.</p>${whyPicker('')}
     <div class="opts" style="margin-top:12px"><button class="primary" id="whySend">Send my answer</button><button id="whySkip">Skip — just send “${esc(ans)}”</button><button class="ghost" onclick="replyHome()">‹ Change my answer</button></div></div>`;
   $('whySend').onclick=()=>{ const w=whyValue(); replyBack(w?ans+' ('+w+')':ans); }; $('whySkip').onclick=()=>replyBack(ans);
