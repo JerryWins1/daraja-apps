@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v2.7 · 2026-10-23 (Every Day / Our Table videos say Family membership, not “free”; American words in One Thing — trash, ads; voice re-recorded) · v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
+/* Daraja Store — one shared catalog. v2.8 · 2026-11-06 (WhatsApp buttons: Business Manager, Our Table, Every Day, Message Assistant, Serve Board, Shoebox Counter)
+   v2.7 · 2026-10-23 (Every Day / Our Table videos say Family membership, not “free”; American words in One Thing — trash, ads; voice re-recorded) · v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
@@ -253,6 +254,7 @@ const APPS = {
     {t:"Your price list is the engine. Describe a job in plain words and the estimate is built from your own numbers \u2014 never a guess, and never somebody else's prices.", js:"try{tourShow('prices')}catch(e){}"},
     {t:"To-dos hold the dates that cost you money when they slip: the truck registration, the insurance renewal, the quarterly estimated taxes.", js:"try{tourShow('todo')}catch(e){}"},
     {t:"It opens in your phone's browser. Nothing to install, no account to make, and what you type stays on your phone.", js:"try{tourShow('home')}catch(e){}"},
+   "New in November: every message to a customer can go by WhatsApp as well as by text or email. On the Kenya edition it opens that customer's own WhatsApp; elsewhere it asks you which chat.",
     {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{tourShow('home')}catch(e){}"}
   ]} },
   name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', mem:'Business membership', price:'$149 a year', testing:true,
@@ -280,6 +282,7 @@ const APPS = {
    'Photograph receipts as you buy them. A thousand and twelve dollars at Home Depot, against the water heater job.',
    'Which gives you the number most trades never see: what each job actually made, after materials and hours.',
    'To-dos carry the dates that cost you money if you miss them \u2014 truck registration, insurance renewal, the quarterly estimated taxes.',
+   "New in November: the send row has a WhatsApp button next to Text it, and the invoice page your customer opens has one too — so they can send their M-Pesa code straight back.",
    'It opens in your phone browser. Nothing to install, no account, and what you type stays on your phone.'
   ]
  },
@@ -375,6 +378,7 @@ const APPS = {
     {"t": "How to start. The first time you open it, a short welcome tour shows you around. At the end, keep the six example cards, or start fresh with your own.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
     {"t": "Then tap one card you have already done today, and change one example into something you really do.", "point": "#hand .cardh:not(.addcard)"},
     {"t": "Everything stays on this phone. There is no account and nothing to sign up for. Every Day comes with the Family membership, with as many pill cards as you need.", "point": ".foot", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,99999);"},
+   "New in November: when the app offers to tell someone you are OK, there are now two buttons — a text message, or WhatsApp. The tick beside their name only comes from the button with their name on it, because WhatsApp cannot tell the app which chat you picked.",
     {"t": "And when you open the app itself, the question mark button in the bottom corner has the tour and help any time.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} "}]} },
   train:[
    {"t": "Setting up Every Day takes about five minutes. Here is how, one step at a time.", "point": "#hand", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
@@ -399,6 +403,7 @@ const APPS = {
    {"t": "For family far away, open Settings and choose Let someone know I'm OK. When your last card is done, it gets a short text ready. You press Send yourself. Nothing goes by itself.", "point": "#viewIn [data-go=ok]", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeEdit();openSettings();}catch(e){}"},
    {"t": "Feeling poorly? Take a sick day, and your runs stay safe. You can do that once every seven days.", "point": "#viewIn [data-go=off]"},
    {"t": "Everything stays on this phone. There is no account, and nothing to sign up for.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
+   "New in November: under the button that tells Susan you are OK there is a WhatsApp one, so you can say it in the chat you already use.",
    {"t": "Every Day comes with the Family membership, and founding members get their first year free. Try it below: tap one card you have already done today, and see how it feels. And every app helps a student in Kenya stay in school.", "point": "#hand", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"}],
   name:'Every Day', em:'🌱', sub:'six small habits, one tap each', fresh:true, cat:'later', mem:'Family membership', price:'Free', testing:true,
   tag:'A walk, your pills, a call, some water: tap each one when it’s done and watch the streak grow. Change the six to suit you.',
@@ -434,6 +439,7 @@ const APPS = {
     {"t": "How to start: type the names of three dinners you really cook, and tap Remove the three examples. Then put them on this week's nights.", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet','djLevelSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{closeView();}catch(e){} try{closePick();}catch(e){} try{closeEdit();}catch(e){} try{go('recipes');window.scrollTo(0,0);}catch(e){}"},
     "Everything stays on this phone. There is no account and nothing to sign up for. Our Table comes with the Family membership.",
     {"t": "The question mark button in the corner has the tour and help, any time."},
+   "New in November: the week of dinners and the shopping list can both go out on WhatsApp as well as by text. WhatsApp is the one that can reach a family group chat.",
     "And every Daraja app helps a student in Kenya stay in school. Enjoy your dinners."]} },
   train:[
    {"t": "Setting up Our Table takes about ten minutes, once. Here is how, screen by screen.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}');s.level=3;s.auto=false;s.nudge=false;s.intro=1;parent.tourSet&&parent.tourSet('dj_level_ourtable',JSON.stringify(s));}catch(e){}"},
@@ -457,6 +463,7 @@ const APPS = {
    {"t": "Tick things off as you shop, add anything extra like milk or paper towels, and text the list to whoever is going to the store.", "point": "#p-shop button[onclick=\"shareList('sms')\"]"},
    {"t": "The Level line at the top keeps it simple to start. Level one is recipes and the week. Level two adds the shopping list. Level three adds sharing. Change it any time.", "point": "#djLevelPill", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet','djLevelSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{closeView();}catch(e){} try{closePick();}catch(e){} try{closeEdit();}catch(e){} try{go('recipes');window.scrollTo(0,0);}catch(e){}"},
    "There is no account and nothing to sign up for. Your recipes stay on your phone, so nobody can shut it down.",
+   "New in November: next to Text it there is a WhatsApp button — for the week of dinners and for the shopping list. Pick the family chat and press send.",
    "Our Table comes with the Family membership, and every Daraja app helps a student in Kenya stay in school. Try it below: put in three dinners your family really eats, and plan this week."],
   name:'Our Table', em:'🍽', sub:'dinner, decided', fresh:true, cat:'home', mem:'Family membership', price:'Free', testing:true,
   tag:'Keep the recipes you actually cook, fill the week in one tap, and get one shopping list for all of it. Your recipes stay on your phone — nobody can shut it down.',
@@ -1155,6 +1162,7 @@ const APPS = {
     "When you are ready, copy the prompt into your A.I., paste the answer back, and put the pieces on your calendar.",
     "Everything stays on this phone. There are no accounts and no mailing service to sign up for.",
     "Message Assistant comes with the Business membership.",
+   "New in November: every piece written for a text message now offers WhatsApp as well as Messages, so a church or family group chat is one tap away.",
     {"t": "And the question mark button in the corner has the tour and help any time you need them.", "point": "#djDockToggle", "js": "try{ window.scrollTo(0,0); }catch(e){}"}]} },
   train:[
    "Using Message Assistant. Ten minutes, and your whole campaign is planned.",
@@ -1179,6 +1187,7 @@ const APPS = {
    "It lays them out day by day, so you can see the drumbeat build — the announcement, the reminder, the day-before nudge, the thank you.",
    "Download the calendar file and your phone buzzes when each piece is due. Open Message Assistant, tap the piece, and fire it.",
    "And here is the part that matters: nothing sends itself. It goes from your own email, your own Messages, your own account — so there is no mailing service to sign up for and no monthly bill. Message Assistant plans and writes; you press send.",
+   "New in November: a text piece gives you two links — Open in Messages, or WhatsApp. A text message cannot reach a group chat; WhatsApp can.",
    "It comes with the Business membership. Try it below."]},
 
 
@@ -1538,6 +1547,7 @@ const APPS = {
     "How to start? Add three or four people, then fill next Sunday. That is your first two minutes, and the board already looks less empty.",
     "Privacy: everything stays on this phone. There is no account, and nothing is sent unless you send the message yourself.",
     "Serve Board comes with the Church membership. Any profit helps orphans and students in Kenya.",
+   "New in November: once somebody is in, there is a WhatsApp button beside the text one — and it is there even for a person with no phone number saved, because no number goes into the link.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "This is the training for Serve Board: how to set it up and fill your first month.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "header"},
@@ -1565,6 +1575,7 @@ const APPS = {
    {"t": "Roles and requirements: rename the jobs, add new ones, and note what a job needs, like a background check. That reminder shows every time you fill that slot.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); openRoles(); }catch(e){}", "point": "#svOv input[placeholder^=\"what this role requires\"]"},
    {"t": "And when it is set, print it for the bulletin board, because some of your best volunteers do not do phones, and that is fine.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "button[onclick=\"window.print()\"]"},
    "It lives on your phone, and keeps working without a signal. No account, nothing for your volunteers to sign up for, and no ads.",
+   "New in November: the is-in box offers WhatsApp as well as a text message, so you can send somebody their Sunday in the chat they already use.",
    "It comes with the Church membership, for every ministry team you have. Try it below."],
   name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', mem:'Church membership', price:'$19 one-time', testing:true, video:true,
   tag:'The month of volunteers on one page. No ads to your volunteers.',
@@ -1596,6 +1607,7 @@ const APPS = {
     "How to start? Set your goal, then count the first bag of donations. That is your first two minutes, and the big number starts to move.",
     "Privacy: your counts stay on this phone. There is no account, and nothing is sent anywhere unless you send the message yourself.",
     "The Shoebox Counter comes with the Church membership. Any profit helps orphans and students in Kenya.",
+   "New in November: the still-needed message can go out on WhatsApp as well as by text or email — and WhatsApp is the only one of the three that reaches the whole church group at once.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "This is the training for the Shoebox Counter: how to set up a drive and count what comes in.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
@@ -1623,6 +1635,7 @@ const APPS = {
    {"t": "And the green button writes the message for you: everything still needed, with the not-allowed list and the drop-off week. Text it, email it, or copy it.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); window.scrollTo(0,0); var p=document.getElementById('occPreview'); if(p && !p.classList.contains('show')) document.getElementById('occShareBtn').click(); }catch(e){}", "point": "#occShareBtn"},
    {"t": "It even adds up the shipping donation for your goal, and counts the days to drop-off week.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); }catch(e){}", "point": ".occFactRow"},
    "Your counts stay on this phone. No account, nothing to sign up for, and it keeps working without a signal in the church basement.",
+   "New in November: the row under the message reads Text it, WhatsApp, Email it, Copy. Tap WhatsApp and pick the group.",
    "It comes with the Church membership, for every drive you will ever run. Try it below."],
   name:'Shoebox Counter', em:'📦', sub:'how many full boxes can we pack?', cat:'church', mem:'Church membership', showName:'Shoebox Counter', price:'$19 one-time', video:true,
   tag:'Count what’s been donated and it tells you how many complete boxes or kits you can make right now, and what to ask for on Sunday. Works for food and coat drives too.',
