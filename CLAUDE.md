@@ -134,6 +134,51 @@ one refused at dispatch for five days, one dispatching cleanly every night and t
 doing nothing at all. When judging whether a job works, look at what it produced,
 not at its run status.
 
+## An app is not just the app
+
+Jerry, 6 Nov, after a day of finding broken videos: "why don't we make all that
+standard, that a test of an app includes everything, every written piece that we have,
+every video that we have, everything that would be put on the store that someone buying
+the app would be looking at."
+
+So **an app is everything a buyer sees**, not the code. Change any of it and the rest
+has to keep up, in the same piece of work:
+
+| the app changes | so does |
+| --- | --- |
+| a screen, a button, a field | every video that shows it, and the test script's steps |
+| what it is for, or who it is for | the store card, the videos' opening lines |
+| the price or the membership | the store card and every video that says it out loud |
+| anything at all | the version stamp in the footer, which is what the pass counts against |
+
+**The video is part of making the change, not a follow-up.** A change that leaves the
+video describing the old screen has not shipped — it has half shipped, and the half
+nobody looks at is the half the customer watches first. The recording is part of it too:
+reword one line and that whole video silently falls back to the browser voice that
+stalls on an iPad.
+
+Three commands, and none of them is optional:
+
+```
+python3 shop/voicemaker.py --check     # which videos are missing, stale, or static
+python3 shop/voicemaker.py --all       # record the missing and the stale
+node shop/checkvideos.js <app>         # watch them, the way Jerry watches them
+```
+
+`shop/apps_data.js` carries the five rules for what makes a proper video, written out
+at the top. Read them before touching one.
+
+**And the testers test all of it.** A round is not "open the app and poke it". Every
+test script ends with the same section: watch each of this app's videos through, does
+the screen follow the words, does the voice run without stopping; read the store card,
+is any of it untrue now. A tester who watches a video that talks about a button that
+is no longer there has found a real fault, and should say so.
+
+Why this is written down: on 6 November one chat changed seven apps and left thirteen
+videos describing screens that had moved, twenty-four more that never changed screen at
+all, and two with twenty lines of direction that silently did nothing. Nothing caught
+any of it. Jerry caught it, by watching one.
+
 ## Secrets
 
 Never ask for a secret in chat, and never accept one: client secrets, API keys,
