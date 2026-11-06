@@ -157,6 +157,34 @@ function videos() {
             if (!seen) faults.push(step + ': ' + l.point + ' is on the page but never becomes visible');
           }
         }
+        /* Setup that nearly every line runs must be on the FIRST line too. Compass called
+         * setPlace from line 2, so the first twenty seconds — the words saying what the app is
+         * for — played over the country card the setup exists to clear. Found by the Compass
+         * chat, not by this file, because a line with no js and no point was only ever checked
+         * for a password box and a blank page, and that card is neither.
+         *
+         * Only setup, never navigation. A piece that moves the app about (show, go, tab,
+         * tourShow, openPicker) belongs to its own line; hoisting those onto line 0 would just
+         * make a video open somewhere it should not. So: a piece has to run on most of the
+         * lines that carry js, and must not steer. */
+        const NAV = /\b(show|go|tab|tourShow|openPicker|setTab|openApp)\s*\(/;
+        const jsOf = k => (LINES[k] && LINES[k].js) || '';
+        const withJs = [];
+        for (let k = 0; k < n; k++) if (jsOf(k)) withJs.push(k);
+        if (withJs.length > 2) {
+          const pieces = {};
+          for (const k of withJs)
+            for (const part of new Set(jsOf(k).split(/(?<=\}catch\(e\)\{\})\s*/).filter(x => x.trim().length > 25)))
+              pieces[part] = (pieces[part] || 0) + 1;
+          for (const [part, count] of Object.entries(pieces)) {
+            if (NAV.test(part)) continue;
+            if (count < Math.ceil(withJs.length * 0.6)) continue;
+            if (jsOf(0).indexOf(part) >= 0) continue;
+            faults.push('0: the opening line is missing setup that ' + count + ' of ' + withJs.length +
+                        ' directed lines run — the video opens on whatever it clears: ' + part.slice(0, 60));
+          }
+        }
+
         return { faults, screens: screens.length, steps: n };
       }, v.lines.length);
     } catch (e) {
