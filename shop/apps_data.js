@@ -508,6 +508,85 @@ const APPS = {
    'It opens in your phone browser. Nothing to install, no account, and what you type stays on your phone.'
   ]
  },
+ hello: {
+    "name": "Karibuni — hello from Daraja",
+    "em": "👋",
+    "sub": "a thank you to the testers",
+    "cat": "off",
+    "off": "a greeting for the Kenyan squad, not something sold in the store",
+    "video": true,
+    "tag": "Two minutes, nothing to do: what October's testing actually fixed, and who found it",
+    "try": BASE+'testers/',
+    "lines": [
+      {
+        "t": "Hello. This one is not a test, and there is nothing for you to do. It is two minutes, and it is a thank you.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('try');}catch(e){}"
+      },
+      {
+        "t": "In October, twenty-seven of you tested these apps. Between you, you sent one thousand, two hundred and forty-two reports. That is not a small number. That is a month of real work, on real phones, in between everything else you had on.",
+        "point": "#tlTitle"
+      },
+      {
+        "t": "So before anything else. Thank you."
+      },
+      {
+        "t": "Here is what that work actually did, because you may not have seen it from where you were sitting."
+      },
+      {
+        "t": "Brian Maina Kamau found the fault in Receipt Maker. Fredrick Nganga found five of the six faults that were fixed on the fourth of November. Five out of six, from one person."
+      },
+      {
+        "t": "Veronicah Kimani found a fault in search on the twenty-ninth of October. And out of all one thousand, two hundred and forty-two reports, only three people have ever had a problem confirmed. She is one of the three."
+      },
+      {
+        "t": "Kevin Ngugi got through every app faster than anybody. Faith Wangari and Frank Ndung'u each tested all twenty-eight. Ruth Waitherero Kiarie, twenty-five."
+      },
+      {
+        "t": "And everyone else who opened an app, poked at it, and said what they honestly thought. That is the job. There is no such thing as a small report."
+      },
+      {
+        "t": "Now here is the thing we would most like you to believe.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('fixed');}catch(e){}"
+      },
+      {
+        "t": "Finding a problem is not bad news for us. It is the entire point. This list is every single thing that has been fixed because somebody said something.",
+        "point": "#fixedList"
+      },
+      {
+        "t": "Every line on it started as a tester being honest. Nobody here is marked down for breaking an app. If you broke it, it was already broken. You just found it first."
+      },
+      {
+        "t": "So. What is happening at the moment.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('try');}catch(e){}"
+      },
+      {
+        "t": "There are two teams now. Emmanuel Koki leads one, and Veronicah Kimani leads the other. Your lead will tell you which apps are yours.",
+        "point": "#appList"
+      },
+      {
+        "t": "This round closes on the twelfth of November, and the apps on this page are the ones that need eyes first. Some of them have never been opened by anybody."
+      },
+      {
+        "t": "If something confuses you, say so here. You do not have to be polite about it. Say it the way you would say it to a friend.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('board');}catch(e){}",
+        "point": "#board"
+      },
+      {
+        "t": "And if you would rather talk than type, there is a microphone. Nobody is marking your spelling."
+      },
+      {
+        "t": "Last thing, and it is the real reason any of this exists.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('try');}catch(e){}"
+      },
+      {
+        "t": "Every app that gets good enough to sell helps a student in Kenya stay in school. That is what the testing is for. Not for us — for them."
+      },
+      {
+        "t": "That is all. Thank you for October. We will see what you find this time."
+      }
+    ]
+  },
+
  tester: {
   name:'How to be a tester', em:'🧪', sub:'three minutes: a real test, start to finish', cat:'off', price:'', testing:true, video:true,
   tag:'The tester video — watch one short test from start to finish: use the app, point at what is wrong, say why, send the report',
