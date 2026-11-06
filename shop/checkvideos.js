@@ -47,6 +47,7 @@ function serveLocal(p) {
   });
 }
 
+const elsewhere = [];
 function videos() {
   const APPS = new Function(fs.readFileSync(path.join(ROOT, 'shop/apps_data.js'), 'utf8') + ';return APPS;')();
   const out = [];
@@ -54,6 +55,10 @@ function videos() {
     if (/^tpl/.test(k) || /^nourish/.test(k)) continue;        // templates, not apps
     const a = APPS[k];
     if (!a.try) continue;                                      // nothing to show
+    // Some apps live in another repository (The Church App is in immanuel-app). In production
+    // they sit on the same host as the player, so their videos work; from here there is no copy
+    // to serve, so say that rather than calling the video broken.
+    if (a.try.indexOf(LIVE) !== 0) { elsewhere.push(k + ' → ' + a.try); continue; }
     if (a.lines) out.push({ key: k + '-overview', app: k, mode: '', lines: a.lines });
     if (a.train) out.push({ key: k + '-train', app: k, mode: 'train', lines: a.train });
     for (const m of Object.keys(a.extra || {}))
@@ -115,12 +120,16 @@ function videos() {
           try { eval('i = ' + step); } catch (e) {}
           const l = LINES[step];
           if (l && l.js) {
+            try { fr.contentWindow.eval(l.js); } catch (e) { faults.push(step + ': js threw — ' + e.message.slice(0, 50)); continue; }
+            /* Check the names AFTER running it, not before: a step is allowed to bootstrap its
+             * own helper first (My Scores does exactly that). What matters is whether the thing
+             * it calls exists by the time it is called — if it still does not, the step did
+             * nothing at all and said nothing about it. */
             for (const nm of callsOf(l.js)) {
               let t = 'undefined';
               try { t = fr.contentWindow.eval('typeof ' + nm); } catch (e) {}
               if (t !== 'function') faults.push(step + ': ' + nm + '() does not exist on this page — the step does nothing');
             }
-            try { fr.contentWindow.eval(l.js); } catch (e) { faults.push(step + ': js threw — ' + e.message.slice(0, 50)); continue; }
           }
           await new Promise(r => setTimeout(r, 350));   // the player's own pause before it points
           const doc = fr.contentDocument;
@@ -162,6 +171,10 @@ function videos() {
 
   await browser.close();
   console.log('\n' + (list.length - broken.length) + ' of ' + list.length + ' good.');
+  if (elsewhere.length) {
+    console.log('\nNot checked — these apps live outside this repository, so there is nothing here to serve:');
+    [...new Set(elsewhere)].forEach(e => console.log('  ' + e));
+  }
   if (broken.length) {
     console.log(broken.length + ' need fixing:');
     broken.forEach(([k, why]) => console.log('  ' + k.padEnd(28) + why.slice(0, 110)));
