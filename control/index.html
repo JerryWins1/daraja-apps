@@ -2422,7 +2422,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.50 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.51 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -3362,50 +3362,75 @@ async function markRead(ids){ await act({action:'message.read',ids}); }
    on offer. Done in hundreds, because one request carrying 1,872 ids will not come back. */
 const CLEAR_BATCH = 100;
 function unreadIn(){ return ((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new'); }
-function olderThan(days){
+/* v1.51, 6 Nov: Jerry cleared the 1,870 unread and was left with 130 he did not recognise.
+   They are the other half of this list — things Claude fixed that the tester was never told
+   about. Each has its own ＋No need to tell, but 130 taps is not a tool. They clear the same
+   way, on the same dates, and are counted separately so he can see what he is agreeing to. */
+function untoldFixes(){ return ((D&&D.requests)||[]).filter(r=>r.status==='done'); }
+function olderThan(days, list){
+  const items = list || unreadIn();
+  if(!days) return items;
   const cut = Date.now() - days*86400000;
-  return unreadIn().filter(m=>{ const t=Date.parse(m.at); return isNaN(t) ? true : t < cut; });
+  return items.filter(m=>{ const t=Date.parse(m.at); return isNaN(t) ? true : t < cut; });
 }
 function renderClearOut(){
   const bar=$('clearOutBar'); if(!bar) return;
-  const n=unreadIn().length;
-  if(n < 50){ bar.style.display='none'; bar.innerHTML=''; return; }   /* a short list needs no broom */
+  const n=unreadIn().length, f=untoldFixes().length;
+  if(n + f < 20){ bar.style.display='none'; bar.innerHTML=''; return; }   /* a short list needs no broom */
+  const bits=[]; if(n) bits.push(n+' unread'); if(f) bits.push(f+' fixed, not told');
   bar.style.display='flex';
-  bar.innerHTML='<button class="chip" onclick="clearOutSheet()">🧹 '+n+' unread — clear out the old ones</button>';
+  bar.innerHTML='<button class="chip" onclick="clearOutSheet()">🧹 '+bits.join(' · ')+' — clear out the old ones</button>';
 }
 function clearOutSheet(){
-  const n=unreadIn().length, a=olderThan(30).length, b=olderThan(7).length;
+  const U=unreadIn(), F=untoldFixes();
+  const say=(d)=>{ const u=olderThan(d,U).length, f=olderThan(d,F).length; const p=[];
+    if(u) p.push(u+' unread'); if(f) p.push(f+' fixed'); return p.join(' + ')||'nothing'; };
+  const n30=olderThan(30,U).length+olderThan(30,F).length;
+  const n7=olderThan(7,U).length+olderThan(7,F).length;
+  const nAll=U.length+F.length;
   sheet('<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0 2px">🧹 Clear out the old ones</h3>'
-    + '<p class="muted" style="font-size:14px;margin:0 0 10px">Nothing is deleted — the mailbox has no delete, and this does not ask for one. '
-    + 'It marks them read, so they come off this list and every word stays in HQ. Pick how far back to go.</p>'
+    + '<p class="muted" style="font-size:14px;margin:0 0 10px">Nothing is deleted. Unread messages are marked read; a fix nobody was told about is marked '
+    + '\u201cno need to tell\u201d. Both just come off this list, and every word stays in HQ.</p>'
     + '<div class="chips">'
-    + (a?'<button class="chip main" onclick="clearOut(30)">Older than 30 days ('+a+')</button>':'')
-    + (b?'<button class="chip" onclick="clearOut(7)">Older than 7 days ('+b+')</button>':'')
-    + '<button class="chip" onclick="clearOut(0)">Everything ('+n+')</button>'
+    + (n30?'<button class="chip main" onclick="clearOut(30)">Older than 30 days \u2014 '+say(30)+'</button>':'')
+    + (n7?'<button class="chip" onclick="clearOut(7)">Older than 7 days \u2014 '+say(7)+'</button>':'')
+    + (nAll?'<button class="chip" onclick="clearOut(0)">Everything \u2014 '+say(0)+'</button>':'')
     + '</div>'
-    + '<p class="muted" style="font-size:13px;margin:10px 0 0">A tester finding nobody answered could be in here. Clearing does not lose it, '
-    + 'but nothing will bring it back up either — so 30 days is the safe one if you are not sure.</p>'
+    + '<p class="muted" style="font-size:13px;margin:10px 0 0">Two things clearing costs you: a tester finding nobody answered stops being visible, and a tester '
+    + 'never hears that their fault was fixed \u2014 which is the thing that keeps them reporting. For anything recent, \u{1F4E8} Tell them on the row is worth the minute. '
+    + '30 days is the safe one if you are not sure.</p>'
     + '<div id="clearOutGo" style="margin-top:10px"></div>');
 }
 async function clearOut(days){
-  const list = days ? olderThan(days) : unreadIn();
-  const ids = list.map(m=>m.id);
+  const msgs = olderThan(days, unreadIn()).map(m=>m.id);
+  const fixes = olderThan(days, untoldFixes()).map(r=>r.id);
+  const total = msgs.length + fixes.length;
   const out = $('clearOutGo');
-  if(!ids.length){ if(out) out.innerHTML='<p class="muted" style="margin:0">Nothing that old.</p>'; return; }
+  if(!total){ if(out) out.innerHTML='<p class="muted" style="margin:0">Nothing that old.</p>'; return; }
   document.querySelectorAll('#sheetBody .chips .chip').forEach(b=>b.disabled=true);
-  let done=0, failedAt=0;
-  for(let i=0;i<ids.length;i+=CLEAR_BATCH){
-    const slice=ids.slice(i,i+CLEAR_BATCH);
-    if(out) out.innerHTML='<p style="margin:0"><b>'+done+' of '+ids.length+'</b> cleared…</p>';
-    try{ await hq({action:'message.read',ids:slice}); }
-    catch(e){ failedAt=done; break; }
+  let done=0, stopped=false;
+  const say=()=>{ if(out) out.innerHTML='<p style="margin:0"><b>'+done+' of '+total+'</b> cleared…</p>'; };
+  /* messages go a hundred at a time: the mailbox takes a list */
+  for(let i=0;i<msgs.length && !stopped;i+=CLEAR_BATCH){
+    const slice=msgs.slice(i,i+CLEAR_BATCH); say();
+    try{ await hq({action:'message.read',ids:slice}); }catch(e){ stopped=true; break; }
     done+=slice.length;
     slice.forEach(id=>{ const m=D.messages.find(x=>x.id===id); if(m) m.status='read'; });
   }
+  /* a fix has to go one at a time — request.set takes a single id, not a list */
+  for(const id of fixes){
+    if(stopped) break;
+    say();
+    try{ await hq({action:'request.set',id,status:'told'}); }catch(e){ stopped=true; break; }
+    done++;
+    const r=D.requests.find(x=>x.id===id); if(r) r.status='told';
+  }
   render();
-  if(out) out.innerHTML = failedAt||done<ids.length
-    ? '<p style="margin:0"><b>'+done+' of '+ids.length+'</b> cleared, then HQ stopped answering. The '+(ids.length-done)+' left are still here — run it again in a minute.</p>'
-    : '<p style="margin:0">✓ All '+done+' cleared. They are marked read, not deleted.</p>';
+  const what = msgs.length && fixes.length ? 'Marked read and \u201cno need to tell\u201d'
+             : fixes.length ? 'Marked \u201cno need to tell\u201d' : 'Marked read';
+  if(out) out.innerHTML = stopped
+    ? '<p style="margin:0"><b>'+done+' of '+total+'</b> cleared, then HQ stopped answering. The '+(total-done)+' left are still here — run it again in a minute.</p>'
+    : '<p style="margin:0">\u2713 All '+done+' cleared. '+what+' \u2014 nothing deleted.</p>';
   toast(done+' cleared');
 }
 async function stackIt(mid){ const m=D.messages.find(x=>x.id===mid); await act({action:'request.add',person_id:m.person_id,msg_id:m.id,text:m.text,app:m.app,kind:'question'},'In the stack'); }
