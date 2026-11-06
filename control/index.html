@@ -2267,6 +2267,10 @@
       <!-- v1.21 (7 Oct): Jerry: "a little dashboard of everything that needs to be done, and a section for Zuri testers and a section for Daraja testers rather than a button." -->
       <!-- v1.25 (8 Oct): Jerry: "the panel only had things that I need to do right now, but keep a history of what's happened." -->
       <h2>✅ Needs you now <small id="nowCount"></small></h2>
+      <!-- v1.50 (6 Nov): Jerry had 1,872 unread sitting here, every message any tester ever sent.
+           Nothing expires them and the mailbox has no delete, so the list only ever grew. This
+           clears the old ones in batches — see clearOut(). -->
+      <div class="chips" id="clearOutBar" style="margin:0 0 8px;display:none"></div>
       <div class="card" id="nowList"><p class="muted" style="margin:0">Loading…</p></div>
       <details class="card" id="moreToday" style="margin-top:14px"><summary style="font-weight:800;cursor:pointer">👥 The testers, dates &amp; more <small class="muted">(how everyone is doing — nothing to act on)</small></summary>
       <div class="tiles" id="needsYou" style="margin-top:8px;display:none"></div>
@@ -2418,7 +2422,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.49 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.50 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -3080,6 +3084,7 @@ function renderNow(){
   const nNew=(D.requests||[]).filter(r=>r.status==='new'||r.status==='stack').length;
   if(nNew) out.push(`<div class="item"><span class="who">📥 ${nNew} new in the stack</span> <span class="meta">— nothing to do yourself: say “work the stack” and Claude fixes them</span></div>`);
   $('nowCount').textContent=out.length?out.length+(out.length===1?' thing':' things'):'';
+  try{ renderClearOut(); }catch(e){}
   el.innerHTML=out.length?out.join(''):'<div style="font-size:34px">✓</div><b>Nothing needs you right now.</b> <span class="muted">New messages and fixes to tell people about show up here. What already happened is under History.</span>';
 }
 let HF='all';
@@ -3348,6 +3353,61 @@ async function sendByHand(id,draftId){
 }
 async function saveDraft(id){ try{ const d=await draftOf(id,null); if(d){ toast('Draft saved'); closeSheet(); load(); } }catch(e){ toast(e.message,true); } }
 async function markRead(ids){ await act({action:'message.read',ids}); }
+
+/* ── 🧹 Clear out the old ones (v1.50, 6 Nov 2026) ──
+   Jerry: "There are 1,800 and some odd events in there... can you delete them so we can start
+   over and we can get a manageable list?" Nothing can be deleted — the mailbox understands read,
+   mark, draft, send, person, request and settings, and nothing else. Marking them read takes them
+   off this list and keeps every word, which is what he actually wants and is also the only thing
+   on offer. Done in hundreds, because one request carrying 1,872 ids will not come back. */
+const CLEAR_BATCH = 100;
+function unreadIn(){ return ((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new'); }
+function olderThan(days){
+  const cut = Date.now() - days*86400000;
+  return unreadIn().filter(m=>{ const t=Date.parse(m.at); return isNaN(t) ? true : t < cut; });
+}
+function renderClearOut(){
+  const bar=$('clearOutBar'); if(!bar) return;
+  const n=unreadIn().length;
+  if(n < 50){ bar.style.display='none'; bar.innerHTML=''; return; }   /* a short list needs no broom */
+  bar.style.display='flex';
+  bar.innerHTML='<button class="chip" onclick="clearOutSheet()">🧹 '+n+' unread — clear out the old ones</button>';
+}
+function clearOutSheet(){
+  const n=unreadIn().length, a=olderThan(30).length, b=olderThan(7).length;
+  sheet('<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0 2px">🧹 Clear out the old ones</h3>'
+    + '<p class="muted" style="font-size:14px;margin:0 0 10px">Nothing is deleted — the mailbox has no delete, and this does not ask for one. '
+    + 'It marks them read, so they come off this list and every word stays in HQ. Pick how far back to go.</p>'
+    + '<div class="chips">'
+    + (a?'<button class="chip main" onclick="clearOut(30)">Older than 30 days ('+a+')</button>':'')
+    + (b?'<button class="chip" onclick="clearOut(7)">Older than 7 days ('+b+')</button>':'')
+    + '<button class="chip" onclick="clearOut(0)">Everything ('+n+')</button>'
+    + '</div>'
+    + '<p class="muted" style="font-size:13px;margin:10px 0 0">A tester finding nobody answered could be in here. Clearing does not lose it, '
+    + 'but nothing will bring it back up either — so 30 days is the safe one if you are not sure.</p>'
+    + '<div id="clearOutGo" style="margin-top:10px"></div>');
+}
+async function clearOut(days){
+  const list = days ? olderThan(days) : unreadIn();
+  const ids = list.map(m=>m.id);
+  const out = $('clearOutGo');
+  if(!ids.length){ if(out) out.innerHTML='<p class="muted" style="margin:0">Nothing that old.</p>'; return; }
+  document.querySelectorAll('#sheetBody .chips .chip').forEach(b=>b.disabled=true);
+  let done=0, failedAt=0;
+  for(let i=0;i<ids.length;i+=CLEAR_BATCH){
+    const slice=ids.slice(i,i+CLEAR_BATCH);
+    if(out) out.innerHTML='<p style="margin:0"><b>'+done+' of '+ids.length+'</b> cleared…</p>';
+    try{ await hq({action:'message.read',ids:slice}); }
+    catch(e){ failedAt=done; break; }
+    done+=slice.length;
+    slice.forEach(id=>{ const m=D.messages.find(x=>x.id===id); if(m) m.status='read'; });
+  }
+  render();
+  if(out) out.innerHTML = failedAt||done<ids.length
+    ? '<p style="margin:0"><b>'+done+' of '+ids.length+'</b> cleared, then HQ stopped answering. The '+(ids.length-done)+' left are still here — run it again in a minute.</p>'
+    : '<p style="margin:0">✓ All '+done+' cleared. They are marked read, not deleted.</p>';
+  toast(done+' cleared');
+}
 async function stackIt(mid){ const m=D.messages.find(x=>x.id===mid); await act({action:'request.add',person_id:m.person_id,msg_id:m.id,text:m.text,app:m.app,kind:'question'},'In the stack'); }
 
 /* ---------- 📣 message a group (v1.17, 5 Oct): write once, then one tap per person ---------- */
