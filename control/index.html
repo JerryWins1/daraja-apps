@@ -2411,7 +2411,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.47 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.48 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -3554,17 +3554,45 @@ function quoteReply(pid, quote, o){ o=o||{}; const p=P(pid); if(!p.id){ toast('W
     <div style="border-left:4px solid var(--accent,#23504F);background:rgba(128,128,128,.12);border-radius:0 12px 12px 0;padding:10px 12px;margin-bottom:10px;white-space:pre-wrap">${esc(q)}</div>
     <label for="qrA">Your answer</label><textarea id="qrA" rows="4" placeholder="Type your answer">${esc(start)}</textarea>
     <div class="muted" style="font-size:13px;margin:8px 0 4px">What ${esc(first)} will get:</div><div id="qrPrev" style="background:rgba(128,128,128,.12);border-radius:12px;padding:10px 12px;white-space:pre-wrap;font-size:14px"></div>
-    <div class="chips" style="margin-top:10px">${p.phone?`<button class="chip wa" id="qrSend">📱 Send it</button>`:`<button class="chip main" onclick="addNumber()">＋ Add their number first</button>`}<button class="chip" id="qrCopy">📋 Copy it</button></div>
+    <div class="chips" style="margin-top:10px">${p.phone?`<button class="chip wa" id="qrSend">📱 Send it</button>`:`<button class="chip main" id="qrAddNum">＋ Add their number first</button>`}<button class="chip" id="qrCopy">📋 Copy it</button></div>
     <p class="muted" style="font-size:13px;margin:6px 0 0">${p.phone?(/^1\d{10}$/.test(String(p.phone))?'Opens Messages':'Opens WhatsApp')+' with it typed in — press send there. HQ logs it'+(o.reqId?' and moves this to ✓ Done and told':'')+'.':''}</p>`);
   const msg=()=>`Hi ${first} — Jerry here. You ${o.fixed?'told us':'asked'}: “${short}”\n\n${($('qrA').value||'').trim()}`;
-  const prev=()=>{ $('qrPrev').textContent=msg(); }; $('qrA').addEventListener('input',prev); prev(); setTimeout(()=>{ const a=$('qrA'); a.focus(); a.setSelectionRange(a.value.length,a.value.length); },200);
+  const prev=()=>{ $('qrPrev').textContent=msg(); }; $('qrA').addEventListener('input',prev); prev();
+  /* 6 Nov: ＋ Add their number first called addNumber(), which opens #editBox — and that only
+     exists on the person's own card under People. Opened from Today, the lookup returned null
+     and the tap threw, so the one button offering a way forward silently did nothing. Jerry hit
+     it answering Emmanuel. The number box now lives in this sheet, beside the answer he has
+     already typed, and saving it turns the button into 📱 Send it without losing a word. */
+  const addBtn=$('qrAddNum');
+  if(addBtn) addBtn.onclick=()=>{
+    if($('qrNumWrap')){ $('qrNum').focus(); return; }
+    const w=document.createElement('div'); w.id='qrNumWrap'; w.style.marginTop='10px';
+    w.innerHTML='<label for="qrNum">'+esc(first)+'\u2019s WhatsApp number (with country code)</label>'
+      + '<input id="qrNum" inputmode="tel" placeholder="+254 7\u2026">'
+      + '<div class="chips" style="margin-top:8px"><button class="chip main" id="qrNumSave">Save the number</button></div>'
+      + '<p class="muted" style="font-size:13px;margin:6px 0 0">Saved against '+esc(p.name||first)+' in HQ, so you only do this once.</p>';
+    addBtn.parentNode.parentNode.insertBefore(w, addBtn.parentNode.nextSibling);
+    $('qrNum').focus();
+    $('qrNumSave').onclick=async()=>{
+      const v=($('qrNum').value||'').replace(/[^\d]/g,'');
+      if(v.length<9){ toast('A number with its country code, e.g. +254 7…',true); $('qrNum').focus(); return; }
+      const r=await act({action:'person.set',id:p.id,name:p.name,phone:v,project:p.project||'daraja',role:p.role||'tester',notes:p.notes||''},'Number saved');
+      if(!r) return;
+      p.phone=v; w.remove();
+      addBtn.textContent='\uD83D\uDCF1 Send it'; addBtn.className='chip wa'; addBtn.id='qrSend';
+      wireSend();
+    };
+  }; setTimeout(()=>{ const a=$('qrA'); a.focus(); a.setSelectionRange(a.value.length,a.value.length); },200);
   const log=async t=>{ try{ const d=await hq({action:'message.draft',person_id:p.id,text:t,request_id:o.reqId||''}); await hq({action:'message.mark',id:d.id,status:'sent by hand'}); if(o.reqId) await hq({action:'request.set',id:o.reqId,status:'told'}); if(o.msgId) await hq({action:'message.read',ids:[o.msgId]}); if(o.after) await o.after(); }catch(e){ toast('Sent, but HQ could not log it: '+e.message,true); } load(); };
   const c=$('qrCopy'); if(c) c.onclick=()=>{ copy(msg()); };
+  function wireSend(){
   const b=$('qrSend'); if(b) b.onclick=()=>{ const t=msg(); if(!($('qrA').value||'').trim()){ toast('Type your answer first',true); $('qrA').focus(); return; }
     const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
     const url=us?(apple?'sms://open?addresses=+'+p.phone+'&body='+encodeURIComponent(t):'sms:+'+p.phone+'?body='+encodeURIComponent(t)):'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
     if(us) location.href=url; else { const w=window.open(url,'_blank'); if(!w) location.href=url; }
     closeSheet(); toast('Press send there — logged in HQ'); log(t); };
+  }
+  wireSend();
 }
 function addRequest(){
   sheet(`<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0">Add to the stack</h3>
