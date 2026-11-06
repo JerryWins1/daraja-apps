@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v2.8 · 2026-11-06 (WhatsApp buttons: Business Manager, Our Table, Every Day, Message Assistant, Serve Board, Shoebox Counter)
+/* Daraja Store — one shared catalog. v2.9 · 2026-11-06 (Who’s Coming: a read-only link to the answers)
+   v2.8 · 2026-11-06 (WhatsApp buttons: Business Manager, Our Table, Every Day, Message Assistant, Serve Board, Shoebox Counter)
    v2.7 · 2026-10-23 (Every Day / Our Table videos say Family membership, not “free”; American words in One Thing — trash, ads; voice re-recorded) · v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
@@ -502,6 +503,7 @@ const APPS = {
     "When the answers are in, tap Send the summary. It writes out who is coming, who cannot, and what each one is bringing, and sends it to everyone, or only to the people who are coming.",
     "And every send now offers a text message or WhatsApp. Pick whichever the people you are asking actually use.",
     "The question mark button in the corner has the tour and help, any time.",
+   "Also new: Send the summary can hand you a link instead. Anyone who taps it sees the whole list — who is coming, who cannot, and what each one is bringing — with nothing to tap and nothing to join. It is a photograph of the answers, not a live window, and the page says so, so nobody is misled.",
     "And every Daraja app helps a student in Kenya stay in school. Happy asking."]} },
   train:[
    "Setting up Who's Coming takes about five minutes. Here is how.",
@@ -529,6 +531,7 @@ const APPS = {
    "Then Send the summary writes the whole picture \u2014 who is coming, who cannot, and what each one is bringing \u2014 and sends it back to everyone, or only to the ones coming.",
    "Every send has two buttons now: a text message, or WhatsApp. The app writes the words either way, and you press send.",
    "It works for a family Sunday lunch, a church work day, a team choosing a practice night, or anyone who organizes people.",
+   "Or tap A link they can open. One link shows the whole list to anybody, read only, with no app and no account — and it carries a way through to the rest of the Daraja apps.",
    "No ads, no account, and everything stays on your phone. Who's Coming is free, and every Daraja app helps a student in Kenya stay in school. Try it below: make a group and ask your first question."],
   name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', mem:'Family membership', price:'Free', testing:true,
   tag:'Ask the family or the group one question (“Sunday lunch at 1?”) and see who said yes, no and maybe on one screen. It goes from your own phone. No ads, and nobody has to sign up to answer.',
