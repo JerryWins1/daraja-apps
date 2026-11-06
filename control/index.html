@@ -2202,8 +2202,8 @@
     <h1>🎛 Daraja HQ <small id="stamp">Everything going on, and everyone in it.</small></h1>
     <div class="chips">
       <button class="chip small" id="reload" onclick="load(true)">↻</button>
-      <!-- v1.35 (19 Oct): Jerry: "it opens a new window and gets lost — make it one of the lines and go screen to screen." The list is a tab now. -->
-      <button class="chip small main" onclick="show('list')">📋 Jerry's List</button>
+      <!-- v1.35 (19 Oct): Jerry: "it opens a new window and gets lost — make it one of the lines and go screen to screen." The list is a tab now.
+           v1.52 (6 Nov): and so this pill was the same button twice on one screen — Jerry: "there are two Jerry's List buttons on this page. Do we need that?" No. The tab is the way in. -->
     </div>
   </header>
 
@@ -2422,7 +2422,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.51 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.52 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2528,8 +2528,32 @@ async function renderList(){
   const L=ONELIST, total=L.sections.reduce((n,s)=>n+s.items.length,0), nd=L.sections.reduce((n,s)=>n+s.items.filter(i=>done.indexOf(i)>=0).length,0);
   el.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:30px">📋</span><div style="flex:1;min-width:200px"><b style="font-size:18px">Jerry's List</b> <span class="muted">${esc(L.version)} · updated ${esc(L.updated)}</span><br><span class="muted">${nd} of ${total} ticked on this device · say <b>"update my list"</b> to Claude and the rest catches up.</span></div>
       <span class="chip small" style="opacity:.8" title="Jerry's List lives here now — Claude writes control/onelist.json and this tab is the list">📋 This is the list</span></div>`
-    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((it,i)=>{ const d=done.indexOf(it)>=0; return `<label class="dl" style="cursor:pointer;align-items:flex-start"><input type="checkbox" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand)"><span style="${d?'text-decoration:line-through;opacity:.55':''}">${esc(it)}</span></label>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
+    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((it,i)=>{ const d=done.indexOf(it)>=0; return `<div class="dl" style="align-items:flex-start;display:flex;gap:10px"><input type="checkbox" aria-label="Tick this off" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand);cursor:pointer"><button type="button" onclick="listOpen(${si},${i})" style="flex:1;text-align:left;font:inherit;background:none;border:0;padding:0;cursor:pointer;color:inherit;${d?'text-decoration:line-through;opacity:.55':''}">${esc(it)}</button></div>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
 }
+/* v1.52, 6 Nov. Jerry: "if this is a to do list then when i hit the item in the list it just marks
+   it as deleted. Shouldn't it give me the processing screen or the how and what to do screen."
+   It should, and it could not: the whole row was one <label>, so reading an item ticked it, and
+   there is no how-to anywhere to show — onelist.json holds one line of text per item and nothing
+   else. So the box is now the only thing that ticks, the words open the item, and the sheet is
+   honest about having only the one line until a how is written for it. */
+window.listOpen=function(si,i){
+  const it=ONELIST.sections[si].items[i], sec=ONELIST.sections[si].name;
+  let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
+  const d=done.indexOf(it)>=0;
+  sheet('<button class="chip small close" onclick="closeSheet()">✕</button>'
+    + '<h3 style="margin:4px 0 2px">'+esc(sec)+'</h3>'
+    + '<p style="font-size:17px;line-height:1.45;margin:0 0 12px">'+esc(it)+'</p>'
+    + '<p class="muted" style="font-size:13px;margin:0 0 10px">That is everything the list holds for this one. '
+    + 'If you want the steps written out, tap below and paste it to Claude \u2014 the answer comes back into the list.</p>'
+    + '<div class="chips">'
+    + '<button class="chip main" onclick="listTickFrom('+si+','+i+','+(d?'false':'true')+')">'+(d?'\u21a9 Put it back on the list':'\u2713 Tick it off')+'</button>'
+    + '<button class="chip" onclick="listAsk('+si+','+i+')">\u{1F4CB} Ask Claude how</button>'
+    + '</div>');
+};
+window.listTickFrom=function(si,i,on){ listTick(si,i,on); closeSheet(); };
+/* look the words up again rather than bake them into an onclick — an item carries quotes,
+   apostrophes and emoji, and the first attempt at inlining them produced `copy(\` */
+window.listAsk=function(si,i){ copy('How do I do this, step by step? ' + ONELIST.sections[si].items[i]); };
 window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=ONELIST.sections[si].items[i]; done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
 
 /* ── 🧰 Apps (v1.0, 30 Oct 2026) ── one app, one chat. Reads control/apps.json, which each
