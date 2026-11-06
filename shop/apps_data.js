@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v3.1 · 2026-11-06 (the rules video gains rule five, every link every time)
+/* Daraja Store — one shared catalog. v3.2 · 2026-11-06 (the three Daraja HQ videos are recorded now, not read aloud by the browser — shop/voicemaker.py)
+   v3.1 · 2026-11-06 (the rules video gains rule five, every link every time)
    v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
    v2.9 · 2026-11-06 (Who’s Coming: a read-only link to the answers)
    v2.8 · 2026-11-06 (WhatsApp buttons: Business Manager, Our Table, Every Day, Message Assistant, Serve Board, Shoebox Counter)
@@ -12,7 +13,7 @@ const PHASE = 'testing';
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
-const STORE_V = 'v3.1 · 2026-11-06';
+const STORE_V = 'v3.2 · 2026-11-06';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
@@ -78,7 +79,7 @@ const APPS = {
    "extra": {
      "firsttime": {
        "title": "Explain it to me",
-       "sub": "About four minutes: what each tab is for, and which one to open when. Sound on.",
+       "sub": "About three minutes: what each tab is for, and which one to open when. Sound on.",
        "lines": [
          {
            "t": "Hello Jerry. This is a short walk through Daraja HQ — the one page that holds everything, so you never have to remember where anything is.",
@@ -182,7 +183,7 @@ const APPS = {
      },
      "apps": {
        "title": "How the apps get made",
-       "sub": "About four minutes: one app, one chat — how a new app starts, who looks after it, and how you can tell where each one stands. Sound on.",
+       "sub": "Under three minutes: one app, one chat — how a new app starts, who looks after it, and how you can tell where each one stands. Sound on.",
        "lines": [
          {
            "t": "This one is about the apps themselves. How a new one gets made, who looks after it afterwards, and how you can tell at a glance where each one stands.",
@@ -257,7 +258,7 @@ const APPS = {
      },
      "rules": {
        "title": "The rules we work by",
-       "sub": "About four minutes: every rule in the system, and why each one is there. Sound on.",
+       "sub": "About five minutes: every rule in the system, and why each one is there. Sound on.",
        "lines": [
          {
            "t": "This one is a list of the rules. They are all written down in the system already, and every chat reads them before it starts. This is just me reading them to you, so you know what is in there.",
