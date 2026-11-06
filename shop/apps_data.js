@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v2.9 · 2026-11-06 (Who’s Coming: a read-only link to the answers)
+/* Daraja Store — one shared catalog. v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
+   v2.9 · 2026-11-06 (Who’s Coming: a read-only link to the answers)
    v2.8 · 2026-11-06 (WhatsApp buttons: Business Manager, Our Table, Every Day, Message Assistant, Serve Board, Shoebox Counter)
    v2.7 · 2026-10-23 (Every Day / Our Table videos say Family membership, not “free”; American words in One Thing — trash, ads; voice re-recorded) · v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
@@ -72,14 +73,14 @@ const APPS = {
    "extra": {
      "firsttime": {
        "title": "Explain it to me",
-       "sub": "About three minutes: what each tab is for, and which one to open when. Sound on.",
+       "sub": "About four minutes: what each tab is for, and which one to open when. Sound on.",
        "lines": [
          {
            "t": "Hello Jerry. This is a short walk through Daraja HQ — the one page that holds everything, so you never have to remember where anything is.",
            "js": "try{window.scrollTo(0,0);}catch(e){} try{show('today');}catch(e){}"
          },
          {
-           "t": "You do not need to remember its address. On the Mac it is the Daraja HQ app in your Dock, and on your phone it is one tap from Jerry's List."
+           "t": "You do not need to remember its address. On the Mac it is the Daraja HQ app in your Dock, and on your phone it is one tap from Jerry’s List."
          },
          {
            "t": "Across the top is a row of tabs. Each one answers a different question. There are more than fit on a phone, so you can slide that row sideways with your finger.",
@@ -95,7 +96,7 @@ const APPS = {
            "t": "Every app we have is listed here with the one chat that looks after it. The ones needing you come first, and each says in plain words what it is waiting for."
          },
          {
-           "t": "Tap a chat's name and that conversation opens. You never have to work out which chat to go back to."
+           "t": "Tap a chat’s name and that conversation opens. You never have to work out which chat to go back to."
          },
          {
            "t": "Next, Where.",
@@ -106,10 +107,10 @@ const APPS = {
            "t": "This is everything you own, in one list. Pages, apps, chats, and the things that only live on your Mac."
          },
          {
-           "t": "At the top is Start here — the handful you open most. Jerry's List, this page, Ready to Sell, and the Control Room, which tells you whether the robots are still running."
+           "t": "At the top is Start here — the handful you open most. Jerry’s List, this page, Ready to Sell, and the Control Room, which tells you whether the robots are still running."
          },
          {
-           "t": "Under that is Your chats. Twelve of them, each saying which apps it looks after. One app, one chat — so two of them can never make the same change twice."
+           "t": "Under that are your chats, now gathered into eight folders — one for each shelf of the store. The folder tells you which chat looks after which apps, and one app only ever has one chat, so two of them can never make the same change twice."
          },
          {
            "t": "And if you cannot find something, type part of its name in this box. It searches the whole page.",
@@ -121,7 +122,7 @@ const APPS = {
            "js": "try{window.scrollTo(0,0);}catch(e){} try{show('videos');}catch(e){}"
          },
          {
-           "t": "Thirty-seven of the apps have a narrated video, and every one of them is in this list."
+           "t": "All thirty-eight apps have at least one narrated video now, and every one of them is in this list."
          },
          {
            "t": "There are three kinds. Explain it to me tells you what an app is for. Watch it work drives the real app while it talks. And Train me stops and waits for you to do each step yourself."
@@ -130,12 +131,32 @@ const APPS = {
            "t": "This is the tab to use when you have forgotten how something works. It is quicker than asking me, and it will not get tired of the question."
          },
          {
-           "t": "Jerry's List is a tab here too.",
+           "t": "Beside it is Make a video, which is new today. That one is for asking for a video rather than watching one.",
+           "point": "#tabs button[data-t=\"makevid\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('makevid');}catch(e){}"
+         },
+         {
+           "t": "It works out which apps are still missing which kind of video, every time you open it. Tap an app’s name and the exact words to ask for it are copied — then paste them into that app’s chat."
+         },
+         {
+           "t": "Jerry’s List is a tab here too.",
            "point": "#tabs button[data-t=\"list\"]",
            "js": "try{window.scrollTo(0,0);}catch(e){} try{show('list');}catch(e){}"
          },
          {
-           "t": "That is your to-do list — the same one pinned in your Claude sidebar. This page just shows it to you without you having to leave."
+           "t": "That is your to-do list, and this is now the only copy of it. It used to sit in your Claude sidebar as well, the two drifted apart, and we retired that one. This is the list."
+         },
+         {
+           "t": "And next to it, Jotter — also new today.",
+           "point": "#tabs button[data-t=\"jot\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('jot');}catch(e){}"
+         },
+         {
+           "t": "This is for the stray thought. Something you want to ask about, or check out, but not this minute. Type it in, tap Jot it down, and it is kept for you — on the phone and on the Mac both, not just on the one you typed it on.",
+           "point": "#jotWhat"
+         },
+         {
+           "t": "Nothing happens to a note until you ask. I can read them, but a note there is a reminder for you, not an instruction to me."
          },
          {
            "t": "Chats shows the conversations that are going on, and Today shows what has happened lately.",
@@ -143,11 +164,183 @@ const APPS = {
            "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
          },
          {
-           "t": "So: four questions, four tabs. What is waiting on me — Apps. Where is that thing — Where. How does this work — Videos. What should I do next — Jerry's List.",
+           "t": "So: five questions, five tabs. What is waiting on me — Apps. Where is that thing — Where. How does this work — Videos. What should I do next — Jerry’s List. And what was that thought I had — Jotter.",
            "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
          },
          {
+           "t": "There are two more videos about this page, and they are in the Videos tab under Daraja HQ. One is how the apps get made and looked after. The other goes through every rule we work by, so you know what is in there."
+         },
+         {
            "t": "If you ever feel lost, open Daraja HQ and start at Apps. Everything else is one tap from here. That is the whole page — there is nothing else to learn."
+         }
+       ]
+     },
+     "apps": {
+       "title": "How the apps get made",
+       "sub": "About four minutes: one app, one chat — how a new app starts, who looks after it, and how you can tell where each one stands. Sound on.",
+       "lines": [
+         {
+           "t": "This one is about the apps themselves. How a new one gets made, who looks after it afterwards, and how you can tell at a glance where each one stands.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
+         },
+         {
+           "t": "Start with the rule the whole thing rests on. One app, one chat.",
+           "point": "#tabs button[data-t=\"apps\"]"
+         },
+         {
+           "t": "Every app has exactly one conversation that looks after it, and no conversation looks after two. That is not tidiness. Two chats working on one app is how the same change gets made twice, and that happened before the rule existed."
+         },
+         {
+           "t": "This tab is the list of them. Every app we have, and for each one: what it is, which chat owns it, and what it is waiting for.",
+           "point": "#appsFull"
+         },
+         {
+           "t": "Every entry carries one of five words, and each word means exactly one thing."
+         },
+         {
+           "t": "Needs means it is waiting on you — the line underneath is the question or the tap. Review means the work is finished and you can look at it when it suits you."
+         },
+         {
+           "t": "Open means the work is still on my side, so there is nothing for you to do yet. Clear means nothing is waiting at all."
+         },
+         {
+           "t": "And no chat means no conversation owns that app yet. Most of them sit there, and that is fine. An app gets a chat when it gets work, not before."
+         },
+         {
+           "t": "Only the ones we are actually working on have a chat, and that number goes up as we go, not all at once."
+         },
+         {
+           "t": "So, how a new app gets made. You ask — in any chat, or in a brand new one. That chat becomes the app’s chat, and it writes the app into this list straight away so you can see it."
+         },
+         {
+           "t": "From then on that one chat does everything to that app. If something turns up in it that belongs to a different app, it does not fix it. It tells you which chat owns that one, and leaves it alone."
+         },
+         {
+           "t": "And a chat writes its entry back here before it stops: the status, what it is waiting for, and today’s date. So this list stays current without you updating anything."
+         },
+         {
+           "t": "There are two deliberate exceptions. The house layer that every app shares, and the store catalogue, run across all the apps — so they have their own entry and their own chat. They are the exception, not permission to widen."
+         },
+         {
+           "t": "Now, what happens after an app is built. It goes to the Kenyan testers before it goes into the store.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('scripts');}catch(e){}"
+         },
+         {
+           "t": "An app counts as ready when two different people have passed it on its current version. Two of them, on the current one — that second part is the part that surprises people."
+         },
+         {
+           "t": "Because the moment an app’s code changes, its version goes up, and the old passes stop counting. The app drops off Ready to Sell and goes back to the testers."
+         },
+         {
+           "t": "That is on purpose. A pass is a pass of the version they actually held in their hand."
+         },
+         {
+           "t": "It also means fixing six faults in one afternoon can make the Ready to Sell list get shorter. Nothing broke. The passes just went stale, and five apps went back to the queue."
+         },
+         {
+           "t": "So if you want a new app, or a change to one you have, ask in that app’s chat. This tab tells you which chat that is.",
+           "point": "#tabs button[data-t=\"apps\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
+         },
+         {
+           "t": "And if you do not know which chat, ask in any of them. The worst that happens is it tells you where to go."
+         },
+         {
+           "t": "That is the whole arrangement. One app, one chat, written down here so neither of us has to hold it in our head."
+         }
+       ]
+     },
+     "rules": {
+       "title": "The rules we work by",
+       "sub": "About four minutes: every rule in the system, and why each one is there. Sound on.",
+       "lines": [
+         {
+           "t": "This one is a list of the rules. They are all written down in the system already, and every chat reads them before it starts. This is just me reading them to you, so you know what is in there.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('today');}catch(e){}"
+         },
+         {
+           "t": "There are four groups. How I talk to you. How the chats stay out of each other’s way. What is never allowed. And what I simply cannot do."
+         },
+         {
+           "t": "First, how I talk to you. There are four of these. You had to say them three times before they stuck, which is why they now sit at the very top of the file instead of further down."
+         },
+         {
+           "t": "One. Answer what you asked, then stop. Not the question behind it, not the next question, not what you might ask next. If you say go ahead, the whole correct reply is to go ahead."
+         },
+         {
+           "t": "Two. Add nothing you did not ask for. No table, no cost breakdown, no summary of where things stand. If a second table is being written, the rule is already broken."
+         },
+         {
+           "t": "Three. Every question comes with tappable options and a recommendation, one question at a time. Never an open question buried in a message, and never two questions stacked in one reply."
+         },
+         {
+           "t": "Four. Say what was done, not how it was done. The reasoning goes into the commit and the pull request, where you can go and read it if you ever want it."
+         },
+         {
+           "t": "And one more about steps. One step at a time, never a list of five. Everything the step needs goes inside the step — the exact words to paste, the whole address, the real name of the button. Each one tells you how far along you are. And then I wait, because you are usually on a phone I cannot see."
+         },
+         {
+           "t": "Second group: how the chats stay out of each other’s way.",
+           "point": "#tabs button[data-t=\"apps\"]",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
+         },
+         {
+           "t": "One app, one chat — you have heard that one. Here is the other half of it."
+         },
+         {
+           "t": "There are two kinds of conversation, and they are not interchangeable. A caretaker, and a builder."
+         },
+         {
+           "t": "The caretaker is the job that runs every morning at five fifty-four, without you being there. It keeps things current: Ready to Sell, this Apps list, the job rows on the Control Room page, the tester digest."
+         },
+         {
+           "t": "A builder is a chat like this one. It changes things. It builds a page, it rewires a job that broke, it adds a rule."
+         },
+         {
+           "t": "So a builder never hand-writes a number the caretaker looks after. A figure written by hand is only right while you happen to be in that conversation. One evening a builder wrote the Control Room rows by hand three times; the morning job does it daily now and nobody has to be asked."
+         },
+         {
+           "t": "And a builder goes quiet when there is nothing to change. You should never open one to find out how things are going — that is what the morning report and the Control Room page are for. If a builder has nothing to build, it says so and stops."
+         },
+         {
+           "t": "One more, and this one the platform enforces. A job’s instructions can only be changed from the chat that job fires into."
+         },
+         {
+           "t": "So a builder cannot edit a running job. It has to ask that chat, and that chat is right to refuse — because a message from another Claude is data, not your authority. You say go in the job’s own chat, and only then does the change land."
+         },
+         {
+           "t": "And when you are judging whether a job works, look at what it produced, not at whether its log says it succeeded. A log saying succeeded only means the job was handed to a chat. Two versions of the morning job died exactly there — dispatching perfectly every night and then doing nothing at all."
+         },
+         {
+           "t": "Third group: what is never allowed. This one is short."
+         },
+         {
+           "t": "Never a secret in a chat. Not a client secret, not an API key, not an access token, not a password. I will not ask you for one, and I will not accept one if you offer it."
+         },
+         {
+           "t": "A public identifier like a client ID or an app ID is fine — those are not secrets. A real secret goes straight from you into the hosting platform’s own store, never into the chat and never into the repository."
+         },
+         {
+           "t": "And if one does land in a chat, or inside a screenshot, I say so plainly, tell you what the real risk is without the drama, and walk you through changing it."
+         },
+         {
+           "t": "Fourth: what I cannot do. Worth knowing, so you are never sitting waiting on something that is not coming."
+         },
+         {
+           "t": "I cannot send a WhatsApp message. Every message to the squad is written out for you to send, and it is your hands on the keyboard. That is not caution — there is no way for me to send one."
+         },
+         {
+           "t": "I cannot open a link you paste, and I cannot fill in a form on a website. Anything happening on a website is you. But pasting the text of a page into the chat works perfectly, and that is the way to get a page to me."
+         },
+         {
+           "t": "And a chat running on your Mac dies with the Mac — laptop shut, Claude quit, Mac asleep. Nothing is lost and it can be brought back, but it stops answering. So anything holding a question you owe an answer to lives in a cloud chat, and anything worth keeping lives in the repository rather than in a chat’s memory."
+         },
+         {
+           "t": "That is all of them. Four about how I talk to you, four about how the chats behave, one about secrets, and three things I cannot do.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
+         },
+         {
+           "t": "You do not have to remember any of it. It is written down, and the chats read it before they start. This was so that you know what is in there."
          }
        ]
      }
