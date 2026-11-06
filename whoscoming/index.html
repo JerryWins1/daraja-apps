@@ -2223,7 +2223,7 @@
 
   <!-- 6 Nov (Jerry): the guest page is the only page an invited person ever sees, and it had no way
        through to the store. One link in the footer that was already here, rather than a second footer. -->
-  <p class="foot">Who’s Coming v1.16 · 2026-10-13 · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
+  <p class="foot">Who’s Coming v1.17 · 2026-11-06 · nothing is sent unless you tap Send · every app helps a student in Kenya stay in school<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -2338,6 +2338,14 @@ function copyTally(id){ const a=db.asks.find(x=>x.id===id); const ppl=peopleOf(a
 /* 6 Nov (Jerry): "give them an option to send the summary to everyone, either all of them or
    just the ones that have replied yes". Nothing new is stored and nothing is sent anywhere but
    his own Messages app — same group-text trick sendAsk() uses. */
+function waSend(text, said){ /* 6 Nov (Jerry): WhatsApp, for the people who do not use SMS */
+  toast(said||'Opening WhatsApp — pick the chat, then press send');
+  location.href='https://wa.me/?text='+encodeURIComponent(text); }
+function askText(a, nudge){ const ppl=peopleOf(a.groupId);
+  return (nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+whenTxt(a.when):'')+'\n\nTap to answer: '+replyLink(a,{id:'all'}); }
+function waAsk(id,nudge){ const a=db.asks.find(x=>x.id===id); if(!a) return;
+  if(!db.me.name){ toast('Add your name first — tap 📨 Send to the group once and it will ask'); return; }
+  waSend(askText(a,nudge)); }
 function comingYes(a,p){ const x=(a.answers||{})[p.id]; return !!x && !isNo(x.a); }
 function summaryText(a){
   const ppl=peopleOf(a.groupId), yes=[], no=[], quiet=[];
@@ -2359,10 +2367,12 @@ function sendSummary(id){
     <div class="row" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:10px">
       <button class="primary" id="sumAll">To everyone in the group (${ppl.length})</button>
       <button id="sumYes"${yes.length?'':' disabled'}>Only the ones coming (${yes.length})</button>
+      <button id="sumWa">💬 WhatsApp \u2014 you pick the chat</button>
       <button class="ghost" onclick="closeSheet()">Cancel</button></div>
     <p class="small" style="margin-top:10px">Prefer to paste it somewhere yourself? Use \ud83d\udccb Copy the tally instead.</p>`);
   $('sumAll').onclick=()=>{ closeSheet(); summaryTo(a, ppl); };
   if(yes.length) $('sumYes').onclick=()=>{ closeSheet(); summaryTo(a, yes); };
+  $('sumWa').onclick=()=>{ closeSheet(); waSend(summaryText(a)); };
 }
 function summaryTo(a, ppl){
   const body=summaryText(a);
@@ -2391,7 +2401,7 @@ function renderAsks(){
     return `<div class="card ask" id="ask-${a.id}" style="${a.closed?'opacity:.7':''}"><h2>${esc(a.q)}</h2><p>${g?esc(g.name)+' · '+(ppl.length?answered+' of '+ppl.length+' answered':'nobody in it yet — add people under People'):Object.keys(a.answers||{}).length+' answered before the group was removed'}${a.when?' · by '+esc(whenTxt(a.when)):''}${a.closed?' · closed':''}</p>
       ${a.options.length?`<div class="tally">${a.options.map(o=>`<div class="tile"><b>${tally[o]||0}</b><span>${esc(o)}</span></div>`).join('')}</div>`:''}
       <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+(ans.why?' · <span class="why">“'+esc(ans.why)+'”</span>':'')+' · '+esc(/^\d{4}-\d\d-\d\d$/.test(ans.at||'')?whenTxt(ans.at):(ans.at||'')):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'edit':'record what they said'}</button>`}${ans&&a.kind!=='free'&&isNo(ans.a)?`<button class="ghost whyBtn" aria-label="Reason ${esc(p.name)} can’t come (optional)" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit why':'Why?'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&a.followQ?`<button class="ghost whyBtn" aria-label="${esc(a.followQ)} — ${esc(p.name)}" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit':'Add'}</button>`:''}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
-      <div class="row" style="margin-top:10px">${ppl.length?`<button class="primary" onclick="sendAsk('${a.id}',false)">📨 Send to the group</button>${answered<ppl.length?`<button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button>`:''}`:''}<button onclick="copyTally('${a.id}')">📋 Copy the tally</button>${answered?`<button onclick="sendSummary('${a.id}')">📤 Send the summary</button>`:''}<button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
+      <div class="row" style="margin-top:10px">${ppl.length?`<button class="primary" onclick="sendAsk('${a.id}',false)">📨 Text the group</button><button onclick="waAsk('${a.id}',false)">💬 WhatsApp</button>${answered<ppl.length?`<button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button>`:''}`:''}<button onclick="copyTally('${a.id}')">📋 Copy the tally</button>${answered?`<button onclick="sendSummary('${a.id}')">📤 Send the summary</button>`:''}<button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
 }
 
 /* ── people ───────────────────────────────────────────────────── */
