@@ -2218,9 +2218,11 @@
       <button data-t="talk">🎤 Talk</button>
       <button data-t="today">Today<span class="n" id="nToday" hidden></span></button>
       <button data-t="list">📋 Jerry's List</button>
+      <button data-t="jot">📝 Jotter<span class="n" id="nJot" hidden></span></button>
       <button data-t="where">🗂 Where</button>
       <button data-t="apps">🧰 Apps</button>
       <button data-t="videos">🎬 Videos</button>
+      <button data-t="makevid">🎥 Make a video</button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
@@ -2308,6 +2310,39 @@
       <div id="vidHQ"><p class="muted">Loading the videos…</p></div>
     </section>
 
+    <!-- 🎥 MAKE A VIDEO (v1.0, 6 Nov 2026): Jerry asked for a tab about making videos, not only
+         watching them. What the three kinds are, the words to ask for one, and — built from the
+         live catalogue at render time — which apps are still missing which kind. -->
+    <section class="tab" id="t-makevid">
+      <div id="mkvHQ"><p class="muted">Loading…</p></div>
+    </section>
+
+    <!-- 📝 JOTTER (v1.0, 6 Nov 2026): Jerry: "miscellaneous things that I may want to ask and check
+         out along the way." A note goes in here from any device and is saved in the HQ store under
+         settings.personal.notes — the same place the My dates button already writes to — so Claude
+         can read it and it is not stuck on one phone. -->
+    <section class="tab" id="t-jot">
+      <style>
+        #t-jot .jrow{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:8px 0;background:var(--surface)}
+        #t-jot .jrow.jdone{opacity:.55}
+        #t-jot .jrow.jdone .jt{text-decoration:line-through}
+        #t-jot .jt{font-size:1.02rem;font-weight:600;margin-bottom:3px}
+        #t-jot .jm{font-size:.82rem;color:var(--soft);margin-bottom:8px}
+        #t-jot textarea{width:100%;box-sizing:border-box;min-height:84px;font:inherit;padding:10px;
+          border:1px solid var(--line);border-radius:10px;background:var(--bg);color:inherit}
+      </style>
+      <h2>📝 Jotter</h2>
+      <p class="muted" style="margin:0 0 12px">Anything you want to ask about or come back to. It is
+        saved for you rather than on one device, so you can jot it on the phone and find it on the Mac.
+        Claude can read it, but nothing happens until you ask — a note here is a reminder, not an instruction.</p>
+      <div class="card">
+        <label for="jotWhat">What is on your mind</label>
+        <textarea id="jotWhat" placeholder="e.g. does Duka work with no signal?"></textarea>
+        <div class="chips" style="margin-top:10px"><button class="chip main" onclick="jotAdd()">Jot it down</button></div>
+      </div>
+      <div id="jotHQ"><p class="muted">Loading…</p></div>
+    </section>
+
     <!-- 🧪 TEST SCRIPTS (v1.28, 10 Oct 2026): coverage, problems to confirm, nudges, coins, the reward -->
     <section class="tab" id="t-scripts"><div id="tsHQ"><p class="muted">Loading the test scripts…</p></div></section>
 
@@ -2376,7 +2411,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.44 · 2026-10-23 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.45 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2649,12 +2684,20 @@ const VID_KINDS = [
 ];
 function vidUrl(k, mode){ return '../shop/watch.html?app=' + encodeURIComponent(k) + (mode ? '&mode=' + mode : ''); }
 function vidReal(k){ return !/^tpl/.test(k) && !/^nourish/.test(k); }   /* same exclusions the stack table uses */
+/* An app may carry extra narrations beyond the three standard kinds — the HQ entry has one per
+   subject. watch.html plays any `extra` key, so this tab lists every one it finds rather than a
+   fixed three, and a new subject appears here the moment it is written. */
 function vidKinds(a){
-  return VID_KINDS.filter(function(kd){
+  var out = VID_KINDS.filter(function(kd){
     if(kd[0] === 'firsttime') return !!(a.extra && a.extra.firsttime);
     if(kd[0] === 'train') return !!a.train;
     return !!(a.lines && a.lines.length);
   });
+  if(a.extra) Object.keys(a.extra).forEach(function(k){
+    if(k === 'firsttime') return;
+    out.push([k, a.extra[k].title || k, 'first']);
+  });
+  return out;
 }
 function vidCard(k, a){
   var kinds = vidKinds(a);
@@ -2727,6 +2770,127 @@ function renderVideos(){
   box.innerHTML = out;
 }
 
+/* ── 🎥 Make a video (v1.0, 6 Nov 2026) ──
+   The Videos tab is for watching. This one is for asking. Nothing here is hand-counted: the gaps
+   are worked out from the live catalogue every time the tab is opened, so the moment a video is
+   added it drops off this list on its own. ── */
+const MKV_ASK = {
+  first: 'Make an "Explain it to me" video for ',
+  work:  'Make a "Watch it work" video for ',
+  train: 'Make a "Train me" video for '
+};
+function mkvHas(a, kind){
+  if(kind === 'first') return !!(a.extra && a.extra.firsttime);
+  if(kind === 'train') return !!a.train;
+  return !!(a.lines && a.lines.length);
+}
+function mkvGaps(kind){
+  if(typeof APPS === 'undefined') return [];
+  return Object.keys(APPS).filter(function(k){ return vidReal(k) && !mkvHas(APPS[k], kind); })
+    .sort(function(x, y){ return (APPS[x].name || x).localeCompare(APPS[y].name || y); });
+}
+function mkvAsk(kind, name){ copy(MKV_ASK[kind] + name + '.'); }
+function renderMakeVid(){
+  var box = $('mkvHQ'); if(!box) return;
+  if(typeof APPS === 'undefined'){ box.innerHTML = '<p class="muted">The store catalogue has not loaded, so this tab cannot be built. Reload the page.</p>'; return; }
+  var real = Object.keys(APPS).filter(vidReal);
+  var KINDS = [
+    ['first', '🗣 Explain it to me', 'About four minutes. What the app is for, who it helps, and every screen. No clicking — it just talks you through it.'],
+    ['work',  '▶ Watch it work',    'It drives the real app while it talks, so you see where each button actually is.'],
+    ['train', '🎓 Train me',        'It stops at each step and waits for you to do that step yourself before it goes on.']
+  ];
+  var out = ''
+    + '<style>'
+    + '#mkvHQ .mkh{background:linear-gradient(135deg,#143d31,#23504F 60%,#2f6e52);color:#fff;border-radius:16px;padding:18px;margin:2px 0 14px}'
+    + '#mkvHQ .mkh h3{margin:0 0 5px;font-size:1.25rem}'
+    + '#mkvHQ .mkh p{margin:0;font-size:.92rem;opacity:.92}'
+    + '#mkvHQ .mkk{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin:10px 0;background:var(--surface)}'
+    + '#mkvHQ .mkk h4{margin:0 0 4px;font-size:1.05rem}'
+    + '#mkvHQ .mkk p{margin:0 0 9px;font-size:.93rem;color:var(--soft)}'
+    + '#mkvHQ .mkc{font-weight:700;color:var(--brand);font-size:.9rem;margin:0 0 8px}'
+    + '#mkvHQ details{margin-top:4px}'
+    + '#mkvHQ summary{cursor:pointer;font-weight:700;font-size:.9rem;color:var(--brand)}'
+    + '#mkvHQ .mkg{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}'
+    + '#mkvHQ .mkstep{border-left:3px solid var(--brand);padding:2px 0 2px 12px;margin:12px 0;font-size:.94rem}'
+    + '#mkvHQ .mkstep b{display:block}'
+    + '</style>'
+    + '<div class="mkh"><h3>🎥 Make a video</h3><p>The Videos tab is for watching one. This tab is for asking for one — and for seeing which are still missing.</p></div>';
+
+  out += '<div class="card"><b>How a video gets made</b>'
+    + '<div class="mkstep"><b>1. You ask in that app’s own chat.</b> The 🧰 Apps tab says which chat owns the app. Tap its name and ask there.</div>'
+    + '<div class="mkstep"><b>2. Claude writes the narration into the catalogue.</b> Every video in the whole system is lines of narration in one file, <code>shop/apps_data.js</code>, plus the step it points at on screen.</div>'
+    + '<div class="mkstep"><b>3. Claude watches it back before telling you.</b> It runs the video in a real browser and checks every step lands on something that is actually there.</div>'
+    + '<div class="mkstep"><b>4. It appears in 🎬 Videos on its own.</b> Nothing is copied by hand, so there is no list for you to keep up to date.</div>'
+    + '<p class="muted" style="margin:10px 0 0;font-size:.9rem">Half an hour or so for one video. The voice is your phone or Mac reading the words aloud — no recording, so a wording change is a two-minute fix, not a re-record.</p></div>';
+
+  KINDS.forEach(function(kd){
+    var gaps = mkvGaps(kd[0]);
+    out += '<div class="mkk"><h4>' + kd[1] + '</h4><p>' + kd[2] + '</p>'
+      + '<p class="mkc">' + (real.length - gaps.length) + ' of ' + real.length + ' apps have this one.</p>'
+      + '<div class="chips"><button class="chip main" onclick="mkvAsk(\'' + kd[0] + '\',\'this app\')">📋 Copy the words to ask</button></div>';
+    if(gaps.length){
+      out += '<details><summary>' + pl(gaps.length, 'app') + ' still without it</summary><div class="mkg">'
+        + gaps.map(function(k){
+            var nm = APPS[k].name || k;
+            return '<button class="chip small" onclick="mkvAsk(\'' + kd[0] + '\',' + esc(JSON.stringify(nm)) + ')">' + esc(nm) + '</button>';
+          }).join('')
+        + '</div><p class="muted" style="margin:9px 0 0;font-size:.88rem">Tap one and the words are copied. Paste them into that app’s chat.</p></details>';
+    } else {
+      out += '<p class="muted" style="margin:0;font-size:.9rem">Every app has this one. Nothing to ask for.</p>';
+    }
+    out += '</div>';
+  });
+
+  out += '<div class="card"><b>Changing a video you already have</b>'
+    + '<p style="margin:7px 0 0;font-size:.93rem">Say what was wrong with it — too fast, wrong word, pointed at the wrong button, missed a screen. You do not have to say how to fix it.</p>'
+    + '<div class="chips" style="margin-top:10px"><button class="chip" onclick="copy(\'The video for this app needs changing. What was wrong: \')">📋 Copy the words to ask</button></div></div>';
+  box.innerHTML = out;
+}
+
+/* ── 📝 Jotter (v1.0, 6 Nov 2026) ──
+   Jerry: "miscellaneous things that I may want to ask and check out along the way, so it's there."
+   Saved in the HQ store under settings.personal.notes, beside My dates, so a note typed on the
+   phone is there on the Mac and Claude can read it. The tick is the same store, not this device,
+   for the same reason. ── */
+function jotNotes(){ return (settingJSON('personal',{}).notes)||[]; }
+async function jotSave(notes, okMsg){
+  const pers=settingJSON('personal',{}); pers.notes=notes;
+  return await act({action:'settings.set',k:'personal',value:pers},okMsg);
+}
+async function jotAdd(){
+  const t=($('jotWhat').value||'').trim(); if(!t){ toast('Type the thought first',true); return; }
+  const r=await jotSave(jotNotes().concat([{t:t,at:new Date().toISOString().slice(0,10),done:false}]),'Jotted');
+  if(r) $('jotWhat').value='';
+}
+async function jotDone(i){ const n=jotNotes(); if(!n[i]) return; n[i].done=!n[i].done; await jotSave(n, n[i].done?'Marked looked at':'Back on the list'); }
+async function jotDrop(i){ const n=jotNotes(); if(!n[i]) return; if(!confirm('Delete this note?\n\n'+n[i].t)) return; n.splice(i,1); await jotSave(n,'Deleted'); }
+function renderJot(){
+  var box=$('jotHQ'); if(!box) return;
+  var notes=jotNotes();
+  var open=notes.filter(function(n){ return !n.done; }).length;
+  if($('nJot')){ $('nJot').hidden=!open; $('nJot').textContent=open; }
+  var row=function(n,i){
+    return '<div class="jrow'+(n.done?' jdone':'')+'"><div class="jt">'+esc(n.t)+'</div>'
+      + '<div class="jm">'+esc(n.at||'')+'</div>'
+      + '<div class="chips"><button class="chip small" onclick="jotDone('+i+')">'+(n.done?'↩ Put it back':'✓ Looked at it')+'</button>'
+      + '<button class="chip small" onclick="copy('+esc(JSON.stringify(n.t))+')">📋 Copy</button>'
+      + '<button class="chip small" onclick="jotDrop('+i+')">🗑 Delete</button></div></div>';
+  };
+  var live=[], past=[];
+  notes.forEach(function(n,i){ (n.done?past:live).push([n,i]); });
+  var out='';
+  if(!notes.length){
+    out = '<div class="card muted" style="margin-top:14px">Nothing jotted yet. The box above is the whole thing.</div>';
+  } else {
+    if(live.length) out += '<h2 style="margin-top:20px">Still to look at <small>'+pl(live.length,'note')+'</small></h2>'
+      + live.slice().reverse().map(function(x){ return row(x[0],x[1]); }).join('');
+    if(past.length) out += '<details style="margin-top:18px"><summary style="cursor:pointer;font-weight:700;color:var(--brand)">'
+      + pl(past.length,'note')+' already looked at</summary>'
+      + past.slice().reverse().map(function(x){ return row(x[0],x[1]); }).join('')+'</details>';
+  }
+  box.innerHTML=out;
+}
+
 /* ---------- tabs ---------- */
 function wireTabs(){
   $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-t]'); if(b) show(b.dataset.t); });
@@ -2734,7 +2898,7 @@ function wireTabs(){
 }
 function show(t){
   if(!$('t-'+t)) t='today';
-  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='apps') renderApps(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest(); if(t==='videos') renderVideos();
+  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='apps') renderApps(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest(); if(t==='videos') renderVideos(); if(t==='makevid') renderMakeVid(); if(t==='jot') renderJot();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
@@ -2752,7 +2916,7 @@ function lastSeenClass(p){ const t=lastActive(p); if(!t) return 'quiet'; const h
 
 /* ---------- render ---------- */
 function render(){
-  try{ renderChats(); }catch(e){} try{ renderTalk(); }catch(e){} renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); renderPeople(); renderStack();
+  try{ renderChats(); }catch(e){} try{ renderTalk(); }catch(e){} renderToday(); try{ renderNow(); }catch(e){} try{ renderHistory(); }catch(e){} try{ renderFocus(); }catch(e){} try{ renderZuriLive(); }catch(e){} try{ renderScripts(); }catch(e){} renderBusinessLive(); renderPersonal(); try{ renderJot(); }catch(e){} renderPeople(); renderStack();
   const nNew=((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new').length;
   const nStack=((D&&D.requests)||[]).filter(r=>r.status==='new').length;
   $('nToday').hidden=!nNew; $('nToday').textContent=nNew; $('nStack').hidden=!nStack; $('nStack').textContent=nStack;
