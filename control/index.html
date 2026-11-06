@@ -2422,7 +2422,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.53 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.54 · 2026-11-06 · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2521,40 +2521,91 @@ async function load(manual){
    control/onelist.json is the list as Claude last wrote it from the list's own chat. A tick here is remembered on this
    device (jhq_list_done) so the screen is useful between updates; the list itself is the record. ── */
 let ONELIST=null;
+/* An item used to be a line of text. Since v16.0 of onelist.json it is an object: t (the line),
+   why, need, steps[], links[[label,url]], copy, you[], claude[], wait, until, mins. itText() is
+   the one place that knows the difference, so a tick saved against the old shape still matches. */
+function itText(x){ return (x && typeof x==='object') ? (x.t||'') : String(x==null?'':x); }
+function itOf(si,i){ const x=ONELIST.sections[si].items[i]; return (x && typeof x==='object') ? x : {t:String(x==null?'':x)}; }
 async function renderList(){
   const el=$('listFull'); if(!el) return;
   if(!ONELIST){ try{ ONELIST=await (await fetch('onelist.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the list just now.</p>'; return; } }
   let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
-  const L=ONELIST, total=L.sections.reduce((n,s)=>n+s.items.length,0), nd=L.sections.reduce((n,s)=>n+s.items.filter(i=>done.indexOf(i)>=0).length,0);
-  el.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:30px">📋</span><div style="flex:1;min-width:200px"><b style="font-size:18px">Jerry's List</b> <span class="muted">${esc(L.version)} · updated ${esc(L.updated)}</span><br><span class="muted">${nd} of ${total} ticked on this device · say <b>"update my list"</b> to Claude and the rest catches up.</span></div>
+  const L=ONELIST, total=L.sections.reduce((n,s)=>n+s.items.length,0), nd=L.sections.reduce((n,s)=>n+s.items.filter(i=>done.indexOf(itText(i))>=0).length,0);
+  el.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:30px">📋</span><div style="flex:1;min-width:200px"><b style="font-size:18px">Jerry's List</b> <span class="muted">${esc(L.version)} · updated ${esc(L.updated)}</span><br><span class="muted">${nd} of ${total} ticked on this device · tap any line for the steps, the links and the words to send.</span></div>
       <span class="chip small" style="opacity:.8" title="Jerry's List lives here now — Claude writes control/onelist.json and this tab is the list">📋 This is the list</span></div>`
-    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((it,i)=>{ const d=done.indexOf(it)>=0; return `<div class="dl" style="align-items:flex-start;display:flex;gap:10px"><input type="checkbox" aria-label="Tick this off" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand);cursor:pointer"><button type="button" onclick="listOpen(${si},${i})" style="flex:1;text-align:left;font:inherit;background:none;border:0;padding:0;cursor:pointer;color:inherit;${d?'text-decoration:line-through;opacity:.55':''}">${esc(it)}</button></div>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
+    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((raw,i)=>{ const it=(raw&&typeof raw==='object')?raw:{t:raw}; const t=itText(raw), d=done.indexOf(t)>=0;
+        const nst=(it.steps||[]).length, sd=stepsDone(t).length;
+        const tag=nst?`<span class="muted" style="font-size:12px;white-space:nowrap">${sd?sd+'/'+nst+' steps':nst+' steps'}${it.mins?' · '+it.mins+' min':''}</span>`:(it.mins?`<span class="muted" style="font-size:12px">${it.mins} min</span>`:'');
+        return `<div class="dl" style="align-items:flex-start;display:flex;gap:10px"><input type="checkbox" aria-label="Tick this off" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand);cursor:pointer"><button type="button" onclick="listOpen(${si},${i})" style="flex:1;text-align:left;font:inherit;background:none;border:0;padding:0;cursor:pointer;color:inherit;${d?'text-decoration:line-through;opacity:.55':''}">${esc(t)}<br>${tag}${nst?' <span style="color:var(--brand);font-weight:800;font-size:13px">open the steps ›</span>':''}</button></div>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
 }
-/* v1.52, 6 Nov. Jerry: "if this is a to do list then when i hit the item in the list it just marks
-   it as deleted. Shouldn't it give me the processing screen or the how and what to do screen."
-   It should, and it could not: the whole row was one <label>, so reading an item ticked it, and
-   there is no how-to anywhere to show — onelist.json holds one line of text per item and nothing
-   else. So the box is now the only thing that ticks, the words open the item, and the sheet is
-   honest about having only the one line until a how is written for it. */
-window.listOpen=function(si,i){
-  const it=ONELIST.sections[si].items[i], sec=ONELIST.sections[si].name;
-  let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
-  const d=done.indexOf(it)>=0;
-  sheet('<button class="chip small close" onclick="closeSheet()">✕</button>'
-    + '<h3 style="margin:4px 0 2px">'+esc(sec)+'</h3>'
-    + '<p style="font-size:17px;line-height:1.45;margin:0 0 12px">'+esc(it)+'</p>'
-    + '<p class="muted" style="font-size:13px;margin:0 0 10px">That is everything the list holds for this one. '
-    + 'If you want the steps written out, tap below and paste it to Claude \u2014 the answer comes back into the list.</p>'
-    + '<div class="chips">'
-    + '<button class="chip main" onclick="listTickFrom('+si+','+i+','+(d?'false':'true')+')">'+(d?'\u21a9 Put it back on the list':'\u2713 Tick it off')+'</button>'
-    + '<button class="chip" onclick="listAsk('+si+','+i+')">\u{1F4CB} Ask Claude how</button>'
-    + '</div>');
+/* v1.54, 6 Nov. Jerry: "there used to be a list of one by one things to do within that task …
+   when I choose that, it gives me the whole list of things to do step-by-step" — and then:
+   "it should give me absolutely everything I need to solve whatever's on that line."
+   It did exist: the retired artifact (claude.ai/artifact/VJcBrykoQoP6zx6kNBuSWk) carried why /
+   what you need / the sub-steps / a link per thing / the exact words to send. When the list moved
+   into HQ in v1.35 only the one line came with it. onelist.json v16.0 has the rest back, and this
+   is the screen that shows it: the steps tick off one at a time, every link is tappable, and the
+   words to send copy in one tap. */
+function stepsKey(){ return 'jhq_list_steps'; }
+function stepsAll(){ try{ return JSON.parse(store(stepsKey())||'{}')||{}; }catch(e){ return {}; } }
+function stepsDone(t){ const a=stepsAll()[t]; return Array.isArray(a)?a:[]; }
+window.listStep=function(si,i,n,on){
+  const t=itText(ONELIST.sections[si].items[i]), all=stepsAll();
+  let a=Array.isArray(all[t])?all[t].filter(x=>x!==n):[];
+  if(on) a.push(n);
+  all[t]=a; try{ store(stepsKey(),JSON.stringify(all)); }catch(e){}
+  listOpen(si,i); renderList();
 };
+window.listOpen=function(si,i){
+  const it=itOf(si,i), t=it.t, sec=ONELIST.sections[si].name;
+  let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
+  const d=done.indexOf(t)>=0, sd=stepsDone(t);
+  const L=(it.links||[]), S=(it.steps||[]);
+  let h='<button class="chip small close" onclick="closeSheet()">✕</button>'
+    + '<h3 style="margin:4px 0 2px;font-size:14px;opacity:.75">'+esc(sec)+'</h3>'
+    + '<p style="font-size:18px;line-height:1.4;font-weight:700;margin:0 0 10px">'+esc(t)+'</p>';
+  if(it.wait) h+='<p style="margin:0 0 10px;padding:8px 10px;border-radius:10px;background:#FFF4D6;font-size:14px">⏳ Waiting on <b>'+esc(it.wait)+'</b>'+(it.until?' · '+esc(it.until):'')+'</p>';
+  if(it.why) h+='<p style="font-size:15px;line-height:1.5;margin:0 0 10px">'+esc(it.why)+'</p>';
+  if(it.need) h+='<p style="margin:0 0 12px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.05);font-size:14px"><b>What it takes:</b> '+esc(it.need)+(it.mins?' <span class="muted">· about '+it.mins+' min</span>':'')+'</p>';
+  if(S.length){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">Step by step'+(sd.length?' <span class="muted" style="font-weight:400">· '+sd.length+' of '+S.length+' done</span>':'')+'</p><ol style="margin:0 0 12px;padding-left:0;list-style:none">';
+    S.forEach((s,n)=>{ const on=sd.indexOf(n)>=0;
+      h+='<li style="display:flex;gap:10px;align-items:flex-start;margin:0 0 8px">'
+        + '<input type="checkbox" aria-label="Step '+(n+1)+' done" '+(on?'checked':'')+' onchange="listStep('+si+','+i+','+n+',this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand);cursor:pointer">'
+        + '<span style="flex:1;font-size:15px;line-height:1.45;'+(on?'text-decoration:line-through;opacity:.55':'')+'"><b>'+(n+1)+'.</b> '+esc(s)+'</span></li>';
+    });
+    h+='</ol>';
+  }
+  if(it.you&&it.you.length) h+='<p style="margin:0 0 4px;font-weight:800;font-size:14px">Only you can do</p><ul style="margin:0 0 10px;padding-left:20px;font-size:14px">'+it.you.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(it.claude&&it.claude.length) h+='<p style="margin:0 0 4px;font-weight:800;font-size:14px">Claude does</p><ul style="margin:0 0 10px;padding-left:20px;font-size:14px">'+it.claude.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(L.length){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">Everything you need, in order</p><div class="chips" style="margin-bottom:12px">'
+      + L.map(p=>'<a class="chip" href="'+esc(p[1])+'" target="_blank" rel="noopener">'+esc(p[0])+' ↗</a>').join('')+'</div>';
+  }
+  if(it.files&&it.files.length){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">On your own files</p>'
+      + it.files.map(f=>'<p style="margin:0 0 8px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.05);font-size:13px;line-height:1.4"><b>'+esc(f[0])+'</b><br><span class="muted">Files app \u2192 '+esc(f[1])+'</span></p>').join('');
+  }
+  if(it.copy){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">The words to send</p>'
+      + '<p style="margin:0 0 8px;padding:10px;border-radius:10px;background:rgba(0,0,0,.05);font-size:14px;line-height:1.45;white-space:pre-wrap;max-height:180px;overflow:auto">'+esc(it.copy)+'</p>'
+      + '<div class="chips" style="margin-bottom:12px"><button class="chip main" onclick="listCopy('+si+','+i+')">📋 Copy these words</button></div>';
+  }
+  if(!S.length&&!L.length&&!it.copy&&!(it.files&&it.files.length)) h+='<p class="muted" style="font-size:13px;margin:0 0 10px">That is everything the list holds for this one. Tap “Ask Claude how” and paste it — the answer comes back into the list.</p>';
+  /* the action bar at the bottom is sticky, so leave it room or it sits on top of the last link */
+  h+='<div style="height:14px"></div><div class="chips">'
+    + '<button class="chip main" onclick="listTickFrom('+si+','+i+','+(d?'false':'true')+')">'+(d?'↩ Put it back on the list':'✓ Tick the whole thing off')+'</button>'
+    + '<button class="chip" onclick="listAsk('+si+','+i+')">📋 Ask Claude how</button>'
+    + '</div>';
+  sheet(h);
+};
+window.listCopy=function(si,i){ const it=itOf(si,i); if(it.copy) copy(it.copy); };
 window.listTickFrom=function(si,i,on){ listTick(si,i,on); closeSheet(); };
 /* look the words up again rather than bake them into an onclick — an item carries quotes,
    apostrophes and emoji, and the first attempt at inlining them produced `copy(\` */
-window.listAsk=function(si,i){ copy('How do I do this, step by step? ' + ONELIST.sections[si].items[i]); };
-window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=ONELIST.sections[si].items[i]; done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
+window.listAsk=function(si,i){ const it=itOf(si,i);
+  copy('How do I do this, step by step? ' + it.t + (it.steps&&it.steps.length?'\n\nWhat the list already says:\n'+it.steps.map((s,n)=>(n+1)+'. '+s).join('\n'):'')); };
+window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=itText(ONELIST.sections[si].items[i]); done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
 
 /* ── 🧰 Apps (v1.0, 30 Oct 2026) ── one app, one chat. Reads control/apps.json, which each
    app's own chat keeps current: its status, what it is waiting for, and the chat that owns it.
@@ -3754,7 +3805,7 @@ function staticBits(){
   const WORDS=[['What needs me today?','decisions + 5-minute jobs'],['work the stack','group, plan, build after your go'],['what are my testers doing?','a summary per person'],['read my feedback','after 📨 Send to Claude'],['ship One Thing','put a change live'],['test these: …','change this round’s list'],['measure the apps','score every app']];
   $('words').innerHTML=WORDS.map(w=>`<button class="chip small" onclick="copy(${esc(JSON.stringify(w[0]))})" title="${esc(w[1])}">${esc(w[0])}</button>`).join('');
   fetch('dates.json?cb='+Date.now()).then(r=>r.json()).then(d=>{ BIZ_DATES=d; if(D) renderDates(); }).catch(()=>{});
-  fetch('onelist.json?cb='+Date.now()).then(r=>r.json()).then(L=>{ $('onelist').innerHTML=`<div class="muted" style="margin-bottom:6px">${esc(L.version)} · updated ${esc(L.updated)} · <a href="#list" onclick="show('list');return false" style="color:var(--brand);font-weight:800">open the whole list ›</a></div>`+L.sections.map(s=>`<div class="sec"><b>${esc(s.name)}</b> <span class="muted">· ${s.count} items · ${s.minutes} min</span><ul>${s.items.slice(0,3).map(i=>`<li>${esc(i)}</li>`).join('')}${s.count>3?`<li style="list-style:none">… and ${s.count-3} more</li>`:''}</ul></div>`).join(''); }).catch(()=>{ $('onelist').textContent='Open the One List for the live version.'; });
+  fetch('onelist.json?cb='+Date.now()).then(r=>r.json()).then(L=>{ $('onelist').innerHTML=`<div class="muted" style="margin-bottom:6px">${esc(L.version)} · updated ${esc(L.updated)} · <a href="#list" onclick="show('list');return false" style="color:var(--brand);font-weight:800">open the whole list ›</a></div>`+L.sections.map(s=>`<div class="sec"><b>${esc(s.name)}</b> <span class="muted">· ${s.count} items · ${s.minutes} min</span><ul>${s.items.slice(0,3).map(i=>`<li>${esc(itText(i))}</li>`).join('')}${s.count>3?`<li style="list-style:none">… and ${s.count-3} more</li>`:''}</ul></div>`).join(''); }).catch(()=>{ $('onelist').textContent='Open the One List for the live version.'; });
   if(typeof APPS==='undefined') return;
   const shelfName={home:'Household',later:'Later life',church:'Church',work:'Business',free:'Free',off:'Off the shelf'};
   const apps=Object.entries(APPS).filter(([k])=>!k.startsWith('tpl')&&!k.startsWith('nourish'));
