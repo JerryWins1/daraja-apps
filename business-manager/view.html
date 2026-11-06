@@ -121,7 +121,8 @@
     h += '</div>';
     h += est ? approveBox(total) : payBox(bal);
     h += '<button class="btn noprint" onclick="window.print()">🖨️ Print or save as PDF</button>';
-    h += '<div class="foot">Sent by ' + esc(b.n) + ' using Business Manager.</div>';
+    h += '<div class="foot">Sent by ' + esc(b.n) + ' using Business Manager.<br>'
+      + '<a href="https://jerrywins1.github.io/daraja-apps/shop/" target="_blank" rel="noopener">See the other Daraja apps ›</a></div>';
     document.getElementById('doc').innerHTML = h;
     D._total = total; D._ops = ops; initPad();
   }
@@ -160,13 +161,15 @@
       + '<div class="pad"><canvas id="sig" aria-label="Signature box"></canvas><div class="line"></div><div class="x">✕</div></div>'
       + '<label class="ck"><input type="checkbox" id="ok"><span>I approve Estimate #' + esc(D.n) + (opn ? ' — ' + esc(opn) + ' —' : '') + ' for ' + money(total) + ' and agree to the terms above.</span></label>'
       + '<button class="btn good" id="apGo">✅ Approve this estimate</button>'
-      + '<button class="btn" id="apQ">💬 I have a question</button></div>';
+      + '<button class="btn" id="apQ">📨 I have a question</button>'
+      + '<button class="btn" id="apQWa">💬 Ask on WhatsApp</button></div>';
   }
   function payBox(bal){
     var p = D.py || {}, b = D.b || {}, amt = bal.toFixed(2), note = 'Invoice ' + D.n + ' - ' + (b.n || '');
     if(bal <= 0.004) return '<div class="box" style="text-align:center"><span class="paid">✓ Paid in full</span><p class="muted">Thank you!</p></div>';
     var h = '<div class="box noprint"><div class="muted">Amount due</div><div class="big">' + money(bal) + '</div>';
-    if(KE) return h + kePay(p, b, bal) + '<button class="btn" id="paidTell">📨 Tell them I’ve paid</button></div>';
+    if(KE) return h + kePay(p, b, bal) + '<button class="btn" id="paidTell">📨 Tell them I’ve paid</button>'
+      + '<button class="btn" id="paidTellWa">💬 Tell them on WhatsApp</button></div>';
     if(p.card) h += '<a class="btn main" href="' + esc(safeUrl(p.card)) + '" target="_blank" rel="noopener">💳 Pay by card</a><div class="muted" style="text-align:center;font-size:13px">Enter ' + money(bal) + ' on the next page.</div>';
     if(p.paypal) h += '<a class="btn" href="https://paypal.me/' + encodeURIComponent(p.paypal) + '/' + amt + 'USD" target="_blank" rel="noopener">Pay with PayPal</a>';
     if(p.venmo) h += '<a class="btn" href="https://venmo.com/' + encodeURIComponent(p.venmo) + '?txn=pay&amount=' + amt + '&note=' + encodeURIComponent(note) + '" target="_blank" rel="noopener">Pay with Venmo</a>';
@@ -174,7 +177,8 @@
     if(p.zelle) h += '<div class="btn" style="cursor:default;flex-direction:column;gap:0">Zelle <span class="muted" style="font-weight:600">send ' + money(bal) + ' to ' + esc(p.zelle) + '</span></div>';
     if(p.check) h += '<div class="muted" style="margin-top:10px;text-align:center">Paying by check? Make it out to <b>' + esc(p.check) + '</b>.</div>';
     if(!p.card && !p.paypal && !p.venmo && !p.cashapp && !p.zelle && !p.check) h += '<p class="muted">Contact ' + esc(b.o || b.n) + ' to pay' + (b.p ? ' at ' + esc(b.p) : '') + '.</p>';
-    h += '<button class="btn" id="paidTell">📨 Tell them I’ve paid</button></div>';
+    h += '<button class="btn" id="paidTell">📨 Tell them I’ve paid</button>'
+      + '<button class="btn" id="paidTellWa">💬 Tell them on WhatsApp</button></div>';
     return h;
   }
   /* Kenya: how to pay, step by step, as people say it — Lipa na M-Pesa → Buy Goods → Till */
@@ -191,8 +195,14 @@
   }
   function phoneNo(p){ var t = String(p || '').replace(/[^\d+]/g, ''); if(KE && /^0[17]\d{8}$/.test(t)) t = '+254' + t.slice(1); return t; }
   function safeUrl(u){ return /^https:\/\//i.test(u) ? u : 'https://' + String(u).replace(/^\w+:\/*/, ''); }
-  function reply(text, subject){
+  function reply(text, subject, wa){
     var b = D.b || {}; window.__bmLastMessage = text;
+    /* 6 Nov: a WhatsApp route for the customer, because a text costs money in Kenya
+       and WhatsApp does not. A number only goes into the link when phoneNo() has
+       normalised it to a full international number (+254…); otherwise none is sent
+       and WhatsApp opens its own chat picker, which never breaks. */
+    if(wa){ var wn = phoneNo(b.p); wn = (wn.charAt(0) === '+' && wn.length >= 9) ? wn.slice(1) : '';
+      location.href = 'https://wa.me/' + wn + '?text=' + encodeURIComponent(text); return; }
     if(b.p && (/iphone|ipad|android/i.test(navigator.userAgent) || !b.e)) location.href = 'sms:' + phoneNo(b.p) + '?&body=' + encodeURIComponent(text);
     else if(b.e) location.href = 'mailto:' + encodeURIComponent(b.e) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
     else alert(text);
@@ -204,9 +214,11 @@
       var ap = document.getElementById('ap'); if(ap && ap.scrollIntoView) ap.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
     if(t.id === 'sigClear' && D._clearSig) D._clearSig();
     if(t.id === 'apGo') approve();
-    if(t.id === 'apSend') reply(D._msg, 'Approved: Estimate #' + D.n);
-    if(t.id === 'apQ') reply('Hi, I have a question about Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + ': ', 'Question: Estimate #' + D.n);
-    if(t.id === 'paidTell') reply(KE ? 'Hi, I just paid invoice #' + D.n + '. My M-Pesa code is: ' : 'Hi, I just paid invoice #' + D.n + '. Thank you!', 'Paid: Invoice #' + D.n);
+    /* every reply button has a WhatsApp twin with the same id plus "Wa" */
+    var wa = /Wa$/.test(t.id || ''), rid = wa ? t.id.slice(0, -2) : t.id;
+    if(rid === 'apSend') reply(D._msg, 'Approved: Estimate #' + D.n, wa);
+    if(rid === 'apQ') reply('Hi, I have a question about Estimate #' + D.n + (D.ti ? ' (' + D.ti + ')' : '') + ': ', 'Question: Estimate #' + D.n, wa);
+    if(rid === 'paidTell') reply(KE ? 'Hi, I just paid invoice #' + D.n + '. My M-Pesa code is: ' : 'Hi, I just paid invoice #' + D.n + '. Thank you!', 'Paid: Invoice #' + D.n, wa);
   });
   async function approve(){
     var nm = document.getElementById('nm').value.trim();
@@ -220,7 +232,8 @@
     var back = { n:D.n, t:Math.round(D._total * 100) / 100, nm:nm, at:at, sg:SIG }; if(opn) back.op = D._pick;
     if(D.r){ try{ msg += '\n\nSigned copy for ' + ((D.b || {}).n || 'your records') + ' (tap to save it in Business Manager):\n' + D.r + '#ok/' + await encode(back); }catch(e){} }
     D.sg = { name:nm, date:today(), at:at, sig:SIG, option:opn };
-    document.getElementById('ap').innerHTML = '<div style="font-weight:850;font-size:19px">Thank you, ' + esc(nm.split(' ')[0]) + '! 🎉</div><p class="muted">Your signed approval is ready to send to ' + esc((D.b || {}).o || (D.b || {}).n) + '. If your messages app didn’t open, tap below.</p>' + sigSVG(SIG) + '<button class="btn good" id="apSend">📨 Send my approval</button>';
+    document.getElementById('ap').innerHTML = '<div style="font-weight:850;font-size:19px">Thank you, ' + esc(nm.split(' ')[0]) + '! 🎉</div><p class="muted">Your signed approval is ready to send to ' + esc((D.b || {}).o || (D.b || {}).n) + '. If your messages app didn’t open, tap below.</p>' + sigSVG(SIG) + '<button class="btn good" id="apSend">📨 Send my approval</button>'
+      + '<button class="btn" id="apSendWa">💬 Send it on WhatsApp</button>';
     D._msg = msg; reply(msg, 'Approved: Estimate #' + D.n);
   }
   window.addEventListener('hashchange', function(){ location.reload(); });   /* a second estimate or invoice opened in the same tab */

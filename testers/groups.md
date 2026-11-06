@@ -8,9 +8,33 @@ altogether; the rest are in Group 1, 2 or 3.
 
 **Live now: Groups 1 and 2 together — 20 apps.** Jerry chose on 4 November to run
 both at once rather than wait for Group 1 to close, so `TEST_NOW` in
-`shop/apps_data.js` holds all twenty. Group 1 still leads the list. Group 3 is
-held back. The pay gate still reads per group, so Group 1 can close and pay out
-while Group 2 is still running.
+`shop/apps_data.js` holds all twenty. Group 3 is held back. The pay gate still
+reads per group — from THIS file, not from `TEST_NOW` — so Group 1 can close and
+pay out while Group 2 is still running.
+
+**Order changed 6 November.** Five apps gained a WhatsApp button that day, which
+bumped their versions and so wiped their passes, and their test scripts gained
+steps for it. They now come straight after Advent Together: Business
+Manager, Who's Coming, Every Day, Message Assistant, Serve Board. Advent keeps
+its place for its 1 December deadline. On the page itself One Thing sits above
+both, because the Testers' List hoists READY apps to the top before applying
+this order — so what a tester actually sees is One Thing, Advent, then the five. The groups below are unchanged and stay
+the record; only the display order in `TEST_NOW` moved.
+
+**Shoebox Counter and Our Table came out of Group 3 on 6 November, Jerry's
+call.** Both gained the WhatsApp button that day, and Shoebox Counter's own
+reason for being held back — OCC collection week is mid-November — had become
+the argument for letting it out: that week is now next week, so the app with the
+nearest real-world date was the one app no tester could reach. Our Table came
+with it, being already marked READY. The live list is therefore **22 apps**, and
+Shoebox Counter sits second, straight after Advent Together.
+
+Advent keeps first place because Jerry put it there on 4 November. By deadline
+alone Shoebox Counter is the more urgent of the two now — mid-November against
+1 December — so if he wants them swapped it is one word, but reversing his own
+ordering is not a call to make inside this file.
+
+Group 3's remaining five stay held back.
 
 ## Group 1 — first (9 apps)
 
@@ -42,15 +66,13 @@ while Group 2 is still running.
 | Serve Board | `churchserve` | |
 | The Clubhouse | `churchclubhouse` | |
 
-## Group 3 — last (7 apps)
+## Group 3 — last (5 apps)
 
 | App | Script | Why it is here |
 | --- | --- | --- |
 | Break-Even | `breakeven` | |
 | Daraja Academy | `academy` | |
 | In My Own Words | `storykeeper` | Relation can now be corrected after adding someone. Fixed 4 Nov. |
-| Our Table | `ourtable` | The app used in the how-to-test video, so testers already know it. |
-| Shoebox Counter | `churchdrive` | OCC collection week is mid-November. |
 | The Key | `thekey` | Script expected `1 of 5 · 20%` where the app correctly shows `2 of 5 · 40%`. Fixed 4 Nov. |
 | The Key · Church Edition | `churchkey` | |
 
