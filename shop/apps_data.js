@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v3.2 · 2026-11-06 (the three Daraja HQ videos are recorded now, not read aloud by the browser — shop/voicemaker.py)
+/* Daraja Store — one shared catalog. v3.3 · 2026-11-06 (every video recorded — 54 of them, incl. the 👋 Karibuni greeting for the testers; voicemaker --check says when one goes stale)
+   v3.2 · 2026-11-06 (the three Daraja HQ videos are recorded now, not read aloud by the browser — shop/voicemaker.py)
    v3.1 · 2026-11-06 (the rules video gains rule five, every link every time)
    v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
    v2.9 · 2026-11-06 (Who’s Coming: a read-only link to the answers)
@@ -13,7 +14,7 @@ const PHASE = 'testing';
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
-const STORE_V = 'v3.2 · 2026-11-06';
+const STORE_V = 'v3.3 · 2026-11-06';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
