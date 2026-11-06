@@ -8,9 +8,25 @@ altogether; the rest are in Group 1, 2 or 3.
 
 **Live now: Groups 1 and 2 together — 20 apps.** Jerry chose on 4 November to run
 both at once rather than wait for Group 1 to close, so `TEST_NOW` in
-`shop/apps_data.js` holds all twenty. Group 1 still leads the list. Group 3 is
-held back. The pay gate still reads per group, so Group 1 can close and pay out
-while Group 2 is still running.
+`shop/apps_data.js` holds all twenty. Group 3 is held back. The pay gate still
+reads per group — from THIS file, not from `TEST_NOW` — so Group 1 can close and
+pay out while Group 2 is still running.
+
+**Order changed 6 November.** Five apps gained a WhatsApp button that day, which
+bumped their versions and so wiped their passes, and their test scripts gained
+steps for it. They now come straight after Advent Together: Business
+Manager, Who's Coming, Every Day, Message Assistant, Serve Board. Advent keeps
+its place for its 1 December deadline. On the page itself One Thing sits above
+both, because the Testers' List hoists READY apps to the top before applying
+this order — so what a tester actually sees is One Thing, Advent, then the five. The groups below are unchanged and stay
+the record; only the display order in `TEST_NOW` moved.
+
+**Two apps changed that day and did NOT move.** Shoebox Counter and Our Table
+gained the same button but sit in Group 3, which Jerry is holding back, so they
+are not on the Testers' List at all. Worth his attention: Shoebox Counter's own
+reason for being in Group 3 is that OCC collection week is mid-November, which
+is now next week, so the app with the nearest real-world deadline is the one
+nobody can currently test.
 
 ## Group 1 — first (9 apps)
 

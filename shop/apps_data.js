@@ -26,8 +26,21 @@ const LIVE = [];
    The pay gate in kenya/pay.md still reads per group, so Group 1 can close and pay
    out while Group 2 is still running. */
 const TEST_NOW = [
-  /* Group 1 */ 'advent','home','businessmanager','duka','nownext','everyday','whoscoming','nextstep','church',
-  /* Group 2 */ 'ahead','churchsteward','npgoodstanding','compass','drumbeat','safety','porchlight','rafiki','npreceipts','churchserve','churchclubhouse'
+  /* 6 Nov 2026: five apps got a WhatsApp button beside their text button today, so their
+     test scripts gained steps and every pass recorded on the old version stopped counting.
+     They lead the list so a tester working down it meets the new buttons straight away.
+     Advent Together keeps its place ahead of them: Jerry put it first on 4 Nov because its
+     24 doors unlock 1 December, the hardest deadline on the list, and that has not changed.
+     NOTE the Testers' List hoists READY apps above this order, so One Thing actually shows
+     first and Advent second — see renderApps() in testers/index.html.
+     The Group 1 / Group 2 split still lives in testers/groups.md, which the pay gate reads;
+     this array only sets the order the Testers' List shows. Shoebox Counter and Our Table
+     also changed today but are in GROUP 3, which Jerry is holding back, so they are not
+     here — pulling them forward is his decision, not this file's. */
+  'advent',
+  /* changed 6 Nov */ 'businessmanager','whoscoming','everyday','drumbeat','churchserve',
+  /* Group 1, the rest */ 'home','duka','nownext','nextstep','church',
+  /* Group 2, the rest */ 'ahead','churchsteward','npgoodstanding','compass','safety','porchlight','rafiki','npreceipts','churchclubhouse'
 ];
 /* 6 Oct 2026, Jerry: “One Thing is ready to go… Our Table looks good, post it to the testers.” READY apps lead the store, the Testers' List and Founding Testers. */
 const READY = ['nownext','ourtable'];
