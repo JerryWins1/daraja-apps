@@ -35,10 +35,16 @@ const TEST_NOW = [
      first and Advent second — see renderApps() in testers/index.html.
      The Group 1 / Group 2 split still lives in testers/groups.md, which the pay gate reads;
      this array only sets the order the Testers' List shows. Shoebox Counter and Our Table
-     also changed today but are in GROUP 3, which Jerry is holding back, so they are not
-     here — pulling them forward is his decision, not this file's. */
+     changed today too and were in GROUP 3; Jerry moved them out the same afternoon, so
+     this list is 22 apps, not 20. Group 3's remaining five stay held back. */
   'advent',
-  /* changed 6 Nov */ 'businessmanager','whoscoming','everyday','drumbeat','churchserve',
+  /* 6 Nov, Jerry's call: Shoebox Counter comes OUT of Group 3 and straight to the top.
+     Its own reason for being held back was that OCC collection week is mid-November --
+     which is next week -- so the app with the nearest real-world date was the one app
+     no tester could reach. Our Table comes out with it: it changed the same day and was
+     already marked READY, which hoists it above this order anyway. */
+  'churchdrive',
+  /* changed 6 Nov */ 'businessmanager','whoscoming','everyday','drumbeat','churchserve','ourtable',
   /* Group 1, the rest */ 'home','duka','nownext','nextstep','church',
   /* Group 2, the rest */ 'ahead','churchsteward','npgoodstanding','compass','safety','porchlight','rafiki','npreceipts','churchclubhouse'
 ];
