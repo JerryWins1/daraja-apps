@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
+/* Daraja Store — one shared catalog. v3.1 · 2026-11-06 (the rules video gains rule five, every link every time)
+   v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
    v2.9 · 2026-11-06 (Who’s Coming: a read-only link to the answers)
    v2.8 · 2026-11-06 (WhatsApp buttons: Business Manager, Our Table, Every Day, Message Assistant, Serve Board, Shoebox Counter)
    v2.7 · 2026-10-23 (Every Day / Our Table videos say Family membership, not “free”; American words in One Thing — trash, ads; voice re-recorded) · v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
@@ -11,7 +12,7 @@ const PHASE = 'testing';
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
-const STORE_V = 'v3.0 · 2026-11-06';
+const STORE_V = 'v3.1 · 2026-11-06';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
@@ -266,7 +267,7 @@ const APPS = {
            "t": "There are four groups. How I talk to you. How the chats stay out of each other’s way. What is never allowed. And what I simply cannot do."
          },
          {
-           "t": "First, how I talk to you. There are four of these. You had to say them three times before they stuck, which is why they now sit at the very top of the file instead of further down."
+           "t": "First, how I talk to you. There are five of these. You had to say the first four three times before they stuck, which is why they now sit at the very top of the file instead of further down."
          },
          {
            "t": "One. Answer what you asked, then stop. Not the question behind it, not the next question, not what you might ask next. If you say go ahead, the whole correct reply is to go ahead."
@@ -279,6 +280,9 @@ const APPS = {
          },
          {
            "t": "Four. Say what was done, not how it was done. The reasoning goes into the commit and the pull request, where you can go and read it if you ever want it."
+         },
+         {
+           "t": "Five, and this one is from today. Every link, every time. If a reply names a page, a chat, a pull request or a board, the whole link goes in that same reply. Never \u201copen the Test Desk\u201d with no link \u2014 you are on a phone, and going hunting for it is the one thing these rules exist to stop."
          },
          {
            "t": "And one more about steps. One step at a time, never a list of five. Everything the step needs goes inside the step — the exact words to paste, the whole address, the real name of the button. Each one tells you how far along you are. And then I wait, because you are usually on a phone I cannot see."
@@ -340,7 +344,7 @@ const APPS = {
            "t": "And a chat running on your Mac dies with the Mac — laptop shut, Claude quit, Mac asleep. Nothing is lost and it can be brought back, but it stops answering. So anything holding a question you owe an answer to lives in a cloud chat, and anything worth keeping lives in the repository rather than in a chat’s memory."
          },
          {
-           "t": "That is all of them. Four about how I talk to you, four about how the chats behave, one about secrets, and three things I cannot do.",
+           "t": "That is all of them. Five about how I talk to you, four about how the chats behave, one about secrets, and three things I cannot do.",
            "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
          },
          {
