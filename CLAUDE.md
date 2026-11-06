@@ -8,7 +8,7 @@ Notes for Claude sessions working in this repo.
 of them and is still acceptable.** Jerry had to say this three times on 3 and 4 Nov
 before it stuck, which is why it is now written at the top instead of further down.
 
-Four hard rules. Check the reply against them before sending it.
+Five hard rules. Check the reply against them before sending it.
 
 1. **Answer what he asked, then stop.** Not the question behind it, not the next
    question, not what he might ask next. If he says "go ahead" or "give me the list",
@@ -22,6 +22,16 @@ Four hard rules. Check the reply against them before sending it.
 4. **Say what was done, not how it was done.** The reasoning belongs in the commit
    message and the pull request, where he can go and read it if he wants it. A reply
    is for what changed and what he has to decide.
+
+5. **Every link, every time.** If a reply names a page, a chat, a pull request or a
+   board, the full link goes in that same reply. Never "open the Test Desk", never "it is
+   in the To send box" — he is on a phone and has to go hunting, which is the one thing
+   these rules exist to prevent. This was written as guidance further down this file on
+   30 October and broken repeatedly on 6 November, which is why it is a hard rule now.
+   The links used most:
+   · Test Desk — https://claude.ai/artifact/Bsjf9a7sqK7YbVAuDAuqpE
+   · The testers' own link — https://jerrywins1.github.io/zuri-system/preview/t/
+   · Zuri itself — https://jerrywins1.github.io/zuri-system/preview/
 
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
