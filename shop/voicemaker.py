@@ -97,6 +97,8 @@ def load_apps():
 
 def lines_for(app, mode):
     """The lines of one video, the way watch.html picks them."""
+    if mode == 'explain':
+        return None   # handled by explain_lines, which does not need the catalogue
     if mode == 'overview':
         got = app.get('lines')
     elif mode == 'train':
@@ -108,10 +110,36 @@ def lines_for(app, mode):
     return [x if isinstance(x, str) else x.get('t', '') for x in got]
 
 
+KENYA_DIR = os.path.join(HERE, 'kenya')
+
+
+def explain_lines(appkey):
+    """?mode=explain reads shop/kenya/<app>.json, and 'tester' means kickoff.json —
+    the same rule watch.html follows. Files starting with _ are not served."""
+    name = 'kickoff' if appkey == 'tester' else appkey
+    path = os.path.join(KENYA_DIR, name + '.json')
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding='utf-8') as f:
+        d = json.load(f)
+    got = (d.get('explainer') or {}).get('lines') or d.get('lines')
+    if not got:
+        return None
+    return [x if isinstance(x, str) else x.get('t', '') for x in got]
+
+
+def lines_of(apps, appkey, mode):
+    """The lines of one video, whichever file they live in."""
+    if mode == 'explain':
+        return explain_lines(appkey)
+    app = apps.get(appkey)
+    return lines_for(app, mode) if app else None
+
+
 def every_video(apps):
-    """(key, appkey, mode) for every video in the catalogue, real apps only."""
+    """(key, appkey, mode) for every video there is, real apps only."""
     out = []
-    for k, a in apps.items():
+    for k, a in sorted(apps.items()):
         if k.startswith('tpl') or k.startswith('nourish'):
             continue
         if a.get('lines'):
@@ -120,6 +148,14 @@ def every_video(apps):
             out.append((k + '-train', k, 'train'))
         for m in (a.get('extra') or {}):
             out.append((k + '-' + m, k, m))
+    seen = {x[1] for x in out}
+    for fn in sorted(os.listdir(KENYA_DIR)) if os.path.isdir(KENYA_DIR) else []:
+        if not fn.endswith('.json') or fn.startswith('_'):
+            continue
+        appkey = 'tester' if fn == 'kickoff.json' else fn[:-5]
+        if explain_lines(appkey):
+            out.append((appkey + '-explain', appkey, 'explain'))
+        seen.add(appkey)
     return out
 
 
@@ -194,10 +230,39 @@ def encode(wav, m4a):
     with wave.open(wav, 'rb') as f:
         rate = f.getframerate()
     r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav,
-                        '-c:a', 'aac', '-b:a', '48k', '-ar', str(rate), '-ac', '1', m4a],
+                        '-c:a', 'aac', '-b:a', '40k', '-ar', str(rate), '-ac', '1', m4a],
                        capture_output=True, text=True)
     if r.returncode:
         sys.exit('ffmpeg failed:\n' + r.stderr.strip())
+
+
+def audit(apps, index):
+    """Every video, sorted into recorded / never recorded / reworded since.
+
+    A recording only counts if the cue count equals the line count AND every
+    cue key matches, because that is what watch.html checks before it will use
+    one. Reword a single line and the whole video drops back to the browser
+    voice with nothing on screen to say so — which is how twelve of them went
+    quiet without anyone noticing."""
+    good, missing, stale = [], [], []
+    for key, appkey, mode in every_video(apps):
+        lines = lines_of(apps, appkey, mode)
+        if not lines:
+            continue
+        v = index.get(key)
+        if not v:
+            missing.append((key, appkey, mode, '%d lines, never recorded' % len(lines)))
+        elif not os.path.exists(os.path.join(HERE, v['file'])):
+            stale.append((key, appkey, mode, 'the audio file is gone'))
+        elif len(v['cues']) != len(lines):
+            stale.append((key, appkey, mode, '%d cues, %d lines' % (len(v['cues']), len(lines))))
+        else:
+            off = [n for n, l in enumerate(lines) if v['cues'][n][2] != vkey40(l)]
+            if off:
+                stale.append((key, appkey, mode, '%d line(s) reworded since' % len(off)))
+            else:
+                good.append(key)
+    return good, missing, stale
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -207,7 +272,11 @@ def main():
     p.add_argument('app', nargs='?', help='catalogue key, e.g. hq')
     p.add_argument('modes', nargs='*', help='overview, train, or an extra, e.g. firsttime')
     p.add_argument('--all-missing', action='store_true',
-                   help='every video in the catalogue that has no recording yet')
+                   help='every video that has no recording yet')
+    p.add_argument('--all', action='store_true',
+                   help='every video that has no recording OR whose words changed since')
+    p.add_argument('--check', action='store_true',
+                   help='say which videos are recorded, missing or out of date; record nothing')
     p.add_argument('--dry-run', action='store_true', help='say what it would record, record nothing')
     a = p.parse_args()
 
@@ -221,12 +290,28 @@ def main():
         with open(INDEX, encoding='utf-8') as f:
             index = json.load(f)
 
-    if a.all_missing:
-        jobs = [(k, ak, m) for k, ak, m in every_video(apps) if k not in index]
+    good, missing, stale = audit(apps, index)
+
+    if a.check:
+        print('%3d recorded and current' % len(good))
+        print('%3d never recorded' % len(missing))
+        for k, _, _, why in missing:
+            print('     %-28s %s' % (k, why))
+        print('%3d out of date' % len(stale))
+        for k, _, _, why in stale:
+            print('     %-28s %s' % (k, why))
+        if missing or stale:
+            print('\nRecord them with: python3 shop/voicemaker.py --all')
+        return
+
+    if a.all:
+        jobs = [(k, ak, m) for k, ak, m, _ in missing + stale]
+    elif a.all_missing:
+        jobs = [(k, ak, m) for k, ak, m, _ in missing]
     elif a.app and a.modes:
         jobs = [(a.app + '-' + m, a.app, m) for m in a.modes]
     else:
-        p.error('give an app and at least one mode, or --all-missing')
+        p.error('give an app and at least one mode, or --all, --all-missing or --check')
 
     if not jobs:
         print('Nothing to record — every video already has one.')
@@ -240,13 +325,9 @@ def main():
     model = model_path()
     done = 0
     for key, appkey, mode in jobs:
-        app = apps.get(appkey)
-        if not app:
-            print('  %s — no such app in the catalogue, skipped' % key)
-            continue
-        lines = lines_for(app, mode)
+        lines = lines_of(apps, appkey, mode)
         if not lines:
-            print('  %s — no lines for that mode, skipped' % key)
+            print('  %s — no lines found for that app and mode, skipped' % key)
             continue
         print('  %s — %d lines' % (key, len(lines)), flush=True)
         with tempfile.TemporaryDirectory() as work:
