@@ -9,6 +9,10 @@
    Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps). */
 const PHASE = 'testing';
 
+/* The catalogue's own version, in code rather than only in the comment at the top, so a page can
+   show which copy of the store it is holding. Bump it with the header above, same string. */
+const STORE_V = 'v3.0 · 2026-11-06';
+
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
    "Coming soon". Naming an app here sells just that one — its card shows its real
