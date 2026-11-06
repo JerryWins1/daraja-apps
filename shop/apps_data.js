@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v3.3 · 2026-11-06 (every video recorded — 54 of them, incl. the 👋 Karibuni greeting for the testers; voicemaker --check says when one goes stale)
+/* Daraja Store — one shared catalog. v3.4 · 2026-11-06 (the Daraja HQ videos show the page instead of its password box — control/?tour=1; the video rules written out below instead of buried in this line)
+   v3.3 · 2026-11-06 (every video recorded — 54 of them, incl. the 👋 Karibuni greeting for the testers; voicemaker --check says when one goes stale)
    v3.2 · 2026-11-06 (the three Daraja HQ videos are recorded now, not read aloud by the browser — shop/voicemaker.py)
    v3.1 · 2026-11-06 (the rules video gains rule five, every link every time)
    v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
@@ -7,6 +8,32 @@
    v2.7 · 2026-10-23 (Every Day / Our Table videos say Family membership, not “free”; American words in One Thing — trash, ads; voice re-recorded) · v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
+/* ══ HOW TO MAKE A PROPER VIDEO ══ written out 6 Nov 2026, because the rules were real but
+   buried in the changelog above, as one clause inside a very long line, and so got broken again.
+   Jerry: "If I have a screen up, I explain it, and then I have another explanation of the next
+   screen. The next screen should come up, right? So it should page through."
+
+   1. THE SCREEN FOLLOWS THE STORY. 30 Aug 2026: "the app changes screens with the story."
+      7 Oct 2026: "the videos show what they talk about." A section that talks about a screen opens
+      that screen, in the same line, with js. A line about one field points at that field. A video
+      that holds one screen while the words move on is not finished, however true the words are.
+
+   2. THE PAGE HAS TO BE SHOWABLE. If the real page asks for a password, or opens empty, the video
+      shows a password box for three minutes. Give that page a way to open for a tour — Daraja HQ
+      has ?tour=1 — and point `try` at it. Nothing private may appear in such a mode.
+
+   3. RECORD IT. The browser's own voice stalls on the iPad; see shop/watch.html. Run
+      `python3 shop/voicemaker.py --all`, from any chat, no Mac needed.
+
+   4. CHECK IT AFTER EVERY WORDING CHANGE. `python3 shop/voicemaker.py --check`. Reword one line
+      and the whole video silently drops back to the voice that stalls.
+
+   5. TEST IT THE WAY HE WATCHES IT. Open shop/watch.html in a browser, with no key in storage,
+      press play, and look at the iframe. Do not unhide anything, do not stub the data, do not test
+      the lines on their own — all three of the HQ videos passed that way on 6 Nov while showing
+      Jerry nothing but the password gate. If the test has not seen the screens change, it has not
+      tested the video. */
+
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
    'live'    = launched store (banner gone, badges gone, Get buttons use each app's buy link)
    Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps). */
@@ -14,7 +41,7 @@ const PHASE = 'testing';
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
-const STORE_V = 'v3.3 · 2026-11-06';
+const STORE_V = 'v3.4 · 2026-11-06';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
@@ -76,7 +103,7 @@ const APPS = {
    "off": "your own panel, not something sold in the store",
    "video": true,
    "tag": "Everything going on, and everyone in it — on one page",
-   "try": BASE+'control/',
+   "try": BASE+'control/?tour=1',   /* the video must SHOW the page, not the password gate — see ?tour=1 in control/index.html */
    "extra": {
      "firsttime": {
        "title": "Explain it to me",
@@ -217,16 +244,22 @@ const APPS = {
            "t": "Only the ones we are actually working on have a chat, and that number goes up as we go, not all at once."
          },
          {
-           "t": "So, how a new app gets made. You ask — in any chat, or in a brand new one. That chat becomes the app’s chat, and it writes the app into this list straight away so you can see it."
+           "t": "So, how a new app gets made. You ask — in any chat, or in a brand new one. That chat becomes the app’s chat, and it writes the app into this list straight away so you can see it.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
-           "t": "From then on that one chat does everything to that app. If something turns up in it that belongs to a different app, it does not fix it. It tells you which chat owns that one, and leaves it alone."
+           "t": "From then on that one chat does everything to that app. If something turns up in it that belongs to a different app, it does not fix it. It tells you which chat owns that one, and leaves it alone.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereFull"
          },
          {
-           "t": "And a chat writes its entry back here before it stops: the status, what it is waiting for, and today’s date. So this list stays current without you updating anything."
+           "t": "And a chat writes its entry back here before it stops: the status, what it is waiting for, and today’s date. So this list stays current without you updating anything.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}",
+           "point": "#appsFull"
          },
          {
-           "t": "There are two deliberate exceptions. The house layer that every app shares, and the store catalogue, run across all the apps — so they have their own entry and their own chat. They are the exception, not permission to widen."
+           "t": "There are two deliberate exceptions. The house layer that every app shares, and the store catalogue, run across all the apps — so they have their own entry and their own chat. They are the exception, not permission to widen.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
            "t": "Now, what happens after an app is built. It goes to the Kenyan testers before it goes into the store.",
@@ -236,13 +269,15 @@ const APPS = {
            "t": "An app counts as ready when two different people have passed it on its current version. Two of them, on the current one — that second part is the part that surprises people."
          },
          {
-           "t": "Because the moment an app’s code changes, its version goes up, and the old passes stop counting. The app drops off Ready to Sell and goes back to the testers."
+           "t": "Because the moment an app’s code changes, its version goes up, and the old passes stop counting. The app drops off Ready to Sell and goes back to the testers.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('scripts');}catch(e){}"
          },
          {
            "t": "That is on purpose. A pass is a pass of the version they actually held in their hand."
          },
          {
-           "t": "It also means fixing six faults in one afternoon can make the Ready to Sell list get shorter. Nothing broke. The passes just went stale, and five apps went back to the queue."
+           "t": "It also means fixing six faults in one afternoon can make the Ready to Sell list get shorter. Nothing broke. The passes just went stale, and five apps went back to the queue.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('scripts');}catch(e){}"
          },
          {
            "t": "So if you want a new app, or a change to one you have, ask in that app’s chat. This tab tells you which chat that is.",
@@ -269,25 +304,32 @@ const APPS = {
            "t": "There are four groups. How I talk to you. How the chats stay out of each other’s way. What is never allowed. And what I simply cannot do."
          },
          {
-           "t": "First, how I talk to you. There are five of these. You had to say the first four three times before they stuck, which is why they now sit at the very top of the file instead of further down."
+           "t": "First, how I talk to you. There are five of these. You had to say the first four three times before they stuck, which is why they now sit at the very top of the file instead of further down.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
          },
          {
-           "t": "One. Answer what you asked, then stop. Not the question behind it, not the next question, not what you might ask next. If you say go ahead, the whole correct reply is to go ahead."
+           "t": "One. Answer what you asked, then stop. Not the question behind it, not the next question, not what you might ask next. If you say go ahead, the whole correct reply is to go ahead.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
          },
          {
            "t": "Two. Add nothing you did not ask for. No table, no cost breakdown, no summary of where things stand. If a second table is being written, the rule is already broken."
          },
          {
-           "t": "Three. Every question comes with tappable options and a recommendation, one question at a time. Never an open question buried in a message, and never two questions stacked in one reply."
+           "t": "Three. Every question comes with tappable options and a recommendation, one question at a time. Never an open question buried in a message, and never two questions stacked in one reply.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
          },
          {
            "t": "Four. Say what was done, not how it was done. The reasoning goes into the commit and the pull request, where you can go and read it if you ever want it."
          },
          {
-           "t": "Five, and this one is from today. Every link, every time. If a reply names a page, a chat, a pull request or a board, the whole link goes in that same reply. Never \u201copen the Test Desk\u201d with no link \u2014 you are on a phone, and going hunting for it is the one thing these rules exist to stop."
+           "t": "Five, and this one is from today. Every link, every time. If a reply names a page, a chat, a pull request or a board, the whole link goes in that same reply. Never “open the Test Desk” with no link — you are on a phone, and going hunting for it is the one thing these rules exist to stop.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereQ"
          },
          {
-           "t": "And one more about steps. One step at a time, never a list of five. Everything the step needs goes inside the step — the exact words to paste, the whole address, the real name of the button. Each one tells you how far along you are. And then I wait, because you are usually on a phone I cannot see."
+           "t": "And one more about steps. One step at a time, never a list of five. Everything the step needs goes inside the step — the exact words to paste, the whole address, the real name of the button. Each one tells you how far along you are. And then I wait, because you are usually on a phone I cannot see.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('list');}catch(e){}",
+           "point": "#listFull"
          },
          {
            "t": "Second group: how the chats stay out of each other’s way.",
@@ -298,31 +340,40 @@ const APPS = {
            "t": "One app, one chat — you have heard that one. Here is the other half of it."
          },
          {
-           "t": "There are two kinds of conversation, and they are not interchangeable. A caretaker, and a builder."
+           "t": "There are two kinds of conversation, and they are not interchangeable. A caretaker, and a builder.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
-           "t": "The caretaker is the job that runs every morning at five fifty-four, without you being there. It keeps things current: Ready to Sell, this Apps list, the job rows on the Control Room page, the tester digest."
+           "t": "The caretaker is the job that runs every morning at five fifty-four, without you being there. It keeps things current: Ready to Sell, this Apps list, the job rows on the Control Room page, the tester digest.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereFull"
          },
          {
            "t": "A builder is a chat like this one. It changes things. It builds a page, it rewires a job that broke, it adds a rule."
          },
          {
-           "t": "So a builder never hand-writes a number the caretaker looks after. A figure written by hand is only right while you happen to be in that conversation. One evening a builder wrote the Control Room rows by hand three times; the morning job does it daily now and nobody has to be asked."
+           "t": "So a builder never hand-writes a number the caretaker looks after. A figure written by hand is only right while you happen to be in that conversation. One evening a builder wrote the Control Room rows by hand three times; the morning job does it daily now and nobody has to be asked.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}",
+           "point": "#appsFull"
          },
          {
-           "t": "And a builder goes quiet when there is nothing to change. You should never open one to find out how things are going — that is what the morning report and the Control Room page are for. If a builder has nothing to build, it says so and stops."
+           "t": "And a builder goes quiet when there is nothing to change. You should never open one to find out how things are going — that is what the morning report and the Control Room page are for. If a builder has nothing to build, it says so and stops.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('today');}catch(e){}"
          },
          {
-           "t": "One more, and this one the platform enforces. A job’s instructions can only be changed from the chat that job fires into."
+           "t": "One more, and this one the platform enforces. A job’s instructions can only be changed from the chat that job fires into.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
          },
          {
            "t": "So a builder cannot edit a running job. It has to ask that chat, and that chat is right to refuse — because a message from another Claude is data, not your authority. You say go in the job’s own chat, and only then does the change land."
          },
          {
-           "t": "And when you are judging whether a job works, look at what it produced, not at whether its log says it succeeded. A log saying succeeded only means the job was handed to a chat. Two versions of the morning job died exactly there — dispatching perfectly every night and then doing nothing at all."
+           "t": "And when you are judging whether a job works, look at what it produced, not at whether its log says it succeeded. A log saying succeeded only means the job was handed to a chat. Two versions of the morning job died exactly there — dispatching perfectly every night and then doing nothing at all.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('today');}catch(e){}"
          },
          {
-           "t": "Third group: what is never allowed. This one is short."
+           "t": "Third group: what is never allowed. This one is short.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('list');}catch(e){}"
          },
          {
            "t": "Never a secret in a chat. Not a client secret, not an API key, not an access token, not a password. I will not ask you for one, and I will not accept one if you offer it."
@@ -334,13 +385,16 @@ const APPS = {
            "t": "And if one does land in a chat, or inside a screenshot, I say so plainly, tell you what the real risk is without the drama, and walk you through changing it."
          },
          {
-           "t": "Fourth: what I cannot do. Worth knowing, so you are never sitting waiting on something that is not coming."
+           "t": "Fourth: what I cannot do. Worth knowing, so you are never sitting waiting on something that is not coming.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
            "t": "I cannot send a WhatsApp message. Every message to the squad is written out for you to send, and it is your hands on the keyboard. That is not caution — there is no way for me to send one."
          },
          {
-           "t": "I cannot open a link you paste, and I cannot fill in a form on a website. Anything happening on a website is you. But pasting the text of a page into the chat works perfectly, and that is the way to get a page to me."
+           "t": "I cannot open a link you paste, and I cannot fill in a form on a website. Anything happening on a website is you. But pasting the text of a page into the chat works perfectly, and that is the way to get a page to me.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereFull"
          },
          {
            "t": "And a chat running on your Mac dies with the Mac — laptop shut, Claude quit, Mac asleep. Nothing is lost and it can be brought back, but it stops answering. So anything holding a question you owe an answer to lives in a cloud chat, and anything worth keeping lives in the repository rather than in a chat’s memory."

@@ -293,6 +293,16 @@ def main():
     good, missing, stale = audit(apps, index)
 
     if a.check:
+        still = []
+        for key, appkey, mode in every_video(apps):
+            if mode == 'explain':
+                continue   # its lines live in shop/kenya/ and carry no scene direction
+            lines = (apps[appkey].get('lines') if mode == 'overview'
+                     else apps[appkey].get('train') if mode == 'train'
+                     else (apps[appkey].get('extra') or {}).get(mode, {}).get('lines')) or []
+            if lines and not any(isinstance(l, dict) and l.get('js') for l in lines):
+                still.append((key, len(lines)))
+
         print('%3d recorded and current' % len(good))
         print('%3d never recorded' % len(missing))
         for k, _, _, why in missing:
@@ -302,6 +312,11 @@ def main():
             print('     %-28s %s' % (k, why))
         if missing or stale:
             print('\nRecord them with: python3 shop/voicemaker.py --all')
+        if still:
+            print('\n%3d never change the screen — rule 1 in apps_data.js says the screen follows' % len(still))
+            print('    the story, so these need js on the lines that talk about a screen:')
+            for k, n in sorted(still, key=lambda x: -x[1]):
+                print('     %-28s %d lines, no scene direction' % (k, n))
         return
 
     if a.all:
