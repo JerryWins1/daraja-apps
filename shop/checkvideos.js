@@ -100,25 +100,34 @@ function videos() {
          * how businessmanager-firsttime shipped with twenty directed lines and one screen. So before
          * running a step, check that whatever it calls is actually there. */
         const BUILTIN = /^(window|document|localStorage|sessionStorage|JSON|Date|Math|console|setTimeout|setInterval|String|Number|Object|Array|parseInt|parseFloat|alert|scrollTo|eval)$/;
-        const callsOf = js => [...new Set((js.match(/(?:^|[^\w.$])([A-Za-z_$][\w$]*)\s*\(/g) || [])
+        /* Look only at code, never at text: a step that sets a style carries CSS like
+         * translateY(...) inside a string, which is not a function on the page and never was. */
+        const codeOnly = js => js.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, "''");
+        const callsOf = js => [...new Set((codeOnly(js).match(/(?:^|[^\w.$])([A-Za-z_$][\w$]*)\s*\(/g) || [])
           .map(m => m.replace(/[^\w$]*$/, '').replace(/^[^\w$]*/, '')))]
           .filter(nm => !BUILTIN.test(nm) && nm !== 'try' && nm !== 'catch' && nm !== 'if' && nm !== 'function');
-        for (let i = 0; i < n; i++) {
-          const l = LINES[i];
+        for (let step = 0; step < n; step++) {
+          /* Tell the player which line we are on. It tames an app's first-run overlays on every
+           * step, and a line may ask to keep one (keep:'.modewrap.show'); it reads that from the
+           * line the player thinks it is on. Step without setting this and the player helpfully
+           * closes the very screen the line is about — which looked like a broken video and was
+           * a broken test. */
+          try { eval('i = ' + step); } catch (e) {}
+          const l = LINES[step];
           if (l && l.js) {
             for (const nm of callsOf(l.js)) {
               let t = 'undefined';
               try { t = fr.contentWindow.eval('typeof ' + nm); } catch (e) {}
-              if (t !== 'function') faults.push(i + ': ' + nm + '() does not exist on this page — the step does nothing');
+              if (t !== 'function') faults.push(step + ': ' + nm + '() does not exist on this page — the step does nothing');
             }
-            try { fr.contentWindow.eval(l.js); } catch (e) { faults.push(i + ': js threw — ' + e.message.slice(0, 50)); continue; }
+            try { fr.contentWindow.eval(l.js); } catch (e) { faults.push(step + ': js threw — ' + e.message.slice(0, 50)); continue; }
           }
-          await new Promise(r => setTimeout(r, 140));
+          await new Promise(r => setTimeout(r, 350));   // the player's own pause before it points
           const doc = fr.contentDocument;
           const gate = doc.getElementById('gate');
-          if (gate && !gate.hidden && gate.getBoundingClientRect().height > 40) { faults.push(i + ': the page is asking for a password'); continue; }
+          if (gate && !gate.hidden && gate.getBoundingClientRect().height > 40) { faults.push(step + ': the page is asking for a password'); continue; }
           const body = (doc.body && doc.body.innerText || '').trim();
-          if (body.length < 30) faults.push(i + ': the page is blank (' + body.length + ' characters)');
+          if (body.length < 30) faults.push(step + ': the page is blank (' + body.length + ' characters)');
           // what screen are we on? apps signal it differently, so try the usual places in turn
           const on = doc.querySelector('.tab.on, .pane.on, [data-screen].on, .view.on, .screen.on');
           const head = doc.querySelector('#ttl, #appTitle, #boardName, h1');
@@ -126,10 +135,17 @@ function videos() {
                        (head && head.textContent.trim().slice(0, 24)) || body.slice(0, 18).replace(/\s+/g, ' ');
           if (screens[screens.length - 1] !== name) screens.push(name);
           if (l && l.point) {
-            const el = doc.querySelector(l.point);
-            if (!el) { faults.push(i + ': nothing matches ' + l.point); continue; }
-            const r = el.getBoundingClientRect();
-            if (!(r.width > 2 && r.height > 2)) faults.push(i + ': ' + l.point + ' is on the page but invisible');
+            /* Give it the time a viewer does. The finger lands while a sentence is being spoken,
+             * and a card that slides or a list that fills can take most of a second — so poll
+             * rather than judge it on one reading, which only measures this script's impatience. */
+            let el = null, r = null, seen = false;
+            for (let t = 0; t < 1600; t += 200) {
+              el = doc.querySelector(l.point);
+              if (el) { r = el.getBoundingClientRect(); if (r.width > 2 && r.height > 2) { seen = true; break; } }
+              await new Promise(z => setTimeout(z, 200));
+            }
+            if (!el) { faults.push(step + ': nothing matches ' + l.point); continue; }
+            if (!seen) faults.push(step + ': ' + l.point + ' is on the page but never becomes visible');
           }
         }
         return { faults, screens: screens.length, steps: n };
