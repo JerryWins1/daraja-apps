@@ -1,9 +1,19 @@
 # The teams
 
-Built 4 November 2026 for the next round. **Two teams, two leads.**
+Built 4 November 2026. **Two teams, two managers, and that is the whole of it.**
 
-Pay is settled and out of scope here — Jerry paid the October round himself and has not
-decided whether the next one is paid at all. Nothing in this file assumes it is.
+Jerry, 7 November 2026: *"we only have two. It's team one and team two, and it's run by
+Veronicah and Emmanuel, and that's all."*
+
+**Testing is permanent, not a round.** It runs in weekly cycles, Monday to Sunday, Kenya
+time, starting Monday 9 November 2026. There is no round and no closing date. Pay is
+settled — the rates are in `kenya/pay.md` and the managers' own page is
+https://jerrywins1.github.io/daraja-apps/kenya/lead/
+
+**The teams, the pay and the managers' page are owned by the Daraja · tester pack chat** —
+https://claude.ai/code/session_01EPPiddho9jmdtB6N6bkQbf — and `kenya/lead/teams.json` is
+the live copy the page reads. This file is the reasoning behind them; when the two
+disagree, `teams.json` is right.
 
 ## Team 1 — Emmanuel Koki leads
 
@@ -81,14 +91,16 @@ So each lead has three proven testers and the rest split to keep the teams level
 against 103, and 14 people against 13. Emmanuel keeps the three who already report to him,
 which is a working relationship raw coverage does not measure.
 
-## How a team's round ends
+## How a cycle ends
 
-Every app the team is given with 2 or more passes on its current version, or 7 days,
-whichever comes first.
+Sunday night, Kenya time, every week. Nothing has to be finished for a cycle to close —
+each tester is paid for what they filed that week and the counts start again at zero on
+Monday. The "2 passes or 7 days" round rule is gone, and with it the idea that one stuck
+app holds up anyone's money.
 
-Six apps start the round needing passes: the Daraja front door and Duka (never tested by
-anyone), Receipt Maker, and Rafiki, Ahead of It and In My Own Words, whose versions were
-bumped on 4 November because their code changed.
+Six apps have never had a pass on their current version: the Daraja front door and Duka
+(never tested by anyone), Receipt Maker, and Rafiki, Ahead of It and In My Own Words,
+whose versions were bumped on 4 November because their code changed.
 
 Two of those sit with the people who found the faults: **Brian** is on Team 1 and found the
 Receipt Maker fault; **Fredrick** is on Team 1 and found the Rafiki one, which has only ever
@@ -97,9 +109,9 @@ been tested against a stubbed browser and never a real Kenyan phone.
 ## What switching the teams on takes
 
 **Live from 5 November 2026.** Jerry sent Emmanuel and Veronicah their messages that
-morning, each naming their own team and the six apps that need passes first, so the seven
-days run to **12 November**. Nothing about pay was said in either message, because nothing
-about pay is decided.
+morning, each naming their own team and the six apps that need passes first. Those
+messages said nothing about pay, because pay was not settled until 7 November. Counting
+for money starts Monday 9 November; nothing before that date is paid under these rates.
 
 The `?line=` machinery exists — `testers/index.html` has handled every shelf since
 4 November — but these are teams of people, not shelves, so the two leads divide the apps
@@ -127,5 +139,8 @@ exception is Veronicah's three: Faith Wangari, Frank Ndung'u and Ruth Waitherero
 free of Zuri entirely, and between them have tested nearly everything. None of them had filed
 anything either.
 
-Jerry's call on 5 November was to leave it — the round was one day old and Business Week looked
-close to finishing. A check is set for 7 November and the round still closes on the 12th.
+Jerry's call on 5 November was to leave it — Business Week looked close to finishing. It
+finished, and on 7 November Jerry said so: *"The zuri business week group is completed. We
+moved to two bigger groups led by Veronicah and Emmanuel."* The five people are no longer
+split across two jobs, which is what the clash was. Counting for pay starts fresh on
+Monday 9 November, so the ten silent days cost nobody anything.

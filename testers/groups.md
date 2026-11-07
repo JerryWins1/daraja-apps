@@ -3,14 +3,21 @@
 Set by Jerry, 4 November 2026, app by app. This file is the record, so the order
 does not live only inside a chat.
 
-Every app with a tester script is here. Four were pulled out of the rounds
-altogether; the rest are in Group 1, 2 or 3.
+**These are groups of APPS, not groups of people.** There are exactly two groups of
+people — Team 1 and Team 2 — and they are in `testers/teams.md`. The word "group"
+below never means a team.
 
-**Live now: Groups 1 and 2 together — 20 apps.** Jerry chose on 4 November to run
-both at once rather than wait for Group 1 to close, so `TEST_NOW` in
-`shop/apps_data.js` holds all twenty. Group 3 is held back. The pay gate still
-reads per group — from THIS file, not from `TEST_NOW` — so Group 1 can close and
-pay out while Group 2 is still running.
+Every app with a tester script is here. Four were pulled out altogether; the rest
+are in Group 1, 2 or 3.
+
+**Live now: Groups 1 and 2 together — 22 apps.** Jerry chose on 4 November to run
+both at once rather than wait for Group 1, so `TEST_NOW` in `shop/apps_data.js`
+holds them; Shoebox Counter and Our Table joined on 6 November. The rest of Group 3
+is held back.
+
+**Pay no longer reads this file at all.** A tester is paid per app tested, at a rate
+set by that app's script length, every week — see `kenya/pay.md`. Which group an app
+sits in decides only whether testers can reach it.
 
 **Order changed 6 November.** Five apps gained a WhatsApp button that day, which
 bumped their versions and so wiped their passes, and their test scripts gained
@@ -87,7 +94,7 @@ Group 3's remaining five stay held back.
 
 ## What this does not change
 
-The pay rule is unchanged — 250 KES per completed app-test, see `kenya/pay.md`.
-A round still ends when every app in it has 2 or more passes on its current
-version, or 7 days, whichever comes first. That gate now applies per group, so
-Group 1 can finish and be paid while Group 2 is still running.
+Nothing about pay. The groups decide which apps a tester can reach, and that is
+all they decide. Pay is per app tested, by script length, worked out weekly —
+`kenya/pay.md`. The old "2 passes or 7 days" round gate is gone, so no group
+closes and no group holds up another group's money.

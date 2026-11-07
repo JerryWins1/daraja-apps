@@ -125,16 +125,27 @@ HQ sheet and forwarding them to the tester pack chat — which reads the same te
 problems from its own log twice a day. Every problem arrived twice, and the forwarding
 message itself told that chat to work out which were duplicates. That is not help.
 
-The line, and it is not a suggestion:
+**The line moved on 7 November, and it is simpler now.** The first version of this
+section split the Daraja round from the Zuri squad — but Jerry then said testing is
+permanent, two teams, run by Emmanuel and Veronicah, *"and that's all"*. There is no
+Daraja round to own separately, so testing went whole to one chat:
 
 | | owns |
 | --- | --- |
-| **Daraja · Store Manager** | the store and the Daraja testing round — Ready to Sell, `control/apps.json`, the job-health page, tester questions, store bugs, the leads' pay page |
-| **Daraja · tester pack** | Zuri and the Zuri squad, end to end. It reads the Zuri log itself; nobody needs to send it one. |
+| **Daraja · tester pack**<br>https://claude.ai/code/session_01EPPiddho9jmdtB6N6bkQbf | **all testing and all pay.** Both teams, both managers, `kenya/lead/`, `kenya/lead/rates.json`, the Sunday cycle close, the tester-facing pages, and Zuri. It reads the logs itself; nobody needs to send it one. |
+| **Daraja · Store Manager**<br>https://claude.ai/code/session_01SneDTZZK3LM6dXHfqB8Jeg | **the store.** Ready to Sell, `control/apps.json`, the job-health page, store bugs, the videos and the store cards. Not pay, not the teams, not a tester's money. |
 
 Neither forwards the other's work. If you find something that belongs to the other
 chat, say which chat owns it and leave it — that is already the rule in "One app, one
 chat", and a scheduled job is not an exception to it.
+
+**What splitting pay in two actually cost.** On 7 November the Store Manager chat built
+its own managers' pay page at `kenya/pay/`, on a flat 250-per-test rate and a completion
+gate Jerry had removed that same day, while the tester pack chat was building the real
+one at `kenya/lead/` on the settled 100/150/250 rates. Two pages, two sets of numbers,
+same two managers. Nothing caught it; it was only found when Jerry asked why there were
+three testing groups. `kenya/pay/` was deleted rather than corrected. **One pay system,
+or none.**
 
 **And do not tell Jerry something another job has already told him.** Three jobs report
 to him daily. If the evening watch covers the round and the tester pack covers Zuri,
