@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#11211b">
+<title>My team · Daraja</title>
+<!--
+  kenya/lead/ — the page a team manager opens. v1, 7 Nov 2026.
+
+  WHO IT IS FOR. Emmanuel Koki (team 1) and Veronicah Kimani (team 2). Each has a
+  personal link, kenya/lead/?who=<token>, and the token decides which team they see.
+  It lives here rather than in a Claude artifact because neither of them has an email
+  address or a Claude account, and a page here needs no sign-in at all.
+
+  WHERE THE NUMBERS COME FROM
+   · What each tester did — the Daraja tally (Apps Script, read-only, reads Jerry HQ).
+     Nobody types a tester's numbers in. They come from the reports the testers' own
+     app files.
+   · What has been paid — Supabase, tables daraja_payment / daraja_topup / daraja_notice.
+     Add-only: a row can be written and then never changed or deleted, by anyone.
+   · The rates — rates.json next to this file. Jerry edits that one file.
+   · Which app is which size — bands.json, generated from each app's test script.
+
+  WHAT IT CANNOT DO. It cannot send WhatsApp (it opens WhatsApp with the words ready,
+  which is not the same thing), it cannot record money coming IN from Jerry, and it
+  cannot change or remove a payment once it is written down.
+-->
+<style>
+:root{
+  --bg:#11211b; --panel:#17291f; --fg:#eef3ef; --soft:#9fb3a8; --line:#2b3f34;
+  --green:#3f9a74; --gold:#d69634; --red:#c2574b;
+  --fh:system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#eef0ee; --panel:#ffffff; --fg:#171c1a; --soft:#5b6561; --line:#d4d9d6;
+  --green:#1f5d44; --gold:#8a5d15; --red:#a33a2e; color-scheme:light;
+}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--fh);margin:0;
+  padding:0 max(14px,env(safe-area-inset-left,0px)) 40px;line-height:1.45;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:720px;margin:0 auto}
+header{padding:16px 0 10px}
+h1{font-size:1.15rem;margin:0 0 2px}
+h2{font-size:1rem;margin:0 0 8px}
+.note{color:var(--soft);font-size:.82rem;margin:4px 0}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;position:sticky;top:0;
+  background:var(--bg);z-index:5}
+nav button{flex:0 0 auto;font:inherit;font-size:.88rem;font-weight:600;cursor:pointer;
+  background:var(--panel);color:var(--fg);border:1px solid var(--line);
+  border-radius:999px;padding:8px 14px}
+nav button[aria-current="true"]{background:var(--green);border-color:var(--green);color:#fff}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:12px 13px;margin:0 0 10px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.big{font-size:1.5rem;font-weight:700;letter-spacing:-.02em}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 10px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px}
+.tile .k{color:var(--soft);font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+.who{font-weight:600}
+.pill{font-size:.72rem;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--soft)}
+.pill.ok{color:var(--green);border-color:var(--green)}
+.pill.warn{color:var(--gold);border-color:var(--gold)}
+.pill.bad{color:var(--red);border-color:var(--red)}
+.owed{font-weight:700;white-space:nowrap}
+button.btn{font:inherit;font-weight:600;cursor:pointer;background:var(--green);color:#fff;
+  border:1px solid var(--green);border-radius:10px;padding:10px 14px;width:100%}
+button.ghost{background:var(--panel);color:var(--fg);border-color:var(--line)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.wa{color:var(--green);background:var(--panel);font:inherit;font-size:.82rem;cursor:pointer;
+  text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;white-space:nowrap}
+label{display:block;font-size:.82rem;color:var(--soft);margin:10px 0 4px}
+select,input,textarea{font:inherit;width:100%;background:var(--bg);color:var(--fg);
+  border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:110px;resize:vertical}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+td,th{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--soft);font-weight:600;font-size:.74rem;text-transform:uppercase}
+td.n,th.n{text-align:right;white-space:nowrap}
+.msg{border-radius:10px;padding:10px;margin:10px 0;font-size:.86rem}
+.msg.ok{background:rgba(63,154,116,.14);border:1px solid var(--green)}
+.msg.bad{background:rgba(194,87,75,.14);border:1px solid var(--red)}
+footer{color:var(--soft);font-size:.76rem;padding:16px 0}
+</style>
+
+<div class="wrap">
+<header>
+  <h1 id="hTitle">My team</h1>
+  <p class="note" id="hSub">Loading…</p>
+</header>
+
+<div id="gate" hidden>
+  <div class="card">
+    <h2>This link is not complete</h2>
+    <p class="note">A manager's page opens from the personal link Jerry sent you on
+      WhatsApp. It ends in <b>?who=</b> and then a long code. Open that link again, or
+      ask Jerry to send it to you a second time.</p>
+  </div>
+</div>
+
+<div id="app" hidden>
+<nav>
+  <button id="t-team" type="button">My team</button>
+  <button id="t-pay" type="button">Record a payment</button>
+  <button id="t-money" type="button">Money</button>
+  <button id="t-tell" type="button">Tell my team</button>
+</nav>
+
+<section id="v-team">
+  <div class="tiles">
+    <div class="tile"><div class="k">My pay account</div><div class="big" id="kBal">—</div>
+      <div class="note" id="kBalN">what Jerry has sent, less what I have paid</div></div>
+    <div class="tile"><div class="k">My team is owed</div><div class="big" id="kOwed">—</div>
+      <div class="note">not yet paid</div></div>
+    <div class="tile"><div class="k">I have paid</div><div class="big" id="kPaid">—</div>
+      <div class="note">since 9 November</div></div>
+    <div class="tile"><div class="k">Gone quiet</div><div class="big" id="kQuiet">—</div>
+      <div class="note">nothing filed in 7 days, or never started</div></div>
+  </div>
+  <div id="teamList"></div>
+  <p class="note" id="freshness"></p>
+</section>
+
+<section id="v-pay" hidden>
+  <div class="card">
+    <h2>Record a payment</h2>
+    <p class="note">Send the money first — on M-Pesa, as you normally would. Then write
+      it down here. Once it is written down it cannot be changed or taken back, by you,
+      by Jerry or by me.</p>
+    <label for="pWho">Who did you pay?</label>
+    <select id="pWho"></select>
+    <label for="pAmt">How much, in KES?</label>
+    <input id="pAmt" type="number" min="1" step="1" inputmode="numeric">
+    <label for="pNote">A note, if you want one</label>
+    <input id="pNote" type="text" maxlength="120" placeholder="optional">
+    <div style="margin-top:12px"><button class="btn" id="pGo" type="button">I have sent this money</button></div>
+    <div id="pMsg" hidden></div>
+  </div>
+  <div class="card">
+    <h2>Payments written down so far</h2>
+    <div id="payHist"></div>
+  </div>
+</section>
+
+<section id="v-money" hidden>
+  <div class="card">
+    <h2>My pay account</h2>
+    <table>
+      <tr><td>Jerry has sent me</td><td class="n" id="mIn">—</td></tr>
+      <tr><td>I have paid out</td><td class="n" id="mOut">—</td></tr>
+      <tr><td><b>Left in the account</b></td><td class="n" id="mBal"><b>—</b></td></tr>
+      <tr><td>My team is owed</td><td class="n" id="mOwed">—</td></tr>
+    </table>
+    <p class="note" id="mShort"></p>
+  </div>
+  <div class="card">
+    <h2>Money Jerry has sent me</h2>
+    <div id="topHist"></div>
+    <p class="note">Only Jerry can add to this. This page cannot write it, which is on
+      purpose — money coming in and money going out are never recorded by the same hand.</p>
+  </div>
+  <div class="card">
+    <h2>What a tester earns</h2>
+    <div id="rateList"></div>
+  </div>
+</section>
+
+<section id="v-tell" hidden>
+  <div class="card">
+    <h2>Tell my team</h2>
+    <p class="note">Write it once. The button opens WhatsApp with your words already
+      typed, and you choose the chat — your team group, or one person. You still press
+      send yourself. Then write it down here, so Jerry can see the team was told.</p>
+    <label for="tBody">What do you want to say?</label>
+    <textarea id="tBody" maxlength="900" placeholder="This week start with Rafiki and Duka…"></textarea>
+    <div style="margin:10px 0"><button class="btn" id="tWa" type="button">Open WhatsApp with this message</button></div>
+    <button class="btn ghost" id="tGo" type="button">Write down that I told them</button>
+    <div id="tMsg" hidden></div>
+  </div>
+  <div class="card">
+    <h2>What I have told them</h2>
+    <div id="tellHist"></div>
+  </div>
+</section>
+</div>
+
+<footer>
+  A tester's numbers come from the reports their own app files — nobody types them in.
+  Payments and messages are written down once and never changed.
+</footer>
+</div>
+
+<script>
+/* ---------- where things live ---------- */
+/* The tally's own key is NOT in this file. This repo is public, and that key opens
+   every tester's reports. It travels in the manager's personal link (&k=…) and is
+   kept in their phone from then on. */
+var TALLYBASE = 'https://script.google.com/macros/s/AKfycbzHSpqxCITCSjVPZ5glJrmOPVYWsb7RwNazYyTzrgB88eTP_6fmTBGpTapCpfAH73bTyQ/exec';
+var SB  = 'https://wlawjwowdmneatdffpsy.supabase.co/rest/v1';
+/* The database's publishable key is not in this file either, for the same reason as
+   the tally key: this repo is public. Both halves ride in the manager's own link. */
+var SBK = '';
+
+var $ = function(id){ return document.getElementById(id); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+var plural = function(n,one,many){ return n + ' ' + (n===1 ? one : (many || one+'s')); };
+var KES = function(n){ return (Math.round(Number(n)||0)).toLocaleString('en-US'); };
+
+/* ---------- who is holding the phone ---------- */
+var qs = new URLSearchParams(location.search);
+var WHO = (qs.get('who')||'').trim();
+var TKEY = (qs.get('k')||'').trim();
+SBK = (qs.get('s')||'').trim();
+try {
+  if (WHO)  localStorage.setItem('dj_lead_who', WHO); else WHO  = localStorage.getItem('dj_lead_who')||'';
+  if (TKEY) localStorage.setItem('dj_lead_k', TKEY);  else TKEY = localStorage.getItem('dj_lead_k')||'';
+  if (SBK)  localStorage.setItem('dj_lead_s', SBK);   else SBK  = localStorage.getItem('dj_lead_s')||'';
+} catch(e){}
+if (qs.get('who') || qs.get('k') || qs.get('s')) { try { history.replaceState(null,'',location.pathname); } catch(e){} }
+var TALLY = TKEY ? (TALLYBASE + '?key=' + encodeURIComponent(TKEY)) : '';
+
+var TEAM = null, TEAMNO = null, CFG = null, RATES = null, BANDS = null;
+var TALLYDATA = null, PAYS = [], TOPS = [], NOTES = [], PEOPLE = [];
+
+/* ---------- days, Kenya time (UTC+3, no daylight saving) ---------- */
+function kenyaDay(v){
+  if (!v) return '';
+  var d = (v instanceof Date) ? v : new Date(v);
+  if (isNaN(d)) return String(v).slice(0,10);
+  return new Date(d.getTime() + 3*3600*1000).toISOString().slice(0,10);
+}
+function mondayOf(day){                       /* the Monday of the week a yyyy-mm-dd falls in */
+  var d = new Date(day + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay()+6) % 7));
+  return d.toISOString().slice(0,10);
+}
+function daysSince(day){
+  if (!day) return null;
+  var a = new Date(day+'T00:00:00Z'), b = new Date(kenyaDay(new Date())+'T00:00:00Z');
+  return Math.max(0, Math.round((b-a)/86400000));   /* a clock that is ahead must never read as quiet */
+}
+
+/* ---------- matching a name in a report to a person on the team ---------- */
+function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+/g,' ').trim(); }
+var BYNAME = {}, MINE = {}, JUNK = /$^/, UNKNOWN = {};
+function indexPeople(){
+  BYNAME = {}; MINE = {};
+  try { JUNK = new RegExp(CFG.junk, 'i'); } catch(e) { JUNK = /$^/; }   /* Jerry's own tests, rehearsals, Claude */
+  /* Both teams go into the index, not just this one. Matching inside one team
+     only would let a bare "Faith" mean Faith Mwende on team 1 and Faith Wangari
+     on team 2 — one report, two people paid. Caught in testing, 7 Nov. */
+  Object.keys(CFG.teams).forEach(function(t){
+    CFG.teams[t].people.forEach(function(p){ BYNAME[norm(p.name)] = p.name; });
+  });
+  Object.keys(CFG.aliases||{}).forEach(function(k){
+    var real = CFG.aliases[k];
+    if (BYNAME[norm(real)]) BYNAME[norm(k)] = real;
+  });
+  PEOPLE.forEach(function(p){ MINE[p.name] = true; });
+}
+function everyone(){
+  var all = [];
+  Object.keys(CFG.teams).forEach(function(t){ all = all.concat(CFG.teams[t].people); });
+  return all;
+}
+/* A report carries whatever the tester typed. Only two things count as the same
+   person: the exact name or a spelling listed in aliases, or a single first name
+   that fits exactly one tester anywhere. Anything looser pays the wrong tester —
+   a first attempt at this credited "Faith Wangari" to Emmanuel Koki, caught 7 Nov. */
+function whoIs(name){
+  var n = norm(name);
+  if (!n || JUNK.test(String(name))) return null;
+  if (BYNAME[n]) return BYNAME[n];
+  if (n.indexOf(' ') !== -1) return null;                   /* a full name we do not know is not a guess to make */
+  var hits = [];
+  everyone().forEach(function(p){ if (norm(p.name).split(' ')[0] === n) hits.push(p.name); });
+  return hits.length === 1 ? hits[0] : null;                /* two Faiths, two Georges: match neither */
+}
+
+/* ---------- what each tester has earned since the cycle started ---------- */
+function bandOf(appKey){
+  var a = BANDS && BANDS.apps && BANDS.apps[String(appKey||'').trim()];
+  return a ? a.band : 'medium';                             /* an app we don't know is paid the middle rate */
+}
+function earnings(){
+  var start = CFG.cycleStart, out = {};
+  PEOPLE.forEach(function(p){
+    out[p.name] = { name:p.name, phone:p.phone, lead:!!p.lead, small:0, medium:0, big:0,
+                    reports:0, probReports:0, useWeeks:0, apps:{}, last:'', earned:0, useDays:{} };
+  });
+  if (!TALLYDATA) return out;
+
+  UNKNOWN = {};
+  (TALLYDATA.tests||[]).forEach(function(t){
+    var who = whoIs(t.who);
+    if (!who && t.who && !JUNK.test(t.who)) UNKNOWN[t.who] = true;   /* never drop a report in silence */
+    if (!who || !out[who]) return;
+    var day = kenyaDay(t.at); if (!day || day < start) return;
+    var b = bandOf(t.app);
+    out[who][b]++; out[who].reports++;
+    out[who].apps[t.app] = true;
+    if (t.problems > 0 && !t.rejected) out[who].probReports++;
+    if (day > out[who].last) out[who].last = day;
+  });
+
+  (TALLYDATA.use||[]).forEach(function(u){
+    var who = whoIs(u.who); if (!who || !out[who]) return;
+    var day = String(u.day||'').slice(0,10); if (!day || day < start) return;
+    var wk = mondayOf(day);
+    (out[who].useDays[wk] = out[who].useDays[wk] || {})[day] = true;
+    if (day > out[who].last) out[who].last = day;
+  });
+
+  Object.keys(out).forEach(function(k){
+    var p = out[k], need = Number(RATES.useDays)||5;
+    Object.keys(p.useDays).forEach(function(wk){
+      if (Object.keys(p.useDays[wk]).length >= need) p.useWeeks++;
+    });
+    p.earned = p.small*RATES.small + p.medium*RATES.medium + p.big*RATES.big
+             + p.probReports*RATES.problem + p.useWeeks*RATES.useweek;
+    p.paid = PAYS.reduce(function(s,r){ return s + (r.tester===k ? Number(r.amount_kes)||0 : 0); }, 0);
+    p.owed = Math.max(0, p.earned - p.paid);
+    p.appCount = Object.keys(p.apps).length;
+  });
+  return out;
+}
+function standing(p){
+  var n = daysSince(p.last);
+  if (n === null) return ['Never started','bad'];
+  if (n >= 14) return ['Gone quiet · '+n+' days','bad'];
+  if (n >= 7)  return ['Quiet · '+n+' days','warn'];
+  return ['Active · '+(n===0?'today':n+' days ago'),'ok'];
+}
+
+/* ---------- reading and writing ---------- */
+function getJSON(url, opts){
+  return fetch(url, opts||{}).then(function(r){
+    if (!r.ok) throw new Error(r.status + ' ' + url.split('?')[0]);
+    return r.json();
+  });
+}
+function sbGet(table, query){
+  if (!SBK) return Promise.resolve([]);
+  return getJSON(SB + '/' + table + '?' + query, { headers:{ apikey:SBK, Authorization:'Bearer '+SBK } });
+}
+function sbAdd(table, row){
+  if (!SBK) return Promise.reject(new Error('this link is missing its second half, so nothing can be saved — ask Jerry to send it again'));
+  return fetch(SB + '/' + table, {
+    method:'POST',
+    headers:{ apikey:SBK, Authorization:'Bearer '+SBK, 'Content-Type':'application/json', Prefer:'return=representation' },
+    body: JSON.stringify(row)
+  }).then(function(r){
+    return r.json().catch(function(){ return null; }).then(function(body){
+      if (!r.ok) throw new Error((body && (body.message||body.hint)) || ('could not save (' + r.status + ')'));
+      return body;
+    });
+  });
+}
+function openWhatsApp(text){
+  window.open('https://wa.me/?text=' + encodeURIComponent(String(text||'').slice(0,900)), '_blank', 'noopener');
+}
+function say(id, text, bad){
+  var e = $(id); e.hidden = false; e.className = 'msg ' + (bad ? 'bad' : 'ok'); e.textContent = text;
+}
+
+/* ---------- drawing ---------- */
+var VIEWS = ['team','pay','money','tell'];
+function show(v){
+  VIEWS.forEach(function(k){
+    $('v-'+k).hidden = (k !== v);
+    $('t-'+k).setAttribute('aria-current', String(k === v));
+  });
+}
+VIEWS.forEach(function(v){ $('t-'+v).addEventListener('click', function(){ show(v); }); });
+
+function draw(){
+  var E = earnings(), names = Object.keys(E);
+  var owed = 0, paid = 0, quiet = 0;
+  names.forEach(function(k){
+    owed += E[k].owed; paid += E[k].paid;
+    var d = daysSince(E[k].last); if (d === null || d >= 7) quiet++;
+  });
+  var topped = TOPS.reduce(function(s,r){ return s + (Number(r.amount_kes)||0); }, 0);
+  var bal = topped - paid;
+
+  $('kBal').textContent  = KES(bal);
+  $('kOwed').textContent = KES(owed);
+  $('kPaid').textContent = KES(paid);
+  $('kQuiet').textContent = quiet + ' of ' + names.length;
+  $('kBalN').textContent = topped ? 'Jerry has sent ' + KES(topped) + ' KES' : 'Jerry has not sent anything yet';
+
+  var rows = names.map(function(k){ return E[k]; }).sort(function(a,b){
+    return (b.owed - a.owed) || a.name.localeCompare(b.name);
+  });
+  $('teamList').innerHTML = rows.map(function(p){
+    var st = standing(p);
+    return '<div class="card">' +
+      '<div class="row"><span class="who">' + esc(p.name) + (p.lead ? ' <span class="pill">you</span>' : '') + '</span>' +
+      '<span class="owed">' + KES(p.owed) + ' KES</span></div>' +
+      '<div class="row" style="margin-top:6px">' +
+        '<span class="note">' + plural(p.appCount,'app') + ' · ' + plural(p.reports,'report') + ' · ' +
+        p.probReports + ' with a problem · ' + plural(p.useWeeks,'use bonus','use bonuses') + '</span>' +
+        '<button class="wa" type="button" data-nudge="' + esc(p.name) + '">Message</button>' +
+      '</div>' +
+      '<div class="row" style="margin-top:6px"><span class="pill ' + st[1] + '">' + esc(st[0]) + '</span>' +
+      '<span class="note">earned ' + KES(p.earned) + ' · paid ' + KES(p.paid) + '</span></div>' +
+    '</div>';
+  }).join('');
+
+  $('pWho').innerHTML = rows.map(function(p){
+    return '<option value="' + esc(p.name) + '">' + esc(p.name) + ' — owed ' + KES(p.owed) + '</option>';
+  }).join('');
+  var fill = function(){ var p = E[$('pWho').value]; $('pAmt').value = p ? p.owed : ''; };
+  $('pWho').onchange = fill; fill();
+
+  $('mIn').textContent   = KES(topped) + ' KES';
+  $('mOut').textContent  = KES(paid) + ' KES';
+  $('mBal').innerHTML    = '<b>' + KES(bal) + ' KES</b>';
+  $('mOwed').textContent = KES(owed) + ' KES';
+  $('mShort').textContent = bal >= owed
+    ? 'There is enough in the account to pay everybody what they are owed.'
+    : 'Short by ' + KES(owed - bal) + ' KES. Tell Jerry.';
+
+  $('payHist').innerHTML = PAYS.length ? ('<table><tr><th>When</th><th>Who</th><th class="n">KES</th></tr>' +
+    PAYS.map(function(r){ return '<tr><td>' + esc(kenyaDay(r.at)) + '</td><td>' + esc(r.tester) +
+      (r.note ? '<br><span class="note">' + esc(r.note) + '</span>' : '') +
+      '</td><td class="n">' + KES(r.amount_kes) + '</td></tr>'; }).join('') + '</table>')
+    : '<p class="note">Nothing written down yet.</p>';
+
+  $('topHist').innerHTML = TOPS.length ? ('<table><tr><th>When</th><th>Note</th><th class="n">KES</th></tr>' +
+    TOPS.map(function(r){ return '<tr><td>' + esc(kenyaDay(r.at)) + '</td><td>' + esc(r.note||'') +
+      '</td><td class="n">' + KES(r.amount_kes) + '</td></tr>'; }).join('') + '</table>')
+    : '<p class="note">Jerry has not sent anything yet.</p>';
+
+  $('tellHist').innerHTML = NOTES.length ? NOTES.map(function(r){
+    return '<p class="note"><b>' + esc(kenyaDay(r.at)) + '</b> — ' + esc(r.body) + '</p>'; }).join('')
+    : '<p class="note">Nothing written down yet.</p>';
+
+  /* No phone number anywhere. wa.me with no number opens WhatsApp with the words
+     ready and lets the manager choose the chat — the team group, or one person.
+     This repo is public, so nobody's number is written down in it. */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-nudge]'), function(b){
+    b.addEventListener('click', function(){
+      var first = b.getAttribute('data-nudge').split(' ')[0];
+      openWhatsApp('Habari ' + first + ' — ');
+    });
+  });
+
+  $('rateList').innerHTML =
+    '<table>' +
+    '<tr><td>A small app</td><td class="n">' + KES(RATES.small) + ' KES</td></tr>' +
+    '<tr><td>A normal app</td><td class="n">' + KES(RATES.medium) + ' KES</td></tr>' +
+    '<tr><td>A big app</td><td class="n">' + KES(RATES.big) + ' KES</td></tr>' +
+    '<tr><td>A report that finds a real problem</td><td class="n">' + KES(RATES.problem) + ' KES</td></tr>' +
+    '<tr><td>Using an app ' + (RATES.useDays||5) + ' days in a week</td><td class="n">' + KES(RATES.useweek) + ' KES</td></tr>' +
+    '</table>' +
+    '<p class="note">Per report, not per problem. The use bonus is once a week, Monday to Sunday. ' +
+    'Jerry sets these — tell him if one looks wrong.</p>';
+
+  var strangers = Object.keys(UNKNOWN);
+  $('freshness').innerHTML = TALLYDATA
+    ? 'Counting everything filed since ' + esc(CFG.cycleStart) + '. Read just now.' +
+      (strangers.length ? '<br><b>Filed under a name nobody on either team uses:</b> ' + strangers.map(esc).join(' · ') +
+        '. Not counted, and nobody is being paid for them. Tell Jerry.' : '')
+    : (TALLY ? 'The testers’ numbers could not be read just now, so everything above is zero. Payments are still safe to record — try again later, and tell Jerry if it stays like this.'
+             : 'This link is missing its second half, so no tester numbers can be read. Ask Jerry to send you the full link again. Payments you record are still safe.');
+}
+
+/* ---------- the buttons that write ---------- */
+$('pGo').addEventListener('click', function(){
+  var who = $('pWho').value, amt = Math.round(Number($('pAmt').value)||0);
+  if (!who) return say('pMsg','Choose who you paid.', true);
+  if (!(amt > 0)) return say('pMsg','Type how much you sent.', true);
+  if (amt > 20000) return say('pMsg','That is more than 20,000 KES. Check it, and ask Jerry if it is right.', true);
+  $('pGo').disabled = true;
+  sbAdd('daraja_payment', { team:TEAMNO, manager:TEAM.manager, tester:who, amount_kes:amt,
+                            note:($('pNote').value||'').slice(0,120) })
+    .then(function(){
+      $('pNote').value = '';
+      return sbGet('daraja_payment','select=*&team=eq.'+TEAMNO+'&order=at.desc');
+    })
+    .then(function(rows){ PAYS = rows||[]; draw(); say('pMsg','Written down: ' + KES(amt) + ' KES to ' + who + '.'); })
+    .catch(function(e){ say('pMsg','It did not save: ' + e.message + '. Nothing was recorded — try again.', true); })
+    .then(function(){ $('pGo').disabled = false; });
+});
+
+$('tWa').addEventListener('click', function(){
+  var body = ($('tBody').value||'').trim();
+  if (!body) return say('tMsg','Write the message first.', true);
+  openWhatsApp(body);
+});
+
+$('tGo').addEventListener('click', function(){
+  var body = ($('tBody').value||'').trim();
+  if (!body) return say('tMsg','Write the message first.', true);
+  $('tGo').disabled = true;
+  sbAdd('daraja_notice', { team:TEAMNO, manager:TEAM.manager, body:body.slice(0,900) })
+    .then(function(){ return sbGet('daraja_notice','select=*&team=eq.'+TEAMNO+'&order=at.desc&limit=20'); })
+    .then(function(rows){ NOTES = rows||[]; draw(); say('tMsg','Written down. Jerry can see your team was told.'); })
+    .catch(function(e){ say('tMsg','It did not save: ' + e.message, true); })
+    .then(function(){ $('tGo').disabled = false; });
+});
+
+/* ---------- start up ---------- */
+Promise.all([ getJSON('teams.json?cb='+Date.now()), getJSON('rates.json?cb='+Date.now()), getJSON('bands.json?cb='+Date.now()) ])
+.then(function(r){
+  CFG = r[0]; RATES = r[1]; BANDS = r[2];
+  Object.keys(CFG.teams).forEach(function(n){ if (CFG.teams[n].token === WHO) { TEAM = CFG.teams[n]; TEAMNO = Number(n); } });
+  if (!TEAM) { $('gate').hidden = false; $('hSub').textContent = 'This link is not complete.'; return null; }
+
+  PEOPLE = TEAM.people; indexPeople();
+  $('app').hidden = false;
+  $('hTitle').textContent = TEAM.manager.split(' ')[0] + '’s team';
+  $('hSub').textContent = PEOPLE.length + ' testers · the week runs Monday to Sunday';
+  show('team');
+
+  return Promise.all([
+    (TALLY ? getJSON(TALLY).catch(function(){ return null; }) : Promise.resolve(null)),
+    sbGet('daraja_payment','select=*&team=eq.'+TEAMNO+'&order=at.desc').catch(function(){ return []; }),
+    sbGet('daraja_topup','select=*&team=eq.'+TEAMNO+'&order=at.desc').catch(function(){ return []; }),
+    sbGet('daraja_notice','select=*&team=eq.'+TEAMNO+'&order=at.desc&limit=20').catch(function(){ return []; })
+  ]).then(function(d){
+    TALLYDATA = (d[0] && d[0].ok) ? d[0] : null;
+    PAYS = d[1]||[]; TOPS = d[2]||[]; NOTES = d[3]||[];
+    draw();
+  });
+})
+.catch(function(e){
+  $('hSub').textContent = 'Something did not load: ' + e.message + '. Tell Jerry what this says.';
+});
+</script>
+</html>
