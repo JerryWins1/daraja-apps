@@ -2418,11 +2418,12 @@
         <b>Every change and question, in three steps: 📥 New → 🔧 Being fixed → ✅ Fixed.</b>
         <p class="muted" style="margin:4px 0 10px">Say “work the stack” and Claude groups them, fixes them after your go, and moves each one to ✅ Fixed himself. Your only job is the green button on a fixed one: <b>📨 Tell them</b>. It quotes their words, so they know which question you’re answering.</p>
         <div class="chips"><button class="chip main" onclick="copy('work the stack')">📋 work the stack</button><button class="chip" onclick="addRequest()">＋ Add one myself</button></div>
+        <div id="stackClearBar" class="chips" style="display:none;margin-top:10px"></div>
       </div>
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.55 · 2026-11-07 · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.56 · 2026-11-07 · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -3718,6 +3719,91 @@ function renderStack(){
         :`<button class="chip small wa" onclick="replyDone('${r.id}')">📨 Tell them</button><button class="chip small" onclick="moveReq('${r.id}','told')">No need to tell</button>`}
         ${r.person_id?`<button class="chip small" onclick="openPerson('${r.person_id}')">👤</button>`:''}</div></div>`).join(''):'<p class="muted" style="margin:0">Nothing here.</p>'}</div>`; }).join('')
     +(told.length?`<details class="card" style="margin-top:12px"><summary>✓ Done and told <small class="muted">${told.length}</small></summary>${told.slice(0,20).map(r=>`<div class="item meta">${esc(r.name)} · ${esc(String(r.text).slice(0,90))}</div>`).join('')}</details>`:'');
+  try{ renderStackClear(); }catch(e){}
+}
+
+/* ── 🧹 Clear out the stack (v1.56, 7 Nov 2026) ──
+   Jerry: "The Stack option has 1838 items in it. Can you look at them and take out the ones that
+   have been fixed and not needed anymore."
+
+   Claude cannot read his stack from here — it lives behind HQ's own key, which never comes near a
+   chat. So this does the looking on his screen instead of guessing: the sheet counts what is
+   actually in there, bucket by bucket and by age, and he picks. Nothing is deleted, because the
+   mailbox has no delete: an item is marked "told", which is the same thing ✓ No need to tell does
+   one row at a time. It drops out of the three buckets into ✓ Done and told, with every word kept.
+
+   request.set takes one id, not a list (unlike message.read), so 1,838 of them is 1,838 round
+   trips. Six at a time turns half an hour into a few minutes, and it reports where it got to
+   rather than pretending — if HQ stops answering, the rest are still there and it can run again. */
+/* Three at a time, not six. HQ is a Google Apps Script over a sheet, and it takes a lock to write:
+   push too many at once and some come back refused for no better reason than traffic. Each id also
+   gets one retry after a breath, so a collision costs a second rather than a row left behind. */
+const STACK_LANES = 3;
+function stackOpen(){ return ((D&&D.requests)||[]).filter(r=>['told'].indexOf(r.status||'new')<0); }
+function stackBy(kind){
+  const r=stackOpen();
+  return kind==='fixed' ? r.filter(x=>x.status==='done')
+       : kind==='fixing'? r.filter(x=>['planned','building'].indexOf(x.status)>=0)
+       : r.filter(x=>['new','stack'].indexOf(x.status||'new')>=0);
+}
+function renderStackClear(){
+  const bar=$('stackClearBar'); if(!bar) return;
+  const n=stackOpen().length;
+  if(n<20){ bar.style.display='none'; bar.innerHTML=''; return; }
+  bar.style.display='flex';
+  bar.innerHTML='<button class="chip" onclick="stackClearSheet()">🧹 '+n+' in the stack — clear out the ones that are done</button>';
+}
+function stackClearSheet(){
+  const F=stackBy('fixed'), B=stackBy('fixing'), N=stackBy('new'), all=stackOpen();
+  const old=(d,l)=>olderThan(d,l).length;
+  const row=(em,label,list,note)=>'<p style="margin:0 0 6px"><b>'+em+' '+list.length+'</b> '+label
+    +'<br><span class="muted" style="font-size:13px">'+note+'</span></p>';
+  sheet('<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0 2px">🧹 Clear out the stack</h3>'
+    + '<p class="muted" style="font-size:14px;margin:0 0 10px">What is actually in there right now:</p>'
+    + row('✅','fixed, nobody told', F, 'Claude fixed these. Clearing them is “no need to tell” — the tester never hears back.')
+    + row('🔧','being fixed', B, 'Claude is part-way through these. Clearing one means it stops being tracked.')
+    + row('📥','new, never looked at', N, 'Nobody has read these yet, so nobody can say they are fixed. Age is the only safe guide.')
+    + '<p class="muted" style="font-size:13px;margin:10px 0 6px">Nothing is deleted — the mailbox has no delete. Each one is marked “told” and moves to ✓ Done and told, with every word kept.</p>'
+    + '<div class="chips">'
+    + (F.length?'<button class="chip main" onclick="stackClear(\'fixed\',0)">✅ Just the fixed ones — '+F.length+'</button>':'')
+    + (old(30,all)?'<button class="chip" onclick="stackClear(\'all\',30)">Anything older than 30 days — '+old(30,all)+'</button>':'')
+    + (old(7,all)?'<button class="chip" onclick="stackClear(\'all\',7)">Older than 7 days — '+old(7,all)+'</button>':'')
+    + (all.length?'<button class="chip" onclick="stackClear(\'all\',0)">Everything — '+all.length+'</button>':'')
+    + '</div>'
+    + '<p class="muted" style="font-size:13px;margin:10px 0 0">✅ Just the fixed ones is the safe one, and the closest to “take out what is done”. '
+    + 'Clearing a 📥 new one throws away something nobody has read — 30 days is the gentle version of that.</p>'
+    + '<div id="stackClearGo" style="margin-top:10px"></div>');
+}
+let STACK_STOP=false;
+async function stackClear(kind, days){
+  const list = olderThan(days, kind==='fixed'?stackBy('fixed'):stackOpen());
+  const ids = list.map(r=>r.id).filter(Boolean);
+  const out=$('stackClearGo');
+  if(!ids.length){ if(out) out.innerHTML='<p class="muted" style="margin:0">Nothing matches that.</p>'; return; }
+  document.querySelectorAll('#sheetBody .chips .chip').forEach(b=>b.disabled=true);
+  STACK_STOP=false;
+  let done=0, failed=0, next=0;
+  const say=()=>{ if(out) out.innerHTML='<p style="margin:0 0 8px"><b>'+done+' of '+ids.length+'</b> cleared…</p>'
+    + '<div class="chips"><button class="chip" onclick="STACK_STOP=true">Stop</button></div>'; };
+  say();
+  const lane=async()=>{ while(next<ids.length && !STACK_STOP){
+      const id=ids[next++];
+      let ok=false;
+      for(let go=0; go<2 && !ok && !STACK_STOP; go++){
+        try{ await hq({action:'request.set',id,status:'told'}); ok=true; }
+        catch(e){ if(go===0) await new Promise(z=>setTimeout(z,600)); }
+      }
+      if(ok){ done++; const r=D.requests.find(x=>x.id===id); if(r) r.status='told'; } else failed++;
+      if(done%10===0||next>=ids.length) say();
+    } };
+  await Promise.all(Array.from({length:Math.min(STACK_LANES,ids.length)}, lane));
+  render();
+  if(out) out.innerHTML = STACK_STOP
+    ? '<p style="margin:0">Stopped at <b>'+done+' of '+ids.length+'</b>. The rest are still in the stack — run it again whenever.</p>'
+    : failed
+    ? '<p style="margin:0"><b>'+done+'</b> cleared, <b>'+failed+'</b> HQ would not take. The ones left are still here — run it again in a minute.</p>'
+    : '<p style="margin:0">✓ All '+done+' cleared — marked “told”, nothing deleted. They are under ✓ Done and told.</p>';
+  toast(done+' cleared from the stack');
 }
 async function moveReq(id,status){ if(!status) return; await act({action:'request.set',id,status},status==='done'?'✅ Fixed — now tell them':status==='building'?'🔧 On it':status==='told'?'Done':'Moved'); }
 function replyDone(id){ const r=D.requests.find(x=>x.id===id); if(!r) return; quoteReply(r.person_id, r.text, {reqId:id, fixed:true, note:r.fixed||''}); }
