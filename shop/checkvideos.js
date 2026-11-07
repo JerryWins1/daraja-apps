@@ -47,6 +47,44 @@ function serveLocal(p) {
   });
 }
 
+/* ── does the video start before the app is ready? ──
+ * Found on 7 Nov by the Compass chat, in a video every check here had passed. Compass opens on
+ * "📍 Where are you?" until setPlace runs. Thirty-six of its lines call setPlace; the two opening
+ * lines are plain strings, so the voice introduces the app for twenty seconds over a screen that
+ * is not the app yet. Nothing here caught it: a line with no js and no pointer is only tested for
+ * a password box and a blank page, and a country card is neither.
+ *
+ * This is the shape of that fault, and it can be seen without opening a browser at all. If a call
+ * runs on nearly every directed line, the video needs it to be true — it is setup, re-done each
+ * step because the frame may have moved on. A line 0 that skips it plays before the app is set up.
+ *
+ * Tidying is not setup: close/hide/toggle/reset undo something, and on line 0 there is nothing to
+ * undo, so not calling them changes nothing a viewer could see. Navigation is not setup either —
+ * hoisting show() to line 0 was tried on 6 Nov and made every video open on the wrong screen.
+ * With those two out, this flags Compass's two videos and nothing else in the whole catalogue. */
+const TIDY = /^(close|hide|dismiss|reset|clear|toggle|collapse|cancel|stop|blur)/i;
+const NAV  = /^(show|go|goTo|tab|openTab|setTab|nav|screen|view|render|draw|paint|scrollTo|focus|toast)$/i;
+const PLAIN = /^(if|try|catch|for|while|function|typeof|return|eval|setTimeout|setInterval|JSON|Date|Math|console|parseInt|parseFloat|String|Number|Object|Array|querySelector|getElementById)$/;
+const bare = js => js.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, "''");
+const setupCalls = js => [...new Set((bare(js).match(/(?:^|[^\w.$])([A-Za-z_$][\w$]*)\s*\(/g) || [])
+  .map(m => m.replace(/[^\w$]*$/, '').replace(/^[^\w$]*/, '')))]
+  .filter(n => !PLAIN.test(n) && !TIDY.test(n) && !NAV.test(n) && !/^__/.test(n));
+
+function setupGap(lines) {
+  const directed = lines.filter(l => l && typeof l === 'object' && l.js);
+  if (directed.length < 3) return null;
+  const tally = {};
+  directed.forEach(l => setupCalls(l.js).forEach(n => { tally[n] = (tally[n] || 0) + 1; }));
+  const needed = Object.keys(tally).filter(n => tally[n] / directed.length >= 0.6);
+  if (!needed.length) return null;
+  const first = lines[0], firstJs = (first && typeof first === 'object' && first.js) || '';
+  const missing = needed.filter(n => !new RegExp('\\b' + n + '\\s*\\(').test(firstJs));
+  if (!missing.length) return null;
+  return 'line 0 runs before ' + missing.map(n => n + '()').join(' and ') +
+         ', which ' + Math.round(tally[missing[0]] / directed.length * 100) +
+         '% of its other lines call — the opening talks over a screen the app has not set up yet';
+}
+
 const elsewhere = [];
 function videos() {
   const APPS = new Function(fs.readFileSync(path.join(ROOT, 'shop/apps_data.js'), 'utf8') + ';return APPS;')();
@@ -162,6 +200,7 @@ function videos() {
     } catch (e) {
       report = { fatal: e.message.split('\n')[0].slice(0, 70) };
     }
+    if (report && report.faults) { const g = setupGap(v.lines); if (g) report.faults.unshift(g); }
     if (report.fatal) { broken.push([v.key, report.fatal]); console.log('  ✗ ' + v.key.padEnd(28) + report.fatal); }
     else if (report.faults.length) { broken.push([v.key, report.faults.join('; ')]);
       console.log('  ✗ ' + v.key.padEnd(28) + report.faults.length + ' problem(s)');
