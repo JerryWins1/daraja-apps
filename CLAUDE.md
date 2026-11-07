@@ -8,7 +8,7 @@ Notes for Claude sessions working in this repo.
 of them and is still acceptable.** Jerry had to say this three times on 3 and 4 Nov
 before it stuck, which is why it is now written at the top instead of further down.
 
-Five hard rules. Check the reply against them before sending it.
+Six hard rules. Check the reply against them before sending it.
 
 1. **Answer what he asked, then stop.** Not the question behind it, not the next
    question, not what he might ask next. If he says "go ahead" or "give me the list",
@@ -32,6 +32,14 @@ Five hard rules. Check the reply against them before sending it.
    · Test Desk — https://claude.ai/artifact/Bsjf9a7sqK7YbVAuDAuqpE
    · The testers' own link — https://jerrywins1.github.io/zuri-system/preview/t/
    · Zuri itself — https://jerrywins1.github.io/zuri-system/preview/
+
+6. **One screen at a time, and the step says which screen.** A step is ONE action in
+   ONE place. "Open this page", "paste this in", and "save it" are three steps, not one,
+   and they do not get bundled because they feel small. Every step opens with where he
+   is — the page, the tab, the app — then the single thing to do there, headed
+   "Step 2 of 4" so the end is in sight. Then stop and wait for his reply. He asked for
+   this as standard procedure on 6 November, after a deploy was handed to him three
+   actions at a time.
 
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
