@@ -114,6 +114,32 @@ The statuses, and nothing else:
 `control/apps.html` renders the file as a panel: the apps waiting on Jerry first,
 each with a button through to its chat. The page only reads — the chats write.
 
+## Two chats, two jobs, no overlap
+
+Jerry, 7 November: *"Make sure your chat and the testing chat aren't overlapping and
+doing things that each of you are doing. Seems like we got too many of the same
+messages going back and forth from you guys."*
+
+He was right. The nightly Store Manager job was reading Zuri problems out of the Jerry
+HQ sheet and forwarding them to the tester pack chat — which reads the same testers'
+problems from its own log twice a day. Every problem arrived twice, and the forwarding
+message itself told that chat to work out which were duplicates. That is not help.
+
+The line, and it is not a suggestion:
+
+| | owns |
+| --- | --- |
+| **Daraja · Store Manager** | the store and the Daraja testing round — Ready to Sell, `control/apps.json`, the job-health page, tester questions, store bugs, the leads' pay page |
+| **Daraja · tester pack** | Zuri and the Zuri squad, end to end. It reads the Zuri log itself; nobody needs to send it one. |
+
+Neither forwards the other's work. If you find something that belongs to the other
+chat, say which chat owns it and leave it — that is already the rule in "One app, one
+chat", and a scheduled job is not an exception to it.
+
+**And do not tell Jerry something another job has already told him.** Three jobs report
+to him daily. If the evening watch covers the round and the tester pack covers Zuri,
+the nightly saying it again is the noise he asked to be rid of.
+
 ## Who keeps things current, and who changes them
 
 Two chats work on the shared house layer, and they are not interchangeable.
