@@ -110,6 +110,34 @@ everything once, then place them on what the results show.
 Sending anything to the squad is always Jerry's hands on the keyboard, because Claude cannot
 send WhatsApp.
 
+## Who is in charge, decided 7 November 2026
+
+**Jerry leads the Daraja round himself. There is no Kenyan lead for Daraja.**
+
+His own call, after this round sat at zero for ten days. The reason is written in
+full below under "The clash this round ran into": the two leads named above were
+Emmanuel Koki and Veronicah Kimani, and four of the six testers marked *proven*
+across their two teams are the same four people in Emmanuel's Zuri Business Week
+squad. Zuri had a daily script, a morning breakage check and an evening watch
+chasing it. Daraja had a title and nobody behind it.
+
+What this changes:
+
+- **Emmanuel Koki keeps the Zuri squad and stops being a Daraja lead.** One squad,
+  not two. That squad and its chat (Daraja · tester pack) are unaffected.
+- **Veronicah Kimani stops being a Daraja lead.** She stays a tester, and one of
+  the best — 14 apps in October.
+- **Nothing is relayed any more.** The first round's failure was a message that
+  went to two leads and may never have reached the 27 behind them. Jerry now
+  writes to the testers directly, so there is no relay to fail.
+- **The chasing is a job, not a person.** "Daraja round — did anybody test today?"
+  (trig_01GNw7MRvvQT66PEJf4CwnpM) runs at 20:10 Nairobi every evening into the
+  Store Manager chat and reports who tested and which apps moved. That is the
+  thing Daraja never had and Zuri always did.
+
+The two teams in the tables above are kept as a record of who was asked and what
+each has covered. They are no longer a chain of command.
+
 ## The clash this round ran into, found 5 November
 
 **Thirty hours in, not one Daraja app had been tested.** The last Daraja report of any kind
