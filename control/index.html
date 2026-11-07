@@ -2422,7 +2422,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.54 · 2026-11-06 · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.55 · 2026-11-07 · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -2437,7 +2437,10 @@
 const $=id=>document.getElementById(id);
 const esc=x=>String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(t,bad){ const e=$('toast'); e.textContent=t; e.classList.toggle('bad',!!bad); e.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>e.classList.remove('show'),2600); }
-function copy(t){ (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Copied — paste it to Claude'),()=>{ prompt('Copy this:',t); }); }
+/* The second argument is what to say afterwards. Left out, it is the usual “paste it to Claude”.
+   Pass false where the screen already says it was copied — a reply to a tester is not going to
+   Claude, and the toast sat on top of the very button it was asking him to press. */
+function copy(t,say){ (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{ if(say!==false) toast(say||'Copied — paste it to Claude'); },()=>{ prompt('Copy this:',t); }); }
 function ago(iso){ if(!iso) return 'never'; const s=(Date.now()-new Date(iso))/1000; if(isNaN(s)) return ''; if(s<90) return 'just now'; if(s<3600) return Math.round(s/60)+' min ago'; if(s<86400) return Math.round(s/3600)+' h ago'; const d=Math.round(s/86400); return d===1?'yesterday':d+' days ago'; }
 function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){ return null; } }
 
@@ -3757,7 +3760,28 @@ function quoteReply(pid, quote, o){ o=o||{}; const p=P(pid); if(!p.id){ toast('W
     };
   }; setTimeout(()=>{ const a=$('qrA'); a.focus(); a.setSelectionRange(a.value.length,a.value.length); },200);
   const log=async t=>{ try{ const d=await hq({action:'message.draft',person_id:p.id,text:t,request_id:o.reqId||''}); await hq({action:'message.mark',id:d.id,status:'sent by hand'}); if(o.reqId) await hq({action:'request.set',id:o.reqId,status:'told'}); if(o.msgId) await hq({action:'message.read',ids:[o.msgId]}); if(o.after) await o.after(); }catch(e){ toast('Sent, but HQ could not log it: '+e.message,true); } load(); };
-  const c=$('qrCopy'); if(c) c.onclick=()=>{ copy(msg()); };
+  /* v1.55, 7 Nov. Jerry: "copy, then ask me if i sent it."
+     📋 Copy it used to copy the words and nothing else — HQ never heard about it, so their
+     message stayed unread and the item sat in Needs You Now looking unanswered. 📱 Send it
+     logs everything because HQ knows it opened WhatsApp; Copy it cannot know, because the
+     sending happens somewhere HQ never sees. So it asks. Yes logs it exactly as Send it does;
+     Not yet leaves everything alone, which is the whole point of asking rather than assuming. */
+  const c=$('qrCopy'); if(c) c.onclick=()=>{
+    if(!($('qrA').value||'').trim()){ toast('Type your answer first',true); $('qrA').focus(); return; }
+    const t=msg(); copy(t,false);   /* the box below says it was copied — no toast over its buttons */
+    if($('qrSentWrap')) return;
+    const w=document.createElement('div'); w.id='qrSentWrap';
+    w.style.cssText='margin-top:12px;padding:12px;border-radius:12px;background:#FFF4D6;color:#1F2622';
+    w.innerHTML='<p style="margin:0 0 8px;font-weight:800">Copied. Did you send it to '+esc(first)+'?</p>'
+      + '<p class="muted" style="margin:0 0 10px;font-size:13px">HQ cannot see where you paste it. Say yes and it logs the reply, marks their message read'
+      + (o.reqId?' and moves this to \u2713 Done and told':'') + '. Say not yet and nothing changes \u2014 it stays on your list.</p>'
+      + '<div class="chips"><button class="chip main" id="qrSentYes">\u2713 Yes, I sent it</button>'
+      + '<button class="chip" id="qrSentNo">Not yet</button></div>';
+    c.parentNode.parentNode.insertBefore(w, c.parentNode.nextSibling);
+    fitSheet(); w.scrollIntoView({block:'nearest'});
+    $('qrSentYes').onclick=()=>{ closeSheet(); toast('Logged in HQ'); log(t); };
+    $('qrSentNo').onclick=()=>{ w.remove(); fitSheet(); };
+  };
   function wireSend(){
   const b=$('qrSend'); if(b) b.onclick=()=>{ const t=msg(); if(!($('qrA').value||'').trim()){ toast('Type your answer first',true); $('qrA').focus(); return; }
     const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
