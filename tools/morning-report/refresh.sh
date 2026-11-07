@@ -28,4 +28,8 @@ echo "page: $WORK/ready_to_sell.html"; echo
 cp "$REPO/kenya/leaderboard.json" "$WORK/leaderboard.json"
 python3 -I "$REPO/tools/leaderboard/tally.py" "$WORK/x" "$REPO" "$WORK/leaderboard.json" || echo "leaderboard: FAILED — left kenya/leaderboard.json alone"
 echo "leaderboard file: $WORK/leaderboard.json"; echo
+# who has earned what, per lead's team — the leads' own page reads this (kenya/pay/).
+# Same sheet again: no new credentials and no new scheduled job. Work dir only, same rule.
+python3 -I "$REPO/tools/payroll/payroll.py" "$WORK/x" "$REPO" "$WORK/payroll.json" || echo "payroll: FAILED — left kenya/payroll.json alone"
+echo "payroll file: $WORK/payroll.json"; echo
 python3 -I "$HERE/digest.py" "$WORK/x" "$SINCE" "$WORK/data.json" $( [ -f "$WORK/data.prev.json" ] && echo "$WORK/data.prev.json" )
