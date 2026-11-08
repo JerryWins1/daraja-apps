@@ -54,7 +54,7 @@ Group 3's remaining five stay held back.
 | Every Day | `everyday` | |
 | Next Step Board | `nextstep` | Test copy turned on 4 Nov, so testers stop working in their real data. |
 | One Thing | `nownext` | |
-| The Church App | `church` | Script points at Immanuel's real live app, not a test copy. |
+| The Church App | `church` | Practice church since 8 Nov: Grace Harbor, invented, nothing reaches anybody. |
 | Who's Coming | `whoscoming` | |
 
 ## Group 2 — second (11 apps)
