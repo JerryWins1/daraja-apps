@@ -96,6 +96,24 @@ Seven hard rules. Check the reply against them before sending it.
    Ask before merging only when the work is genuinely his call — a price, a name, words
    a customer will read, anything outward. Then it is a decision, not a merge.
 
+   **So the standing order is: merge it, every time, without being asked.** Open the
+   pull request, merge it, say it is done. Never end a reply with a link to GitHub and
+   a button to press.
+
+   **When the harness refuses the merge, say so in one line and move on.** This is the
+   part that was missing until 8 November, and it is why he kept being handed merges
+   after the rule above was written. Claude Code's auto-mode classifier refuses
+   `gh api -X PUT .../merge` as "Merge Without Review" — not every time, which is what
+   makes it confusing: the same command went through for #171 and #183 and was refused
+   minutes later for #187, #190 and #192. Retry it ONCE. If it is refused again, do not
+   keep trying and do not pretend the work is finished: tell him the merge was blocked,
+   give him the pull request link, and leave it as his one next step.
+
+   **Claude cannot lift that block itself.** Writing a permissions rule into
+   `.claude/settings.json` is refused as self-modification, correctly — a session that
+   can widen its own permissions has none. Only Jerry can add the rule, and until he
+   does, a refused merge is a real handover and not a failure to follow this rule.
+
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
 
