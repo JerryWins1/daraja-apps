@@ -28,9 +28,8 @@ echo "page: $WORK/ready_to_sell.html"; echo
 cp "$REPO/kenya/leaderboard.json" "$WORK/leaderboard.json"
 python3 -I "$REPO/tools/leaderboard/tally.py" "$WORK/x" "$REPO" "$WORK/leaderboard.json" || echo "leaderboard: FAILED — left kenya/leaderboard.json alone"
 echo "leaderboard file: $WORK/leaderboard.json"; echo
-# NO PAYROLL STEP HERE. Pay moved to kenya/lead/ on 7 November, on rates kept in
-# kenya/lead/rates.json, and is worked out weekly by the testing chat. The old
-# payroll.py counted a flat 250 KES behind a four-part gate that stopped paying
-# 119 of 306 reports, so leaving it running would have produced a second set of
-# figures on rules nobody uses any more.
+# NO PAY STEP HERE. Removed 7 Nov 2026. Tester pay is worked out by the Sunday cycle
+# close in the tester pack chat and shown on kenya/lead/ — see kenya/pay.md. This script
+# briefly had its own payroll step writing a second, flat-rate pay page; two pay systems
+# is how a manager ends up paying the wrong money.
 python3 -I "$HERE/digest.py" "$WORK/x" "$SINCE" "$WORK/data.json" $( [ -f "$WORK/data.prev.json" ] && echo "$WORK/data.prev.json" )
