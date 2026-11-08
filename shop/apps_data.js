@@ -89,7 +89,7 @@ const READY = ['nownext','ourtable'];
 /* ══ THE DOOR'S SORT ══ Jerry, 18 Sep: the Daraja door (home/) and the 🌉 More-from-Daraja sheet
    group apps this way; the store shelves above stay as they are for selling. */
 const DOOR = { pitwall:'fun', ff:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later', compass:'free' };   /* compass: a young person's five-year plan, not a later-life tool (Jerry, 2 Oct) */
-const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun', ownday:'Your own day' };   /* 8 Nov, Jerry: "It can be for everyone who needs some personal assistant." He picked the name and said "I think we might change it later. This might have other apps" — so the name is provisional and the shelf will fill. */
+const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun', ownday:'Your own day', kenya:'Made in Kenya' };   /* 8 Nov, Jerry: "It can be for everyone who needs some personal assistant." He picked the name and said "I think we might change it later. This might have other apps" — so the name is provisional and the shelf will fill. */
 
 /* ══ TWO SHELVES ══ 8 Nov 2026, Jerry: "Build two-shelf support." An app can sit on more
    than one shelf. cat is still its ONE primary shelf, so everything that already reads
@@ -1176,7 +1176,7 @@ const APPS = {
    {"t": "Your finished plan lives under My plan, easy to read on a hard day. Each person you added gets a Call button.", "point": "#t-plan", "js": "try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Right now is for a hard moment: an honest check-in, a breathing circle, and your reasons and your people in one place.", "point": "#t-now", "js": "try{ tab('now'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "And Talk to someone now is always at the bottom, one tap to nine-eight-eight. If you love someone who struggles, fill it out together.", "point": "#crisis .talk", "js": "try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"}],
-  name:'My Safety Plan', em:'🫶', sub:'a plan for hard days', cat:'free', mem:'Free', price:'Free forever', testing:true,
+  name:'My Safety Plan', em:'🫶', sub:'a plan for hard days', cat:'free', also:['church'], mem:'Free', price:'Free forever', testing:true,
   tag:'A private safety plan in your pocket — built in memory of Ryan',
   try:A+'safety/', video:true,
   
@@ -1506,7 +1506,7 @@ const APPS = {
    {"t": "A Bible verse at the start keeps it grounded.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
    {"t": "It takes about ten minutes. Everything stays on your phone. No account, and nothing is sent anywhere.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
    {"t": "It is free. Give it a quiet ten minutes, and see your next five years on one page.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
-  name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
+  name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', also:['kenya'], mem:'Free', price:'Free', testing:true,
   tag:'For a young person starting out: plain questions about school, work, family and money, and your next five years on one page. Written with Kenyan students in mind.',
   try:A+'compass/', video:true,
   
@@ -1556,7 +1556,7 @@ const APPS = {
    "Step eight: tap Put every piece on my calendar. Open the file, and your phone reminds you on the right day.",
    "Step nine: when a piece is due, tap Copy, or Open in Messages, or Open in email. Your own app opens with the words ready. You press send. Then tap mark sent, or mark done, and the piece turns green.",
    "You will know it is working when your phone buzzes, you open Message Assistant, and the next piece is already written. New campaign clears the plan for the next one, and keeps your groups."],
-  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', mem:'Comes with the Business membership', price:'$19 one-time', testing:true, video:true,
+  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', also:['home','later','church','free','ownday','kenya'], featured:'A tool for every app on this page \u2014 it writes the message, you send it.', mem:'Comes with the Business membership', price:'$19 one-time', testing:true, video:true,
   tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece. Why not just ChatGPT? You’d have to know what to ask. This asks for you, then lays out every piece on a calendar.',
   try:BASE+'drumbeat/',
   lines:[
@@ -1957,7 +1957,7 @@ const APPS = {
    "It lives on your phone, and keeps working without a signal. No account, nothing for your volunteers to sign up for, and no ads.",
    "New in November: the is-in box offers WhatsApp as well as a text message, so you can send somebody their Sunday in the chat they already use.",
    "It comes with the Church membership, for every ministry team you have. Try it below."],
-  name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', mem:'Church membership', price:'$19 one-time', testing:true, video:true,
+  name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', also:['work'], mem:'Church membership', price:'$19 one-time', testing:true, video:true,
   tag:'The month of volunteers on one page. No ads to your volunteers.',
   try:'https://jerrywins1.github.io/daraja-apps/church-serve/',
   },
@@ -2274,7 +2274,7 @@ const APPS = {
    {"t": "Step five: tap Make the letters. You get one letter for each gift, and a note naming any row it skipped, and why.", "point": "button[onclick=\"makeLetters()\"]"},
    "Step six: tap any letter to add a personal line. Then tap Print them all, and each letter prints on its own page, ready to sign.",
    {"t": "Your organization and gift rows stay saved on this device, and the letters are made fresh with one tap. To clear everything, use Start fresh at the very bottom.", "point": "footer"}],
-  name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', mem:'Church membership, or Small charity $49 a year', price:'$19 one-time', testing:true, video:true,
+  name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', also:['work'], mem:'Church membership, or Small charity $49 a year', price:'$19 one-time', testing:true, video:true,
   tag:'January\'s donor letters in ten minutes',
   try:'https://jerrywins1.github.io/daraja-apps/np-receipts/',
   lines:[
@@ -2444,7 +2444,7 @@ const APPS = {
    {"t": "There is a to-do list with big check boxes, a place to talk with your helper, and a board where the family can leave notes. Every question can be read out loud, and the words come in three sizes.", "js": "try{porchTour.scene('todo')}catch(e){}", "point": ".todo"},
    {"t": "Sorting your real Gmail, talking with your helper and the family board all work when you open Porchlight inside Claude, with your own Claude account. The try-it page below shows example emails, so you can see how it works first.", "js": "try{porchTour.scene('home')}catch(e){}", "point": ".card .btn-big"},
    "If you know someone who dreads their inbox, show them this one. Try it below."],
-  name:'Porchlight', em:'🏮', sub:'your mail sorted, scams caught', cat:'later', mem:'Family membership', price:'$29 one-time', testing:true, fresh:true, video:true,
+  name:'On Guard', em:'🏮', sub:'your mail sorted, scams caught', cat:'off', off:'Jerry\u2019s own for now \u2014 he is using it himself; was $29 one-time on the Later life shelf', mem:'Family membership', price:'$29 one-time', testing:true, fresh:true, video:true,
   tag:'A patient helper that asks a few easy questions, then sorts your Gmail into what needs an answer, what can wait, and what looks like a scam. It reads mail aloud and helps you write back. The try-it page shows example mail; sorting your real Gmail works when you open it inside Claude.',
   try:BASE+'porchlight/',
   
@@ -2478,7 +2478,7 @@ const APPS = {
     {"t": "The report writes itself: sales, profit, money out, the cash count, deni, low stock and offers. Copy it to WhatsApp.", "js": "try{closeSheet();}catch(e){} try{go('money','report');window.scrollTo(0,0);}catch(e){}", "point": "#repText"},
     {"t": "That is Duka: sell, keep stock, count the cash, remember who owes, and bring customers back. Asante for watching.", "js": "try{closeSheet();}catch(e){} try{go('today');window.scrollTo(0,0);}catch(e){}"}
   ]} },
-  name:'Duka', em:'📱', sub:'run a phone & electronics shop from your phone', fresh:true, cat:'work', price:'', testing:true,
+  name:'Duka', em:'📱', sub:'run a phone & electronics shop from your phone', fresh:true, cat:'work', also:['kenya'], price:'', testing:true,
   tag:'Sales with the M-Pesa paste and a warranty receipt, stock and the reorder list, the evening cash count, deni, repairs, bills, offers by WhatsApp to customers who said yes, and a weekly report that writes itself. Works with no signal. Made for Kenyan shops.',
   try:BASE+'duka/', video:true,
   lines:[
