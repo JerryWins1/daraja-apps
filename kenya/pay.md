@@ -38,8 +38,14 @@ Monday 00:00 to Sunday 23:59, Kenya time**. Nothing carries over between cycles 
 every count builds from zero on Monday. **Cycle 1 is Monday 9 November to Sunday
 15 November 2026.**
 
-Pay is worked out at close of business Sunday, the managers pay their teams out of
-their float during the week, and the next cycle starts the Monday after.
+Pay is worked out at **5:47am Monday, Kenya time** — after the week has actually
+closed, not before it. That is Sunday evening in Illinois, so Jerry has the figures
+with an evening still ahead of him and can message both managers before Kenya wakes
+up. An earlier version ran at 6:41pm Sunday Kenya and would have missed the last
+five hours of every week.
+
+The managers pay their teams out of their float during the week, and the next cycle
+starts the Monday after.
 
 October is settled and paid at the old flat rate; none of it counts here.
 
@@ -67,6 +73,20 @@ opens WhatsApp with the words ready.
 
 `kenya/lead/standing.json` is what the managers are told is true right now. When a
 WhatsApp message and that page disagree, the page is right.
+
+**Jerry's own page — https://jerrywins1.github.io/daraja-apps/kenya/lead/jerry/**
+
+Both teams at once: every tester's apps, problems, earned and owed, who has gone
+quiet, what each manager has been sent against what reached the testers, and what
+each manager has told their team. It writes nothing.
+
+**Money Jerry sends — `kenya/lead/floats.json`**
+
+Money going out is written by the managers, on their own page. Money coming in is
+written only here, when Jerry says he has sent it. They are kept in different places
+on purpose: neither hand can quietly write the other's record. Where a manager has
+paid out more than Jerry has sent, their page says they are owed that much out of
+their own pocket rather than showing a negative balance.
 
 ## Who owns this
 
