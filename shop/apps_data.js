@@ -1800,7 +1800,7 @@ const APPS = {
     "First, the everyday problem. In most churches, news lives in too many places: a paper bulletin left in the pew, sermons somewhere on YouTube, a calendar taped to a wall.",
     "The Church App puts all of it on every member's phone, with your church's own name on the front.",
     "Who is it for? Church members of every age, and the church office, which keeps it current from a phone.",
-    "What you are looking at is a real one: the app for Immanuel Church. Look around, but please do not send anything to their office.",
+    "What you are looking at is a demo church we invented, called Grace Harbor. Look around as much as you like: nothing in it reaches anybody.",
     {"t": "Along the very bottom is a bar with six buttons: Home, Watch, Events, Prayer, Give and More. On Home, these round shortcuts jump to the same places.", "point": "#home button[data-tab=watch]"},
     {"t": "Home comes first. At the top is the latest message, which means last Sunday's sermon. Tap it to watch.", "point": "#heroBtn"},
     {"t": "Below that are the service times, the next events under This week, and the Discussion guide for this week's message.", "point": "#home button[onclick*=openSermonNotes]"},
@@ -1842,13 +1842,18 @@ const APPS = {
      prayer wall and giving page, which is why the narration below has to ask them not to
      contact that church's office. church-demo/ is a complete copy filled with an invented
      church, Grace Harbor, so there is somewhere honest to send them now.
-     THE THREE LINES BELOW STILL NAME IMMANUEL and still ask buyers not to write to them.
-     They are not edited here on purpose: they are recorded narration, piper is not installed
-     in a cloud container, and changing the words without re-recording is exactly the fault
-     that made a video speak the old sentence under a new caption. The Church App chat is
-     re-recording its four tracks by name and those lines go with that run. Until then the
-     videos are merely out of date; the link is the part that was sending people somewhere
-     they should not be. */
+     8 Nov, later, The Church App chat: done. The lines that named Immanuel are rewritten
+     and church-overview, church-firsttime and church-train are re-recorded by name, so the
+     words and the voice match. (piper does install in a cloud container after all —
+     `pip install piper-tts`, and ffmpeg is already there.)
+
+     The fourth track, church-explain, is NOT re-recorded and its words are untouched. It
+     is not a buyer's video: it reads shop/kenya/church.json, which is the Kenyan testers'
+     explainer, and that whole file — persona, challenge, start link, tasks naming real
+     series and real speakers — is still built around Immanuel's app on purpose, because
+     Jerry decided on 8 Nov that the testers do not switch over before cycle 1 starts.
+     Re-recording it to describe Grace Harbor would have the video describing one app
+     while the tester opens another. It goes with the tester switch, not before it. */
   try:'https://jerrywins1.github.io/daraja-apps/church-demo/',
   lines:[
    "This is The Church App, which puts your whole church in everyone's pocket.",
@@ -1858,7 +1863,7 @@ const APPS = {
    {t:"Sermon Notes are built right in. Tap record and set the phone on your lap: it records the sermon, writes down the words, and keeps your own notes beside it.", js:"openSermonNotes()", point:"#sn2 [data-a=rec]"},
    {t:"Afterwards it lists every scripture that was mentioned, gives you questions to take home, and with your own AI app, a summary in a minute. Events, prayer requests, giving and your staff page all live in the app too.", js:"(function(){var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click();})()"},
    "And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.",
-   "It comes with the Church membership, priced by the size of your church, and I set it up for you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
+   "It comes with the Church membership, priced by the size of your church, and I set it up for you. The one you can try below is a demo church we invented, so look around as much as you like."
   ],
   /* 7 Oct 2026: the 5-minute training — Sermon Notes v2 (record, notes, scriptures, questions, summary, library) */
   },
