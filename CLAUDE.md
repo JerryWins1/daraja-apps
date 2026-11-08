@@ -37,9 +37,26 @@ Seven hard rules. Check the reply against them before sending it.
    ONE place. "Open this page", "paste this in", and "save it" are three steps, not one,
    and they do not get bundled because they feel small. Every step opens with where he
    is — the page, the tab, the app — then the single thing to do there, headed
-   "Step 2 of 4" so the end is in sight. Then stop and wait for his reply. He asked for
-   this as standard procedure on 6 November, after a deploy was handed to him three
-   actions at a time.
+   "Step 2 of 4" so the end is in sight. He asked for this as standard procedure on
+   6 November, after a deploy was handed to him three actions at a time.
+
+   **Everything the step needs goes inside the step** — the exact text to paste, the
+   whole URL, the precise button name. He should never have to scroll back up for a
+   value. He is usually on a phone, or in a browser Claude cannot see, so a wall of
+   steps becomes a guessing game about where he actually is.
+
+   **End every step with these two options, in these words:**
+
+   > Reply **done** when it's finished, or **ask a question** if anything looks
+   > different from what I described.
+
+   Worded as replying, not as hitting a button. An ordinary chat message has no buttons
+   in it, and "Hit Done" sends him hunting the screen for one that isn't there. Only an
+   AskUserQuestion prompt renders real tappable options, so save that for genuine forks
+   in the road, not for routine step confirmations.
+
+   **Then wait.** Don't send the next step until he replies. Don't batch them, don't
+   run ahead.
 
 7. **End every reply with his next step, or say there is none.** The last line is
    either "**Your next step:** <the one thing>" or "**Nothing on you.**" Never leave him
@@ -55,28 +72,30 @@ Seven hard rules. Check the reply against them before sending it.
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
 
-**One step at a time.** Never hand over a list of five things to do. Give step one,
-stop, and wait. Jerry is usually on a phone or in a browser that Claude cannot see,
-so a wall of steps turns into a guessing game about where he actually is.
+**THESE SEVEN ARE THE WHOLE OF IT, AND THIS IS THE ONLY COPY.** Until 8 November this
+section said "seven hard rules" and then restated five of them underneath in older
+wording, so the rules were really twelve things, some overlapping, and one restatement
+was more specific than the rule above it. They are folded in now. Nothing below this
+line, in this file or any other, adds a rule about how to write to Jerry.
 
-**Everything the step needs goes inside the step.** The exact text to paste, the
-whole URL, the precise button name. He should never have to scroll back up to find
-a value.
+**DO NOT MAKE A SECOND COPY.** No scheduled job's prompt, no README, no app entry and
+no artifact restates these rules, summarises them, or numbers them. It points here:
+*"Read daraja-apps/CLAUDE.md and follow it. Do not work from a paraphrase."* That is
+the whole instruction a job needs about replies.
 
-**Say how far along he is.** Head each one "Step 2 of 4" so the end is in sight.
+Jerry, 8 November, after a day of errors: *"I think it's just because there's too many
+rules and too many different places and not all in one or reading in the wrong sequence
+or something."* He was right, and it was copies rather than rules. Four were found that
+night: `tools/morning-report/README.md` told a job to merge its own pull requests, to
+end every report with a numbered list, and that a cloud session cannot message another
+session — all three false, and that file was named to the job as its source of truth;
+the nightly job's own step 9 asked for a numbered list and forbade one, in the same
+step; `control/apps.html` still told him to open each app's chat himself; and a retired
+job still cited "the four hard rules" when there were seven. A paraphrase cannot be
+updated when the rule changes, because nobody remembers it exists.
 
-**End every step with these two options:**
-
-> Reply **done** when it's finished, or **ask a question** if anything looks
-> different from what I described.
-
-Word it as replying, not as hitting a button. An ordinary chat message has no
-buttons in it, and "Hit Done" sends Jerry hunting the screen for one that
-isn't there. Only an AskUserQuestion prompt renders real tappable options, so
-save that for genuine forks in the road, not for routine step confirmations.
-
-**Then wait.** Don't send the next step until he replies. Don't batch them, don't
-run ahead.
+So when a rule changes, it changes HERE, once. If you find a copy, delete the copy —
+do not update it.
 
 ## One app, one chat
 
