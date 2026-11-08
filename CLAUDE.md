@@ -109,10 +109,16 @@ Seven hard rules. Check the reply against them before sending it.
    keep trying and do not pretend the work is finished: tell him the merge was blocked,
    give him the pull request link, and leave it as his one next step.
 
-   **Claude cannot lift that block itself.** Writing a permissions rule into
-   `.claude/settings.json` is refused as self-modification, correctly — a session that
-   can widen its own permissions has none. Only Jerry can add the rule, and until he
-   does, a refused merge is a real handover and not a failure to follow this rule.
+   **Nobody can lift that block from inside a cloud chat, Jerry included.** Two things
+   were tried on 8 November and both were dead ends. Claude writing a permissions rule
+   into `.claude/settings.json` is refused as self-modification — correctly, since a
+   session that can widen its own permissions has none. And asking Jerry to commit that
+   file does not work either: a cloud session's permission mode is set by the surface
+   that started it, not by a settings file in the repo. He was told to create one
+   before that was checked; he should not bother.
+
+   So a refused merge is simply a handover. It is not a rule being forgotten, and there
+   is nothing for him to fix. Retry once, tell him in one line, give him the link.
 
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
