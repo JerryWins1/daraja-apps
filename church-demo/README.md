@@ -26,7 +26,7 @@ A demo removes the need for that sentence.
 | `THUMBS` | series artwork drawn for the demo — no YouTube thumbnails are ever fetched |
 | `EVENTS` | an invented calendar, four weeks of rhythm plus the season's one-offs |
 | `TEAM` | eight invented staff |
-| `SEED_PRAYERS` | three invented requests, so the wall is not empty |
+| `SEED_PRAYERS` | empty, and it stays empty — see "The prayer wall" below |
 | `NOTES` / `V1_SLIDES` | an invented sermon outline for the latest message |
 | address, phone, email | 1200 Harbor Way, Lakeside · (555) 555-0137 · office@graceharbor.example |
 
@@ -44,14 +44,24 @@ That block does **not** need deleting when you copy this file for a church. It o
 touches links that are still unset, so filling in a church's real links switches it off
 by itself. It is a good checklist of what is left to fill in.
 
-## Two things this demo does that a church's app should not
+## The prayer wall
 
-Both are marked `DEMO ONLY` in the file, with a comment saying what to write instead:
+`SEED_PRAYERS` is empty and must stay empty.
 
-1. **`DAY()` dates.** A real church writes `date:"2026-11-15"`. The demo's calendar
-   slides to whichever week it is being read in, so a buyer never opens it to find last
-   year's events and an abandoned-looking app.
-2. **Seeded prayer requests.** A church starts with an empty wall.
+It held three invented requests when this demo was first built, so a visitor would see
+the wall in use. That lasted a day. The tester script's step 13 expects *"Your prayer
+list is empty"*, and `renderPrayers` draws `[...mine, ...SEED_PRAYERS]` — so with
+anything seeded there, that line can never appear and the step cannot be passed by any
+of the 21 testers. Jerry had it emptied on 8 November.
+
+The empty wall explains itself, and it is what a church sees on day one anyway.
+
+## One thing this demo does that a church's app should not
+
+It is marked `DEMO ONLY` in the file, with a comment saying what to write instead:
+**`DAY()` dates.** A real church writes `date:"2026-11-15"`. The demo's calendar slides
+to whichever week it is being read in, so a buyer never opens it to find last year's
+events and an abandoned-looking app.
 
 ## Keeping it current
 
