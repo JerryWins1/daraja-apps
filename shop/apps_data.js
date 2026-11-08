@@ -1623,7 +1623,7 @@ const APPS = {
    {"t": "Once a year there is a draft room: draw the snake order, and everyone picks a driver in turn until the teams are full. The finished draft becomes the season's rosters.", "point": "#view .card h2", "js": "try{ go('draft'); }catch(e){}"},
    {"t": "No accounts, no ads. One shared mailbox your league owns, and the same link on every phone. This preview is a test drive, so you can act as any of the five players.", "js": "try{ go('home'); }catch(e){}"},
    "Nine dollars covers a league for a season, and you only pay for the seasons you play. Try it below, and tell us honestly whether your league would pay for it."],
-  name:'Pit Wall', em:'🏁', sub:'your racing league, run for you', cat:'home', price:'$9 per season you play — nothing renews', testing:true, video:true,
+  name:'Pit Wall', em:'🏁', sub:'your racing league, run for you', cat:'off', off:'personal — Jerry’s own racing league, not for sale', price:'$9 per season you play — nothing renews', testing:false, video:true,
   tag:'Picks, deadlines, scoring and standings for your friends’ fantasy racing league, done the same way every race. The commissioner finally gets to watch. Pay only for the seasons you play; nothing renews by itself.',
   try:BASE+'f1/?test=1',
   
@@ -1752,7 +1752,7 @@ const APPS = {
    {"t": "Run the league? League manager tools keep track of who has paid, everyone's phone and email, one-tap group messages, and a weekly recap.", "point": "#mgrBtn", "js": "try{ if(!window.__ffEx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__ffEx')>=0){ eval(d.go); return true; } return false; }); } else { __ffEx(); __ffAt(1); window.scrollTo(0,0); }  }catch(e){}"},
    {"t": "And when you just want the real games, See real NFL scores shows every game this week.", "point": "#nflBtn"},
    {"t": "It's free, it's yours, and it works for however many teams your whole family plays. Try it below."}],
-  name:'My Scores', em:'🏈', sub:'every team\u2019s score, one button', fresh:true, cat:'home', mem:'Free', price:'Free', testing:true, video:true,
+  name:'My Scores', em:'🏈', sub:'every team\u2019s score, one button', fresh:true, cat:'off', off:'personal — Jerry’s own fantasy scoreboard, not for sale', mem:'Free', price:'Free', testing:false, video:true,
   tag:'Every fantasy football team you follow, yours and your opponent\u2019s, on one screen with one Update button. Works with ESPN and Sleeper.',
   try:BASE+'ff/',
   
@@ -1995,7 +1995,7 @@ const APPS = {
    "Your counts stay on this phone. No account, nothing to sign up for, and it keeps working without a signal in the church basement.",
    "New in November: the row under the message reads Text it, WhatsApp, Email it, Copy. Tap WhatsApp and pick the group.",
    "It comes with the Church membership, for every drive you will ever run. Try it below."],
-  name:'Shoebox Counter', em:'📦', sub:'how many full boxes can we pack?', cat:'church', mem:'Church membership', showName:'Shoebox Counter', price:'$19 one-time', video:true,
+  name:'Shoebox Counter', em:'📦', sub:'how many full boxes can we pack?', cat:'church', mem:'Church membership', showName:'Shoebox Counter', price:'$19 one-time', testing:true, video:true,
   tag:'Count what’s been donated and it tells you how many complete boxes or kits you can make right now, and what to ask for on Sunday. Works for food and coat drives too.',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   },
