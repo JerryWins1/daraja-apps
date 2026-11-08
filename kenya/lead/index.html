@@ -229,7 +229,7 @@ if (qs.get('who') || qs.get('k') || qs.get('s')) { try { history.replaceState(nu
 var TALLY = TKEY ? (TALLYBASE + '?key=' + encodeURIComponent(TKEY)) : '';
 
 var TEAM = null, TEAMNO = null, CFG = null, RATES = null, BANDS = null;
-var TALLYDATA = null, PAYS = [], TOPS = [], NOTES = [], PEOPLE = [];
+var TALLYDATA = null, PAYS = [], TOPS = [], NOTES = [], PEOPLE = [], FLOATS = [];
 
 /* ---------- days, Kenya time (UTC+3, no daylight saving) ---------- */
 function kenyaDay(v){
@@ -389,7 +389,10 @@ function draw(){
     owed += E[k].owed; paid += E[k].paid;
     var d = daysSince(E[k].last); if (d === null || d >= 7) quiet++;
   });
-  var topped = TOPS.reduce(function(s,r){ return s + (Number(r.amount_kes)||0); }, 0);
+  /* Money in comes from floats.json, written only when Jerry says he has sent it.
+     daraja_topup is read as well, so a row written there is never silently ignored. */
+  var topped = TOPS.reduce(function(s,r){ return s + (Number(r.amount_kes)||0); }, 0)
+             + FLOATS.reduce(function(s,r){ return s + (Number(r.kes)||0); }, 0);
   var bal = topped - paid;
 
   $('kBal').textContent  = KES(bal);
@@ -436,9 +439,12 @@ function draw(){
       '</td><td class="n">' + KES(r.amount_kes) + '</td></tr>'; }).join('') + '</table>')
     : '<p class="note">Nothing written down yet.</p>';
 
-  $('topHist').innerHTML = TOPS.length ? ('<table><tr><th>When</th><th>Note</th><th class="n">KES</th></tr>' +
-    TOPS.map(function(r){ return '<tr><td>' + esc(kenyaDay(r.at)) + '</td><td>' + esc(r.note||'') +
-      '</td><td class="n">' + KES(r.amount_kes) + '</td></tr>'; }).join('') + '</table>')
+  var money = FLOATS.map(function(r){ return { at:r.at, note:r.note||'', kes:Number(r.kes)||0 }; })
+    .concat(TOPS.map(function(r){ return { at:r.at, note:r.note||'', kes:Number(r.amount_kes)||0 }; }))
+    .sort(function(a,b){ return String(b.at).localeCompare(String(a.at)); });
+  $('topHist').innerHTML = money.length ? ('<table><tr><th>When</th><th>Note</th><th class="n">KES</th></tr>' +
+    money.map(function(r){ return '<tr><td>' + esc(kenyaDay(r.at)) + '</td><td>' + esc(r.note) +
+      '</td><td class="n">' + KES(r.kes) + '</td></tr>'; }).join('') + '</table>')
     : '<p class="note">Jerry has not sent anything yet.</p>';
 
   $('tellHist').innerHTML = NOTES.length ? NOTES.map(function(r){
@@ -528,6 +534,9 @@ Promise.all([ getJSON('teams.json?cb='+Date.now()), getJSON('rates.json?cb='+Dat
 .then(function(r){
   CFG = r[0]; RATES = r[1]; BANDS = r[2];
   getJSON('standing.json?cb='+Date.now()).then(drawStanding).catch(function(){});
+  getJSON('floats.json?cb='+Date.now())
+    .then(function(d){ if (!TEAM) return; FLOATS = ((d&&d.sent)||[]).filter(function(r){ return Number(r.team) === TEAMNO; }); draw(); })
+    .catch(function(){});
   Object.keys(CFG.teams).forEach(function(n){ if (CFG.teams[n].token === WHO) { TEAM = CFG.teams[n]; TEAMNO = Number(n); } });
   if (!TEAM) { $('gate').hidden = false; $('hSub').textContent = 'This link is not complete.'; return null; }
 

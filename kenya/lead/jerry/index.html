@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#11211b">
+<title>Both teams · Daraja</title>
+<!--
+  kenya/lead/jerry/ — Jerry's own view. v1, 8 Nov 2026.
+
+  The managers each see their own team. This shows both at once: what each team has
+  earned, what has been paid, what Jerry has sent against what reached the testers,
+  who has gone quiet, and what each manager has told their team.
+
+  It reads the same four files and the same database as kenya/lead/, so it cannot
+  disagree with what Emmanuel and Veronicah see. It writes nothing at all.
+  Money Jerry has sent is recorded in ../floats.json, which only Jerry's word adds to.
+-->
+<style>
+:root{
+  --bg:#11211b; --panel:#17291f; --fg:#eef3ef; --soft:#9fb3a8; --line:#2b3f34;
+  --green:#3f9a74; --gold:#d69634; --red:#c2574b;
+  --fh:system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#eef0ee; --panel:#ffffff; --fg:#171c1a; --soft:#5b6561; --line:#d4d9d6;
+  --green:#1f5d44; --gold:#8a5d15; --red:#a33a2e; color-scheme:light;
+}}
+:root[data-theme="dark"]{
+  --bg:#11211b; --panel:#17291f; --fg:#eef3ef; --soft:#9fb3a8; --line:#2b3f34;
+  --green:#3f9a74; --gold:#d69634; --red:#c2574b; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--fh);margin:0;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:18px 44px}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:1.2rem;margin:0 0 2px}
+h2{font-size:.98rem;margin:0 0 8px}
+.note{color:var(--soft);font-size:.82rem;margin:4px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:0 0 10px}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px;min-width:0}
+.tile .k{color:var(--soft);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+.big{font-size:1.4rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+td,th{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--soft);font-weight:600;font-size:.72rem;text-transform:uppercase}
+td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill{font-size:.7rem;border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--soft);white-space:nowrap}
+.pill.ok{color:var(--green);border-color:var(--green)}
+.pill.warn{color:var(--gold);border-color:var(--gold)}
+.pill.bad{color:var(--red);border-color:var(--red)}
+footer{color:var(--soft);font-size:.76rem;padding-top:12px}
+</style>
+
+<div class="wrap">
+<h1>Both teams</h1>
+<p class="note" id="sub">Loading…</p>
+
+<div id="gate" hidden>
+  <div class="card"><h2>This link is not complete</h2>
+  <p class="note">Open the full link again — it ends in <b>?who=</b> and then a long code.</p></div>
+</div>
+
+<div id="app" hidden>
+  <div class="tiles">
+    <div class="tile"><div class="k">Owed to testers</div><div class="big" id="tOwed">—</div><div class="note">both teams</div></div>
+    <div class="tile"><div class="k">You have sent</div><div class="big" id="tSent">—</div><div class="note">to the two managers</div></div>
+    <div class="tile"><div class="k">Reached testers</div><div class="big" id="tPaid">—</div><div class="note">ticked off by a manager</div></div>
+    <div class="tile"><div class="k" id="kHeld">Sitting with managers</div><div class="big" id="tHeld">—</div><div class="note" id="nHeld">sent, not yet paid out</div></div>
+  </div>
+  <div id="teams"></div>
+  <div class="card">
+    <h2>What the managers have told their teams</h2>
+    <div id="notices"></div>
+  </div>
+  <p class="note" id="fresh"></p>
+</div>
+
+<footer>Read only. Nothing on this page writes anything: managers record payments on their own page,
+and money you send is recorded in floats.json when you say you have sent it.</footer>
+</div>
+
+<script>
+var TALLYBASE = 'https://script.google.com/macros/s/AKfycbzHSpqxCITCSjVPZ5glJrmOPVYWsb7RwNazYyTzrgB88eTP_6fmTBGpTapCpfAH73bTyQ/exec';
+var SB = 'https://wlawjwowdmneatdffpsy.supabase.co/rest/v1';
+var SBK = '', TKEY = '';
+
+var $ = function(id){ return document.getElementById(id); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+var KES = function(n){ return (Math.round(Number(n)||0)).toLocaleString('en-US'); };
+
+var qs = new URLSearchParams(location.search);
+var WHO = (qs.get('who')||'').trim();
+TKEY = (qs.get('k')||'').trim();
+SBK = (qs.get('s')||'').trim();
+try {
+  if (WHO)  localStorage.setItem('dj_hq_who', WHO); else WHO  = localStorage.getItem('dj_hq_who')||'';
+  if (TKEY) localStorage.setItem('dj_hq_k', TKEY);  else TKEY = localStorage.getItem('dj_hq_k')||'';
+  if (SBK)  localStorage.setItem('dj_hq_s', SBK);   else SBK  = localStorage.getItem('dj_hq_s')||'';
+} catch(e){}
+if (qs.get('who') || qs.get('k') || qs.get('s')) { try { history.replaceState(null,'',location.pathname); } catch(e){} }
+
+var CFG=null, RATES=null, BANDS=null, FLOATS=[], TALLYDATA=null, PAYS=[], NOTES=[], TOPS=[];
+
+function kenyaDay(v){
+  if (!v) return '';
+  var d = (v instanceof Date) ? v : new Date(v);
+  if (isNaN(d)) return String(v).slice(0,10);
+  return new Date(d.getTime() + 3*3600*1000).toISOString().slice(0,10);
+}
+function mondayOf(day){ var d=new Date(day+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7)); return d.toISOString().slice(0,10); }
+function daysSince(day){ if (!day) return null;
+  var a=new Date(day+'T00:00:00Z'), b=new Date(kenyaDay(new Date())+'T00:00:00Z');
+  return Math.max(0, Math.round((b-a)/86400000)); }
+function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+/g,' ').trim(); }
+
+/* Identical matching to the managers' page: exact, alias, or a first name unique
+   across both teams. Anything looser pays the wrong tester. */
+var BYNAME={}, JUNK=/$^/, ALL=[];
+function index(){
+  try { JUNK = new RegExp(CFG.junk,'i'); } catch(e) { JUNK = /$^/; }
+  ALL = []; BYNAME = {};
+  Object.keys(CFG.teams).forEach(function(t){
+    CFG.teams[t].people.forEach(function(p){ ALL.push({ name:p.name, team:Number(t), lead:!!p.lead }); BYNAME[norm(p.name)] = p.name; });
+  });
+  Object.keys(CFG.aliases||{}).forEach(function(k){ var r=CFG.aliases[k]; if (BYNAME[norm(r)]) BYNAME[norm(k)] = r; });
+}
+function whoIs(name){
+  var n = norm(name);
+  if (!n || JUNK.test(String(name))) return null;
+  if (BYNAME[n]) return BYNAME[n];
+  if (n.indexOf(' ') !== -1) return null;
+  var hits = ALL.filter(function(p){ return norm(p.name).split(' ')[0] === n; });
+  return hits.length === 1 ? hits[0].name : null;
+}
+function bandOf(k){ var a = BANDS && BANDS.apps && BANDS.apps[String(k||'').trim()]; return a ? a.band : 'medium'; }
+
+function figures(){
+  var out = {}, start = CFG.cycleStart, unknown = {};
+  ALL.forEach(function(p){ out[p.name] = { name:p.name, team:p.team, lead:p.lead, small:0, medium:0, big:0,
+    reports:0, probReports:0, useWeeks:0, days:{}, last:'', earned:0, paid:0, owed:0 }; });
+
+  ((TALLYDATA&&TALLYDATA.tests)||[]).forEach(function(t){
+    var who = whoIs(t.who);
+    if (!who && t.who && !JUNK.test(t.who)) unknown[t.who] = true;
+    if (!who) return;
+    var day = kenyaDay(t.at); if (!day || day < start) return;
+    var p = out[who]; p[bandOf(t.app)]++; p.reports++;
+    if (t.problems > 0 && !t.rejected) p.probReports++;
+    if (day > p.last) p.last = day;
+  });
+  ((TALLYDATA&&TALLYDATA.use)||[]).forEach(function(u){
+    var who = whoIs(u.who); if (!who) return;
+    var day = String(u.day||'').slice(0,10); if (!day || day < start) return;
+    var p = out[who], wk = mondayOf(day);
+    (p.days[wk] = p.days[wk] || {})[day] = true;
+    if (day > p.last) p.last = day;
+  });
+  Object.keys(out).forEach(function(k){
+    var p = out[k], need = Number(RATES.useDays)||5;
+    Object.keys(p.days).forEach(function(w){ if (Object.keys(p.days[w]).length >= need) p.useWeeks++; });
+    p.earned = p.small*RATES.small + p.medium*RATES.medium + p.big*RATES.big
+             + p.probReports*RATES.problem + p.useWeeks*RATES.useweek;
+    p.paid = PAYS.reduce(function(s,r){ return s + (r.tester===k ? Number(r.amount_kes)||0 : 0); }, 0);
+    p.owed = Math.max(0, p.earned - p.paid);
+  });
+  return { people:out, unknown:Object.keys(unknown) };
+}
+function standing(p){
+  var n = daysSince(p.last);
+  if (n === null) return ['Never started','bad'];
+  if (n >= 14) return ['Gone quiet','bad'];
+  if (n >= 7) return ['Quiet','warn'];
+  return ['Active','ok'];
+}
+
+function draw(){
+  var f = figures(), rows = Object.keys(f.people).map(function(k){ return f.people[k]; });
+  var totOwed = 0, totPaid = 0, totSent = 0;
+
+  $('teams').innerHTML = Object.keys(CFG.teams).map(function(t){
+    var teamNo = Number(t), team = CFG.teams[t];
+    var mine = rows.filter(function(p){ return p.team === teamNo; })
+                   .sort(function(a,b){ return (b.owed-a.owed) || a.name.localeCompare(b.name); });
+    var owed = mine.reduce(function(s,p){ return s+p.owed; }, 0);
+    var paid = mine.reduce(function(s,p){ return s+p.paid; }, 0);
+    var sent = FLOATS.concat(TOPS.map(function(r){ return { team:r.team, kes:r.amount_kes, at:r.at, note:r.note }; }))
+                     .filter(function(r){ return Number(r.team)===teamNo; })
+                     .reduce(function(s,r){ return s+(Number(r.kes)||0); }, 0);
+    var quiet = mine.filter(function(p){ var d=daysSince(p.last); return d===null || d>=7; }).length;
+    totOwed += owed; totPaid += paid; totSent += sent;
+
+    return '<div class="card"><h2>Team ' + teamNo + ' · ' + esc(team.manager) + '</h2>' +
+      '<p class="note">' + mine.length + ' testers · ' + quiet + ' quiet or never started · ' +
+      'you sent ' + KES(sent) + ' · paid out ' + KES(paid) + ' · ' +
+      (sent - paid >= owed ? 'enough left for what is owed' : '<b>short by ' + KES(owed - (sent-paid)) + ' KES</b>') + '</p>' +
+      '<table><tr><th>Tester</th><th class="n">Apps</th><th class="n">Problems</th><th class="n">Earned</th><th class="n">Owed</th><th>How they are</th></tr>' +
+      mine.map(function(p){ var st = standing(p);
+        return '<tr><td>' + esc(p.name) + (p.lead ? ' <span class="pill">leads</span>' : '') + '</td>' +
+          '<td class="n">' + p.reports + '</td><td class="n">' + p.probReports + '</td>' +
+          '<td class="n">' + KES(p.earned) + '</td><td class="n">' + KES(p.owed) + '</td>' +
+          '<td><span class="pill ' + st[1] + '">' + esc(st[0]) + '</span></td></tr>';
+      }).join('') + '</table></div>';
+  }).join('');
+
+  $('tOwed').textContent = KES(totOwed);
+  $('tSent').textContent = KES(totSent);
+  $('tPaid').textContent = KES(totPaid);
+  var held = totSent - totPaid;
+  /* A manager who has paid more than you sent is out of their own pocket.
+     Showing that as a negative number hides the thing that matters. */
+  $('kHeld').textContent = held < 0 ? 'Managers are owed' : 'Sitting with managers';
+  $('tHeld').textContent = KES(Math.abs(held));
+  $('nHeld').textContent = held < 0 ? 'they paid out of their own money' : 'sent, not yet paid out';
+
+  $('notices').innerHTML = NOTES.length
+    ? NOTES.map(function(r){ return '<p class="note"><b>' + esc(kenyaDay(r.at)) + ' · ' + esc(r.manager||('Team '+r.team)) + '</b> — ' + esc(r.body) + '</p>'; }).join('')
+    : '<p class="note">Neither manager has sent their team anything through the page yet. That is worth asking about before Monday.</p>';
+
+  $('fresh').innerHTML = (TALLYDATA ? 'Counting everything filed since ' + esc(CFG.cycleStart) + '.' :
+      'The testers’ numbers could not be read, so the work columns are empty. Payments and money sent are still right.') +
+    (f.unknown.length ? '<br><b>Filed under a name nobody on either team uses:</b> ' + f.unknown.map(esc).join(' · ') + '.' : '');
+}
+
+function getJSON(u, o){ return fetch(u, o||{}).then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); }); }
+function sbGet(table, q){ if (!SBK) return Promise.resolve([]);
+  return getJSON(SB + '/' + table + '?' + q, { headers:{ apikey:SBK, Authorization:'Bearer '+SBK } }); }
+
+Promise.all([ getJSON('../teams.json?cb='+Date.now()), getJSON('../rates.json?cb='+Date.now()),
+              getJSON('../bands.json?cb='+Date.now()), getJSON('../floats.json?cb='+Date.now()).catch(function(){ return {sent:[]}; }) ])
+.then(function(r){
+  CFG = r[0]; RATES = r[1]; BANDS = r[2]; FLOATS = (r[3]&&r[3].sent)||[];
+  if (WHO !== (CFG.hqToken || '')) { $('gate').hidden = false; $('sub').textContent = 'This link is not complete.'; return; }
+  index();
+  $('app').hidden = false;
+  $('sub').textContent = ALL.length + ' testers in two teams · the week runs Monday to Sunday';
+  draw();
+  return Promise.all([
+    (TKEY ? getJSON(TALLYBASE + '?key=' + encodeURIComponent(TKEY)).catch(function(){ return null; }) : Promise.resolve(null)),
+    sbGet('daraja_payment','select=*&order=at.desc').catch(function(){ return []; }),
+    sbGet('daraja_notice','select=*&order=at.desc&limit=40').catch(function(){ return []; }),
+    sbGet('daraja_topup','select=*&order=at.desc').catch(function(){ return []; })
+  ]).then(function(d){
+    TALLYDATA = (d[0] && d[0].ok) ? d[0] : null;
+    PAYS = d[1]||[]; NOTES = d[2]||[]; TOPS = d[3]||[];
+    draw();
+  });
+})
+.catch(function(e){ $('sub').textContent = 'Something did not load: ' + e.message; });
+</script>
+</html>
