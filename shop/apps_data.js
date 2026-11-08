@@ -89,7 +89,29 @@ const READY = ['nownext','ourtable'];
 /* ══ THE DOOR'S SORT ══ Jerry, 18 Sep: the Daraja door (home/) and the 🌉 More-from-Daraja sheet
    group apps this way; the store shelves above stay as they are for selling. */
 const DOOR = { pitwall:'fun', ff:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later', compass:'free' };   /* compass: a young person's five-year plan, not a later-life tool (Jerry, 2 Oct) */
-const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun' };
+const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun', ownday:'Your own day', kenya:'Made in Kenya' };   /* 8 Nov, Jerry: "It can be for everyone who needs some personal assistant." He picked the name and said "I think we might change it later. This might have other apps" — so the name is provisional and the shelf will fill. */
+
+/* ══ TWO SHELVES ══ 8 Nov 2026, Jerry: "Build two-shelf support." An app can sit on more
+   than one shelf. cat is still its ONE primary shelf, so everything that already reads
+   a.cat keeps working; also:[...] names any EXTRA shelf it belongs on. Additive on
+   purpose — an extra can never contradict the primary the way a second full list could.
+   Who's Coming is the first: a household app whose own overview names a church work day,
+   and a free app with a shareable read-only link is a good doorway into the church apps.
+   DOOR still wins where it names an app: the door's re-sort is a deliberate single-shelf
+   override, so an app DOOR names shows only there.
+   Ask these two, never compare a.cat yourself — the store, the watch page and the door
+   each had their own copy of that comparison, and four copies is how they drift apart. */
+function djShelves(k, door){
+  var a = (typeof APPS === 'object' && APPS) ? APPS[k] : null;
+  if(!a) return [];
+  var named = door && door[k];
+  if(named) return [named];                       /* DOOR override: that shelf only */
+  if(!a.cat || a.cat === 'off') return a.cat ? [a.cat] : [];   /* off the shelves is off: also: cannot put it back */
+  var out = [a.cat];
+  if(a.also) a.also.forEach(function(c){ if(c && c !== 'off' && out.indexOf(c) < 0) out.push(c); });
+  return out;
+}
+function djOnShelf(k, c, door){ return !!c && djShelves(k, door).indexOf(c) >= 0; }
 
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
@@ -888,7 +910,7 @@ const APPS = {
    "It works for a family Sunday lunch, a church work day, a team choosing a practice night, or anyone who organizes people.",
    "Or tap A link they can open. One link shows the whole list to anybody, read only, with no app and no account — and it carries a way through to the rest of the Daraja apps.",
    "No ads, no account, and everything stays on your phone. Who's Coming is free, and every Daraja app helps a student in Kenya stay in school. Try it below: make a group and ask your first question."],
-  name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', mem:'Family membership', price:'Free', testing:true,
+  name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', also:['church'], mem:'Family membership', price:'Free', testing:true,
   tag:'Ask the family or the group one question (“Sunday lunch at 1?”) and see who said yes, no and maybe on one screen. It goes from your own phone. No ads, and nobody has to sign up to answer.',
   try:BASE+'whoscoming/', video:true
  },
@@ -950,7 +972,7 @@ const APPS = {
    {"t": "Every new part of it explains itself the first time you touch it, in plain words, out loud if you like.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}"},
    "It comes with the Family membership, and founding members get their first year free. No account, no ads, it works with no signal, and your list stays on your phone. Try the whole thing right now with the button below."],
   buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
-  name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'home', mem:'Family membership', price:'$4.99', testing:true,
+  name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'ownday', mem:'Family membership', price:'$4.99', testing:true,
   tag:'Your whole list is in there — it just shows one step at a time, so the day stops looking like a pile. For kids and grown-ups whose brains run fast.',
   try:A+'nownext/?code=TESTING', video:true,   /* ?code= is read by the key gate once nownext ships the 2026-10-02 patch; until then it is ignored */
   
@@ -1154,7 +1176,7 @@ const APPS = {
    {"t": "Your finished plan lives under My plan, easy to read on a hard day. Each person you added gets a Call button.", "point": "#t-plan", "js": "try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Right now is for a hard moment: an honest check-in, a breathing circle, and your reasons and your people in one place.", "point": "#t-now", "js": "try{ tab('now'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "And Talk to someone now is always at the bottom, one tap to nine-eight-eight. If you love someone who struggles, fill it out together.", "point": "#crisis .talk", "js": "try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"}],
-  name:'My Safety Plan', em:'🫶', sub:'a plan for hard days', cat:'free', mem:'Free', price:'Free forever', testing:true,
+  name:'My Safety Plan', em:'🫶', sub:'a plan for hard days', cat:'free', also:['church'], mem:'Free', price:'Free forever', testing:true,
   tag:'A private safety plan in your pocket — built in memory of Ryan',
   try:A+'safety/', video:true,
   
@@ -1484,7 +1506,7 @@ const APPS = {
    {"t": "A Bible verse at the start keeps it grounded.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
    {"t": "It takes about ten minutes. Everything stays on your phone. No account, and nothing is sent anywhere.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
    {"t": "It is free. Give it a quiet ten minutes, and see your next five years on one page.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
-  name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
+  name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', also:['kenya'], mem:'Free', price:'Free', testing:true,
   tag:'For a young person starting out: plain questions about school, work, family and money, and your next five years on one page. Written with Kenyan students in mind.',
   try:A+'compass/', video:true,
   
@@ -1534,7 +1556,7 @@ const APPS = {
    "Step eight: tap Put every piece on my calendar. Open the file, and your phone reminds you on the right day.",
    "Step nine: when a piece is due, tap Copy, or Open in Messages, or Open in email. Your own app opens with the words ready. You press send. Then tap mark sent, or mark done, and the piece turns green.",
    "You will know it is working when your phone buzzes, you open Message Assistant, and the next piece is already written. New campaign clears the plan for the next one, and keeps your groups."],
-  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', mem:'Comes with the Business membership', price:'$19 one-time', testing:true, video:true,
+  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', also:['home','later','church','free','ownday','kenya'], featured:'A tool for every app on this page \u2014 it writes the message, you send it.', mem:'Comes with the Business membership', price:'$19 one-time', testing:true, video:true,
   tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece. Why not just ChatGPT? You’d have to know what to ask. This asks for you, then lays out every piece on a calendar.',
   try:BASE+'drumbeat/',
   lines:[
@@ -1778,7 +1800,7 @@ const APPS = {
     "First, the everyday problem. In most churches, news lives in too many places: a paper bulletin left in the pew, sermons somewhere on YouTube, a calendar taped to a wall.",
     "The Church App puts all of it on every member's phone, with your church's own name on the front.",
     "Who is it for? Church members of every age, and the church office, which keeps it current from a phone.",
-    "What you are looking at is a real one: the app for Immanuel Church. Look around, but please do not send anything to their office.",
+    "What you are looking at is a demo church we invented, called Grace Harbor. Look around as much as you like: nothing in it reaches anybody.",
     {"t": "Along the very bottom is a bar with six buttons: Home, Watch, Events, Prayer, Give and More. On Home, these round shortcuts jump to the same places.", "point": "#home button[data-tab=watch]"},
     {"t": "Home comes first. At the top is the latest message, which means last Sunday's sermon. Tap it to watch.", "point": "#heroBtn"},
     {"t": "Below that are the service times, the next events under This week, and the Discussion guide for this week's message.", "point": "#home button[onclick*=openSermonNotes]"},
@@ -1815,7 +1837,24 @@ const APPS = {
    {"t": "And for the church office: when you post Sunday's message on the Weekly Update page, add the outline and the verses, and everyone's Sermon Notes has them before the service starts.", "js": "try{ var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click(); go('home'); }catch(e){}"}],
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', mem:'Church membership', price:'$149 one-time', testing:true, video:true,
   tag:'Sermons with notes you can record (with the scriptures and take-home questions pulled out), events, prayer requests and giving, in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
-  try:'https://jerrywins1.github.io/immanuel-app/',
+  /* 8 Nov 2026: this pointed at https://jerrywins1.github.io/immanuel-app/ — a real
+     congregation's live app. Every buyer who tapped "Try it" was browsing Immanuel's actual
+     prayer wall and giving page, which is why the narration below has to ask them not to
+     contact that church's office. church-demo/ is a complete copy filled with an invented
+     church, Grace Harbor, so there is somewhere honest to send them now.
+     8 Nov, later, The Church App chat: done. The lines that named Immanuel are rewritten
+     and church-overview, church-firsttime and church-train are re-recorded by name, so the
+     words and the voice match. (piper does install in a cloud container after all —
+     `pip install piper-tts`, and ffmpeg is already there.)
+
+     The fourth track, church-explain, is NOT re-recorded and its words are untouched. It
+     is not a buyer's video: it reads shop/kenya/church.json, which is the Kenyan testers'
+     explainer, and that whole file — persona, challenge, start link, tasks naming real
+     series and real speakers — is still built around Immanuel's app on purpose, because
+     Jerry decided on 8 Nov that the testers do not switch over before cycle 1 starts.
+     Re-recording it to describe Grace Harbor would have the video describing one app
+     while the tester opens another. It goes with the tester switch, not before it. */
+  try:'https://jerrywins1.github.io/daraja-apps/church-demo/',
   lines:[
    "This is The Church App, which puts your whole church in everyone's pocket.",
    "Think about where things live right now: the announcements are in a bulletin nobody keeps, the sermons are on a YouTube channel nobody can find, and the calendar is taped to a wall.",
@@ -1824,7 +1863,7 @@ const APPS = {
    {t:"Sermon Notes are built right in. Tap record and set the phone on your lap: it records the sermon, writes down the words, and keeps your own notes beside it.", js:"openSermonNotes()", point:"#sn2 [data-a=rec]"},
    {t:"Afterwards it lists every scripture that was mentioned, gives you questions to take home, and with your own AI app, a summary in a minute. Events, prayer requests, giving and your staff page all live in the app too.", js:"(function(){var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click();})()"},
    "And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.",
-   "It comes with the Church membership, priced by the size of your church, and I set it up for you. In fact, you are looking at a real one right now: this is Immanuel's actual app, and you can try it below."
+   "It comes with the Church membership, priced by the size of your church, and I set it up for you. The one you can try below is a demo church we invented, so look around as much as you like."
   ],
   /* 7 Oct 2026: the 5-minute training — Sermon Notes v2 (record, notes, scriptures, questions, summary, library) */
   },
@@ -1935,7 +1974,7 @@ const APPS = {
    "It lives on your phone, and keeps working without a signal. No account, nothing for your volunteers to sign up for, and no ads.",
    "New in November: the is-in box offers WhatsApp as well as a text message, so you can send somebody their Sunday in the chat they already use.",
    "It comes with the Church membership, for every ministry team you have. Try it below."],
-  name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', mem:'Church membership', price:'$19 one-time', testing:true, video:true,
+  name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', also:['work'], mem:'Church membership', price:'$19 one-time', testing:true, video:true,
   tag:'The month of volunteers on one page. No ads to your volunteers.',
   try:'https://jerrywins1.github.io/daraja-apps/church-serve/',
   },
@@ -2252,7 +2291,7 @@ const APPS = {
    {"t": "Step five: tap Make the letters. You get one letter for each gift, and a note naming any row it skipped, and why.", "point": "button[onclick=\"makeLetters()\"]"},
    "Step six: tap any letter to add a personal line. Then tap Print them all, and each letter prints on its own page, ready to sign.",
    {"t": "Your organization and gift rows stay saved on this device, and the letters are made fresh with one tap. To clear everything, use Start fresh at the very bottom.", "point": "footer"}],
-  name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', mem:'Church membership, or Small charity $49 a year', price:'$19 one-time', testing:true, video:true,
+  name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', also:['work'], mem:'Church membership, or Small charity $49 a year', price:'$19 one-time', testing:true, video:true,
   tag:'January\'s donor letters in ten minutes',
   try:'https://jerrywins1.github.io/daraja-apps/np-receipts/',
   lines:[
@@ -2468,7 +2507,7 @@ const APPS = {
    {"t": "There is a to-do list with big check boxes, a place to talk with your helper, and a board where the family can leave notes. Every question can be read out loud, and the words come in three sizes.", "js": "try{porchTour.scene('todo')}catch(e){}", "point": ".todo"},
    {"t": "Sorting your real Gmail, talking with your helper and the family board all work when you open Porchlight inside Claude, with your own Claude account. The try-it page below shows example emails, so you can see how it works first.", "js": "try{porchTour.scene('home')}catch(e){}", "point": ".card .btn-big"},
    "If you know someone who dreads their inbox, show them this one. Try it below."],
-  name:'Porchlight', em:'🏮', sub:'your mail sorted, scams caught', cat:'later', mem:'Family membership', price:'$29 one-time', testing:true, fresh:true, video:true,
+  name:'On Guard', em:'🏮', sub:'your mail sorted, scams caught', cat:'off', off:'Jerry\u2019s own for now \u2014 he is using it himself; was $29 one-time on the Later life shelf', mem:'Family membership', price:'$29 one-time', testing:true, fresh:true, video:true,
   tag:'A patient helper that asks a few easy questions, then sorts your Gmail into what needs an answer, what can wait, and what looks like a scam. It reads mail aloud and helps you write back. The try-it page shows example mail; sorting your real Gmail works when you open it inside Claude.',
   try:BASE+'porchlight/',
   
@@ -2502,7 +2541,7 @@ const APPS = {
     {"t": "The report writes itself: sales, profit, money out, the cash count, deni, low stock and offers. Copy it to WhatsApp.", "js": "try{closeSheet();}catch(e){} try{go('money','report');window.scrollTo(0,0);}catch(e){}", "point": "#repText"},
     {"t": "That is Duka: sell, keep stock, count the cash, remember who owes, and bring customers back. Asante for watching.", "js": "try{closeSheet();}catch(e){} try{go('today');window.scrollTo(0,0);}catch(e){}"}
   ]} },
-  name:'Duka', em:'📱', sub:'run a phone & electronics shop from your phone', fresh:true, cat:'work', price:'', testing:true,
+  name:'Duka', em:'📱', sub:'run a phone & electronics shop from your phone', fresh:true, cat:'work', also:['kenya'], price:'', testing:true,
   tag:'Sales with the M-Pesa paste and a warranty receipt, stock and the reorder list, the evening cash count, deni, repairs, bills, offers by WhatsApp to customers who said yes, and a weekly report that writes itself. Works with no signal. Made for Kenyan shops.',
   try:BASE+'duka/', video:true,
   lines:[
