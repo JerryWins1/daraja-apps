@@ -10,9 +10,9 @@ Per app tested, by how long that app's test script is:
 
 | What | KES |
 | --- | --- |
-| Test a **small** app (14–17 steps) | 100 |
-| Test a **normal** app (18–21 steps) | 150 |
-| Test a **big** app (22–30 steps) | 250 |
+| Test a **small** app (up to 19 steps) | 100 |
+| Test a **normal** app (20–23 steps) | 150 |
+| Test a **big** app (24 steps or more) | 250 |
 | A report that **finds a real problem** | 50 |
 | **Use an app 5 days** in one week | 100 |
 
@@ -24,8 +24,19 @@ four-part gate (challenge attempt, step results, ease rating, own words) was rem
 on 7 November: the only part that ever failed anybody was the ease rating, which the
 app itself told them they could skip.
 
-Which app counts as which size is generated from its own test script and lives in
-`kenya/lead/bands.json`. The rates the managers' page reads are
+Which app counts as which size is generated from its own test script by
+`tools/makebands.py` and lives in `kenya/lead/bands.json`. Run that script whenever a
+test script gains or loses steps; never edit the file by hand.
+
+**The boundaries moved up by two on 8 November.** They used to read 14–17 / 18–21 /
+22–30. On 6 November every test script gained the same two steps — watch this app's
+videos, read its store card — and `bands.json` was never regenerated, so all 32 apps
+sat two steps short. Letting those two steps count would have moved 16 apps up a band
+without any app's test getting harder than any other's, and would have made both
+videos wrong where they name Rafiki as a normal app and The Key as a small one.
+Jerry's call, 8 November: move the boundaries instead, so every app keeps the size it
+already had. The Church App is the one real change — medium to big — because its
+script was rewritten from 20 steps to 25. The rates the managers' page reads are
 `kenya/lead/rates.json`; changing that one file changes the page.
 
 ## Testing is permanent, not a round
