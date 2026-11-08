@@ -46,15 +46,22 @@ by itself. It is a good checklist of what is left to fill in.
 
 ## The prayer wall
 
-`SEED_PRAYERS` is empty and must stay empty.
+`SEED_PRAYERS` holds three invented requests — Maria, Anonymous, the Danvers family —
+and **they are load-bearing**. `testers/scripts/church.json` names all three in step 16,
+and step 19 has the tester tap "I prayed" on one of the others, which needs an other to
+exist. Do not empty the list without changing that script in the same piece of work.
 
-It held three invented requests when this demo was first built, so a visitor would see
-the wall in use. That lasted a day. The tester script's step 13 expects *"Your prayer
-list is empty"*, and `renderPrayers` draws `[...mine, ...SEED_PRAYERS]` — so with
-anything seeded there, that line can never appear and the step cannot be passed by any
-of the 21 testers. Jerry had it emptied on 8 November.
+A church's own app starts with an empty wall. The demo does not, because a wall with
+requests already on it is what lets a visitor see the feature work — and what finally
+lets a tester try posting one, which step 18 calls *"the part no tester has ever been
+able to try"*.
 
-The empty wall explains itself, and it is what a church sees on day one anyway.
+It was emptied once, on 8 November, and put back the same evening. Both decisions were
+right when they were made, and the pair of them was still wrong: the script's **old**
+step 13 expected *"Your prayer list is empty"*, which anything seeded here makes
+impossible, so it was emptied — while hours earlier the script had already been rewritten
+the other way, turning this demo into the testers' practice church. Neither change could
+see the other. What catches it is reading this file and that script together.
 
 ## One thing this demo does that a church's app should not
 

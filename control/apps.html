@@ -67,6 +67,9 @@ h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--
 .acts a.main{background:var(--brand);border-color:var(--brand);color:var(--on)}
 .acts a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .chatname{font-size:12px;color:var(--faint);overflow-wrap:anywhere}
+.when{font-size:12px;color:var(--faint)}
+.when.old{color:var(--needs);background:var(--needs-soft);border-radius:6px;
+  padding:3px 8px;font-weight:700;display:inline-block}
 .about{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;
   font-size:14px;color:var(--soft);margin-bottom:4px}
 .err{background:var(--open-soft);border:1px solid var(--open);color:var(--ink);
@@ -118,6 +121,31 @@ footer a{color:var(--brand)}
 
   function pillClass(s){ return s === "no-chat" ? "nochat" : s; }
 
+  /* 8 Nov 2026: a card stamped 30 October looked exactly as current as one stamped today.
+     CLAUDE.md asks every chat to write `touched` when it stops, for precisely this reason —
+     "a stale entry is worse than an empty one, because the panel will show it as current" —
+     and the stamp was being collected and never shown anywhere. 40 of the 64 rows had none
+     at all, so two thirds of this board had no age a reader could see. Now every card says
+     when it was last touched, and one that has gone quiet says so in its own colour. */
+  var STALE_DAYS = 7;
+  var MONTH = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function midnight(){ var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); }
+  function when(t){
+    var warn = function(msg){ return '<div class="when old">' + msg + '</div>'; };
+    if (!t) return warn('Never stamped \u2014 nobody can tell how old this card is');
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(t).trim());
+    if (!m) return warn('Stamped &quot;' + esc(t) + '&quot;, which is not a date');
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    if (isNaN(d.getTime())) return warn('Stamped &quot;' + esc(t) + '&quot;, which is not a date');
+    var pretty = (+m[3]) + ' ' + MONTH[+m[2] - 1];
+    var days = Math.floor((midnight() - d.getTime()) / 86400000);
+    if (days < 0) return warn('Stamped ' + pretty + ', which is in the future');
+    if (days === 0) return '<div class="when">Last touched today</div>';
+    if (days === 1) return '<div class="when">Last touched yesterday</div>';
+    if (days < STALE_DAYS) return '<div class="when">Last touched ' + pretty + ', ' + days + ' days ago</div>';
+    return warn('Last touched ' + pretty + ' \u2014 ' + days + ' days ago, may be out of date');
+  }
+
   function card(a){
     var h = '<div class="app ' + esc(a.status) + '">';
     h += '<div class="top"><span class="nm">' + esc(a.name) + '</span>' +
@@ -125,6 +153,7 @@ footer a{color:var(--brand)}
     h += '<div class="grp">' + esc(a.group) + (a.note ? ' · ' + esc(a.note) : '') + '</div>';
     if (a.next) h += '<p class="nx"><b>Next</b>' + esc(a.next) + '</p>';
     if (a.chat_name) h += '<div class="chatname">Chat: ' + esc(a.chat_name) + '</div>';
+    h += when(a.touched);
     h += '<div class="acts">';
     if (a.chat) h += '<a class="main" href="https://claude.ai/code/' + esc(a.chat) +
                      '" target="_blank" rel="noopener">Open the chat</a>';
