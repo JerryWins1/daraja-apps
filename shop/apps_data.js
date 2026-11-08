@@ -687,45 +687,45 @@ const APPS = {
  },
 
  home: {
-  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what the front door is, and why you would put it on your phone. Sound on.", lines:[
+  extra:{ firsttime:{title:'Explain it to me', sub:'About three minutes, for a first-timer: what the front door is, and why you would put it on your phone. Sound on.', lines:[
    {t:'Welcome. This explains Daraja itself — not one of the apps, but the front door they all live behind.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   'Daraja means bridge in Swahili. That is the whole idea: a short way across from where you are to the thing you were trying to do.',
-   {t:'Here is the problem it solves. Once you are using three or four small apps, you stop being able to find them. They scatter across your phone, buried in folders, and you end up not using the ones you liked.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   {t:'Daraja is one page that holds them all. Put it on your home screen once, and it is the only icon you need.', point:"#host"},
-   {t:'The apps you use sit together under Mine, so the ones you actually open are the ones you see first.', point:"#host"},
-   {t:'Tap one and it opens right there inside Daraja, with a back arrow to bring you home again. No hunting, no going back to a browser.', point:"#host"},
-   {t:'If you would rather give an app its own window, there is open on its own — handy for the one you live in all day.', point:"#host"},
-   {t:'New apps turn up here by themselves as they are built. Nothing to update, nothing to reinstall.', point:"#host"},
-   'It works with no signal. Once it has loaded, it keeps working on a train, in a basement, or out where the bars run out.',
-   'Nothing is sent anywhere. No account to make, no password, no ads. What each app knows stays on your phone.',
-   {t:'Two links sit at the bottom: the store, for anything you have not got yet, and what’s new, for what has changed lately.', point:"#host"},
-   {t:'Daraja itself is free, and always will be. You only ever pay for an app you decide you want.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   'And every app that somebody buys helps a student in Kenya stay in school. That is not a slogan bolted on the end — it is why the whole thing exists.',
-   {t:'That is the front door. Add it to your home screen, and everything else is one tap away.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"}
+   {t:'Daraja means bridge in Swahili. That is the whole idea: a short way across from where you are to the thing you were trying to do.', point:"#host"},
+   {t:'Here is the problem it solves. Once you are using three or four small apps, you stop being able to find them. They scatter across your phone, buried in folders, and you end up not using the ones you liked.', point:"#host"},
+   {t:'Daraja is one page that holds them all. Put it on your home screen once, and it is the only icon you need.', js:"try{showShelf('home');}catch(e){}", point:"h2.shelf"},
+   {t:'The apps you use sit together under Mine, so the ones you actually open are the ones you see first.', point:"#shelfView .grid"},
+   {t:'Tap one and it opens right there inside Daraja, with a back arrow to bring you home again. No hunting, no going back to a browser.', js:"try{openApp('everyday');}catch(e){}", point:"#frame .bar button"},
+   {t:'If you would rather give an app its own window, there is open on its own — handy for the one you live in all day.', point:"#frameOut"},
+   {t:'New apps turn up here by themselves as they are built. Nothing to update, nothing to reinstall.', js:"try{closeApp();showShelf('home');}catch(e){}", point:"#shelfView .grid"},
+   {t:'It works with no signal. Once it has loaded, it keeps working on a train, in a basement, or out where the bars run out.', js:"try{showShelf('church');}catch(e){}", point:"h2.shelf"},
+   {t:'Nothing is sent anywhere. No account to make, no password, no ads. What each app knows stays on your phone.', point:"#nav"},
+   {t:'Two links sit at the bottom: the store, for anything you have not got yet, and what’s new, for what has changed lately.', js:"try{window.scrollTo(0,document.body.scrollHeight);}catch(e){}", point:".foot"},
+   {t:'Daraja itself is free, and always will be. You only ever pay for an app you decide you want.', point:".foot"},
+   {t:'And every app that somebody buys helps a student in Kenya stay in school. That is not a slogan bolted on the end — it is why the whole thing exists.', point:".foot"},
+   {t:'That is the front door. Add it to your home screen, and everything else is one tap away.', js:"try{showShelf('home');window.scrollTo(0,0);}catch(e){}", point:"h2.shelf"}
   ]} },
   name:'Daraja', em:'🌉', sub:'your family of apps, one front door', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
   tag:'your family of apps, one front door',
   try:BASE+'home/',
   train:[
    {t:'Setting up your front door — about three minutes, once.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   {t:'Open Daraja in your phone’s browser. That link is the only address you need to remember.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   'Now put it on your home screen. On an iPhone, tap the share button and choose Add to Home Screen. On Android, open the browser menu and choose Install or Add to Home screen.',
-   {t:'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.', point:"#host"},
-   {t:'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.', point:"#host"},
-   'If an app is one you use all day, open it on its own and give that its own home screen icon too. The two live happily side by side.',
-   {t:'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"}
+   {t:'Open Daraja in your phone’s browser. That link is the only address you need to remember.', point:"#host"},
+   {t:'Now put it on your home screen. On an iPhone, tap the share button and choose Add to Home Screen. On Android, open the browser menu and choose Install or Add to Home screen.', point:"#host"},
+   {t:'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.', js:"try{showShelf('home');}catch(e){}", point:"h2.shelf"},
+   {t:'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.', point:"#shelfView .grid"},
+   {t:'If an app is one you use all day, open it on its own and give that its own home screen icon too. The two live happily side by side.', js:"try{openApp('everyday');}catch(e){}", point:"#frameOut"},
+   {t:'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.', js:"try{closeApp();showShelf('home');}catch(e){}", point:"#nav"}
   ],
   lines:[
    {t:'This is Daraja — your family of apps behind one front door.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   'Daraja means bridge in Swahili.',
-   {t:'Once you are using three or four small apps, you stop being able to find them. They scatter across your phone and you quietly stop using them.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   {t:'This is one page that holds them all. Add it to your home screen and it is the only icon you need.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   {t:'The apps you use gather under Mine, so what you actually open is what you see first.', point:"#host"},
-   {t:'Tap one and it opens inside Daraja, with a back arrow home. Or open it on its own if you prefer its own window.', point:"#host"},
-   {t:'New apps appear here by themselves. Nothing to update, nothing to reinstall.', point:"#host"},
-   'It works with no signal, and nothing is sent anywhere — no account, no password, no ads.',
-   {t:'Daraja is free and always will be. You only pay for an app you decide you want.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
-   {t:'And every app bought helps a student in Kenya stay in school.', point:"#host"}
+   {t:'Daraja means bridge in Swahili.', point:"#host"},
+   {t:'Once you are using three or four small apps, you stop being able to find them. They scatter across your phone and you quietly stop using them.', point:"#host"},
+   {t:'This is one page that holds them all. Add it to your home screen and it is the only icon you need.', js:"try{showShelf('home');}catch(e){}", point:"h2.shelf"},
+   {t:'The apps you use gather under Mine, so what you actually open is what you see first.', point:"#shelfView .grid"},
+   {t:'Tap one and it opens inside Daraja, with a back arrow home. Or open it on its own if you prefer its own window.', js:"try{openApp('everyday');}catch(e){}", point:"#frameOut"},
+   {t:'New apps appear here by themselves. Nothing to update, nothing to reinstall.', js:"try{closeApp();showShelf('home');}catch(e){}", point:"#shelfView .grid"},
+   {t:'It works with no signal, and nothing is sent anywhere — no account, no password, no ads.', point:"#nav"},
+   {t:'Daraja is free and always will be. You only pay for an app you decide you want.', js:"try{window.scrollTo(0,document.body.scrollHeight);}catch(e){}", point:".foot"},
+   {t:'And every app bought helps a student in Kenya stay in school.', point:".foot"}
   ]
  },
  everyday: {
