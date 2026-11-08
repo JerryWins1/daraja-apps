@@ -1497,7 +1497,8 @@
       var me = myStoreKey(), cat = me ? shelfOf(me) : null;
       var NAMES = (typeof DOOR_SHELF !== 'undefined') ? DOOR_SHELF : {home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun'};
       var live = (typeof PHASE !== 'undefined' && PHASE === 'live');
-      var keys = Object.keys(APPS).filter(function(k){ var a = APPS[k]; return k !== me && k !== 'home' && a.cat && a.cat !== 'off' && (a.try || a.kind === 'download') && (!cat || shelfOf(k) === cat); });
+      var onShelf = function(k, c){ return (typeof djOnShelf === 'function') ? djOnShelf(k, c, typeof DOOR !== 'undefined' ? DOOR : null) : shelfOf(k) === c; };
+      var keys = Object.keys(APPS).filter(function(k){ var a = APPS[k]; return k !== me && k !== 'home' && a.cat && a.cat !== 'off' && (a.try || a.kind === 'download') && (!cat || onShelf(k, cat)); });
       var dark = false; try{ dark = matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.getAttribute('data-theme') !== 'light'; }catch(e){}
       var paper = dark ? '#1D2224' : '#FAF6EE', ink = dark ? '#ECEAE3' : '#1F2622', soft = dark ? '#B0B7B1' : '#55605B', line = dark ? '#3A4245' : '#E2DCCF', card = dark ? '#262C2E' : '#FFFFFF', brand = dark ? '#7FB4B1' : '#23504F';
       var esc = function(x){ return String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
@@ -2190,6 +2191,10 @@ const ORDER=['home','later','church','work','free','fun'];
 /* Jerry’s sort for the door, 18 Sep — the store keeps its own shelves for selling */
 const DOOR_LOCAL={ pitwall:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
 const shelfOf=k=>((typeof DOOR!=='undefined'?DOOR:DOOR_LOCAL)[k])||APPS[k].cat;
+/* 8 Nov: shelfOf still answers "which ONE shelf is this app's" — db.shelf and the hash
+   jump both want a single answer. Membership goes through here instead, so an app with
+   also:[...] shows on each of its shelves. */
+const doorOnShelf=(k,s)=>(typeof djOnShelf==='function')?djOnShelf(k,s,(typeof DOOR!=='undefined'?DOOR:DOOR_LOCAL)):shelfOf(k)===s;
 /* what each app saves under, so the door knows which ones you already use */
 const USES={ nownext:['now_next_v1','now_next_profiles_v1'], ahead:['ahead_v1'], thekey:['daraja_thekey_v1'], pitwall:['pitwall_state_v1'], rafiki:['rafiki_v1'], storykeeper:['story_keeper_v1'], churchkey:['daraja_churchkey_v1'], churchserve:['serveboard_v1'], churchdrive:['occ_counter_v1'], occ:['occ_counter_v1'], npreceipts:['receiptmaker_org_v1'], nextstep:['nextstep_board_v1'], academy:['daraja_academy_v1'], whoscoming:['dj_whoscoming_v1'], ourtable:['dj_ourtable_v1'], everyday:['dj_everyday_v1'], safety:['my_safety_plan_v1'], breakeven:['breakeven_v1'], compass:['daraja_compass_v1'], drumbeat:['drumbeat_v1'], flipkit:['flipkit_v1'], zuri:['zuri_ops_v1'], churchhq:['church_hq_v1'], churchsteward:['steward_v1'], churchclubhouse:['clubhouse_stars'], npgoodstanding:['goodstanding_v1'], feedback:['feedback_studio_v1'] };
 const inUse=k=>(USES[k]||[]).some(x=>{ try{ return !!localStorage.getItem(x); }catch(e){ return false; } });
@@ -2221,7 +2226,7 @@ function setShelf(s){ db.shelf=s; save(); if(!db.name){ let n=''; try{ n=localSt
 
 /* ── shelves ─────────────────────────────────────────────────── */
 let cur='';
-function showShelf(s){ cur=s; db.last=s; save(); const S=SHELF[s]; const apps=APPLIST.filter(k=>shelfOf(k)===s).sort((a,b)=>(inUse(b)-inUse(a))||((APPS[b].fresh?1:0)-(APPS[a].fresh?1:0)));
+function showShelf(s){ cur=s; db.last=s; save(); const S=SHELF[s]; const apps=APPLIST.filter(k=>doorOnShelf(k,s)).sort((a,b)=>(inUse(b)-inUse(a))||((APPS[b].fresh?1:0)-(APPS[a].fresh?1:0)));
   $('shelfView').innerHTML=`<h2 class="shelf">${S.em} ${S.name}</h2><p class="shelfSub">${S.sub}${s===db.shelf?' · your shelf':''}</p><div class="grid">${apps.map(k=>{ const a=APPS[k]; const u=inUse(k); return `<button class="app ${u?'use':'try'}" onclick="openApp('${k}')" aria-label="${esc(a.name)}, ${u?'you use this':'try it'}">${a.fresh?'<span class="new">NEW</span>':''}<div class="em">${a.em||'📱'}</div><div class="nm">${esc(a.name)}</div><div class="sub">${esc(a.sub||a.tag||'')}</div><div class="st">${u?'you use this':a.kind==='download'?'a book · '+esc(a.price||''):(typeof PHASE!=='undefined'&&PHASE==='testing')?'try it · free while testing':(a.price==='Free'?'free':'try it · '+esc(a.price||''))}</div></button>`; }).join('')||'<p class="small">Nothing on this shelf yet.</p>'}</div>`;
   $('nav').innerHTML=ORDER.map(x=>`<button class="${x===s?'on':''}" onclick="showShelf('${x}')"><span>${SHELF[x].em}</span>${x==='home'?'Household':x==='later'?'Later':x==='church'?'Church':x==='work'?'Business':x==='free'?'Free':'Fun'}</button>`).join('');
   window.scrollTo({top:0}); }

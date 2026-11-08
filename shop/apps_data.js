@@ -91,6 +91,28 @@ const READY = ['nownext','ourtable'];
 const DOOR = { pitwall:'fun', ff:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later', compass:'free' };   /* compass: a young person's five-year plan, not a later-life tool (Jerry, 2 Oct) */
 const DOOR_SHELF = { home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun' };
 
+/* ══ TWO SHELVES ══ 8 Nov 2026, Jerry: "Build two-shelf support." An app can sit on more
+   than one shelf. cat is still its ONE primary shelf, so everything that already reads
+   a.cat keeps working; also:[...] names any EXTRA shelf it belongs on. Additive on
+   purpose — an extra can never contradict the primary the way a second full list could.
+   Who's Coming is the first: a household app whose own overview names a church work day,
+   and a free app with a shareable read-only link is a good doorway into the church apps.
+   DOOR still wins where it names an app: the door's re-sort is a deliberate single-shelf
+   override, so an app DOOR names shows only there.
+   Ask these two, never compare a.cat yourself — the store, the watch page and the door
+   each had their own copy of that comparison, and four copies is how they drift apart. */
+function djShelves(k, door){
+  var a = (typeof APPS === 'object' && APPS) ? APPS[k] : null;
+  if(!a) return [];
+  var named = door && door[k];
+  if(named) return [named];                       /* DOOR override: that shelf only */
+  if(!a.cat || a.cat === 'off') return a.cat ? [a.cat] : [];   /* off the shelves is off: also: cannot put it back */
+  var out = [a.cat];
+  if(a.also) a.also.forEach(function(c){ if(c && c !== 'off' && out.indexOf(c) < 0) out.push(c); });
+  return out;
+}
+function djOnShelf(k, c, door){ return !!c && djShelves(k, door).indexOf(c) >= 0; }
+
 const BASE = 'https://jerrywins1.github.io/daraja-apps/';
 const A = BASE + 'Apps%20(installable%20site)/';
 
@@ -888,7 +910,7 @@ const APPS = {
    "It works for a family Sunday lunch, a church work day, a team choosing a practice night, or anyone who organizes people.",
    "Or tap A link they can open. One link shows the whole list to anybody, read only, with no app and no account — and it carries a way through to the rest of the Daraja apps.",
    "No ads, no account, and everything stays on your phone. Who's Coming is free, and every Daraja app helps a student in Kenya stay in school. Try it below: make a group and ask your first question."],
-  name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', mem:'Family membership', price:'Free', testing:true,
+  name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', also:['church'], mem:'Family membership', price:'Free', testing:true,
   tag:'Ask the family or the group one question (“Sunday lunch at 1?”) and see who said yes, no and maybe on one screen. It goes from your own phone. No ads, and nobody has to sign up to answer.',
   try:BASE+'whoscoming/', video:true
  },
