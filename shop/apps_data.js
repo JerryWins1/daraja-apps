@@ -1822,7 +1822,7 @@ const APPS = {
     {"t": "How to start: open the app and tap the latest message. On Sunday, open Sermon Notes and tap Record. That is your first two minutes.", "js": "try{ go('home'); }catch(e){}", "point": "#heroBtn"},
     "The church office has a simple update page and a key. Post Sunday's message, the verses and new events from a phone, and every member sees them. No web designer, no monthly bill.",
     "Members need no account. Notes, recordings and prayer lists stay on each person's own phone.",
-    "The Church App comes with the Church membership, set up for your church with your own name on it. Any profit helps orphans and students in Kenya.",
+    "The Church App is a hundred and forty-nine dollars for the first year, set up for your church with your own name on it, then forty-nine a year to keep it current. Stop paying and it keeps working. Any profit helps orphans and students in Kenya.",
     "If you get lost, tap Home at the bottom, and you are back at the start."]} },
   train:[
    {"t": "This is the five-minute training for Sermon Notes in The Church App: how to use it on a Sunday, and what to do with it afterwards.", "js": "try{ go('home'); openSermonNotes(); }catch(e){}"},
@@ -1835,7 +1835,7 @@ const APPS = {
    {"t": "Tap Share this sermon to send the summary, questions and scriptures to your small group or your family.", "point": "#sn2 [data-a=share]"},
    {"t": "Everything is saved in your Library, on your own phone. Each recorded sermon lands there, ready to open again.", "js": "try{ var b=document.querySelector('#sn2 [data-a=lib]'); if(b) b.click(); }catch(e){}"},
    {"t": "And for the church office: when you post Sunday's message on the Weekly Update page, add the outline and the verses, and everyone's Sermon Notes has them before the service starts.", "js": "try{ var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click(); go('home'); }catch(e){}"}],
-  name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', mem:'Church membership', price:'$149 one-time', testing:true, video:true,
+  name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 first year · then $49 a year', testing:true, video:true,
   tag:'Sermons with notes you can record (with the scriptures and take-home questions pulled out), events, prayer requests and giving, in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
   /* 8 Nov 2026: this pointed at https://jerrywins1.github.io/immanuel-app/ — a real
      congregation's live app. Every buyer who tapped "Try it" was browsing Immanuel's actual
@@ -1863,7 +1863,7 @@ const APPS = {
    {t:"Sermon Notes are built right in. Tap record and set the phone on your lap: it records the sermon, writes down the words, and keeps your own notes beside it.", js:"openSermonNotes()", point:"#sn2 [data-a=rec]"},
    {t:"Afterwards it lists every scripture that was mentioned, gives you questions to take home, and with your own AI app, a summary in a minute. Events, prayer requests, giving and your staff page all live in the app too.", js:"(function(){var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click();})()"},
    "And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.",
-   "It comes with the Church membership, priced by the size of your church, and I set it up for you. The one you can try below is a demo church we invented, so look around as much as you like."
+   "It is a hundred and forty-nine dollars for the first year, with the setting up done for you, then forty-nine a year to keep it current. Stop paying and it keeps working. The one you can try below is a demo church we invented, so look around as much as you like."
   ],
   /* 7 Oct 2026: the 5-minute training — Sermon Notes v2 (record, notes, scriptures, questions, summary, library) */
   },
