@@ -121,22 +121,27 @@ function pickVoice(){
 }
 function speak(text, done){
   clearTimeout(timer);
-  const fallback = () => { timer = setTimeout(done, Math.max(2600, SLIDES[at][1] * 1000)); };
-  if (!window.speechSynthesis) { el('vstat').textContent = 'This browser has no voice — the words are on screen.'; return fallback(); }
+  let fired = false;
+  const secs = Math.max(2.6, SLIDES[at][1]);
+  const finish = () => { if (fired) return; fired = true; clearTimeout(timer); done(); };
+  /* No voice: hold each slide for as long as reading it aloud would have taken. */
+  const byClock = () => { clearTimeout(timer); timer = setTimeout(finish, secs * 1000); };
+  if (!window.speechSynthesis) { el('vstat').textContent = 'This browser has no voice — the words are on screen.'; return byClock(); }
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.95;
     const v = pickVoice(); if (v) { u.voice = v; el('vstat').textContent = 'Voice: ' + v.name; }
-    let fired = false;
-    u.onend = () => { if (!fired) { fired = true; clearTimeout(timer); done(); } };
-    u.onerror = () => { if (!fired) { fired = true; clearTimeout(timer); done(); } };
-    u.onstart = () => { spoke = true; };
+    let started = false;
+    u.onstart = () => { started = true; spoke = true; };
+    /* Some phones and tablets end the utterance at once without making a sound. If it
+       never started, go by the clock — otherwise all thirteen slides flash past. */
+    u.onend = () => { started ? finish() : byClock(); };
+    u.onerror = () => { started ? finish() : byClock(); };
     speechSynthesis.speak(u);
-    /* Some browsers refuse silently — keep the slides moving anyway. */
-    timer = setTimeout(() => { if (!fired) { fired = true; done(); } }, (SLIDES[at][1] + 14) * 1000);
+    timer = setTimeout(finish, (secs + 14) * 1000);
     setTimeout(() => { if (!spoke) el('vstat').textContent = 'No voice on this device — the words are on screen.'; }, 1800);
-  } catch (e) { fallback(); }
+  } catch (e) { byClock(); }
 }
 
 function stepOn(){
