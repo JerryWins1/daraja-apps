@@ -2179,7 +2179,14 @@
   .bub .m{ display:block; font-size:11.5px; opacity:.75; margin-top:2px; }
   #sheet{ position:fixed; inset:0; z-index:20; display:none; background:rgba(0,0,0,.45); }
   #sheet.on{ display:block; }
-  #sheet .panel{ position:absolute; left:0; right:0; bottom:0; max-height:92vh; overflow:auto; background:var(--surface); border-radius:20px 20px 0 0; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); max-width:720px; margin:0 auto; }
+  /* 6 Nov, Jerry on the iPad: "fix the position of that box that's way at the bottom. Can't have
+     access to the bottom on my iPad." The panel sat at bottom:0 of the LAYOUT viewport, and the
+     iPad's keyboard does not shrink that — so the buttons were underneath the keyboard, and the
+     one he needed could not be tapped at all. --sheetBottom and --sheetMax are set from
+     visualViewport whenever the keyboard opens or closes; the fallbacks are what it used before. */
+  #sheet .panel{ position:absolute; left:0; right:0; bottom:var(--sheetBottom,0px); max-height:var(--sheetMax,92vh); overflow:auto; background:var(--surface); border-radius:20px 20px 0 0; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); max-width:720px; margin:0 auto; }
+  /* and the buttons ride along at the foot of the sheet, so they are reachable without scrolling */
+  #sheet .panel > .chips:last-of-type{ position:sticky; bottom:calc(-16px - env(safe-area-inset-bottom)); background:var(--surface); padding:10px 0 calc(6px + env(safe-area-inset-bottom)); margin-bottom:0; box-shadow:0 -10px 14px -8px rgba(0,0,0,.18); }
   #sheet .close{ float:right; }
   .gate{ max-width:460px; margin:40px auto; text-align:center; }
   #toast{ position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--ok); color:#fff; font-weight:800; padding:10px 16px; border-radius:999px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:30; max-width:92vw; text-align:center; }
@@ -2195,8 +2202,8 @@
     <h1>🎛 Daraja HQ <small id="stamp">Everything going on, and everyone in it.</small></h1>
     <div class="chips">
       <button class="chip small" id="reload" onclick="load(true)">↻</button>
-      <!-- v1.35 (19 Oct): Jerry: "it opens a new window and gets lost — make it one of the lines and go screen to screen." The list is a tab now. -->
-      <button class="chip small main" onclick="show('list')">📋 Jerry's List</button>
+      <!-- v1.35 (19 Oct): Jerry: "it opens a new window and gets lost — make it one of the lines and go screen to screen." The list is a tab now.
+           v1.52 (6 Nov): and so this pill was the same button twice on one screen — Jerry: "there are two Jerry's List buttons on this page. Do we need that?" No. The tab is the way in. -->
     </div>
   </header>
 
@@ -2260,6 +2267,10 @@
       <!-- v1.21 (7 Oct): Jerry: "a little dashboard of everything that needs to be done, and a section for Zuri testers and a section for Daraja testers rather than a button." -->
       <!-- v1.25 (8 Oct): Jerry: "the panel only had things that I need to do right now, but keep a history of what's happened." -->
       <h2>✅ Needs you now <small id="nowCount"></small></h2>
+      <!-- v1.50 (6 Nov): Jerry had 1,872 unread sitting here, every message any tester ever sent.
+           Nothing expires them and the mailbox has no delete, so the list only ever grew. This
+           clears the old ones in batches — see clearOut(). -->
+      <div class="chips" id="clearOutBar" style="margin:0 0 8px;display:none"></div>
       <div class="card" id="nowList"><p class="muted" style="margin:0">Loading…</p></div>
       <details class="card" id="moreToday" style="margin-top:14px"><summary style="font-weight:800;cursor:pointer">👥 The testers, dates &amp; more <small class="muted">(how everyone is doing — nothing to act on)</small></summary>
       <div class="tiles" id="needsYou" style="margin-top:8px;display:none"></div>
@@ -2407,22 +2418,30 @@
         <b>Every change and question, in three steps: 📥 New → 🔧 Being fixed → ✅ Fixed.</b>
         <p class="muted" style="margin:4px 0 10px">Say “work the stack” and Claude groups them, fixes them after your go, and moves each one to ✅ Fixed himself. Your only job is the green button on a fixed one: <b>📨 Tell them</b>. It quotes their words, so they know which question you’re answering.</p>
         <div class="chips"><button class="chip main" onclick="copy('work the stack')">📋 work the stack</button><button class="chip" onclick="addRequest()">＋ Add one myself</button></div>
+        <div id="stackClearBar" class="chips" style="display:none;margin-top:10px"></div>
       </div>
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.45 · 2026-11-06 · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.56 · 2026-11-07 · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
 <div id="toast" role="status"></div>
 
-<script src="../shop/apps_data.js"></script>
+<!-- The catalogue carries the store videos, so an iPad holding yesterday's copy would show
+     yesterday's videos. The hourly key is the one the Ready to Sell sheet already uses: a
+     change reaches this page within the hour, and at once on a reload. document.write keeps
+     this in parse order, so APPS is defined before the script below runs, exactly as before. -->
+<script>document.write('<script src="../shop/apps_data.js?h=' + Math.floor(Date.now()/36e5) + '"><\/script>');</script>
 <script>
 const $=id=>document.getElementById(id);
 const esc=x=>String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(t,bad){ const e=$('toast'); e.textContent=t; e.classList.toggle('bad',!!bad); e.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>e.classList.remove('show'),2600); }
-function copy(t){ (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Copied — paste it to Claude'),()=>{ prompt('Copy this:',t); }); }
+/* The second argument is what to say afterwards. Left out, it is the usual “paste it to Claude”.
+   Pass false where the screen already says it was copied — a reply to a tester is not going to
+   Claude, and the toast sat on top of the very button it was asking him to press. */
+function copy(t,say){ (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{ if(say!==false) toast(say||'Copied — paste it to Claude'); },()=>{ prompt('Copy this:',t); }); }
 function ago(iso){ if(!iso) return 'never'; const s=(Date.now()-new Date(iso))/1000; if(isNaN(s)) return ''; if(s<90) return 'just now'; if(s<3600) return Math.round(s/60)+' min ago'; if(s<86400) return Math.round(s/3600)+' h ago'; const d=Math.round(s/86400); return d===1?'yesterday':d+' days ago'; }
 function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){ return null; } }
 
@@ -2453,9 +2472,39 @@ async function sortKenya(){
     if(n) toast(n+' new tester'+(n>1?'s':'')+' filed (Kenya / Daraja friends / church)'); }
   catch(e){} finally{ KSORT=false; await load(); }
 }
-async function act(body,okMsg){ try{ const j=await hq(body); if(okMsg) toast(okMsg); await load(); return j; }catch(e){ toast(e.message,true); return null; } }
+async function act(body,okMsg){
+  if(TOUR){ toast('This is the walk-through — nothing is saved here'); return null; }
+  try{ const j=await hq(body); if(okMsg) toast(okMsg); await load(); return j; }catch(e){ toast(e.message,true); return null; } }
+
+/* ── ?tour=1 — the page a video is allowed to show (6 Nov 2026) ──
+   The catalogue has said since 30 August that "the app changes screens with the story", and again
+   on 7 October that "the videos show what they talk about". The three Daraja HQ videos broke both,
+   and not subtly: this page asks for a password, so inside the player every one of them sat on the
+   gate for the whole narration while the words described tabs nobody could see. It was missed
+   because the test unhid the panel first and so watched something Jerry never sees.
+
+   ?tour=1 opens the page with no password and no mailbox. It is not a back door: nothing private
+   is behind the gate for it to show. 📋 Jerry's List, 🗂 Where and 🧰 Apps are built from files
+   that are public on this site anyway, and everything that does come from the mailbox — Chats,
+   Today, People, the stack — is handed the sample below instead, never the real thing. No key is
+   read, no key is written, and nothing is sent anywhere. */
+const TOUR = (function(){ try{ return new URL(location.href).searchParams.get('tour')==='1'; }catch(e){ return false; } })();
+const TOUR_D = { settings:{ personal: JSON.stringify({ notes:[
+    { t:'does Duka work when the signal drops?', at:'2026-11-06', done:false },
+    { t:'ask Jay whether his church would use Serve Board', at:'2026-11-06', done:false },
+    { t:'check the Rafiki fault on a real Kenyan phone', at:'2026-11-05', done:true }
+  ] }) }, people:[], messages:[], requests:[], history:[] };
+
+async function startDemo(){
+  $('app').hidden=false; $('gate').hidden=true; $('reload').hidden=true;
+  D = TOUR_D;
+  wireTabs(); staticBits();
+  try{ render(); }catch(e){}
+  try{ $('stamp').textContent = 'a walk through the page — nothing here is live'; }catch(e){}
+}
 
 async function start(){
+  if(TOUR) return startDemo();
   if(!KEY){ $('gate').hidden=false; $('reload').hidden=true; return; } /* 7 Oct deep check: ↻ here sent a request with no key */
   $('app').hidden=false;
   try{ HQ=(await (await fetch('../testers/config.json?cb='+Date.now())).json()).mailbox||''; }catch(e){}
@@ -2464,6 +2513,7 @@ async function start(){
   setInterval(()=>{ if(!document.hidden && !$('sheet').classList.contains('on')) load(); },120000);
 }
 async function load(manual){
+  if(TOUR) return;   /* a tour never calls the mailbox */
   if(busy || !KEY || !HQ) return; busy=true; if(manual) $('reload').textContent='…';
   try{ const r=await hq({action:'read',days:45}); D=r; render(); if(manual) toast('Up to date'); setTimeout(sortKenya,50); }
   catch(e){ toast(e.message==='Not allowed'?'That password or key is not accepted — try again':'HQ did not answer — try ↻ in a minute',true); if(e.message==='Not allowed'){ store('jhq_key',null); $('gate').hidden=false; $('app').hidden=true; $('reload').hidden=true; } } /* 7 Oct deep check: it stayed on an empty panel */
@@ -2475,16 +2525,91 @@ async function load(manual){
    control/onelist.json is the list as Claude last wrote it from the list's own chat. A tick here is remembered on this
    device (jhq_list_done) so the screen is useful between updates; the list itself is the record. ── */
 let ONELIST=null;
+/* An item used to be a line of text. Since v16.0 of onelist.json it is an object: t (the line),
+   why, need, steps[], links[[label,url]], copy, you[], claude[], wait, until, mins. itText() is
+   the one place that knows the difference, so a tick saved against the old shape still matches. */
+function itText(x){ return (x && typeof x==='object') ? (x.t||'') : String(x==null?'':x); }
+function itOf(si,i){ const x=ONELIST.sections[si].items[i]; return (x && typeof x==='object') ? x : {t:String(x==null?'':x)}; }
 async function renderList(){
   const el=$('listFull'); if(!el) return;
   if(!ONELIST){ try{ ONELIST=await (await fetch('onelist.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the list just now.</p>'; return; } }
   let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
-  const L=ONELIST, total=L.sections.reduce((n,s)=>n+s.items.length,0), nd=L.sections.reduce((n,s)=>n+s.items.filter(i=>done.indexOf(i)>=0).length,0);
-  el.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:30px">📋</span><div style="flex:1;min-width:200px"><b style="font-size:18px">Jerry's List</b> <span class="muted">${esc(L.version)} · updated ${esc(L.updated)}</span><br><span class="muted">${nd} of ${total} ticked on this device · say <b>"update my list"</b> to Claude and the rest catches up.</span></div>
+  const L=ONELIST, total=L.sections.reduce((n,s)=>n+s.items.length,0), nd=L.sections.reduce((n,s)=>n+s.items.filter(i=>done.indexOf(itText(i))>=0).length,0);
+  el.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:30px">📋</span><div style="flex:1;min-width:200px"><b style="font-size:18px">Jerry's List</b> <span class="muted">${esc(L.version)} · updated ${esc(L.updated)}</span><br><span class="muted">${nd} of ${total} ticked on this device · tap any line for the steps, the links and the words to send.</span></div>
       <span class="chip small" style="opacity:.8" title="Jerry's List lives here now — Claude writes control/onelist.json and this tab is the list">📋 This is the list</span></div>`
-    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((it,i)=>{ const d=done.indexOf(it)>=0; return `<label class="dl" style="cursor:pointer;align-items:flex-start"><input type="checkbox" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand)"><span style="${d?'text-decoration:line-through;opacity:.55':''}">${esc(it)}</span></label>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
+    + L.sections.map((s,si)=>`<h2>${esc(s.name)} <small>${s.count} items · ${s.minutes} min</small></h2><div class="card">${s.items.map((raw,i)=>{ const it=(raw&&typeof raw==='object')?raw:{t:raw}; const t=itText(raw), d=done.indexOf(t)>=0;
+        const nst=(it.steps||[]).length, sd=stepsDone(t).length;
+        const tag=nst?`<span class="muted" style="font-size:12px;white-space:nowrap">${sd?sd+'/'+nst+' steps':nst+' steps'}${it.mins?' · '+it.mins+' min':''}</span>`:(it.mins?`<span class="muted" style="font-size:12px">${it.mins} min</span>`:'');
+        return `<div class="dl" style="align-items:flex-start;display:flex;gap:10px"><input type="checkbox" aria-label="Tick this off" ${d?'checked':''} onchange="listTick(${si},${i},this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand);cursor:pointer"><button type="button" onclick="listOpen(${si},${i})" style="flex:1;text-align:left;font:inherit;background:none;border:0;padding:0;cursor:pointer;color:inherit;${d?'text-decoration:line-through;opacity:.55':''}">${esc(t)}<br>${tag}${nst?' <span style="color:var(--brand);font-weight:800;font-size:13px">open the steps ›</span>':''}</button></div>`; }).join('')}${s.count>s.items.length?`<p class="muted" style="margin:8px 0 0">… and ${s.count-s.items.length} more on the list itself.</p>`:''}</div>`).join('');
 }
-window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=ONELIST.sections[si].items[i]; done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
+/* v1.54, 6 Nov. Jerry: "there used to be a list of one by one things to do within that task …
+   when I choose that, it gives me the whole list of things to do step-by-step" — and then:
+   "it should give me absolutely everything I need to solve whatever's on that line."
+   It did exist: the retired artifact (claude.ai/artifact/VJcBrykoQoP6zx6kNBuSWk) carried why /
+   what you need / the sub-steps / a link per thing / the exact words to send. When the list moved
+   into HQ in v1.35 only the one line came with it. onelist.json v16.0 has the rest back, and this
+   is the screen that shows it: the steps tick off one at a time, every link is tappable, and the
+   words to send copy in one tap. */
+function stepsKey(){ return 'jhq_list_steps'; }
+function stepsAll(){ try{ return JSON.parse(store(stepsKey())||'{}')||{}; }catch(e){ return {}; } }
+function stepsDone(t){ const a=stepsAll()[t]; return Array.isArray(a)?a:[]; }
+window.listStep=function(si,i,n,on){
+  const t=itText(ONELIST.sections[si].items[i]), all=stepsAll();
+  let a=Array.isArray(all[t])?all[t].filter(x=>x!==n):[];
+  if(on) a.push(n);
+  all[t]=a; try{ store(stepsKey(),JSON.stringify(all)); }catch(e){}
+  listOpen(si,i); renderList();
+};
+window.listOpen=function(si,i){
+  const it=itOf(si,i), t=it.t, sec=ONELIST.sections[si].name;
+  let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){}
+  const d=done.indexOf(t)>=0, sd=stepsDone(t);
+  const L=(it.links||[]), S=(it.steps||[]);
+  let h='<button class="chip small close" onclick="closeSheet()">✕</button>'
+    + '<h3 style="margin:4px 0 2px;font-size:14px;opacity:.75">'+esc(sec)+'</h3>'
+    + '<p style="font-size:18px;line-height:1.4;font-weight:700;margin:0 0 10px">'+esc(t)+'</p>';
+  if(it.wait) h+='<p style="margin:0 0 10px;padding:8px 10px;border-radius:10px;background:#FFF4D6;font-size:14px">⏳ Waiting on <b>'+esc(it.wait)+'</b>'+(it.until?' · '+esc(it.until):'')+'</p>';
+  if(it.why) h+='<p style="font-size:15px;line-height:1.5;margin:0 0 10px">'+esc(it.why)+'</p>';
+  if(it.need) h+='<p style="margin:0 0 12px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.05);font-size:14px"><b>What it takes:</b> '+esc(it.need)+(it.mins?' <span class="muted">· about '+it.mins+' min</span>':'')+'</p>';
+  if(S.length){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">Step by step'+(sd.length?' <span class="muted" style="font-weight:400">· '+sd.length+' of '+S.length+' done</span>':'')+'</p><ol style="margin:0 0 12px;padding-left:0;list-style:none">';
+    S.forEach((s,n)=>{ const on=sd.indexOf(n)>=0;
+      h+='<li style="display:flex;gap:10px;align-items:flex-start;margin:0 0 8px">'
+        + '<input type="checkbox" aria-label="Step '+(n+1)+' done" '+(on?'checked':'')+' onchange="listStep('+si+','+i+','+n+',this.checked)" style="width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--brand);cursor:pointer">'
+        + '<span style="flex:1;font-size:15px;line-height:1.45;'+(on?'text-decoration:line-through;opacity:.55':'')+'"><b>'+(n+1)+'.</b> '+esc(s)+'</span></li>';
+    });
+    h+='</ol>';
+  }
+  if(it.you&&it.you.length) h+='<p style="margin:0 0 4px;font-weight:800;font-size:14px">Only you can do</p><ul style="margin:0 0 10px;padding-left:20px;font-size:14px">'+it.you.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(it.claude&&it.claude.length) h+='<p style="margin:0 0 4px;font-weight:800;font-size:14px">Claude does</p><ul style="margin:0 0 10px;padding-left:20px;font-size:14px">'+it.claude.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(L.length){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">Everything you need, in order</p><div class="chips" style="margin-bottom:12px">'
+      + L.map(p=>'<a class="chip" href="'+esc(p[1])+'" target="_blank" rel="noopener">'+esc(p[0])+' ↗</a>').join('')+'</div>';
+  }
+  if(it.files&&it.files.length){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">On your own files</p>'
+      + it.files.map(f=>'<p style="margin:0 0 8px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.05);font-size:13px;line-height:1.4"><b>'+esc(f[0])+'</b><br><span class="muted">Files app \u2192 '+esc(f[1])+'</span></p>').join('');
+  }
+  if(it.copy){
+    h+='<p style="margin:0 0 6px;font-weight:800;font-size:15px">The words to send</p>'
+      + '<p style="margin:0 0 8px;padding:10px;border-radius:10px;background:rgba(0,0,0,.05);font-size:14px;line-height:1.45;white-space:pre-wrap;max-height:180px;overflow:auto">'+esc(it.copy)+'</p>'
+      + '<div class="chips" style="margin-bottom:12px"><button class="chip main" onclick="listCopy('+si+','+i+')">📋 Copy these words</button></div>';
+  }
+  if(!S.length&&!L.length&&!it.copy&&!(it.files&&it.files.length)) h+='<p class="muted" style="font-size:13px;margin:0 0 10px">That is everything the list holds for this one. Tap “Ask Claude how” and paste it — the answer comes back into the list.</p>';
+  /* the action bar at the bottom is sticky, so leave it room or it sits on top of the last link */
+  h+='<div style="height:14px"></div><div class="chips">'
+    + '<button class="chip main" onclick="listTickFrom('+si+','+i+','+(d?'false':'true')+')">'+(d?'↩ Put it back on the list':'✓ Tick the whole thing off')+'</button>'
+    + '<button class="chip" onclick="listAsk('+si+','+i+')">📋 Ask Claude how</button>'
+    + '</div>';
+  sheet(h);
+};
+window.listCopy=function(si,i){ const it=itOf(si,i); if(it.copy) copy(it.copy); };
+window.listTickFrom=function(si,i,on){ listTick(si,i,on); closeSheet(); };
+/* look the words up again rather than bake them into an onclick — an item carries quotes,
+   apostrophes and emoji, and the first attempt at inlining them produced `copy(\` */
+window.listAsk=function(si,i){ const it=itOf(si,i);
+  copy('How do I do this, step by step? ' + it.t + (it.steps&&it.steps.length?'\n\nWhat the list already says:\n'+it.steps.map((s,n)=>(n+1)+'. '+s).join('\n'):'')); };
+window.listTick=function(si,i,on){ let done=[]; try{ done=JSON.parse(store('jhq_list_done')||'[]'); }catch(e){} const it=itText(ONELIST.sections[si].items[i]); done=done.filter(x=>x!==it); if(on) done.push(it); store('jhq_list_done',JSON.stringify(done.slice(-500))); renderList(); };
 
 /* ── 🧰 Apps (v1.0, 30 Oct 2026) ── one app, one chat. Reads control/apps.json, which each
    app's own chat keeps current: its status, what it is waiting for, and the chat that owns it.
@@ -2565,7 +2690,13 @@ async function renderWhere(){
   if(!WHERE){ try{ WHERE=await (await fetch('where.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the list of places just now.</p>'; return; } }
   if(!APPSREG){ try{ APPSREG=await (await fetch('apps.json?cb='+Date.now())).json(); }catch(e){} }  /* chats group; the page still works without it */
   const W=WHERE, q=(($('whereQ')||{}).value||'').trim().toLowerCase();
-  const hit=i=>!q||(i.name+' '+(i.note||'')).toLowerCase().indexOf(q)>=0;
+  /* v1.53, 6 Nov. Jerry: "when i hit the first one, which is Jerry's List, it just takes me to
+     Jerry's List, so I have it there. The next one is Daraja HQ. Again, that just takes me to the
+     Daraja app." Both were links to the page the list is printed on. Taken out of where.json, and
+     kept out here too, so no later edit can put the page back inside its own index. */
+  const here=(location.origin+location.pathname).replace(/index\.html$/,'').replace(/\/$/,'');
+  const selfLink=u=>{ try{ const a=new URL(u,location.href); return (a.origin+a.pathname).replace(/index\.html$/,'').replace(/\/$/,'')===here; }catch(e){ return false; } };
+  const hit=i=>(!q||(i.name+' '+(i.note||'')).toLowerCase().indexOf(q)>=0)&&!selfLink(i.url);
   const row=i=>`<a class="dl" href="${esc(i.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;align-items:center;min-height:44px"><span style="flex:1"><b>${esc(i.name)}</b>${i.note?`<br><span class="muted">${esc(i.note)}</span>`:''}</span><span style="font-size:20px">›</span></a>`;
   const all=W.groups.slice(); const ch=whereChats(); if(ch.length) all.splice.apply(all,[1,0].concat(ch));   /* chats sit straight after Start here */
   const groups=all.map(g=>({...g,items:g.items.filter(hit)})).filter(g=>g.items.length);
@@ -3038,6 +3169,7 @@ function renderNow(){
   const nNew=(D.requests||[]).filter(r=>r.status==='new'||r.status==='stack').length;
   if(nNew) out.push(`<div class="item"><span class="who">📥 ${nNew} new in the stack</span> <span class="meta">— nothing to do yourself: say “work the stack” and Claude fixes them</span></div>`);
   $('nowCount').textContent=out.length?out.length+(out.length===1?' thing':' things'):'';
+  try{ renderClearOut(); }catch(e){}
   el.innerHTML=out.length?out.join(''):'<div style="font-size:34px">✓</div><b>Nothing needs you right now.</b> <span class="muted">New messages and fixes to tell people about show up here. What already happened is under History.</span>';
 }
 let HF='all';
@@ -3306,6 +3438,86 @@ async function sendByHand(id,draftId){
 }
 async function saveDraft(id){ try{ const d=await draftOf(id,null); if(d){ toast('Draft saved'); closeSheet(); load(); } }catch(e){ toast(e.message,true); } }
 async function markRead(ids){ await act({action:'message.read',ids}); }
+
+/* ── 🧹 Clear out the old ones (v1.50, 6 Nov 2026) ──
+   Jerry: "There are 1,800 and some odd events in there... can you delete them so we can start
+   over and we can get a manageable list?" Nothing can be deleted — the mailbox understands read,
+   mark, draft, send, person, request and settings, and nothing else. Marking them read takes them
+   off this list and keeps every word, which is what he actually wants and is also the only thing
+   on offer. Done in hundreds, because one request carrying 1,872 ids will not come back. */
+const CLEAR_BATCH = 100;
+function unreadIn(){ return ((D&&D.messages)||[]).filter(m=>m.direction==='in'&&m.status==='new'); }
+/* v1.51, 6 Nov: Jerry cleared the 1,870 unread and was left with 130 he did not recognise.
+   They are the other half of this list — things Claude fixed that the tester was never told
+   about. Each has its own ＋No need to tell, but 130 taps is not a tool. They clear the same
+   way, on the same dates, and are counted separately so he can see what he is agreeing to. */
+function untoldFixes(){ return ((D&&D.requests)||[]).filter(r=>r.status==='done'); }
+function olderThan(days, list){
+  const items = list || unreadIn();
+  if(!days) return items;
+  const cut = Date.now() - days*86400000;
+  return items.filter(m=>{ const t=Date.parse(m.at); return isNaN(t) ? true : t < cut; });
+}
+function renderClearOut(){
+  const bar=$('clearOutBar'); if(!bar) return;
+  const n=unreadIn().length, f=untoldFixes().length;
+  if(n + f < 20){ bar.style.display='none'; bar.innerHTML=''; return; }   /* a short list needs no broom */
+  const bits=[]; if(n) bits.push(n+' unread'); if(f) bits.push(f+' fixed, not told');
+  bar.style.display='flex';
+  bar.innerHTML='<button class="chip" onclick="clearOutSheet()">🧹 '+bits.join(' · ')+' — clear out the old ones</button>';
+}
+function clearOutSheet(){
+  const U=unreadIn(), F=untoldFixes();
+  const say=(d)=>{ const u=olderThan(d,U).length, f=olderThan(d,F).length; const p=[];
+    if(u) p.push(u+' unread'); if(f) p.push(f+' fixed'); return p.join(' + ')||'nothing'; };
+  const n30=olderThan(30,U).length+olderThan(30,F).length;
+  const n7=olderThan(7,U).length+olderThan(7,F).length;
+  const nAll=U.length+F.length;
+  sheet('<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0 2px">🧹 Clear out the old ones</h3>'
+    + '<p class="muted" style="font-size:14px;margin:0 0 10px">Nothing is deleted. Unread messages are marked read; a fix nobody was told about is marked '
+    + '\u201cno need to tell\u201d. Both just come off this list, and every word stays in HQ.</p>'
+    + '<div class="chips">'
+    + (n30?'<button class="chip main" onclick="clearOut(30)">Older than 30 days \u2014 '+say(30)+'</button>':'')
+    + (n7?'<button class="chip" onclick="clearOut(7)">Older than 7 days \u2014 '+say(7)+'</button>':'')
+    + (nAll?'<button class="chip" onclick="clearOut(0)">Everything \u2014 '+say(0)+'</button>':'')
+    + '</div>'
+    + '<p class="muted" style="font-size:13px;margin:10px 0 0">Two things clearing costs you: a tester finding nobody answered stops being visible, and a tester '
+    + 'never hears that their fault was fixed \u2014 which is the thing that keeps them reporting. For anything recent, \u{1F4E8} Tell them on the row is worth the minute. '
+    + '30 days is the safe one if you are not sure.</p>'
+    + '<div id="clearOutGo" style="margin-top:10px"></div>');
+}
+async function clearOut(days){
+  const msgs = olderThan(days, unreadIn()).map(m=>m.id);
+  const fixes = olderThan(days, untoldFixes()).map(r=>r.id);
+  const total = msgs.length + fixes.length;
+  const out = $('clearOutGo');
+  if(!total){ if(out) out.innerHTML='<p class="muted" style="margin:0">Nothing that old.</p>'; return; }
+  document.querySelectorAll('#sheetBody .chips .chip').forEach(b=>b.disabled=true);
+  let done=0, stopped=false;
+  const say=()=>{ if(out) out.innerHTML='<p style="margin:0"><b>'+done+' of '+total+'</b> cleared…</p>'; };
+  /* messages go a hundred at a time: the mailbox takes a list */
+  for(let i=0;i<msgs.length && !stopped;i+=CLEAR_BATCH){
+    const slice=msgs.slice(i,i+CLEAR_BATCH); say();
+    try{ await hq({action:'message.read',ids:slice}); }catch(e){ stopped=true; break; }
+    done+=slice.length;
+    slice.forEach(id=>{ const m=D.messages.find(x=>x.id===id); if(m) m.status='read'; });
+  }
+  /* a fix has to go one at a time — request.set takes a single id, not a list */
+  for(const id of fixes){
+    if(stopped) break;
+    say();
+    try{ await hq({action:'request.set',id,status:'told'}); }catch(e){ stopped=true; break; }
+    done++;
+    const r=D.requests.find(x=>x.id===id); if(r) r.status='told';
+  }
+  render();
+  const what = msgs.length && fixes.length ? 'Marked read and \u201cno need to tell\u201d'
+             : fixes.length ? 'Marked \u201cno need to tell\u201d' : 'Marked read';
+  if(out) out.innerHTML = stopped
+    ? '<p style="margin:0"><b>'+done+' of '+total+'</b> cleared, then HQ stopped answering. The '+(total-done)+' left are still here — run it again in a minute.</p>'
+    : '<p style="margin:0">\u2713 All '+done+' cleared. '+what+' \u2014 nothing deleted.</p>';
+  toast(done+' cleared');
+}
 async function stackIt(mid){ const m=D.messages.find(x=>x.id===mid); await act({action:'request.add',person_id:m.person_id,msg_id:m.id,text:m.text,app:m.app,kind:'question'},'In the stack'); }
 
 /* ---------- 📣 message a group (v1.17, 5 Oct): write once, then one tap per person ---------- */
@@ -3507,6 +3719,91 @@ function renderStack(){
         :`<button class="chip small wa" onclick="replyDone('${r.id}')">📨 Tell them</button><button class="chip small" onclick="moveReq('${r.id}','told')">No need to tell</button>`}
         ${r.person_id?`<button class="chip small" onclick="openPerson('${r.person_id}')">👤</button>`:''}</div></div>`).join(''):'<p class="muted" style="margin:0">Nothing here.</p>'}</div>`; }).join('')
     +(told.length?`<details class="card" style="margin-top:12px"><summary>✓ Done and told <small class="muted">${told.length}</small></summary>${told.slice(0,20).map(r=>`<div class="item meta">${esc(r.name)} · ${esc(String(r.text).slice(0,90))}</div>`).join('')}</details>`:'');
+  try{ renderStackClear(); }catch(e){}
+}
+
+/* ── 🧹 Clear out the stack (v1.56, 7 Nov 2026) ──
+   Jerry: "The Stack option has 1838 items in it. Can you look at them and take out the ones that
+   have been fixed and not needed anymore."
+
+   Claude cannot read his stack from here — it lives behind HQ's own key, which never comes near a
+   chat. So this does the looking on his screen instead of guessing: the sheet counts what is
+   actually in there, bucket by bucket and by age, and he picks. Nothing is deleted, because the
+   mailbox has no delete: an item is marked "told", which is the same thing ✓ No need to tell does
+   one row at a time. It drops out of the three buckets into ✓ Done and told, with every word kept.
+
+   request.set takes one id, not a list (unlike message.read), so 1,838 of them is 1,838 round
+   trips. Six at a time turns half an hour into a few minutes, and it reports where it got to
+   rather than pretending — if HQ stops answering, the rest are still there and it can run again. */
+/* Three at a time, not six. HQ is a Google Apps Script over a sheet, and it takes a lock to write:
+   push too many at once and some come back refused for no better reason than traffic. Each id also
+   gets one retry after a breath, so a collision costs a second rather than a row left behind. */
+const STACK_LANES = 3;
+function stackOpen(){ return ((D&&D.requests)||[]).filter(r=>['told'].indexOf(r.status||'new')<0); }
+function stackBy(kind){
+  const r=stackOpen();
+  return kind==='fixed' ? r.filter(x=>x.status==='done')
+       : kind==='fixing'? r.filter(x=>['planned','building'].indexOf(x.status)>=0)
+       : r.filter(x=>['new','stack'].indexOf(x.status||'new')>=0);
+}
+function renderStackClear(){
+  const bar=$('stackClearBar'); if(!bar) return;
+  const n=stackOpen().length;
+  if(n<20){ bar.style.display='none'; bar.innerHTML=''; return; }
+  bar.style.display='flex';
+  bar.innerHTML='<button class="chip" onclick="stackClearSheet()">🧹 '+n+' in the stack — clear out the ones that are done</button>';
+}
+function stackClearSheet(){
+  const F=stackBy('fixed'), B=stackBy('fixing'), N=stackBy('new'), all=stackOpen();
+  const old=(d,l)=>olderThan(d,l).length;
+  const row=(em,label,list,note)=>'<p style="margin:0 0 6px"><b>'+em+' '+list.length+'</b> '+label
+    +'<br><span class="muted" style="font-size:13px">'+note+'</span></p>';
+  sheet('<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0 2px">🧹 Clear out the stack</h3>'
+    + '<p class="muted" style="font-size:14px;margin:0 0 10px">What is actually in there right now:</p>'
+    + row('✅','fixed, nobody told', F, 'Claude fixed these. Clearing them is “no need to tell” — the tester never hears back.')
+    + row('🔧','being fixed', B, 'Claude is part-way through these. Clearing one means it stops being tracked.')
+    + row('📥','new, never looked at', N, 'Nobody has read these yet, so nobody can say they are fixed. Age is the only safe guide.')
+    + '<p class="muted" style="font-size:13px;margin:10px 0 6px">Nothing is deleted — the mailbox has no delete. Each one is marked “told” and moves to ✓ Done and told, with every word kept.</p>'
+    + '<div class="chips">'
+    + (F.length?'<button class="chip main" onclick="stackClear(\'fixed\',0)">✅ Just the fixed ones — '+F.length+'</button>':'')
+    + (old(30,all)?'<button class="chip" onclick="stackClear(\'all\',30)">Anything older than 30 days — '+old(30,all)+'</button>':'')
+    + (old(7,all)?'<button class="chip" onclick="stackClear(\'all\',7)">Older than 7 days — '+old(7,all)+'</button>':'')
+    + (all.length?'<button class="chip" onclick="stackClear(\'all\',0)">Everything — '+all.length+'</button>':'')
+    + '</div>'
+    + '<p class="muted" style="font-size:13px;margin:10px 0 0">✅ Just the fixed ones is the safe one, and the closest to “take out what is done”. '
+    + 'Clearing a 📥 new one throws away something nobody has read — 30 days is the gentle version of that.</p>'
+    + '<div id="stackClearGo" style="margin-top:10px"></div>');
+}
+let STACK_STOP=false;
+async function stackClear(kind, days){
+  const list = olderThan(days, kind==='fixed'?stackBy('fixed'):stackOpen());
+  const ids = list.map(r=>r.id).filter(Boolean);
+  const out=$('stackClearGo');
+  if(!ids.length){ if(out) out.innerHTML='<p class="muted" style="margin:0">Nothing matches that.</p>'; return; }
+  document.querySelectorAll('#sheetBody .chips .chip').forEach(b=>b.disabled=true);
+  STACK_STOP=false;
+  let done=0, failed=0, next=0;
+  const say=()=>{ if(out) out.innerHTML='<p style="margin:0 0 8px"><b>'+done+' of '+ids.length+'</b> cleared…</p>'
+    + '<div class="chips"><button class="chip" onclick="STACK_STOP=true">Stop</button></div>'; };
+  say();
+  const lane=async()=>{ while(next<ids.length && !STACK_STOP){
+      const id=ids[next++];
+      let ok=false;
+      for(let go=0; go<2 && !ok && !STACK_STOP; go++){
+        try{ await hq({action:'request.set',id,status:'told'}); ok=true; }
+        catch(e){ if(go===0) await new Promise(z=>setTimeout(z,600)); }
+      }
+      if(ok){ done++; const r=D.requests.find(x=>x.id===id); if(r) r.status='told'; } else failed++;
+      if(done%10===0||next>=ids.length) say();
+    } };
+  await Promise.all(Array.from({length:Math.min(STACK_LANES,ids.length)}, lane));
+  render();
+  if(out) out.innerHTML = STACK_STOP
+    ? '<p style="margin:0">Stopped at <b>'+done+' of '+ids.length+'</b>. The rest are still in the stack — run it again whenever.</p>'
+    : failed
+    ? '<p style="margin:0"><b>'+done+'</b> cleared, <b>'+failed+'</b> HQ would not take. The ones left are still here — run it again in a minute.</p>'
+    : '<p style="margin:0">✓ All '+done+' cleared — marked “told”, nothing deleted. They are under ✓ Done and told.</p>';
+  toast(done+' cleared from the stack');
 }
 async function moveReq(id,status){ if(!status) return; await act({action:'request.set',id,status},status==='done'?'✅ Fixed — now tell them':status==='building'?'🔧 On it':status==='told'?'Done':'Moved'); }
 function replyDone(id){ const r=D.requests.find(x=>x.id===id); if(!r) return; quoteReply(r.person_id, r.text, {reqId:id, fixed:true, note:r.fixed||''}); }
@@ -3519,17 +3816,66 @@ function quoteReply(pid, quote, o){ o=o||{}; const p=P(pid); if(!p.id){ toast('W
     <div style="border-left:4px solid var(--accent,#23504F);background:rgba(128,128,128,.12);border-radius:0 12px 12px 0;padding:10px 12px;margin-bottom:10px;white-space:pre-wrap">${esc(q)}</div>
     <label for="qrA">Your answer</label><textarea id="qrA" rows="4" placeholder="Type your answer">${esc(start)}</textarea>
     <div class="muted" style="font-size:13px;margin:8px 0 4px">What ${esc(first)} will get:</div><div id="qrPrev" style="background:rgba(128,128,128,.12);border-radius:12px;padding:10px 12px;white-space:pre-wrap;font-size:14px"></div>
-    <div class="chips" style="margin-top:10px">${p.phone?`<button class="chip wa" id="qrSend">📱 Send it</button>`:`<button class="chip main" onclick="addNumber()">＋ Add their number first</button>`}<button class="chip" id="qrCopy">📋 Copy it</button></div>
+    <div class="chips" style="margin-top:10px">${p.phone?`<button class="chip wa" id="qrSend">📱 Send it</button>`:`<button class="chip main" id="qrAddNum">＋ Add their number first</button>`}<button class="chip" id="qrCopy">📋 Copy it</button></div>
     <p class="muted" style="font-size:13px;margin:6px 0 0">${p.phone?(/^1\d{10}$/.test(String(p.phone))?'Opens Messages':'Opens WhatsApp')+' with it typed in — press send there. HQ logs it'+(o.reqId?' and moves this to ✓ Done and told':'')+'.':''}</p>`);
   const msg=()=>`Hi ${first} — Jerry here. You ${o.fixed?'told us':'asked'}: “${short}”\n\n${($('qrA').value||'').trim()}`;
-  const prev=()=>{ $('qrPrev').textContent=msg(); }; $('qrA').addEventListener('input',prev); prev(); setTimeout(()=>{ const a=$('qrA'); a.focus(); a.setSelectionRange(a.value.length,a.value.length); },200);
+  const prev=()=>{ $('qrPrev').textContent=msg(); }; $('qrA').addEventListener('input',prev); prev();
+  /* 6 Nov: ＋ Add their number first called addNumber(), which opens #editBox — and that only
+     exists on the person's own card under People. Opened from Today, the lookup returned null
+     and the tap threw, so the one button offering a way forward silently did nothing. Jerry hit
+     it answering Emmanuel. The number box now lives in this sheet, beside the answer he has
+     already typed, and saving it turns the button into 📱 Send it without losing a word. */
+  const addBtn=$('qrAddNum');
+  if(addBtn) addBtn.onclick=()=>{
+    if($('qrNumWrap')){ $('qrNum').focus(); return; }
+    const w=document.createElement('div'); w.id='qrNumWrap'; w.style.marginTop='10px';
+    w.innerHTML='<label for="qrNum">'+esc(first)+'\u2019s WhatsApp number (with country code)</label>'
+      + '<input id="qrNum" inputmode="tel" placeholder="+254 7\u2026">'
+      + '<div class="chips" style="margin-top:8px"><button class="chip main" id="qrNumSave">Save the number</button></div>'
+      + '<p class="muted" style="font-size:13px;margin:6px 0 0">Saved against '+esc(p.name||first)+' in HQ, so you only do this once.</p>';
+    addBtn.parentNode.parentNode.insertBefore(w, addBtn.parentNode.nextSibling);
+    $('qrNum').focus();
+    $('qrNumSave').onclick=async()=>{
+      const v=($('qrNum').value||'').replace(/[^\d]/g,'');
+      if(v.length<9){ toast('A number with its country code, e.g. +254 7…',true); $('qrNum').focus(); return; }
+      const r=await act({action:'person.set',id:p.id,name:p.name,phone:v,project:p.project||'daraja',role:p.role||'tester',notes:p.notes||''},'Number saved');
+      if(!r) return;
+      p.phone=v; w.remove();
+      addBtn.textContent='\uD83D\uDCF1 Send it'; addBtn.className='chip wa'; addBtn.id='qrSend';
+      wireSend();
+    };
+  }; setTimeout(()=>{ const a=$('qrA'); a.focus(); a.setSelectionRange(a.value.length,a.value.length); },200);
   const log=async t=>{ try{ const d=await hq({action:'message.draft',person_id:p.id,text:t,request_id:o.reqId||''}); await hq({action:'message.mark',id:d.id,status:'sent by hand'}); if(o.reqId) await hq({action:'request.set',id:o.reqId,status:'told'}); if(o.msgId) await hq({action:'message.read',ids:[o.msgId]}); if(o.after) await o.after(); }catch(e){ toast('Sent, but HQ could not log it: '+e.message,true); } load(); };
-  const c=$('qrCopy'); if(c) c.onclick=()=>{ copy(msg()); };
+  /* v1.55, 7 Nov. Jerry: "copy, then ask me if i sent it."
+     📋 Copy it used to copy the words and nothing else — HQ never heard about it, so their
+     message stayed unread and the item sat in Needs You Now looking unanswered. 📱 Send it
+     logs everything because HQ knows it opened WhatsApp; Copy it cannot know, because the
+     sending happens somewhere HQ never sees. So it asks. Yes logs it exactly as Send it does;
+     Not yet leaves everything alone, which is the whole point of asking rather than assuming. */
+  const c=$('qrCopy'); if(c) c.onclick=()=>{
+    if(!($('qrA').value||'').trim()){ toast('Type your answer first',true); $('qrA').focus(); return; }
+    const t=msg(); copy(t,false);   /* the box below says it was copied — no toast over its buttons */
+    if($('qrSentWrap')) return;
+    const w=document.createElement('div'); w.id='qrSentWrap';
+    w.style.cssText='margin-top:12px;padding:12px;border-radius:12px;background:#FFF4D6;color:#1F2622';
+    w.innerHTML='<p style="margin:0 0 8px;font-weight:800">Copied. Did you send it to '+esc(first)+'?</p>'
+      + '<p class="muted" style="margin:0 0 10px;font-size:13px">HQ cannot see where you paste it. Say yes and it logs the reply, marks their message read'
+      + (o.reqId?' and moves this to \u2713 Done and told':'') + '. Say not yet and nothing changes \u2014 it stays on your list.</p>'
+      + '<div class="chips"><button class="chip main" id="qrSentYes">\u2713 Yes, I sent it</button>'
+      + '<button class="chip" id="qrSentNo">Not yet</button></div>';
+    c.parentNode.parentNode.insertBefore(w, c.parentNode.nextSibling);
+    fitSheet(); w.scrollIntoView({block:'nearest'});
+    $('qrSentYes').onclick=()=>{ closeSheet(); toast('Logged in HQ'); log(t); };
+    $('qrSentNo').onclick=()=>{ w.remove(); fitSheet(); };
+  };
+  function wireSend(){
   const b=$('qrSend'); if(b) b.onclick=()=>{ const t=msg(); if(!($('qrA').value||'').trim()){ toast('Type your answer first',true); $('qrA').focus(); return; }
     const us=/^1\d{10}$/.test(String(p.phone)), apple=/iPhone|iPad|Macintosh/.test(navigator.userAgent);
     const url=us?(apple?'sms://open?addresses=+'+p.phone+'&body='+encodeURIComponent(t):'sms:+'+p.phone+'?body='+encodeURIComponent(t)):'https://wa.me/'+p.phone+'?text='+encodeURIComponent(t);
     if(us) location.href=url; else { const w=window.open(url,'_blank'); if(!w) location.href=url; }
     closeSheet(); toast('Press send there — logged in HQ'); log(t); };
+  }
+  wireSend();
 }
 function addRequest(){
   sheet(`<button class="chip small close" onclick="closeSheet()">✕</button><h3 style="margin:4px 0">Add to the stack</h3>
@@ -3540,17 +3886,36 @@ function addRequest(){
 async function saveRequest(){ const t=$('rqText').value.trim(); if(!t) return; if(await act({action:'request.add',name:'Jerry',text:t,app:$('rqApp').value.trim(),channel:'note'},'In the stack')) closeSheet(); }
 
 /* ---------- sheet ---------- */
-function sheet(h){ $('sheetBody').innerHTML=h; $('sheet').classList.add('on'); document.body.style.overflow='hidden'; }
-function closeSheet(){ $('sheet').classList.remove('on'); document.body.style.overflow=''; }
+function sheet(h){ $('sheetBody').innerHTML=h; $('sheet').classList.add('on'); document.body.style.overflow='hidden'; fitSheet(); }
+/* Size the sheet to what the person can actually SEE, not to the page. With a keyboard up on an
+   iPad the two are different by about half the screen, and everything below the fold — including
+   the only button that moves things on — is untappable. */
+function fitSheet(){
+  const vv = window.visualViewport; const el = document.documentElement;
+  if(!vv){ el.style.removeProperty('--sheetBottom'); el.style.removeProperty('--sheetMax'); return; }
+  const covered = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  el.style.setProperty('--sheetBottom', covered + 'px');
+  el.style.setProperty('--sheetMax', Math.round(vv.height * 0.92) + 'px');
+}
+if(window.visualViewport){
+  const refit = () => { if($('sheet') && $('sheet').classList.contains('on')) fitSheet(); };
+  window.visualViewport.addEventListener('resize', refit);
+  window.visualViewport.addEventListener('scroll', refit);
+}
+function closeSheet(){ $('sheet').classList.remove('on'); document.body.style.overflow=''; document.documentElement.style.removeProperty('--sheetBottom'); document.documentElement.style.removeProperty('--sheetMax'); }
 $('sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') closeSheet(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheet(); });
 
 /* ---------- the parts that don't need HQ ---------- */
 function staticBits(){
+  /* Say which copy of the store this page is holding, so the version on the screen is the
+     real one and not a line someone typed. */
+  try{ var fo=$('foot'); if(fo && typeof STORE_V!=='undefined' && fo.textContent.indexOf('store ')<0)
+    fo.textContent = fo.textContent.replace('· 🎤', '· store ' + STORE_V + ' · 🎤'); }catch(e){}
   const WORDS=[['What needs me today?','decisions + 5-minute jobs'],['work the stack','group, plan, build after your go'],['what are my testers doing?','a summary per person'],['read my feedback','after 📨 Send to Claude'],['ship One Thing','put a change live'],['test these: …','change this round’s list'],['measure the apps','score every app']];
   $('words').innerHTML=WORDS.map(w=>`<button class="chip small" onclick="copy(${esc(JSON.stringify(w[0]))})" title="${esc(w[1])}">${esc(w[0])}</button>`).join('');
   fetch('dates.json?cb='+Date.now()).then(r=>r.json()).then(d=>{ BIZ_DATES=d; if(D) renderDates(); }).catch(()=>{});
-  fetch('onelist.json?cb='+Date.now()).then(r=>r.json()).then(L=>{ $('onelist').innerHTML=`<div class="muted" style="margin-bottom:6px">${esc(L.version)} · updated ${esc(L.updated)} · <a href="#list" onclick="show('list');return false" style="color:var(--brand);font-weight:800">open the whole list ›</a></div>`+L.sections.map(s=>`<div class="sec"><b>${esc(s.name)}</b> <span class="muted">· ${s.count} items · ${s.minutes} min</span><ul>${s.items.slice(0,3).map(i=>`<li>${esc(i)}</li>`).join('')}${s.count>3?`<li style="list-style:none">… and ${s.count-3} more</li>`:''}</ul></div>`).join(''); }).catch(()=>{ $('onelist').textContent='Open the One List for the live version.'; });
+  fetch('onelist.json?cb='+Date.now()).then(r=>r.json()).then(L=>{ $('onelist').innerHTML=`<div class="muted" style="margin-bottom:6px">${esc(L.version)} · updated ${esc(L.updated)} · <a href="#list" onclick="show('list');return false" style="color:var(--brand);font-weight:800">open the whole list ›</a></div>`+L.sections.map(s=>`<div class="sec"><b>${esc(s.name)}</b> <span class="muted">· ${s.count} items · ${s.minutes} min</span><ul>${s.items.slice(0,3).map(i=>`<li>${esc(itText(i))}</li>`).join('')}${s.count>3?`<li style="list-style:none">… and ${s.count-3} more</li>`:''}</ul></div>`).join(''); }).catch(()=>{ $('onelist').textContent='Open the One List for the live version.'; });
   if(typeof APPS==='undefined') return;
   const shelfName={home:'Household',later:'Later life',church:'Church',work:'Business',free:'Free',off:'Off the shelf'};
   const apps=Object.entries(APPS).filter(([k])=>!k.startsWith('tpl')&&!k.startsWith('nourish'));

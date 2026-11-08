@@ -1,0 +1,110 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Who gets paid — Daraja testers</title>
+<style>
+:root{--bg:#f6f4ee;--card:#fff;--ink:#1d2622;--soft:#5b6660;--line:#e3ddcf;--ok:#2f6e52;--okbg:#e7efe9;--warm:#a8551f;--warmbg:#fbefd9}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141a18;--card:#1c2421;--ink:#e9ece8;--soft:#a9b4ad;--line:#2d3a35;--ok:#6dc296;--okbg:#1b3326;--warm:#f0a070;--warmbg:#36290f}}
+:root[data-theme=dark]{--bg:#141a18;--card:#1c2421;--ink:#e9ece8;--soft:#a9b4ad;--line:#2d3a35;--ok:#6dc296;--okbg:#1b3326;--warm:#f0a070;--warmbg:#36290f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;
+     padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+main{max-width:720px;margin:0 auto;padding:18px 16px 56px}
+h1{font-size:25px;margin:0 0 2px}.sub{color:var(--soft);margin:0 0 14px;font-size:15px}
+.tot{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.tot div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px}
+.tot b{display:block;font-size:21px;font-variant-numeric:tabular-nums}
+.tot small,.m{color:var(--soft);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.nm{font-weight:700;font-size:17px}
+.amt{font-variant-numeric:tabular-nums;font-weight:800;font-size:19px;white-space:nowrap}
+.z .nm,.z .amt{opacity:.55}
+.btn{appearance:none;border:1.5px solid var(--line);background:var(--card);color:var(--ink);
+     border-radius:12px;padding:9px 14px;font:700 15px inherit;cursor:pointer;min-height:44px}
+.btn.main{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.pill{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--okbg);color:var(--ok)}
+.pill.w{background:var(--warmbg);color:var(--warm)}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--warm);border-radius:12px;padding:11px 13px;margin:14px 0;font-size:14.5px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+a{color:var(--ok);font-weight:700}
+.foot{color:var(--soft);font-size:13px;margin-top:22px;line-height:1.5}
+</style></head><body><main id="m">Loading…</main>
+<script>
+/* Who gets paid — one page, a link each.
+   Jerry, 7 Nov 2026: "each leader, Veronica and Emmanuel, have an app that gets data from you,
+   and then it tracks the scores of the testers and how much they get paid, and then if they get
+   paid and when."
+   ?lead=emmanuel or ?lead=veronicah shows that lead's team only. No lead shows both, which is
+   Jerry's view. The earned side is written nightly by tools/payroll/payroll.py into payroll.json;
+   the paid side is tapped here and kept in the testers' mailbox, so nothing needs a key. */
+var Q=new URLSearchParams(location.search), LEAD=(Q.get('lead')||'').toLowerCase().trim();
+var MAIL='', PAID=[], D=null;
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+var ksh=function(n){return Number(n||0).toLocaleString('en-KE');};
+function mailbox(){ if(MAIL) return Promise.resolve(MAIL);
+  return fetch('../../testers/config.json?cb='+Date.now()).then(function(r){return r.json();})
+    .then(function(c){ MAIL=c.mailbox; return MAIL; }); }
+/* a payment is an ordinary board post with kind "paid" — the mailbox already stores and
+   returns those, so this needed no change to the script Jerry has deployed */
+function loadPaid(){ return mailbox().then(function(u){ return fetch(u+'?cb='+Date.now()); })
+  .then(function(r){return r.json();})
+  .then(function(j){ PAID=(j.posts||[]).filter(function(p){return p.kind==='paid';}); })
+  .catch(function(){ PAID=null; }); }
+function paidFor(name){ if(!PAID) return null;
+  var hit=PAID.filter(function(p){return (p.app||'')===name;});
+  return hit.length?hit[0]:null; }
+window.markPaid=function(team,name,amount,btn){
+  if(!confirm('Mark '+name+' paid '+ksh(amount)+' KES?\n\nThis records who paid and when. It does not send any money.')) return;
+  btn.disabled=true; btn.textContent='Saving…';
+  mailbox().then(function(u){ return fetch(u,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'post',name:team,app:name,kind:'paid',text:ksh(amount)+' KES'})}); })
+    .then(function(r){return r.json();})
+    .then(function(j){ if(!j.ok) throw new Error(j.error||'did not save');
+      return loadPaid().then(draw); })
+    .catch(function(e){ btn.disabled=false; btn.textContent='✓ Mark paid';
+      alert('That did not save: '+e.message+'\n\nNothing was recorded. Try again in a moment.'); });
+};
+function teamCard(t){
+  var owed=0,paid=0,h='';
+  t.people.forEach(function(p){
+    var rec=paidFor(p.name);
+    if(p.earned>0){ if(rec) paid+=p.earned; else owed+=p.earned; }
+    var zero=p.earned===0;
+    h+='<div class="card'+(zero?' z':'')+'"><div class="row"><div><span class="nm">'+esc(p.name)+'</span>'
+      + '<div class="m">'+(p.tests?p.tests+' completed test'+(p.tests===1?'':'s')+' · '+p.apps+' app'+(p.apps===1?'':'s'):'nothing yet this round')
+      + (p.finds?' · '+p.finds+' confirmed find'+(p.finds===1?'':'s'):'')
+      + (p.partial?' · <span title="reports missing one of the four parts">'+p.partial+' not counted</span>':'')
+      + '</div></div><div style="text-align:right"><div class="amt">'+ksh(p.earned)+'<span class="m"> KES</span></div>'
+      + (rec?'<div class="pill">✓ paid '+esc((rec.at||'').slice(0,10))+'</div>':'')+'</div></div>';
+    if(p.earned>0 && !rec && PAID)
+      h+='<div class="chips"><button class="btn main" onclick="markPaid(\''+esc(t.lead)+'\',\''+esc(p.name)+'\','+p.earned+',this)">✓ Mark paid</button></div>';
+    h+='</div>';
+  });
+  return {html:h,owed:owed,paid:paid};
+}
+function draw(){
+  var m=document.getElementById('m'), teams=D.teams;
+  if(LEAD) teams=teams.filter(function(t){return t.key===LEAD;});
+  if(!teams.length){ m.innerHTML='<h1>Who gets paid</h1><p class="sub">No team called “'+esc(LEAD)+'”. Try the link again, or open this page without <code>?lead=</code> to see both.</p>'; return; }
+  var body='',owed=0,paid=0;
+  teams.forEach(function(t){ var c=teamCard(t); owed+=c.owed; paid+=c.paid;
+    body+=(teams.length>1?'<h2 style="margin:20px 0 8px">'+esc(t.lead)+'’s team</h2>':'')+c.html; });
+  var who=teams.length===1?teams[0].lead+'’s team':'Both teams';
+  document.getElementById('m').innerHTML=
+    '<h1>Who gets paid</h1><p class="sub">'+esc(who)+' · '+esc(D.rate)+' KES a completed test, '+esc(D.find)+' KES a confirmed find<br>'
+    + 'This round, from '+esc(D.since)+' · counted '+esc(D.updated)+'</p>'
+    + '<div class="tot"><div><b>'+ksh(owed)+'</b><small>still to pay</small></div>'
+    + '<div><b>'+ksh(paid)+'</b><small>paid</small></div>'
+    + '<div><b>'+ksh(owed+paid)+'</b><small>earned so far</small></div></div>'
+    + (PAID===null?'<div class="note"><b>The paid marks could not be loaded.</b> Everything below is what has been <i>earned</i>; what has been paid is not shown, and the buttons are hidden so nothing is recorded twice. Try again in a minute.</div>':'')
+    + (owed+paid===0?'<div class="note"><b>Nothing has been earned yet this round.</b> A test counts only when the report carries all four: '+D.gate.join(', ')+'. Reports from before '+esc(D.since)+' belong to the last round and were settled at the old flat rate — they are not counted here and must not be paid twice.</div>':'')
+    + body
+    + '<p class="foot">Earned is counted from the test reports in Jerry HQ, rebuilt every night. '
+    + 'Tapping <b>Mark paid</b> records who paid and when — it does not move any money. '
+    + 'The four parts of a completed test are in <a href="https://github.com/jerrywins1/daraja-apps/blob/main/kenya/pay.md">kenya/pay.md</a>.</p>';
+}
+Promise.all([ fetch('../payroll.json?cb='+Date.now()).then(function(r){ if(!r.ok) throw new Error('payroll.json '+r.status); return r.json(); }), loadPaid() ])
+  .then(function(a){ D=a[0]; draw(); })
+  .catch(function(e){ document.getElementById('m').innerHTML='<h1>Who gets paid</h1><p class="sub">The numbers could not be loaded — '+esc(e.message)+'. Nothing is wrong with anyone’s pay; this page just could not read them. Try again in a minute.</p>'; });
+</script></body></html>

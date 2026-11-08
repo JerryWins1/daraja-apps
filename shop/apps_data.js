@@ -1,13 +1,47 @@
-/* Daraja Store — one shared catalog. v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
+/* Daraja Store — one shared catalog. v3.4 · 2026-11-06 (the Daraja HQ videos show the page instead of its password box — control/?tour=1; the video rules written out below instead of buried in this line)
+   v3.3 · 2026-11-06 (every video recorded — 54 of them, incl. the 👋 Karibuni greeting for the testers; voicemaker --check says when one goes stale)
+   v3.2 · 2026-11-06 (the three Daraja HQ videos are recorded now, not read aloud by the browser — shop/voicemaker.py)
+   v3.1 · 2026-11-06 (the rules video gains rule five, every link every time)
+   v3.0 · 2026-11-06 (Daraja HQ: three videos instead of one — the tour redone for the 📝 Jotter and 🎥 Make a video tabs and the eight chat folders, plus “How the apps get made” and “The rules we work by”)
    v2.9 · 2026-11-06 (Who’s Coming: a read-only link to the answers)
    v2.8 · 2026-11-06 (WhatsApp buttons: Business Manager, Our Table, Every Day, Message Assistant, Serve Board, Shoebox Counter)
    v2.7 · 2026-10-23 (Every Day / Our Table videos say Family membership, not “free”; American words in One Thing — trash, ads; voice re-recorded) · v2.6 · 2026-10-23 (narration speaks the yearly memberships instead of the old one-time prices — 20 apps; the shoebox app is called Shoebox Counter everywhere while Samaritan's Purse permission is pending; voice re-recorded) · v2.5 · 2026-10-21 (mem: the membership each app comes with, from the 10 Oct membership model — the video player and the new store show it instead of the old one-time price; price: kept for the old live store · showName: the name the video player shows, e.g. Shoebox Counter while the OCC-name permission is pending) · v2.4 · 2026-10-10 (every app gets its videos: 2-minute, Explain it to me (?mode=firsttime), step-by-step training — lines JSON-quoted) · v2.3 · 2026-10-07 (deep-check fixes: the videos show what they talk about — training raises the level for the tour only; tester send line is the HQ way; Academy on Later life; one emoji per app; Pit Wall price says nothing renews) · v2.2 · 2026-10-07 (The Church App video line made true: no claim of automatic YouTube sync) · v2.1 · 2026-10-02 (card words from the away-day audit: 8 weakest cards rewritten, honest prices, why-not-ChatGPT and no-ads lines) · v2.0 · 2026-09-07 (+ church shelf, Pit Wall, Message Assistant — every finished app is now on a shelf) · v1.6 · 2026-08-30 (+ success endings; scene-directed + pointing finger — the app changes screens with the story)
    To add an app to the store: add one entry here. The shelf card AND its
    2-minute video come from this data — nothing else to build. */
+/* ══ HOW TO MAKE A PROPER VIDEO ══ written out 6 Nov 2026, because the rules were real but
+   buried in the changelog above, as one clause inside a very long line, and so got broken again.
+   Jerry: "If I have a screen up, I explain it, and then I have another explanation of the next
+   screen. The next screen should come up, right? So it should page through."
+
+   1. THE SCREEN FOLLOWS THE STORY. 30 Aug 2026: "the app changes screens with the story."
+      7 Oct 2026: "the videos show what they talk about." A section that talks about a screen opens
+      that screen, in the same line, with js. A line about one field points at that field. A video
+      that holds one screen while the words move on is not finished, however true the words are.
+
+   2. THE PAGE HAS TO BE SHOWABLE. If the real page asks for a password, or opens empty, the video
+      shows a password box for three minutes. Give that page a way to open for a tour — Daraja HQ
+      has ?tour=1 — and point `try` at it. Nothing private may appear in such a mode.
+
+   3. RECORD IT. The browser's own voice stalls on the iPad; see shop/watch.html. Run
+      `python3 shop/voicemaker.py --all`, from any chat, no Mac needed.
+
+   4. CHECK IT AFTER EVERY WORDING CHANGE. `python3 shop/voicemaker.py --check`. Reword one line
+      and the whole video silently drops back to the voice that stalls.
+
+   5. TEST IT THE WAY HE WATCHES IT. Open shop/watch.html in a browser, with no key in storage,
+      press play, and look at the iframe. Do not unhide anything, do not stub the data, do not test
+      the lines on their own — all three of the HQ videos passed that way on 6 Nov while showing
+      Jerry nothing but the password gate. If the test has not seen the screens change, it has not
+      tested the video. */
+
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
    'live'    = launched store (banner gone, badges gone, Get buttons use each app's buy link)
    Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps). */
 const PHASE = 'testing';
+
+/* The catalogue's own version, in code rather than only in the comment at the top, so a page can
+   show which copy of the store it is holding. Bump it with the header above, same string. */
+const STORE_V = 'v3.4 · 2026-11-06';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
@@ -69,11 +103,11 @@ const APPS = {
    "off": "your own panel, not something sold in the store",
    "video": true,
    "tag": "Everything going on, and everyone in it — on one page",
-   "try": BASE+'control/',
+   "try": BASE+'control/?tour=1',   /* the video must SHOW the page, not the password gate — see ?tour=1 in control/index.html */
    "extra": {
      "firsttime": {
        "title": "Explain it to me",
-       "sub": "About four minutes: what each tab is for, and which one to open when. Sound on.",
+       "sub": "About three minutes: what each tab is for, and which one to open when. Sound on.",
        "lines": [
          {
            "t": "Hello Jerry. This is a short walk through Daraja HQ — the one page that holds everything, so you never have to remember where anything is.",
@@ -177,7 +211,7 @@ const APPS = {
      },
      "apps": {
        "title": "How the apps get made",
-       "sub": "About four minutes: one app, one chat — how a new app starts, who looks after it, and how you can tell where each one stands. Sound on.",
+       "sub": "Under three minutes: one app, one chat — how a new app starts, who looks after it, and how you can tell where each one stands. Sound on.",
        "lines": [
          {
            "t": "This one is about the apps themselves. How a new one gets made, who looks after it afterwards, and how you can tell at a glance where each one stands.",
@@ -210,16 +244,22 @@ const APPS = {
            "t": "Only the ones we are actually working on have a chat, and that number goes up as we go, not all at once."
          },
          {
-           "t": "So, how a new app gets made. You ask — in any chat, or in a brand new one. That chat becomes the app’s chat, and it writes the app into this list straight away so you can see it."
+           "t": "So, how a new app gets made. You ask — in any chat, or in a brand new one. That chat becomes the app’s chat, and it writes the app into this list straight away so you can see it.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
-           "t": "From then on that one chat does everything to that app. If something turns up in it that belongs to a different app, it does not fix it. It tells you which chat owns that one, and leaves it alone."
+           "t": "From then on that one chat does everything to that app. If something turns up in it that belongs to a different app, it does not fix it. It tells you which chat owns that one, and leaves it alone.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereFull"
          },
          {
-           "t": "And a chat writes its entry back here before it stops: the status, what it is waiting for, and today’s date. So this list stays current without you updating anything."
+           "t": "And a chat writes its entry back here before it stops: the status, what it is waiting for, and today’s date. So this list stays current without you updating anything.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}",
+           "point": "#appsFull"
          },
          {
-           "t": "There are two deliberate exceptions. The house layer that every app shares, and the store catalogue, run across all the apps — so they have their own entry and their own chat. They are the exception, not permission to widen."
+           "t": "There are two deliberate exceptions. The house layer that every app shares, and the store catalogue, run across all the apps — so they have their own entry and their own chat. They are the exception, not permission to widen.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
            "t": "Now, what happens after an app is built. It goes to the Kenyan testers before it goes into the store.",
@@ -229,13 +269,15 @@ const APPS = {
            "t": "An app counts as ready when two different people have passed it on its current version. Two of them, on the current one — that second part is the part that surprises people."
          },
          {
-           "t": "Because the moment an app’s code changes, its version goes up, and the old passes stop counting. The app drops off Ready to Sell and goes back to the testers."
+           "t": "Because the moment an app’s code changes, its version goes up, and the old passes stop counting. The app drops off Ready to Sell and goes back to the testers.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('scripts');}catch(e){}"
          },
          {
            "t": "That is on purpose. A pass is a pass of the version they actually held in their hand."
          },
          {
-           "t": "It also means fixing six faults in one afternoon can make the Ready to Sell list get shorter. Nothing broke. The passes just went stale, and five apps went back to the queue."
+           "t": "It also means fixing six faults in one afternoon can make the Ready to Sell list get shorter. Nothing broke. The passes just went stale, and five apps went back to the queue.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('scripts');}catch(e){}"
          },
          {
            "t": "So if you want a new app, or a change to one you have, ask in that app’s chat. This tab tells you which chat that is.",
@@ -252,7 +294,7 @@ const APPS = {
      },
      "rules": {
        "title": "The rules we work by",
-       "sub": "About four minutes: every rule in the system, and why each one is there. Sound on.",
+       "sub": "About five minutes: every rule in the system, and why each one is there. Sound on.",
        "lines": [
          {
            "t": "This one is a list of the rules. They are all written down in the system already, and every chat reads them before it starts. This is just me reading them to you, so you know what is in there.",
@@ -262,22 +304,32 @@ const APPS = {
            "t": "There are four groups. How I talk to you. How the chats stay out of each other’s way. What is never allowed. And what I simply cannot do."
          },
          {
-           "t": "First, how I talk to you. There are four of these. You had to say them three times before they stuck, which is why they now sit at the very top of the file instead of further down."
+           "t": "First, how I talk to you. There are five of these. You had to say the first four three times before they stuck, which is why they now sit at the very top of the file instead of further down.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
          },
          {
-           "t": "One. Answer what you asked, then stop. Not the question behind it, not the next question, not what you might ask next. If you say go ahead, the whole correct reply is to go ahead."
+           "t": "One. Answer what you asked, then stop. Not the question behind it, not the next question, not what you might ask next. If you say go ahead, the whole correct reply is to go ahead.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
          },
          {
            "t": "Two. Add nothing you did not ask for. No table, no cost breakdown, no summary of where things stand. If a second table is being written, the rule is already broken."
          },
          {
-           "t": "Three. Every question comes with tappable options and a recommendation, one question at a time. Never an open question buried in a message, and never two questions stacked in one reply."
+           "t": "Three. Every question comes with tappable options and a recommendation, one question at a time. Never an open question buried in a message, and never two questions stacked in one reply.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('chats');}catch(e){}"
          },
          {
            "t": "Four. Say what was done, not how it was done. The reasoning goes into the commit and the pull request, where you can go and read it if you ever want it."
          },
          {
-           "t": "And one more about steps. One step at a time, never a list of five. Everything the step needs goes inside the step — the exact words to paste, the whole address, the real name of the button. Each one tells you how far along you are. And then I wait, because you are usually on a phone I cannot see."
+           "t": "Five, and this one is from today. Every link, every time. If a reply names a page, a chat, a pull request or a board, the whole link goes in that same reply. Never “open the Test Desk” with no link — you are on a phone, and going hunting for it is the one thing these rules exist to stop.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereQ"
+         },
+         {
+           "t": "And one more about steps. One step at a time, never a list of five. Everything the step needs goes inside the step — the exact words to paste, the whole address, the real name of the button. Each one tells you how far along you are. And then I wait, because you are usually on a phone I cannot see.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('list');}catch(e){}",
+           "point": "#listFull"
          },
          {
            "t": "Second group: how the chats stay out of each other’s way.",
@@ -288,31 +340,40 @@ const APPS = {
            "t": "One app, one chat — you have heard that one. Here is the other half of it."
          },
          {
-           "t": "There are two kinds of conversation, and they are not interchangeable. A caretaker, and a builder."
+           "t": "There are two kinds of conversation, and they are not interchangeable. A caretaker, and a builder.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
-           "t": "The caretaker is the job that runs every morning at five fifty-four, without you being there. It keeps things current: Ready to Sell, this Apps list, the job rows on the Control Room page, the tester digest."
+           "t": "The caretaker is the job that runs every morning at five fifty-four, without you being there. It keeps things current: Ready to Sell, this Apps list, the job rows on the Control Room page, the tester digest.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereFull"
          },
          {
            "t": "A builder is a chat like this one. It changes things. It builds a page, it rewires a job that broke, it adds a rule."
          },
          {
-           "t": "So a builder never hand-writes a number the caretaker looks after. A figure written by hand is only right while you happen to be in that conversation. One evening a builder wrote the Control Room rows by hand three times; the morning job does it daily now and nobody has to be asked."
+           "t": "So a builder never hand-writes a number the caretaker looks after. A figure written by hand is only right while you happen to be in that conversation. One evening a builder wrote the Control Room rows by hand three times; the morning job does it daily now and nobody has to be asked.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}",
+           "point": "#appsFull"
          },
          {
-           "t": "And a builder goes quiet when there is nothing to change. You should never open one to find out how things are going — that is what the morning report and the Control Room page are for. If a builder has nothing to build, it says so and stops."
+           "t": "And a builder goes quiet when there is nothing to change. You should never open one to find out how things are going — that is what the morning report and the Control Room page are for. If a builder has nothing to build, it says so and stops.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('today');}catch(e){}"
          },
          {
-           "t": "One more, and this one the platform enforces. A job’s instructions can only be changed from the chat that job fires into."
+           "t": "One more, and this one the platform enforces. A job’s instructions can only be changed from the chat that job fires into.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
          },
          {
            "t": "So a builder cannot edit a running job. It has to ask that chat, and that chat is right to refuse — because a message from another Claude is data, not your authority. You say go in the job’s own chat, and only then does the change land."
          },
          {
-           "t": "And when you are judging whether a job works, look at what it produced, not at whether its log says it succeeded. A log saying succeeded only means the job was handed to a chat. Two versions of the morning job died exactly there — dispatching perfectly every night and then doing nothing at all."
+           "t": "And when you are judging whether a job works, look at what it produced, not at whether its log says it succeeded. A log saying succeeded only means the job was handed to a chat. Two versions of the morning job died exactly there — dispatching perfectly every night and then doing nothing at all.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('today');}catch(e){}"
          },
          {
-           "t": "Third group: what is never allowed. This one is short."
+           "t": "Third group: what is never allowed. This one is short.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('list');}catch(e){}"
          },
          {
            "t": "Never a secret in a chat. Not a client secret, not an API key, not an access token, not a password. I will not ask you for one, and I will not accept one if you offer it."
@@ -324,19 +385,22 @@ const APPS = {
            "t": "And if one does land in a chat, or inside a screenshot, I say so plainly, tell you what the real risk is without the drama, and walk you through changing it."
          },
          {
-           "t": "Fourth: what I cannot do. Worth knowing, so you are never sitting waiting on something that is not coming."
+           "t": "Fourth: what I cannot do. Worth knowing, so you are never sitting waiting on something that is not coming.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}"
          },
          {
            "t": "I cannot send a WhatsApp message. Every message to the squad is written out for you to send, and it is your hands on the keyboard. That is not caution — there is no way for me to send one."
          },
          {
-           "t": "I cannot open a link you paste, and I cannot fill in a form on a website. Anything happening on a website is you. But pasting the text of a page into the chat works perfectly, and that is the way to get a page to me."
+           "t": "I cannot open a link you paste, and I cannot fill in a form on a website. Anything happening on a website is you. But pasting the text of a page into the chat works perfectly, and that is the way to get a page to me.",
+           "js": "try{window.scrollTo(0,0);}catch(e){} try{show('where');}catch(e){}",
+           "point": "#whereFull"
          },
          {
            "t": "And a chat running on your Mac dies with the Mac — laptop shut, Claude quit, Mac asleep. Nothing is lost and it can be brought back, but it stops answering. So anything holding a question you owe an answer to lives in a cloud chat, and anything worth keeping lives in the repository rather than in a chat’s memory."
          },
          {
-           "t": "That is all of them. Four about how I talk to you, four about how the chats behave, one about secrets, and three things I cannot do.",
+           "t": "That is all of them. Five about how I talk to you, four about how the chats behave, one about secrets, and three things I cannot do.",
            "js": "try{window.scrollTo(0,0);}catch(e){} try{show('apps');}catch(e){}"
          },
          {
@@ -408,97 +472,176 @@ const APPS = {
  },
  quickquote: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and every screen. Sound on.", lines:[
-    {t:"Welcome. This video explains Quick Quote: who it is for, and what it does.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"It is for one thing \u2014 getting a priced estimate in front of a customer before you leave their driveway.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"Quick Quote is the quotes-only edition of Business Manager. The same app underneath, with invoices, expenses and profit kept out of your way.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"Start with your price list. This is the heart of it \u2014 your work, at your prices.", js:"try{tourShow('prices')}catch(e){}"},
-    {t:"Now describe a job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"The estimate is built from your list. Fifteen hundred and twenty-five dollars, itemised in words the customer understands.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"Your prices always win. Even when the app drafts the quote for you, it never invents a number of its own.", js:"try{tourShow('prices')}catch(e){}"},
-    {t:"Offer three choices \u2014 Good, Better and Best. The church restroom job shows all three. Given three options, people choose the middle one far more often than they choose nothing.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"Add photos to the quote, so there is no argument later about what the job was.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"The customer signs on your phone, standing in their own kitchen. That is the moment most jobs are won or lost.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"It works with no signal. In a basement, in a crawlspace, out on a site with one bar \u2014 the quote still goes out.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"And if you later want invoices, receipts and profit, turning on the full office keeps every quote, price and signature. Nothing is retyped. Go and try it \u2014 you cannot break the example.", js:"try{tourShow('home')}catch(e){}"}
+    {t:"Welcome. This video explains Quick Quote: who it is for, and what it does.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"It is for one thing \u2014 getting a priced estimate in front of a customer before you leave their driveway.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"Quick Quote is the quotes-only edition of Business Manager. The same app underneath, with invoices, expenses and profit kept out of your way.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"Start with your price list. This is the heart of it \u2014 your work, at your prices.", js:"try{BM.tourShow('prices')}catch(e){}"},
+    {t:"Now describe a job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"The estimate is built from your list. Fifteen hundred and twenty-five dollars, itemised in words the customer understands.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"Your prices always win. Even when the app drafts the quote for you, it never invents a number of its own.", js:"try{BM.tourShow('prices')}catch(e){}"},
+    {t:"Offer three choices \u2014 Good, Better and Best. The church restroom job shows all three. Given three options, people choose the middle one far more often than they choose nothing.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"Add photos to the quote, so there is no argument later about what the job was.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"The customer signs on your phone, standing in their own kitchen. That is the moment most jobs are won or lost.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"It works with no signal. In a basement, in a crawlspace, out on a site with one bar \u2014 the quote still goes out.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"And if you later want invoices, receipts and profit, turning on the full office keeps every quote, price and signature. Nothing is retyped. Go and try it \u2014 you cannot break the example.", js:"try{BM.tourShow('home')}catch(e){}"}
   ]} },
   name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', mem:'Quotes-only membership', price:'$49 a year', testing:true,
   tag:'Describe the job, get a priced estimate from YOUR price list: three options, the customer signs on your phone, photos on the quote. Works with no signal. The quotes-only edition of Business Manager: move up any time and your quotes come with you.',
   try:BASE+'business-manager/?mode=quotes',
   train:[
-   'Quick Quote setup \u2014 about five minutes, and the quotes come fast afterwards.',
-   'First your business: name, trade and phone. That is the header on every estimate you send.',
-   'Then the price list, which is the whole engine. Pick your trade for a starting set, then go through and change every price to yours.',
-   'Set your trip charge and your hourly labour rate, so the short awkward jobs price themselves properly instead of being guessed at.',
-   'Add a deposit rule if you take one \u2014 a percentage or a flat amount, shown on the quote so it is agreed before you start.',
-   'Decide whether add-ons are included in a price or charged separately. Get this right once and every later quote is right.',
-   'That is setup. Quote your first job. If you ever want invoices, receipts and profit as well, turning on the full office keeps every quote you have written.'
+   {t:'Quick Quote setup \u2014 about five minutes, and the quotes come fast afterwards.', js:"try{BM.tourShow('setup');}catch(e){}"},
+   {t:'First your business: name, trade and phone. That is the header on every estimate you send.', js:"try{BM.tourShow('setup');}catch(e){}", point:"#su0"},
+   {t:'Then the price list, which is the whole engine. Pick your trade for a starting set, then go through and change every price to yours.', js:"try{BM.tourShow('prices');}catch(e){}", point:"#plist"},
+   {t:'Set your trip charge and your hourly labour rate, so the short awkward jobs price themselves properly instead of being guessed at.', js:"try{BM.tourShow('prices');}catch(e){}"},
+   {t:'Add a deposit rule if you take one \u2014 a percentage or a flat amount, shown on the quote so it is agreed before you start.', js:"try{BM.tourShow('more');}catch(e){}"},
+   {t:'Decide whether add-ons are included in a price or charged separately. Get this right once and every later quote is right.', js:"try{BM.tourShow('more');}catch(e){}"},
+   {t:'That is setup. Quote your first job. If you ever want invoices, receipts and profit as well, turning on the full office keeps every quote you have written.', js:"try{BM.tourShow('home');}catch(e){}"}
   ],
   lines:[
-   'This is Quick Quote \u2014 a priced estimate in about a minute, from your own price list.',
-   'Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.',
-   'Describe the job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.',
-   'The estimate is built from YOUR price list \u2014 not a guess, and not somebody else\u2019s prices.',
-   'Fifteen hundred and twenty-five dollars, itemised in words the customer actually understands.',
-   'Offer three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.',
-   'Add photos to the quote, so there is no argument later about what the job was.',
-   'The customer signs on your phone, standing in their own kitchen.',
-   'It works with no signal \u2014 a basement, a crawlspace, a site with one bar. The quote still goes out.',
-   'It is the quotes-only edition of Business Manager. Turn on the full office any time and every quote comes with you.'
+   {t:'This is Quick Quote \u2014 a priced estimate in about a minute, from your own price list.', js:"try{BM.tourShow('home');}catch(e){}"},
+   {t:'Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.', js:"try{BM.tourShow('home');}catch(e){}", point:".stats"},
+   {t:'Describe the job the way you would say it out loud: replace a fifty gallon water heater, take the old one away.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:"#priceCard"},
+   {t:'The estimate is built from YOUR price list \u2014 not a guess, and not somebody else\u2019s prices.', js:"try{BM.tourShow('prices');}catch(e){}", point:"#plist"},
+   {t:'Fifteen hundred and twenty-five dollars, itemised in words the customer actually understands.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:"table.lines"},
+   {t:'Offer three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:".tiers"},
+   {t:'Add photos to the quote, so there is no argument later about what the job was.', js:"try{BM.tourShow('job/j3');}catch(e){}"},
+   {t:'The customer signs on your phone, standing in their own kitchen.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:".steps"},
+   {t:'It works with no signal \u2014 a basement, a crawlspace, a site with one bar. The quote still goes out.', js:"try{BM.tourShow('home');}catch(e){}"},
+   {t:'It is the quotes-only edition of Business Manager. Turn on the full office any time and every quote comes with you.', js:"try{BM.tourShow('more');}catch(e){}"}
   ]
  },
  businessmanager: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every screen. Sound on.", lines:[
-    {t:"Welcome. This video explains Business Manager: who it is for, and what each screen does.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"It is built for a one-truck trade business. A plumber, an electrician, a painter, a landscaper \u2014 someone who does the work AND runs the office, usually at night.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"Everything you are about to see is an example business, Miller Plumbing and Repair. It is not real, and nothing here is saved to your phone.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"This is the home screen. It opens on today: a water heater at nine this morning, a kitchen faucet tomorrow afternoon.", js:"try{tourShow('home')}catch(e){}"},
-    {t:"Jobs is every piece of work you have on, from a first estimate through to paid and closed.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"A job holds what you agreed: the work, the line items and the price. Fifteen hundred and twenty-five dollars to replace a fifty gallon heater and take the old one away.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"For the church restrooms, Dan offered three choices \u2014 Good, Better and Best. Given three options, people choose the middle one far more often than they choose nothing at all.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"The customer signs on your phone, at their kitchen table. No printing, no posting, no waiting for a reply.", js:"try{tourShow('jobs')}catch(e){}"},
-    {t:"When the work is done, the quote becomes an invoice in one tap. You never retype a price.", js:"try{tourShow('money')}catch(e){}"},
-    {t:"Money is who owes you what. That drain cleaning invoice went out twenty days ago and is six days overdue \u2014 on the screen, not lost in a notebook in the van.", js:"try{tourShow('money')}catch(e){}"},
-    {t:"The invoice carries a pay link, so the money can arrive before you have packed up your tools.", js:"try{tourShow('money')}catch(e){}"},
-    {t:"Deposits work the same way. The bathroom remodel took thirty percent up front, so the materials were not coming out of your own pocket.", js:"try{tourShow('money')}catch(e){}"},
-    {t:"Receipts: photograph them as you buy. A thousand and twelve dollars at Home Depot, put against the water heater job.", js:"try{tourShow('receipts')}catch(e){}"},
-    {t:"Which gives you the number most trades never actually see \u2014 what each job made you, after the materials and the hours.", js:"try{tourShow('receipts')}catch(e){}"},
-    {t:"Customers keeps the history: what you did for them, what they paid, and when you were last there.", js:"try{tourShow('custs')}catch(e){}"},
-    {t:"Your price list is the engine. Describe a job in plain words and the estimate is built from your own numbers \u2014 never a guess, and never somebody else's prices.", js:"try{tourShow('prices')}catch(e){}"},
-    {t:"To-dos hold the dates that cost you money when they slip: the truck registration, the insurance renewal, the quarterly estimated taxes.", js:"try{tourShow('todo')}catch(e){}"},
-    {t:"It opens in your phone's browser. Nothing to install, no account to make, and what you type stays on your phone.", js:"try{tourShow('home')}catch(e){}"},
+    {t:"Welcome. This video explains Business Manager: who it is for, and what each screen does.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"It is built for a one-truck trade business. A plumber, an electrician, a painter, a landscaper \u2014 someone who does the work AND runs the office, usually at night.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"Everything you are about to see is an example business, Miller Plumbing and Repair. It is not real, and nothing here is saved to your phone.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"This is the home screen. It opens on today: a water heater at nine this morning, a kitchen faucet tomorrow afternoon.", js:"try{BM.tourShow('home')}catch(e){}"},
+    {t:"Jobs is every piece of work you have on, from a first estimate through to paid and closed.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"A job holds what you agreed: the work, the line items and the price. Fifteen hundred and twenty-five dollars to replace a fifty gallon heater and take the old one away.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"For the church restrooms, Dan offered three choices \u2014 Good, Better and Best. Given three options, people choose the middle one far more often than they choose nothing at all.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"The customer signs on your phone, at their kitchen table. No printing, no posting, no waiting for a reply.", js:"try{BM.tourShow('jobs')}catch(e){}"},
+    {t:"When the work is done, the quote becomes an invoice in one tap. You never retype a price.", js:"try{BM.tourShow('money')}catch(e){}"},
+    {t:"Money is who owes you what. That drain cleaning invoice went out twenty days ago and is six days overdue \u2014 on the screen, not lost in a notebook in the van.", js:"try{BM.tourShow('money')}catch(e){}"},
+    {t:"The invoice carries a pay link, so the money can arrive before you have packed up your tools.", js:"try{BM.tourShow('money')}catch(e){}"},
+    {t:"Deposits work the same way. The bathroom remodel took thirty percent up front, so the materials were not coming out of your own pocket.", js:"try{BM.tourShow('money')}catch(e){}"},
+    {t:"Receipts: photograph them as you buy. A thousand and twelve dollars at Home Depot, put against the water heater job.", js:"try{BM.tourShow('receipts')}catch(e){}"},
+    {t:"Which gives you the number most trades never actually see \u2014 what each job made you, after the materials and the hours.", js:"try{BM.tourShow('receipts')}catch(e){}"},
+    {t:"Customers keeps the history: what you did for them, what they paid, and when you were last there.", js:"try{BM.tourShow('custs')}catch(e){}"},
+    {t:"Your price list is the engine. Describe a job in plain words and the estimate is built from your own numbers \u2014 never a guess, and never somebody else's prices.", js:"try{BM.tourShow('prices')}catch(e){}"},
+    {t:"To-dos hold the dates that cost you money when they slip: the truck registration, the insurance renewal, the quarterly estimated taxes.", js:"try{BM.tourShow('todo')}catch(e){}"},
+    {t:"It opens in your phone's browser. Nothing to install, no account to make, and what you type stays on your phone.", js:"try{BM.tourShow('home')}catch(e){}"},
    "New in November: every message to a customer can go by WhatsApp as well as by text or email. On the Kenya edition it opens that customer's own WhatsApp; elsewhere it asks you which chat.",
-    {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{tourShow('home')}catch(e){}"}
+    {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{BM.tourShow('home')}catch(e){}"}
   ]} },
   name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', mem:'Business membership', price:'$149 a year', testing:true,
   tag:'Quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, to-dos and tax dates. Includes Next Step Board, Message Assistant and Feedback Studio.',
   try:BASE+'business-manager/?mode=full',
   train:[
-   'Business Manager setup \u2014 about five minutes, and you only do it once.',
-   'Start with the business itself: your name, your trade, your phone, and whether you are licensed and insured. That is what prints at the top of every quote and every invoice you send.',
-   'Then your price list. Choose your trade and it starts you off with the usual work at typical prices. Go through and make them yours \u2014 this is the part worth the five minutes.',
-   'The price list is the engine of the whole app. Describe a job in plain words and the estimate is built from these numbers. Even when the app drafts one for you, your prices always win.',
-   'Next, how you get paid: card, PayPal, Venmo, Cash App, Zelle or a cheque. Whatever you fill in is what shows on the invoice, so leave blank anything you do not use.',
-   'If you work with crew, add them with their hourly rate. Then hours logged against a job turn into real labour cost, and the profit figure tells the truth.',
-   'If you only want quotes, choose quotes-only mode. Invoices, expenses, profit, schedule, crew and to-dos stay hidden \u2014 hidden, never deleted. Turn them on any time and every quote and price comes with you.',
-   'That is setup done. Add your first customer, then your first job, and the app follows the work from there.'
+   {t:'Business Manager setup \u2014 about five minutes, and you only do it once.', js:"try{BM.tourShow('setup');}catch(e){}"},
+   {t:'Start with the business itself: your name, your trade, your phone, and whether you are licensed and insured. That is what prints at the top of every quote and every invoice you send.', js:"try{BM.tourShow('setup');}catch(e){}", point:"#su0"},
+   {t:'Then your price list. Choose your trade and it starts you off with the usual work at typical prices. Go through and make them yours \u2014 this is the part worth the five minutes.', js:"try{BM.tourShow('prices');}catch(e){}", point:"#plist"},
+   {t:'The price list is the engine of the whole app. Describe a job in plain words and the estimate is built from these numbers. Even when the app drafts one for you, your prices always win.', js:"try{BM.tourShow('prices');}catch(e){}", point:"#plist"},
+   {t:'Next, how you get paid: card, PayPal, Venmo, Cash App, Zelle or a cheque. Whatever you fill in is what shows on the invoice, so leave blank anything you do not use.', js:"try{BM.tourShow('more');}catch(e){}"},
+   {t:'If you work with crew, add them with their hourly rate. Then hours logged against a job turn into real labour cost, and the profit figure tells the truth.', js:"try{BM.tourShow('more');}catch(e){}"},
+   {t:'If you only want quotes, choose quotes-only mode. Invoices, expenses, profit, schedule, crew and to-dos stay hidden \u2014 hidden, never deleted. Turn them on any time and every quote and price comes with you.', js:"try{BM.tourShow('more');}catch(e){}"},
+   {t:'That is setup done. Add your first customer, then your first job, and the app follows the work from there.', js:"try{BM.tourShow('home');}catch(e){}"}
   ],
   lines:[
-   'This is Business Manager \u2014 the office for a one-truck trade business, in the phone in your pocket.',
+   {t:'This is Business Manager \u2014 the office for a one-truck trade business, in the phone in your pocket.', js:"try{BM.tourShow('home');}catch(e){}"},
    'Everything here is an example business, Miller Plumbing and Repair. Nothing is saved to your phone.',
-   'The home screen opens on today. A water heater to replace at nine, a kitchen faucet tomorrow afternoon.',
-   'A job holds what you agreed: the work, the line items, the price. Fifteen hundred and twenty-five dollars, heater replaced and the old one taken away.',
-   'For the church restrooms Dan offered three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.',
-   'The customer signs on your phone, right there at the kitchen table.',
-   'When the work is done the quote becomes an invoice in one tap, with a pay link on it, so the money can arrive before you have packed the van.',
-   'Money shows who still owes you. That drain cleaning invoice is six days overdue, and it is on the screen instead of lost in a notebook.',
-   'Photograph receipts as you buy them. A thousand and twelve dollars at Home Depot, against the water heater job.',
-   'Which gives you the number most trades never see: what each job actually made, after materials and hours.',
-   'To-dos carry the dates that cost you money if you miss them \u2014 truck registration, insurance renewal, the quarterly estimated taxes.',
-   "New in November: the send row has a WhatsApp button next to Text it, and the invoice page your customer opens has one too — so they can send their M-Pesa code straight back.",
-   'It opens in your phone browser. Nothing to install, no account, and what you type stays on your phone.'
+   {t:'The home screen opens on today. A water heater to replace at nine, a kitchen faucet tomorrow afternoon.', js:"try{BM.tourShow('home');}catch(e){}", point:".stats"},
+   {t:'A job holds what you agreed: the work, the line items, the price. Fifteen hundred and twenty-five dollars, heater replaced and the old one taken away.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:"table.lines"},
+   {t:'For the church restrooms Dan offered three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:".tiers"},
+   {t:'The customer signs on your phone, right there at the kitchen table.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:".steps"},
+   {t:'When the work is done the quote becomes an invoice in one tap, with a pay link on it, so the money can arrive before you have packed the van.', js:"try{BM.tourShow('money');}catch(e){}"},
+   {t:'Money shows who still owes you. That drain cleaning invoice is six days overdue, and it is on the screen instead of lost in a notebook.', js:"try{BM.tourShow('money');}catch(e){}", point:".btns"},
+   {t:'Photograph receipts as you buy them. A thousand and twelve dollars at Home Depot, against the water heater job.', js:"try{BM.tourShow('expenses');}catch(e){}"},
+   {t:'Which gives you the number most trades never see: what each job actually made, after materials and hours.', js:"try{BM.tourShow('pl');}catch(e){}"},
+   {t:'To-dos carry the dates that cost you money if you miss them \u2014 truck registration, insurance renewal, the quarterly estimated taxes.', js:"try{BM.tourShow('todo');}catch(e){}"},
+   {t:"New in November: the send row has a WhatsApp button next to Text it, and the invoice page your customer opens has one too — so they can send their M-Pesa code straight back.", js:"try{BM.tourShow('job/j3');}catch(e){}"},
+   {t:'It opens in your phone browser. Nothing to install, no account, and what you type stays on your phone.', js:"try{BM.tourShow('home');}catch(e){}"}
   ]
  },
+ hello: {
+    "name": "Karibuni — hello from Daraja",
+    "em": "👋",
+    "sub": "a thank you to the testers",
+    "cat": "off",
+    "off": "a greeting for the Kenyan squad, not something sold in the store",
+    "video": true,
+    "tag": "Two minutes, nothing to do: what October's testing actually fixed, and who found it",
+    "try": BASE+'testers/',
+    "lines": [
+      {
+        "t": "Hello. This one is not a test, and there is nothing for you to do. It is two minutes, and it is a thank you.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('try');}catch(e){}"
+      },
+      {
+        "t": "In October, twenty-seven of you tested these apps. Between you, you sent one thousand, two hundred and forty-two reports. That is not a small number. That is a month of real work, on real phones, in between everything else you had on.",
+        "point": "#tlTitle"
+      },
+      {
+        "t": "So before anything else. Thank you."
+      },
+      {
+        "t": "Here is what that work actually did, because you may not have seen it from where you were sitting."
+      },
+      {
+        "t": "Brian Maina Kamau found the fault in Receipt Maker. Fredrick Nganga found five of the six faults that were fixed on the fourth of November. Five out of six, from one person."
+      },
+      {
+        "t": "Veronicah Kimani found a fault in search on the twenty-ninth of October. And out of all one thousand, two hundred and forty-two reports, only three people have ever had a problem confirmed. She is one of the three."
+      },
+      {
+        "t": "Kevin Ngugi got through every app faster than anybody. Faith Wangari and Frank Ndung'u each tested all twenty-eight. Ruth Waitherero Kiarie, twenty-five."
+      },
+      {
+        "t": "And everyone else who opened an app, poked at it, and said what they honestly thought. That is the job. There is no such thing as a small report."
+      },
+      {
+        "t": "Now here is the thing we would most like you to believe.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('fixed');}catch(e){}"
+      },
+      {
+        "t": "Finding a problem is not bad news for us. It is the entire point. This list is every single thing that has been fixed because somebody said something.",
+        "point": "#fixedList"
+      },
+      {
+        "t": "Every line on it started as a tester being honest. Nobody here is marked down for breaking an app. If you broke it, it was already broken. You just found it first."
+      },
+      {
+        "t": "So. What is happening at the moment.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('try');}catch(e){}"
+      },
+      {
+        "t": "There are two teams now. Emmanuel Koki leads one, and Veronicah Kimani leads the other. Your lead will tell you which apps are yours.",
+        "point": "#appList"
+      },
+      {
+        "t": "This round closes on the twelfth of November, and the apps on this page are the ones that need eyes first. Some of them have never been opened by anybody."
+      },
+      {
+        "t": "If something confuses you, say so here. You do not have to be polite about it. Say it the way you would say it to a friend.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('board');}catch(e){}",
+        "point": "#board"
+      },
+      {
+        "t": "And if you would rather talk than type, there is a microphone. Nobody is marking your spelling."
+      },
+      {
+        "t": "Last thing, and it is the real reason any of this exists.",
+        "js": "try{window.scrollTo(0,0);}catch(e){} try{go('try');}catch(e){}"
+      },
+      {
+        "t": "Every app that gets good enough to sell helps a student in Kenya stay in school. That is what the testing is for. Not for us — for them."
+      },
+      {
+        "t": "That is all. Thank you for October. We will see what you find this time."
+      }
+    ]
+  },
+
  tester: {
   name:'How to be a tester', em:'🧪', sub:'three minutes: a real test, start to finish', cat:'off', price:'', testing:true, video:true,
   tag:'The tester video — watch one short test from start to finish: use the app, point at what is wrong, say why, send the report',
@@ -523,44 +666,44 @@ const APPS = {
 
  home: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what the front door is, and why you would put it on your phone. Sound on.", lines:[
-   'Welcome. This explains Daraja itself — not one of the apps, but the front door they all live behind.',
+   {t:'Welcome. This explains Daraja itself — not one of the apps, but the front door they all live behind.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
    'Daraja means bridge in Swahili. That is the whole idea: a short way across from where you are to the thing you were trying to do.',
-   'Here is the problem it solves. Once you are using three or four small apps, you stop being able to find them. They scatter across your phone, buried in folders, and you end up not using the ones you liked.',
-   'Daraja is one page that holds them all. Put it on your home screen once, and it is the only icon you need.',
-   'The apps you use sit together under Mine, so the ones you actually open are the ones you see first.',
-   'Tap one and it opens right there inside Daraja, with a back arrow to bring you home again. No hunting, no going back to a browser.',
-   'If you would rather give an app its own window, there is open on its own — handy for the one you live in all day.',
-   'New apps turn up here by themselves as they are built. Nothing to update, nothing to reinstall.',
+   {t:'Here is the problem it solves. Once you are using three or four small apps, you stop being able to find them. They scatter across your phone, buried in folders, and you end up not using the ones you liked.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
+   {t:'Daraja is one page that holds them all. Put it on your home screen once, and it is the only icon you need.', point:"#host"},
+   {t:'The apps you use sit together under Mine, so the ones you actually open are the ones you see first.', point:"#host"},
+   {t:'Tap one and it opens right there inside Daraja, with a back arrow to bring you home again. No hunting, no going back to a browser.', point:"#host"},
+   {t:'If you would rather give an app its own window, there is open on its own — handy for the one you live in all day.', point:"#host"},
+   {t:'New apps turn up here by themselves as they are built. Nothing to update, nothing to reinstall.', point:"#host"},
    'It works with no signal. Once it has loaded, it keeps working on a train, in a basement, or out where the bars run out.',
    'Nothing is sent anywhere. No account to make, no password, no ads. What each app knows stays on your phone.',
-   'Two links sit at the bottom: the store, for anything you have not got yet, and what’s new, for what has changed lately.',
-   'Daraja itself is free, and always will be. You only ever pay for an app you decide you want.',
+   {t:'Two links sit at the bottom: the store, for anything you have not got yet, and what’s new, for what has changed lately.', point:"#host"},
+   {t:'Daraja itself is free, and always will be. You only ever pay for an app you decide you want.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
    'And every app that somebody buys helps a student in Kenya stay in school. That is not a slogan bolted on the end — it is why the whole thing exists.',
-   'That is the front door. Add it to your home screen, and everything else is one tap away.'
+   {t:'That is the front door. Add it to your home screen, and everything else is one tap away.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"}
   ]} },
   name:'Daraja', em:'🌉', sub:'your family of apps, one front door', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
   tag:'your family of apps, one front door',
   try:BASE+'home/',
   train:[
-   'Setting up your front door — about three minutes, once.',
-   'Open Daraja in your phone’s browser. That link is the only address you need to remember.',
+   {t:'Setting up your front door — about three minutes, once.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
+   {t:'Open Daraja in your phone’s browser. That link is the only address you need to remember.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
    'Now put it on your home screen. On an iPhone, tap the share button and choose Add to Home Screen. On Android, open the browser menu and choose Install or Add to Home screen.',
-   'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.',
-   'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.',
+   {t:'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.', point:"#host"},
+   {t:'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.', point:"#host"},
    'If an app is one you use all day, open it on its own and give that its own home screen icon too. The two live happily side by side.',
-   'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.'
+   {t:'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"}
   ],
   lines:[
-   'This is Daraja — your family of apps behind one front door.',
+   {t:'This is Daraja — your family of apps behind one front door.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
    'Daraja means bridge in Swahili.',
-   'Once you are using three or four small apps, you stop being able to find them. They scatter across your phone and you quietly stop using them.',
-   'This is one page that holds them all. Add it to your home screen and it is the only icon you need.',
-   'The apps you use gather under Mine, so what you actually open is what you see first.',
-   'Tap one and it opens inside Daraja, with a back arrow home. Or open it on its own if you prefer its own window.',
-   'New apps appear here by themselves. Nothing to update, nothing to reinstall.',
+   {t:'Once you are using three or four small apps, you stop being able to find them. They scatter across your phone and you quietly stop using them.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
+   {t:'This is one page that holds them all. Add it to your home screen and it is the only icon you need.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
+   {t:'The apps you use gather under Mine, so what you actually open is what you see first.', point:"#host"},
+   {t:'Tap one and it opens inside Daraja, with a back arrow home. Or open it on its own if you prefer its own window.', point:"#host"},
+   {t:'New apps appear here by themselves. Nothing to update, nothing to reinstall.', point:"#host"},
    'It works with no signal, and nothing is sent anywhere — no account, no password, no ads.',
-   'Daraja is free and always will be. You only pay for an app you decide you want.',
-   'And every app bought helps a student in Kenya stay in school.'
+   {t:'Daraja is free and always will be. You only pay for an app you decide you want.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#host"},
+   {t:'And every app bought helps a student in Kenya stay in school.', point:"#host"}
   ]
  },
  everyday: {
@@ -755,7 +898,7 @@ const APPS = {
     "First, the problem. A long to-do list can feel like a wall. You look at twenty things, cannot pick one, and end up doing none.",
     {"t": "One Thing fixes that. Your whole list is inside, but the screen shows only one thing: the thing to do now, with a timer and a Done button.", "point": "#nowCard"},
     "It is for anyone whose mind runs fast: a child, a student, a busy parent. One phone can hold the whole family, each with their own list.",
-    {"t": "The first time you open it, it asks Who's first. Type a name, then tap Kid or Grown-up. A kid gets coins and a cheering buddy. A grown-up gets calmer routines.", "keep": ".modewrap.show", "js": "try{var m=document.getElementById('modewrap');if(m)m.classList.add('show');}catch(e){}", "point": "#pName"},
+    {"t": "The first time you open it, it asks Who's first. Type a name, then tap Kid or Grown-up. A kid gets coins and a cheering buddy. A grown-up gets calmer routines.", "keep": ".modewrap.show", "js": "try{openPicker(true);var n=document.getElementById('pNew');if(n)n.style.display='block';}catch(e){}", "point": "#pName"},
     {"t": "Then it asks how much you want to see. That is your Level. Level 1 is just today. Level 2 adds routines and the week. Level 3 adds Wins and the whole family. Tap change any time.", "point": "#nnLevel"},
     "A short card called Setting up then asks four things, one at a time: a routine, something that repeats, something on a date, and your one thing. Answer, or skip.",
     {"t": "Now the main screen, called Now. At the top is whose list it is. Tap the name to switch person, or to add someone.", "js": "try{var s=JSON.parse(localStorage.getItem('nn_level_v1')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('nn_level_v1',JSON.stringify(s));}catch(e){} try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#whoami"},
@@ -781,7 +924,7 @@ const APPS = {
     {"t": "The round question mark button in the corner has the tour, help and settings, any time.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Let's set up One Thing. Five minutes, then it runs your mornings.", "keep": ".modewrap.show"},
-   {"t": "Step one: when it opens, it asks Who's first. Type a name and tap Kid or Grown-up. You can add the rest of the family later, from the name at the top.", "keep": ".modewrap.show", "js": "try{var m=document.getElementById('modewrap');if(m)m.classList.add('show');}catch(e){}", "point": "#pName"},
+   {"t": "Step one: when it opens, it asks Who's first. Type a name and tap Kid or Grown-up. You can add the rest of the family later, from the name at the top.", "keep": ".modewrap.show", "js": "try{openPicker(true);var n=document.getElementById('pNew');if(n)n.style.display='block';}catch(e){}", "point": "#pName"},
    {"t": "Step two: answer the short set-up questions, or skip them. Then add a task: type one small thing in the box, pick the minutes, and tap Add.", "js": "try{var s=JSON.parse(localStorage.getItem('nn_level_v1')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('nn_level_v1',JSON.stringify(s));}catch(e){} try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#v-today .add"},
    {"t": "Step three: the Now card shows one thing, with a timer. Tap Start, do it, then tap Done, and enjoy the party. That is the whole engine.", "point": "#nowCard"},
    {"t": "Step four: routines. Open Routines and regulars, tap A routine, and pick Morning, Homework or Bedtime. All its steps land on Today, in order.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('routines');djRoutineStep('routine');var d=document.querySelector('[data-dj-pane=\"routine\"] details');if(d)d.open=true;}catch(e){}", "point": "#v-routines .routine"},
@@ -823,9 +966,9 @@ const APPS = {
     {"t": "Under it is the Level line. Level 1 shows only what is next. Level 2 adds the Year map, the Library, and a How button on each item. Level 3 adds the Hand-off list. Tap change to choose.", "point": "#djLevelPill"},
     {"t": "The main page is called Next. It has four groups: Overdue, Do something now, Next ninety days, and Later.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ahead')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('dj_level_ahead',JSON.stringify(s));}catch(e){} try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}", "point": "#lOver"},
     "Each line shows a name, how many days away it is, and a color. Red means missing it costs real money. Yellow means a hassle. Green means no big deal.",
-    {"t": "The fastest way to begin is the gold button, Quick setup. When the list is empty, it says tick what's yours.", "point": "#qsBtn"},
+    {"t": "The fastest way to begin is the gold button, Quick setup. When the list is empty, it says tick what's yours.", "point": "#qsBtn", js:"try{['ahWelcome','welcome'].forEach(function(i){var w=document.getElementById(i);if(w)w.style.display='none';});}catch(e){}"},
     {"t": "It opens every common item on one screen. Tick what your house has, fix the date on that line if you know it, and tap Save my list at the bottom. Two is plenty to start.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');setTimeout(function(){var q=document.getElementById('qsBtn');if(q)q.click();},150)}catch(e){}"},
-    {"t": "To add something of your own, tap the orange button with the plus sign.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}", "point": ".fab"},
+    {"t": "To add something of your own, tap the orange button with the plus sign.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}", "point": ".fab", js:"try{['ahWelcome','welcome'].forEach(function(i){var w=document.getElementById(i);if(w)w.style.display='none';});}catch(e){}"},
     "A form opens. Write what it is, the next due date, how often it repeats, and how bad it is to miss. Add the amount and where the papers are kept. Then tap Save.",
     "Never type a password into it. Write where the login is kept, not the login itself. To change an item later, tap its name.",
     "Every item has three reminder steps: thirty days out, seven days, and one day. When a step is due, it shows under Do something now.",
@@ -841,9 +984,9 @@ const APPS = {
     {"t": "The round question mark button in the corner has the tour, help and settings, any time.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Setting up Ahead of It takes about five minutes, once. Then nothing catches you off guard again.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ahead')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('dj_level_ahead',JSON.stringify(s));}catch(e){} try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
-   {"t": "Step one: tap the gold Quick setup button. Every common item is on one screen, in groups like taxes, home and vehicles.", "point": "#qsBtn"},
+   {"t": "Step one: tap the gold Quick setup button. Every common item is on one screen, in groups like taxes, home and vehicles.", "point": "#qsBtn", js:"try{['ahWelcome','welcome'].forEach(function(i){var w=document.getElementById(i);if(w)w.style.display='none';});}catch(e){}"},
    {"t": "Step two: tick the ones your house actually has, fix the date on each line if you know it, and tap Save my list at the bottom.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');setTimeout(function(){var q=document.getElementById('qsBtn');if(q)q.click();},150)}catch(e){}"},
-   {"t": "Step three: for anything else, tap the orange plus. Write what it is, the next due date, how often it repeats, and how bad it is to miss. Add the amount and where the papers are kept, then Save.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}", "point": ".fab"},
+   {"t": "Step three: for anything else, tap the orange plus. Write what it is, the next due date, how often it repeats, and how bad it is to miss. Add the amount and where the papers are kept, then Save.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}", "point": ".fab", js:"try{['ahWelcome','welcome'].forEach(function(i){var w=document.getElementById(i);if(w)w.style.display='none';});}catch(e){}"},
    {"t": "Step four: read the Next page from the top. Overdue, then Do something now, then the next ninety days, then later. Red costs real money, yellow is a hassle, green is no big deal.", "point": "#lOver"},
    "Step five: each item has three reminder steps — thirty days out, seven days, and one day. When one comes due, it shows under Do something now. Tick it off with the step button.",
    "Step six: when the bill is paid, tap done on its line. It moves to its next date, ready for next time, and there is an Undo.",
@@ -855,7 +998,7 @@ const APPS = {
    {"t": "This is Ahead of It — for whoever carries the household.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ahead')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('dj_level_ahead',JSON.stringify(s));}catch(e){} try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
    "Every house has its own list, and it is different in every house. The insurance renewal. The property tax. The car registration. The dentist. The dog's shots.",
    "None of it is difficult. It is just that all of it lives in one person's head, and heads leak.",
-   {"t": "So you put your real ones in, with your real dates, and it holds them for you.", "point": "#qsBtn"},
+   {"t": "So you put your real ones in, with your real dates, and it holds them for you.", "point": "#qsBtn", js:"try{['ahWelcome','welcome'].forEach(function(i){var w=document.getElementById(i);if(w)w.style.display='none';});}catch(e){}"},
    {"t": "You don't start from a blank page. A library of twenty-seven common ones — taxes, insurance, the car, the dog — comes with the usual dates and three reminder steps each. You just tap yours.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('lib');window.scrollTo(0,0)}catch(e){}", "point": "#lib .card"},
    {"t": "It shows what is overdue, what needs doing now, and what is coming in the next ninety days — and what it actually costs you to miss each one, so you can tell what matters from what can wait.", "point": "#lOver", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
    {"t": "Put an amount on a bill, and the top of the page adds up what is due this month, and what is already paid.", "point": "#ahMoney"},
@@ -902,23 +1045,23 @@ const APPS = {
   tag:'Every project, its next step, whose turn — one screen',
   try:A+'nextstep/', video:true,
   train:[
-   "Next Step Board setup — five minutes with your coffee.",
-   "Step one: add every project you're juggling. Work, home, church — all of them, one screen.",
-   "Step two: for each project write ONE next step, and whose turn it is — yours, or someone you're waiting on.",
-   "Step three: set priorities and due dates so the important things float to the top.",
-   "Step four: every morning, open the board and just go down the list. Add anything new in one tap.",
-   "Step five: when a step gets done, write the next one right away. Projects never stall when the next step is always written. That's the whole secret.",
-   "You'll know it's working when every project on the board has a next step written. No blanks — blanks are where projects go to sleep."],
+   {t:"Next Step Board setup — five minutes with your coffee.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#boardName"},
+   {t:"Step one: add every project you're juggling. Work, home, church — all of them, one screen.", point:"#grid"},
+   {t:"Step two: for each project write ONE next step, and whose turn it is — yours, or someone you're waiting on.", point:"#grid"},
+   {t:"Step three: set priorities and due dates so the important things float to the top.", point:"#filters"},
+   {t:"Step four: every morning, open the board and just go down the list. Add anything new in one tap.", point:"#grid"},
+   {t:"Step five: when a step gets done, write the next one right away. Projects never stall when the next step is always written. That's the whole secret.", point:"#grid"},
+   {t:"You'll know it's working when every project on the board has a next step written. No blanks — blanks are where projects go to sleep.", point:"#count"}],
   lines:[
-   "This is Next Step Board — for anyone juggling more than three projects.",
+   {t:"This is Next Step Board — for anyone juggling more than three projects.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#boardName"},
    "The problem: projects don't stall because they're hard. They stall because nobody wrote down the NEXT STEP.",
-   "How it works: one screen. Every project you've got, its very next step, and whose turn it is — yours or someone you're waiting on.",
-   "Priorities and due dates keep the important things on top. A 'coming up' bar shows what's about to land.",
-   "Add a task in one tap, send a date to your calendar in one tap.",
-   "Sit down with your coffee, open the board, and go down the list — business person or household manager, it's the same relief.",
-   "The benefit: nothing stalls, nothing gets forgotten, and you always know what to do next.",
+   {t:"How it works: one screen. Every project you've got, its very next step, and whose turn it is — yours or someone you're waiting on.", point:"#grid"},
+   {t:"Priorities and due dates keep the important things on top. A 'coming up' bar shows what's about to land.", point:"#filters"},
+   {t:"Add a task in one tap, send a date to your calendar in one tap.", point:"#grid"},
+   {t:"Sit down with your coffee, open the board, and go down the list — business person or household manager, it's the same relief.", point:"#grid"},
+   {t:"The benefit: nothing stalls, nothing gets forgotten, and you always know what to do next.", point:"#count"},
    "It comes with the Business membership. No account, and it works offline.",
-   "Try it below — put your three real projects in and watch your morning get simpler."]},
+   {t:"Try it below — put your three real projects in and watch your morning get simpler.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#grid"}]},
  breakeven: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
     {"t": "Welcome. This short video explains Break-Even. In about three and a half minutes you will know what it is for and how to use it.", "js": "try{ window.scrollTo(0,0); }catch(e){}"},
@@ -952,20 +1095,20 @@ const APPS = {
   tag:'Price your product — see exactly when you start making money',
   try:A+'breakeven/', video:true,
   train:[
-   "Using Break-Even — two minutes to the truth.",
-   "Step one: what do you sell it for? Type your price first.",
-   "Step two: what does each one cost you — supplies, fees, shipping? Then your monthly fixed costs: rent, table fees, software.",
-   "Step three: read the answer. It shows the exact sale where you cross into profit.",
-   "Step four: change the price and look at the table — it shows what ten or twenty percent either way does to the sales you need. That's how you pick a price on purpose instead of by guess.",
-   "You'll know it worked when you can say out loud: 'I make money on number twelve.' That sentence is the whole product."],
+   {t:"Using Break-Even — two minutes to the truth.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#p"},
+   {t:"Step one: what do you sell it for? Type your price first.", point:"#p"},
+   {t:"Step two: what does each one cost you — supplies, fees, shipping? Then your monthly fixed costs: rent, table fees, software.", point:"#c"},
+   {t:"Step three: read the answer. It shows the exact sale where you cross into profit.", point:"#units"},
+   {t:"Step four: change the price and look at the table — it shows what ten or twenty percent either way does to the sales you need. That's how you pick a price on purpose instead of by guess.", point:"#tbl"},
+   {t:"You'll know it worked when you can say out loud: 'I make money on number twelve.' That sentence is the whole product.", point:"#units"}],
   lines:[
-   "This is Break-Even — free, for anyone selling anything.",
+   {t:"This is Break-Even — free, for anyone selling anything.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#p"},
    "The problem: you made a thing, you picked a price… but you honestly don't know when you start making money.",
-   "How it works: put in your price, what each one costs you, and your monthly fixed costs — it shows the exact number of sales where you cross into profit.",
-   "Change the price, and the table shows what ten or twenty percent either way would do. Suddenly pricing isn't a guess.",
-   "The benefit: you stop selling at a loss without knowing it. Every craft-fair table and side hustle needs this once.",
+   {t:"How it works: put in your price, what each one costs you, and your monthly fixed costs — it shows the exact number of sales where you cross into profit.", point:"#c"},
+   {t:"Change the price, and the table shows what ten or twenty percent either way would do. Suddenly pricing isn't a guess.", point:"#tbl"},
+   {t:"The benefit: you stop selling at a loss without knowing it. Every craft-fair table and side hustle needs this once.", point:"#units"},
    "It's completely free — our gift, and a taste of how we build.",
-   "Try it below with your real numbers. It takes two minutes to know the truth."]},
+   {t:"Try it below with your real numbers. It takes two minutes to know the truth.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#p"}]},
  safety: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
     {"t": "Welcome. This video explains My Safety Plan, gently and in plain words. If you need someone right now, Talk to someone now, at the bottom, calls nine-eight-eight.", "point": "#crisis .talk", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djStart,#djTip{display:none!important}'; document.head.appendChild(s); } }catch(e){} try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"},
@@ -1016,13 +1159,13 @@ const APPS = {
   try:A+'safety/', video:true,
   
   lines:[
-   "This is My Safety Plan. It's free, forever — built in memory of Ryan.",
-   "It's a private safety plan in the proven six-step format counselors use: warning signs, ways to cope, reasons to stay, people to call.",
-   "You fill it out on a calm day — so it's there on a hard one.",
-   "'Talk to someone now' is one tap: nine-eight-eight, the Suicide and Crisis Lifeline.",
-   "It's completely private. No account, nothing leaves your phone.",
+   {t:"This is My Safety Plan. It's free, forever — built in memory of Ryan.", js:"try{tab('plan');}catch(e){}"},
+   {t:"It's a private safety plan in the proven six-step format counselors use: warning signs, ways to cope, reasons to stay, people to call.", js:"try{tab('plan');}catch(e){}", point:"#planBody"},
+   {t:"You fill it out on a calm day — so it's there on a hard one.", js:"try{tab('edit');}catch(e){}"},
+   {t:"'Talk to someone now' is one tap: nine-eight-eight, the Suicide and Crisis Lifeline.", js:"try{tab('now');}catch(e){}", point:"#crisis"},
+   {t:"It's completely private. No account, nothing leaves your phone.", js:"try{tab('plan');}catch(e){}"},
    "If you love someone who struggles, put this on their phone together. That's the whole reason it exists.",
-   "It will never cost anything. Try it below — or share it with someone who needs it today."]},
+   {t:"It will never cost anything. Try it below — or share it with someone who needs it today.", js:"try{tab('plan');}catch(e){}"}]},
  feedback: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
     {"t": "Welcome. This short video explains Feedback Studio. In about four minutes you will know what it is for and how to use it.", "js": "try{ var af=document.getElementById('appframe'); if(af && af.style.display==='none' && !document.getElementById('vidWel')){ var w=document.createElement('style'); w.id='vidWel'; w.textContent='#welcome{display:flex!important}'; document.head.appendChild(w); } }catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djStart,#djTip{display:none!important}'; document.head.appendChild(s); } }catch(e){} try{ if(document.body.classList.contains('fsSideOn')) document.getElementById('fsSideBtn').click(); window.scrollTo(0,0); }catch(e){}"},
@@ -1255,92 +1398,92 @@ const APPS = {
   tag:'Shoebox-packing inventory — how many boxes can we build?',
   try:A+'occ/', video:true,
   train:[
-   "Using the Box Counter at a packing party — here's the routine.",
-   "Step one: count what's on the table. Big plus and minus buttons; tap an item's name for plus five and plus ten.",
-   "Step two: mark what goes in EVERY box — soap, toothbrush, washcloth — with the 'every box' toggle.",
-   "Step three: read the dashboard: READY TO BUILD tells you how many complete boxes you can make, and what you're short on.",
-   "Step four: as you pack, count down. When it says you're short on washcloths — that's your shopping list.",
-   "You'll know it's working when the dashboard says READY TO BUILD and a number. That number is the whole answer."],
+   {t:"Using the Box Counter at a packing party — here's the routine.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#canN"},
+   {t:"Step one: count what's on the table. Big plus and minus buttons; tap an item's name for plus five and plus ten.", point:"#listBox"},
+   {t:"Step two: mark what goes in EVERY box — soap, toothbrush, washcloth — with the 'every box' toggle.", point:"#listBox"},
+   {t:"Step three: read the dashboard: READY TO BUILD tells you how many complete boxes you can make, and what you're short on.", point:"#canN"},
+   {t:"Step four: as you pack, count down. When it says you're short on washcloths — that's your shopping list.", point:"#listFill"},
+   {t:"You'll know it's working when the dashboard says READY TO BUILD and a number. That number is the whole answer.", point:"#canN"}],
   lines:[
-   "This is the Box Counter — free, for shoebox-packing teams.",
+   {t:"This is the Box Counter — free, for shoebox-packing teams.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#canN"},
    "The problem: a table full of soap, toothbrushes, and toys — and no idea how many complete boxes you can actually build.",
-   "How it works: count your items with big plus and minus buttons. Mark what goes in every box.",
-   "The dashboard answers the only question that matters: 'READY TO BUILD: this many boxes' — and exactly what you're short on.",
-   "Made for shoebox packing parties, church tables, and garage inventories.",
-   "It's free. Try it below — your next packing day will thank you."]},
+   {t:"How it works: count your items with big plus and minus buttons. Mark what goes in every box.", point:"#listBox"},
+   {t:"The dashboard answers the only question that matters: 'READY TO BUILD: this many boxes' — and exactly what you're short on.", point:"#canN"},
+   {t:"Made for shoebox packing parties, church tables, and garage inventories.", point:"#listFill"},
+   {t:"It's free. Try it below — your next packing day will thank you.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#canN"}]},
  zuri: {
   name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'off', off:'private — the tool for running the ISP in Maai Mahiu, not for sale', price:'Ask us', testing:false,
   tag:'Field operations for a small ISP — works with no signal',
   try:A+'zuri/', video:true,
   train:[
-   "Zuri Ops for the field — the daily rhythm.",
-   "Morning: open the app, confirm your float — the cash you're starting with.",
-   "During the day: log each expense and payment as it happens. It works with no signal; everything waits.",
-   "It learns your habits and warns you before the float runs out.",
-   "Friday: the Friday Report builds itself — and when the phone finds internet, everything syncs to the HQ dashboard on its own."],
+   {t:"Zuri Ops for the field — the daily rhythm.", js:"try{go('today');}catch(e){}"},
+   {t:"Morning: open the app, confirm your float — the cash you're starting with.", js:"try{go('today');}catch(e){}", point:"#kBank"},
+   {t:"During the day: log each expense and payment as it happens. It works with no signal; everything waits.", js:"try{go('bills');}catch(e){}"},
+   {t:"It learns your habits and warns you before the float runs out.", js:"try{go('today');}catch(e){}", point:"#alerts"},
+   {t:"Friday: the Friday Report builds itself — and when the phone finds internet, everything syncs to the HQ dashboard on its own.", js:"try{go('report');}catch(e){}"}],
   lines:[
-   "This is Zuri Ops — built for a real internet company in Maai Mahiu, Kenya.",
-   "It's field operations on one phone: cash counts, expenses, bills, the Friday Report.",
-   "It learns your habits, forecasts when the float runs out, and syncs to a headquarters dashboard whenever it finds internet.",
-   "Built for teams that work where the signal doesn't — everything works offline first.",
+   {t:"This is Zuri Ops — built for a real internet company in Maai Mahiu, Kenya.", js:"try{go('today');}catch(e){}"},
+   {t:"It's field operations on one phone: cash counts, expenses, bills, the Friday Report.", js:"try{go('today');}catch(e){}", point:"#kBank"},
+   {t:"It learns your habits, forecasts when the float runs out, and syncs to a headquarters dashboard whenever it finds internet.", js:"try{go('report');}catch(e){}"},
+   {t:"Built for teams that work where the signal doesn't — everything works offline first.", js:"try{go('bills');}catch(e){}"},
    "If you run a small field team anywhere in the world, this pattern fits you too. Ask us.",
-   "Try the demo below and see a day in the field."]},
+   {t:"Try the demo below and see a day in the field.", js:"try{go('today');}catch(e){}"}]},
  compass: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
-    "Welcome. This short video explains Daraja Compass. In about four minutes you will know what it is for and how to use it.",
-    {"t": "First, the problem. Many people have a dream. A trade. Their own small business. A good job, a home of their own. But the dream feels far away, and nobody shows them the first step.", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} "},
-    "So the years pass, and the dream stays a dream.",
-    "Compass helps you turn a dream into a plan. You answer fifteen plain questions about yourself and your future.",
-    "Then it writes a picture of your life five years from now, in your own words. And it helps you walk backward from that picture to one small step you can take this month.",
-    "Who is it for? A young person finishing school, a student, someone starting over. A parent or a mentor can sit beside them while they do it.",
-    {"t": "Let us look at the screen. At the top is the name, Daraja Compass. Your life, mapped by you.", "point": "header h1", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='hello'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    {"t": "Under it, a gold box says what Compass is for, in plain words.", "point": "#cpIntro"},
-    {"t": "The first card asks: Where are you going? Under it is a Bible verse that changes every day.", "point": "#main .verse"},
-    {"t": "Tap Start my Compass to begin. It takes about ten minutes.", "point": "#main .go"},
-    {"t": "Now the questions come one at a time. At the top it says question one of fifteen, and a gold bar fills as you go.", "point": "#main .prog", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=0; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    {"t": "The first questions are easy: your name, then your age. Type in the box, or tap the microphone and just talk.", "point": "#mic"},
-    {"t": "Next saves your answer and moves on.", "point": "#main .nav .go"},
-    {"t": "Many questions have example answers you can tap. Tap one and it goes into the box. Then change the words so they fit you.", "point": "#main .chips", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=2; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    {"t": "Some questions are just a choice, like marriage in the next five years: Yes, Maybe, or Not in five years. Tap one. No typing.", "point": "#main .chips", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=8; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    {"t": "Back goes to the question before. You can skip anything, and there are no wrong answers.", "point": "#main .nav .bk"},
-    "One question asks what monthly income would make that life possible. Compass uses that number later for some simple money math.",
-    {"t": "On the last question the button says Paint my picture.", "point": "#main .nav .go", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=14; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    {"t": "Compass writes your five-year picture: your work, your money, your home, your faith, and how you help others.", "point": ".portrait", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='portrait'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    {"t": "If it is not right, tap Change answers. If it is the life you want, tap Yes, build my path.", "point": "#main .nav .go"},
-    {"t": "Now the clever part. Compass walks backward from the dream. For each goal there are lines with a time in gold: five years, three years, two years, one year, six months, and this month.", "point": "#main .card", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='goals'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    "On each line you write what has to be true by then. To be an electrician in five years, maybe in one year you must finish the course.",
-    "The last line, this month, matters most. One small step you can do in the next few weeks, with a date. Visit a college. Ask one question. Open a savings account.",
-    {"t": "Then tap Save my path, my Compass, and you arrive at your Compass home. At the top it counts Goals met.", "point": "#main .card .big", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='home'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-    {"t": "The card called This month shows your small steps. When you finish one, tap its box. It turns green with a tick, and you get a star.", "point": "#main .card:nth-of-type(2)"},
-    "Every twenty-eight days, Compass asks how the month went. Tick what happened, move what slipped, and write next month's step.",
-    {"t": "The printer button at the top prints the screen you are on, handy for your five-year picture or your path.", "point": "header button"},
-    "Everything saves on this phone as you go. There is no account, and nothing is sent anywhere.",
-    "Daraja Compass is free.",
-    {"t": "And the question mark button in the corner has the tour and help any time you need them.", "point": "#djDockToggle", "js": "try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}]} },
+    {"t": "Welcome. This short video explains Daraja Compass. In about four minutes you will know what it is for and how to use it.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "First, the problem. Many people have a dream. A trade. Their own small business. A good job, a home of their own. But the dream feels far away, and nobody shows them the first step.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} "},
+    {"t": "So the years pass, and the dream stays a dream.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Compass helps you turn a dream into a plan. You answer fifteen plain questions about yourself and your future.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Then it writes a picture of your life five years from now, in your own words. And it helps you walk backward from that picture to one small step you can take this month.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Who is it for? A young person finishing school, a student, someone starting over. A parent or a mentor can sit beside them while they do it.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Let us look at the screen. At the top is the name, Daraja Compass. Your life, mapped by you.", "point": "header h1", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='hello'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "Under it, a gold box says what Compass is for, in plain words.", "point": "#cpIntro", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "The first card asks: Where are you going? Under it is a Bible verse that changes every day.", "point": "#main .verse", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Tap Start my Compass to begin. It takes about ten minutes.", "point": "#main .go", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Now the questions come one at a time. At the top it says question one of fifteen, and a gold bar fills as you go.", "point": "#main .prog", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=0; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "The first questions are easy: your name, then your age. Type in the box, or tap the microphone and just talk.", "point": "#mic", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Next saves your answer and moves on.", "point": "#main .nav .go", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Many questions have example answers you can tap. Tap one and it goes into the box. Then change the words so they fit you.", "point": "#main .chips", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=2; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "Some questions are just a choice, like marriage in the next five years: Yes, Maybe, or Not in five years. Tap one. No typing.", "point": "#main .chips", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=8; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "Back goes to the question before. You can skip anything, and there are no wrong answers.", "point": "#main .nav .bk", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "One question asks what monthly income would make that life possible. Compass uses that number later for some simple money math.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "On the last question the button says Paint my picture.", "point": "#main .nav .go", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=14; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "Compass writes your five-year picture: your work, your money, your home, your faith, and how you help others.", "point": ".portrait", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='portrait'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "If it is not right, tap Change answers. If it is the life you want, tap Yes, build my path.", "point": "#main .nav .go", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Now the clever part. Compass walks backward from the dream. For each goal there are lines with a time in gold: five years, three years, two years, one year, six months, and this month.", "point": "#main .card", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='goals'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "On each line you write what has to be true by then. To be an electrician in five years, maybe in one year you must finish the course.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "The last line, this month, matters most. One small step you can do in the next few weeks, with a date. Visit a college. Ask one question. Open a savings account.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Then tap Save my path, my Compass, and you arrive at your Compass home. At the top it counts Goals met.", "point": "#main .card .big", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='home'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+    {"t": "The card called This month shows your small steps. When you finish one, tap its box. It turns green with a tick, and you get a star.", "point": "#main .card:nth-of-type(2)", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Every twenty-eight days, Compass asks how the month went. Tick what happened, move what slipped, and write next month's step.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "The printer button at the top prints the screen you are on, handy for your five-year picture or your path.", "point": "header button", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Everything saves on this phone as you go. There is no account, and nothing is sent anywhere.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "Daraja Compass is free.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    {"t": "And the question mark button in the corner has the tour and help any time you need them.", "point": "#djDockToggle", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}]} },
   train:[
-   {"t": "Using Daraja Compass. Give it a quiet ten minutes.", "point": "#main .go", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='hello'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Step one: tap Start my Compass. The questions come one at a time, and the gold bar shows how far you are.", "point": "#main .prog", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=0; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Step two: answer in the box. Or tap the microphone and just talk. Next saves the answer and moves on.", "point": "#mic"},
-   {"t": "Step three: when the words will not come, tap one of the example answers. It drops into the box, and you change it to fit you.", "point": "#main .chips", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=2; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Some questions are just a choice. Tap one. Back goes to the question before, and you can skip anything.", "point": "#main .nav .bk", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=8; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Step four: on the last question the button says Paint my picture. Read your five-year picture. Change answers if it is not right. If it is, tap Yes, build my path.", "point": ".portrait", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='portrait'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Step five: on each line of your path, write what has to be true by then. The last line, This month, is one small step with a date.", "point": "#main .card", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='goals'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Step six: tap Save my path, my Compass. Your Compass home shows Goals met, and your steps for this month.", "point": "#main .card .big", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='home'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Step seven: when you do a step, tap its box. It turns green and adds a star. Every twenty-eight days, do the monthly check-in.", "point": "#main .card:nth-of-type(2)"},
-   {"t": "You will know it worked when you can say out loud the one thing you are doing this month. Come back in a season and see what moved.", "js": "try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
+   {"t": "Using Daraja Compass. Give it a quiet ten minutes.", "point": "#main .go", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='hello'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Step one: tap Start my Compass. The questions come one at a time, and the gold bar shows how far you are.", "point": "#main .prog", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=0; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Step two: answer in the box. Or tap the microphone and just talk. Next saves the answer and moves on.", "point": "#mic", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "Step three: when the words will not come, tap one of the example answers. It drops into the box, and you change it to fit you.", "point": "#main .chips", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=2; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Some questions are just a choice. Tap one. Back goes to the question before, and you can skip anything.", "point": "#main .nav .bk", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=8; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Step four: on the last question the button says Paint my picture. Read your five-year picture. Change answers if it is not right. If it is, tap Yes, build my path.", "point": ".portrait", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='portrait'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Step five: on each line of your path, write what has to be true by then. The last line, This month, is one small step with a date.", "point": "#main .card", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='goals'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Step six: tap Save my path, my Compass. Your Compass home shows Goals met, and your steps for this month.", "point": "#main .card .big", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='home'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Step seven: when you do a step, tap its box. It turns green and adds a star. Every twenty-eight days, do the monthly check-in.", "point": "#main .card:nth-of-type(2)", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "You will know it worked when you can say out loud the one thing you are doing this month. Come back in a season and see what moved.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
   lines:[
-   "This is Daraja Compass. It is free, and it is for a young person starting out, or anyone starting again.",
-   "The problem: big dreams stay vague. Someday I will have my own shop. Without a plan, someday never comes, and nobody sits down and asks you the right questions.",
-   {"t": "It asks the questions a good mentor would ask: where you come from, what you are good at, what work you want, what you hope for your home, your faith and your money.", "point": "#main .go", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='hello'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Fifteen plain questions, one at a time. Every one has answers you can tap, and a microphone so you can talk instead of type.", "point": "#main .chips", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=2; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "Then Compass paints a picture of your life five years from now, written from your own answers.", "point": ".portrait", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='portrait'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "If it is the life you want, it walks backward from it. What has to be true in three years, in one year, in six months, and this month.", "point": "#main .card", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='goals'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   "Every path ends the same way: one small, dated step you can take this month.",
-   {"t": "Your Compass home keeps those steps in front of you. Tick one off and you get a star. Every twenty-eight days it asks how the month went.", "point": "#main .card .big", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='home'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
-   {"t": "There is money math too: what your picture needs each month. And the printer button prints your picture or your path, to keep on the wall.", "point": "header button"},
-   "A Bible verse at the start keeps it grounded.",
-   "It takes about ten minutes. Everything stays on your phone. No account, and nothing is sent anywhere.",
-   {"t": "It is free. Give it a quiet ten minutes, and see your next five years on one page.", "js": "try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
+   {"t": "This is Daraja Compass. It is free, and it is for a young person starting out, or anyone starting again.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "The problem: big dreams stay vague. Someday I will have my own shop. Without a plan, someday never comes, and nobody sits down and asks you the right questions.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "It asks the questions a good mentor would ask: where you come from, what you are good at, what work you want, what you hope for your home, your faith and your money.", "point": "#main .go", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='hello'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Fifteen plain questions, one at a time. Every one has answers you can tap, and a microphone so you can talk instead of type.", "point": "#main .chips", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='q'; db.qi=2; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Then Compass paints a picture of your life five years from now, written from your own answers.", "point": ".portrait", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='portrait'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "If it is the life you want, it walks backward from it. What has to be true in three years, in one year, in six months, and this month.", "point": "#main .card", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='goals'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "Every path ends the same way: one small, dated step you can take this month.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "Your Compass home keeps those steps in front of you. Tick one off and you get a star. Every twenty-eight days it asks how the month went.", "point": "#main .card .big", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='home'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
+   {"t": "There is money math too: what your picture needs each month. And the printer button prints your picture or your path, to keep on the wall.", "point": "header button", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "A Bible verse at the start keeps it grounded.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "It takes about ten minutes. Everything stays on your phone. No account, and nothing is sent anywhere.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   {"t": "It is free. Give it a quiet ten minutes, and see your next five years on one page.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
   name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', mem:'Free', price:'Free', testing:true,
   tag:'For a young person starting out: plain questions about school, work, family and money, and your next five years on one page. Written with Kenyan students in mind.',
   try:A+'compass/', video:true,
@@ -1395,15 +1538,15 @@ const APPS = {
   tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece. Why not just ChatGPT? You’d have to know what to ask. This asks for you, then lays out every piece on a calendar.',
   try:BASE+'drumbeat/',
   lines:[
-   "This is Message Assistant, and it is for anyone who has to tell the same news to a lot of people.",
+   {t:"This is Message Assistant, and it is for anyone who has to tell the same news to a lot of people.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#setupCard"},
    "A fundraiser, a rummage sale, a new service time, a grand opening. You know what you want to say. What wears you out is saying it eleven times — the email, the text, the Facebook post, the bulletin, the reminder, the last call.",
-   "With Message Assistant you tell it once. What is happening, when, and who needs to know.",
-   "Then it hands you a written question to paste into whichever A.I. you already use — Claude, or ChatGPT, whichever you like. Paste the answer back, and Message Assistant has your whole campaign: every message, for every channel, in the right order.",
-   "It lays them out day by day, so you can see the drumbeat build — the announcement, the reminder, the day-before nudge, the thank you.",
-   "Download the calendar file and your phone buzzes when each piece is due. Open Message Assistant, tap the piece, and fire it.",
-   "And here is the part that matters: nothing sends itself. It goes from your own email, your own Messages, your own account — so there is no mailing service to sign up for and no monthly bill. Message Assistant plans and writes; you press send.",
-   "New in November: a text piece gives you two links — Open in Messages, or WhatsApp. A text message cannot reach a group chat; WhatsApp can.",
-   "It comes with the Business membership. Try it below."]},
+   {t:"With Message Assistant you tell it once. What is happening, when, and who needs to know.", point:"#q_what"},
+   {t:"Then it hands you a written question to paste into whichever A.I. you already use — Claude, or ChatGPT, whichever you like. Paste the answer back, and Message Assistant has your whole campaign: every message, for every channel, in the right order.", point:"#aiPaste"},
+   {t:"It lays them out day by day, so you can see the drumbeat build — the announcement, the reminder, the day-before nudge, the thank you.", point:"#aiPaste"},
+   {t:"Download the calendar file and your phone buzzes when each piece is due. Open Message Assistant, tap the piece, and fire it.", point:"#groupsList"},
+   {t:"And here is the part that matters: nothing sends itself. It goes from your own email, your own Messages, your own account — so there is no mailing service to sign up for and no monthly bill. Message Assistant plans and writes; you press send.", point:"#groupsList"},
+   {t:"New in November: a text piece gives you two links — Open in Messages, or WhatsApp. A text message cannot reach a group chat; WhatsApp can.", point:"#aiPaste"},
+   {t:"It comes with the Business membership. Try it below.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#setupCard"}]},
 
 
  /* ── TEMPLATES & PLANS — the things you download rather than open.
@@ -1620,14 +1763,14 @@ const APPS = {
   tag:'The app that keeps your church app up to date — no website, no web designer, no waiting',
   try:BASE+'church-hq/',
   lines:[
-   "This is Church HQ, and it answers the question every church asks about ten minutes after they see their new app: who keeps it up to date?",
+   {t:"This is Church HQ, and it answers the question every church asks about ten minutes after they see their new app: who keeps it up to date?", js:"try{go('home');}catch(e){}"},
    "The answer used to be: whoever built it. That is a phone call, and a wait, and often a bill. So a service time changes in March and the app still says the old one in July.",
-   "Church HQ hands that job back to you. Everything the congregation sees lives on four simple pages: the basics, this week's news, your people, and your ministries.",
-   "Change a service time, type Sunday's announcement, add the new youth leader. Then tap Publish, and every phone in the congregation has it before the sun goes down.",
-   "You do not need a website. Plenty of churches have none, and this works exactly the same. Church HQ is where your information lives.",
-   "It publishes through a free mailbox on your own Google account — a five minute setup, once, that belongs to you. No account with us, and the mailbox stays yours.",
-   "And if the person who set it up ever leaves, the passphrase hands the whole thing to the next person in about a minute.",
-   "It comes with the Church membership, for the church that would rather not phone anybody. Try it below."]},
+   {t:"Church HQ hands that job back to you. Everything the congregation sees lives on four simple pages: the basics, this week's news, your people, and your ministries.", js:"try{go('basics');}catch(e){}"},
+   {t:"Change a service time, type Sunday's announcement, add the new youth leader. Then tap Publish, and every phone in the congregation has it before the sun goes down.", js:"try{go('news');}catch(e){}"},
+   {t:"You do not need a website. Plenty of churches have none, and this works exactly the same. Church HQ is where your information lives.", js:"try{go('home');}catch(e){}"},
+   {t:"It publishes through a free mailbox on your own Google account — a five minute setup, once, that belongs to you. No account with us, and the mailbox stays yours.", js:"try{go('publish');}catch(e){}"},
+   {t:"And if the person who set it up ever leaves, the passphrase hands the whole thing to the next person in about a minute.", js:"try{go('publish');}catch(e){}"},
+   {t:"It comes with the Church membership, for the church that would rather not phone anybody. Try it below.", js:"try{go('home');}catch(e){}"}]},
  /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1729,13 +1872,13 @@ const APPS = {
   tag:'Nothing catches the trustees by surprise',
   try:'https://jerrywins1.github.io/daraja-apps/church-steward/',
   lines:[
-   "This is Ahead of It, church edition, and it exists for one person: whoever keeps your church building alive.",
-   "Because a church building is really a stack of dates. The fire inspection is due in October, the boiler certificate in January, the van registration in March, and the nursery background checks somewhere in between.",
-   "When one of those dates slips past quietly, it costs real money, and sometimes it shuts a ministry down for a season.",
-   "Ahead of It gathers every one of those dates onto one calm page, and starts whispering thirty days before anything comes due.",
-   "It arrives already loaded with the twenty-four things churches most often forget, so setup is just ticking the ones your building actually has and typing in your real dates.",
-   "And here is the part trustees love: when the role changes hands, and it always does, it prints a complete hand-off list, so nothing lives in only one person's head anymore.",
-   "It comes with the Church membership, and it costs a good deal less than one missed inspection fine. Go ahead and try it below."
+   {t:"This is Ahead of It, church edition, and it exists for one person: whoever keeps your church building alive.", js:"try{go('next');}catch(e){}"},
+   {t:"Because a church building is really a stack of dates. The fire inspection is due in October, the boiler certificate in January, the van registration in March, and the nursery background checks somewhere in between.", js:"try{go('year');}catch(e){}"},
+   {t:"When one of those dates slips past quietly, it costs real money, and sometimes it shuts a ministry down for a season.", js:"try{go('next');}catch(e){}", point:"#lNow"},
+   {t:"Ahead of It gathers every one of those dates onto one calm page, and starts whispering thirty days before anything comes due.", js:"try{go('next');}catch(e){}", point:"#calm"},
+   {t:"It arrives already loaded with the twenty-four things churches most often forget, so setup is just ticking the ones your building actually has and typing in your real dates.", js:"try{go('lib');}catch(e){}"},
+   {t:"And here is the part trustees love: when the role changes hands, and it always does, it prints a complete hand-off list, so nothing lives in only one person's head anymore.", js:"try{go('more');}catch(e){}"},
+   {t:"It comes with the Church membership, and it costs a good deal less than one missed inspection fine. Go ahead and try it below.", js:"try{go('next');}catch(e){}"}
   ]},
  churchserve: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1865,43 +2008,43 @@ const APPS = {
     "The Clubhouse is one page from the church to the children. The church writes, and the family reads. That is the whole deal.",
     "There are no accounts, no chat, no comments, and no ads. Nobody can send your child anything here. Only the church puts words on this page.",
     "It is for children and their parents, at home during the week. And it is for the children's leader, who changes the page once a week.",
-    {"t": "There are no tabs. It is one page you scroll from top to bottom. At the top is the name, and your church's kids' group. In this example, Immanuel Kids.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
-    {"t": "First comes a short hello from the kids' leaders, about what is happening this week.", "point": "#main > .card:nth-child(1)"},
-    {"t": "Next is This week at kids' church. It has the lesson title, a few words about the story, and what to bring on Sunday.", "point": "#main > .card:nth-child(2)"},
-    {"t": "Then the Verse of the week, a short piece of the Bible to learn by heart.", "point": "#main > .card:nth-child(3)"},
-    {"t": "Under it is a button, Read it to me. Tap it, and the phone reads the verse out loud. That helps children who cannot read well yet.", "point": "button.listen"},
-    {"t": "Then the Challenge of the week, one small thing to do at home. This week it is a secret kindness mission: do one kind thing without getting caught.", "point": "#main > .card:nth-child(4)"},
-    {"t": "When your child has done it, tap the big button, I did it. A star appears, and the button changes to Done, see you Sunday.", "point": "#doneBtn"},
+    {"t": "There are no tabs. It is one page you scroll from top to bottom. At the top is the name, and your church's kids' group. In this example, Immanuel Kids.", "js": "try{document.body.classList.remove('ch-stale');}catch(e){} try{ window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
+    {"t": "First comes a short hello from the kids' leaders, about what is happening this week.", "point": "#main > .card:nth-child(1)", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+    {"t": "Next is This week at kids' church. It has the lesson title, a few words about the story, and what to bring on Sunday.", "point": "#main > .card:nth-child(2)", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+    {"t": "Then the Verse of the week, a short piece of the Bible to learn by heart.", "point": "#main > .card:nth-child(3)", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+    {"t": "Under it is a button, Read it to me. Tap it, and the phone reads the verse out loud. That helps children who cannot read well yet.", "point": "button.listen", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+    {"t": "Then the Challenge of the week, one small thing to do at home. This week it is a secret kindness mission: do one kind thing without getting caught.", "point": "#main > .card:nth-child(4)", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+    {"t": "When your child has done it, tap the big button, I did it. A star appears, and the button changes to Done, see you Sunday.", "point": "#doneBtn", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
     "There is one star to earn each week. Tapping again changes nothing. When the church posts a new challenge, there is a new star.",
     "The stars stay only on your device. Not even the church can see them. They are just for your child.",
-    {"t": "Below that are countdowns: big numbers showing how many days until fun events at church, like Trunk or Treat, the shoebox collection, and the Christmas pageant.", "point": ".count"},
+    {"t": "Below that are countdowns: big numbers showing how many days until fun events at church, like Trunk or Treat, the shoebox collection, and the Christmas pageant.", "point": ".count", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
     "When an event's day has passed, its box goes away by itself.",
-    {"t": "At the very bottom, a line repeats the promise: no accounts, no chat, no ads, nothing to sign up for.", "point": "footer"},
+    {"t": "At the very bottom, a line repeats the promise: no accounts, no chat, no ads, nothing to sign up for.", "point": "footer", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
     "Your first two minutes: open the link your church gives you, read this week's card with your child, and tap Read it to me on the verse.",
     "Then add it to your Home Screen from the Share button, so it opens like any other app, full screen.",
     "For the leader, keeping it fresh means changing one short block of words each week: the hello, the lesson, the verse, the challenge, and the dates. Everything else draws itself.",
     "Nothing is collected from families. The only thing saved is your child's stars, on your own device.",
     "The Clubhouse comes with the Church membership. Families pay nothing and sign up for nothing.",
-    {"t": "And the round question mark button has text size, the tour, and help, any time. Profits help students in Kenya stay in school.", "point": "#djDockToggle"}]} },
+    {"t": "And the round question mark button has text size, the tour, and help, any time. Profits help students in Kenya stay in school.", "point": "#djDockToggle", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"}]} },
   train:[
    "Here is how a family uses The Clubhouse, one step at a time.",
-   {"t": "Step one: open the link your church gives you. To keep it handy, add it to your Home Screen from the Share button.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
-   {"t": "Step two: read the hello and This week at kids' church together. It says what the lesson is, and what to bring on Sunday.", "point": "#main > .card:nth-child(2)"},
-   {"t": "Step three: find the verse of the week and tap Read it to me. The phone reads it out loud. Say it together a few times.", "point": "button.listen"},
-   {"t": "Step four: read the challenge of the week. When your child has done it, tap I did it. A star appears, and the button says Done, see you Sunday.", "point": "#doneBtn"},
+   {"t": "Step one: open the link your church gives you. To keep it handy, add it to your Home Screen from the Share button.", "js": "try{document.body.classList.remove('ch-stale');}catch(e){} try{ window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
+   {"t": "Step two: read the hello and This week at kids' church together. It says what the lesson is, and what to bring on Sunday.", "point": "#main > .card:nth-child(2)", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+   {"t": "Step three: find the verse of the week and tap Read it to me. The phone reads it out loud. Say it together a few times.", "point": "button.listen", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+   {"t": "Step four: read the challenge of the week. When your child has done it, tap I did it. A star appears, and the button says Done, see you Sunday.", "point": "#doneBtn", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
    "There is one star per week. Tapping again changes nothing. When the church posts a new challenge, there is a new star to earn.",
-   {"t": "Step five: check the countdowns for what is coming up. When an event's day has passed, its box goes away by itself.", "point": ".count"},
-   {"t": "Step six: for bigger words, tap the round question mark button, then Text size. The same panel has Take the tour again.", "point": "#djDockToggle"},
+   {"t": "Step five: check the countdowns for what is coming up. When an event's day has passed, its box goes away by itself.", "point": ".count", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+   {"t": "Step six: for bigger words, tap the round question mark button, then Text size. The same panel has Take the tour again.", "point": "#djDockToggle", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
    "For the leader: each week, change the one short block of words that holds the hello, the lesson, the verse, the challenge, and the countdown dates. Everything else draws itself."],
   lines:[
    "This is The Clubhouse, and it answers a question every children's ministry wrestles with: how do we stay with the kids all week without sending them to social media?",
-   {"t": "The answer is one way, on purpose. The church posts, and the family reads. There are no accounts to make, no chat, no comments, no ads, and no strangers.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
+   {"t": "The answer is one way, on purpose. The church posts, and the family reads. There are no accounts to make, no chat, no comments, no ads, and no strangers.", "js": "try{document.body.classList.remove('ch-stale');}catch(e){} try{ window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
    "Parents can relax, because nobody can send their child anything here. Only the church puts words on this page.",
-   {"t": "It opens with a short hello from the kids' leaders.", "point": "#main > .card:nth-child(1)"},
-   {"t": "Then this week at kids' church: the lesson title, a line about the story, and what to bring on Sunday.", "point": "#main > .card:nth-child(2)"},
-   {"t": "The verse of the week has a Read it to me button, so even children who cannot read yet can learn it by heart.", "point": "button.listen"},
-   {"t": "There is a challenge of the week, like a secret kindness mission. When it is done, your child taps I did it, and earns a star. The stars stay on your device. Not even the church sees them.", "point": "#doneBtn"},
-   {"t": "And countdowns show how many days until the fun things coming up, like Trunk or Treat and the Christmas pageant.", "point": ".count"},
+   {"t": "It opens with a short hello from the kids' leaders.", "point": "#main > .card:nth-child(1)", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+   {"t": "Then this week at kids' church: the lesson title, a line about the story, and what to bring on Sunday.", "point": "#main > .card:nth-child(2)", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+   {"t": "The verse of the week has a Read it to me button, so even children who cannot read yet can learn it by heart.", "point": "button.listen", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+   {"t": "There is a challenge of the week, like a secret kindness mission. When it is done, your child taps I did it, and earns a star. The stars stay on your device. Not even the church sees them.", "point": "#doneBtn", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
+   {"t": "And countdowns show how many days until the fun things coming up, like Trunk or Treat and the Christmas pageant.", "point": ".count", js:"try{document.body.classList.remove('ch-stale');}catch(e){}"},
    "So when a kid opens it on a Tuesday night, church is still with them, right there in the middle of the week. Kids come back for the stars, and parents know exactly what was taught on Sunday.",
    "Each week the leader changes one short block of words: the hello, the lesson, the verse, the challenge, and the dates. Everything else draws itself.",
    "It comes with the Church membership, and families sign up for nothing. Safer than social media, warmer than a flyer. Try it below."],
@@ -2064,11 +2207,11 @@ const APPS = {
   tag:'The filings that quietly end small nonprofits — now they can\'t',
   try:'https://jerrywins1.github.io/daraja-apps/np-goodstanding/',
   lines:[
-   "This is Ahead of It, nonprofit edition, built for the two-or-three-person nonprofit doing holy work with nobody in the office.",
-   "Here is the fact that keeps founders up at night: if a small nonprofit misses its IRS nine-ninety three years in a row, its tax-exempt status is revoked automatically, and that happens to thousands of good organizations every single year.",
-   "So it holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.",
-   "It comes pre-loaded with the filings small nonprofits actually face, so you just tick what applies to you and enter your real dates.",
-   "It comes with the Small charity membership, forty-nine dollars a year. It may be the cheapest insurance a mission ever bought. Try it below."
+   {t:"This is Ahead of It, nonprofit edition, built for the two-or-three-person nonprofit doing holy work with nobody in the office.", js:"try{go('next');}catch(e){}"},
+   {t:"Here is the fact that keeps founders up at night: if a small nonprofit misses its IRS nine-ninety three years in a row, its tax-exempt status is revoked automatically, and that happens to thousands of good organizations every single year.", js:"try{go('next');}catch(e){}", point:"#lNow"},
+   {t:"So it holds all of it in one place: the nine-ninety, your state registration, board minutes, the insurance renewal, and the donor letters, and it warns you weeks before anything is due.", js:"try{go('year');}catch(e){}"},
+   {t:"It comes pre-loaded with the filings small nonprofits actually face, so you just tick what applies to you and enter your real dates.", js:"try{go('lib');}catch(e){}"},
+   {t:"It comes with the Small charity membership, forty-nine dollars a year. It may be the cheapest insurance a mission ever bought. Try it below.", js:"try{go('next');}catch(e){}"}
   ]},
  npreceipts: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -2113,53 +2256,53 @@ const APPS = {
   tag:'January\'s donor letters in ten minutes',
   try:'https://jerrywins1.github.io/daraja-apps/np-receipts/',
   lines:[
-   "This is Receipt Maker — for the January job every small nonprofit dreads.",
-   "Donors need proper acknowledgment letters, with the exact IRS language, or their deduction is at risk — and your credibility with it.",
-   "Paste your donor list. Receipt Maker builds a proper letter for each one — right language, right layout, one page each.",
-   "Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.",
-   "It comes with the Small charity membership, or with the Church membership. Your treasurer will hug you. Try it below."]},
+   {t:"This is Receipt Maker — for the January job every small nonprofit dreads.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#orgName"},
+   {t:"Donors need proper acknowledgment letters, with the exact IRS language, or their deduction is at risk — and your credibility with it.", point:"#noGoods"},
+   {t:"Paste your donor list. Receipt Maker builds a proper letter for each one — right language, right layout, one page each.", point:"#pasteBtn"},
+   {t:"Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.", point:"#giftRows"},
+   {t:"It comes with the Small charity membership, or with the Church membership. Your treasurer will hug you. Try it below.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#orgName"}]},
  flipkit: {
   name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'home', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money. Why not just ChatGPT? FlipKit asks it the right question, then keeps your floor price and your cash total.',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
   extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and how a flip works. Sound on.", lines:[
-   'Welcome. This video explains FlipKit: what it is for, and how one flip works start to finish.',
+   {t:'Welcome. This video explains FlipKit: what it is for, and how one flip works start to finish.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"},
    'It is for the stuff you already own and do not want. The garage, the back of the closet, the corner of the basement.',
    'Most of that never gets sold, and it is not laziness. Selling is two separate chores: working out what a thing is worth, and then writing the listing. Either one is enough to put it off another year.',
-   'FlipKit takes both chores off you. Here is the whole loop.',
-   'You add a thing. A Weber grill, five years old, good condition. Brand and age matter, because they are what a price hangs on.',
-   'You pick the honest condition. Honest sells faster, and it stops the haggling when somebody turns up and sees a scratch you did not mention.',
-   'Then you tap Price it with my AI. FlipKit does not have its own AI and does not charge you for one. It writes the right question and copies it for you.',
+   {t:'FlipKit takes both chores off you. Here is the whole loop.', js:"try{window.scrollTo(0,0);}catch(e){}"},
+   {t:'You add a thing. A Weber grill, five years old, good condition. Brand and age matter, because they are what a price hangs on.', point:"#nm"},
+   {t:'You pick the honest condition. Honest sells faster, and it stops the haggling when somebody turns up and sees a scratch you did not mention.', point:"#cond"},
+   {t:'Then you tap Price it with my AI. FlipKit does not have its own AI and does not charge you for one. It writes the right question and copies it for you.', point:"#notes"},
    'You open whichever AI you already use, paste the question in, and attach a photo of the thing.',
-   'Copy the whole answer back into FlipKit, and it reads out three things: an asking price, a floor you will not go below, and a finished listing with a title and description.',
-   'The floor is the part that earns its keep. It is decided while you are calm, not while somebody is standing in your driveway offering you half.',
-   'Tap Copy the listing, paste it into Facebook Marketplace or wherever you sell, and that is the job. About ninety seconds.',
-   'At the top sits the number that makes this addictive: what everything you have added is worth together. Every time something sells, the cash line climbs.',
-   'When it sells, tap Sold and type what you actually got. Not the asking price — what landed in your hand.',
+   {t:'Copy the whole answer back into FlipKit, and it reads out three things: an asking price, a floor you will not go below, and a finished listing with a title and description.', point:"#notes"},
+   {t:'The floor is the part that earns its keep. It is decided while you are calm, not while somebody is standing in your driveway offering you half.', point:"#notes"},
+   {t:'Tap Copy the listing, paste it into Facebook Marketplace or wherever you sell, and that is the job. About ninety seconds.', point:"#notes"},
+   {t:'At the top sits the number that makes this addictive: what everything you have added is worth together. Every time something sells, the cash line climbs.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"},
+   {t:'When it sells, tap Sold and type what you actually got. Not the asking price — what landed in your hand.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"},
    'There is a selling-safely card too: meet in public, take cash, trust your gut. Read it once.',
    'Nothing leaves your phone. No account, no listing fees to us, and we never see what you sold or what you got for it.',
-   'That is FlipKit. Go and add the thing you almost sold last spring — it is still in the garage.'
+   {t:'That is FlipKit. Go and add the thing you almost sold last spring — it is still in the garage.', js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"}
   ]} },
   lines:[
-   "This is FlipKit, the only app in this store that pays for itself the very first time you use it.",
+   {t:"This is FlipKit, the only app in this store that pays for itself the very first time you use it.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"},
    "Because here is the truth: your garage, your closets, and your basement are hiding a few hundred dollars, and the only reason it never gets sold is that selling is two chores. You have to figure out what a thing is worth, and then you have to write the listing.",
-   "FlipKit removes both chores. You add a thing, say, a Weber grill, five years old, good condition, and tap one button.",
-   "That button hands your own AI, whichever one you already use, a smart pricing question. You attach a photo, and paste the answer back.",
-   "And just like that you have an asking price, a do-not-go-below floor, and a finished listing, title and description, written to get messages.",
-   "You tap copy, paste it into Facebook Marketplace, and the whole job took about ninety seconds.",
-   "Meanwhile the big number at the top shows what all of your stuff is worth together, and every time something sells, the cash line climbs. That number gets addictive in the best way.",
+   {t:"FlipKit removes both chores. You add a thing, say, a Weber grill, five years old, good condition, and tap one button.", point:"#nm"},
+   {t:"That button hands your own AI, whichever one you already use, a smart pricing question. You attach a photo, and paste the answer back.", point:"#cond"},
+   {t:"And just like that you have an asking price, a do-not-go-below floor, and a finished listing, title and description, written to get messages.", point:"#notes"},
+   {t:"You tap copy, paste it into Facebook Marketplace, and the whole job took about ninety seconds.", point:"#notes"},
+   {t:"Meanwhile the big number at the top shows what all of your stuff is worth together, and every time something sells, the cash line climbs. That number gets addictive in the best way.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"},
    "There is even a selling-safely card: meet in public, take cash, and trust your gut.",
-   "Your first flip shows you how it works, and everything after that is yours. Go add the thing you almost sold last spring."
+   {t:"Your first flip shows you how it works, and everything after that is yours. Go add the thing you almost sold last spring.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"}
   ],
   train:[
-   "Let's flip your first thing — five minutes, real money.",
-   "Step one: think of one thing you'd sell if it weren't a hassle. Type it in — with the brand and how old it is.",
-   "Step two: pick the honest condition. Honest sells faster and stops the haggling later.",
-   "Step three: tap 'Price it with my AI.' The question is copied. Open ChatGPT or Claude, paste it, and attach a photo of the thing.",
-   "Step four: copy the AI's whole answer, come back, paste it in the box, tap 'Read the AI's answer.' Boom — price, floor, and a finished listing.",
+   {t:"Let's flip your first thing — five minutes, real money.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"},
+   {t:"Step one: think of one thing you'd sell if it weren't a hassle. Type it in — with the brand and how old it is.", point:"#nm"},
+   {t:"Step two: pick the honest condition. Honest sells faster and stops the haggling later.", point:"#cond"},
+   {t:"Step three: tap 'Price it with my AI.' The question is copied. Open ChatGPT or Claude, paste it, and attach a photo of the thing.", point:"#notes"},
+   {t:"Step four: copy the AI's whole answer, come back, paste it in the box, tap 'Read the AI's answer.' Boom — price, floor, and a finished listing.", point:"#notes"},
    "Step five: tap 'Copy the listing' and paste it into Facebook Marketplace. That's the whole job.",
-   "When it sells, tap 'Sold!' and enter what you got. The cash line at the top starts adding up — and that number is very motivating.",
-   "Read the selling-safely card once. Then go find the next thing — the garage isn't empty yet."]},
+   {t:"When it sells, tap 'Sold!' and enter what you got. The cash line at the top starts adding up — and that number is very motivating.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"},
+   {t:"Read the selling-safely card once. Then go find the next thing — the garage isn't empty yet.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#worthBig"}]},
  rafiki: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
     {"t": "This video explains Rafiki from the very beginning. If you have never seen it, that is fine.", "point": "#hello button[onclick=\"begin()\"]", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
