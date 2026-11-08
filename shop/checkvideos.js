@@ -47,6 +47,40 @@ function serveLocal(p) {
   });
 }
 
+/* ── KNOWN BUG, NOT FIXED: the "N screens" number is not trustworthy ──
+ * Found 8 Nov by the Compass chat and verified here. The screens counter below fingerprints each
+ * step from a fixed list of selectors (line 179-182): an element matching `.tab.on, .pane.on,
+ * [data-screen].on, .view.on, .screen.on`, else `#ttl, #appTitle, #boardName, h1`, else the first
+ * 18 characters of the body text.
+ *
+ * When an app's page uses none of those — Compass uses none — every step falls through to those
+ * 18 characters, which are a fixed header. So every step fingerprints identically and the video
+ * reports "1 screens" however much the screen actually changed. All three Compass videos report
+ * 1 screen; the overview demonstrably moves through hello, questions, the five-year picture and
+ * walking backward.
+ *
+ * WHY THIS MATTERS MORE THAN A WRONG NUMBER. Screen-change fingerprinting was tried as a way to
+ * catch a video that narrates over a screen that never moves, and it was written off here because
+ * it put 55 of 108 videos on "1 screen", which looked like nonsense. Some unknown share of those
+ * 55 were selector misses on apps with a different DOM, not static videos. So that judgement was
+ * made on a broken measurement and should not be relied on as a reason the approach cannot work.
+ *
+ * Jerry's call on 8 Nov was to leave it tonight; nothing a customer or tester sees is affected.
+ * Whoever picks it up: make the fingerprint work on any page rather than from a list of selectors
+ * — what is visible, not what is named — then re-run all 108 and find out the real number.
+ *
+ * AN IDEA WORTH TRYING, from the Compass chat, and neither overlay detection nor fingerprinting:
+ * play each video twice, once with a clean profile and once with the app already settled (place
+ * chosen, intro dismissed, key present), and compare the visible frame text step by step. Where
+ * the two runs diverge, the clean run is being held behind a first-run gate. It names no fault, so
+ * it finds country cards, password boxes, cookie banners and intro overlays alike, and it has no
+ * threshold to tune. It costs a per-app seeder for the settled state — roughly what each app's
+ * test script already does — and doubles the run.
+ *
+ * TWO THINGS ALREADY TRIED AND FAILED, recorded so they are not tried a third time: generic
+ * overlay detection, and the fingerprinting above.
+ */
+
 /* ── does the video start before the app is ready? ──
  * Found on 7 Nov by the Compass chat, in a video every check here had passed. Compass opens on
  * "📍 Where are you?" until setPlace runs. Thirty-six of its lines call setPlace; the two opening
