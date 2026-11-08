@@ -104,7 +104,7 @@ try {
 } catch(e){}
 if (qs.get('who') || qs.get('k') || qs.get('s')) { try { history.replaceState(null,'',location.pathname); } catch(e){} }
 
-var CFG=null, RATES=null, BANDS=null, FLOATS=[], TALLYDATA=null, PAYS=[], NOTES=[], TOPS=[];
+var CFG=null, RATES=null, BANDS=null, FLOATS=[], TALLYDATA=null, PAYS=[], NOTES=[], TOPS=[], EXTRA=[];
 
 function kenyaDay(v){
   if (!v) return '';
@@ -165,8 +165,11 @@ function figures(){
     Object.keys(p.days).forEach(function(w){ if (Object.keys(p.days[w]).length >= need) p.useWeeks++; });
     p.earned = p.small*RATES.small + p.medium*RATES.medium + p.big*RATES.big
              + p.probReports*RATES.problem + p.useWeeks*RATES.useweek;
+    /* The same one-off amounts the managers' own page shows, read from the same file,
+       so this page and theirs can never disagree about what somebody is owed. */
+    p.extraKES = EXTRA.reduce(function(s,x){ return s + (x.who === k ? (Number(x.kes)||0) : 0); }, 0);
     p.paid = PAYS.reduce(function(s,r){ return s + (r.tester===k ? Number(r.amount_kes)||0 : 0); }, 0);
-    p.owed = Math.max(0, p.earned - p.paid);
+    p.owed = Math.max(0, p.earned + p.extraKES - p.paid);
   });
   return { people:out, unknown:Object.keys(unknown) };
 }
@@ -239,6 +242,12 @@ Promise.all([ getJSON('../teams.json?cb='+Date.now()), getJSON('../rates.json?cb
   $('app').hidden = false;
   $('sub').textContent = ALL.length + ' testers in two teams · the week runs Monday to Sunday';
   draw();
+  getJSON('../owed.json?cb='+Date.now())
+    .then(function(d){
+      EXTRA = ((d&&d.items)||[]).map(function(x){ return { who: whoIs(x.name), kes: Number(x.kes)||0 }; })
+        .filter(function(x){ return x.who; });
+      draw(); })
+    .catch(function(){});
   return Promise.all([
     (TKEY ? getJSON(TALLYBASE + '?key=' + encodeURIComponent(TKEY)).catch(function(){ return null; }) : Promise.resolve(null)),
     sbGet('daraja_payment','select=*&order=at.desc').catch(function(){ return []; }),

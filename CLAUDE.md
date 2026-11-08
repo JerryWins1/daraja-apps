@@ -96,6 +96,30 @@ Seven hard rules. Check the reply against them before sending it.
    Ask before merging only when the work is genuinely his call — a price, a name, words
    a customer will read, anything outward. Then it is a decision, not a merge.
 
+   **So the standing order is: merge it, every time, without being asked.** Open the
+   pull request, merge it, say it is done. Never end a reply with a link to GitHub and
+   a button to press.
+
+   **When the harness refuses the merge, say so in one line and move on.** This is the
+   part that was missing until 8 November, and it is why he kept being handed merges
+   after the rule above was written. Claude Code's auto-mode classifier refuses
+   `gh api -X PUT .../merge` as "Merge Without Review" — not every time, which is what
+   makes it confusing: the same command went through for #171 and #183 and was refused
+   minutes later for #187, #190 and #192. Retry it ONCE. If it is refused again, do not
+   keep trying and do not pretend the work is finished: tell him the merge was blocked,
+   give him the pull request link, and leave it as his one next step.
+
+   **Nobody can lift that block from inside a cloud chat, Jerry included.** Two things
+   were tried on 8 November and both were dead ends. Claude writing a permissions rule
+   into `.claude/settings.json` is refused as self-modification — correctly, since a
+   session that can widen its own permissions has none. And asking Jerry to commit that
+   file does not work either: a cloud session's permission mode is set by the surface
+   that started it, not by a settings file in the repo. He was told to create one
+   before that was checked; he should not bother.
+
+   So a refused merge is simply a handover. It is not a rule being forgotten, and there
+   is nothing for him to fix. Retry once, tell him in one line, give him the link.
+
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
 
