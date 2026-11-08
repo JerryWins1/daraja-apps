@@ -1,39 +1,85 @@
 # How testers are paid
 
-Set by Jerry, 4 November 2026. This file is the record, so the rule does not live
-only inside a chat.
+Rates set by Jerry, 7 November 2026. Jerry, same day: *"I have the pay rates.
+There's nothing pending."* This file is the record, so the rule does not live only
+inside a chat.
 
 ## The rule
 
-**250 KES per completed app-test**, plus a **finder's bonus** for a report that
-turns up a real fault.
+Per app tested, by how long that app's test script is:
 
-A test counts as completed when its report carries all four of these — the Jerry
-HQ sheet already records every one, so nothing new is needed to check it:
+| What | KES |
+| --- | --- |
+| Test a **small** app (14–17 steps) | 100 |
+| Test a **normal** app (18–21 steps) | 150 |
+| Test a **big** app (22–30 steps) | 250 |
+| A report that **finds a real problem** | 50 |
+| **Use an app 5 days** in one week | 100 |
 
-1. a challenge attempt (pass or fail both count)
-2. step results — how many worked, didn't, or were unsure
-3. an ease rating out of 5
-4. a comment in their own words
+The problem bonus is **per report, not per problem** — a report carrying three
+faults earns 50, once.
 
-## When a round ends
+**A report the app accepted is a paid test.** There is no completion gate. The old
+four-part gate (challenge attempt, step results, ease rating, own words) was removed
+on 7 November: the only part that ever failed anybody was the ease rating, which the
+app itself told them they could skip.
 
-A round is finished when **every app in it has 2 or more passes on its current
-version**, or **7 days** have passed, whichever comes first.
+Which app counts as which size is generated from its own test script and lives in
+`kenya/lead/bands.json`. The rates the managers' page reads are
+`kenya/lead/rates.json`; changing that one file changes the page.
 
-**A round is one group, not all the apps.** Jerry split the 31 scripted apps into
-three groups on 4 November — see `testers/groups.md`. Group 1's nine apps finish
-and those testers are paid while Group 2 is still running, so one stuck app in
-Group 3 never holds up anyone else's money.
+## Testing is permanent, not a round
 
-Not a fixed number of days. The last round was described as a week and actually
-ran 11–28 October: 18 days, in two waves, peaking at 60 reports on 22 October.
-Coverage is computed nightly for the Ready to Sell page, so the round's progress
-can be read off at any time instead of guessed.
+Jerry, 7 November: *"it's just a test situation. It's always gonna be a test
+situation."*
 
-## Why per app, and not per round or per week
+There are no rounds and no round-close dates. Testing runs in **weekly cycles,
+Monday 00:00 to Sunday 23:59, Kenya time**. Nothing carries over between cycles —
+every count builds from zero on Monday. **Cycle 1 is Monday 9 November to Sunday
+15 November 2026.**
 
-The last round paid 3,500 KES flat to each of 19 testers — 66,500 KES for 287
+Pay is worked out at close of business Sunday, the managers pay their teams out of
+their float during the week, and the next cycle starts the Monday after.
+
+October is settled and paid at the old flat rate; none of it counts here.
+
+## Two teams, and the managers do the paying
+
+| Team | Manager |
+| --- | --- |
+| Team 1 | Emmanuel Koki |
+| Team 2 | Veronicah Kimani |
+
+That is all of it. The teams are in `kenya/lead/teams.json`.
+
+Jerry sends each manager a float — 25,000 KES to start. They pay their own team out
+of it and write each payment down on their own page. **Claude never marks anyone
+paid**, and never quotes a figure to a tester.
+
+## Where the money is tracked
+
+**The managers' page — https://jerrywins1.github.io/daraja-apps/kenya/lead/**
+
+Each manager has their own link and sees only their own team. It needs no sign-in,
+which is the point: neither manager has an email address or a Claude account. It
+shows what each tester earned, what has been paid, what is left in the float, and it
+opens WhatsApp with the words ready.
+
+`kenya/lead/standing.json` is what the managers are told is true right now. When a
+WhatsApp message and that page disagree, the page is right.
+
+## Who owns this
+
+The **Daraja · tester pack** chat — https://claude.ai/code/session_01EPPiddho9jmdtB6N6bkQbf
+— owns all testing and all pay: both teams, the managers' page, the rates, and the
+Sunday cycle close that works out the week's money. Nothing about pay is decided or
+changed anywhere else.
+
+The **Daraja · Store Manager** chat owns the store and nothing in this file.
+
+## Why per app, and not flat or per week
+
+The October round paid 3,500 KES flat to each of 19 testers — 66,500 KES for 287
 app-tests and 217.5 logged hours. Flat pay made the effective rate wildly uneven:
 
 | Tester | Apps | Hours | KES per hour |
@@ -51,28 +97,30 @@ An 80-fold spread for the same money. Five testers covered all 28 apps; three
 covered one.
 
 Paying **per week** would be worse still — it pays for calendar time rather than
-work, rewards spreading a round out, and would place Veronicah (14 apps over 11
+work, rewards spreading the work out, and would place Veronicah (14 apps over 11
 days) above Thao mita (20 apps in 2 days).
 
-**250 KES per app-test keeps the budget where it already is.** Last round's 287
-tests would have cost 71,750 KES against the 66,500 actually paid — the same
-money, moved to the people who did the work. Shamsuddin's effective rate roughly
-doubles; Clinton's falls to the same 250 everyone else gets per test.
+Sizing by script length fixes the remaining unfairness in a flat per-app rate: a
+30-step app was worth the same as a 14-step one.
 
-## Why the completion gate, and why the bonus
+## The bonus, and why it exists
 
-A flat per-app rate on its own rewards speed. The shortest test in the last round
-took 24 minutes against a median near 50, so the four-part gate above is what
-stops a rushed report counting as a completed one.
+Clean passes teach you nothing you did not already know. Fredrick's 23 October
+report on Rafiki — *"I can't find any options to pick a voice"* — uncovered a fault
+that left **every Android user with no voices at all**, on the one app whose whole
+purpose is talking. That single report was worth more than ten passes.
 
-The bonus exists because clean passes teach you nothing you did not already know.
-Fredrick's 23 October report on Rafiki — *"I can't find any options to pick a
-voice"* — is what uncovered a fault that left **every Android user with no voices
-at all**, on the one app whose whole purpose is talking. That single report was
-worth more than ten passes. The leaderboard already pays a 500 KES streak award,
-so the machinery for a bonus is in place.
+## What was removed on 7 November, and why
 
-## Owed from the last round
+Two things in this repo were a second pay system running beside the real one, on the
+old flat 250 rate and the removed four-part gate:
 
-The last round was paid at the old flat rate and is settled separately — see the
-Payday sheet v3 and its five open flags. This rule starts with the next round.
+- `kenya/pay/` and `kenya/payroll.json` — a second managers' page
+- `tools/payroll/payroll.py` and a payroll step in `tools/morning-report/refresh.sh`
+
+They would have shown Emmanuel and Veronicah different money from the page they
+actually use. Deleted rather than corrected: one pay system, or none.
+
+The nightly "Daraja round — did anybody test today?" job was switched off the same
+day. It reported the round every evening, which the Sunday cycle close already
+covers, and it was the job keeping the deleted page current.
