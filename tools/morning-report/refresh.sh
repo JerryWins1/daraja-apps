@@ -28,8 +28,9 @@ echo "page: $WORK/ready_to_sell.html"; echo
 cp "$REPO/kenya/leaderboard.json" "$WORK/leaderboard.json"
 python3 -I "$REPO/tools/leaderboard/tally.py" "$WORK/x" "$REPO" "$WORK/leaderboard.json" || echo "leaderboard: FAILED — left kenya/leaderboard.json alone"
 echo "leaderboard file: $WORK/leaderboard.json"; echo
-# who has earned what, per lead's team — the leads' own page reads this (kenya/pay/).
-# Same sheet again: no new credentials and no new scheduled job. Work dir only, same rule.
-python3 -I "$REPO/tools/payroll/payroll.py" "$WORK/x" "$REPO" "$WORK/payroll.json" || echo "payroll: FAILED — left kenya/payroll.json alone"
-echo "payroll file: $WORK/payroll.json"; echo
+# NO PAYROLL STEP HERE. Pay moved to kenya/lead/ on 7 November, on rates kept in
+# kenya/lead/rates.json, and is worked out weekly by the testing chat. The old
+# payroll.py counted a flat 250 KES behind a four-part gate that stopped paying
+# 119 of 306 reports, so leaving it running would have produced a second set of
+# figures on rules nobody uses any more.
 python3 -I "$HERE/digest.py" "$WORK/x" "$SINCE" "$WORK/data.json" $( [ -f "$WORK/data.prev.json" ] && echo "$WORK/data.prev.json" )
