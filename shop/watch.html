@@ -2248,7 +2248,27 @@ const LINES = MODE==='train' ? app.train : EXTRA ? EXTRA.lines : app.lines;
    lives in this repo now and runs in a cloud chat, so it no longer needs the Mac. */
 const VKEY = id + '-' + (MODE==='extra' ? params.get('mode') : MODE);
 let VOICE = null, AUD = null, segTimer = null, segCb = null;
-const vkey40 = t => String(t).replace(/\s+—\s+/g,'… ').replace(/\s+·\s+/g,'… ').replace(/—/g,',').replace(/\s+/g,' ').trim().slice(0,40);
+const vspoken = t => String(t).replace(/\s+—\s+/g,'… ').replace(/\s+·\s+/g,'… ').replace(/—/g,',').replace(/\s+/g,' ').trim();
+/* vkey40 is the OLD cue key and it only looks at the first forty characters of a line. Reword a line past
+   character forty and this key does not move: the cue still matched, so this player went on playing audio of
+   the old sentence under the new caption, and voicemaker's --check called the video current. Found 8 Nov 2026.
+   vline is the fix — FNV-1a over the whole line, the same bytes as linehash() in shop/voicemaker.py, which has
+   the full note. A cue recorded from 8 Nov carries it as a fourth field and is checked on that. The 141 made
+   before keep only key40 and are still accepted on it, because 2,360 of their 2,384 keys are truncated and
+   refusing them would have dropped every video in the store back to the browser voice that stalls on an iPad.
+   Each one upgrades itself the next time it is recorded. Do not let these two drift from the Python. */
+/* [...str] cuts by characters, not by UTF-16 units, so this agrees with Python's [:40]. It did not before:
+   whoscoming-explain line 17 opens "When someone can't come, a 💬 Why? button…" and the 💬 is one character to
+   Python and two units to JavaScript, so the recorder stored a 40-character key and this player computed a
+   39-character one, never matched it, and played that line in the browser voice while --check called the whole
+   video current. One line in 2,384, found 8 Nov 2026 by comparing the two implementations over every line in
+   the catalogue rather than by reading them. */
+const vkey40 = t => [...vspoken(t)].slice(0,40).join('');
+const vline = t => { const b = new TextEncoder().encode(vspoken(t)); let h = 0x811c9dc5;
+  for(let i=0;i<b.length;i++){ h = Math.imul(h ^ b[i], 0x01000193) >>> 0; } return ('0000000'+h.toString(16)).slice(-8); };
+/* One line, checked the best way the cue allows: on the whole line where the recording knows it, else on the
+   old truncated key. A cue with four fields is the only one that can honestly say the words still match. */
+const cueFits = (c, l) => !c ? false : (c.length > 3 ? c[3] === vline(l) : c[2] === vkey40(l));
 fetch('voice/index.json?cb=' + Date.now()).then(r=>r.json()).then(j=>{ const v=j[VKEY]; if(v && v.cues && v.cues.length===LINES.length){ VOICE=v; AUD=new Audio(v.file+'?h='+v.h); AUD.preload='auto'; } }).catch(()=>{});
 function segStop(){ clearInterval(segTimer); segTimer=null; try{ AUD && AUD.pause(); }catch(e){} }
 function playSeg(n, cb){
@@ -2535,7 +2555,7 @@ function next(){
   $('capText').textContent = written(lineText(l));
   $('prog').style.width = Math.round(((i+1)/LINES.length)*100)+'%';
   const nx=()=>setTimeout(next, VOICE?450:950);
-  if(VOICE && AUD && soundOn && VOICE.cues[i] && VOICE.cues[i][2]===vkey40(lineText(l))) playSeg(i, nx);
+  if(VOICE && AUD && soundOn && cueFits(VOICE.cues[i], lineText(l))) playSeg(i, nx);
   else speak(lineText(l), nx);
 }
 function end(){
