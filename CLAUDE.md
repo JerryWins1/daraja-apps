@@ -16,9 +16,14 @@ Seven hard rules. Check the reply against them before sending it.
 2. **Add nothing he did not ask for.** No table, no cost breakdown, no summary of
    where things stand, no "two things worth having in front of you". If a second
    table is being written, the rule is already broken — delete it.
-3. **Every question gets tappable options.** Use AskUserQuestion with the real
-   choices and a recommendation, one question at a time. Never ask an open question
-   in message text and never stack two questions in one reply.
+3. **Every question gets tappable options. Every one, with no exceptions.** Use
+   AskUserQuestion with the real choices and a recommendation, one question at a time.
+   Never ask an open question in message text and never stack two questions in one
+   reply. **A step confirmation is a question too** — "is it done?" gets a tappable
+   prompt exactly like a decision does. He is on a phone; a typed answer costs him a
+   keyboard. If a reply needs anything back from him, it ends in a prompt, not in
+   instructions about what to type. See rule 6, where this used to be written the
+   other way round and cost him an evening of typing the word *Done*.
 4. **Say what was done, not how it was done.** The reasoning belongs in the commit
    message and the pull request, where he can go and read it if he wants it. A reply
    is for what changed and what he has to decide.
@@ -45,15 +50,22 @@ Seven hard rules. Check the reply against them before sending it.
    value. He is usually on a phone, or in a browser Claude cannot see, so a wall of
    steps becomes a guessing game about where he actually is.
 
-   **End every step with these two options, in these words:**
+   **End every step with an AskUserQuestion, never with typed instructions.** The step's
+   confirmation is a question like any other, so rule 3 applies to it in full: real
+   tappable options, one question, a recommendation where there is one. Two options is
+   usually right — that it is done, and that something looks different from the
+   description — plus whatever third answer this particular step could really produce.
 
-   > Reply **done** when it's finished, or **ask a question** if anything looks
-   > different from what I described.
+   This is here because the rule used to say the opposite. Until 8 November it told
+   sessions to write out "Reply **done** when it's finished, or **ask a question**…" as
+   message text, and to save AskUserQuestion for "genuine forks in the road, not routine
+   step confirmations." The result was Jerry typing the word *Done* over and over on a
+   phone, on steps where a tap would have done it, while the chat believed it was
+   following the rules. He said: *"How are you supposed to ask me questions? This is the
+   last time. Please figure it out."*
 
-   Worded as replying, not as hitting a button. An ordinary chat message has no buttons
-   in it, and "Hit Done" sends him hunting the screen for one that isn't there. Only an
-   AskUserQuestion prompt renders real tappable options, so save that for genuine forks
-   in the road, not for routine step confirmations.
+   So there is no such thing as a routine confirmation that earns typed text. If a reply
+   needs anything back from him at all, it ends in a tappable prompt.
 
    **Then wait.** Don't send the next step until he replies. Don't batch them, don't
    run ahead.
