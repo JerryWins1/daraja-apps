@@ -1815,7 +1815,19 @@ const APPS = {
    {"t": "And for the church office: when you post Sunday's message on the Weekly Update page, add the outline and the verses, and everyone's Sermon Notes has them before the service starts.", "js": "try{ var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click(); go('home'); }catch(e){}"}],
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', mem:'Church membership', price:'$149 one-time', testing:true, video:true,
   tag:'Sermons with notes you can record (with the scriptures and take-home questions pulled out), events, prayer requests and giving, in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
-  try:'https://jerrywins1.github.io/immanuel-app/',
+  /* 8 Nov 2026: this pointed at https://jerrywins1.github.io/immanuel-app/ — a real
+     congregation's live app. Every buyer who tapped "Try it" was browsing Immanuel's actual
+     prayer wall and giving page, which is why the narration below has to ask them not to
+     contact that church's office. church-demo/ is a complete copy filled with an invented
+     church, Grace Harbor, so there is somewhere honest to send them now.
+     THE THREE LINES BELOW STILL NAME IMMANUEL and still ask buyers not to write to them.
+     They are not edited here on purpose: they are recorded narration, piper is not installed
+     in a cloud container, and changing the words without re-recording is exactly the fault
+     that made a video speak the old sentence under a new caption. The Church App chat is
+     re-recording its four tracks by name and those lines go with that run. Until then the
+     videos are merely out of date; the link is the part that was sending people somewhere
+     they should not be. */
+  try:'https://jerrywins1.github.io/daraja-apps/church-demo/',
   lines:[
    "This is The Church App, which puts your whole church in everyone's pocket.",
    "Think about where things live right now: the announcements are in a bulletin nobody keeps, the sermons are on a YouTube channel nobody can find, and the calendar is taped to a wall.",
