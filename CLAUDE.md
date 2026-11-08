@@ -81,6 +81,21 @@ Seven hard rules. Check the reply against them before sending it.
    again the same day, because the reply that announced this rule ended with a list of
    four things and two open decisions. Give him a list only if he asks for one.
 
+   **A next step is something only he can do. Merging is not one of them.** If he asked
+   for the work, finish it: commit it, open the pull request, merge it, and tell him it
+   is done. Do not write "open this pull request and merge it", and do not ask whether
+   to merge work he has already asked for. He said it on 8 November, after a day of
+   being handed four of them: *"You used to be able to merge this stuff on your own…
+   why can't you either just give me the option in the chat box or do it yourself."*
+
+   The thing that made it worse was offering both at once — a tappable **Merge it**
+   above a line telling him to go to GitHub and press buttons. The tap was real and the
+   trip was never needed. If a reply ends in a prompt, the prompt is the whole of what
+   he has to do.
+
+   Ask before merging only when the work is genuinely his call — a price, a name, words
+   a customer will read, anything outward. Then it is a decision, not a merge.
+
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
 
