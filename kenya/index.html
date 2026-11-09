@@ -796,6 +796,66 @@ function loadNews(){
   return fetch('news.json?cb='+Date.now()).then(function(r){ if (!r.ok) throw 0; return r.json(); })
     .then(function(n){ if (n && typeof n==='object'){ NEWS=n; jset(PRE+'_news', n); if (VIEW==='home' || !S || !S.kick) render(); } }).catch(function(){});
 }
+/* ---------- the manager's own messages to their team (9 Nov 2026) ----------
+   Jerry: "The test managers want a way to communicate through the app back out to
+   the guys." Their page already had a Tell my team box, but the only thing it did
+   with the words was keep them where Jerry could see them — the testers never saw
+   a single one. This is the half that was missing.
+
+   It reads from a Supabase project that holds ONE table of team notices and nothing
+   else, so its key is safe here in a public page. The pay project's key is NOT, and
+   must never be put in this file: the same key reads every payment row, which is
+   every tester's name and what they have been paid.
+
+   Which team a person is on comes from teams-lite.json — names and managers only.
+   The real teams.json carries each manager's private page token and is never fetched
+   here. Everything fails silently: no config, no team, no signal, no card. */
+var TN = jget(PRE+'_teamnews', null);          /* last seen, so a no-signal day still shows it */
+function myTeam(lite){
+  var me = (FULL || (S && S.name) || lsGet('dj_name') || '').trim().toLowerCase();
+  if (!me || !lite || !lite.who) return null;
+  var names = Object.keys(lite.who), i;
+  for (i = 0; i < names.length; i++) if (names[i].toLowerCase() === me) return lite.who[names[i]];
+  var full = (lite.aliases || {})[me];         /* the spellings the pay pages already merge */
+  if (full && lite.who[full]) return lite.who[full];
+  /* a first name only, and only when it fits exactly one person across BOTH teams */
+  var hit = null;
+  for (i = 0; i < names.length; i++){
+    if (names[i].toLowerCase().split(' ')[0] !== me.split(' ')[0]) continue;
+    if (hit) return null;                      /* two people share it — do not guess */
+    hit = lite.who[names[i]];
+  }
+  return hit;
+}
+function loadTeamNews(){
+  return fetch('teams-lite.json?cb='+Date.now()).then(function(r){ if (!r.ok) throw 0; return r.json(); })
+    .then(function(lite){
+      var team = myTeam(lite);
+      if (!team) throw 0;
+      return fetch('notices.json?cb='+Date.now()).then(function(r){ if (!r.ok) throw 0; return r.json(); })
+        .then(function(cfg){
+          if (!cfg || !cfg.url || !cfg.key) throw 0;       /* not switched on yet */
+          return fetch(cfg.url + '/rest/v1/team_notice?select=at,manager,body&team=eq.' + encodeURIComponent(team) +
+                       '&order=at.desc&limit=3', { headers:{ apikey:cfg.key, Authorization:'Bearer '+cfg.key } })
+            .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+            .then(function(rows){
+              if (!Array.isArray(rows)) throw 0;
+              TN = { manager:(lite.managers||{})[team] || '', rows:rows };
+              jset(PRE+'_teamnews', TN);
+              if (VIEW==='home' || !S || !S.kick) render();
+            });
+        });
+    }).catch(function(){});
+}
+function teamNewsHTML(){
+  if (!TN || !TN.rows || !TN.rows.length) return '';
+  var who = TN.manager ? esc(TN.manager) : 'your team leader';
+  return '<div class="news"><div class="lbl" style="margin-top:0">📣 From ' + who + '</div>' +
+    TN.rows.map(function(x){
+      var d = String(x.at||'').slice(0,10);
+      return '<p style="margin:0 0 6px">' + esc(x.body) + (d ? ' <span class="small muted">· '+esc(d)+'</span>' : '') + '</p>';
+    }).join('') + '</div>';
+}
 function newsHTML(){
   var h='', items=EDITION==='kenya' ? (NEWS.news||[]).slice(0,2) : (NEWS.news||[]).slice(-2).reverse();   /* v1.9.1: kenya/news.json is newest-first (daily runs add at the top), friends/news.json oldest-first */
   if (items.length) h+='<div class="news"><div class="lbl" style="margin-top:0">📣 News from Jerry</div>'+items.map(function(x){ return '<p style="margin:0 0 6px">'+esc(x.text)+(x.date?' <span class="small muted">· '+esc(x.date)+'</span>':'')+'</p>'; }).join('')+'</div>';
@@ -904,7 +964,7 @@ function loadKickLines(){
 
 function home(){
   var t=totals(), nx=nextApp(), o=order(), q=pending();
-  var h=retestCard()+newsHTML();
+  var h=retestCard()+teamNewsHTML()+newsHTML();
   if (EDITION==='kenya') h+='<a class="card" href="how/" style="display:block;text-decoration:none;color:inherit;border-color:#1f5d44"><b>🧪 How to test — 3 minutes</b><span class="small muted" style="display:block">What we need from you: touch every box, try to break it, and the survey at the end. Your phone reads it aloud.</span></a>';
   if (EDITION==='kenya') h+='<a class="card" href="videos/" style="display:block;text-decoration:none;color:inherit;border-color:#F2B134"><b>🎬 New: short videos</b><span class="small" style="display:block;margin-top:4px">About 1 minute each. The real screens, and where to tap. Tell us 👍 or 👎 under each one ›</span></a>';   /* v1.9.1 */
   checkUpdates();
@@ -1442,6 +1502,7 @@ if (S) {
 }
 render();
 loadNews();
+loadTeamNews();
 loadLB();
 loadCov();
 })();
