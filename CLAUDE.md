@@ -365,6 +365,24 @@ voicemaker's own error message tells you to do, and `ffmpeg` is already present.
 chat told Jerry three times that recording was impossible here before testing it. Do
 not repeat that: try the command the tool gives you before reporting a limit.
 
+**But a cloud chat cannot WATCH one, and must never say it did.** Measured 9 November,
+in this container's Chromium: `canPlayType('audio/mp4; codecs="mp4a.40.2"')` returns
+empty, playing an m4a rejects with `NotSupportedError`, and `speechSynthesis.getVoices()`
+returns 0. So every recorded video stalls on its first line here — `AUD.play()` is
+refused, the player falls back to the browser voice, and there is no voice to fall back
+to. That is the container, not the video; the same file plays normally on a phone.
+
+`checkvideos.js` does not close that gap, and it is easy to think it does. It walks the
+visual side only — the step scripts, the pointers, whether the screen behind the words is
+really there. It never touches the audio, so "3 of 3 good" says nothing about the voice.
+
+What a cloud chat CAN establish about a recording, and should say in exactly these terms:
+`voicemaker.py --check` reports it current against the whole line; its cue count matches
+the line count, so the player takes the recorded path rather than the browser voice; and
+the player really does load that m4a (read `VOICE`, `AUD` and `VKEY` out of the page).
+That is the end of it. Whether the voice is actually there, and sounds right, is Jerry on
+a real phone — so a reworded video is "anything Claude could not test", and goes to him.
+
 `shop/apps_data.js` carries the five rules for what makes a proper video, written out
 at the top. Read them before touching one.
 
