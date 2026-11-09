@@ -802,10 +802,9 @@ function loadNews(){
    with the words was keep them where Jerry could see them — the testers never saw
    a single one. This is the half that was missing.
 
-   It reads from a Supabase project that holds ONE table of team notices and nothing
-   else, so its key is safe here in a public page. The pay project's key is NOT, and
-   must never be put in this file: the same key reads every payment row, which is
-   every tester's name and what they have been paid.
+   The messages are carried here into notices.json by the scheduled runs. This page
+   holds no key and talks to no database: the pay project's key reads every payment
+   row — every tester's name and what they have been paid — and this page is public.
 
    Which team a person is on comes from teams-lite.json — names and managers only.
    The real teams.json carries each manager's private page token and is never fetched
@@ -828,22 +827,20 @@ function myTeam(lite){
   return hit;
 }
 function loadTeamNews(){
+  /* No Supabase here, and no key of any kind. The managers write into the pay database,
+     which the scheduled runs read and carry into notices.json beside this file. That page
+     is public, and the pay key reads every payment row, so it must never come near it. */
   return fetch('teams-lite.json?cb='+Date.now()).then(function(r){ if (!r.ok) throw 0; return r.json(); })
     .then(function(lite){
       var team = myTeam(lite);
       if (!team) throw 0;
       return fetch('notices.json?cb='+Date.now()).then(function(r){ if (!r.ok) throw 0; return r.json(); })
-        .then(function(cfg){
-          if (!cfg || !cfg.url || !cfg.key) throw 0;       /* not switched on yet */
-          return fetch(cfg.url + '/rest/v1/team_notice?select=at,manager,body&team=eq.' + encodeURIComponent(team) +
-                       '&order=at.desc&limit=3', { headers:{ apikey:cfg.key, Authorization:'Bearer '+cfg.key } })
-            .then(function(r){ if (!r.ok) throw 0; return r.json(); })
-            .then(function(rows){
-              if (!Array.isArray(rows)) throw 0;
-              TN = { manager:(lite.managers||{})[team] || '', rows:rows };
-              jset(PRE+'_teamnews', TN);
-              if (VIEW==='home' || !S || !S.kick) render();
-            });
+        .then(function(n){
+          var rows = (n && n.teams && n.teams[team]) || [];
+          if (!rows.length) throw 0;
+          TN = { manager:(lite.managers||{})[team] || '', rows:rows.slice(0,3) };
+          jset(PRE+'_teamnews', TN);
+          if (VIEW==='home' || !S || !S.kick) render();
         });
     }).catch(function(){});
 }
