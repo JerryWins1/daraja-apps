@@ -206,8 +206,29 @@ with one answer and one next step.
 had been the other way round: the front door kept handing him a block of text and
 telling him to go and paste it into another chat himself. He had to paste the same
 thing twice on 7 November before he asked why. If a chat needs telling something,
-the front door tells it — `send_message` reaches any running session on the account,
-and `get_session` says whether it is running first.
+the front door tells it.
+
+**How one chat actually reaches another, measured 9 November.** This paragraph used to
+say `send_message` reaches any running session on the account. It does not, and a chat
+that tried it and gave up is a chat that handed Jerry the paste instead — which is the
+exact thing this section exists to prevent. Tested tonight against the Store Manager
+chat while it was running: `SendMessage` by its title and by its session id were both
+refused, "No agent named ... is reachable", and `ListAgents` lists no peers at all from
+a cloud session.
+
+What works is a one-shot scheduled task fired into the other chat:
+`create_trigger` with `persistent_session_id` set to that session and `run_once_at` a
+couple of minutes out. The prompt is the message. Proved end to end on 9 November —
+delivered, `SUCCEEDED`, into `cse_01SneDTZZK3LM6dXHfqB8Jeg` — and it is how the Ahead
+of It chat and the Store Manager were reached on 8 and 9 November, which is why those
+relays worked while the documented method did not.
+
+Two things follow from it being a scheduled task rather than a live call. It is
+one-way: nothing comes back, so never wait for a reply or treat silence as agreement.
+And it lands in that chat as a user turn, so write it as a message — say which chat it
+is from, that it is a relay and not Jerry speaking, and what the other chat is free to
+refuse. `get_session` still says whether a session is running, which is worth checking
+first, but a chat does not have to be running to be reached: the message waits.
 
 **What a relay is, and is not.** A relayed message says what Jerry asked for, in his
 words where there are any, and names him as the source. The receiving chat does the
