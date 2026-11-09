@@ -21,11 +21,14 @@ What it writes, which is exactly what shop/watch.html reads:
   shop/voice/<app>-<mode>.m4a   one recording per video
   shop/voice/index.json         "<app>-<mode>": {file, cues, h}
 
-A cue is [start, end, key] per line, in order, and the player checks three
-things before it will use a recording: the cue count equals the line count, and
-each cue's key equals vkey40() of that line, or that line alone falls back to
-the browser voice. So the keys below are a port of the player's own vkey40 and
-must stay in step with it. `h` is only a cache-buster on the audio's URL.
+A cue is [start, end, key40, linehash] per line, in order, and the player
+checks the cue count against the line count, then each line against the cue:
+on linehash where a cue has one, on the older truncated key40 where it does
+not, and a line that does not match falls back to the browser voice on its own.
+So both key functions below are a port of the player's and must stay in step
+with it. READ vkey40()'s OWN NOTE BEFORE TRUSTING --check on an old recording:
+key40 sees only the first forty characters of a line, which is why linehash
+exists. `h` is only a cache-buster on the audio's URL.
 
 Needs: piper (pip install piper-tts) and ffmpeg. Both are checked for on the way
 in, with the command to install them if they are missing.
@@ -69,8 +72,50 @@ def spoken(text):
 
 
 def vkey40(text):
-    """watch.html vkey40(): the key a cue is matched on. Do not drift from it."""
+    """watch.html vkey40(): the key a cue WAS matched on. Do not drift from it.
+
+    IT ONLY LOOKS AT THE FIRST FORTY CHARACTERS, and that is a trap, not a
+    detail. Found 8 Nov 2026 by the Ahead of It chat, after one of its own
+    videos spoke the old words under a new caption and --check called it
+    current. Reword a line after character forty and this key does not move:
+    --check saw no mismatch, --all skipped the line because it believed it was
+    already recorded, and the player happily played audio of the old sentence.
+
+    So a cue now carries a FOURTH field, linehash() of the whole line, and that
+    is what decides whether a recording still matches its script. vkey40 stays
+    only to read the 141 recordings made before this (8 Nov 2026) — 2,360 of
+    their 2,384 cue keys are truncated, so switching them to a whole-line key
+    would have dropped every video in the store back to the browser voice that
+    stalls on an iPad. They keep playing and --check calls them UNVERIFIED
+    rather than current, which is the truth: their openings match and nobody
+    knows about the rest. Each becomes fully checked the next time it is
+    recorded, so this fades out on its own.
+
+    If you are standing here because --check told you everything was fine:
+    on a recording with no fourth field, "current" means only that the first
+    forty characters of each line still match. Re-record it by name.
+    """
     return re.sub(r'\s+', ' ', spoken(text)).strip()[:40]
+
+
+def vfull(text):
+    """vkey40 without the truncation — the whole line, as the voice says it."""
+    return re.sub(r'\s+', ' ', spoken(text)).strip()
+
+
+def linehash(text):
+    """A short, stable fingerprint of a whole line. Mirrored in shop/watch.html.
+
+    FNV-1a over the UTF-8 bytes, so Python and the browser agree without
+    either needing a crypto library (crypto.subtle is async and a cue check
+    has to be synchronous). Eight hex characters per cue adds about 26 KB to
+    index.json; storing the lines themselves would have added 190 KB to a file
+    the player fetches on every watch page.
+    """
+    h = 0x811c9dc5
+    for b in vfull(text).encode('utf-8'):
+        h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
+    return '%08x' % h
 
 
 def for_piper(text):
@@ -211,7 +256,7 @@ def build(key, lines, model, work):
             data = f.readframes(f.getnframes())
             dur = f.getnframes() / float(f.getframerate())
         frames.append(data)
-        cues.append([round(at, 3), round(at + dur, 3), vkey40(lines[n])])
+        cues.append([round(at, 3), round(at + dur, 3), vkey40(lines[n]), linehash(lines[n])])
         at += dur
         if n < len(segs) - 1:
             quiet = int(params.framerate * GAP) * params.sampwidth * params.nchannels
@@ -229,9 +274,12 @@ def encode(wav, m4a):
     """Keep the voice's own sample rate — resampling it only adds bytes."""
     with wave.open(wav, 'rb') as f:
         rate = f.getframerate()
-    r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav,
+    # -nostdin and stdin=DEVNULL: ffmpeg reads the terminal for keystrokes by default,
+    # so inside a `while read` loop it swallowed the loop's own list. On 8 Nov 2026 that
+    # skipped 101 of 133 re-recordings and failed Pit Wall with "nothing was written".
+    r = subprocess.run(['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-i', wav,
                         '-c:a', 'aac', '-b:a', '40k', '-ar', str(rate), '-ac', '1', m4a],
-                       capture_output=True, text=True)
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
     if r.returncode:
         sys.exit('ffmpeg failed:\n' + r.stderr.strip())
 
@@ -239,12 +287,19 @@ def encode(wav, m4a):
 def audit(apps, index):
     """Every video, sorted into recorded / never recorded / reworded since.
 
-    A recording only counts if the cue count equals the line count AND every
-    cue key matches, because that is what watch.html checks before it will use
-    one. Reword a single line and the whole video drops back to the browser
-    voice with nothing on screen to say so — which is how twelve of them went
-    quiet without anyone noticing."""
-    good, missing, stale = [], [], []
+    Four buckets, not three. A recording only counts if the cue count equals
+    the line count AND every line still matches, because that is what
+    watch.html checks before it will use one. Reword a single line and the
+    whole video drops back to the browser voice with nothing on screen to say
+    so — which is how twelve of them went quiet without anyone noticing.
+
+    UNVERIFIED is the fourth, and it exists because of the vkey40 trap written
+    up beside that function: a recording made before 8 Nov 2026 can only be
+    checked on the first forty characters of each line. Calling those
+    "current" is what let a video speak the old words under a new caption, so
+    they are counted apart from the ones that are genuinely known to match.
+    Each one leaves this bucket the next time it is recorded."""
+    good, missing, stale, unverified = [], [], [], []
     for key, appkey, mode in every_video(apps):
         lines = lines_of(apps, appkey, mode)
         if not lines:
@@ -256,13 +311,21 @@ def audit(apps, index):
             stale.append((key, appkey, mode, 'the audio file is gone'))
         elif len(v['cues']) != len(lines):
             stale.append((key, appkey, mode, '%d cues, %d lines' % (len(v['cues']), len(lines))))
+        elif all(len(c) > 3 for c in v['cues']):
+            off = [n for n, l in enumerate(lines) if v['cues'][n][3] != linehash(l)]
+            if off:
+                stale.append((key, appkey, mode, '%d line(s) reworded since' % len(off)))
+            else:
+                good.append(key)
         else:
             off = [n for n, l in enumerate(lines) if v['cues'][n][2] != vkey40(l)]
             if off:
                 stale.append((key, appkey, mode, '%d line(s) reworded since' % len(off)))
             else:
-                good.append(key)
-    return good, missing, stale
+                unverified.append((key, appkey, mode,
+                                   'recorded before the whole-line check — only the first 40 '
+                                   'characters of each line are known to match'))
+    return good, missing, stale, unverified
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -290,7 +353,7 @@ def main():
         with open(INDEX, encoding='utf-8') as f:
             index = json.load(f)
 
-    good, missing, stale = audit(apps, index)
+    good, missing, stale, unverified = audit(apps, index)
 
     if a.check:
         still = []
@@ -303,13 +366,18 @@ def main():
             if lines and not any(isinstance(l, dict) and l.get('js') for l in lines):
                 still.append((key, len(lines)))
 
-        print('%3d recorded and current' % len(good))
+        print('%3d recorded and current, whole line checked' % len(good))
         print('%3d never recorded' % len(missing))
         for k, _, _, why in missing:
             print('     %-28s %s' % (k, why))
         print('%3d out of date' % len(stale))
         for k, _, _, why in stale:
             print('     %-28s %s' % (k, why))
+        print('%3d UNVERIFIED — recorded before 8 Nov 2026' % len(unverified))
+        if unverified:
+            print('     Only the first 40 characters of each line are known to match, so one of')
+            print('     these can be speaking words that were edited later. Re-record it BY NAME')
+            print('     to settle it; --all will not pick it up. See vkey40() in this file.')
         if missing or stale:
             print('\nRecord them with: python3 shop/voicemaker.py --all')
         if still:

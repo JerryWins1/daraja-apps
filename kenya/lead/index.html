@@ -67,8 +67,10 @@ nav button[aria-current="true"]{background:var(--green);border-color:var(--green
 .pill.warn{color:var(--gold);border-color:var(--gold)}
 .pill.bad{color:var(--red);border-color:var(--red)}
 .owed{font-weight:700;white-space:nowrap}
-button.btn{font:inherit;font-weight:600;cursor:pointer;background:var(--green);color:#fff;
+.note.extra{color:var(--green);font-weight:600}
+button.btn,a.btn{font:inherit;font-weight:600;cursor:pointer;background:var(--green);color:#fff;
   border:1px solid var(--green);border-radius:10px;padding:10px 14px;width:100%}
+a.btn{display:block;box-sizing:border-box;text-align:center;text-decoration:none}
 button.ghost{background:var(--panel);color:var(--fg);border-color:var(--line)}
 button:disabled{opacity:.5;cursor:not-allowed}
 .wa{color:var(--green);background:var(--panel);font:inherit;font-size:.82rem;cursor:pointer;
@@ -111,6 +113,12 @@ footer{color:var(--soft);font-size:.76rem;padding:16px 0}
 </nav>
 
 <section id="v-team">
+  <div class="card">
+    <h2>How this works</h2>
+    <p class="note">Thirteen slides, your phone reads them aloud, about two and a half
+      minutes. The pay, the week, and how to pay someone.</p>
+    <a class="btn" href="video/">&#9654; Watch it</a>
+  </div>
   <div class="card" id="standing" hidden>
     <h2 id="stdH">Where things stand</h2>
     <div id="stdBody"></div>
@@ -228,7 +236,7 @@ try {
 if (qs.get('who') || qs.get('k') || qs.get('s')) { try { history.replaceState(null,'',location.pathname); } catch(e){} }
 var TALLY = TKEY ? (TALLYBASE + '?key=' + encodeURIComponent(TKEY)) : '';
 
-var TEAM = null, TEAMNO = null, CFG = null, RATES = null, BANDS = null;
+var TEAM = null, TEAMNO = null, CFG = null, RATES = null, BANDS = null, EXTRA = [];
 var TALLYDATA = null, PAYS = [], TOPS = [], NOTES = [], PEOPLE = [], FLOATS = [];
 
 /* ---------- days, Kenya time (UTC+3, no daylight saving) ---------- */
@@ -297,10 +305,12 @@ function earnings(){
     out[p.name] = { name:p.name, phone:p.phone, lead:!!p.lead, small:0, medium:0, big:0,
                     reports:0, probReports:0, useWeeks:0, apps:{}, last:'', earned:0, useDays:{} };
   });
-  if (!TALLYDATA) return out;
-
+  /* The tally may be unreachable. Everything below it still has to run: a one-off
+     amount and a recorded payment are both real whether or not the tally answered,
+     and before 8 Nov this returned here, so a manager whose tally was down saw
+     "0 KES owed" and "undefined apps" for everybody. */
   UNKNOWN = {};
-  (TALLYDATA.tests||[]).forEach(function(t){
+  ((TALLYDATA && TALLYDATA.tests)||[]).forEach(function(t){
     var who = whoIs(t.who);
     if (!who && t.who && !JUNK.test(t.who)) UNKNOWN[t.who] = true;   /* never drop a report in silence */
     if (!who || !out[who]) return;
@@ -312,7 +322,7 @@ function earnings(){
     if (day > out[who].last) out[who].last = day;
   });
 
-  (TALLYDATA.use||[]).forEach(function(u){
+  ((TALLYDATA && TALLYDATA.use)||[]).forEach(function(u){
     var who = whoIs(u.who); if (!who || !out[who]) return;
     var day = String(u.day||'').slice(0,10); if (!day || day < start) return;
     var wk = mondayOf(day);
@@ -327,8 +337,13 @@ function earnings(){
     });
     p.earned = p.small*RATES.small + p.medium*RATES.medium + p.big*RATES.big
              + p.probReports*RATES.problem + p.useWeeks*RATES.useweek;
+    /* One-off amounts Jerry has sent this manager to hand on - Zuri closing pay and
+       the like. They are owed on top of the week's testing, and a recorded payment
+       clears them exactly like testing pay, because both come out of p.paid. */
+    p.extra = EXTRA.filter(function(x){ return x.who === k; });
+    p.extraKES = p.extra.reduce(function(s,x){ return s + (Number(x.kes)||0); }, 0);
     p.paid = PAYS.reduce(function(s,r){ return s + (r.tester===k ? Number(r.amount_kes)||0 : 0); }, 0);
-    p.owed = Math.max(0, p.earned - p.paid);
+    p.owed = Math.max(0, p.earned + p.extraKES - p.paid);
     p.appCount = Object.keys(p.apps).length;
   });
   return out;
@@ -414,8 +429,12 @@ function draw(){
         p.probReports + ' with a problem · ' + plural(p.useWeeks,'use bonus','use bonuses') + '</span>' +
         '<button class="wa" type="button" data-nudge="' + esc(p.name) + '">Message</button>' +
       '</div>' +
+      (p.extraKES ? '<div class="row" style="margin-top:6px"><span class="note extra">+ ' +
+        KES(p.extraKES) + ' KES · ' + esc(p.extra.map(function(x){ return x.what; }).join(' · ')) +
+        '</span></div>' : '') +
       '<div class="row" style="margin-top:6px"><span class="pill ' + st[1] + '">' + esc(st[0]) + '</span>' +
-      '<span class="note">earned ' + KES(p.earned) + ' · paid ' + KES(p.paid) + '</span></div>' +
+      '<span class="note">earned ' + KES(p.earned) + (p.extraKES ? ' + ' + KES(p.extraKES) : '') +
+      ' · paid ' + KES(p.paid) + '</span></div>' +
     '</div>';
   }).join('');
 
@@ -534,6 +553,13 @@ Promise.all([ getJSON('teams.json?cb='+Date.now()), getJSON('rates.json?cb='+Dat
 .then(function(r){
   CFG = r[0]; RATES = r[1]; BANDS = r[2];
   getJSON('standing.json?cb='+Date.now()).then(drawStanding).catch(function(){});
+  getJSON('owed.json?cb='+Date.now())
+    .then(function(d){ if (!TEAM) return;
+      EXTRA = ((d&&d.items)||[]).filter(function(x){ return Number(x.team) === TEAMNO; })
+        .map(function(x){ return { who: whoIs(x.name), kes: Number(x.kes)||0, what: String(x.what||'One-off') }; })
+        .filter(function(x){ return x.who; });
+      draw(); })
+    .catch(function(){});
   getJSON('floats.json?cb='+Date.now())
     .then(function(d){ if (!TEAM) return; FLOATS = ((d&&d.sent)||[]).filter(function(r){ return Number(r.team) === TEAMNO; }); draw(); })
     .catch(function(){});
