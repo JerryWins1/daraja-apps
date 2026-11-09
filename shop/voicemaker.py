@@ -274,9 +274,12 @@ def encode(wav, m4a):
     """Keep the voice's own sample rate — resampling it only adds bytes."""
     with wave.open(wav, 'rb') as f:
         rate = f.getframerate()
-    r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav,
+    # -nostdin and stdin=DEVNULL: ffmpeg reads the terminal for keystrokes by default,
+    # so inside a `while read` loop it swallowed the loop's own list. On 8 Nov 2026 that
+    # skipped 101 of 133 re-recordings and failed Pit Wall with "nothing was written".
+    r = subprocess.run(['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-i', wav,
                         '-c:a', 'aac', '-b:a', '40k', '-ar', str(rate), '-ac', '1', m4a],
-                       capture_output=True, text=True)
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
     if r.returncode:
         sys.exit('ffmpeg failed:\n' + r.stderr.strip())
 
