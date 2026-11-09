@@ -163,6 +163,13 @@ read it rather than asking Jerry to recap.
 Jerry can act on, and put today's date in `touched`. A stale entry is worse than an
 empty one, because the panel will show it as current.
 
+**When the work is done, clear the card yourself.** Once your pull request is merged
+and nothing is left waiting on Jerry, set `status` to `clear` and say in `next` what
+shipped. Jerry never clears a card by hand. He asked for this on 9 November, after
+doing what two cards said and coming back to find them still on the list. As a
+backstop, the nightly job clears any `needs` or `review` card whose pull requests
+have all merged or closed, as long as `next` names nothing else that is waiting on him.
+
 **Stay inside your own app.** If something turns up that belongs to another app, do
 not fix it here. Say which chat owns it — `apps.json` has the name — and leave it.
 Work that spans every app, like the shared house layer or the store catalogue, has
