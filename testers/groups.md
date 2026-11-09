@@ -57,13 +57,11 @@ Group 3's remaining five stay held back.
 | The Church App | `church` | Practice church since 8 Nov: Grace Harbor, invented, nothing reaches anybody. |
 | Who's Coming | `whoscoming` | |
 
-## Group 2 — second (11 apps)
+## Group 2 — second (9 apps)
 
 | App | Script | Why it is here |
 | --- | --- | --- |
-| Ahead of It | `ahead` | Undo window went 12s → 45s on 4 Nov. Needs a re-test. |
-| Ahead of It · Church | `churchsteward` | |
-| Ahead of It · Nonprofit | `npgoodstanding` | |
+| Ahead of It | `ahead` | Three apps joined into one on 8 Nov — household, church and nonprofit are now switchable lists inside it. New 27-step script, 9 Nov. |
 | Daraja Compass | `compass` | |
 | Message Assistant | `drumbeat` | Ships inside the Business membership. |
 | My Safety Plan | `safety` | |
