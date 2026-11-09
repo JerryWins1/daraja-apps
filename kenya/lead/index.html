@@ -372,6 +372,22 @@ function sbGet(table, query){
   if (!SBK) return Promise.resolve([]);
   return getJSON(SB + '/' + table + '?' + query, { headers:{ apikey:SBK, Authorization:'Bearer '+SBK } });
 }
+/* ---- the way a message reaches the team: the testers' own mailbox, no key ---- */
+var MAILBOX = '';
+function mailbox(){
+  if (MAILBOX) return Promise.resolve(MAILBOX);
+  return getJSON('../../testers/config.json?cb=' + Date.now())
+    .then(function(c){ MAILBOX = (c && c.mailbox) || ''; if (!MAILBOX) throw new Error('no mailbox'); return MAILBOX; });
+}
+function mailNotice(body){
+  return mailbox().then(function(url){
+    var text = 'TEAMNOTE|' + TEAMNO + '|' + TEAM.manager + '\n' + body.slice(0,900);
+    return fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'report', who:'', name:TEAM.manager, app:'teamnote', contact:'', text:text }) })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if (j && j.ok === false) throw new Error(j.error || 'the message did not go'); return j; });
+  });
+}
 function sbAdd(table, row){
   if (!SBK) return Promise.reject(new Error('this link is missing its second half, so nothing can be saved — ask Jerry to send it again'));
   return fetch(SB + '/' + table, {
@@ -543,7 +559,14 @@ $('tGo').addEventListener('click', function(){
      "Write down that I told them". The testers never saw one. The words still land in
      the same place; what changed is that they now get carried onto the team's own page
      on the next scheduled run, so the team actually reads them. */
-  sbAdd('daraja_notice', { team:TEAMNO, manager:TEAM.manager, body:body.slice(0,900) })
+  /* Two places, on purpose. daraja_notice is this manager's own record, which is what
+     draws the list below. The mailbox is how it REACHES the team: it is the same door
+     the testers' app posts their reports through, it needs no key, and Jerry's scheduled
+     runs already read that sheet — so nothing has to be set up for this to work. */
+  Promise.all([
+    sbAdd('daraja_notice', { team:TEAMNO, manager:TEAM.manager, body:body.slice(0,900) }),
+    mailNotice(body)
+  ])
     .then(function(){ return sbGet('daraja_notice','select=*&team=eq.'+TEAMNO+'&order=at.desc&limit=20'); })
     .then(function(rows){ NOTES = rows||[]; draw();
       say('tMsg','Sent. It goes on your team\u2019s page at the next update — within a few hours. ' +
