@@ -18,8 +18,9 @@
      Nobody types a tester's numbers in. They come from the reports the testers' own
      app files.
    · What has been paid — Supabase, tables daraja_payment / daraja_topup.
-   · Messages to a team — a SEPARATE Supabase project, one table, read by the testers'
-     own public page. Deliberately not this one: the key here reads every payment row.
+   · Messages to a team — daraja_notice here, carried onto the testers' own page by the
+     scheduled runs. The testers' page never touches Supabase: the key here reads every
+     payment row, and that page is public.
      Add-only: a row can be written and then never changed or deleted, by anyone.
    · The rates — rates.json next to this file. Jerry edits that one file.
    · Which app is which size — bands.json, generated from each app's test script.
@@ -186,11 +187,11 @@ footer{color:var(--soft);font-size:.76rem;padding:16px 0}
 <section id="v-tell" hidden>
   <div class="card">
     <h2>Tell my team</h2>
-    <p class="note">Write it once, send it two ways. <b>Put it on their page</b> shows it
-      to your team inside the testing app, at the top of their home screen, within seconds —
-      they see it next time they open it. <b>Open WhatsApp</b> puts the same words in a chat
-      you choose, and you still press send yourself. Use both for something important: the
-      page is always there to go back to, WhatsApp is what buzzes in a pocket.</p>
+    <p class="note">Write it once, send it two ways. <b>Put it on their page</b> shows it to
+      your team inside the testing app, at the top of their home screen. It goes up at the
+      next update, so within a few hours — good for "start with Rafiki today", not for
+      something they need this minute. <b>Open WhatsApp</b> puts the same words in a chat you
+      choose and you still press send yourself — that is the one that buzzes in a pocket.</p>
     <label for="tBody">What do you want to say?</label>
     <textarea id="tBody" maxlength="900" placeholder="This week start with Rafiki and Duka…"></textarea>
     <div style="margin:10px 0"><button class="btn" id="tGo" type="button">Put it on their page</button></div>
@@ -231,17 +232,13 @@ var KES = function(n){ return (Math.round(Number(n)||0)).toLocaleString('en-US')
 var qs = new URLSearchParams(location.search);
 var WHO = (qs.get('who')||'').trim();
 var TKEY = (qs.get('k')||'').trim();
-var WORD = (qs.get('w')||'').trim();          /* lets THIS manager send team messages */
 SBK = (qs.get('s')||'').trim();
 try {
   if (WHO)  localStorage.setItem('dj_lead_who', WHO); else WHO  = localStorage.getItem('dj_lead_who')||'';
   if (TKEY) localStorage.setItem('dj_lead_k', TKEY);  else TKEY = localStorage.getItem('dj_lead_k')||'';
   if (SBK)  localStorage.setItem('dj_lead_s', SBK);   else SBK  = localStorage.getItem('dj_lead_s')||'';
-  /* the link is wiped from the address bar on the first open, so this has to be kept
-     like the other three or sending would work once and never again */
-  if (WORD) localStorage.setItem('dj_lead_w', WORD); else WORD = localStorage.getItem('dj_lead_w')||'';
 } catch(e){}
-if (qs.get('who') || qs.get('k') || qs.get('s') || qs.get('w')) { try { history.replaceState(null,'',location.pathname); } catch(e){} }
+if (qs.get('who') || qs.get('k') || qs.get('s')) { try { history.replaceState(null,'',location.pathname); } catch(e){} }
 var TALLY = TKEY ? (TALLYBASE + '?key=' + encodeURIComponent(TKEY)) : '';
 
 var TEAM = null, TEAMNO = null, CFG = null, RATES = null, BANDS = null, EXTRA = [];
@@ -374,38 +371,6 @@ function getJSON(url, opts){
 function sbGet(table, query){
   if (!SBK) return Promise.resolve([]);
   return getJSON(SB + '/' + table + '?' + query, { headers:{ apikey:SBK, Authorization:'Bearer '+SBK } });
-}
-/* ---- team notices: a separate project, so its key is safe in the testers' public page ---- */
-var NCFG = null;
-function noticeCfg(){
-  if (NCFG) return Promise.resolve(NCFG);
-  return getJSON('../notices.json?cb=' + Date.now()).then(function(c){
-    if (!c || !c.url || !c.key) throw new Error('team messages are not switched on yet — ask Jerry');
-    NCFG = c; return c;
-  });
-}
-function noticeGet(){
-  return noticeCfg().then(function(c){
-    return getJSON(c.url + '/rest/v1/team_notice?select=at,manager,body&team=eq.' + TEAMNO +
-                   '&order=at.desc&limit=20', { headers:{ apikey:c.key, Authorization:'Bearer '+c.key } });
-  }).catch(function(){ return []; });
-}
-function postNotice(body){
-  if (!WORD) return Promise.reject(new Error('this link cannot send messages — ask Jerry for the newer one'));
-  return noticeCfg().then(function(c){
-    return fetch(c.url + '/rest/v1/rpc/add_team_notice', {
-      method:'POST',
-      headers:{ apikey:c.key, Authorization:'Bearer '+c.key, 'Content-Type':'application/json' },
-      body: JSON.stringify({ p_word:WORD, p_team:Number(TEAMNO), p_manager:TEAM.manager, p_body:body.slice(0,900) })
-    }).then(function(r){
-      return r.json().catch(function(){ return null; }).then(function(j){
-        if (!r.ok) throw new Error((j && (j.message||j.hint)) === 'not allowed'
-          ? 'this link cannot send messages — ask Jerry for the newer one'
-          : ((j && (j.message||j.hint)) || ('it did not go (' + r.status + ')')));
-        return j;
-      });
-    });
-  });
 }
 function sbAdd(table, row){
   if (!SBK) return Promise.reject(new Error('this link is missing its second half, so nothing can be saved — ask Jerry to send it again'));
@@ -574,24 +539,16 @@ $('tGo').addEventListener('click', function(){
      nothing but a public key — the pay project's key can read every payment row and could
      never go there. Writing needs the word in this manager's link (?w=), checked inside
      the database, so a tester who finds the key can read the messages and never write one. */
-  postNotice(body)
-    .then(function(){
-      return noticeGet().then(function(rows){ NOTES = rows||[]; draw();
-        say('tMsg','Sent. It is on your team\u2019s page now \u2014 they will see it next time they open the app.'); });
-    })
-    .catch(function(e){
-      /* Jerry may not have finished switching the team page on yet, and the managers work
-         while he is asleep. Rather than hand them a dead button, do exactly what this used
-         to do — keep the words where Jerry can see them — and say plainly that the team
-         cannot see them yet. Any other failure is reported as itself. */
-      if (!/not switched on yet|cannot send messages/.test(e.message)) {
-        say('tMsg','It did not send: ' + e.message, true); return;
-      }
-      return sbAdd('daraja_notice', { team:TEAMNO, manager:TEAM.manager, body:body.slice(0,900) })
-        .then(function(){ say('tMsg','Kept for Jerry. Your team cannot see it on their page yet \u2014 ' +
-          'send it on WhatsApp as well, and ask Jerry to finish switching the team page on.', true); })
-        .catch(function(e2){ say('tMsg','It did not send: ' + e2.message, true); });
-    })
+  /* 9 Nov: this used to stop here, with the words kept where only Jerry saw them —
+     "Write down that I told them". The testers never saw one. The words still land in
+     the same place; what changed is that they now get carried onto the team's own page
+     on the next scheduled run, so the team actually reads them. */
+  sbAdd('daraja_notice', { team:TEAMNO, manager:TEAM.manager, body:body.slice(0,900) })
+    .then(function(){ return sbGet('daraja_notice','select=*&team=eq.'+TEAMNO+'&order=at.desc&limit=20'); })
+    .then(function(rows){ NOTES = rows||[]; draw();
+      say('tMsg','Sent. It goes on your team\u2019s page at the next update — within a few hours. ' +
+                 'For something they need right now, send it on WhatsApp too.'); })
+    .catch(function(e){ say('tMsg','It did not send: ' + e.message, true); })
     .then(function(){ $('tGo').disabled = false; });
 });
 
@@ -636,7 +593,7 @@ Promise.all([ getJSON('teams.json?cb='+Date.now()), getJSON('rates.json?cb='+Dat
     (TALLY ? getJSON(TALLY).catch(function(){ return null; }) : Promise.resolve(null)),
     sbGet('daraja_payment','select=*&team=eq.'+TEAMNO+'&order=at.desc').catch(function(){ return []; }),
     sbGet('daraja_topup','select=*&team=eq.'+TEAMNO+'&order=at.desc').catch(function(){ return []; }),
-    noticeGet()
+    sbGet('daraja_notice','select=*&team=eq.'+TEAMNO+'&order=at.desc&limit=20').catch(function(){ return []; })
   ]).then(function(d){
     TALLYDATA = (d[0] && d[0].ok) ? d[0] : null;
     PAYS = d[1]||[]; TOPS = d[2]||[]; NOTES = d[3]||[];
