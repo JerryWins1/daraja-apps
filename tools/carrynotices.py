@@ -1,97 +1,98 @@
 #!/usr/bin/env python3
-"""Carry the managers' messages onto the testers' page.
+"""Carry the managers' messages onto the testers' page — from the Jerry HQ sheet.
 
 Emmanuel and Veronicah write to their teams from kenya/lead/ ("Tell my team").
-Those words land in the daraja_notice table. This copies them into
-kenya/notices.json, which the testers' page reads with no key at all — which is
-the whole point: the key that reads daraja_notice also reads daraja_payment,
-every tester's name and what they have been paid, and the testers' page is
-public.
+Their page posts the words to the same mailbox the testers' app posts reports
+through, so they land in the Jerry HQ sheet. This reads that sheet and writes
+kenya/notices.json, which the testers' page shows to that team and nobody else.
 
-The key is never typed into a chat and never committed. It comes from the
-environment:
+No key, anywhere. That is the point. The key that reads the pay database also
+reads every payment row — every tester's name and what they have been paid — so
+it is kept out of this path entirely, and out of the testers' public page.
 
-    DARAJA_SB_KEY=...   python3 tools/carrynotices.py
-                        python3 tools/carrynotices.py --check   # change nothing
+    python3 tools/carrynotices.py <the sheet.xlsx>
+    python3 tools/carrynotices.py <the sheet.xlsx> --check    # change nothing
 
-Run it from the scheduled runs. If the key is missing it says so and changes
-nothing, so a run without it is harmless.
+The scheduled runs already download that sheet, so this adds no new step.
+
+WHAT IT REFUSES. The mailbox is open — a tester's phone posts to it — so anyone
+could send a line that claims to be from a manager. A notice is only carried if
+the name on it is that team's actual manager in kenya/lead/teams.json. Anything
+else is listed as refused and left where it is.
 """
 import collections
 import io
 import json
 import os
+import re
 import sys
-import urllib.error
-import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'kenya', 'notices.json')
-SB = 'https://wlawjwowdmneatdffpsy.supabase.co/rest/v1'
-KEEP = 3          # per team, on the tester's home screen
-TEAMS = ('1', '2')
+TEAMS = os.path.join(ROOT, 'kenya', 'lead', 'teams.json')
+KEEP = 3                       # per team, on the tester's home screen
+HEAD = re.compile(r'^TEAMNOTE\|(\d+)\|(.+)$')
 
 
-def fetch(key):
-    url = SB + '/daraja_notice?select=at,team,manager,body&order=at.desc&limit=60'
-    req = urllib.request.Request(url, headers={'apikey': key, 'Authorization': 'Bearer ' + key})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode('utf-8'))
+def managers():
+    t = json.load(io.open(TEAMS, encoding='utf-8'))
+    return {str(n): v['manager'] for n, v in t['teams'].items()}
 
 
-def shape(rows):
-    out = collections.OrderedDict((t, []) for t in TEAMS)
-    for row in rows:
-        team = str(row.get('team'))
-        if team not in out or len(out[team]) >= KEEP:
+def read_sheet(path):
+    import openpyxl
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    rows = list(wb['messages'].iter_rows(values_only=True))[1:]
+    return [(str(r[1] or ''), str(r[3] or ''), str(r[7] or '')) for r in rows]
+
+
+def collect(rows, mgrs):
+    found, refused = collections.defaultdict(list), []
+    for at, sender, text in reversed(rows):          # newest first
+        lines = text.split('\n')
+        m = HEAD.match(lines[0].strip())
+        if not m:
             continue
-        body = (row.get('body') or '').strip()
-        if not body:
+        team, claimed = m.group(1), m.group(2).strip()
+        body = '\n'.join(lines[1:]).strip()
+        if team not in mgrs or claimed != mgrs[team]:
+            refused.append('%s · says team %s, signed "%s"' % (at[:16], team, claimed[:40]))
             continue
-        out[team].append(collections.OrderedDict([
-            ('at', (row.get('at') or '')[:10]),
-            ('manager', row.get('manager') or ''),
-            ('body', body[:900]),
-        ]))
-    return out
+        if not body or len(found[team]) >= KEEP:
+            continue
+        found[team].append(collections.OrderedDict(
+            [('at', at[:10]), ('manager', claimed), ('body', body[:900])]))
+    return found, refused
 
 
 def main():
-    key = (os.environ.get('DARAJA_SB_KEY') or '').strip()
-    if not key:
-        print('DARAJA_SB_KEY is not set, so there is nothing to read. Nothing changed.')
-        print('Jerry adds it once in the environment settings; it is never typed into a chat.')
-        return 0
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    if not args:
+        print('Give me the Jerry HQ sheet as an .xlsx. Nothing changed.')
+        return 2
+    mgrs = managers()
+    found, refused = collect(read_sheet(args[0]), mgrs)
+    teams = collections.OrderedDict((t, found.get(t, [])) for t in sorted(mgrs))
 
-    try:
-        rows = fetch(key)
-    except urllib.error.HTTPError as e:
-        print('Supabase said %s. Nothing changed.' % e.code)
-        return 1
-    except Exception as e:
-        print('Could not reach Supabase (%s). Nothing changed.' % e.__class__.__name__)
-        return 1
-
-    teams = shape(rows)
-    old = json.load(io.open(OUT, encoding='utf-8')) if os.path.exists(OUT) else {}
-    doc = collections.OrderedDict([
-        ('_', old.get('_', '')),
-        ('updated', ''),
-        ('teams', teams),
-    ])
-    same = (old.get('teams') or {}) == json.loads(json.dumps(teams))
-    for t in TEAMS:
+    for t in teams:
         n = len(teams[t])
-        newest = teams[t][0]['body'][:60] + '…' if n else '(nothing)'
-        print('team %s · %d message%s · newest: %s' % (t, n, '' if n == 1 else 's', newest))
+        print('team %s · %-18s %d message%s%s' % (t, mgrs[t], n, '' if n == 1 else 's',
+              ' · newest: ' + teams[t][0]['body'][:50].replace('\n', ' ') if n else ''))
+    for r in refused:
+        print('REFUSED — not that team\'s manager: ' + r)
 
-    if same:
+    old = json.load(io.open(OUT, encoding='utf-8')) if os.path.exists(OUT) else {}
+    if (old.get('teams') or {}) == json.loads(json.dumps(teams)):
         print('\nNo change since the last run.')
         return 0
-    doc['updated'] = max([m['at'] for t in TEAMS for m in teams[t]] or [''])
     if '--check' in sys.argv:
         print('\nThere is something new to carry across. Run it without --check.')
         return 1
+    doc = collections.OrderedDict([
+        ('_', old.get('_', '')),
+        ('updated', max([m['at'] for t in teams for m in teams[t]] or [''])),
+        ('teams', teams),
+    ])
     io.open(OUT, 'w', encoding='utf-8').write(json.dumps(doc, ensure_ascii=False, indent=1) + '\n')
     print('\nwrote kenya/notices.json')
     return 0
