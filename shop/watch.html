@@ -2219,12 +2219,13 @@
 </div>
 
 <div id="ctrl">
+  <button class="cbtn" id="bBtn" onclick="jump(-1)" style="display:none" aria-label="Back one sentence">⏪ Back</button>
   <button class="cbtn" id="pBtn" onclick="togglePause()" style="display:none">⏸ Pause</button>
   <button class="cbtn" onclick="restart()">↻ Start over</button>
   <button class="cbtn" id="sndBtn" onclick="toggleSound()">🔊 Sound on</button>
 </div>
 <div id="vidHub" style="display:none"></div>
-<div id="ver">Daraja Store video player v3.5 · 2026-10-22 — Back returns to the group page you came from (?from=business · organize · churchapps · start) · v3.4 · 2026-10-22 — a video left open in another tab no longer puts its example person (Porchlight’s “Margaret”) into the real app · v3.3 · 2026-10-21 — the membership each app comes with under its name (no old one-time prices); “Back to the store” returns to the store you came from · v3.2 · 2026-10-10 — 🎬 every video for this app in one row (2 minutes · Explain it to me · step by step), and a Next video button at the end; the first line's scene now runs once the app has loaded · ?mode=explain plays the Kenya Student Test Week explainers (kenya/&lt;app&gt;.json) · v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
+<div id="ver">Daraja Store video player v3.6 · 2026-11-09 — ⏪ Back moves one sentence, so you can hear a line again without starting the whole video over (Ruth asked for this). No forward skip, on purpose: the videos are meant to be watched through · v3.5 · 2026-10-22 — Back returns to the group page you came from (?from=business · organize · churchapps · start) · v3.4 · 2026-10-22 — a video left open in another tab no longer puts its example person (Porchlight’s “Margaret”) into the real app · v3.3 · 2026-10-21 — the membership each app comes with under its name (no old one-time prices); “Back to the store” returns to the store you came from · v3.2 · 2026-10-10 — 🎬 every video for this app in one row (2 minutes · Explain it to me · step by step), and a Next video button at the end; the first line's scene now runs once the app has loaded · ?mode=explain plays the Kenya Student Test Week explainers (kenya/&lt;app&gt;.json) · v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
 
 <script>document.write('<scr'+'ipt src="apps_data.js?v='+Date.now()+'"></scr'+'ipt>')</script>
 <script>
@@ -2478,6 +2479,7 @@ function play(){
   $('appView').style.display='block'; $('slide').style.display='none';
   $('movie').classList.add('tall'); /* the app is portrait — give it room, keep captions off its content */
   $('pBtn').style.display='inline-block';
+  $('bBtn').style.display='inline-block';
   playing=true; paused=false; i=-1;
   if(window.speechSynthesis) speechSynthesis.getVoices();
   next();
@@ -2550,6 +2552,26 @@ function direct(l){
   }catch(e){}
   if(l.point) setTimeout(function(){ pointAt(l.point); }, 350);
 }
+/* 9 Nov 2026 — Ruth, testing in Kenya: "if I'm watching the video but I don't wanna keep
+   starting over but wanna go back maybe few seconds or fast forward I can't, is there a way
+   it can allow that". There is now. The player walks LINES, not a timeline, so one step is
+   one sentence — which is the few seconds she meant, and it keeps the caption, the voice and
+   the screen behind them in step, which a raw time seek would not.
+
+   There is deliberately no forward twin. Jerry weighed one and said no: the testers are paid
+   to watch each video right through and their script tells them to, so a skip button would
+   make the one step that catches a stale video the easiest step to tick without doing it.
+   Going BACK can only help; going forward can only help someone not watch. */
+let gen = 0;
+function jump(d){
+  if(!playing) return;
+  gen++;                                            /* strand the sentence in flight */
+  segCb=null; segStop();
+  if(window.speechSynthesis){ try{ speechSynthesis.cancel(); }catch(e){} }
+  if(paused){ paused=false; $('pBtn').textContent='⏸ Pause'; }
+  i = Math.max(-1, Math.min(i + d - 1, LINES.length - 1));
+  next();
+}
 function next(){
   if(!playing || paused) return;
   i++;
@@ -2558,13 +2580,15 @@ function next(){
   direct(l);
   $('capText').textContent = written(lineText(l));
   $('prog').style.width = Math.round(((i+1)/LINES.length)*100)+'%';
-  const nx=()=>setTimeout(next, VOICE?450:950);
+  const g = ++gen;                     /* a jump bumps gen, stranding this continuation */
+  const nx=()=>setTimeout(function(){ if(g===gen) next(); }, VOICE?450:950);
   if(VOICE && AUD && soundOn && cueFits(VOICE.cues[i], lineText(l))) playSeg(i, nx);
   else speak(lineText(l), nx);
 }
 function end(){
   playing=false; tourPut();
   $('cap').style.display='none'; $('pBtn').style.display='none';
+  $('bBtn').style.display='none';
   $('ovTitle').textContent = 'Ready to try '+NAME+'?';
   $('ovSub').textContent = 'It opens right in your browser — nothing to install to try it.';
   $('bigPlay').style.display='none';
