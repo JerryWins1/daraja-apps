@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+/* ?tour=1 is the store's camera, not a person arriving: no daily hello, no Start menu and no
+   Home Screen card over the screens a video is trying to show. Set before the house layer so
+   guestVisit() sees it. See the ?tour=1 block further down for what the tour actually does. */
+try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
+</script>
 <script id="dj-house-v65">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
@@ -2221,9 +2227,9 @@
   </div>
 
   <div class="row" style="justify-content:center">
-    <button class="link" onclick="eraseAll()">Erase My Circle from this phone</button>
+    <button class="link" id="eraseBtn" onclick="eraseAll()">Erase My Circle from this phone</button>
   </div>
-  <p class="foot">My Circle v1.2 · 2026-10-07 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
+  <p class="foot">My Circle v1.3 · 2026-11-08 · Daraja Studio · everything stays on this phone · every app helps a student in Kenya stay in school</p>
 </div>
 <div class="saved" id="saved">Saved ✓</div>
 
@@ -2234,11 +2240,37 @@ var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 function blank(){ return { me:{}, people:[], home:{}, work:{}, share:{me:true,people:true,home:true,work:true}, updated:'' }; }
 function load(){ try{ var c=JSON.parse(localStorage.getItem(KEY)||'null'); if(c&&typeof c==='object'){ var b=blank(); for(var k in b) if(c[k]==null) c[k]=b[k]; return c; } }catch(e){} return blank(); }
 var C=load();
+/* ══ ?tour=1 — a showable page for the store videos ══ 8 Nov 2026.
+   Video rule 2 in shop/apps_data.js: "the page has to be showable." My Circle opens completely
+   empty, so a video about "Exactly what your AI would read" would film a blank box for three
+   minutes. ?tour=1 seeds an INVENTED example family, in memory only — nothing is written to this
+   phone, the person's own My Circle is never read or changed, and Erase is turned off while it is
+   on. This repo is PUBLIC, so every name below is made up; none of it is anybody's real household.
+   Walt is marked private on purpose: it lets a video show that a private person never reaches the
+   preview, which is the whole claim the app makes. */
+var TOUR=false; try{ TOUR=/[?&]tour=1/.test(location.search); }catch(e){}
+function demoCircle(){
+  var n=new Date(), soon=new Date(n.getFullYear(), n.getMonth(), n.getDate()+12);   /* a birthday always inside 30 days, so the Coming up card is never missing from a video */
+  var c=blank();
+  c.me={ name:'Sam', town:'Springfield, Illinois', about:'Retired teacher. I like gardening and the Bears. I don\u2019t like technology much.' };
+  c.people=[
+    { id:'demo1', name:'Ruth', rel:'Spouse', bd:4, bm:3, by:1952, likes:'crosswords, lemon cake', notes:'' },
+    { id:'demo2', name:'Dana', rel:'Child', bd:19, bm:9, by:1979, likes:'hiking', notes:'Lives two towns over.' },
+    { id:'demo3', name:'Eli', rel:'Grandchild', bd:soon.getDate(), bm:soon.getMonth()+1, by:2016, likes:'dinosaurs, anything with wheels', notes:'' },
+    { id:'demo4', name:'Walt', rel:'Friend', bd:null, bm:null, by:null, likes:'', notes:'', private:true }
+  ];
+  c.home={ who:'me and Ruth', pets:'a dog called Biscuit', food:'no pork; Ruth is diabetic; the grandkids love tacos', notes:'Stairs are hard for me. Church on Sundays.' };
+  c.work={ name:'Springfield Lawn Care', what:'Mowing for 30 homes in town; my grandson helps on Saturdays.', goal:'Five more customers before winter' };
+  return c;
+}
+if(TOUR){ C=demoCircle(); }
 var savedT=null;
 function save(){
   C.updated=new Date().toISOString();
-  try{ localStorage.setItem(KEY, JSON.stringify(C)); }catch(e){}
-  if(C.me.name){ try{ if(!localStorage.getItem('dj_name')) localStorage.setItem('dj_name', C.me.name); }catch(e){} }
+  if(!TOUR){                                               /* the tour is a demonstration: it writes nothing to this phone */
+    try{ localStorage.setItem(KEY, JSON.stringify(C)); }catch(e){}
+    if(C.me.name){ try{ if(!localStorage.getItem('dj_name')) localStorage.setItem('dj_name', C.me.name); }catch(e){} }
+  }
   var s=document.getElementById('saved'); s.classList.add('on'); clearTimeout(savedT); savedT=setTimeout(function(){ s.classList.remove('on'); },1400);
   paint();
 }
@@ -2267,7 +2299,7 @@ function paint(){
   var u=document.getElementById('upcoming');
   if(up.length){ u.hidden=false; u.innerHTML='<h2>Coming up</h2>'+up.map(function(p){ var d=daysTo(p); return '<p style="margin:4px 0;color:var(--ink)">🎂 <b>'+esc(p.name)+'</b> — '+(d===0?'today!':d===1?'tomorrow':'in '+d+' days')+' <button class="link" onclick="giftFor(\''+esc(p.id)+'\')">gift idea</button></p>'; }).join(''); }
   else u.hidden=true;
-  document.getElementById('preview').textContent=(window.djCircle&&djCircle.summary())||summaryHere()||'(Nothing to share yet. Fill in a section above.)';
+  document.getElementById('preview').textContent=(TOUR?summaryHere():((window.djCircle&&djCircle.summary())||summaryHere()))||'(Nothing to share yet. Fill in a section above.)';
 }
 /* the same words the house layer builds — kept here too so the page works even before the layer loads */
 function summaryHere(){
@@ -2320,9 +2352,17 @@ function tryIt(){
   if(window.djAI) djAI.ask({ title:'Ask with My Circle', prompt:'Based on what you know about me, suggest one small, kind thing I could do for someone in my life this week.', onResult:function(v,raw){ djAI.showAnswer('My Circle', raw); } });
 }
 function copyPreview(){ var t=document.getElementById('preview').textContent; try{ navigator.clipboard.writeText(t).then(function(){ alert('Copied.'); },function(){}); }catch(e){} }
-function eraseAll(){ if(!confirm('Erase everything in My Circle from this phone? This cannot be undone.')) return; try{ localStorage.removeItem(KEY); }catch(e){} C=blank(); location.reload(); }
+function eraseAll(){ if(TOUR){ alert('This is the example family, so there is nothing to erase. Your own My Circle is untouched.'); return; }
+  if(!confirm('Erase everything in My Circle from this phone? This cannot be undone.')) return; try{ localStorage.removeItem(KEY); }catch(e){} C=blank(); location.reload(); }
 window.editPerson=editPerson; window.giftFor=giftFor; window.tryIt=tryIt; window.copyPreview=copyPreview; window.eraseAll=eraseAll;
 bind(); paint();
+if(TOUR){ try{
+  var tb=document.createElement('div'); tb.className='card'; tb.id='tourNote';
+  tb.style.cssText='background:#FFF6E0;border:2px solid #F2B134';
+  tb.innerHTML='<h2 style="margin:0 0 4px">An example family</h2><p style="margin:0">Sam, Ruth, Dana, Eli and Walt are made up, to show what a filled-in My Circle looks like. <b>Nothing here is saved</b>, and your own My Circle is untouched. Open <a href="./" style="color:var(--deep);font-weight:800">My Circle itself</a> to start your own.</p>';
+  var w=document.querySelector('.wrap'), h=w&&w.querySelector('header');
+  if(h&&h.nextSibling) w.insertBefore(tb, h.nextSibling); else if(w) w.appendChild(tb);
+}catch(e){} }
 window.addEventListener('storage',function(e){ if(e.key===KEY){ C=load(); paint(); } });
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
 </script>
