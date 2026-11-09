@@ -329,10 +329,34 @@ stalls on an iPad.
 Three commands, and none of them is optional:
 
 ```
-python3 shop/voicemaker.py --check     # which videos are missing, stale, or static
-python3 shop/voicemaker.py --all       # record the missing and the stale
-node shop/checkvideos.js <app>         # watch them, the way Jerry watches them
+python3 shop/voicemaker.py --check        # which videos are missing, stale, or static
+python3 shop/voicemaker.py <app> <mode>   # record THAT video, by name
+node shop/checkvideos.js <app>            # watch them, the way Jerry watches them
 ```
+
+**If you changed a line, record it BY NAME. Never with `--all`.** This line used to say
+`--all`, and that was wrong in a way nothing catches. `--all` records what it believes
+is missing or out of date, and until 8 November it judged that on the first forty
+characters of each line. Reword a line after character forty and the key never moves:
+`--check` called the video current, `--all` skipped it, and the video went on speaking
+the old sentence under the new caption. The Ahead of It chat found it the hard way, in
+one of its own videos.
+
+A cue now carries a fingerprint of the whole line, so a video recorded from 8 November
+on is checked properly. The ones made before that are counted in `--check`'s own
+UNVERIFIED bucket rather than called current, and each leaves it when it is next
+recorded. Until a video is out of that bucket, "current" only means its openings match.
+
+So: `--all` is for videos that have never been recorded. A video whose words you just
+changed is recorded by name, every time. The 35 membership lines on 8 November all sat
+at the END of their lines — "comes with the Family membership, and founding members get
+their first year free" — so `--all` would have skipped every single one.
+
+**And a cloud chat can record.** `piper` is not in a fresh container, but
+`pip install piper-tts` puts it there in about fifteen minutes, which is what
+voicemaker's own error message tells you to do, and `ffmpeg` is already present. This
+chat told Jerry three times that recording was impossible here before testing it. Do
+not repeat that: try the command the tool gives you before reporting a limit.
 
 `shop/apps_data.js` carries the five rules for what makes a proper video, written out
 at the top. Read them before touching one.
