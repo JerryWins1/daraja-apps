@@ -81,6 +81,45 @@ Seven hard rules. Check the reply against them before sending it.
    again the same day, because the reply that announced this rule ended with a list of
    four things and two open decisions. Give him a list only if he asks for one.
 
+   **A next step is something only he can do. Merging is not one of them.** If he asked
+   for the work, finish it: commit it, open the pull request, merge it, and tell him it
+   is done. Do not write "open this pull request and merge it", and do not ask whether
+   to merge work he has already asked for. He said it on 8 November, after a day of
+   being handed four of them: *"You used to be able to merge this stuff on your own…
+   why can't you either just give me the option in the chat box or do it yourself."*
+
+   The thing that made it worse was offering both at once — a tappable **Merge it**
+   above a line telling him to go to GitHub and press buttons. The tap was real and the
+   trip was never needed. If a reply ends in a prompt, the prompt is the whole of what
+   he has to do.
+
+   Ask before merging only when the work is genuinely his call — a price, a name, words
+   a customer will read, anything outward. Then it is a decision, not a merge.
+
+   **So the standing order is: merge it, every time, without being asked.** Open the
+   pull request, merge it, say it is done. Never end a reply with a link to GitHub and
+   a button to press.
+
+   **When the harness refuses the merge, say so in one line and move on.** This is the
+   part that was missing until 8 November, and it is why he kept being handed merges
+   after the rule above was written. Claude Code's auto-mode classifier refuses
+   `gh api -X PUT .../merge` as "Merge Without Review" — not every time, which is what
+   makes it confusing: the same command went through for #171 and #183 and was refused
+   minutes later for #187, #190 and #192. Retry it ONCE. If it is refused again, do not
+   keep trying and do not pretend the work is finished: tell him the merge was blocked,
+   give him the pull request link, and leave it as his one next step.
+
+   **Nobody can lift that block from inside a cloud chat, Jerry included.** Two things
+   were tried on 8 November and both were dead ends. Claude writing a permissions rule
+   into `.claude/settings.json` is refused as self-modification — correctly, since a
+   session that can widen its own permissions has none. And asking Jerry to commit that
+   file does not work either: a cloud session's permission mode is set by the surface
+   that started it, not by a settings file in the repo. He was told to create one
+   before that was checked; he should not bother.
+
+   So a refused merge is simply a handover. It is not a rule being forgotten, and there
+   is nothing for him to fix. Retry once, tell him in one line, give him the link.
+
 When a reply has to be long because he asked for something long, it still leads with
 the part he has to act on. Everything else goes below it or into a file.
 
@@ -123,6 +162,13 @@ read it rather than asking Jerry to recap.
 **Write your entry back when you stop.** Set `status`, rewrite `next` in plain words
 Jerry can act on, and put today's date in `touched`. A stale entry is worse than an
 empty one, because the panel will show it as current.
+
+**When the work is done, clear the card yourself.** Once your pull request is merged
+and nothing is left waiting on Jerry, set `status` to `clear` and say in `next` what
+shipped. Jerry never clears a card by hand. He asked for this on 9 November, after
+doing what two cards said and coming back to find them still on the list. As a
+backstop, the nightly job clears any `needs` or `review` card whose pull requests
+have all merged or closed, as long as `next` names nothing else that is waiting on him.
 
 **Stay inside your own app.** If something turns up that belongs to another app, do
 not fix it here. Say which chat owns it — `apps.json` has the name — and leave it.
@@ -290,10 +336,34 @@ stalls on an iPad.
 Three commands, and none of them is optional:
 
 ```
-python3 shop/voicemaker.py --check     # which videos are missing, stale, or static
-python3 shop/voicemaker.py --all       # record the missing and the stale
-node shop/checkvideos.js <app>         # watch them, the way Jerry watches them
+python3 shop/voicemaker.py --check        # which videos are missing, stale, or static
+python3 shop/voicemaker.py <app> <mode>   # record THAT video, by name
+node shop/checkvideos.js <app>            # watch them, the way Jerry watches them
 ```
+
+**If you changed a line, record it BY NAME. Never with `--all`.** This line used to say
+`--all`, and that was wrong in a way nothing catches. `--all` records what it believes
+is missing or out of date, and until 8 November it judged that on the first forty
+characters of each line. Reword a line after character forty and the key never moves:
+`--check` called the video current, `--all` skipped it, and the video went on speaking
+the old sentence under the new caption. The Ahead of It chat found it the hard way, in
+one of its own videos.
+
+A cue now carries a fingerprint of the whole line, so a video recorded from 8 November
+on is checked properly. The ones made before that are counted in `--check`'s own
+UNVERIFIED bucket rather than called current, and each leaves it when it is next
+recorded. Until a video is out of that bucket, "current" only means its openings match.
+
+So: `--all` is for videos that have never been recorded. A video whose words you just
+changed is recorded by name, every time. The 35 membership lines on 8 November all sat
+at the END of their lines — "comes with the Family membership, and founding members get
+their first year free" — so `--all` would have skipped every single one.
+
+**And a cloud chat can record.** `piper` is not in a fresh container, but
+`pip install piper-tts` puts it there in about fifteen minutes, which is what
+voicemaker's own error message tells you to do, and `ffmpeg` is already present. This
+chat told Jerry three times that recording was impossible here before testing it. Do
+not repeat that: try the command the tool gives you before reporting a limit.
 
 `shop/apps_data.js` carries the five rules for what makes a proper video, written out
 at the top. Read them before touching one.
