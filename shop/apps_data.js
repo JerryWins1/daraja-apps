@@ -641,7 +641,7 @@ const APPS = {
         "point": "#appList"
       },
       {
-        "t": "This round closes on the twelfth of November, and the apps on this page are the ones that need eyes first. Some of them have never been opened by anybody."
+        "t": "Testing now runs every week, Monday to Sunday, Kenya time. Your lead will tell you where to start."
       },
       {
         "t": "If something confuses you, say so here. You do not have to be polite about it. Say it the way you would say it to a friend.",
@@ -670,7 +670,7 @@ const APPS = {
   try:BASE+'feedback-studio/?app='+encodeURIComponent(BASE+'ourtable/'),
   lines:[
    "Hello, and thank you for testing. In the next three minutes you will watch one whole test, start to finish. Then you do the same.",
-   "First, what this is. Daraja Studio makes small phone apps for households, churches and later life. One small yearly membership, no account, no ads. Your information stays on your phone.",
+   "First, what this is. Daraja Studio makes small phone apps for households, churches and later life. No account, no ads. Your information stays on your phone.",
    "You are not being tested. The app is. If something confuses you, that is the app's fault, and that is exactly what we need to hear.",
    {t:"Here is the trick that makes it easy. Every app opens inside a wrapper called Feedback Studio. The app is in the middle. The tools are around it. Every tap you make is written down for us, so you never have to remember what you did.", point:"#appframe"},
    {t:"Watch me do a short test. This app is Our Table. It plans a week of dinners. I will just use it, the way I would at home.", js:"try{sessionStorage.setItem('__djDemo',JSON.stringify({o:localStorage.getItem('dj_ourtable_v1'),f:localStorage.getItem('feedback_studio_v1')}));document.getElementById('appframe').contentWindow.go('week')}catch(e){}"},
