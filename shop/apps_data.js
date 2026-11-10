@@ -1856,14 +1856,14 @@ const APPS = {
      while the tester opens another. It goes with the tester switch, not before it. */
   try:'https://jerrywins1.github.io/daraja-apps/church-demo/',
   lines:[
-   "This is The Church App, which puts your whole church in everyone's pocket.",
-   "Think about where things live right now: the announcements are in a bulletin nobody keeps, the sermons are on a YouTube channel nobody can find, and the calendar is taped to a wall.",
-   "This app gathers all of it into one place, on every member's phone, with your church's own name on the front.",
-   "Each Sunday's message lands in the app with its title, speaker and scripture, and the home screen always shows the newest one. Events drop off by themselves the moment they have passed.",
+   {t:"This is The Church App, which puts your whole church in everyone's pocket.", js:"try{ var x=document.querySelector('#sn2.on [data-a=x]'); if(x) x.click(); go('home'); }catch(e){}", point:"nav.tabbar"},
+   {t:"Think about where things live right now: the announcements are in a bulletin nobody keeps, the sermons are on a YouTube channel nobody can find, and the calendar is taped to a wall.", js:"try{ go('home'); }catch(e){}", point:"#home button[data-tab=events]"},
+   {t:"This app gathers all of it into one place, on every member's phone, with your church's own name on the front.", js:"try{ go('home'); }catch(e){}", point:"#heroTitle"},
+   {t:"Each Sunday's message lands in the app with its title, speaker and scripture, and the home screen always shows the newest one. Events drop off by themselves the moment they have passed.", js:"try{ go('home'); }catch(e){}", point:"#heroBtn"},
    {t:"Sermon Notes are built right in. Tap record and set the phone on your lap: it records the sermon, writes down the words, and keeps your own notes beside it.", js:"openSermonNotes()", point:"#sn2 [data-a=rec]"},
    {t:"Afterwards it lists every scripture that was mentioned, gives you questions to take home, and with your own AI app, a summary in a minute. Events, prayer requests, giving and your staff page all live in the app too.", js:"(function(){var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click();})()"},
-   "And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.",
-   "It is a hundred and forty-nine dollars for the first year, with the setting up done for you, then forty-nine a year to keep it current. Stop paying and it keeps working. The one you can try below is a demo church we invented, so look around as much as you like."
+   {t:"And your own staff keeps it current from a phone, using a simple page and a key we hand you. There is no web designer to hire and no monthly bill to dread.", js:"try{ go('more'); }catch(e){}", point:"#team"},
+   {t:"It is a hundred and forty-nine dollars for the first year, with the setting up done for you, then forty-nine a year to keep it current. Stop paying and it keeps working. The one you can try below is a demo church we invented, so look around as much as you like.", js:"try{ go('home'); }catch(e){}", point:"#heroTitle"}
   ],
   /* 7 Oct 2026: the 5-minute training — Sermon Notes v2 (record, notes, scriptures, questions, summary, library) */
   },
