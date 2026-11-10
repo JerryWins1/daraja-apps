@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Record the voice for the 'what changed overnight' video: one file per slide.
 
-    python3 kenya/changes/makevoice.py
+    python3 kenya/changes/makevoice.py [folder]      # default: this folder; also kenya/lead/video
 
 Reads the spoken lines out of SLIDES in index.html (so the words are in one place)
 and writes v01.m4a .. vNN.m4a beside this file, plus voice.json with a fingerprint
@@ -16,7 +16,7 @@ Needs piper and ffmpeg, the same as shop/voicemaker.py, and the same voice file.
 """
 import json, os, re, subprocess, sys, tempfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
 MODEL = os.path.join(os.environ.get('PIPER_VOICE_DIR', os.path.join(tempfile.gettempdir(), 'daraja-piper')),
                      'en-us-lessac-medium.onnx')
 
