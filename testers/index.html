@@ -32,7 +32,10 @@
     var on = false, q = ''; try{ q = location.search; }catch(e){}
     try{
       if(/[?&]dj_sandbox=1/.test(q)){ var s0 = window.sessionStorage; for(var i = s0.length - 1; i >= 0; i--){ var k0 = s0.key(i); if(k0 && k0.indexOf('sbx:') === 0) s0.removeItem(k0); } s0.setItem('dj_sandbox', '1'); on = true; try{ history.replaceState(null, '', location.href.replace(/([?&])dj_sandbox=1&?/, '$1').replace(/[?&](#|$)/, '$1')); }catch(e){} }
-      else if(window.sessionStorage.getItem('dj_sandbox') === '1') on = true;
+      /* 10 Nov 2026: this page keeps the tester's own place in the steps, so it must never run as a test copy. The app opens
+         in the same tab for some testers, sets this flag, and the steps page then read its progress from an empty copy and
+         sent them back to step 1 (Emmanuel). Only an explicit ?dj_sandbox=1 puts this page in a test copy. */
+      else if(window.sessionStorage.getItem('dj_sandbox') === '1' && !/\/testers\//.test(location.pathname)) on = true;
     }catch(e){ on = false; }
     if(!on) return;
     var S = window.sessionStorage, P = 'sbx:';
@@ -2507,7 +2510,15 @@ function tsOpenApp(fresh){
   const st=tsState(TSK), url=tsUrl(TS,false); let w=null;
   const direct=fresh||!(st&&st.opened);      /* the first time: open it; after that: go back to the same tab (an empty URL does not reload it) */
   try{ w=window.open(direct?url:'', 'djts_'+TSK); }catch(e){ w=null; }
-  if(!w){ location.href=url; return; }
+  if(!w){
+    /* 10 Nov 2026: the browser gave us no second tab, so the app opens in THIS tab. The link carries ?dj_sandbox=1,
+       and the test copy deletes itself whenever it sees that, so every "Back to the app" wiped the tester's work and
+       sent them to the first step (Emmanuel, on Duka, Advent and Daraja). If this tab already holds a test copy,
+       go back to it without the parameter. A tab with no test copy still gets a fresh one. */
+    let again=false; try{ again=!fresh&&!!(st&&st.opened)&&sessionStorage.getItem('dj_sandbox')==='1'; }catch(e){}
+    if(st&&!st.opened){ st.opened=1; save(); }
+    location.href=again?url.replace(/([?&])dj_sandbox=1&?/,'$1').replace(/[?&]$/,''):url; return;
+  }
   if(!direct){ let blank=true; try{ const h=w.location.href; blank=!h||h==='about:blank'; }catch(e){ blank=false; } if(blank){ try{ w.location.href=url; }catch(e){} } }
   try{ w.focus(); }catch(e){}
   if(st&&!st.opened){ st.opened=1; save(); const b=$('tsOpen'); if(b) b.textContent='↗ Back to the app'; }
