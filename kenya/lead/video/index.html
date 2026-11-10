@@ -148,18 +148,47 @@ function speak(text, done){
   } catch (e) { byClock(); }
 }
 
+/* The recording comes first. The phone's own voice is only the fallback, because on
+   many phones and in-app browsers it makes no sound at all. One Audio element, started
+   by the Play tap, so the phone lets every later slide play without another tap. */
+const AUD = new Audio();
+let VOICE = {};
+function fp(t){ let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) + t.charCodeAt(i)) >>> 0; return String(h); }
+fetch('voice.json').then(r => r.ok ? r.json() : {}).then(j => { VOICE = j || {}; }).catch(() => {});
+function vname(i){ return 'v' + String(i + 1).padStart(2, '0') + '.m4a'; }
+
+function play(done){
+  const i = at, name = vname(i);
+  if (VOICE[name] !== fp(SLIDES[i][0])) return false;      /* no recording of THESE words */
+  let fired = false;
+  const next = () => { if (fired) return; fired = true; clearTimeout(timer); done(); };
+  const fallBack = () => { if (fired) return; fired = true; clearTimeout(timer); speak(SLIDES[i][0], done); };
+  AUD.onended = next;
+  AUD.onerror = fallBack;
+  AUD.src = name;
+  const pr = AUD.play();
+  if (pr && pr.catch) pr.catch(fallBack);
+  el('vstat').textContent = 'Recorded voice';
+  /* a recording that never starts must not freeze the slide */
+  timer = setTimeout(() => { if (AUD.currentTime === 0) fallBack(); }, 6000);
+  return true;
+}
+
 function stepOn(){
   if (!playing) return;
   paint();
-  speak(SLIDES[at][0], () => {
+  const go = () => {
     if (!playing) return;
     if (at < SLIDES.length - 1) { at++; stepOn(); } else stop();
-  });
+  };
+  try { AUD.pause(); } catch (e) {}
+  if (!play(go)) speak(SLIDES[at][0], go);
 }
 function start(){ playing = true; el('play').textContent = '❚❚ Pause'; stepOn(); }
 function stop(){
   playing = false; el('play').textContent = '▶ Play';
   clearTimeout(timer);
+  try { AUD.pause(); } catch (e) {}
   try { speechSynthesis.cancel(); } catch (e) {}
 }
 el('play').onclick = () => playing ? stop() : start();
