@@ -2270,7 +2270,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.5 · 2026-11-06';
+var VER = 'v1.6 · 2026-11-11';
 /* Prices (Jerry, 9 Oct 2026): full Business Manager is $149 one-time; Quick Quote is $29; someone upgrading from
    Quick Quote gets the $29 credited, so the upgrade is $120. Change them here only. No payment gates while testing. */
 var PRICE = { quotes:'$29', full:'$149', upgrade:'$120' };
@@ -3930,10 +3930,17 @@ function setChan(c){ S.msg.channel = c; save(); render(); }
 function saveMsg(){ S.biz.reviewLink = $('rL').value.trim(); save(); toast('Saved'); go('more'); }
 function backup(){ download('business-manager-backup-' + today() + '.json', JSON.stringify(S, null, 1), 'application/json'); S.lastBackup = today(); save(); }
 function restore(inp){ var f = inp.files && inp.files[0]; if(!f) return; var r = new FileReader(); r.onload = function(){ try{ var d = JSON.parse(r.result); if(!d || !d.v || !d.biz) throw 0; if(!confirm('Replace everything on this phone with the backup from ' + (d.lastBackup || 'that file') + '?')) return; localStorage.setItem(KEY, JSON.stringify(d)); S = load(); preview = false; go('home'); toast('Restored'); }catch(e){ alert('That doesn’t look like a Business Manager backup.'); } }; r.readAsText(f); }
-function wipe(){ if(!confirm('Erase all your customers, jobs, invoices and expenses on this phone?')) return; if(!confirm('Last check — this can’t be undone. Erase everything?')) return; try{ localStorage.removeItem(KEY); indexedDB.deleteDatabase('bizmgr_files'); }catch(e){} S = null; preview = false; go('welcome'); }
+function wipe(){ if(!confirm('Erase all your customers, jobs, invoices and expenses on this phone?')) return; if(!confirm('Last check — this can’t be undone. Erase everything?')) return; try{ localStorage.removeItem(KEY); localStorage.removeItem(KEY + '_setupdraft'); indexedDB.deleteDatabase('bizmgr_files'); }catch(e){} S = null; preview = false; go('welcome'); }
 
 /* ── the setup interview ── */
 var SU = null;
+/* v1.6 (11 Nov 2026, Frank and Emmanuel: "the app deletes the details when I go back to the steps"): the setup chat only saved when it
+   finished, so reopening the app halfway through (a phone dropping the tab, or the Open link) lost every answer. Each answer is now kept
+   as a draft on this phone and picked up again when setup opens; it goes when setup finishes or the app is erased. */
+var DKEY = KEY + '_setupdraft';
+function draftSave(){ if(preview || !S || !SU || S.setup.done) return; try{ localStorage.setItem(DKEY, JSON.stringify({ S:S, SU:SU, at:Date.now() })); }catch(e){} }
+function draftClear(){ try{ localStorage.removeItem(DKEY); }catch(e){} }
+function draftLoad(){ try{ var d = JSON.parse(localStorage.getItem(DKEY) || 'null'); if(d && d.S && d.SU && d.S.biz && Array.isArray(d.SU.said) && Date.now() - d.at < 7 * 864e5) return d; }catch(e){} return null; }
 function yes(t, s){ return { t:t, s:s }; }
 var QS = [
   { id:'name', ask:function(){ return 'Hi! I’ll set this up around how <b>you</b> work — about two minutes. You can change any answer later.<br><br>First: what’s your business called, and what’s your name?'; }, form:[['name', 'Business name', L('Miller Plumbing', 'Kamau Plumbing Works')], ['owner', 'Your name', L('Dan Miller', 'John Kamau')]],
@@ -4004,6 +4011,8 @@ function qOn(){ return F('estimates') && F('lineItems'); }
 function suQuick(i){ var q = qList()[SU.i], t = $('su0'); if(!q || !q.quick || !t) return; var x = q.quick[i]; if(t.value.split('\n').indexOf(x) >= 0) return; t.value = (t.value.trim() ? t.value.trim() + '\n' : '') + x; }
 VIEWS.setup = function(){
   setHead('Set up', S && S.biz.name ? S.biz.name : 'about two minutes');
+  var dr = !SU && !(S && S.setup.done) ? draftLoad() : null;
+  if(dr){ S = dr.S; SU = dr.SU; preview = false; }
   if(!SU){ SU = { i:0, said:[] }; if(!S || S.setup.done){ var keep = S && S.setup.done ? S : null; S = keep || blank(); } if(!S.mode && URLMODE) S.mode = URLMODE; preview = false; }
   var qs = qList(), q = qs[SU.i];
   var h = '<div class="steps" aria-hidden="true">' + qs.map(function(x, i){ return '<span class="' + (i <= SU.i ? 'on' : '') + '"></span>'; }).join('') + '</div><div class="chat" style="margin-top:12px">';
@@ -4029,7 +4038,7 @@ VIEWS.setup = function(){
   h += '<div class="row" style="margin-top:12px">' + (SU.i > 0 ? '<button class="btn sm" onclick="BM.suBack()">‹ Change last answer</button>' : '') + '<span class="grow"></span><button class="btn sm" onclick="BM.suAll()">Skip — turn everything on</button></div>';
   return h;
 };
-function suNext(q, val, said){ q.apply(val); SU.said.push({ q:q.ask(), a:said }); SU.i++; render(); setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 50); }
+function suNext(q, val, said){ q.apply(val); SU.said.push({ q:q.ask(), a:said }); SU.i++; draftSave(); render(); setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 50); }
 function suPick(v){ var q = qList()[SU.i], o = q.opts().filter(function(x){ return x.v === v; })[0]; suNext(q, v, o.t.replace(/<[^>]+>/g, '')); }
 function suMulti(){ var q = qList()[SU.i], v = [].map.call(document.querySelectorAll('.answers input:checked'), function(x){ return x.value; });
   if(q.none){ var oth = $('suOther') ? $('suOther').value.trim() : ''; suNext(q, { v:v, other:oth }, q.opts().filter(function(o){ return v.indexOf(o.v) >= 0; }).map(function(o){ return o.t.split(' — ')[0]; }).concat(oth ? [oth] : []).join(', ') || 'Nothing special'); return; }
@@ -4043,8 +4052,8 @@ function suForm(){
   suNext(q, a, q.say ? q.say(a) : 'OK');
 }
 function suSkip(){ var q = qList()[SU.i], form = typeof q.form === 'function' ? q.form() : q.form, a = {}; form.forEach(function(f){ a[f[0]] = ''; }); suNext(q, a, 'Skip for now'); }
-function suBack(){ SU.fin = false; SU.said.pop(); SU.i = Math.max(0, SU.i - 1); render(); }
-function suAll(){ if(!S.biz.name){ alert('Just tell me the business name first.'); return; } if(!S.mode) S.mode = URLMODE || 'full'; Object.keys(S.features).forEach(function(k){ S.features[k] = true; }); SU.i = qList().length; render(); }
+function suBack(){ SU.fin = false; SU.said.pop(); SU.i = Math.max(0, SU.i - 1); draftSave(); render(); }
+function suAll(){ if(!S.biz.name){ alert('Just tell me the business name first.'); return; } if(!S.mode) S.mode = URLMODE || 'full'; Object.keys(S.features).forEach(function(k){ S.features[k] = true; }); SU.i = qList().length; draftSave(); render(); }
 function finishSetup(){
   if(!S.prices.length){ S.prices = (TRADES[S.biz.trade] || TRADES.other).items.map(function(x){ return { name:x[0], price:x[2] }; }); S.setup.starter = true; }
   if(!S.mode) S.mode = URLMODE || 'full';
@@ -4061,7 +4070,7 @@ function finishSetup(){
     + imp + '<button class="btn main full" style="margin-top:14px" onclick="BM.suDone()">Let’s go →</button>';
   return h;
 }
-function suDone(){ S.setup.done = true; S.setup.demo = false; S.setup.at = today(); if(!S.mode) S.mode = URLMODE || 'full'; SU = null; preview = false; save(); go('home'); toast(QM() ? 'Tip: tap + to start your first quote' : 'Tip: tap + to add your first job'); }
+function suDone(){ S.setup.done = true; S.setup.demo = false; S.setup.at = today(); if(!S.mode) S.mode = URLMODE || 'full'; SU = null; preview = false; save(); draftClear(); go('home'); toast(QM() ? 'Tip: tap + to start your first quote' : 'Tip: tap + to add your first job'); }
 function redoSetup(){ SU = { i:0, said:[] }; preview = false; go('setup'); }
 
 /* ── the example business (for the tour and for playing) ── */
@@ -4178,7 +4187,7 @@ function makeDemoKE(){
 function keepDemo(){ S = makeDemo(); if(URLMODE) S.mode = URLMODE; preview = false; save(); go('home'); }
 function fresh(){
   if(S && S.setup.done && !S.setup.demo && !confirm('Start a new business from scratch? What’s on this phone now will be erased.')) return;
-  try{ localStorage.removeItem(KEY); }catch(e){} S = blank(); preview = false; SU = null; go('setup');
+  try{ localStorage.removeItem(KEY); }catch(e){} draftClear(); S = blank(); preview = false; SU = null; go('setup');
 }
 function tourShow(h){ if(!S || !S.setup.done){ S = makeDemo(); if(URLMODE) S.mode = URLMODE; preview = true; } closeSheet(); if(location.hash === '#' + h) render(); else location.hash = h; }
 
