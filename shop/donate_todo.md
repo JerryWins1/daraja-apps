@@ -3,14 +3,13 @@
 Written 12 Nov 2026. PHASE `'donate'` in `shop/apps_data.js` already changes: the store
 (`shop/index.html`), the video player's end screen (`shop/watch.html`), and One Thing's code gate.
 Everything below still speaks a price, a purchase or a membership, and would read wrong in donate
-mode. Each is owned by the chat named for it in `control/apps.json`; the house layer and the
+mode. The video lines that spoke a price were swapped and re-recorded on 12 Nov 2026 (branch `donate-videos`). The "every Daraja app helps a student in Kenya" lines in Every Day, Our Table and Who's Coming were left for Jerry to decide, as was the tester videos' Kenya line. Each is owned by the chat named for it in `control/apps.json`; the house layer and the
 group pages belong to the shared-layer chat.
 
 ## Before PHASE flips (must)
 
 | page | what it says now | what it needs |
 |---|---|---|
-| `shop/apps_data.js` video lines | prices spoken in 39 lines | swap per `shop/donate_lines.md`, then record each by name |
 | The More-from-Daraja sheet (house layer, the same code in ~35 pages, e.g. `shop/index.html` around line 1483) | "one price… Every purchase keeps a student in Kenya in school"; in live mode "Get it · $X" | read PHASE: in donate mode "Get it free" and drop the purchase sentence. One change in the house layer, copied out the usual way |
 | `home/index.html` (the door) | outside testing, each tile reads "try it · $X" | in donate mode, "free" |
 | `shop/next/index.html` (the new store) | its own copy of prices, Get buttons and PHASE checks | the same donate branch as `shop/index.html` |
