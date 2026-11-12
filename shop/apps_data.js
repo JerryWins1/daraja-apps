@@ -814,7 +814,7 @@ const APPS = {
    {"t": "Feeling poorly? Take a sick day, and your runs stay safe. You can do that once every seven days.", "point": "#viewIn [data-go=off]"},
    {"t": "Everything stays on this phone. There is no account, and nothing to sign up for.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
    "New in November: under the button that tells Susan you are OK there is a WhatsApp one, so you can say it in the chat you already use.",
-   {"t": "Every Day is free. Try it below: tap one card you have already done today, and see how it feels. And every app helps a student in Kenya stay in school.", "point": "#hand", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"}],
+   {"t": "Every Day is free. Try it below: tap one card you have already done today, and see how it feels. And any donation goes to Loving InDeed, which helps orphans and students in Kenya.", "point": "#hand", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"}],
   name:'Every Day', em:'🌱', sub:'six small habits, one tap each', fresh:true, cat:'later', price:'Free', testing:true,
   tag:'A walk, your pills, a call, some water: tap each one when it’s done and watch the streak grow. Change the six to suit you.',
   try:BASE+'everyday/', video:true
@@ -850,7 +850,7 @@ const APPS = {
     "Everything stays on this phone. There is no account and nothing to sign up for. Our Table is free.",
     {"t": "The question mark button in the corner has the tour and help, any time."},
    "New in November: the week of dinners and the shopping list can both go out on WhatsApp as well as by text. WhatsApp is the one that can reach a family group chat.",
-    "And every Daraja app helps a student in Kenya stay in school. Enjoy your dinners."]} },
+    "And any donation helps orphans and students in Kenya, through Loving InDeed. Enjoy your dinners."]} },
   train:[
    {"t": "Setting up Our Table takes about ten minutes, once. Here is how, screen by screen.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}');s.level=3;s.auto=false;s.nudge=false;s.intro=1;parent.tourSet&&parent.tourSet('dj_level_ourtable',JSON.stringify(s));}catch(e){}"},
    {"t": "Step one: on the Recipes tab, type the names of three dinners you really cook in the box called Put your own dinners in. Tap Add after each one.", "point": "#qaName", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet','djLevelSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{closeView();}catch(e){} try{closePick();}catch(e){} try{closeEdit();}catch(e){} try{go('recipes');window.scrollTo(0,0);}catch(e){}"},
@@ -874,7 +874,7 @@ const APPS = {
    {"t": "The Level line at the top keeps it simple to start. Level one is recipes and the week. Level two adds the shopping list. Level three adds sharing. Change it any time.", "point": "#djLevelPill", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet','djLevelSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{closeView();}catch(e){} try{closePick();}catch(e){} try{closeEdit();}catch(e){} try{go('recipes');window.scrollTo(0,0);}catch(e){}"},
    "There is no account and nothing to sign up for. Your recipes stay on your phone, so nobody can shut it down.",
    "New in November: next to Text it there is a WhatsApp button — for the week of dinners and for the shopping list. Pick the family chat and press send.",
-   "Our Table is free, and every Daraja app helps a student in Kenya stay in school. Try it below: put in three dinners your family really eats, and plan this week."],
+   "Our Table is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it below: put in three dinners your family really eats, and plan this week."],
   name:'Our Table', em:'🍽', sub:'dinner, decided', fresh:true, cat:'home', price:'Free', testing:true,
   tag:'Keep the recipes you actually cook, fill the week in one tap, and get one shopping list for all of it. Your recipes stay on your phone — nobody can shut it down.',
   try:BASE+'ourtable/', video:true
@@ -913,7 +913,7 @@ const APPS = {
     "And every send now offers a text message or WhatsApp. Pick whichever the people you are asking actually use.",
     "The question mark button in the corner has the tour and help, any time.",
    "Also new: Send the summary can hand you a link instead. Anyone who taps it sees the whole list — who is coming, who cannot, and what each one is bringing — with nothing to tap and nothing to join. It is a photograph of the answers, not a live window, and the page says so, so nobody is misled.",
-    "And every Daraja app helps a student in Kenya stay in school. Happy asking."]} },
+    "And any donation helps orphans and students in Kenya, through Loving InDeed. Happy asking."]} },
   train:[
    "Setting up Who's Coming takes about five minutes. Here is how.",
    {"t": "Step one: open the People tab. Under Me, type your name and your mobile number, and tap Save. Answers come back to that number.", "point": "#myName", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{toggleNew(false);}catch(e){} try{go('people');window.scrollTo(0,0);}catch(e){} try{document.getElementById('myName').scrollIntoView({block:'center'});}catch(e){}"},
