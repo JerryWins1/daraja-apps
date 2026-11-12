@@ -36,8 +36,32 @@
 
 /* ══ THE MASTER SWITCH ══ 'testing' = test-flight store (banner, TESTING badges, Get=Try free)
    'live'    = launched store (banner gone, badges gone, Get buttons use each app's buy link)
-   Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps). */
-const PHASE = 'testing';
+   Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps).
+   'donate'  = 12 Nov 2026, Jerry: a trial of a few months where every app is free to everyone,
+               with an optional suggested donation the size of the app's price. HELD until the
+               Loving InDeed board approves and the CPA answers — do not flip it before both.
+               In donate mode every card says Free, Get gives the app itself, nothing is locked
+               behind giving, and One Thing hands out a free copy that stays free for good, even
+               if the store later goes back to paid. What still needs doing is in
+               shop/donate_todo.md, and the spoken lines to swap are in shop/donate_lines.md. */
+const PHASE = 'donate';
+
+/* ══ DONATIONS ══ only read when PHASE is 'donate'. DONATE_LINK is the Stripe donation link
+   Jerry makes in Loving InDeed's own Stripe account — a public https://donate.stripe.com/… or
+   https://buy.stripe.com/… address and nothing else (no account numbers, no amounts received).
+   While it is empty the donate button does not show at all, anywhere, so there is never a
+   dead link. The suggested amount is the app's own price; Stripe should let the giver change it. */
+const DONATE_LINK = 'https://buy.stripe.com/9B68wOahQfth0NccmU04801';
+const DONATE_WHO = 'Donations go to Loving InDeed, Inc., a 501(c)(3) charity. Your card statement will read LOVING INDEED INC.';
+/* The suggested donation for one app: the first dollar figure in its membership or price
+   ('$149 first year · then $49 a year' suggests $149). An app that was already free, or has no
+   price yet, suggests nothing — it gets no donate button, because there is no "its price" to
+   suggest. Returns '' when there is nothing to suggest, or no link to give through. */
+function djSuggested(a){
+  if(typeof PHASE === 'undefined' || PHASE !== 'donate' || !DONATE_LINK || !/^https:\/\//.test(DONATE_LINK) || !a) return '';
+  var m = String(a.mem || a.price || '').match(/\$\s*([\d,]+(?:\.\d+)?)/);
+  return m ? '$' + m[1] : '';
+}
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
@@ -50,6 +74,14 @@ const STORE_V = 'v3.4 · 2026-11-06';
    in test flight. Launching for real is still the one word above.
    To put an app on sale it needs BOTH its id here AND a buy: link on its entry. */
 const LIVE = [];
+
+/* ══ ON THE STORE AT LAUNCH ══ 12 Nov 2026. Jerry: put on every app that has passed testing, then
+   push the testers to finish the rest. In PHASE 'donate' an app not named here shows "Coming soon".
+   Add an app's id here when it passes. (Taken from the Ready to Sell report of 12 Nov: every app
+   with at least one pass on its current version.) */
+const LAUNCH = ['home','academy','breakeven','churchgameday','churchkey','churchserve','compass','drumbeat','rafiki',
+  'advent','ahead','businessmanager','church','churchclubhouse','churchdrive','everyday','feedback','nextstep',
+  'nownext','npreceipts','ourtable','pitwall','porchlight','safety','storykeeper','thekey','whoscoming'];
 
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only

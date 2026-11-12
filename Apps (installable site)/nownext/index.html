@@ -5412,7 +5412,11 @@ body.river #djDays{ display:block; }
 'use strict';
 var KK='nn_code_v1';
 var CODES={ TESTING:{days:30,label:'tester'}, FRIEND:{days:90,label:'friend'},
-            THANKYOU:{days:0,label:'owner'}, LOOKAROUND:{days:7,label:'preview'}, GRANDFATHER:{days:0,label:'early user'} };
+            THANKYOU:{days:0,label:'owner'}, LOOKAROUND:{days:7,label:'preview'}, GRANDFATHER:{days:0,label:'early user'},
+            GIFT:{days:0,label:'free gift'} };
+/* 12 Nov 2026: GIFT is handed out, never typed, while the store's PHASE is 'donate' (every app free
+   to everyone — shop/apps_data.js). It never runs out, so a copy got free stays free even if the
+   store later goes back to paid. See storePhase() below. */
 /* 11 Oct (pass B): “Start fresh” erased the code too, and reloaded without ?code= — a tester landed on “type your code here”.
    The code is testing scaffolding, not the person's data: a copy lives under dj_nn_code_keep (never part of the erase) and comes back. */
 var KEEP='dj_nn_code_keep';
@@ -5461,7 +5465,7 @@ function hideGate(){ gate.classList.remove('show'); document.body.style.overflow
 window.DJKEY={
   enter:function(){
     var v=(document.getElementById('djCode').value||'').trim().toUpperCase().replace(/\s+/g,'');
-    if(CODES[v]&&v!=='GRANDFATHER'&&v!=='LOOKAROUND'){ sv({code:v, at:Date.now()}); hideGate(); paint();
+    if(CODES[v]&&v!=='GRANDFATHER'&&v!=='LOOKAROUND'&&v!=='GIFT'){ sv({code:v, at:Date.now()}); hideGate(); paint();
       try{ toast('Welcome in! '+(CODES[v].days?CODES[v].days+' days of One Thing — enjoy every one.':'It\'s yours. Welcome home.'),3600); }catch(e){}
       return; }
     var e=document.getElementById('djErr'); if(e) e.textContent='Hmm — that code isn\'t one of ours. Check the letters and try again.';
@@ -5476,6 +5480,22 @@ function paint(){ var s=st(); if(!s){ badge.style.display='none'; return; }
   else badge.textContent=(CODES[s.code]||{}).label+' · '+Math.max(0,d)+' day'+(d===1?'':'s')+' left';
 }
 
+/* 12 Nov 2026: in the store's donate phase One Thing must never lock. The app has no copy of the
+   store's switch, so it reads the one in shop/apps_data.js — the same file and hourly address the
+   More-from-Daraja sheet already loads. It runs in the background AFTER the normal gate, so while
+   PHASE is 'testing' or 'live' nothing a person sees changes; only when it reads 'donate' does it
+   hand out a GIFT code, take the gate down and turn any countdown into "yours". Offline, or if the
+   file cannot load, nothing happens and the app behaves exactly as before. */
+function storePhase(cb){
+  if(typeof PHASE!=='undefined'){ cb(PHASE); return; }
+  try{ var sc=document.createElement('script');
+    sc.src='https://jerrywins1.github.io/daraja-apps/shop/apps_data.js?h='+Math.floor(Date.now()/36e5);
+    sc.onload=function(){ cb(typeof PHASE!=='undefined' ? PHASE : ''); }; sc.onerror=function(){ cb(''); };
+    document.head.appendChild(sc); }catch(e){ cb(''); }
+}
+function giftIfDonate(){ storePhase(function(ph){ if(ph!=='donate') return;
+  sv({code:'GIFT', at:Date.now()}); hideGate(); paint(); }); }
+
 (function init(){
   if(framed) return;                        /* demo & store player: never gate */
   var s=st();
@@ -5483,6 +5503,12 @@ function paint(){ var s=st(); if(!s){ badge.style.display='none'; return; }
   if(!s && hasHistory()){ sv({code:'GRANDFATHER', at:Date.now()}); paint(); return; }
   /* 4 Oct: the store's Try it carries ?code=TESTING, so a stranger opens straight in (only TESTING; never resets a running clock) */
   if((!s || s.code==='LOOKAROUND') && /[?&]code=testing\b/i.test(location.search)){ sv({code:'TESTING', at:Date.now()}); s=st(); }
+  /* Ask the store only when it matters: always when the gate is about to show, and at most once a
+     day for a code that is counting down (the store file is large; a phone should not fetch it on
+     every open). A code that never runs out needs no gift. */
+  if(!s || daysLeft(s)<=0) giftIfDonate();
+  else if(daysLeft(s)<9999){ var PK='dj_nn_phase_at', last=0; try{ last=+localStorage.getItem(PK)||0; }catch(e){}
+    if(Date.now()-last>86400000){ try{ localStorage.setItem(PK, String(Date.now())); }catch(e){} giftIfDonate(); } }
   if(!s){ showGate(false); return; }
   if(daysLeft(s)<=0){ showGate(true); return; }
   paint();
