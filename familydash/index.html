@@ -2211,7 +2211,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Financial Dashboard v0.1 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Financial Dashboard v0.2 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2224,7 +2224,7 @@
 <input type="file" id="fileIn" accept=".csv,.ofx,.qfx,.qbo,.txt,text/csv" multiple style="display:none">
 
 <script>
-/* Family Financial Dashboard v0.1 · 13 Nov 2026
+/* Family Financial Dashboard v0.2 · 13 Nov 2026 (v0.2: the report is written by the app straight away; the AI is optional)
    A household's money in one place: budget against actual, net worth, and a monthly check-up written by
    the family's own AI through the house hand-off (djAI). No bank login: statements come in as the CSV,
    OFX or QFX files every bank already exports, or as a PDF the family's AI reads into rows.
@@ -2791,16 +2791,16 @@ function openCatTx(id){
 
 /* ── the monthly check-up, around the 5th ── */
 var CK = null;
-function checkupDue(){ var last = addMonths(thisMonth(), -1); if(new Date().getDate() < 3) return null; if(db.reports[last]) return null; if(db.made && db.made.slice(0,7) > last) return null; return last; }
+function checkupDue(){ var last = addMonths(thisMonth(), -1); if(new Date().getDate() < 3) return null; if((db.read||{})[last] || db.reports[last]) return null; if(db.made && db.made.slice(0,7) > last) return null; return last; }
 function openCheckup(m){
   CK = m; var stA = stmtAccts().filter(function(a){ return !a.notPersonal; }), haveTx = stA.filter(function(a){ return db.tx.some(function(t){ return t.a === a.id && t.d.slice(0,7) === m; }); }).length;
-  var s1 = stA.length && haveTx === stA.length, s2 = !uncatCount(), s3 = db.accts.filter(function(a){ return !a.closed; }).every(function(a){ return a.asOf && a.asOf >= addMonths(m,1) + '-01'; }), s4 = !!db.reports[m];
+  var s1 = stA.length && haveTx === stA.length, s2 = !uncatCount(), s3 = db.accts.filter(function(a){ return !a.closed; }).every(function(a){ return a.asOf && a.asOf >= addMonths(m,1) + '-01'; }), s4 = !!((db.read||{})[m] || db.reports[m]);
   function row(done, t, sub, go, btn){ return '<div class="chk' + (done ? ' done' : '') + '"><span class="tick">' + (done ? '✓' : '') + '</span><span class="tx">' + t + '<small>' + sub + '</small></span><button class="b small' + (done ? '' : ' primary') + '" onclick="' + go + '">' + btn + '</button></div>'; }
   openSheet('<h3>' + monthOnly(m) + '’s check-up</h3><p class="sub">Four short steps. Do them in order.</p>'
     + row(s1, '1. Bring in ' + monthOnly(m) + '’s statements', haveTx + ' of ' + stA.length + ' accounts so far', 'openImport()', s1 ? 'Add more' : 'Add')
     + row(s2, '2. Sort anything new', s2 ? 'all sorted' : uncatCount() + ' waiting', 'openSort()', 'Sort')
     + row(s3, '3. Update the balances', 'bank, cards, investments, home', 'openBalances()', 'Update')
-    + row(s4, '4. Read the report', 'your AI writes it from the numbers', 'view=\'' + m + '\';openReport(\'' + m + '\')', s4 ? 'Read' : 'Write it')
+    + row(s4, '4. Read the report', 'ready now, written from your numbers', 'view=\'' + m + '\';openReport(\'' + m + '\')', 'Read')
     + '<button class="b ghost" style="width:100%;margin-top:10px" onclick="CK=null;closeSheet()">Later</button>');
 }
 function reportData(m){
@@ -2820,26 +2820,58 @@ function reportData(m){
   L.push('', 'Net worth now: ' + money(nw.net,1) + ' (own ' + money(nw.own,1) + ', owe ' + money(nw.owe,1) + ')' + (nwChange(m) != null ? '. Change since ' + monthOnly(m) + ' began: ' + money(nwChange(m),1) : '') + '.');
   return L.join('\n');
 }
-function openReport(m){
-  m = m || (db.reports[addMonths(thisMonth(),-1)] || !months().length ? view : addMonths(thisMonth(), -1)); if(!db.budgetSet){ alert('Make the budget first — the report compares against it.'); return; }
-  var r = db.reports[m];
-  openSheet('<h3>' + monthName(m) + ' report</h3>'
-    + (r ? '<div class="note" id="repText">' + esc(r.text) + '</div><p class="sub" style="margin-top:6px">Written by your AI on ' + shortDate(r.d) + '. It only drafts — every decision is yours.</p>'
-         + '<div class="row"><button class="b" onclick="shareReport(\'' + m + '\')">Send to my spouse</button><button class="b" onclick="printReport(\'' + m + '\')">Print</button></div><button class="b full" onclick="writeReport(\'' + m + '\')">Write it again</button>'
-         : '<p class="sub">Your own AI reads this month’s numbers and writes a short report: what changed, where you went over, anything odd. Only the totals below are sent — no account numbers, no balances by account.</p><div class="note" style="max-height:30vh;overflow:auto;font-size:14px">' + esc(reportData(m)) + '</div><button class="b primary full" onclick="writeReport(\'' + m + '\')">✨ Write it with my AI</button>')
+/* v0.2 · the report is ready the moment it is opened: the app writes it from the numbers itself, in four short
+   parts. The family's own AI is now an optional second step ("say it in warmer words"), not the only way in —
+   Jerry, 13 Nov: the AI-first report was "a little clunky". */
+function reportParts(m){
+  var sp = spentBy(m), out = spendTotal(sp), bud = totalBudget(), inn = moneyIn(sp), P = [];
+  var earlier = months().filter(function(x){ return x < m; }).slice(-3), avg = {};
+  db.tx.forEach(function(t){ if(counts(acct(t.a)) && earlier.indexOf(t.d.slice(0,7)) >= 0) avg[t.cat] = (avg[t.cat]||0) + t.amt; });
+  var top = [(inn ? money(inn,1) + ' came in. ' : '') + money(out,1) + ' went out' + (bud ? ', against a budget of ' + money(bud,1) + ' — ' + (out <= bud ? money(bud-out,1) + ' to spare.' : money(out-bud,1) + ' over.') : '.')];
+  if(db.rule && db.guaranteed > 0) top.push(bud <= db.guaranteed ? 'The budget stays under your guaranteed income of ' + money(db.guaranteed,1) + ', as your rule asks.' : 'The budget is ' + money(bud - db.guaranteed,1) + ' above your guaranteed income. Your rule says it should stay under.');
+  P.push({ h:'The month in one line', em:'🧾', L:top });
+  if(earlier.length){
+    var ch = db.cats.map(function(c){ var s = sp[c.id]||0, a = (avg[c.id]||0)/earlier.length; return { c:c, s:s, d:r2(s - a) }; })
+      .filter(function(x){ return Math.abs(x.d) >= 25 && Math.abs(x.d) >= Math.max(x.s, Math.abs(x.s - x.d)) * .15; })
+      .sort(function(a,b){ return Math.abs(b.d) - Math.abs(a.d); }).slice(0,4);
+    P.push({ h:'What changed from a usual month', em:'📈', L: ch.length ? ch.map(function(x){ var why = x.d > 0 ? txIn(m).filter(function(t){ return t.cat === x.c.id; }).sort(function(a,b){ return b.amt - a.amt; })[0] : null;
+      return catLabel(x.c) + ': ' + money(x.s,1) + ', usually about ' + money(x.s - x.d,1) + (why && why.amt >= x.d * .5 ? ' — mostly ' + why.desc : '') + '.'; }) : ['Nothing big. It looked like a usual month.'] });
+  }
+  var over = db.cats.filter(function(c){ return c.budget > 0 && (sp[c.id]||0) > c.budget + .5; }).sort(function(a,b){ return ((sp[b.id]||0) - b.budget) - ((sp[a.id]||0) - a.budget); });
+  P.push({ h:'Where you went over', em:'🔴', L: over.length ? over.map(function(c){ return catLabel(c) + ': ' + money(sp[c.id],1) + ' of ' + money(c.budget,1) + ', ' + money(sp[c.id]-c.budget,1) + ' over.'; }) : ['Nowhere. Every category stayed inside its budget.'] });
+  var odd = notices(m).filter(function(n){ return /^(fee|dup|new|uncat):/.test(n.k); }).map(function(n){ return plain(n.t); });
+  P.push({ h:'Worth checking', em:'👀', L: odd.length ? odd : ['Nothing odd: no fees, no double charges, no new subscriptions.'] });
+  var nw = netWorth(), c2 = nwChange(addMonths(m,1));
+  P.push({ h:'What you own and owe', em:'📊', L:['Net worth ' + money(nw.net,1) + ' today' + (c2 != null ? ', ' + (c2 >= 0 ? 'up ' : 'down ') + money(Math.abs(c2),1) + ' since ' + monthOnly(m) + ' ended.' : '.')] });
+  return P;
+}
+function plain(t){ return String(t).replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'"); }
+function reportMonth(){ var last = addMonths(thisMonth(),-1); return months().indexOf(last) >= 0 && view >= last ? last : view; }
+function openReport(m, mine){
+  if(!db.budgetSet){ alert('Make the budget first — the report compares against it.'); return; }
+  m = m || reportMonth(); db.read = db.read || {}; if(!db.read[m]){ db.read[m] = 1; save(); render(); }
+  var r = db.reports[m], showAI = r && !mine;
+  var body = showAI ? '<div class="note" id="repText">' + esc(r.text) + '</div><p class="sub" style="margin-top:6px">In your AI’s words, ' + shortDate(r.d) + '. <a href="#" onclick="openReport(\'' + m + '\',1);return false" style="color:var(--brand);font-weight:800">Show the app’s version</a></p>'
+    : '<div id="repText">' + reportParts(m).map(function(p){ return '<div class="card" style="margin-bottom:10px;padding:12px 14px"><h2 style="font-size:16.5px;margin:0 0 4px">' + p.em + ' ' + esc(p.h) + '</h2>' + p.L.map(function(x){ return '<p style="margin:4px 0;font-size:15.5px">' + esc(x) + '</p>'; }).join('') + '</div>'; }).join('') + '</div>'
+      + (r ? '<p class="sub"><a href="#" onclick="openReport(\'' + m + '\');return false" style="color:var(--brand);font-weight:800">Show your AI’s version</a></p>' : '');
+  openSheet('<h3>' + monthName(m) + '</h3>' + body
+    + '<div class="row" style="margin-top:8px"><button class="b" onclick="shareReport(\'' + m + '\',' + (showAI?0:1) + ')">📤 Send to my spouse</button><button class="b" onclick="printReport(\'' + m + '\',' + (showAI?0:1) + ')">🖨️ Print</button></div>'
+    + '<button class="b full" onclick="writeReport(\'' + m + '\')">✨ ' + (r ? 'Ask my AI again' : 'Have my AI say it in warmer words') + '</button>'
     + '<button class="b ghost" style="width:100%" onclick="' + (CK ? 'openCheckup(CK)' : 'closeSheet()') + '">' + (CK ? 'Back to the check-up' : 'Close') + '</button>');
 }
 function writeReport(m){
   ask({ title:'Write our monthly report', want:'text', circle:false,
-    prompt:'You are helping a household with its monthly money check-up. Here are this month’s numbers from our budget app.\n\n' + reportData(m) + '\n\nWrite a short monthly report for us in plain, warm words, under 220 words, with three short parts: 1) What changed this month. 2) Where we went over, and by how much. 3) Anything odd worth checking (fees, interest, new subscriptions, possible double charges). End with at most two gentle suggestions. Suggestions only — we decide everything, and nothing should be moved or paid automatically. Do not invent numbers that are not here.',
-    onResult:function(v, raw){ db.reports[m] = { d:today(), text:String(raw||'').trim() }; save(); render(); openReport(m); toast('Report saved.'); } });
+    prompt:'You are helping a household with its monthly money check-up. Here are this month’s numbers from our budget app.\n\n' + reportData(m) + '\n\nWrite a short monthly report for us in plain, warm words, under 200 words, with three short parts: 1) What changed this month. 2) Where we went over, and by how much. 3) Anything odd worth checking (fees, interest, new subscriptions, possible double charges). End with at most two gentle suggestions. Suggestions only — we decide everything, and nothing should be moved or paid automatically. Do not invent numbers that are not here.',
+    onResult:function(v, raw){ db.reports[m] = { d:today(), text:String(raw||'').trim() }; save(); render(); openReport(m); toast('Saved with the month.'); } });
 }
-function reportPlain(m){ var r = db.reports[m]; return (db.name ? db.name + ' — ' : '') + monthName(m) + ' report\n\n' + (r ? r.text : reportData(m)); }
-function shareReport(m){ var t = reportPlain(m); if(navigator.share){ navigator.share({ title:monthName(m) + ' report', text:t }).catch(function(){}); return; }
+function reportPlain(m, mine){ var r = db.reports[m], head = (db.name ? db.name + ' — ' : '') + monthName(m);
+  if(r && !mine) return head + '\n\n' + r.text;
+  return head + '\n\n' + reportParts(m).map(function(p){ return p.h + '\n' + p.L.map(function(x){ return '• ' + x; }).join('\n'); }).join('\n\n'); }
+function shareReport(m, mine){ var t = reportPlain(m, mine); if(navigator.share){ navigator.share({ title:monthName(m), text:t }).catch(function(){}); return; }
   try{ navigator.clipboard.writeText(t).then(function(){ toast('Copied. Paste it into a text or an email.'); }, function(){ toast('Could not copy on this phone.'); }); }catch(e){} }
-function printReport(m){ var sp = spentBy(m);
-  document.getElementById('printable').innerHTML = '<h2>' + esc(reportPlain(m).split('\n')[0]) + '</h2><p style="white-space:pre-wrap">' + esc((db.reports[m]||{}).text||'') + '</p><table><tr><th>Category</th><th class="n">Spent</th><th class="n">Budget</th></tr>'
-    + db.cats.filter(function(c){ return (sp[c.id]||0) || c.budget; }).map(function(c){ return '<tr><td>' + esc(c.name) + '</td><td class="n">' + money(sp[c.id]||0,1) + '</td><td class="n">' + money(c.budget||0,1) + '</td></tr>'; }).join('') + '</table><p>Net worth: ' + money(netWorth().net,1) + '</p>';
+function printReport(m, mine){ var sp = spentBy(m), t = reportPlain(m, mine), k = t.indexOf('\n\n');
+  document.getElementById('printable').innerHTML = '<h2>' + esc(t.slice(0,k)) + '</h2><p style="white-space:pre-wrap">' + esc(t.slice(k+2)) + '</p><table><tr><th>Category</th><th class="n">Spent</th><th class="n">Budget</th></tr>'
+    + db.cats.filter(function(c){ return (sp[c.id]||0) || c.budget; }).map(function(c){ return '<tr><td>' + esc(catLabel(c)) + '</td><td class="n">' + money(sp[c.id]||0,1) + '</td><td class="n">' + money(c.budget||0,1) + '</td></tr>'; }).join('') + '</table>';
   window.print(); }
 
 /* ── a reminder the phone itself keeps: a monthly calendar entry on the 5th ── */
