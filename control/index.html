@@ -2345,6 +2345,11 @@
   .foot{ text-align:center; color:var(--soft); font-size:13px; margin-top:24px; }
   details summary{ cursor:pointer; font-weight:800; min-height:36px; }
   .tsGrid{ display:grid; gap:2px; align-items:center; margin-top:8px; font-size:11px; } .tsGrid i{ display:block; height:16px; border-radius:3px; } .tsGrid .h{ text-align:center; color:var(--soft); font-weight:800; } .tsGrid .nm{ font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:4px; }
+  .sbar{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 10px; align-items:center; padding:7px 0; border-top:1px solid var(--line); } .sbar:first-child{ border-top:0; padding-top:0; }
+  .sbar .nm{ font-weight:800; font-size:15.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .sbar .num{ font-weight:900; font-size:15.5px; font-variant-numeric:tabular-nums; }
+  .sbar .track{ grid-column:1 / -1; height:12px; border-radius:6px; background:var(--bg); overflow:hidden; } .sbar .fill{ height:100%; border-radius:6px; background:var(--brand); min-width:4px; }
+  .sbar.gift .fill{ background:var(--gold); }
+  .sempty{ margin:0; color:var(--soft); font-size:15.5px; }
 </style>
 </head>
 <body>
@@ -2391,6 +2396,7 @@
       <button data-t="scripts">🧪 Test scripts<span class="n" id="nTs" hidden></span></button>
       <button data-t="videos">🎬 Videos</button>
       <button data-t="makevid">🎥 Make a video</button>
+      <button data-t="sales">💰 Sales</button>
       <button data-t="business">Business</button>
       <button data-t="personal">Personal</button>
       <button data-t="people">People</button>
@@ -2428,6 +2434,8 @@
       <div id="digest"></div>
       <!-- v1.18 (6 Oct): Jerry: "I wish we only had one thing." The to-do list lives in Jerry's List only; HQ is people & messages. -->
       <a class="card" href="#list" onclick="show('list');return false" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border:2px solid var(--accent,#23504F)"><span style="font-size:30px">📋</span><span style="flex:1"><b style="font-size:18px">Jerry's List</b><br><span class="muted">Your one list: 🏢 Business and 🏠 Personal, one next step at a time.</span></span><span style="font-size:22px">›</span></a>
+      <!-- v1.58 (13 Nov): the 💰 Sales screen — gifts, opens, sign-ups. It lives under 🗂 More; this is the way in from Today. -->
+      <a class="card" href="#sales" onclick="show('sales');return false" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit"><span style="font-size:30px">💰</span><span style="flex:1"><b style="font-size:18px">Sales</b><br><span class="muted">Gifts to Loving InDeed, which apps get used, and who asked for news.</span></span><span style="font-size:22px">›</span></a>
       <!-- v1.21 (7 Oct): Jerry: "a little dashboard of everything that needs to be done, and a section for Zuri testers and a section for Daraja testers rather than a button." -->
       <!-- v1.25 (8 Oct): Jerry: "the panel only had things that I need to do right now, but keep a history of what's happened." -->
       <h2>✅ Needs you now <small id="nowCount"></small></h2>
@@ -2577,6 +2585,13 @@
     </section>
 
     <!-- STACK -->
+    <!-- 💰 SALES (v1.58, 13 Nov 2026): the store is free and asks for gifts to Loving InDeed. One screen for what that brings in,
+         which apps people really use, and who asked to hear more — so Jerry can choose what to build next.
+         Reads control/sales.json, written by tools/morning-report/make_sales.py. -->
+    <section class="tab" id="t-sales">
+      <div id="salesFull"><p class="muted">Loading…</p></div>
+    </section>
+
     <section class="tab" id="t-stack">
       <div class="card">
         <b>Every change and question, in three steps: 📥 New → 🔧 Being fixed → ✅ Fixed.</b>
@@ -2587,7 +2602,7 @@
       <div id="stackList"></div>
     </section>
   </div>
-  <p class="foot" id="foot">Daraja HQ v1.57 · 2026-11-12 · four main buttons, each with its own row underneath · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
+  <p class="foot" id="foot">Daraja HQ v1.58 · 2026-11-13 · 💰 Sales under 🗂 More: gifts, app opens, sign-ups · four main buttons, each with its own row underneath · 📋 Jerry's List: tap a line for its steps, links and the words to send · 🎤 Talk tab: tap, speak, it goes to Claude · 📎 screenshots in ✉️ Send to Claude · Return sends · nothing here sends anything until you tap Send</p>
 </div>
 
 <div id="sheet" role="dialog" aria-modal="true"><div class="panel" id="sheetBody"></div></div>
@@ -3186,6 +3201,40 @@ function renderJot(){
   box.innerHTML=out;
 }
 
+/* ── 💰 Sales (v1.58, 13 Nov 2026) ── reads control/sales.json, which tools/morning-report/make_sales.py writes from
+   the morning report's counts and, once it is connected, a Stripe export. The page only reads. ── */
+let SALES=null;
+const salesMoney=n=>'$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:(Number(n)%1?2:0),maximumFractionDigits:2});
+function salesBars(rows,val,label,cls){
+  const max=Math.max(1,...rows.map(val));
+  return rows.map(r=>`<div class="sbar ${cls||''}"><span class="nm">${esc(r.name||r.app||r.shelf||'')}</span><span class="num">${label(r)}</span><div class="track"><div class="fill" style="width:${Math.round(100*val(r)/max)}%"></div></div></div>`).join('');
+}
+async function renderSales(force){
+  const el=$('salesFull'); if(!el) return;
+  if(!SALES||force){ try{ SALES=await (await fetch('sales.json?cb='+Date.now())).json(); }catch(e){ el.innerHTML='<p class="muted">Couldn’t load the sales numbers just now.</p>'; return; } }
+  const S=SALES, D0=S.donations||{}, O=S.opens||{}, U=S.signups||{}, W=S.weekly_note||{};
+  const shelfName=k=>k==='all'?'Every shelf':((typeof DOOR_SHELF==='object'&&DOOR_SHELF[k])||k);
+  const appName=k=>(typeof APPS==='object'&&APPS[k]&&(APPS[k].showName||APPS[k].name))||k;
+  const tile=(k,v,sub)=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+  const gifts=(D0.by_app||[]).filter(r=>r.count||r.amount), used=(O.by_app||[]).filter(r=>r.opens_7d).sort((a,b)=>b.opens_7d-a.opens_7d), shelves=(U.by_shelf||[]).filter(r=>r.count).sort((a,b)=>b.count-a.count);
+  const src=D0.source&&D0.source!=='not connected yet'?'Gifts come from '+esc(D0.source)+'.':'Stripe is not connected yet, so gifts are not counted here yet.';
+  const weeks=(S.weeks||[]).slice(-8).reverse();
+  let h=`<div class="card"><b style="font-size:18px">💰 Sales</b><br><span class="muted">Every app is free. People who are helped can give to Loving InDeed, for orphans and students in Kenya. This is what that brings in, and which apps people use.</span></div>`;
+  h+=`<div class="tiles">`
+    + tile('Gifts this month', salesMoney(D0.amount_30d), (D0.count_30d||0)+' gift'+(D0.count_30d===1?'':'s'))
+    + tile('Gifts all time', salesMoney(D0.amount_all), (D0.count_all||0)+' gift'+(D0.count_all===1?'':'s'))
+    + tile('Sign-ups', U.total||0, (U.kenya_news_yes||0)+' also want Kenya news')
+    + tile('App opens', O.total_7d||0, 'in the last 7 days')
+    + `</div>`;
+  h+=`<h2>Which app raised the most</h2><div class="card">${gifts.length?salesBars(gifts,r=>r.amount||0,r=>salesMoney(r.amount)+' <span class="muted">· '+r.count+'</span>','gift'):'<p class="sempty">No gifts yet — the first one will show here, with the app it came from.</p>'}</div>`;
+  h+=`<h2>Most used apps <small>last 7 days</small></h2><div class="card">${used.length?salesBars(used.slice(0,15),r=>r.opens_7d,r=>r.opens_7d):'<p class="sempty">No app opens counted yet — they start showing the morning after people use the apps.</p>'}${used.length>15?`<p class="muted" style="margin:8px 0 0">… and ${used.length-15} more apps.</p>`:''}</div>`;
+  h+=`<h2>Sign-ups by shelf</h2><div class="card">${shelves.length?salesBars(shelves.map(r=>({name:shelfName(r.shelf),count:r.count})),r=>r.count,r=>r.count):'<p class="sempty">No sign-ups yet — when someone taps “Keep me posted”, their shelf shows here.</p>'}</div>`;
+  h+=`<h2>This week’s note</h2><div class="card">${W.id?`<b style="font-size:16.5px">${esc(appName(W.app))}</b><br><span class="muted">${esc(W.id)} · ${esc(W.from)} to ${esc(W.to)}</span>`:'<p class="sempty">No note this week — the next one will show here.</p>'}</div>`;
+  h+=`<h2>Week by week</h2><div class="card">${weeks.length?`<table><tr><th>Week</th><th>Opens</th><th>Sign-ups</th><th>Gifts</th></tr>${weeks.map(w=>`<tr><td>${esc(w.week)}</td><td>${w.opens_7d||0}</td><td>${w.signups||0}</td><td>${salesMoney(w.amount_7d)}${w.donations_7d?' · '+w.donations_7d:''}</td></tr>`).join('')}</table>`:'<p class="sempty">The first week’s numbers land here after the morning count runs.</p>'}</div>`;
+  h+=`<p class="muted" style="text-align:center;margin-top:14px">Updated ${esc(S.updated||'')} · ${src}${(S.notes||[]).length?'<br>'+S.notes.map(esc).join(' · '):''}</p>`;
+  el.innerHTML=h;
+}
+
 /* ---------- tabs ---------- */
 function wireTabs(){
   $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-t]'); if(b) show(b.dataset.t); });
@@ -3194,7 +3243,7 @@ function wireTabs(){
 }
 function show(t){
   if(!$('t-'+t)) t='today';
-  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='apps') renderApps(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest(); if(t==='videos') renderVideos(); if(t==='makevid') renderMakeVid(); if(t==='jot') renderJot();
+  if(t==='list') renderList(); if(t==='where') renderWhere(); if(t==='apps') renderApps(); if(t==='talk') renderTalk(); if(t==='business'||t==='personal') renderInvest(); if(t==='videos') renderVideos(); if(t==='makevid') renderMakeVid(); if(t==='jot') renderJot(); if(t==='sales') renderSales();
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   const g=groupOf(t);
@@ -3205,7 +3254,7 @@ function show(t){
   try{ $('tabs').scrollLeft=0; }catch(e){}
   store('jhq_tab',t); history.replaceState(null,'','#'+t);
 }
-const NAV_GROUPS={ today:['today','list','jot','talk'], chats:['chats','apps','where','scripts'], videos:['videos','makevid'], more:['business','personal','people','stack','history'] };
+const NAV_GROUPS={ today:['today','list','jot','talk'], chats:['chats','apps','where','scripts'], videos:['videos','makevid'], more:['sales','business','personal','people','stack','history'] };
 function groupOf(t){ for(const g in NAV_GROUPS) if(NAV_GROUPS[g].indexOf(t)>=0) return g; return 'today'; }
 
 /* ---------- helpers on the data ---------- */
