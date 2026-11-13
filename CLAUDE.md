@@ -24,6 +24,16 @@ Seven hard rules. Check the reply against them before sending it.
    keyboard. If a reply needs anything back from him, it ends in a prompt, not in
    instructions about what to type. See rule 6, where this used to be written the
    other way round and cost him an evening of typing the word *Done*.
+
+   **The box holds the question and nothing else.** Anything he should know — an
+   answer, an explanation, what a page was for — goes in the message text above the
+   box, not inside it. The box itself is one short question about one thing, and if
+   doing that thing needs a link, the full link is in the question. Its options
+   answer that question and only that question: never an option about something
+   else, like "delete the old pages" under a question about a Stripe key. On
+   13 November three things were packed into one box — an answer, a step, and
+   options for both — and he said: *"They're all in one box. And then you give me
+   options. I don't know what you're doing."*
 4. **Say what was done, not how it was done.** The reasoning belongs in the commit
    message and the pull request, where he can go and read it if he wants it. A reply
    is for what changed and what he has to decide.
