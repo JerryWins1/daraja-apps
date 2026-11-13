@@ -53,3 +53,23 @@ https://claude.ai/code/session_01SneDTZZK3LM6dXHfqB8Jeg. **That job's own prompt
 where its steps live** — what to publish, what to commit, what to open a pull request
 for, and what to tell Jerry. This file does not duplicate them, and if it ever appears
 to, the job's prompt wins and the duplicate here should be deleted rather than updated.
+
+## control/weekly.json — "This week from Daraja"
+
+One small note a week from HQ, shown inside every Daraja app by the shared house layer
+(section 15b). The Store Manager chat writes this file each Monday from the marketing
+plan, after Jerry has OK'd the words.
+
+| field | what it does |
+| --- | --- |
+| `id` | the note's name, e.g. `2026-W47`. A phone shows each id once; a new id shows again |
+| `from`, `to` | first and last day it can show, `YYYY-MM-DD`, read as the phone's local date |
+| `title` | the one bold line |
+| `text` | one or two short sentences under it |
+| `app` | the store key in `shop/apps_data.js` of the app the button opens (its `try` link). It must be on the store (in `LAUNCH` while `PHASE` is `'donate'`). The note never shows inside that app itself |
+| `button` | the button's words, e.g. "Open Shoebox Counter" |
+
+All seven fields are required. If the file is missing, out of date, or any field is
+missing or malformed, apps show nothing. The note never shows on children's pages, in My
+Safety Plan, on the store, door, control, test, help or tester pages, or inside a frame,
+and it waits until the daily hello has faded. Apps fetch it with an hourly cache key, so a change reaches phones within the hour.
