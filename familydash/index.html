@@ -2211,7 +2211,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Financial Dashboard v0.3 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Financial Dashboard v0.4 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2427,6 +2427,10 @@ function render(){
   h += '<div class="card" id="nwCard" onclick="openNetWorth()" style="cursor:pointer"><h2>📊 Net worth<small>today</small></h2><div class="nw">' + money(nw.net,1) + '</div>'
     + (ch != null ? '<div style="font-weight:800;color:' + (ch >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (ch >= 0 ? '▲ ' : '▼ ') + money(Math.abs(ch),1) + ' since ' + monthOnly(addMonths(thisMonth(),-1)) + '</div>' : '')
     + '<div class="nwrow"><div><b>' + money(nw.own,1) + '</b><span>what we own</span></div><div><b>' + money(nw.owe,1) + '</b><span>what we owe</span></div></div></div>';
+  var IA = invAccts(); if(IA.length){ var iv = invTotal(), im = invChange(thisMonth() + '-01');
+    h += '<div class="card" id="invCard" onclick="openInvest()" style="cursor:pointer"><h2>📈 Investments<small>' + IA.length + ' account' + (IA.length===1?'':'s') + '</small></h2><div class="nw" style="font-size:28px">' + money(iv,1) + '</div>'
+      + (im != null ? '<div style="font-weight:800;color:' + (im >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (im >= 0 ? '▲ ' : '▼ ') + money(Math.abs(im),1) + ' this month</div>' : '')
+      + (WX && WX.name ? '<div class="line warn" style="margin-top:10px">🌤️ Market weather: <b>' + esc(WX.name) + '</b></div>' : '') + '</div>'; }
   h += '<div class="tools">'
     + '<button class="tool" onclick="openBalances()">🧮 Update balances<small>bank, cards, home, car</small></button>'
     + '<button class="tool" onclick="openSort()">❓ Sort spending<small>' + (uncatCount() ? uncatCount() + ' waiting' : 'all sorted') + '</small></button>'
@@ -2566,6 +2570,66 @@ function openNetWorth(){
     + (other.length ? '<h4>Kept out (not personal)</h4><ul class="list">' + other.map(function(a){ return '<li><span>' + TYPES[a.type].em + '</span><span class="ds">' + esc(a.name) + '</span><span class="amt">' + money(a.bal||0,1) + '</span></li>'; }).join('') + '</ul>' : '')
     + '<button class="b primary full" onclick="openBalances()">Update balances</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
 }
+
+/* ── investments (v0.4) · Jerry, 13 Nov: bring in what his own Steward screen shows. Each family's own investment,
+   retirement, college and cash-value accounts: value over time, change this month and this year, and their mix.
+   Plus "market weather": the regime and dials from Daraja's daily feed (control/invest.json), the same reading Jerry's
+   Steward screen uses — never his paper account, never a pick. Educational, not advice. ── */
+var INV_TYPES = { invest:1, retire:1, college:1, cashval:1 };
+function invAccts(){ return db.accts.filter(function(a){ return INV_TYPES[a.type] && counts(a); }); }
+function invTotal(){ return r2(invAccts().reduce(function(s,a){ return s + (a.bal||0); },0)); }
+function balAt(a, d){ var h = (a.hist||[]).filter(function(x){ return x.d <= d; }).sort(function(x,y){ return x.d < y.d ? -1 : 1; }); return h.length ? h[h.length-1].bal : null; }
+function invChange(since){ var ch = 0, any = false; invAccts().forEach(function(a){ var b = balAt(a, ymd(new Date(Date.parse(since) - 864e5))); if(b == null) return; any = true; ch += (a.bal||0) - b; }); return any ? r2(ch) : null; }
+function invSeries(){ var P = [], n = new Date();
+  for(var i=12;i>=1;i--){ var end = ymd(new Date(n.getFullYear(), n.getMonth()-i+1, 0)), t = 0, any = false; invAccts().forEach(function(a){ var b = balAt(a, end); if(b != null){ t += b; any = true; } }); if(any) P.push({ d:end, v:r2(t) }); }
+  P.push({ d:today(), v:invTotal() }); return P; }
+function invChart(P){
+  if(P.length < 2) return '<p class="sub">The chart fills in as you update balances each month.</p>';
+  var W = 600, H = 190, pl = 8, pr = 8, pt = 14, pb = 26, lo = Math.min.apply(null, P.map(function(p){ return p.v; })), hi = Math.max.apply(null, P.map(function(p){ return p.v; }));
+  if(hi === lo){ hi += 1; lo -= 1; } var pad = (hi - lo) * .12; lo -= pad; hi += pad;
+  function x(i){ return pl + i * (W - pl - pr) / (P.length - 1); } function y(v){ return pt + (hi - v) * (H - pt - pb) / (hi - lo); }
+  var pts = P.map(function(p, i){ return x(i).toFixed(1) + ',' + y(p.v).toFixed(1); }).join(' '), up = P[P.length-1].v >= P[0].v, col = up ? '#2F6E52' : '#B23B2B';
+  var lab = P.map(function(p, i){ if(i !== 0 && i !== P.length-1 && i % 3) return ''; var mo = i === P.length-1 ? 'now' : new Date(Date.parse(p.d)).toLocaleDateString('en-US',{ month:'short' }); return '<text x="' + x(i).toFixed(1) + '" y="' + (H-6) + '" font-size="12" fill="#56606B" text-anchor="' + (i===0?'start':i===P.length-1?'end':'middle') + '">' + mo + '</text>'; }).join('');
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Investments over the last year"><polyline points="' + pl + ',' + (H-pb) + ' ' + pts + ' ' + (W-pr) + ',' + (H-pb) + '" fill="' + col + '" fill-opacity=".10" stroke="none"/><polyline points="' + pts + '" fill="none" stroke="' + col + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'
+    + '<circle cx="' + x(P.length-1).toFixed(1) + '" cy="' + y(P[P.length-1].v).toFixed(1) + '" r="5" fill="' + col + '"/>' + lab + '</svg>'
+    + '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--soft);font-weight:700"><span>low ' + money(Math.min.apply(null, P.map(function(p){ return p.v; })),1) + '</span><span>high ' + money(Math.max.apply(null, P.map(function(p){ return p.v; })),1) + '</span></div>';
+}
+var MIXC = { s:['Stocks','#1E4A6B'], b:['Bonds','#D9A93F'], c:['Cash','#9DB4C8'] };
+function mixBar(m){ if(!m) return ''; var t = (m.s||0) + (m.b||0) + (m.c||0); if(!t) return '';
+  return '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin-top:6px">' + ['s','b','c'].map(function(k){ return m[k] ? '<i style="width:' + (m[k]/t*100) + '%;background:' + MIXC[k][1] + '"></i>' : ''; }).join('') + '</div>'
+    + '<div style="display:flex;gap:12px;font-size:12.5px;color:var(--soft);font-weight:700;margin-top:4px">' + ['s','b','c'].filter(function(k){ return m[k]; }).map(function(k){ return '<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:' + MIXC[k][1] + ';margin-right:4px"></i>' + MIXC[k][0] + ' ' + Math.round(m[k]/t*100) + '%</span>'; }).join('') + '</div>'; }
+function totalMix(){ var o = { s:0, b:0, c:0 }, any = false; invAccts().forEach(function(a){ var m = a.mix, t = m ? (m.s||0)+(m.b||0)+(m.c||0) : 0; if(!t) return; any = true; ['s','b','c'].forEach(function(k){ o[k] += (a.bal||0) * (m[k]||0) / t; }); }); return any ? o : null; }
+/* market weather: the public daily feed, cached on the phone so it shows offline */
+var WX = (function(){ try{ return JSON.parse(localStorage.getItem('dj_familydash_wx') || 'null'); }catch(e){ return null; } })();
+function loadWX(cb){
+  var u = (location.protocol === 'https:' ? '../control/invest.json' : 'https://jerrywins1.github.io/daraja-apps/control/invest.json') + '?cb=' + Math.floor(Date.now()/3600000);
+  fetch(u).then(function(r){ return r.json(); }).then(function(j){ var g = j && j.regime; if(!g || !g.name) return;
+    WX = { name:g.name, why:(g.reasons||[]).slice(0,4), asof:g.asof || j.updated || '', dials:(j.dials||[]).filter(function(x){ return x && x.label && !/pick|buy|sell/i.test(x.label); }).slice(0,8) };
+    try{ localStorage.setItem('dj_familydash_wx', JSON.stringify(WX)); }catch(e){} if(cb) cb(); }).catch(function(){}); }
+function wxHTML(){
+  if(!WX) return '<div class="card"><h2>🌤️ Market weather</h2><p class="sub" style="margin:0">Not loaded yet — it needs the internet once.</p></div>';
+  return '<div class="card" id="wxCard"><h2>🌤️ Market weather<small>' + (WX.asof ? shortDate(WX.asof) : '') + '</small></h2><div style="font-size:21px;font-weight:900">' + esc(WX.name) + '</div>'
+    + (WX.why.length ? '<ul style="margin:6px 0 0;padding-left:20px;font-size:15px">' + WX.why.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '')
+    + (WX.dials.length ? '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px">' + WX.dials.map(function(d){ return '<div style="background:var(--paper);border-radius:12px;padding:8px 10px"><div style="font-size:12.5px;color:var(--soft);font-weight:700">' + esc(d.label) + '</div><div style="font-weight:900;font-variant-numeric:tabular-nums">' + esc(d.value) + '</div></div>'; }).join('') + '</div>' : '')
+    + '<p class="sub" style="margin:10px 0 0">A daily reading of the economy from public numbers, for learning. It is not advice about what to buy or sell — talk big decisions over with someone you trust.</p></div>';
+}
+function openInvest(){
+  var A = invAccts(), tot = invTotal(), mo = invChange(thisMonth() + '-01'), yr = invChange(new Date().getFullYear() + '-01-01'), tm = totalMix();
+  openSheet('<h3>📈 Investments: ' + money(tot,1) + '</h3><p class="sub">Investment, retirement, college and cash-value accounts. Update the balances once a month and the picture grows.</p>'
+    + '<div class="sum" style="margin-bottom:12px"><div><b style="color:' + (mo == null ? 'inherit' : mo >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (mo == null ? '—' : (mo >= 0 ? '+' : '−') + money(Math.abs(mo),1)) + '</b><span>this month</span></div><div><b style="color:' + (yr == null ? 'inherit' : yr >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (yr == null ? '—' : (yr >= 0 ? '+' : '−') + money(Math.abs(yr),1)) + '</b><span>this year</span></div><div><b>' + A.length + '</b><span>accounts</span></div></div>'
+    + '<div class="card">' + invChart(invSeries()) + '</div>'
+    + (tm ? '<div class="card"><h2>🥧 Our mix</h2>' + mixBar(tm) + '</div>' : '')
+    + '<h4>Account by account</h4><ul class="list">' + A.map(function(a){ var y = (function(){ var b = balAt(a, (new Date().getFullYear()-1) + '-12-31'); return b == null ? null : r2((a.bal||0) - b); })();
+        return '<li style="display:block"><div style="display:flex;gap:10px;align-items:center"><span style="font-size:20px">' + TYPES[a.type].em + '</span><span class="ds" style="flex:1">' + esc(a.name) + '<small>' + TYPES[a.type].t + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + (y != null ? ' · ' + (y >= 0 ? '+' : '−') + money(Math.abs(y),1) + ' this year' : '') + '</small></span><span class="amt">' + money(a.bal||0,1) + '</span><button class="b small" onclick="openMix(\'' + a.id + '\')">Mix</button></div>' + mixBar(a.mix) + '</li>'; }).join('') + '</ul>'
+    + '<div style="margin-top:12px" id="wxSlot">' + wxHTML() + '</div>'
+    + '<button class="b primary full" onclick="openBalances()">Update balances</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
+  loadWX(function(){ var el = document.getElementById('wxSlot'); if(el) el.innerHTML = wxHTML(); });
+}
+function openMix(id){ var a = acct(id), m = a.mix || { s:0, b:0, c:0 };
+  openSheet('<h3>' + esc(a.name) + ': the mix</h3><p class="sub">Roughly how it is split. Your statement usually shows this as “asset allocation”. Whole numbers are fine; they don’t have to add to 100.</p>'
+    + ['s','b','c'].map(function(k){ return '<label for="mx_' + k + '">' + MIXC[k][0] + ' %</label><input id="mx_' + k + '" inputmode="decimal" value="' + (m[k]||'') + '" placeholder="0">'; }).join('')
+    + '<button class="b primary full" onclick="saveMix(\'' + id + '\')">Save</button><button class="b ghost" style="width:100%" onclick="openInvest()">Back</button>'); }
+function saveMix(id){ var a = acct(id); a.mix = { s:Math.max(0,num(document.getElementById('mx_s').value)), b:Math.max(0,num(document.getElementById('mx_b').value)), c:Math.max(0,num(document.getElementById('mx_c').value)) }; save(); render(); openInvest(); }
 
 /* ── bringing statements in ── */
 function openImport(){
@@ -2996,7 +3060,9 @@ function exampleData(){
       church = A('Church mission card','card',310,{ notPersonal:true }), ret = A('Retirement accounts','retire',412000), ira = A('Brokerage','invest',61500), coll = A('Grandkids’ college plan','college',38500),
       life = A('Whole life policy (cash value)','cashval',27400), home = A('Main home','home',465000), cabin = A('Mountain cabin','home',240000), car = A('The car','vehicle',21000),
       mort = A('Main home mortgage','mortgage',212000), heloc = A('Cabin home equity line','heloc',18000), old = A('Old store card','card',0,{ closed:true });
-  /* three months back of balances, so net worth has a story */
+  /* a year back of balances, so net worth and investments have a story */
+  d.accts.forEach(function(a){ if(!INV_TYPES[a.type]) return; for(var i=12;i>=4;i--){ var day = ymd(new Date(now.getFullYear(), now.getMonth()-i+1, 0)); var w = 1 - i*0.008 + Math.sin(i*1.3)*0.012; a.hist.push({ d:day, bal:r2(a.bal * w) }); } });
+  [['retire',{ s:60, b:35, c:5 }],['invest',{ s:80, b:10, c:10 }],['college',{ s:70, b:30, c:0 }]].forEach(function(x){ d.accts.forEach(function(a){ if(a.type === x[0]) a.mix = x[1]; }); });
   d.accts.forEach(function(a){ for(var i=3;i>=1;i--){ var day = ymd(new Date(now.getFullYear(), now.getMonth()-i+1, 0)); var drift = { retire:-4200, invest:-900, mortgage:1150, heloc:400, savings:-500, home:0, cabin:0 }[a.type] || 0; a.hist.push({ d:day, bal:r2(Math.max(0, a.bal + drift*i)) }); } a.hist.push({ d:a.asOf, bal:a.bal }); });
   var seed = 7; function rnd(){ seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
   function T(m, day, acc, desc, amt, c){ var dd = Math.min(day, 28); if(m === cm && dd > tday) return; d.tx.push({ id:uid(), a:acc, d:m + '-' + pad2(dd), desc:desc, amt:amt, cat:c }); }
@@ -3030,6 +3096,7 @@ function leaveExample(){ if(!confirm('Put the example family away and set up you
 /* the ✨ button: ask about this screen, never with the raw lines */
 window.DJ_AI = { title:'Ask about our money', prompt:function(){ return db && db.budgetSet ? 'I use a household budget app. Here is a summary of the month on my screen:\n\n' + reportData(view) + '\n\nExplain what I am looking at in plain words, and tell me the one most useful thing to look at next. Keep it short. Suggestions only.' : null; } };
 
+loadWX(function(){ if(db) render(); });
 render();
 if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function(){});
 </script>
