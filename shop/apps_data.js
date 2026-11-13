@@ -63,6 +63,15 @@ function djSuggested(a){
   return m ? '$' + m[1] : '';
 }
 
+/* 13 Nov 2026: every donation link names the app it came from — client_reference_id=<store key>,
+   a Stripe Payment Links parameter, so Stripe records which app raised the gift. The store's
+   general note uses 'store'. Keys are kept to a-z 0-9 _ - and URL-encoded. '' with no link. */
+function djDonateHref(key){
+  if(typeof DONATE_LINK !== 'string' || !/^https:\/\//.test(DONATE_LINK)) return '';
+  var k = String(key || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 60) || 'store';
+  return DONATE_LINK + (DONATE_LINK.indexOf('?') < 0 ? '?' : '&') + 'client_reference_id=' + encodeURIComponent(k);
+}
+
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
 const STORE_V = 'v3.4 · 2026-11-06';

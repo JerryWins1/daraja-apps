@@ -46,6 +46,37 @@ is worked out by the Sunday cycle close and shown on `kenya/lead/`. See `kenya/p
 - `refresh.sh` — all of the above in one go. It reads app versions from a detached
   worktree of `origin/main`, so it never switches anyone's branch.
 
+## Sales signals in `data.json`
+
+`compute.py` also counts two kinds of line that the apps send to the same mailbox as the
+tester reports (`testers/config.json` → `mailbox`, as action `report`), so they arrive in the
+`messages` tab like any other row. The first line of column H is the tagged line; for
+`INTEREST` the second line is the name and contact the person typed, which stays in the sheet
+and is not copied into `data.json`.
+
+| line | sent by | means |
+| --- | --- | --- |
+| `OPEN\|app:<store key>\|day:YYYY-MM-DD` | every app's house layer (section 14b), at most once per app per phone per day | an app was opened that day. Name column reads `Anonymous`. No id, no cookie, nothing typed |
+| `INTEREST\|app:<store key>\|shelf:<shelf>\|kenya:yes\|no\|day:YYYY-MM-DD` | Keep me posted, in the 🌉 sheet (`app` is that app) or on the store (`app:store`, `shelf` is the one picked, `all` for every shelf) | someone asked to hear about that shelf; `kenya:yes` means they also ticked Loving InDeed's Kenya news |
+
+They land in `data.json` under `sales`:
+
+| field | what it is |
+| --- | --- |
+| `last_day` | the last full day counted (yesterday, by UTC date; `DJ_TODAY=YYYY-MM-DD` pins today for a test run) |
+| `week_from` | first day of the 7-day window, which ends on `last_day` |
+| `opens` | per store key: `last_day`, `last_7_days`, `all_time` OPEN rows, busiest this week first |
+| `opens_total` | the same three numbers over every app |
+| `interest.total` / `interest.last_day` | INTEREST rows all time / on `last_day` |
+| `interest.kenya_yes` | how many of them said yes to Kenya news |
+| `interest.by_shelf` / `interest.by_app` | INTEREST rows per shelf key and per store key |
+
+`digest.py` prints these as a short **Sales signals** section at the end. The date in each
+line is the phone's own date, so a row is counted under the day the person opened the app.
+
+Donations are not in the sheet: each donation link carries `client_reference_id=<store key>`
+(`store` for the store's own note), which Stripe shows on the payment.
+
 ## Who runs it, and what the run itself must do
 
 The nightly **Daraja · Store Manager** job, 5:54am Central, fires into

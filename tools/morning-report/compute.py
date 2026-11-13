@@ -76,7 +76,37 @@ for key in sorted(set(list(names)+list(A))):
                  'last':max([r['at'] for r in reps] or ['']),'reports':len(reps)})
 order={'ready':0,'almost':1,'needs':2}
 apps.sort(key=lambda a:(order[a['status']],-len(a['passers']),-len(a['oldpass']),a['name']))
+# Sales signals (13 Nov 2026): the house layer's anonymous OPEN|app:<key>|day:<YYYY-MM-DD> lines and the
+# Keep me posted INTEREST|app:<key>|shelf:<shelf>|kenya:yes|no|day:<YYYY-MM-DD> lines, from the same messages tab.
+# Counts only — no names or contacts are copied into data.json. DJ_TODAY=YYYY-MM-DD pins "today" for a test run.
+def sales_of(M, today=None):
+    today=datetime.date.fromisoformat(today) if today else datetime.datetime.now(datetime.timezone.utc).date()
+    last=(today-datetime.timedelta(days=1)).isoformat(); week=(today-datetime.timedelta(days=7)).isoformat()
+    def tagged(tag):
+        for d in M:
+            line=(d.get('H','') or '').split('\n')[0].strip()
+            if not line.startswith(tag+'|'): continue
+            kv={}
+            for part in line.split('|')[1:]:
+                if ':' in part: a,b=part.split(':',1); kv[a.strip()]=b.strip()
+            day=kv.get('day') if re.match(r'\d{4}-\d\d-\d\d$',kv.get('day','')) else (d.get('B','') or '')[:10]
+            yield kv,day
+    opens=collections.defaultdict(lambda:{'last_day':0,'last_7_days':0,'all_time':0})
+    for kv,day in tagged('OPEN'):
+        o=opens[kv.get('app') or '?']; o['all_time']+=1
+        if week<=day<=last: o['last_7_days']+=1
+        if day==last: o['last_day']+=1
+    shelf=collections.Counter(); app=collections.Counter(); kenya=0; n=0; new=0
+    for kv,day in tagged('INTEREST'):
+        n+=1; shelf[kv.get('shelf') or 'all']+=1; app[kv.get('app') or '?']+=1
+        if kv.get('kenya','').lower()=='yes': kenya+=1
+        if day==last: new+=1
+    tot={k:sum(o[k] for o in opens.values()) for k in ('last_day','last_7_days','all_time')}
+    return {'last_day':last,'week_from':week,
+            'opens':{k:opens[k] for k in sorted(opens,key=lambda k:(-opens[k]['last_7_days'],-opens[k]['all_time'],k))},'opens_total':tot,
+            'interest':{'total':n,'last_day':new,'kenya_yes':kenya,'by_shelf':dict(shelf.most_common()),'by_app':dict(app.most_common())}}
 out={'updated':datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),'apps':apps,'phones':{**{'Veronicah':['iPhone · 428px (earlier report)']},**{k:sorted(v) for k,v in sorted(dev.items())}},
-     'counts':{s:sum(1 for a in apps if a['status']==s) for s in order}}
+     'counts':{s:sum(1 for a in apps if a['status']==s) for s in order},
+     'sales':sales_of(M[1:], os.environ.get('DJ_TODAY') or None)}
 json.dump(out,open(OUT,'w'),ensure_ascii=False,indent=1)
 print(out['counts'], len(apps),'apps'); print([ (a['name'],a['cur'],len(a['oldpass'])) for a in apps][:30])
