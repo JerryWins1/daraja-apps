@@ -2211,7 +2211,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Financial Dashboard v0.4 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Financial Dashboard v0.5 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2230,7 +2230,7 @@
    the family's own AI through the house hand-off (djAI). No bank login: statements come in as the CSV,
    OFX or QFX files every bank already exports, or as a PDF the family's AI reads into rows.
    Everything lives in localStorage under one key. The AI drafts only; nothing here can move money. */
-var KEY = 'dj_familydash_v1'; window.DJ_OWNS = { k:[KEY], p:['dj_familydash_'] };
+var KEY = 'dj_familydash_v1'; window.DJ_OWNS = { k:[KEY], p:['dj_familydash_'], idb:['dj_familydash_fs'] };
 var JBJ_KEY = 'dj_jarbyjar_v1';
 var db = load(), view = null, pending = [];
 
@@ -2635,13 +2635,14 @@ function saveMix(id){ var a = acct(id); a.mix = { s:Math.max(0,num(document.getE
 function openImport(){
   if(!db || !db.setup){ setupStep(1); return; }
   openSheet('<h3>Add statements</h3><p class="sub">Most banks and card companies let you download your activity as a file. Pick as many as you like — a few months from each account.</p>'
-    + (canFolder() ? '<button class="b primary full" id="dirBtn" onclick="document.getElementById(\'dirIn\').click()">📁 Load a whole folder</button><p class="sub" style="margin:6px 0 0">Pick your money folder. Everything in it, and in the folders inside it, is read at once. You can also drag the folder onto this page.</p>' : '')
+    + (FS.name ? '<button class="b warm full" id="fsBtn" onclick="checkFolder()">🔄 Check my folder for new statements</button><p class="sub" style="margin:6px 0 10px">Your folder: <b>' + esc(FS.name) + '</b>' + (db.fsLast ? ' · last checked ' + shortDate(db.fsLast) : '') + '. <a href="#" onclick="pickFolder();return false" style="color:var(--brand);font-weight:800">Use a different folder</a></p>' : '')
+    + (canFolder() && !FS.name ? '<button class="b primary full" id="dirBtn" onclick="pickFolder()">📁 Load a whole folder</button><p class="sub" style="margin:6px 0 0">Pick your money folder. Everything in it, and in the folders inside it, is read at once. You can also drag the folder onto this page.' + (window.showDirectoryPicker ? ' It is remembered, so next month is one tap.' : '') + '</p>' : '')
     + '<button class="b ' + (canFolder() ? '' : 'primary ') + 'full" onclick="document.getElementById(\'fileIn\').click()">📂 Choose files' + (canFolder() ? '' : ' (pick as many as you like)') + '</button>'
     + (canFolder() ? '' : '<p class="sub" style="margin:6px 0 0">Phones can only pick files, not whole folders. On a computer, this page can load a whole folder at once.</p>')
     + '<button class="b full" onclick="openPdf()">📄 I only have a PDF statement</button>'
     + '<button class="b full" onclick="openHowTo()">❔ How do I get the file from my bank?</button>'
     + '<button class="b full" onclick="openManual()">✍️ Add one by hand (cash, a check)</button>'
-    + '<p class="sub" style="margin-top:12px">The files are read on this phone and never sent anywhere. Bringing the same file in twice is fine — lines already here are skipped.</p>'
+    + '<p class="sub" style="margin-top:12px">The files are read right where they are on this device and never sent anywhere. Bringing the same file in twice is fine — lines already here are skipped.</p>'
     + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
 }
 function openHowTo(){
@@ -2679,6 +2680,30 @@ function takeList(list){   /* list: [{ file, path }] */
     if(!/^(csv|ofx|qfx|qbo|txt|tsv)$/.test(ext)){ skip.other++; done(); return; }
     var r = new FileReader(); r.onload = function(){ var t = String(r.result||''), p = /<OFX|<STMTTRN|OFXHEADER/i.test(t) ? parseOFX(t, nm) : parseCSV(t, nm); p.path = it.path || nm; if(p.rows.length) out.push(p); else skip.bad.push(nm); done(); };
     r.onerror = function(){ skip.bad.push(nm); done(); }; r.readAsText(f); });
+}
+/* v0.5 · remember the folder (Chrome and Edge on a computer). The browser keeps a pointer to the folder, not a copy:
+   the files stay where they are and are read in place each time. The pointer lives in this app's own IndexedDB. */
+var FS = { h:null, name:'' };
+function fsDB(){ return new Promise(function(res, rej){ var r = indexedDB.open('dj_familydash_fs', 1); r.onupgradeneeded = function(){ r.result.createObjectStore('h'); }; r.onsuccess = function(){ res(r.result); }; r.onerror = function(){ rej(r.error); }; }); }
+function fsGet(){ return fsDB().then(function(d){ return new Promise(function(res){ var q = d.transaction('h').objectStore('h').get('folder'); q.onsuccess = function(){ res(q.result || null); }; q.onerror = function(){ res(null); }; }); }).catch(function(){ return null; }); }
+function fsPut(h){ return fsDB().then(function(d){ return new Promise(function(res){ var t = d.transaction('h','readwrite'); t.objectStore('h').put(h, 'folder'); t.oncomplete = res; t.onerror = res; }); }).catch(function(){}); }
+if(window.showDirectoryPicker) fsGet().then(function(h){ if(h){ FS.h = h; FS.name = h.name; } });
+function pickFolder(){
+  if(!window.showDirectoryPicker){ document.getElementById('dirIn').click(); return; }
+  window.showDirectoryPicker({ id:'familydash', mode:'read' }).then(function(h){ FS.h = h; FS.name = h.name; fsPut(h); readFolder(h); }).catch(function(e){ if(e && e.name !== 'AbortError') document.getElementById('dirIn').click(); });
+}
+function checkFolder(){
+  var h = FS.h; if(!h){ pickFolder(); return; }
+  var ask = h.queryPermission ? h.queryPermission({ mode:'read' }) : Promise.resolve('granted');
+  ask.then(function(p){ return p === 'granted' ? p : (h.requestPermission ? h.requestPermission({ mode:'read' }) : 'denied'); })
+     .then(function(p){ if(p === 'granted') readFolder(h); else alert('The browser did not allow reading the folder this time. Tap again and choose Allow, or pick the folder again.'); })
+     .catch(function(){ pickFolder(); });
+}
+function readFolder(h){
+  var out = [];
+  openSheet('<h3>Looking in ' + esc(h.name) + '…</h3><p class="sub">Reading it where it is — nothing is copied or sent.</p>');
+  (async function walk(dir, path){ for await (var en of dir.values()){ if(en.kind === 'file'){ try{ out.push({ file: await en.getFile(), path: path + en.name }); }catch(e){} } else if(en.kind === 'directory' && !/^\./.test(en.name)) await walk(en, path + en.name + '/'); } })(h, h.name + '/')
+    .then(function(){ db.fsLast = today(); save(); takeList(out); }, function(){ alert('Could not read that folder.'); closeSheet(); });
 }
 var XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 function readSheet(f, cb){
