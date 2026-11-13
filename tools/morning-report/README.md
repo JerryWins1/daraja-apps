@@ -77,6 +77,36 @@ line is the phone's own date, so a row is counted under the day the person opene
 Donations are not in the sheet: each donation link carries `client_reference_id=<store key>`
 (`store` for the store's own note), which Stripe shows on the payment.
 
+## `make_sales.py` → `control/sales.json`
+
+The file the 💰 Sales tab in Daraja HQ (`control/index.html`) reads. Added 13 Nov 2026.
+
+```
+python3 tools/morning-report/make_sales.py <work>/data.json [--stripe <export.json>] [--weekly control/weekly.json] [--out control/sales.json]
+```
+
+It reads three things:
+
+- `data.json` from `compute.py` — its `sales` block (opens and Keep me posted sign-ups)
+- optionally, a Stripe JSON export: a list of Checkout Sessions or charges (or Stripe's own
+  `{"data":[...]}`), each with `amount_total` or `amount` in cents, `created` in unix seconds and
+  `client_reference_id`. Unpaid sessions and failed or refunded charges are skipped
+- `control/weekly.json`, for this week's note
+
+and maps store keys to app names with `shop/apps_data.js`, read with node as `shop/voicemaker.py`
+does. With no `--stripe`, the donation numbers already in the output file are kept and
+`donations.source` is set to `not connected yet`. `DJ_TODAY=YYYY-MM-DD` pins today for a test run.
+
+| field | what it is |
+| --- | --- |
+| `updated` | the day it was written |
+| `donations` | `source`; `count_7d`/`amount_7d`, `count_30d`/`amount_30d`, `count_all`/`amount_all` (dollars); `by_app` as `[{app, name, count, amount}]`, most raised first. `store` is the store's own note |
+| `opens` | `by_app` as `[{app, name, opens_7d, opens_all}]`; `total_7d` |
+| `signups` | `total`; `by_shelf` as `[{shelf, count}]` (`all` means every shelf); `by_app` as `[{app, name, count}]`; `kenya_news_yes` |
+| `weekly_note` | `id`, `app`, `from`, `to` from `control/weekly.json` |
+| `notes` | kept from the previous file |
+| `weeks` | one row per ISO week, `[{week, opens_7d, signups, donations_7d, amount_7d}]`, the last 26; a later run in the same week replaces that week's row |
+
 ## Who runs it, and what the run itself must do
 
 The nightly **Daraja · Store Manager** job, 5:54am Central, fires into
