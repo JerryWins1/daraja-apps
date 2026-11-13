@@ -2211,7 +2211,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Financial Dashboard v0.2 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Financial Dashboard v0.3 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2221,7 +2221,8 @@
 <div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="in" id="sheetIn"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="printable" id="printable"></div>
-<input type="file" id="fileIn" accept=".csv,.ofx,.qfx,.qbo,.txt,text/csv" multiple style="display:none">
+<input type="file" id="fileIn" accept=".csv,.ofx,.qfx,.qbo,.txt,.xlsx,.xls,.pdf,text/csv" multiple style="display:none">
+<input type="file" id="dirIn" webkitdirectory multiple style="display:none">
 
 <script>
 /* Family Financial Dashboard v0.2 · 13 Nov 2026 (v0.2: the report is written by the app straight away; the AI is optional)
@@ -2570,7 +2571,9 @@ function openNetWorth(){
 function openImport(){
   if(!db || !db.setup){ setupStep(1); return; }
   openSheet('<h3>Add statements</h3><p class="sub">Most banks and card companies let you download your activity as a file. Pick as many as you like — a few months from each account.</p>'
-    + '<button class="b primary full" onclick="document.getElementById(\'fileIn\').click()">📂 Choose files (CSV, OFX, QFX)</button>'
+    + (canFolder() ? '<button class="b primary full" id="dirBtn" onclick="document.getElementById(\'dirIn\').click()">📁 Load a whole folder</button><p class="sub" style="margin:6px 0 0">Pick your money folder. Everything in it, and in the folders inside it, is read at once. You can also drag the folder onto this page.</p>' : '')
+    + '<button class="b ' + (canFolder() ? '' : 'primary ') + 'full" onclick="document.getElementById(\'fileIn\').click()">📂 Choose files' + (canFolder() ? '' : ' (pick as many as you like)') + '</button>'
+    + (canFolder() ? '' : '<p class="sub" style="margin:6px 0 0">Phones can only pick files, not whole folders. On a computer, this page can load a whole folder at once.</p>')
     + '<button class="b full" onclick="openPdf()">📄 I only have a PDF statement</button>'
     + '<button class="b full" onclick="openHowTo()">❔ How do I get the file from my bank?</button>'
     + '<button class="b full" onclick="openManual()">✍️ Add one by hand (cash, a check)</button>'
@@ -2596,10 +2599,60 @@ function pdfAI(){
     prompt:'I am attaching a bank or credit card statement as a PDF. Read every transaction on it and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. Do not include account numbers. If the statement shows an ending balance, add one last line: Balance,Ending balance,<the balance as a positive number>',
     onResult:function(v, raw){ var p = parseCSV(raw, 'PDF statement'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again and ask it for CSV only.'); return; } pending = [p]; nextFile(); } });
 }
-document.getElementById('fileIn').addEventListener('change', function(e){
-  var files = Array.prototype.slice.call(e.target.files || []); e.target.value = ''; if(!files.length) return;
-  var out = [], left = files.length;
-  files.forEach(function(f){ var r = new FileReader(); r.onload = function(){ var t = String(r.result||''), p = /<OFX|<STMTTRN|OFXHEADER/i.test(t) ? parseOFX(t, f.name) : parseCSV(t, f.name); out.push(p); if(--left === 0){ pending = out; nextFile(); } }; r.onerror = function(){ if(--left === 0){ pending = out; nextFile(); } }; r.readAsText(f); });
+/* v0.3 · a whole folder at once (Jerry, 13 Nov: "Can I just point to a folder … I have a financial folder that has all my data in it").
+   Files are grouped by where they came from — the folder they sit in, or their name without the dates — so the family is
+   asked once per account, not once per file, and the answer is remembered: next month's folder needs no questions at all. */
+function canFolder(){ return ('webkitdirectory' in document.createElement('input')) && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent); }
+function takeList(list){   /* list: [{ file, path }] */
+  var out = [], left = list.length, skip = { pdf:[], other:0, bad:[] };
+  if(!left){ toast('That folder was empty.'); return; }
+  openSheet('<h3>Reading ' + left + ' file' + (left===1?'':'s') + '…</h3><p class="sub" id="rdLeft">One moment.</p>');
+  function done(){ if(--left > 0){ var e = document.getElementById('rdLeft'); if(e) e.textContent = left + ' to go.'; return; } groupAndGo(out, skip); }
+  list.forEach(function(it){ var f = it.file, nm = f.name, ext = (nm.split('.').pop()||'').toLowerCase();
+    if(/^\./.test(nm)){ skip.other++; done(); return; }
+    if(ext === 'pdf'){ skip.pdf.push(it.path || nm); done(); return; }
+    if(ext === 'xlsx' || ext === 'xls'){ readSheet(f, function(p){ if(p){ p.path = it.path || nm; out.push(p); } else skip.bad.push(nm); done(); }); return; }
+    if(!/^(csv|ofx|qfx|qbo|txt|tsv)$/.test(ext)){ skip.other++; done(); return; }
+    var r = new FileReader(); r.onload = function(){ var t = String(r.result||''), p = /<OFX|<STMTTRN|OFXHEADER/i.test(t) ? parseOFX(t, nm) : parseCSV(t, nm); p.path = it.path || nm; if(p.rows.length) out.push(p); else skip.bad.push(nm); done(); };
+    r.onerror = function(){ skip.bad.push(nm); done(); }; r.readAsText(f); });
+}
+var XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+function readSheet(f, cb){
+  function go(){ var r = new FileReader(); r.onload = function(){ try{ var wb = XLSX.read(new Uint8Array(r.result), { type:'array', cellDates:true }), best = null;
+      wb.SheetNames.forEach(function(n){ var p = parseCSV(XLSX.utils.sheet_to_csv(wb.Sheets[n], { dateNF:'yyyy-mm-dd' }), f.name); if(!best || p.rows.length > best.rows.length) best = p; });
+      cb(best && best.rows.length ? best : null); }catch(e){ cb(null); } }; r.onerror = function(){ cb(null); }; r.readAsArrayBuffer(f); }
+  if(window.XLSX) return go();
+  var sc = document.createElement('script'); sc.src = XLSX_URL; sc.onload = go; sc.onerror = function(){ cb(null); }; document.head.appendChild(sc);
+}
+function srcKey(p){
+  if(p.acctNo) return 'acct:' + p.acctNo;
+  var parts = String(p.path||p.name).split('/');
+  if(parts.length >= 3) return 'dir:' + parts[parts.length-2].toLowerCase().trim();
+  var stem = p.name.toLowerCase().replace(/\.[a-z0-9]+$/,'').replace(/(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*/g,' ').replace(/[0-9_\-.()\[\]]+/g,' ').replace(/\b(statement|activity|export|transactions|download|history|stmt)\b/g,' ').replace(/\s+/g,' ').trim();
+  return 'name:' + (stem || p.name.toLowerCase());
+}
+function prettyKey(k){ var s = k.replace(/^(dir|name|acct):/,''); if(/^acct:/.test(k)) return 'account ending ' + s; return s.replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
+function groupAndGo(list, skip){
+  var G = {}, order = [];
+  list.forEach(function(p){ var k = srcKey(p); if(!G[k]){ G[k] = { key:k, name:prettyKey(k), files:[], rows:[], bal:null, asOf:null, last:'' }; order.push(k); } var g = G[k]; g.files.push(p);
+    var lastD = p.rows.reduce(function(a,r){ return r.d > a ? r.d : a; }, ''); if(p.bal != null && (p.asOf || lastD) >= g.last){ g.bal = p.bal; g.asOf = p.asOf || lastD; g.last = p.asOf || lastD; } });
+  order.forEach(function(k){ var g = G[k], max = {};   /* overlapping statements: keep each line as many times as the most any one file has it */
+    g.files.forEach(function(p){ var c = {}; p.rows.forEach(function(r){ var x = r.d + '|' + r.raw + '|' + r.desc; c[x] = (c[x]||0) + 1; if(c[x] > (max[x]||0)){ max[x] = c[x]; g.rows.push(r); } }); }); });
+  pending = order.map(function(k){ return G[k]; }); IMP.skip = skip; IMP.files = list.length; IMP.per = {};
+  if(!pending.length){ afterImport(); return; }
+  nextFile();
+}
+document.getElementById('fileIn').addEventListener('change', function(e){ var f = Array.prototype.slice.call(e.target.files || []); e.target.value = ''; if(f.length) takeList(f.map(function(x){ return { file:x, path:x.name }; })); });
+document.getElementById('dirIn').addEventListener('change', function(e){ var f = Array.prototype.slice.call(e.target.files || []); e.target.value = ''; if(f.length) takeList(f.map(function(x){ return { file:x, path:x.webkitRelativePath || x.name }; })); });
+/* drag a folder (or files) onto the page, on a computer */
+document.addEventListener('dragover', function(e){ if(db && db.setup){ e.preventDefault(); } });
+document.addEventListener('drop', function(e){
+  if(!db || !db.setup) return; e.preventDefault(); var items = e.dataTransfer && e.dataTransfer.items, out = [], wait = 0;
+  function fin(){ if(wait === 0) takeList(out); }
+  function walk(en, path){ if(!en) return; if(en.isFile){ wait++; en.file(function(f){ out.push({ file:f, path:path + f.name }); wait--; fin(); }, function(){ wait--; fin(); }); }
+    else if(en.isDirectory){ wait++; var rd = en.createReader(), all = []; (function more(){ rd.readEntries(function(es){ if(es.length){ all = all.concat(es); more(); } else { all.forEach(function(x){ walk(x, path + en.name + '/'); }); wait--; fin(); } }, function(){ wait--; fin(); }); })(); } }
+  if(items && items.length && items[0].webkitGetAsEntry){ for(var i=0;i<items.length;i++){ var en = items[i].webkitGetAsEntry(); walk(en, en && en.isDirectory ? '' : ''); } if(!wait) fin(); }
+  else { var fs = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []); takeList(fs.map(function(x){ return { file:x, path:x.name }; })); }
 });
 function parseDate(s){
   s = String(s||'').trim().replace(/^"|"$/g,''); var m;
@@ -2642,6 +2695,7 @@ function parseOFX(text, name){
   function tag(b, t){ var x = new RegExp('<' + t + '>([^<\\r\\n]*)', 'i').exec(b); return x ? x[1].trim() : ''; }
   while((m = re.exec(text))){ var b = m[1], d = parseDate(tag(b,'DTPOSTED')), a = num(tag(b,'TRNAMT')), nm = tag(b,'NAME') || tag(b,'PAYEE'), memo = tag(b,'MEMO');
     if(d && a) out.rows.push({ d:d, desc:(nm + (memo && memo !== nm && nm.length < 18 ? ' ' + memo : '')).replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,80) || 'No description', raw:r2(a) }); }
+  var an = /<ACCTID>\s*([^<\s]+)/i.exec(text); if(an) out.acctNo = an[1].replace(/\D/g,'').slice(-4) || null;
   var lb = /<LEDGERBAL>([\s\S]*?)(<\/LEDGERBAL>|<AVAILBAL>|$)/i.exec(text); if(lb){ out.bal = num(tag(lb[1],'BALAMT')); out.asOf = parseDate(tag(lb[1],'DTASOF')); }
   return out;
 }
@@ -2650,19 +2704,23 @@ var CUR = null;
 function nextFile(){
   CUR = pending.shift(); if(!CUR){ afterImport(); return; }
   if(!CUR.rows.length){ alert('I could not read any spending lines in “' + CUR.name + '”. If it came from a bank, try its CSV or QFX download instead.'); nextFile(); return; }
+  if(!CUR.key) CUR.key = srcKey(CUR);
+  var known = (db.src||{})[CUR.key]; if(known && acct(known.a) && !acct(known.a).closed){ CUR.a = known.a; CUR.flip = known.flip; takeFile(); return; }
+  var guess = stmtAccts().filter(function(a){ var n = a.name.toLowerCase(), k = CUR.key.replace(/^\w+:/,''); return k && (n.indexOf(k) >= 0 || k.indexOf(n) >= 0); })[0];
   var A = stmtAccts(), first = CUR.rows.reduce(function(a,r){ return r.d < a ? r.d : a; }, '9999'), last = CUR.rows.reduce(function(a,r){ return r.d > a ? r.d : a; }, '0000');
-  openSheet('<div class="stepno">' + esc(CUR.name) + '</div><h3>Whose statement is this?</h3><p class="sub">' + CUR.rows.length + ' lines, ' + shortDate(first) + ' to ' + shortDate(last) + '.</p>'
-    + '<div class="pick">' + A.map(function(a){ return '<button onclick="fileAcct(\'' + a.id + '\')">' + TYPES[a.type].em + ' ' + esc(a.name) + '<small>' + TYPES[a.type].t + '</small></button>'; }).join('')
-    + '<button onclick="newFileAcct()">＋ A new one<small>checking, savings or card</small></button></div><button class="b ghost" style="width:100%;margin-top:10px" onclick="nextFile()">Skip this file</button>');
+  var nf = (CUR.files||[CUR]).length, left = pending.length;
+  openSheet('<div class="stepno">' + (nf > 1 ? nf + ' files from “' + esc(CUR.name) + '”' : esc(CUR.name)) + (left ? ' · ' + left + ' more group' + (left===1?'':'s') + ' after this' : '') + '</div><h3>Whose statements are these?</h3><p class="sub">' + CUR.rows.length + ' lines, ' + shortDate(first) + ' to ' + shortDate(last) + '. I will remember, so next time these go straight in.</p>'
+    + '<div class="pick">' + A.map(function(a){ return '<button class="' + (guess && guess.id === a.id ? 'on' : '') + '" onclick="fileAcct(\'' + a.id + '\')">' + TYPES[a.type].em + ' ' + esc(a.name) + '<small>' + (guess && guess.id === a.id ? 'my best guess' : TYPES[a.type].t) + '</small></button>'; }).join('')
+    + '<button onclick="newFileAcct()">＋ A new one<small>checking, savings or card</small></button></div><button class="b ghost" style="width:100%;margin-top:10px" onclick="nextFile()">Skip these</button>');
 }
-function newFileAcct(){ openAcct(null, function(){ var A = stmtAccts(); var a = db.accts[db.accts.length-1]; if(a && TYPES[a.type].st) fileAcct(a.id); else { pending.unshift(CUR); nextFile(); } }); }
+function newFileAcct(){ var nm = /^(dir|name):/.test(CUR.key||'') ? prettyKey(CUR.key) : ''; openAcct(null, function(){ var A = stmtAccts(); var a = db.accts[db.accts.length-1]; if(a && TYPES[a.type].st) fileAcct(a.id); else { pending.unshift(CUR); nextFile(); } }); var el = document.getElementById('acName'); if(el && nm) el.value = nm; }
 function fileAcct(id){
   var a = acct(id), R = CUR.rows, negs = R.filter(function(r){ return r.raw < 0; }).length;
   CUR.a = id; CUR.flip = negs >= R.length - negs;   /* most lines are spending: whichever sign is commoner is money out */
   function big(f){ return R.filter(f).sort(function(x,y){ return Math.abs(y.raw) - Math.abs(x.raw); }); }
   var maj = big(function(r){ return CUR.flip ? r.raw < 0 : r.raw > 0; }), mino = big(function(r){ return CUR.flip ? r.raw > 0 : r.raw < 0; });
   var ex = maj.slice(0, mino.length ? 2 : 3).concat(mino.slice(0,1));
-  openSheet('<div class="stepno">' + esc(a.name) + '</div><h3>Does this look right?</h3><p class="sub">A few lines from the file, the way I read them:</p><ul class="list">'
+  openSheet('<div class="stepno">' + esc(a.name) + '</div><h3>Does this look right?</h3><p class="sub">A few lines, the way I read them:</p><ul class="list">'
     + ex.map(function(r){ var amt = CUR.flip ? -r.raw : r.raw; return '<li><span class="d">' + shortDate(r.d) + '</span><span class="ds">' + esc(r.desc) + '</span><span class="amt">' + (amt > 0 ? 'spent ' + money(amt) : 'came in ' + money(-amt)) + '</span></li>'; }).join('')
     + '</ul><button class="b primary full" onclick="takeFile()">Yes, bring it in</button><button class="b full" onclick="CUR.flip=!CUR.flip;takeFile()">No — spent and came in are backwards</button>');
 }
@@ -2673,12 +2731,27 @@ function takeFile(){
   CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
     db.tx.push({ id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, cat:guessCat(r.desc, amt, a) }); IMP.added++; });
-  if(CUR.bal != null && isFinite(CUR.bal)) setBal(a, Math.abs(CUR.bal), CUR.asOf || today());
+  if(CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || (CUR.asOf || today()) >= a.asOf)) setBal(a, Math.abs(CUR.bal), CUR.asOf || today());
+  if(CUR.key){ db.src = db.src || {}; db.src[CUR.key] = { a:CUR.a, flip:CUR.flip }; }
+  IMP.per = IMP.per || {}; IMP.per[a.name] = (IMP.per[a.name]||0) + (CUR.files||[CUR]).length;
   save(); nextFile();
 }
 function afterImport(){
-  var msg = IMP.added + ' lines brought in' + (IMP.skipped ? ', ' + IMP.skipped + ' already here' : '') + '.'; IMP = { added:0, skipped:0 };
-  view = null; render(); closeSheet(); toast(msg);
+  var I = IMP, msg = I.added + ' lines brought in' + (I.skipped ? ', ' + I.skipped + ' already here' : '') + '.'; IMP = { added:0, skipped:0 };
+  view = null; render(); closeSheet();
+  var sk = I.skip || { pdf:[], other:0, bad:[] }, per = I.per || {};
+  if(I.files > 1 || sk.pdf.length || sk.bad.length){
+    openSheet('<h3>Done ✓</h3><p class="sub">' + msg + '</p>'
+      + (Object.keys(per).length ? '<ul class="list">' + Object.keys(per).map(function(n){ return '<li><span class="ds">' + esc(n) + '</span><span class="amt">' + per[n] + ' file' + (per[n]===1?'':'s') + '</span></li>'; }).join('') + '</ul>' : '')
+      + (sk.pdf.length ? '<p class="sub" style="margin-top:12px">📄 ' + sk.pdf.length + ' PDF' + (sk.pdf.length===1?' was':'s were') + ' left for now: ' + esc(sk.pdf.slice(0,5).join(', ')) + (sk.pdf.length>5?'…':'') + '. A PDF is read by your AI, one at a time from <b>Add statements</b>. Where your bank offers a CSV or QFX download, that is quicker.</p>' : '')
+      + (sk.bad.length ? '<p class="sub">' + sk.bad.length + ' file' + (sk.bad.length===1?'':'s') + ' had no spending lines I could read: ' + esc(sk.bad.slice(0,5).join(', ')) + (sk.bad.length>5?'…':'') + '.</p>' : '')
+      + (sk.other ? '<p class="sub">' + sk.other + (sk.other===1?' other file was not a statement and was':' other files were not statements and were') + ' left alone.</p>' : '')
+      + '<button class="b primary full" onclick="closeSheet();afterImportNext()">OK</button>');
+    return;
+  }
+  toast(msg); afterImportNext();
+}
+function afterImportNext(){
   if(CK){ setTimeout(function(){ openCheckup(CK); }, 400); return; }
   if(!db.budgetSet && db.tx.length) setTimeout(function(){ uncatCount() ? openSort(true) : openFirstLoad(); }, 500);
 }
