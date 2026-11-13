@@ -1504,7 +1504,8 @@
       var emptyShelf = !rows;
       if(!rows) rows = '<p style="color:' + soft + '">Nothing else on this shelf yet.</p>';
       if(donate && emptyShelf && shelfAll) rows += '<div style="margin:0 0 10px">' + btn('See every shelf', 'https://jerrywins1.github.io/daraja-apps/home/', true) + '</div>';
-      if(donate){ var giveLink = (typeof DONATE_LINK === 'string' && /^https:\/\/[^\s"<>]+$/.test(DONATE_LINK)) ? '<a href="' + esc(DONATE_LINK) + '" target="_blank" rel="noopener" style="color:' + brand + ';font-weight:800">give a little</a>' : 'give a little'; rows += '<p id="djMoreGive" style="font-size:13.5px;color:' + soft + ';margin:4px 0 0;text-align:center">Free for everyone. If an app helps you, you can ' + giveLink + ' — it goes to Loving InDeed, which helps orphans and students in Kenya.</p>'; }
+      try{ rows += djInterestHTML(me, cat, NAMES, { card:card, line:line, soft:soft, ink:ink, brand:brand, esc:esc }); }catch(e){}   /* 13 Nov 2026: Keep me posted — see djInterestHTML */
+      if(donate){ var giveLink = (typeof DONATE_LINK === 'string' && /^https:\/\/[^\s"<>]+$/.test(DONATE_LINK)) ? '<a href="' + esc(djGiveHref(me || slugOf())) + '" target="_blank" rel="noopener" style="color:' + brand + ';font-weight:800">give a little</a>' : 'give a little'; rows += '<p id="djMoreGive" style="font-size:13.5px;color:' + soft + ';margin:4px 0 0;text-align:center">Free for everyone. If an app helps you, you can ' + giveLink + ' — it goes to Loving InDeed, which helps orphans and students in Kenya.</p>'; }
       wrap.innerHTML = '<div style="background:' + paper + ';color:' + ink + ';width:100%;max-width:640px;margin:0 auto;max-height:86vh;overflow:auto;border-radius:22px 22px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)">'
         + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><div style="font-size:26px">\u{1F309}</div><div style="flex:1"><div style="font-weight:900;font-size:19px">More from Daraja</div><div style="font-size:14px;color:' + soft + '">' + (cat ? esc(NAMES[cat] || '') + ' · the other apps on this shelf' : 'the whole family of apps') + '</div></div><button type="button" id="djMoreClose" aria-label="Close" style="width:44px;height:44px;min-height:44px;border-radius:50%;border:1.5px solid ' + line + ';background:' + card + ';color:' + ink + ';font:800 18px/1 sans-serif;cursor:pointer">✕</button></div>'
         + '<p style="font-size:14px;color:' + soft + ';margin:6px 0 12px">' + (donate ? 'Same idea as this one: free, no account, no ads, and your data stays on your phone.' : 'Same idea as this one: one price, no subscription, no account, your data stays on your phone. Every purchase keeps a student in Kenya in school.') + '</p>'
@@ -1512,6 +1513,7 @@
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">' + btn('\u2753 Help with this app', 'https://jerrywins1.github.io/daraja-apps/help/' + (me ? '?app=' + me : ''), false) + btn('\u{1F4EC} Tell me when things change', 'https://jerrywins1.github.io/daraja-apps/whats-new/#tellme', false) + btn('\u{1F309} Every shelf \u2014 the door', 'https://jerrywins1.github.io/daraja-apps/home/', false) + '<button type="button" id="djShare" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 14px;border-radius:12px;font:800 15px -apple-system,system-ui,sans-serif;border:1.5px solid ' + line + ';background:' + card + ';color:' + ink + ';cursor:pointer">\u{1F4E4} Share this app with a friend</button></div></div>';
       document.body.appendChild(wrap);
       document.getElementById('djMoreClose').onclick = function(){ wrap.remove(); };
+      try{ djInterestWire(me, cat); }catch(e){}
       /* v43 (22 Sep 2026): word of mouth is the channel for this age group — one tap to send a friend the app */
       var sh = document.getElementById('djShare'); if(sh) sh.onclick = function(){
         var a = me && APPS[me] || {}; var nm = a.name || document.title.split(' — ')[0].split(' · ')[0] || 'this app';
@@ -1523,6 +1525,94 @@
     });
   }
 
+
+  /* ── 14b · Sales signals (13 Nov 2026) ───────────────────────────────────────
+     Jerry approved knowing who is interested, which app raised money and which apps are
+     used — without breaking "your information stays on your phone". Three small things:
+     · djGiveHref: the donation link carries client_reference_id=<this app's store key>, a
+       Stripe Payment Links parameter, so Stripe records which app a gift came from.
+     · Keep me posted (in the 🌉 sheet): name and an email or phone, only if typed in and sent,
+       with an unticked box for Loving InDeed's Kenya news. Thanks once, remembered on this
+       phone (dj_seen_interest_<shelf>); a ✕ means never ask again (dj_seen_interest_x).
+       Never on a children's page or in My Safety Plan.
+     · openPing: once a day per app per phone, "OPEN|app:<key>|day:YYYY-MM-DD" — no name, no
+       id, no cookie (credentials omitted), nothing typed. Not on tester or control pages, the
+       store's ?tour=1 camera, the test copy, inside a frame, or My Safety Plan. A failure is silent.
+     Both go to the same mailbox as the testers' reports (testers/config.json → mailbox), as
+     action 'report' with the tagged first line, so they land in the HQ sheet's messages tab
+     where tools/morning-report/digest.py counts them. */
+  var DJ_MAILBOX_FALLBACK = 'https://script.google.com/macros/s/AKfycbw1hgXVj5E8x8Ampm1fYK9po07pmSh9zrHfyVn3RvEYOR15_xb2jNPdlgzUuariPPrp/exec', djMailboxUrl = '';
+  function djRefKey(k){ return String(k || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 60) || 'app'; }
+  function djGiveHref(k){
+    if(typeof DONATE_LINK !== 'string' || !/^https:\/\/[^\s"<>]+$/.test(DONATE_LINK)) return '';
+    return DONATE_LINK + (DONATE_LINK.indexOf('?') < 0 ? '?' : '&') + 'client_reference_id=' + encodeURIComponent(djRefKey(k));
+  }
+  function djSandbox(){ try{ return window.sessionStorage.getItem('dj_sandbox') === '1' || /[?&]dj_sandbox=1/.test(location.search); }catch(e){ return false; } }
+  function djMailbox(cb){
+    if(djMailboxUrl){ cb(djMailboxUrl); return; }
+    var done = function(u){ djMailboxUrl = (typeof u === 'string' && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) ? u : DJ_MAILBOX_FALLBACK; cb(djMailboxUrl); };
+    try{ fetch('https://jerrywins1.github.io/daraja-apps/testers/config.json?h=' + Math.floor(Date.now()/36e5), { credentials:'omit' }).then(function(r){ return r.ok ? r.json() : {}; }).then(function(c){ done(c && c.mailbox); }, function(){ done(''); }); }catch(e){ done(''); }
+  }
+  function djSend(body, then){   /* with then: wait for the mailbox's answer ({ok:true}); without: fire and forget */
+    djMailbox(function(url){
+      try{ var p = fetch(url, { method:'POST', mode: then ? 'cors' : 'no-cors', keepalive:true, credentials:'omit', headers:{ 'Content-Type':'text/plain' }, body: JSON.stringify(body) });
+        if(then) p.then(function(r){ return r.json(); }).then(function(j){ then(!!j && j.ok !== false); }, function(){ then(false); });
+        else p.catch(function(){}); }catch(e){ if(then) then(false); }
+    });
+  }
+  function djInterestOff(cat){
+    if(kidsPage() || crisisPage() || djSandbox() || guestVisit()) return true;
+    try{ if(localStorage.getItem('dj_seen_interest_x') || localStorage.getItem('dj_seen_interest_' + (cat || 'all'))) return true; }catch(e){ return true; }   /* no storage: no way to remember, so do not ask */
+    return false;
+  }
+  function djInterestHTML(me, cat, NAMES, c){
+    if(djInterestOff(cat)) return '';
+    var shelf = cat ? (NAMES[cat] || cat) : 'the Daraja apps', nm = djName();
+    var box = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;min-height:46px;padding:10px 12px;border-radius:12px;border:1.5px solid ' + c.line + ';background:' + c.card + ';color:' + c.ink + ';margin-top:8px';
+    return '<div id="djInterest" style="position:relative;background:' + c.card + ';border:1.5px solid #C9982A;border-radius:16px;padding:12px 12px 12px 14px;margin:0 0 10px">'
+      + '<button type="button" id="djInterestX" aria-label="No thanks, do not ask again" style="position:absolute;top:6px;right:6px;width:44px;height:44px;min-height:44px;border-radius:50%;border:0;background:transparent;color:' + c.soft + ';font:800 17px/1 sans-serif;cursor:pointer">✕</button>'
+      + '<div style="font-weight:900;font-size:17px;padding-right:40px">\u{1F4EC} Keep me posted</div>'
+      + '<div id="djInterestAsk" style="font-size:14.5px;color:' + c.soft + ';margin:2px 0 0;padding-right:20px">Want to hear when there’s something new for ' + c.esc(String(shelf).charAt(0).toLowerCase() + String(shelf).slice(1)) + '? Leave your name and an email or phone.</div>'
+      + '<div id="djInterestForm"><input id="djIName" type="text" autocomplete="name" maxlength="40" placeholder="Your name" aria-label="Your name" value="' + c.esc(nm) + '" style="' + box + '">'
+      + '<input id="djIContact" type="text" autocomplete="email" maxlength="80" placeholder="Email or phone" aria-label="Email or phone" style="' + box + '">'
+      + '<label style="display:flex;gap:10px;align-items:flex-start;font-size:14.5px;font-weight:500;color:' + c.ink + ';margin:10px 0 0;cursor:pointer"><input id="djIKenya" type="checkbox" style="width:22px;height:22px;min-height:22px;margin:1px 0 0;flex:none"><span>Also send me news from Loving InDeed about the children and students in Kenya.</span></label>'
+      + '<button type="button" id="djIGo" style="display:block;width:100%;min-height:46px;margin-top:10px;border-radius:12px;border:0;background:' + c.brand + ';color:#fff;font:800 16px -apple-system,system-ui,sans-serif;cursor:pointer">Keep me posted</button></div>'
+      + '<div id="djINote" role="status" style="font-size:14.5px;color:' + c.ink + ';margin-top:8px"></div></div>';
+  }
+  function djInterestWire(me, cat){
+    var card = document.getElementById('djInterest'); if(!card) return;
+    var shelf = cat || 'all', app = djRefKey(me || slugOf()), note = document.getElementById('djINote');
+    document.getElementById('djInterestX').onclick = function(){ try{ localStorage.setItem('dj_seen_interest_x', djYMD()); }catch(e){} card.remove(); };
+    document.getElementById('djIGo').onclick = function(){
+      var clean = function(id, n){ return String((document.getElementById(id) || {}).value || '').replace(/[|\r\n<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+      var name = clean('djIName', 40), contact = clean('djIContact', 80), kenya = !!document.getElementById('djIKenya').checked, day = djYMD();
+      if(!contact){ note.textContent = 'An email or a phone number, so we can reach you.'; return; }
+      var go = document.getElementById('djIGo'); go.disabled = true; go.textContent = 'Sending…';
+      var text = 'INTEREST|app:' + app + '|shelf:' + djRefKey(shelf) + '|kenya:' + (kenya ? 'yes' : 'no') + '|day:' + day + '\n' + (name || '(no name)') + ' · ' + contact;
+      djSend({ action:'report', who:'', name: name || 'Keep me posted', app: app, contact: contact, text: text }, function(ok){
+        if(!ok){ go.disabled = false; go.textContent = 'Keep me posted'; note.textContent = 'That did not send. Check your connection and try again.'; return; }
+        try{ localStorage.setItem('dj_seen_interest_' + shelf, day); if(name && !djName()) localStorage.setItem('dj_name', name); }catch(e){}
+        var f = document.getElementById('djInterestForm'); if(f) f.remove(); var a = document.getElementById('djInterestAsk'); if(a) a.remove();
+        note.textContent = 'Thank you' + (name ? ', ' + name : '') + '. We will let you know when there is something new.';
+      });
+    };
+  }
+  function openPing(tries){
+    if(embedded || !document.body || crisisPage() || djSandbox() || typeof fetch !== 'function') return;
+    if(/[?&]tour=1(&|$)/.test(location.search)) return;   /* the store's camera, not a person */
+    if(/\/(shop|home|control|testday|inspect|whats-new|try|thanks|help|testers|kenya|friends|join|training|welcome)\//.test(location.pathname)) return;
+    var today = djYMD(), mark = 'dj_seen_open_' + slugOf();
+    try{ if(localStorage.getItem(mark) === today) return; }catch(e){ return; }   /* no storage: cannot keep it to once a day, so send nothing */
+    tries = tries || 0;
+    if(typeof APPS === 'undefined'){
+      if(appsLoading || tries < 8){ if(tries < 40) setTimeout(function(){ try{ openPing(tries + 1); }catch(e){} }, 750); return; }   /* let the weekly note load the list first, so it is never loaded twice at once */
+      loadApps(function(err){ if(!err) try{ openPing(99); }catch(e){} }); return;
+    }
+    var k = myStoreKey(); if(!k) return;                    /* only pages that are apps on the store */
+    try{ if(localStorage.getItem(mark) === today) return; localStorage.setItem(mark, today); }catch(e){ return; }
+    k = djRefKey(k);
+    djSend({ action:'report', who:'', name:'Anonymous', app:k, contact:'', text:'OPEN|app:' + k + '|day:' + today });
+  }
 
   /* ── 15 · the daily hello (19 Sep 2026) ───────────────────────────────────────
      Jerry: "be more human … someone that is stuck in life". Once a day, when an app
@@ -2130,7 +2220,7 @@
     }, tries ? 1000 : 1300);
   }
 
-  function seniorsPass(){ try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} }, 1200); }
+  function seniorsPass(){ try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"

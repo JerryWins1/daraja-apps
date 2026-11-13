@@ -82,4 +82,15 @@ apps = collections.Counter(d.get('G') for d in M if (d.get('H', '').startswith((
 if apps: P('\n## Store tests sent: ' + ', '.join(f'{k} {v}' for k, v in apps.most_common()))
 joins = [d.get('D') for d in M if d.get('G', '').endswith('-join')]
 if joins: P('## New testers joined: ' + ', '.join(joins))
+# 5. Sales signals — counts only, from data.json (compute.py's sales_of)
+if DATA:
+    sl = json.load(open(DATA)).get('sales')
+    if sl:
+        t = sl['opens_total']; it = sl['interest']
+        P(f"\n## Sales signals\n- App opens (one per phone per app per day): {t['last_day']} on {sl['last_day']} · {t['last_7_days']} in the last 7 days · {t['all_time']} all time")
+        top = [f"{k} {v['last_7_days']}" for k, v in sl['opens'].items() if v['last_7_days']][:8]
+        if top: P('- Most opened this week: ' + ', '.join(top))
+        P(f"- Keep me posted sign-ups: {it['total']} all time ({it['last_day']} new) · {it['kenya_yes']} want Kenya news")
+        if it['by_shelf']: P('- By shelf: ' + ', '.join(f'{k} {v}' for k, v in it['by_shelf'].items()))
+        if it['by_app']: P('- By app: ' + ', '.join(f'{k} {v}' for k, v in it['by_app'].items()))
 print('\n'.join(out))
