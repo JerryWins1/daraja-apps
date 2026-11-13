@@ -111,6 +111,7 @@ const TEST_NOW = [
      no tester could reach. Our Table comes out with it: it changed the same day and was
      already marked READY, which hoists it above this order anyway. */
   'churchdrive',
+  /* 13 Nov 2026: Jar by Jar, new — a family budget in jars, built out for the store */ 'jarbyjar',
   /* changed 6 Nov */ 'businessmanager','whoscoming','everyday','drumbeat','churchserve','ourtable',
   /* Group 1, the rest */ 'home','duka','nownext','nextstep','church',
   /* Group 2, the rest */ 'ahead','compass','safety','porchlight','rafiki','npreceipts','churchclubhouse'
@@ -878,6 +879,70 @@ const APPS = {
   name:'Our Table', em:'🍽', sub:'dinner, decided', fresh:true, cat:'home', price:'Free', testing:true,
   tag:'Keep the recipes you actually cook, fill the week in one tap, and get one shopping list for all of it. Your recipes stay on your phone — nobody can shut it down.',
   try:BASE+'ourtable/', video:true
+ },
+ jarbyjar: {
+  /* 13 Nov 2026: built out for the store. In TEST_NOW for the testers; NOT in LAUNCH until it passes,
+     so the store shows Coming soon. Every directed line calls videoReady() in the app, which shows the
+     example family through the player's tourSet() layer and never writes a viewer's real month. */
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
+    {"t": "Welcome. In about three minutes, you will know what Jar by Jar is for and how to use it.", "js": "try{videoReady();}catch(e){}"},
+    {"t": "First, the problem. Money comes in, and bills, groceries and gas take it out. By the end of the month it is gone, and nobody is quite sure where.", "point": ".sum", "js": "try{videoReady();}catch(e){}"},
+    {"t": "Jar by Jar is the old envelope system, on your phone. Each jar holds the money for one job. When a jar is empty, that job is done for the month.", "point": "#jars", "js": "try{videoReady();}catch(e){}"},
+    {"t": "Who is it for? A family that wants to plan the month together. A young couple, parents with children at home, or a grandparent on a fixed income."},
+    {"t": "What you see here is an example family, the Walkers, so you can try everything on pretend money. Start my own month puts them away.", "point": "#ownBtn", "js": "try{videoReady();}catch(e){}"},
+    {"t": "At the top is the month you are in.", "point": "#monthName", "js": "try{videoReady();}catch(e){}"},
+    {"t": "Under it, three numbers: what came in, what came out of the jars, and what is left in them.", "point": ".sum"},
+    {"t": "This line says whether every dollar has a jar. Green means the plan adds up. If not, a button opens the plan to fix it.", "point": "#placeLine"},
+    {"t": "Then the jars. The color shows how full each one is, and the big number is what is left. A gold tag means running low. A red tag means over.", "point": "#jars", "js": "try{videoReady();}catch(e){}"},
+    {"t": "Give is always the first jar. Plan your giving first, and the rest follows.", "point": ".jar.first"},
+    {"t": "Tap any jar to open it. You see what is left, and everything spent from it this month.", "point": "#sheetIn .display", "js": "try{videoReady();}catch(e){} try{openJar('j3');}catch(e){}"},
+    {"t": "Spend from it takes money out of this jar. Move money in brings some over from another jar. The cross takes off a spending that was a mistake.", "point": "#sheetIn .list li button"},
+    {"t": "At the bottom are two big buttons. I spent money is the one you will use most.", "point": "#spendBtn", "js": "try{videoReady();}catch(e){}"},
+    {"t": "Type how much on the big number keys. There is no tiny keyboard.", "point": ".keys", "js": "try{videoReady();}catch(e){} try{openSpend();}catch(e){}"},
+    {"t": "Then tap the jar it came from. What for is optional, like Kroger or school shoes. Take it out of the jar saves it.", "point": "#pick"},
+    {"t": "Money in is for a paycheck, a side job or a gift. Type it, say what it was, and tap Add it.", "point": "#inSave", "js": "try{videoReady();}catch(e){} try{openIn();}catch(e){}"},
+    {"t": "Now Plan the month. At the top, what comes in this month.", "point": "#plInc", "js": "try{videoReady();}catch(e){} try{openPlan();}catch(e){}"},
+    {"t": "Then one line for each jar, with its name and its amount. Tap a name to change it.", "point": ".planrow"},
+    {"t": "The line above keeps count of what still needs a jar.", "point": "#plLine"},
+    {"t": "Give equals ten percent puts a tenth of what comes in into the Give jar. Add a jar makes a new one, like Vacation or the Dog. Then tap Save the plan.", "point": "button[onclick=\"tithe()\"]"},
+    {"t": "Move money between jars takes from one jar and puts it in another. The total stays the same.", "point": "#mvFrom", "js": "try{videoReady();}catch(e){} try{openMove();}catch(e){}"},
+    {"t": "Talk it over is a plain summary of the jars, to text your husband or wife, or print for the kitchen table.", "point": "#talkNote", "js": "try{videoReady();}catch(e){} try{openTalk();}catch(e){}"},
+    {"t": "Start next month carries your plan over. Keep what is left in each jar, or sweep all of it into savings.", "point": "#sheetIn .b.primary", "js": "try{videoReady();}catch(e){} try{openNewMonth();}catch(e){}"},
+    {"t": "Giving this year adds up the Give jar, month by month. Handy at tax time.", "point": "#sheetIn .display", "js": "try{videoReady();}catch(e){} try{openGiving();}catch(e){}"},
+    {"t": "In Settings, pick dollars, shillings, pounds or euros. Start over clears everything, and asks first.", "point": "#curSel", "js": "try{videoReady();}catch(e){} try{openSettings();}catch(e){}"},
+    {"t": "How to start: open it, and tap Start my own month. Type what comes in, then give each jar its amount until the line turns green.", "point": "#startOwn", "js": "try{videoReady();}catch(e){} try{db=null;render();window.scrollTo(0,0);}catch(e){}"},
+    {"t": "Everything stays on this phone. There is no account, no bank login, and nothing to sign up for.", "js": "try{videoReady();}catch(e){}"},
+    {"t": "The question mark button in the corner has the tour and help, any time."},
+    {"t": "Jar by Jar is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Enjoy your month."}]} },
+  train:[
+   {"t": "Setting up Jar by Jar takes about ten minutes, once, at the kitchen table. Step one: open it and tap Start my own month.", "point": "#startOwn", "js": "try{videoReady();}catch(e){} try{db=null;render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "Step two: in Plan the month, type what comes in this month, all the paychecks together.", "point": "#plInc", "js": "try{videoReady();}catch(e){} try{openPlan();}catch(e){}"},
+   {"t": "Step three: tap Give equals ten percent, or type your own amount in the Give jar.", "point": "button[onclick=\"tithe()\"]"},
+   {"t": "Step four: give each jar its amount. Tap a name to change it, or tap Add a jar for anything missing.", "point": ".planrow"},
+   {"t": "Step five: keep going until the line at the top says every dollar has a jar. Then tap Save the plan.", "point": "#plSave"},
+   {"t": "Step six: each time money comes in, tap Money in and type it.", "point": "#inSave", "js": "try{videoReady();}catch(e){} try{openIn();}catch(e){}"},
+   {"t": "Step seven: each time you spend, tap I spent money, type how much, and tap the jar.", "point": "#pick", "js": "try{videoReady();}catch(e){} try{openSpend('j3');}catch(e){}"},
+   {"t": "Step eight: if a jar runs over, tap Cover it, and a jar with room makes up the difference.", "point": "#coverBtn", "js": "try{videoReady();}catch(e){} try{if(db&&db.ex&&jar('j8')&&!window.__jbjPizza){window.__jbjPizza=1;db.outs.push({id:uid(),d:today(),amt:40,jar:'j8',note:'Pizza after the game'});save();render();}if(db&&db.ex&&jar('j8')&&leftIn('j8')<0)overSheet('j8');}catch(e){}"},
+   {"t": "Step nine: once a week, tap Talk it over and send it to your husband or wife.", "point": "#talkNote", "js": "try{videoReady();}catch(e){} try{openTalk();}catch(e){}"},
+   {"t": "Step ten: on the first of the month, tap Start next month. Your plan carries over.", "point": "#sheetIn .b.primary", "js": "try{videoReady();}catch(e){} try{openNewMonth();}catch(e){}"},
+   {"t": "You will know you are set when the line is green and every jar shows what is left. The question mark button has the tour again, any time.", "point": "#placeLine", "js": "try{videoReady();}catch(e){}"}],
+  lines:[
+   {"t": "This is Jar by Jar. A family budget in jars, on your phone.", "js": "try{videoReady();}catch(e){}"},
+   {"t": "The paycheck comes in, and by the end of the month it is gone. Nobody is quite sure where it went.", "point": ".sum", "js": "try{videoReady();}catch(e){}"},
+   {"t": "Jar by Jar starts with giving. Give is the first jar, planned before anything else.", "point": ".jar.first", "js": "try{videoReady();}catch(e){}"},
+   {"t": "Then every dollar gets a jar. The house, groceries, gas, even Christmas. This line tells you when every dollar has one.", "point": "#placeLine", "js": "try{videoReady();}catch(e){}"},
+   {"t": "When you spend, tap I spent money. Type how much on the big keys, and tap the jar it came from.", "point": "#pick [data-pick=\"j8\"]", "js": "try{videoReady();}catch(e){} try{openSpend('j8');pad='40';showPad();var n=document.getElementById('spNote');if(n)n.value='Pizza after the game';}catch(e){}"},
+   {"t": "Forty dollars was more than Eating out had left. There is no scolding. It offers to cover it from a jar with room.", "point": "#coverBtn", "js": "try{if(db&&db.ex&&jar('j8')&&!window.__jbjPizza){window.__jbjPizza=1;db.outs.push({id:uid(),d:today(),amt:40,jar:'j8',note:'Pizza after the game'});save();render();}if(db&&db.ex&&jar('j8')&&leftIn('j8')<0)overSheet('j8');}catch(e){}"},
+   {"t": "One tap, and Pocket money covers it. The month still adds up, and nobody had to do sums.", "point": ".jar[data-jar=\"j8\"]", "js": "try{if(db&&db.ex&&jar('j8')&&jar('j9')&&leftIn('j8')<0)doMove('j9','j8',-leftIn('j8'));}catch(e){}"},
+   {"t": "Plan the month at the kitchen table. What comes in goes at the top, then each jar gets its amount.", "point": "#plInc", "js": "try{videoReady();}catch(e){} try{openPlan();}catch(e){}"},
+   {"t": "Give equals ten percent does the giving sum for you.", "point": "button[onclick=\"tithe()\"]"},
+   {"t": "Talk it over makes a plain summary to send to your husband or wife, or print for the fridge. Nothing is sent unless you send it.", "point": "#talkNote", "js": "try{videoReady();}catch(e){} try{openTalk();}catch(e){}"},
+   {"t": "Giving this year adds up everything from the Give jar, month by month. Handy at tax time.", "point": "#sheetIn .display", "js": "try{videoReady();}catch(e){} try{openGiving();}catch(e){}"},
+   {"t": "It works in dollars, shillings, pounds or euros. There is no account and no bank login. Everything stays on this phone.", "point": "#curSel", "js": "try{videoReady();}catch(e){} try{openSettings();}catch(e){}"},
+   {"t": "Jar by Jar is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it: look around the example family, then start your own month.", "point": "#ownBtn", "js": "try{videoReady();}catch(e){}"}],
+  name:'Jar by Jar', em:'🫙', sub:'give first, every dollar a jar', fresh:true, cat:'home', price:'Free', testing:true,
+  tag:'Plan the month at the kitchen table: give first, then put every dollar in a jar. Tap a jar when you spend and you always know what’s left. No bank login — it all stays on your phone.',
+  try:BASE+'jarbyjar/', video:true
  },
  whoscoming: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
