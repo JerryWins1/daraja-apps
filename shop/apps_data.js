@@ -940,7 +940,7 @@ const APPS = {
    {"t": "Giving this year adds up everything from the Give jar, month by month. Handy at tax time.", "point": "#sheetIn .display", "js": "try{videoReady();}catch(e){} try{openGiving();}catch(e){}"},
    {"t": "It works in dollars, shillings, pounds or euros. There is no account and no bank login. Everything stays on this phone.", "point": "#curSel", "js": "try{videoReady();}catch(e){} try{openSettings();}catch(e){}"},
    {"t": "Jar by Jar is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it: look around the example family, then start your own month.", "point": "#ownBtn", "js": "try{videoReady();}catch(e){}"}],
-  name:'Jar by Jar', em:'🫙', sub:'give first, every dollar a jar', fresh:true, cat:'home', price:'Free', testing:true,
+  name:'Jar by Jar', em:'🫙', sub:'give first, every dollar a jar', fresh:true, cat:'home', price:'$19', testing:true,
   tag:'Plan the month at the kitchen table: give first, then put every dollar in a jar. Tap a jar when you spend and you always know what’s left. No bank login — it all stays on your phone.',
   try:BASE+'jarbyjar/', video:true
  },
@@ -1006,7 +1006,7 @@ const APPS = {
    "Every send has two buttons now: a text message, or WhatsApp. The app writes the words either way, and you press send.",
    "It works for a family Sunday lunch, a church work day, a team choosing a practice night, or anyone who organizes people.",
    "Or tap A link they can open. One link shows the whole list to anybody, read only, with no app and no account — and it carries a way through to the rest of the Daraja apps.",
-   "No ads, no account, and everything stays on your phone. Who's Coming is free, and every Daraja app helps a student in Kenya stay in school. Try it below: make a group and ask your first question."],
+   "No ads, no account, and everything stays on your phone. Who's Coming is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it below: make a group and ask your first question."],
   name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', also:['church'],  price:'Free', testing:true,
   tag:'Ask the family or the group one question (“Sunday lunch at 1?”) and see who said yes, no and maybe on one screen. It goes from your own phone. No ads, and nobody has to sign up to answer.',
   try:BASE+'whoscoming/', video:true
