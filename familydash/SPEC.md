@@ -176,3 +176,13 @@ Everything it found is shown on one screen, with a tap to fix each item, and the
 - Paying a card from the bank account counts as moving money, not spending.
 - The "what I found" screen now lists the regular monthly bills by kind: utilities, subscriptions, phones, insurance, housing, giving and the rest, each with its account and typical amount.
 - A file that isn't a bank account can be left out with one tap.
+
+**And again, from Jerry's second run.**
+- **His own spreadsheets** (gifts by year, cashflow, what-ifs, summary-and-budget) were being read as accounts. Now a file counts as a statement only if it looks like a bank's download, meaning it has a payee or description column. Everything else is listed under "Your own spreadsheets, left alone". Numbers, Word and Pages files are left alone too.
+- **PDFs that were set aside** are listed, with a note that a missing bank or pension is probably among them.
+- **Bank names** are also recognised from the column layouts that Citi, Chase, Discover, Bank of America and Capital One use. Any "… Credit Union" is named, and is never mistaken for a credit card.
+- **A card with no bank name** takes its name from the bank account's payment to it: same amount, within 5 days.
+
+**Suggested folder names,** at Jerry's suggestion ("so you can read it and know what it is"): `1 Bank statements`, `2 Credit cards`, `3 Savings`, `4 Investments and retirement`, `5 Loans and mortgage`, `6 Insurance policies`, `7 Taxes`, `8 Other papers`. They're shown, with a copy button, from the first setup screen. A folder whose name says what it holds settles the account type. PDFs in the paper folders are listed by folder in Our household, as names and counts only.
+
+**Frequent flyer miles and points:** a new kind of account. The number of miles or points is typed in by hand, with no airline login, and is shown in the Net worth sheet but not counted in net worth.
