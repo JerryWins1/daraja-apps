@@ -2217,7 +2217,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v1.7 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v1.8 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2485,7 +2485,25 @@ function pdfAI(){
    Files are grouped by where they came from — the folder they sit in, or their name without the dates — so the family is
    asked once per account, not once per file, and the answer is remembered: next month's folder needs no questions at all. */
 function canFolder(){ return ('webkitdirectory' in document.createElement('input')) && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent); }
-function takeList(list){   /* list: [{ file, path }] */
+/* v1.8 · Jerry, 14 Nov: "I chose my personal file that has a bunch of folders in it… even some things that aren't financial…
+   let me choose." A folder with several folders inside first shows them, money-looking ones ticked, and reads only the ticked. */
+var FINW = /bank|card|credit|financ|money|statement|expens|budget|insur|tax|invest|retire|loan|mortgage|bill|account|giving|net ?worth|saving|checking|\bira\b|401|pension|paypal|venmo|brokerage|polic/i, CHOOSE = null;
+function takeList(list, chosen){
+  if(!chosen){ var top = {}; list.forEach(function(it){ var p = String(it.path||'').split('/'); if(p.length >= 3) top[p[1]] = (top[p[1]]||0) + 1; });
+    var names = Object.keys(top); if(names.length >= 2){ CHOOSE = { list:list, top:top }; return chooseFolders(); } }
+  return takeList2(list);
+}
+function chooseFolders(){
+  var T = CHOOSE.top, names = Object.keys(T).sort(function(a,b){ return (FINW.test(b)?1:0) - (FINW.test(a)?1:0) || a.localeCompare(b); });
+  openSheet('<div class="stepno">Before I read</div><h3>Which folders hold money things?</h3><p class="sub">Your folder has ' + names.length + ' folders inside. ' + (db && db.folderPick ? 'Ticked as you left them last time' : 'I\u2019ve ticked the ones that look like money') + '; change any tick. Only the ticked ones are read.</p>'
+    + names.map(function(n, i){ return '<label class="ck" style="border-bottom:1px solid var(--line);padding:8px 0;margin:0"><input type="checkbox" data-fo="' + esc(n) + '"' + ((db && db.folderPick ? db.folderPick[n] : FINW.test(n)) ? ' checked' : '') + '><span>' + esc(n) + '<small style="display:block;color:var(--soft);font-weight:600">' + T[n] + ' file' + (T[n]===1?'':'s') + '</small></span></label>'; }).join('')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="foldersGo()">Read the ticked folders</button><button class="b ghost" style="width:100%" onclick="AUTO=false;CHOOSE=null;closeSheet();render()">Cancel</button></div>');
+}
+function foldersGo(){ var on = {}; Array.prototype.forEach.call(document.querySelectorAll('[data-fo]'), function(b){ if(b.checked) on[b.getAttribute('data-fo')] = 1; });
+  if(!Object.keys(on).length){ alert('Tick at least one folder.'); return; }
+  if(db){ db.folderPick = on; save(); }
+  var L = CHOOSE.list.filter(function(it){ var p = String(it.path||'').split('/'); return p.length < 3 || on[p[1]]; }); CHOOSE = null; takeList(L, true); }
+function takeList2(list){   /* list: [{ file, path }] */
   var out = [], left = list.length, skip = { pdf:[], other:0, bad:[] };
   if(!left){ toast('That folder was empty.'); return; }
   openSheet('<h3>Reading ' + left + ' file' + (left===1?'':'s') + '…</h3><p class="sub" id="rdLeft">One moment.</p>');
