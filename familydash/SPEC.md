@@ -166,3 +166,13 @@ Jerry asked whether the app could read the statements he already has saved and f
 Everything it found is shown on one screen, with a tap to fix each item, and the questions follow already filled in. Two rules still hold:
 - Only the last 4 digits of an account are ever kept.
 - A balance the files don't show stays "unknown" (left out of net worth, with a flag to type it in). It never shows as $0.
+
+**Refined the same day,** after Jerry ran it on his own folder. That folder is organised by topic (Giving, Expenses, Net Worth & Planning), not by account. So:
+- Accounts are now told apart by what's inside the files: the bank's name (from the file, its name or the card's payment lines) and the last 4 digits (from a card-number column, the lines above the header, or a file name like Chase1234).
+- Folders of old copies (_older Versions, archive, backup) are skipped.
+- Very old lines are kept but left out of the budget, which reads from January of last year.
+- Only deposits that are clearly income (Social Security, pension, pay, dividends) go straight in. Other regular deposits wait for an "It's income" tap.
+- The bank's own category column, where there is one, helps the sorting.
+- Paying a card from the bank account counts as moving money, not spending.
+- The "what I found" screen now lists the regular monthly bills by kind: utilities, subscriptions, phones, insurance, housing, giving and the rest, each with its account and typical amount.
+- A file that isn't a bank account can be left out with one tap.
