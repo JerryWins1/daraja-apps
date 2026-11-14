@@ -2216,7 +2216,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v1.1 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v1.2 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2444,7 +2444,7 @@ function saveMix(id){ var a = acct(id); a.mix = { s:Math.max(0,num(document.getE
 
 /* ── bringing statements in ── */
 function openImport(){
-  if(!db || !db.setup){ setupStep(1); return; }
+  if(!db || !db.setup){ setupQ(db ? db.sq || 0 : 0); return; }
   openSheet('<h3>Add statements</h3><p class="sub">Most banks and card companies let you download your activity as a file. Pick as many as you like — a few months from each account.</p>'
     + (FS.name ? '<button class="b warm full" id="fsBtn" onclick="checkFolder()">🔄 Check my folder for new statements</button><p class="sub" style="margin:6px 0 10px">Your folder: <b>' + esc(FS.name) + '</b>' + (db.fsLast ? ' · last checked ' + shortDate(db.fsLast) : '') + '. <a href="#" onclick="pickFolder();return false" style="color:var(--brand);font-weight:800">Use a different folder</a></p>' : '')
     + (canFolder() && !FS.name ? '<button class="b primary full" id="dirBtn" onclick="pickFolder()">📁 Load a whole folder</button><p class="sub" style="margin:6px 0 0">Pick your money folder. Everything in it, and in the folders inside it, is read at once. You can also drag the folder onto this page.' + (window.showDirectoryPicker ? ' It is remembered, so next month is one tap.' : '') + '</p>' : '')
@@ -2746,7 +2746,7 @@ function makeICS(){
 function startOver(){ if(!confirm('Clear everything in this app on this phone? This cannot be undone. (Use the house “Save a copy” first if you want a backup.)')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; closeSheet(); render(); }
 
 /* ── the example family: invented, every number made up ── */
-function leaveExample(){ if(!confirm('Put the example family away and set up your own?')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; render(); setupStep(1); }
+function leaveExample(){ if(!confirm('Put the example family away and set up your own?')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; render(); setupQ(0); }
 
 /* the ✨ button: ask about this screen, never with the raw lines */
 window.DJ_AI = { title:'Ask about our money', prompt:function(){ return db && db.budgetSet ? 'I use a household budget app. Here is a summary of the month on my screen:\n\n' + reportData(view) + '\n\nExplain what I am looking at in plain words, and tell me the one most useful thing to look at next. Keep it short. Suggestions only.' : null; } };
@@ -3026,6 +3026,7 @@ function render(){
     + '<button class="tool" onclick="openBudget()">✏️ Our budget<small>move it up or down</small></button>'
     + '<button class="tool" onclick="openTx()">📃 Everything this month<small>' + txIn(view).length + ' lines</small></button>'
     + '<button class="tool" onclick="openLists()">📋 Lists<small>help, business, 529, not sure</small></button>'
+    + '<button class="tool" id="pfBtn" onclick="openPaidFrom()">🔗 What\u2019s paid from where<small>if an account ever closes</small></button>'
     + '<button class="tool" onclick="openAccounts()">🏦 Our accounts<small>' + db.accts.filter(function(a){ return !a.closed; }).length + ' open</small></button>'
     + '<button class="tool" onclick="openSettings()">⚙️ Settings<small>every setup answer</small></button>'
     + '<button class="tool" onclick="openAdvisors()">🧑‍💼 Our advisors<small>' + esc(db.cpa || db.advisor ? [db.cpa, db.advisor].filter(Boolean).join(' · ') : 'CPA and advisor') + '</small></button></div>';
@@ -3419,6 +3420,57 @@ function aheadToYearly(id){ var it = aheadItems().filter(function(x){ return Str
 function keyToAcct(i){ var a = keyData().f2[i]; if(!a) return; openAcct(null, function(){ openHome(); }); var n = document.getElementById('acName'), t = document.getElementById('acType'); if(n) n.value = a.company || ''; if(t && KEY_TYPE[a.kind]){ t.value = KEY_TYPE[a.kind]; acTypeChanged(); }
   var b = document.getElementById('acBal'); if(b) b.placeholder = 'today’s balance — The Key never holds numbers'; }
 function keyToAdvisor(i){ var p = keyData().f4[i]; if(!p) return; var v = [p.name, p.phone].filter(Boolean).join(' · '); if(/accountant/i.test(p.kind||'')) db.cpa = v; else db.advisor = v; save(); render(); toast('Saved as ' + (/accountant/i.test(p.kind||'') ? 'your CPA' : 'your advisor') + '.'); openHome(); }
+
+/* ── v1.2 · What's paid from where (14 Nov). Jerry: the family was hacked, closed their checking account, and could not
+   tell which bills came straight out of it. The statements already know: every payee that takes money from an account
+   month after month. This lists them per account, adds ones the statements can't show, and turns a closing account into
+   a checklist of everything to move, ticked off one by one. ── */
+var AUTO_RX = /autopay|auto pay|auto-pay|\bach\b|recurring|e-?pay|epay|bill ?pay|online pmt|pmt|payment|debit/i;
+function recurringFrom(aid){
+  var G = {}; db.tx.forEach(function(t){ if(t.a !== aid || t.amt <= 0 || isP3(t.cat) || channel(t) === 'cash') return; var k = mkey(t.desc) || t.desc; if(!G[k]) G[k] = { k:k, desc:t.desc, ms:{}, last:t, n:0, cat:t.cat }; var g = G[k]; g.ms[t.d.slice(0,7)] = 1; g.n++; if(t.d >= g.last.d){ g.last = t; g.desc = t.desc; g.cat = t.cat; } });
+  return Object.keys(G).map(function(k){ var g = G[k]; g.months = Object.keys(g.ms).length; g.pp = /paypal/i.test(g.desc); return g; })
+    .filter(function(g){ return g.months >= 2 || (AUTO_RX.test(g.desc) && g.cat !== 'uncat'); }).sort(function(a,b){ return b.last.amt - a.last.amt; });
+}
+function paidManual(aid){ return (db.paidMan||[]).filter(function(x){ return x.a === aid; }); }
+function openPaidFrom(){
+  var A = db.accts.filter(function(a){ return !a.closed && (TYPES[a.type].st || paidManual(a.id).length); });
+  openSheet('<h3>🔗 What’s paid from where</h3><p class="sub">Every bill that comes out of each account, month after month, read from your statements. If an account is ever closed or hacked, this is the list of everything to move.</p>'
+    + (A.length ? A.map(function(a){ var R = recurringFrom(a.id), M = paidManual(a.id), n = R.length + M.length;
+      return '<div class="card"><h2>' + TYPES[a.type].em + ' ' + esc(acctLabel(a)) + '<small>' + n + ' bill' + (n===1?'':'s') + '</small></h2>'
+        + R.map(function(g){ return '<div class="trow"><span>' + esc(g.desc) + (g.pp ? ' <span class="pill">PayPal</span>' : '') + '<small>' + esc(catName(g.cat)) + ' · ' + (g.months >= 2 ? g.months + ' months' : 'once so far') + ' · last ' + shortDate(g.last.d) + '</small></span><b>' + money(g.last.amt) + '</b></div>'; }).join('')
+        + M.map(function(x, i){ return '<div class="trow"><span>' + esc(x.name) + ' <span class="pill">added by you</span><small>' + esc(x.how || '') + '</small></span><button class="b small" style="flex:none" aria-label="Remove" onclick="pmDel(\'' + x.id + '\')">✕</button></div>'; }).join('')
+        + (!n ? '<p class="sub" style="margin:0">Nothing regular yet. It fills in as statements come in.</p>' : '')
+        + '<div class="row" style="margin-top:8px"><button class="b small" onclick="pmAdd(\'' + a.id + '\')">＋ One the statements don’t show</button><button class="b small" style="color:var(--red)" onclick="openMoving(\'' + a.id + '\')">This account is closing</button></div></div>'; }).join('')
+      : '<p class="sub">Add your checking and card accounts, and bring in a few months of statements.</p>')
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
+}
+function pmAdd(aid){ var n = prompt('What gets paid from this account? (e.g. Water bill, Life insurance, Church giving)'); if(!n || !n.trim()) return; var h = prompt('How? (e.g. autopay on the 15th, through PayPal, by hand)', 'autopay') || '';
+  db.paidMan = (db.paidMan||[]).concat([{ id:uid(), a:aid, name:n.trim(), how:h.trim() }]); save(); openPaidFrom(); }
+function pmDel(id){ db.paidMan = (db.paidMan||[]).filter(function(x){ return x.id !== id; }); save(); openPaidFrom(); }
+function openMoving(aid){
+  var a = acct(aid), R = recurringFrom(aid), M = paidManual(aid), mv = ((db.moved||{})[aid]) || {}, items = R.map(function(g){ return { k:g.k, name:g.desc, sub:catName(g.cat) + ' · last ' + money(g.last.amt) + ' on ' + shortDate(g.last.d) + (g.pp ? ' · through PayPal' : '') }; }).concat(M.map(function(x){ return { k:'m:' + x.id, name:x.name, sub:x.how || '' }; }));
+  var done = items.filter(function(it){ return mv[it.k]; }).length;
+  openSheet('<h3>Moving everything off ' + esc(acctLabel(a)) + '</h3><p class="sub">Sign in to each company’s website, change the account the payment comes from, then tick it here. ' + done + ' of ' + items.length + ' moved.</p>'
+    + '<div class="meter" style="margin:0 0 10px"><i style="width:' + (items.length ? Math.round(done/items.length*100) : 0) + '%"></i></div>'
+    + items.map(function(it){ return '<label class="ck" style="align-items:flex-start;border-bottom:1px solid var(--line);padding:8px 0;margin:0"><input type="checkbox"' + (mv[it.k] ? ' checked' : '') + ' onchange="mvTick(\'' + aid + '\',\'' + esc(it.k).replace(/'/g,'') + '\',this.checked)"><span>' + esc(it.name) + '<small style="display:block;color:var(--soft);font-weight:600">' + esc(it.sub) + (mv[it.k] ? ' · moved ' + shortDate(mv[it.k]) : '') + '</small></span></label>'; }).join('')
+    + (!items.length ? '<p class="sub">Nothing found yet for this account. Bring in a few months of its statements first.</p>' : '')
+    + '<p class="sub" style="margin-top:10px">Also worth checking: direct deposits coming IN to this account, like a pension or Social Security, need the new account too.</p>'
+    + '<button class="b full" onclick="copyMoving(\'' + aid + '\')">Copy this list</button><button class="b ghost" style="width:100%" onclick="openPaidFrom()">Back</button>');
+}
+function mvTick(aid, k, on){ db.moved = db.moved || {}; db.moved[aid] = db.moved[aid] || {}; if(on) db.moved[aid][k] = today(); else delete db.moved[aid][k]; save(); openMoving(aid); }
+function copyMoving(aid){ var a = acct(aid), mv = ((db.moved||{})[aid]) || {}, L = ['To move off ' + acctLabel(a) + ':'];
+  recurringFrom(aid).forEach(function(g){ L.push((mv[g.k] ? '[x] ' : '[ ] ') + g.desc + ' — ' + money(g.last.amt) + (g.pp ? ' (PayPal)' : '')); });
+  paidManual(aid).forEach(function(x){ L.push((mv['m:' + x.id] ? '[x] ' : '[ ] ') + x.name + (x.how ? ' — ' + x.how : '')); });
+  var ins = db.tx.filter(function(t){ return t.a === aid && t.amt < 0 && t.cat === 'inc'; }), seenI = {}; ins.forEach(function(t){ var k = mkey(t.desc); if(!seenI[k]){ seenI[k] = 1; L.push('[ ] Deposit coming in: ' + t.desc); } });
+  var s = L.join('\n'); try{ navigator.clipboard.writeText(s).then(function(){ toast('Copied.'); }, function(){ toast('Could not copy on this device.'); }); }catch(e){} }
+
+/* For the store's videos (shop/watch.html): show the example family without touching anyone's real month.
+   The player's tourSet() keeps the example in a layer over this window's storage, so nothing a video does is saved. */
+function videoReady(){
+  ['djTour','djHello','djMenu','djA2HS'].forEach(function(i){ var e = document.getElementById(i); if(e) e.remove(); });
+  if(!db || !db.ex || (db.v||1) < 2){ var d = exampleData(); try{ if(parent !== window && parent.tourSet) parent.tourSet(KEY, JSON.stringify(d)); }catch(e){} db = load(); if(!db || !db.ex || (db.v||1) < 2) db = d; }
+  GK = null; CK = null; closeSheet(); view = addMonths(thisMonth(), -1); render(); window.scrollTo(0,0);
+}
 
 if(db && db.ex && (db.v||1) < 2) db = exampleData(); else db = migrate(db);
 loadWX(function(){ if(db) render(); });
