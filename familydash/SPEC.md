@@ -194,3 +194,5 @@ Everything it found is shown on one screen, with a tap to fix each item, and the
 - **Sections named like homes** (Lake Home, Desert House) become the home groups, each with its own lines.
 
 It shows what it read and where each line will go, and changes nothing until "Use this as our budget" is tapped. A Numbers file has to be exported to Excel first.
+
+**Choose which folders to read** (Jerry: his personal folder holds "some things that aren't financial… let me choose"). When the chosen folder has several folders inside, the app first lists them with a tick box each. Ones that look like money (bank, cards, insurance, taxes, expenses, giving, net worth…) come ticked. Only the ticked ones are read, and the choice is remembered for next time.
