@@ -2217,7 +2217,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v1.6 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v1.7 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2229,6 +2229,7 @@
 <div class="printable" id="printable"></div>
 <input type="file" id="fileIn" accept=".csv,.ofx,.qfx,.qbo,.txt,.xlsx,.xls,.pdf,text/csv" multiple style="display:none">
 <input type="file" id="dirIn" webkitdirectory multiple style="display:none">
+<input type="file" id="budIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="var f=this.files&&this.files[0];this.value='';if(f)readBudget(f,f.name)">
 
 <script>
 /* Family Money Dashboard (was Family Financial Dashboard) · v1.0 14 Nov 2026 — see familydash/SPEC.md
@@ -2493,10 +2494,10 @@ function takeList(list){   /* list: [{ file, path }] */
     if(/^\./.test(nm)){ skip.other++; done(); return; }
     if(/(^|\/)(_?old(er)?( versions?)?|archive[sd]?|backups?|copies)(\/|$)/i.test(it.path || '')){ skip.old = (skip.old||0) + 1; done(); return; }
     if(ext === 'pdf'){ var fp = String(it.path || nm).split('/'); if(hintOf(it.path) === 'doc' && fp.length > 1){ var fo = fp[fp.length-2]; skip.docs = skip.docs || {}; skip.docs[fo] = (skip.docs[fo]||0) + 1; } else skip.pdf.push(it.path || nm); done(); return; }
-    if(ext === 'xlsx' || ext === 'xls'){ readSheet(f, function(p){ if(p && isStatement(p, it.path || nm, true)){ p.path = it.path || nm; out.push(p); } else { (skip.sheets = skip.sheets || []).push(it.path || nm); } done(); }); return; }
+    if(ext === 'xlsx' || ext === 'xls'){ readSheet(f, function(p){ if(p && isStatement(p, it.path || nm, true)){ p.path = it.path || nm; out.push(p); } else { (skip.sheets = skip.sheets || []).push(it.path || nm); SHEETF[it.path || nm] = f; } done(); }); return; }
     if(ext === 'numbers' || ext === 'docx' || ext === 'doc' || ext === 'pages'){ (skip.sheets = skip.sheets || []).push(it.path || nm); done(); return; }
     if(!/^(csv|ofx|qfx|qbo|txt|tsv)$/.test(ext)){ skip.other++; done(); return; }
-    var r = new FileReader(); r.onload = function(){ var t = String(r.result||''), p = /<OFX|<STMTTRN|OFXHEADER/i.test(t) ? parseOFX(t, nm) : parseCSV(t, nm); p.path = it.path || nm; if(p.rows.length && isStatement(p, p.path, false)) out.push(p); else if(p.rows.length){ (skip.sheets = skip.sheets || []).push(p.path); } else skip.bad.push(nm); done(); };
+    var r = new FileReader(); r.onload = function(){ var t = String(r.result||''), p = /<OFX|<STMTTRN|OFXHEADER/i.test(t) ? parseOFX(t, nm) : parseCSV(t, nm); p.path = it.path || nm; if(p.rows.length && isStatement(p, p.path, false)) out.push(p); else if(p.rows.length){ (skip.sheets = skip.sheets || []).push(p.path); SHEETF[p.path] = f; } else skip.bad.push(nm); done(); };
     r.onerror = function(){ skip.bad.push(nm); done(); }; r.readAsText(f); });
 }
 /* v0.5 · remember the folder (Chrome and Edge on a computer). The browser keeps a pointer to the folder, not a copy:
@@ -2583,6 +2584,7 @@ function csvRows(text){
 var BANKS = [[/chase/,'Chase'],[/capital ?one|capitol ?one/,'Capital One'],[/wells ?fargo/,'Wells Fargo'],[/bank ?of ?america|\bbofa\b/,'Bank of America'],[/\bciti(bank|cards?)?\b/,'Citi'],[/amex|american express/,'American Express'],[/discover/,'Discover'],[/u\.?s\.? ?bank/,'U.S. Bank'],[/\bpnc\b/,'PNC'],[/\btd ?bank\b/,'TD Bank'],[/truist|suntrust/,'Truist'],[/usaa/,'USAA'],[/navy ?federal/,'Navy Federal'],[/fifth ?third/,'Fifth Third'],[/huntington/,'Huntington'],[/\bally\b/,'Ally'],[/schwab/,'Schwab'],[/fidelity/,'Fidelity'],[/vanguard/,'Vanguard'],[/synchrony/,'Synchrony'],[/barclay/,'Barclays'],[/apple ?card|goldman/,'Apple Card'],[/paypal/,'PayPal'],[/venmo/,'Venmo'],[/credit ?union/,'Credit union'],[/\bregions\b/,'Regions'],[/citizens/,'Citizens'],[/\bbmo\b/,'BMO'],[/key ?bank/,'KeyBank'],[/busey/,'Busey'],[/first ?mid/,'First Mid'],[/old ?national/,'Old National'],[/associated ?bank/,'Associated Bank'],[/commerce ?bank/,'Commerce Bank']];
 /* A bank's own download names the payee in a description column; a spreadsheet of your own (a budget, gifts by year, a
    what-if) has dates and amounts but no payees. Excel files count only when they look like a bank's download. */
+var SHEETF = {};   /* spreadsheets seen this session, by path — kept in memory only, so 'Use as our budget' can read one */
 function isStatement(p, path, sheet){ if(p.ofx) return true; var b = bankOf(path + ' ' + (p.bankText||'')); if(sheet) return !!(b && p.hasDesc) || !!(p.hasDesc && p.postCol); return p.hasDesc !== false || !!b; }
 var SIGS = [['status,date,description,debit,credit','Citi'],['transaction date,post date,description,category,type,amount,memo','Chase'],['details,posting date,description,amount,type,balance','Chase'],['trans. date,post date,description,amount,category','Discover'],['posted date,reference number,payee,address,amount','Bank of America'],['transaction date,posted date,card no.,description,category,debit,credit','Capital One']];
 function bankOf(t){ t = String(t||'').toLowerCase(); var cu = /([a-z][a-z.&' ]{2,40}?) (federal )?credit union/.exec(t); if(cu && !/^(the|a|your|my)$/.test(cu[1].trim())) return cu[1].trim().replace(/\b\w/g, function(c){ return c.toUpperCase(); }) + ' Credit Union';
@@ -3343,6 +3345,7 @@ function openSettings(){
     + SQ.map(function(q, i){ return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + q.ask + '</button>'; }).join('')
     + '<h4>More</h4><button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
     + '<button class="b full" onclick="openPart2()">📅 Yearly bills and bookings</button>'
+    + '<button class="b full" onclick="pickBudgetFile()">📊 Start the budget from my spreadsheet</button>'
     + '<label for="stCur">Money</label><select id="stCur" onchange="db.cur=this.value;save();render()">' + ['$','KSh','£','€'].map(function(c){ return '<option' + (db.cur===c?' selected':'') + '>' + c + '</option>'; }).join('') + '</select>'
     + '<button class="b full" onclick="openReminder()">🗓️ Monthly reminder in my calendar</button>'
     + '<button class="b full" onclick="window.djAI && djAI.choose()">🤖 Which AI do I use?</button>'
@@ -3587,7 +3590,7 @@ function autoSummary(){
 }
 function setAsideHTML(){ var sk = AF.sk || {}, h = '';
   if((sk.pdf||[]).length) h += '<p style="margin:12px 0 0;font-weight:800">📄 PDF statements set aside (' + sk.pdf.length + ')</p><p class="sub" style="margin:2px 0 0">If your pension or a bank isn’t showing above, its statements are probably among these. Download that bank’s activity as CSV from its website, or bring the PDFs in one at a time with your AI.</p><ul class="list">' + sk.pdf.slice(0,8).map(function(x){ return '<li style="font-size:14px">' + esc(x) + '</li>'; }).join('') + (sk.pdf.length > 8 ? '<li style="font-size:14px">…and ' + (sk.pdf.length - 8) + ' more</li>' : '') + '</ul>';
-  if((sk.sheets||[]).length) h += '<p style="margin:12px 0 0;font-weight:800">🗂️ Your own spreadsheets, left alone (' + sk.sheets.length + ')</p><p class="sub" style="margin:2px 0 0">Budgets, summaries and what-ifs aren’t bank statements, so they weren’t read as accounts.</p><ul class="list">' + sk.sheets.slice(0,8).map(function(x){ return '<li style="font-size:14px">' + esc(x) + '</li>'; }).join('') + (sk.sheets.length > 8 ? '<li style="font-size:14px">…and ' + (sk.sheets.length - 8) + ' more</li>' : '') + '</ul>';
+  if((sk.sheets||[]).length) h += '<p style="margin:12px 0 0;font-weight:800">🗂️ Your own spreadsheets, left alone (' + sk.sheets.length + ')</p><p class="sub" style="margin:2px 0 0">Budgets, summaries and what-ifs aren’t bank statements, so they weren’t read as accounts.</p><ul class="list">' + sk.sheets.slice(0,12).map(function(x){ return '<li style="font-size:14px"><span class="ds">' + esc(x) + '</span>' + (SHEETF[x] && !/\.numbers$/i.test(x) ? '<button class="b small" style="flex:none" onclick="budgetFromPath(\'' + esc(x).replace(/'/g,'') + '\')">Use as our budget</button>' : (/\.numbers$/i.test(x) ? '<small style="color:var(--soft)">Numbers file: in Numbers, File → Export To → Excel, then use that</small>' : '')) + '</li>'; }).join('') + (sk.sheets.length > 12 ? '<li style="font-size:14px">…and ' + (sk.sheets.length - 12) + ' more</li>' : '') + '</ul>';
   if(sk.old) h += '<p class="sub" style="margin:10px 0 0">' + sk.old + ' file' + (sk.old===1?'':'s') + ' in “older versions” or archive folders were skipped.</p>';
   if(sk.docs && Object.keys(sk.docs).length){ db.docs = sk.docs; h += '<p style="margin:12px 0 0;font-weight:800">📁 Papers, by folder</p><p class="sub" style="margin:2px 0 0">Listed in Our household, so you know what\u2019s where. Only the folder names and counts are kept — never what\u2019s inside.</p><ul class="list">' + Object.keys(sk.docs).map(function(k){ return '<li style="font-size:14px"><span class="ds">' + esc(k) + '</span><span class="amt">' + sk.docs[k] + ' file' + (sk.docs[k]===1?'':'s') + '</span></li>'; }).join('') + '</ul>'; }
   return h ? '<h4>📎 Set aside</h4>' + h : ''; }
@@ -3596,6 +3599,74 @@ function autoDrop(id){ var a = acct(id); if(!a || !confirm('Leave “' + acctLab
   db.tx = db.tx.filter(function(t){ return t.a !== id; }); db.accts = db.accts.filter(function(x){ return x.id !== id; }); Object.keys(db.src||{}).forEach(function(k){ if(db.src[k].a === id) delete db.src[k]; });
   AF.n = db.tx.length; AF.unsure = AF.unsure.filter(function(u){ return u.a !== id; }); save(); autoSummary(); }
 function autoFillShow(){ autoSummary(); }
+
+/* ── v1.7 · start the budget from your own spreadsheet (14 Nov). Jerry chose this for the budget he already keeps. The sheet
+   is read on this device: section rows (a label, no number) become groups, label-and-number rows become budget lines,
+   income rows become income, totals are skipped. Nothing is applied until he taps "Use this as our budget". ── */
+function budgetFromPath(path){ var f = SHEETF[path]; if(!f){ alert('Pick the file again, from Settings → Start the budget from my spreadsheet.'); return; } readBudget(f, path); }
+function pickBudgetFile(){ var i = document.getElementById('budIn'); if(i) i.click(); }
+function readBudget(f, path){
+  var ext = (f.name.split('.').pop()||'').toLowerCase();
+  if(ext === 'csv' || ext === 'txt'){ var r = new FileReader(); r.onload = function(){ showBudget(parseBudget([csvRows(String(r.result||''))]), path || f.name); }; r.readAsText(f); return; }
+  function go(){ var r = new FileReader(); r.onload = function(){ try{ var wb = XLSX.read(new Uint8Array(r.result), { type:'array' }); showBudget(parseBudget(wb.SheetNames.map(function(n){ var a = XLSX.utils.sheet_to_json(wb.Sheets[n], { header:1, raw:true, defval:'' }); a.sheet = n; return a; })), path || f.name); }catch(e){ alert('That file could not be read as a spreadsheet.'); } }; r.readAsArrayBuffer(f); }
+  if(window.XLSX) return go(); var sc = document.createElement('script'); sc.src = XLSX_URL; sc.onload = go; sc.onerror = function(){ alert('The spreadsheet reader needs the internet once. Try again when you are online.'); }; document.head.appendChild(sc);
+}
+var BINC = /pension|social security|soc sec|salary|wages|annuity|income|ira distribution|rmd|dividend/i, BSKIP = /^(total|sum|subtotal|grand total|net|balance|difference|remaining|left over|surplus|deficit)\b|total$/i;
+function parseBudget(sheets){
+  var best = null;
+  sheets.forEach(function(rows){
+    rows = (rows||[]).map(function(r){ return (r||[]).map(function(c){ return c == null ? '' : c; }); });
+    var hi = -1, amt = -1, yearly = false;
+    for(var i=0;i<Math.min(rows.length, 12);i++){ var low = rows[i].map(function(c){ return String(c).toLowerCase().trim(); }); if(low.filter(Boolean).length < 2) continue;   /* a title row is not the header */
+      var m = low.findIndex(function(c){ return /budget|monthly|per month|plan|month/.test(c) && !/actual|spent/.test(c); }); if(m < 0) m = low.findIndex(function(c){ return /^amount|amount$/.test(c); });
+      var y = low.findIndex(function(c){ return /annual|yearly|per year|year/.test(c) && !/to date|ytd/.test(c); });
+      if(m >= 0 || y >= 0){ hi = i; amt = m >= 0 ? m : y; yearly = m < 0; break; } }
+    if(amt < 0){ var cnt = {}; rows.forEach(function(r){ r.forEach(function(c, k){ if(typeof c === 'number' || /^\s*\$?-?[\d,]+(\.\d+)?\s*$/.test(String(c))) cnt[k] = (cnt[k]||0) + 1; }); }); var bestK = -1; Object.keys(cnt).forEach(function(k){ if(bestK < 0 || cnt[k] > cnt[bestK]) bestK = +k; }); amt = bestK; }
+    if(amt < 0) return;
+    var group = '', lines = [], incs = [];
+    rows.slice(hi + 1).forEach(function(r){
+      var label = ''; for(var k=0;k<r.length;k++){ if(k === amt) continue; var c = String(r[k]).trim(); if(c && !/^\s*\$?-?[\d,.]+%?\s*$/.test(c) && !(r[k] instanceof Date)){ label = c; break; } }
+      var raw = r[amt], has = raw !== '' && raw != null && (typeof raw === 'number' || /\d/.test(String(raw))), v = has ? Math.abs(typeof raw === 'number' ? raw : num(raw)) : 0;
+      if(!label) return;
+      if(!has){ if(label.length < 40) group = label; return; }
+      if(BSKIP.test(label) || !v) return;
+      var mth = r2(yearly ? v / 12 : v);
+      if(BINC.test(label) || /income/i.test(group)) incs.push({ name:label, amt:mth }); else lines.push({ g:group, name:label, amt:mth });
+    });
+    if(lines.length && (!best || lines.length > best.lines.length)) best = { lines:lines, incs:incs, sheet:rows.sheet || '', yearly:yearly };
+  });
+  return best;
+}
+var BUD = null;
+function showBudget(b, path){
+  if(!b || !b.lines.length){ alert('I could not find budget lines in “' + path + '” — a name and an amount on each row. If it is a summary rather than a budget, try a different sheet.'); return; }
+  BUD = b; var tot = r2(b.lines.reduce(function(a,l){ return a + l.amt; },0)), it = r2(b.incs.reduce(function(a,l){ return a + l.amt; },0)), G = {};
+  b.lines.forEach(function(l){ (G[l.g || 'Budget'] = G[l.g || 'Budget'] || []).push(l); });
+  openSheet('<div class="stepno">From your spreadsheet</div><h3>Your budget, as I read it</h3><p class="sub">' + esc(path) + (b.sheet ? ' · sheet “' + esc(b.sheet) + '”' : '') + (b.yearly ? ' · the amounts looked yearly, so each is shown ÷ 12' : '') + '. ' + b.lines.length + ' lines, ' + money(tot,1) + ' a month' + (it ? '; income ' + money(it,1) : '') + '.</p>'
+    + Object.keys(G).map(function(g){ return '<h4>' + esc(g) + '</h4><ul class="list">' + G[g].map(function(l){ var c = HOMEW.test(l.g||'') ? null : matchCat(l.name, l.g); return '<li><span class="ds">' + esc(l.name) + '<small>' + (HOMEW.test(l.g||'') ? 'goes into ' + esc(l.g) : c ? 'goes into ' + esc(catLabel(c)) : 'a new line') + '</small></span><span class="amt">' + money(l.amt,1) + '</span></li>'; }).join('') + '</ul>'; }).join('')
+    + (b.incs.length ? '<h4>💵 Income</h4><ul class="list">' + b.incs.map(function(l){ return '<li><span class="ds">' + esc(l.name) + '</span><span class="amt">' + money(l.amt,1) + '</span></li>'; }).join('') + '</ul>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="applyBudget()">Use this as our budget</button><button class="b ghost" style="width:100%" onclick="' + (AF ? 'autoSummary()' : 'closeSheet()') + '">Back</button></div>');
+}
+var HOMEW = /home|house|condo|cabin|cottage|lake|farm|place|apartment|villa|residence/i;
+function matchCat(n, gname){ var l = String(n).toLowerCase().trim(), pool = db.cats;
+  var g = gname ? db.groups.filter(function(x){ return x.name.toLowerCase() === String(gname).toLowerCase(); })[0] : null;
+  if(g) pool = db.cats.filter(function(x){ return x.g === g.id; }); else if(gname && HOMEW.test(gname)) return null;   /* a home of its own: its lines go to it */
+  var c = pool.filter(function(x){ return x.name.toLowerCase() === l; })[0]; if(c) return c;
+  c = pool.filter(function(x){ var xn = x.name.toLowerCase(); return xn.length > 3 && l.length > 3 && (l.indexOf(xn) >= 0 || xn.indexOf(l) >= 0); })[0] || null;
+  if(c && !g && gname && /^g_home/.test(c.g)) return null; return c; }
+function budgetHomes(b){ var H = []; b.lines.forEach(function(l){ if(l.g && HOMEW.test(l.g) && H.indexOf(l.g) < 0) H.push(l.g); }); return H; }
+function applyBudget(){
+  var b = BUD; if(!b) return; var H = budgetHomes(b); if(H.length && ((db.homes||[]).length <= 1 && /^(our home|home 1)?$/i.test((db.homes||[''])[0]) || (db.homes||[]).length < H.length)) db.homes = H; rebuildPlan();
+  var n = 0, made = 0;
+  b.lines.forEach(function(l){ var c = matchCat(l.name, l.g);
+    if(!c){ var gname = l.g || 'From my spreadsheet', g = db.groups.filter(function(x){ return x.name.toLowerCase() === gname.toLowerCase(); })[0];
+      if(!g){ g = { id:'g_' + uid(), name:gname, em:/home|house|condo|cabin/i.test(gname) ? '🏠' : '📁' }; var at = db.groups.findIndex(function(x){ return x.id === 'g_save' || x.id === 'g_fee' || x.id === 'g_yearly'; }); if(at < 0) db.groups.push(g); else db.groups.splice(at, 0, g); }
+      c = { id:uid(), g:g.id, name:l.name, budget:0, part:1, kw:'' }; db.cats.push(c); made++; }
+    if(c.part === 2) c.yearly = r2(l.amt * 12); else { c.budget = r2(l.amt); c.variable = false; } n++; });
+  b.incs.forEach(function(i){ if(!db.incomes.some(function(x){ return x.name.toLowerCase() === i.name.toLowerCase(); })) db.incomes.push({ id:uid(), name:i.name, amt:i.amt, found:1 }); });
+  db.budgetSet = true; db.budgetFromSheet = today(); save(); render();
+  toast(n + ' budget lines set from your spreadsheet' + (made ? ', ' + made + ' new' : '') + '.'); if(AF) autoSummary(); else closeSheet();
+}
 
 /* For the store's videos (shop/watch.html): show the example family without touching anyone's real month.
    The player's tourSet() keeps the example in a layer over this window's storage, so nothing a video does is saved. */

@@ -186,3 +186,11 @@ Everything it found is shown on one screen, with a tap to fix each item, and the
 **Suggested folder names,** at Jerry's suggestion ("so you can read it and know what it is"): `1 Bank statements`, `2 Credit cards`, `3 Savings`, `4 Investments and retirement`, `5 Loans and mortgage`, `6 Insurance policies`, `7 Taxes`, `8 Other papers`. They're shown, with a copy button, from the first setup screen. A folder whose name says what it holds settles the account type. PDFs in the paper folders are listed by folder in Our household, as names and counts only.
 
 **Frequent flyer miles and points:** a new kind of account. The number of miles or points is typed in by hand, with no airline login, and is shown in the Net worth sheet but not counted in net worth.
+
+**Start the budget from your own spreadsheet** (Jerry's choice, the same day). Any spreadsheet left alone on the "what I found" screen has a **Use as our budget** button, and Settings has **Start the budget from my spreadsheet**. The sheet is read on the device:
+- **Section rows** (a name with no amount) become groups.
+- **Rows with a name and an amount** become budget lines, from the Monthly or Budget column. If only an Annual column exists, each amount is divided by 12.
+- **Income rows** become income, and **total rows** are skipped.
+- **Sections named like homes** (Lake Home, Desert House) become the home groups, each with its own lines.
+
+It shows what it read and where each line will go, and changes nothing until "Use this as our budget" is tapped. A Numbers file has to be exported to Excel first.
