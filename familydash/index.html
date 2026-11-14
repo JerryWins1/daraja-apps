@@ -2216,7 +2216,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v1.2 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v1.3 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2367,10 +2367,10 @@ function openBalances(){
   var A = db.accts.filter(function(a){ return !a.closed; });
   if(!A.length){ openAcct(); return; }
   openSheet('<h3>Update balances</h3><p class="sub">Type today’s number for each one. For a home or a car, your best guess is fine — once or twice a year is enough.</p>'
-    + A.map(function(a){ var T = TYPES[a.type]; return '<label for="bl_' + a.id + '">' + T.em + ' ' + esc(a.name) + (T.s === 'l' ? ' <span class="pill">owed</span>' : '') + (a.asOf ? ' <span class="pill">' + shortDate(a.asOf) + '</span>' : '') + '</label><input id="bl_' + a.id + '" inputmode="decimal" value="' + (a.bal||0) + '">'; }).join('')
+    + A.map(function(a){ var T = TYPES[a.type]; return '<label for="bl_' + a.id + '">' + T.em + ' ' + esc(a.name) + (T.s === 'l' ? ' <span class="pill">owed</span>' : '') + (a.asOf ? ' <span class="pill">' + shortDate(a.asOf) + '</span>' : '') + '</label><input id="bl_' + a.id + '" inputmode="decimal" value="' + (a.balUnknown ? '' : (a.bal||0)) + '" placeholder="unknown — type today’s balance">'; }).join('')
     + '<button class="b primary full" onclick="saveBalances()">Save the balances</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Cancel</button>');
 }
-function saveBalances(){ db.accts.forEach(function(a){ var el = document.getElementById('bl_' + a.id); if(el) setBal(a, Math.abs(num(el.value))); }); save(); closeSheet(); render(); toast('Balances saved for today.'); if(CK) setTimeout(function(){ openCheckup(CK); }, 300); }
+function saveBalances(){ db.accts.forEach(function(a){ var el = document.getElementById('bl_' + a.id); if(el && !(a.balUnknown && el.value.trim() === '')){ setBal(a, Math.abs(num(el.value))); delete a.balUnknown; } }); save(); closeSheet(); render(); toast('Balances saved for today.'); if(CK) setTimeout(function(){ openCheckup(CK); }, 300); }
 function openNetWorth(){
   var nw = netWorth(), mine = db.accts.filter(counts), other = db.accts.filter(function(a){ return !a.closed && a.notPersonal; });
   function rows(side){ return mine.filter(function(a){ return TYPES[a.type].s === side; }).map(function(a){ return '<li class="tap" onclick="openAcct(\'' + a.id + '\')"><span>' + TYPES[a.type].em + '</span><span class="ds">' + esc(a.name) + '<small>' + TYPES[a.type].t + (a.asOf ? ' · as of ' + shortDate(a.asOf) : '') + '</small></span><span class="amt">' + money(a.bal||0,1) + '</span></li>'; }).join('') || '<li>Nothing yet.</li>'; }
@@ -2606,6 +2606,7 @@ function nextFile(){
   if(!CUR.rows.length){ alert('I could not read any spending lines in “' + CUR.name + '”. If it came from a bank, try its CSV or QFX download instead.'); nextFile(); return; }
   if(!CUR.key) CUR.key = srcKey(CUR);
   var known = (db.src||{})[CUR.key]; if(known && acct(known.a) && !acct(known.a).closed){ CUR.a = known.a; CUR.flip = known.flip; takeFile(); return; }
+  if(AUTO){ autoAcct(CUR); takeFile(); return; }
   var guess = stmtAccts().filter(function(a){ var n = a.name.toLowerCase(), k = CUR.key.replace(/^\w+:/,''); return k && (n.indexOf(k) >= 0 || k.indexOf(n) >= 0); })[0];
   var A = stmtAccts(), first = CUR.rows.reduce(function(a,r){ return r.d < a ? r.d : a; }, '9999'), last = CUR.rows.reduce(function(a,r){ return r.d > a ? r.d : a; }, '0000');
   var nf = (CUR.files||[CUR]).length, left = pending.length;
@@ -2637,6 +2638,7 @@ function takeFile(){
   save(); nextFile();
 }
 function afterImport(){
+  if(AUTO){ AUTO = false; IMP = { added:0, skipped:0 }; autoFill(); return; }
   var I = IMP, msg = I.added + ' lines brought in' + (I.skipped ? ', ' + I.skipped + ' already here' : '') + '.'; IMP = { added:0, skipped:0 };
   view = null; render(); closeSheet();
   var sk = I.skip || { pdf:[], other:0, bad:[] }, per = I.per || {};
@@ -2784,7 +2786,7 @@ function catOptions(sel){
 function counts(a){ return !!a && !a.notPersonal; }
 function txIn(m){ return db.tx.filter(function(t){ return t.d.slice(0,7) === m && counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom); }); }
 function months(){ var o = {}; db.tx.forEach(function(t){ if(counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom)) o[t.d.slice(0,7)] = 1; }); return Object.keys(o).sort(); }
-function netWorth(){ var own = 0, owe = 0; db.accts.forEach(function(a){ if(a.closed || a.notPersonal) return; if(TYPES[a.type].s === 'a') own += a.bal||0; else owe += a.bal||0; }); return { own:r2(own), owe:r2(owe), net:r2(own-owe) }; }
+function netWorth(){ var own = 0, owe = 0; db.accts.forEach(function(a){ if(a.closed || a.notPersonal || a.balUnknown) return; if(TYPES[a.type].s === 'a') own += a.bal||0; else owe += a.bal||0; }); return { own:r2(own), owe:r2(owe), net:r2(own-owe) }; }
 function isP3(id){ return id === 'onetime' || /^help:/.test(id||''); }
 function notSpending(id){ return id === 'inc' || id === 'xfer' || id === 'biz' || id === 'edu529'; }
 function part(c){ return db.threePart ? c.part : 1; }
@@ -2965,7 +2967,8 @@ function notices(m){
   var x = three(m); if(db.rule && x.inc > 0 && x.reg > x.inc) N.push({ k:'rule:'+x.reg+':'+x.inc, em:'📏', t:'The regular budget (' + money(x.reg,1) + ') is ' + money(x.reg - x.inc,1) + ' more than income (' + money(x.inc,1) + '). Trim a line, or plan to cover the gap from investments.', go:'openBudget()', btn:'Trim' });
   var e = T.filter(function(t){ return t.cat === 'edu529'; }); if(e.length) N.push({ k:'tax529:' + m, em:'🧾', t:'Tax flag: ' + money(e.reduce(function(a,t){ return a + t.amt; },0),1) + ' of school costs covered by the 529 this month. A question for ' + (db.cpa ? esc(db.cpa) : 'your CPA') + ' at tax time.', go:'openList(\'edu529\')' });
   aheadSoon(14).forEach(function(it){ N.push({ k:'due:' + it.id + ':' + it.due, em:'⏰', t:'Due ' + shortDate(it.due) + ': <b>' + esc(it.n) + '</b>' + (num(it.amt) ? ', ' + money(num(it.amt),1) : '') + ' (from Ahead of It).', go:'openHome()' }); });
-  var old = db.accts.filter(function(a){ return !a.closed && (!a.asOf || daysBetween(a.asOf, today()) > 40); });
+  var unkB = db.accts.filter(function(a){ return !a.closed && a.balUnknown; }); if(unkB.length) N.push({ k:'unkbal:' + unkB.length + ':' + thisMonth(), em:'❔', t:'Balance unknown for ' + unkB.map(function(a){ return esc(acctLabel(a)); }).join(', ') + '. Type today’s balance, and net worth includes it.', go:'openBalances()', btn:'Update' });
+  var old = db.accts.filter(function(a){ return !a.closed && !a.balUnknown && (!a.asOf || daysBetween(a.asOf, today()) > 40); });
   if(old.length) N.push({ k:'stale:'+thisMonth(), em:'🕰️', t:old.length + ' balance' + (old.length===1?' is':'s are') + ' more than 40 days old.', go:'openBalances()', btn:'Update' });
   return N.filter(function(n){ return !db.seen[n.k]; });
 }
@@ -3088,7 +3091,7 @@ function sqFoot(i){ return '<button class="b primary full" onclick="sqNext(' + i
 function taps(name, opts, val){ return '<div class="pick" style="grid-template-columns:1fr" id="tp_' + name + '">' + opts.map(function(o){ return '<button class="' + (val === o[0] ? 'on' : '') + '" data-v="' + esc(o[0]) + '" onclick="tapPick(\'' + name + '\',this)">' + esc(o[1]) + (o[2] ? '<small>' + esc(o[2]) + '</small>' : '') + '</button>'; }).join('') + '</div>'; }
 function tapPick(name, el){ Array.prototype.forEach.call(document.querySelectorAll('#tp_' + name + ' button'), function(b){ b.classList.remove('on'); }); el.classList.add('on'); var f = window['tap_' + name]; if(f) f(el.getAttribute('data-v')); }
 function tapVal(name){ var b = document.querySelector('#tp_' + name + ' button.on'); return b ? b.getAttribute('data-v') : null; }
-function setupQ(i, edit){ if(!db){ db = blank(); save(); } SQEDIT = !!edit; i = Math.max(0, Math.min(i, SQ.length)); if(!edit){ db.sq = i; save(); } if(i >= SQ.length){ setupSummary(); return; } var q = SQ[i]; openSheet(sqHead(i, q.sec) + '<h3>' + q.ask + '</h3>' + q.html() + sqFoot(i)); if(q.after) q.after(); }
+function setupQ(i, edit){ if(!db){ db = blank(); save(); } if(!edit && !i && !db.autoAsked && !db.ex){ autoScreen(); return; } SQEDIT = !!edit; i = Math.max(0, Math.min(i, SQ.length)); if(!edit){ db.sq = i; save(); } if(i >= SQ.length){ setupSummary(); return; } var q = SQ[i]; openSheet(sqHead(i, q.sec) + '<h3>' + q.ask + '</h3>' + q.html() + sqFoot(i)); if(q.after) q.after(); }
 function sqNext(i){ var q = SQ[i]; if(q.save && q.save() === false) return; save(); if(SQEDIT){ rebuildPlan(); save(); render(); openSettings(); toast('Saved.'); return; } setupQ(i + 1); }
 function sqLater(i){ var q = SQ[i]; if(q.save) q.save(); db.sq = i; save(); closeSheet(); render(); toast('Saved. Carry on whenever you like.'); }
 var YCHIPS = [['Property tax','ptax'],['Estimated income tax','esttax'],['Home insurance (yearly)','hins'],['Car insurance (yearly)','cinsY'],['Landscaping or snow removal','lawn'],['Club dues','club'],['Boat or RV storage','storage'],['Card annual fees','annual'],['Travel','travel']];
@@ -3201,7 +3204,7 @@ function setupSummary(){
     + line(18, esc([db.cpa, db.advisor].filter(Boolean).join(' · ') || 'none named'))
     + '<button class="b primary full" id="suGo" onclick="suGo()">Looks right — bring in statements</button>');
 }
-function suGo(){ db.setup = true; db.sq = SQ.length; db.ex = false; save(); closeSheet(); view = null; render(); window.scrollTo(0,0); setTimeout(openImport, 250); }
+function suGo(){ db.setup = true; db.sq = SQ.length; db.ex = false; rebuildPlan(); db.tx.forEach(function(t){ if(t.cat === 'uncat') t.cat = guessCat(t.desc, t.amt, acct(t.a)); }); save(); closeSheet(); view = null; render(); window.scrollTo(0,0); setTimeout(openImport, 250); }
 
 /* ── budgets: Part 1 is set from the statements; variable lines use their average; Part 2 is yearly ÷ 12 ── */
 function averages(){
@@ -3245,7 +3248,7 @@ function acctListHTML(short){
   if(!db.accts.length) return '<p class="sub">Nothing added yet.</p>';
   return '<ul class="list">' + db.accts.map(function(a){ var T = TYPES[a.type] || TYPES.otherA;
     var tags = (a.notPersonal ? '<span class="pill">not ours</span>' : '') + (a.familyUse ? '<span class="pill">family use</span>' : '') + (a.type === 'card' ? '<span class="pill">' + ({ full:'pays in full', min:'pays minimum', hand:'paid by hand' }[a.payMode || 'full']) + '</span>' : '') + (a.closed ? '<span class="pill">closed</span>' : '');
-    return '<li class="tap" onclick="openAcct(\'' + a.id + '\'' + (short ? ', function(){ setupQ(4, SQEDIT); }' : '') + ')"><span style="font-size:22px">' + T.em + '</span><span class="ds">' + esc(acctLabel(a)) + tags + '<small>' + T.t + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + '</small></span><span class="amt" style="color:' + (T.s === 'l' ? 'var(--red)' : 'inherit') + '">' + (T.s === 'l' ? '−' : '') + money(a.bal||0,1) + '</span></li>'; }).join('') + '</ul>';
+    return '<li class="tap" onclick="openAcct(\'' + a.id + '\'' + (short ? ', function(){ setupQ(4, SQEDIT); }' : '') + ')"><span style="font-size:22px">' + T.em + '</span><span class="ds">' + esc(acctLabel(a)) + tags + '<small>' + T.t + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + '</small></span><span class="amt" style="color:' + (T.s === 'l' ? 'var(--red)' : 'inherit') + '">' + (a.balUnknown ? 'unknown' : (T.s === 'l' ? '−' : '') + money(a.bal||0,1)) + '</span></li>'; }).join('') + '</ul>';
 }
 function openAcct(id, done){
   ACCT_DONE = done || null; var a = id ? acct(id) : { id:'', name:'', type:'checking', bal:0, payMode:'full' };
@@ -3274,7 +3277,7 @@ function saveAcct(id){
   var a = id ? acct(id) : { id:uid(), hist:[] }, bal = Math.abs(num(document.getElementById('acBal').value)), own = tapVal('own') || 'family';
   a.name = name; a.type = document.getElementById('acType').value; a.last4 = l4 || ''; a.notPersonal = own === 'other'; a.familyUse = own === 'famuse';
   a.payMode = a.type === 'card' ? (tapVal('pay') || 'full') : undefined; a.autopay = a.payMode === 'full'; var cl = document.getElementById('acCl'); a.closed = cl ? cl.checked : false;
-  if(!id || r2(bal) !== r2(a.bal||0)) setBal(a, bal);
+  if(!id || r2(bal) !== r2(a.bal||0)) setBal(a, bal); if(document.getElementById('acBal').value.trim() !== '') delete a.balUnknown;
   if(!id) db.accts.push(a); save(); render(); acctBack();
 }
 
@@ -3326,7 +3329,7 @@ function openSettings(){
 
 /* ── the example family: invented, every number made up ── */
 function exampleData(){
-  var d = blank(); d.ex = true; d.setup = true; d.sq = 99; d.budgetSet = true; d.name = 'The Henderson household'; d.people = 'Pat and Lee Henderson';
+  var d = blank(); d.ex = true; d.setup = true; d.sq = 99; d.autoAsked = 1; d.budgetSet = true; d.name = 'The Henderson household'; d.people = 'Pat and Lee Henderson';
   d.homes = ['Main home','Mountain cabin']; d.incomes = [{ id:'i1', name:'Pension', amt:5400 },{ id:'i2', name:'Social Security', amt:3800 }];
   var now = new Date(), cm = monthKey(now), tday = now.getDate(); d.budgetFrom = addMonths(cm, -3); d.historyFrom = addMonths(cm, -3) + '-01';
   d.uses529 = true; d.bizCard = true; d.whoAnswers = 'spouse'; d.spouse = 'Lee'; d.cpa = 'Our CPA'; d.advisor = 'Our advisor';
@@ -3463,6 +3466,62 @@ function copyMoving(aid){ var a = acct(aid), mv = ((db.moved||{})[aid]) || {}, L
   paidManual(aid).forEach(function(x){ L.push((mv['m:' + x.id] ? '[x] ' : '[ ] ') + x.name + (x.how ? ' — ' + x.how : '')); });
   var ins = db.tx.filter(function(t){ return t.a === aid && t.amt < 0 && t.cat === 'inc'; }), seenI = {}; ins.forEach(function(t){ var k = mkey(t.desc); if(!seenI[k]){ seenI[k] = 1; L.push('[ ] Deposit coming in: ' + t.desc); } });
   var s = L.join('\n'); try{ navigator.clipboard.writeText(s).then(function(){ toast('Copied.'); }, function(){ toast('Could not copy on this device.'); }); }catch(e){} }
+
+/* ── v1.3 · read the statements first (14 Nov). Jerry: "if I have that already downloaded in my files… can you look through it
+   and know my credit cards and my checking accounts… and then I can edit it, or you can ask questions." So before the first
+   question the app offers to read the folder, makes an account for each group of statements, and fills in the income and the
+   once-a-year bills it can see — all on this device. Only the last 4 digits of an account are ever kept. ── */
+var AUTO = false;
+function autoScreen(){
+  openSheet('<div class="stepno">Before the questions</div><h3>Are your bank and card statements already saved?</h3>'
+    + '<p class="sub">If they are, I’ll read them first and fill in as much as I can: your accounts, your income, and the bills that come once or twice a year. Then you check it and change anything. It all happens on this device, and only the last 4 digits of an account are ever kept.</p>'
+    + '<div class="pick" style="grid-template-columns:1fr">'
+    + (canFolder() ? '<button class="on" onclick="autoGo(\'folder\')">Yes — read my whole folder<small>recommended on a computer: every file inside, and the folders inside it</small></button>' : '')
+    + '<button' + (canFolder() ? '' : ' class="on"') + ' onclick="autoGo(\'files\')">Yes — I’ll pick the files<small>CSV, QFX, OFX or Excel downloads from the bank</small></button>'
+    + '<button onclick="autoGo(\'no\')">Not yet — just ask me the questions<small>you can bring statements in afterwards</small></button></div>'
+    + '<button class="b ghost" style="width:100%;margin-top:8px" onclick="closeSheet();render()">Done for now</button>');
+}
+function autoGo(how){ db.autoAsked = 1; save(); if(how === 'no'){ setupQ(0); return; } AUTO = true; if(how === 'folder') pickFolder(); else document.getElementById('fileIn').click(); }
+function autoAcct(g){
+  var txt = (g.key + ' ' + (g.files||[]).map(function(f){ return f.path || f.name; }).join(' ')).toLowerCase(), R = g.rows;
+  var l4 = ((g.files||[]).map(function(f){ return f.acctNo; }).filter(Boolean)[0]) || '';
+  var credits = R.filter(function(r){ return /payment.{0,12}thank|autopay payment|payment received/i.test(r.desc); }).length, wages = R.filter(function(r){ return INCOME.test(r.desc); }).length;
+  var type = /card|visa|master|amex|american express|discover|credit/.test(txt) ? 'card' : /saving/.test(txt) ? 'savings' : (credits > 0 && !wages) ? 'card' : 'checking';
+  var nm = /^(dir|name):/.test(g.key) ? prettyKey(g.key) : (TYPES[type].t + (l4 ? ' ••' + l4 : ''));
+  var a = { id:uid(), name:nm, type:type, last4:l4, hist:[], payMode: type === 'card' ? 'full' : undefined, autopay: type === 'card', found:1 };
+  setBal(a, g.bal != null && isFinite(g.bal) ? Math.abs(g.bal) : 0, g.asOf || today()); if(g.bal == null) a.balUnknown = 1;
+  db.accts.push(a); var negs = R.filter(function(r){ return r.raw < 0; }).length; CUR.a = a.id; CUR.flip = negs >= R.length - negs;
+}
+function prettyIncome(k){ if(/ssa|soc sec|social security|ss benefit/i.test(k)) return 'Social Security'; if(/pension|annuity|retire/i.test(k)) return 'Pension'; if(/payroll|salary|dir dep|direct dep/i.test(k)) return 'Salary'; return prettyKey('name:' + k); }
+function autoFill(){
+  var T = db.tx.slice(), first = T.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999');
+  if(T.length) db.historyFrom = first;
+  /* income: deposits that come back month after month */
+  var inc = {}; T.forEach(function(t){ if(t.amt >= 0 || t.cat === 'xfer' || !(INCOME.test(t.desc) || t.cat === 'inc')) return; var k = mkey(t.desc) || t.desc; if(!inc[k]) inc[k] = { tot:0, ms:{} }; inc[k].tot += -t.amt; inc[k].ms[t.d.slice(0,7)] = 1; });
+  var foundInc = [];
+  Object.keys(inc).forEach(function(k){ var n = Object.keys(inc[k].ms).length; if(n < 2) return; var nm = prettyIncome(k), amt = r2(inc[k].tot / n), have = db.incomes.filter(function(i){ return i.name === nm; })[0];
+    if(have) have.amt = r2(num(have.amt) + amt); else db.incomes.push({ id:uid(), name:nm, amt:amt, found:1 }); foundInc.push(nm); });
+  /* the once-or-twice-a-year bills the statements show */
+  ensureYearlyGroup(); var yr = [], cut = ymd(new Date(Date.now() - 365 * 864e5));
+  YCHIPS.forEach(function(c){ var w = (YKW[c[1]] || '').split(',').filter(Boolean); if(!w.length) return;
+    var hits = T.filter(function(t){ var d = ' ' + t.desc.toLowerCase() + ' '; return t.amt >= 100 && t.d >= cut && w.some(function(x){ return d.indexOf(x) >= 0; }); });
+    var ms = {}; hits.forEach(function(t){ ms[+t.d.slice(5,7)] = 1; }); var n = Object.keys(ms).length; if(!hits.length || n > 4) return;
+    var have = db.cats.filter(function(x){ return x.part === 2 && x.kw === YKW[c[1]]; })[0];
+    var cc = have || { id:uid(), g:'g_yearly', name:c[0], part:2, budget:0, kw:YKW[c[1]] }; cc.yearly = r2(hits.reduce(function(a,t){ return a + t.amt; },0)); cc.due = Object.keys(ms).map(Number).sort(function(a,b){ return a - b; }); cc.found = hits.length + ' payment' + (hits.length===1?'':'s') + ' in your statements';
+    if(!have) db.cats.push(cc); hits.forEach(function(t){ t.cat = cc.id; }); yr.push(cc); });
+  save(); render(); AF = { first:first, n:T.length, inc:foundInc.length, yr:yr.map(function(c){ return c.id; }) }; autoSummary();
+}
+var AF = null;
+function autoSummary(){
+  var first = AF.first, T = { length:AF.n }, foundInc = { length:AF.inc }, yr = AF.yr.map(cat).filter(Boolean);
+  var A = db.accts.filter(function(a){ return a.found; });
+  openSheet('<div class="stepno">Setup · what I found</div><h3>Here’s what your statements show</h3><p class="sub">From ' + T.length + ' lines, ' + (T.length ? shortDate(first) + ', ' + first.slice(0,4) : '') + ' to now. Tap anything to fix it. The questions come next, already filled in where I could.</p>'
+    + '<h4>Accounts (' + A.length + ')</h4>' + (A.length ? '<ul class="list">' + A.map(function(a){ return '<li class="tap" onclick="openAcct(\'' + a.id + '\', autoFillShow)"><span style="font-size:22px">' + TYPES[a.type].em + '</span><span class="ds">' + esc(acctLabel(a)) + '<small>' + TYPES[a.type].t + (a.last4 ? '' : ' · add the last 4 digits') + ' · tap to check it</small></span><span class="amt">' + (a.balUnknown ? 'balance unknown' : money(a.bal,1)) + '</span></li>'; }).join('') + '</ul>' : '<p class="sub">None — no statement lines could be read.</p>')
+    + '<h4>Income</h4>' + (foundInc.length ? '<ul class="list">' + db.incomes.filter(function(i){ return i.found; }).map(function(i){ return '<li><span class="ds">' + esc(i.name) + '<small>average a month, from your deposits</small></span><span class="amt">' + money(num(i.amt),1) + '</span></li>'; }).join('') + '</ul>' : '<p class="sub">No regular deposits seen. You’ll type it in a moment.</p>')
+    + '<h4>Bills once or twice a year</h4>' + (yr.length ? '<ul class="list">' + yr.map(function(c){ return '<li><span class="ds">' + esc(c.name) + '<small>' + esc(c.found) + ' · due ' + c.due.map(function(m){ return new Date(2026, m-1, 1).toLocaleDateString('en-US',{ month:'short' }); }).join(', ') + '</small></span><span class="amt">' + money(c.yearly,1) + ' a year</span></li>'; }).join('') + '</ul><p class="sub">Worked out from the last 12 months of what came in. If your statements cover less than a year, check these.</p>' : '<p class="sub">None spotted. You can add them in a moment.</p>')
+    + '<button class="b primary full" onclick="setupQ(0)">Looks right — on to the questions</button>');
+}
+function autoFillShow(){ autoSummary(); }
 
 /* For the store's videos (shop/watch.html): show the example family without touching anyone's real month.
    The player's tourSet() keeps the example in a layer over this window's storage, so nothing a video does is saved. */

@@ -155,3 +155,14 @@ One-time purchases are kept out of the monthly averages.
 Jerry, after a hack forced the family to close their checking account: *"I don't know all the accounts that are connected to a checking account."*
 
 So the app gathers, for each account, every bill that comes out of it. It reads them from the statements, and the user can add ones the statements can't show (for example, a bill paid through PayPal). If an account is closed or hacked, **This account is closing** turns that list into a checklist of everything to move. It also reminds the user that deposits coming in, such as a pension or Social Security, need the new account too.
+
+## Added 14 November: read the statements first
+
+Jerry asked whether the app could read the statements he already has saved and fill in as much as it can, so that he only checks and edits the result. So before the first setup question, the app asks whether the statements are already saved, and offers to read a whole folder or chosen files. From them it fills in:
+- **An account for each group of statements:** checking, savings or card, worked out from the folder name and what's in it.
+- **Income:** from the deposits that come back month after month.
+- **The once-or-twice-a-year bills** it can see: property tax, estimated tax, yearly insurance, club dues and the like. Each gets its yearly amount and its due months.
+
+Everything it found is shown on one screen, with a tap to fix each item, and the questions follow already filled in. Two rules still hold:
+- Only the last 4 digits of an account are ever kept.
+- A balance the files don't show stays "unknown" (left out of net worth, with a flag to type it in). It never shows as $0.
