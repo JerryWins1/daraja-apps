@@ -207,7 +207,7 @@ html.ed-friends .devn{font-size:16px}
 <script>
 (function(){
 'use strict';
-var VERSION = 'v1.17 · 2026-11-12';
+var VERSION = 'v1.18 · 2026-11-14';
 var BASE = 'https://jerrywins1.github.io/daraja-apps/';
 var MAILBOX_FALLBACK = 'https://script.google.com/macros/s/AKfycbw1hgXVj5E8x8Ampm1fYK9po07pmSh9zrHfyVn3RvEYOR15_xb2jNPdlgzUuariPPrp/exec';
 var PRACTICE = 'nownext';   /* 11 Oct (Jerry): everyone tests One Thing first and most */
@@ -1002,6 +1002,7 @@ function home(){
   if (PH.asked || profHas(PH)) h+='<details class="more" id="aboutYou"><summary>🙋 About you (change any time)</summary><p class="small muted">Saved as you tap. It goes to Jerry with your next result.</p>'+profQs(PH)+'</details>';
   loadDailyData();
   if (MOVED!=null && !MOVE_IN) h='<div class="card okc"><b>📲 Your progress moved to this device ✓</b><p class="small">'+esc(MOVED)+' finished app'+(MOVED==='1'?'':'s')+' came with it. Carry on here.</p></div>'+h;
+  if (S.restoredAt && S.restoredN && Date.now()-S.restoredAt < 3*864e5) h='<div class="card okc"><b>✅ Your finished apps came back</b><p class="small">This phone had lost its list, so we put back the '+S.restoredN+' app'+(S.restoredN===1?'':'s')+' we already have from you. You do not need to do them again.</p></div>'+h;
   h+='<details class="more" id="moveBox"><summary>📲 Continue on another phone or laptop</summary><p class="small">Each phone or laptop keeps its own progress. To carry on somewhere else, make a link here and open it there. It brings your finished apps, where you stopped and your streak. <b>Send it only to yourself</b> (WhatsApp to yourself, or email).</p><button class="btn ghost" data-a="movelink">Make my move link</button><div id="moveOut"></div></details>';
   h+=footHTML('home')+'<button class="btn ghost" data-a="rekick">📘 How the test'+(E.pay?' week':'')+' works</button>';
   return h;
@@ -1553,6 +1554,40 @@ function checkPageVersion(){
 }
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) checkPageVersion(); });
 checkPageVersion();
+
+/* ---------- v1.18 (14 Nov 2026): bring finished apps back after the phone's history was cleared ----------
+   A tester's progress is kept only on their phone. Clearing browsing history wiped it, the page started again at app 1, and people
+   redid apps two or three times (Emmanuel, Zipporah: 32 reports for 26 apps). HQ already holds every report a tester has sent, so
+   kenya/progress.json (written by tools/makeprogress.py on the scheduled jobs) lists the finished apps against the SHA-256 of each
+   personal code. This looks the tester up by the hash of their own code and marks those apps done, only where this phone has
+   nothing for that app yet. It never touches an app the tester has started, and it asks once a day at most. */
+function sha256hex(t){
+  if (!(window.crypto && crypto.subtle && window.TextEncoder)) return Promise.reject(new Error('no crypto'));
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)).then(function(b){ return Array.prototype.map.call(new Uint8Array(b), function(x){ return ('0'+x.toString(16)).slice(-2); }).join(''); });
+}
+function restoreProgress(){
+  if (!WHO || !S || !window.fetch) return;
+  var KEYR = PRE+'_restoredAt:'+WHO, last = Number(lsGet(KEYR)||0);
+  if (Date.now()-last < 6*36e5) return;                       /* once every six hours at most */
+  sha256hex(WHO).then(function(h){
+    return fetch('progress.json?cb='+Date.now(), { cache:'no-store' }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+      lsSet(KEYR, String(Date.now()));
+      var list = j && j.testers && j.testers[h]; if (!list || !list.length) return;
+      var n = 0;
+      list.forEach(function(k){
+        if (!APPS[k]) return;
+        var a = S.apps[k];
+        if (a && (a.stage!=='watch' || (a.ans && Object.keys(a.ans).length) || a.watched)) return;   /* this phone already knows this app */
+        S.apps[k] = { stage:'done', step:0, ans:{}, ms:0, restored:true, doneAt:Date.now() };
+        n++;
+      });
+      if (!n) return;
+      S.restoredN = (Number(S.restoredN)||0) + n; S.restoredAt = Date.now(); save();
+      if (VIEW==='home') render();
+    });
+  }).catch(function(){});
+}
+restoreProgress();
 loadLB();
 loadCov();
 })();
