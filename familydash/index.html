@@ -2216,7 +2216,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v1.0 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v1.1 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2964,6 +2964,7 @@ function notices(m){
   var q = queue().length; if(q) N.push({ k:'q:'+m+':'+q, em:'❓', t:q + ' payment' + (q===1?'':'s') + ' to ask you about.', go:'openGTKY()', btn:'Start' });
   var x = three(m); if(db.rule && x.inc > 0 && x.reg > x.inc) N.push({ k:'rule:'+x.reg+':'+x.inc, em:'📏', t:'The regular budget (' + money(x.reg,1) + ') is ' + money(x.reg - x.inc,1) + ' more than income (' + money(x.inc,1) + '). Trim a line, or plan to cover the gap from investments.', go:'openBudget()', btn:'Trim' });
   var e = T.filter(function(t){ return t.cat === 'edu529'; }); if(e.length) N.push({ k:'tax529:' + m, em:'🧾', t:'Tax flag: ' + money(e.reduce(function(a,t){ return a + t.amt; },0),1) + ' of school costs covered by the 529 this month. A question for ' + (db.cpa ? esc(db.cpa) : 'your CPA') + ' at tax time.', go:'openList(\'edu529\')' });
+  aheadSoon(14).forEach(function(it){ N.push({ k:'due:' + it.id + ':' + it.due, em:'⏰', t:'Due ' + shortDate(it.due) + ': <b>' + esc(it.n) + '</b>' + (num(it.amt) ? ', ' + money(num(it.amt),1) : '') + ' (from Ahead of It).', go:'openHome()' }); });
   var old = db.accts.filter(function(a){ return !a.closed && (!a.asOf || daysBetween(a.asOf, today()) > 40); });
   if(old.length) N.push({ k:'stale:'+thisMonth(), em:'🕰️', t:old.length + ' balance' + (old.length===1?' is':'s are') + ' more than 40 days old.', go:'openBalances()', btn:'Update' });
   return N.filter(function(n){ return !db.seen[n.k]; });
@@ -3015,6 +3016,10 @@ function render(){
     h += '<div class="card" id="invCard" onclick="openInvest()" style="cursor:pointer"><h2>📈 Investments<small>' + IA.length + ' account' + (IA.length===1?'':'s') + '</small></h2><div class="nw" style="font-size:28px">' + money(iv,1) + '</div>'
       + (im != null ? '<div style="font-weight:800;color:' + (im >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (im >= 0 ? '▲ ' : '▼ ') + money(Math.abs(im),1) + ' this month</div>' : '')
       + (WX && WX.name ? '<div class="line warn" style="margin-top:10px">🌤️ Market weather: <b>' + esc(WX.name) + '</b></div>' : '') + '</div>'; }
+  var soonN = aheadSoon(30).length, kc = keyCount();
+  h += '<div class="card" id="homeCard" onclick="openHome()" style="cursor:pointer"><h2>🏡 Our household<small>due dates · where things are · documents</small></h2>'
+    + (soonN ? '<div class="line warn" style="margin-top:0">⏰ ' + soonN + ' thing' + (soonN===1?'':'s') + ' coming due in the next 30 days.</div>' : '<p class="sub" style="margin:0">' + (aheadItems().length ? 'Nothing coming due in the next 30 days.' : 'Bring in your due dates from Ahead of It, and where things are from The Key.') + '</p>')
+    + (kc ? '<p class="sub" style="margin:6px 0 0">' + kc + ' account' + (kc===1?'':'s') + ', papers and people in The Key.</p>' : '') + '</div>';
   h += '<div class="tools">'
     + '<button class="tool" onclick="openGTKY()">❓ Getting to know you<small>' + (q ? q + ' to ask' : 'all caught up') + '</small></button>'
     + '<button class="tool" onclick="openBalances()">🧮 Update balances<small>bank, cards, home, car</small></button>'
@@ -3376,6 +3381,44 @@ function exampleData(){
   return d;
 }
 function startExample(){ db = exampleData(); save(); view = addMonths(thisMonth(), -1); render(); window.scrollTo(0,0); toast('This is the Hendersons. Everything here is pretend.'); }
+
+/* ── v1.1 · Our household (14 Nov): Jerry asked for one all-inclusive place. Three apps already hold the rest of a
+   household's paper life, and two of them live at this same address on the device, so their entries can be READ here
+   (never written, never a password): Ahead of It — what's coming due, renewals, policies; The Key — where things are:
+   accounts, important papers, people to call. In Good Order, the encrypted family binder, is a link. ── */
+var AHEAD_URL = '../ahead-of-it/', KEY_URL = '../thekey/', BINDER_URL = 'https://claude.ai/artifact/T4nDw17y8UAAuQWv4VVPWm';
+function lsJ(k){ try{ return JSON.parse(localStorage.getItem(k) || 'null'); }catch(e){ return null; } }
+function aheadItems(){ var d = lsJ('aheadofit_v1') || lsJ('ahead_v1'); if(!d || !Array.isArray(d.items)) return [];
+  return d.items.filter(function(it){ return it && it.n && it.due && String(it.id||'').indexOf('djex') !== 0 && !/\(example\)/.test(it.n) && (!it.m || it.m === 'h'); }); }
+function aheadSoon(days){ var lim = ymd(new Date(Date.now() + (days || 60) * 864e5)); return aheadItems().filter(function(it){ return it.due <= lim; }).sort(function(a,b){ return a.due < b.due ? -1 : 1; }); }
+function keyData(){ var d = lsJ('daraja_thekey_v2') || {}, o = {}; ['f2','f3','f4'].forEach(function(k){ o[k] = (Array.isArray(d[k]) ? d[k] : []).filter(function(it){ return it && !/\(example\)/.test(JSON.stringify(it)); }); }); return o; }
+function keyCount(){ var k = keyData(); return k.f2.length + k.f3.length + k.f4.length; }
+var KEY_TYPE = { 'Bank':'checking', 'Credit card':'card', 'Retirement or investments':'invest' };
+function openHome(){
+  var soon = aheadSoon(90), K = keyData(), ins = K.f3.filter(function(p){ return /insurance/i.test(p.kind || ''); });
+  function mon(it){ var a = num(it.amt); return a ? money(a,1) : ''; }
+  openSheet('<h3>🏡 Our household</h3><p class="sub">Everything else a household keeps track of, read from your other Daraja apps on this device. Nothing here is changed, and passwords are never read.</p>'
+    + '<div class="card"><h2>⏰ Coming due<small>next 90 days</small></h2>' + (soon.length ? soon.map(function(it){ var y = (it.rep||0) >= 180 && num(it.amt) > 0, have = y && db.cats.some(function(c){ return c.part === 2 && c.name.toLowerCase() === String(it.n).toLowerCase(); });
+        return '<div class="trow"><span>' + esc(it.n) + '<small>' + shortDate(it.due) + (mon(it) ? ' · ' + mon(it) : '') + (it.where ? ' · ' + esc(it.where) : '') + '</small></span>' + (y && !have ? '<button class="b small" onclick="aheadToYearly(\'' + esc(String(it.id)).replace(/'/g,'') + '\')">Set aside</button>' : '<b>' + (have ? '✓' : '') + '</b>') + '</div>'; }).join('')
+        : '<p class="sub" style="margin:0">' + (aheadItems().length ? 'Nothing due in the next 90 days.' : 'Nothing yet. Ahead of It keeps your renewals, taxes and policies, and reminds you before each one.') + '</p>')
+      + '<a class="b full" style="display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;color:var(--brand)" href="' + AHEAD_URL + '" target="_blank" rel="noopener">Open Ahead of It →</a></div>'
+    + '<div class="card"><h2>🗝️ Where things are<small>from The Key</small></h2>'
+      + (K.f2.length ? '<h4 style="margin-top:4px">Accounts</h4>' + K.f2.map(function(a, i){ var t = KEY_TYPE[a.kind], have = db.accts.some(function(x){ return x.name.toLowerCase() === String(a.company||'').toLowerCase(); });
+          return '<div class="trow"><span>' + esc(a.company || a.kind || 'Account') + '<small>' + esc([a.kind, a.who ? 'also on it: ' + a.who : ''].filter(Boolean).join(' · ')) + '</small></span>' + (t && !have ? '<button class="b small" onclick="keyToAcct(' + i + ')">Add here</button>' : '<b>' + (have ? '✓' : '') + '</b>') + '</div>'; }).join('') : '')
+      + (K.f3.length ? '<h4>Important papers' + (ins.length ? ' · ' + ins.length + ' insurance polic' + (ins.length===1?'y':'ies') : '') + '</h4>' + K.f3.map(function(p){ return '<div class="trow"><span>' + esc(p.kind || 'Paper') + '<small>' + esc([p.where ? 'kept: ' + p.where : '', p.who ? 'who knows: ' + p.who : ''].filter(Boolean).join(' · ')) + '</small></span></div>'; }).join('') : '')
+      + (K.f4.length ? '<h4>People to call</h4>' + K.f4.map(function(p, i){ var adv = /accountant|financial advisor/i.test(p.kind || ''), isSet = (/accountant/i.test(p.kind||'') ? db.cpa : db.advisor);
+          return '<div class="trow"><span>' + esc(p.name || p.kind) + '<small>' + esc([p.kind, p.phone, p.email].filter(Boolean).join(' · ')) + '</small></span>' + (adv && !isSet ? '<button class="b small" onclick="keyToAdvisor(' + i + ')">Use as ours</button>' : '') + '</div>'; }).join('') : '')
+      + (!keyCount() ? '<p class="sub" style="margin:0">Nothing yet. The Key is one page that tells your family where everything lives: accounts, policies, papers, and who to call.</p>' : '')
+      + '<a class="b full" style="display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;color:var(--brand)" href="' + KEY_URL + '" target="_blank" rel="noopener">Open The Key →</a></div>'
+    + '<div class="card"><h2>📁 Documents</h2><p class="sub" style="margin:0">The papers themselves — policies, deeds, statements — go in your encrypted family binder.</p><a class="b full" style="display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;color:var(--brand)" href="' + BINDER_URL + '" target="_blank" rel="noopener">Open In Good Order →</a></div>'
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
+}
+function aheadToYearly(id){ var it = aheadItems().filter(function(x){ return String(x.id) === id; })[0]; if(!it) return; ensureYearlyGroup();
+  var per = (it.rep||365) >= 300 ? 1 : (it.rep||365) >= 150 ? 2 : 4, mo = +it.due.slice(5,7), due = []; for(var k=0;k<per;k++) due.push(((mo - 1 + k * 12 / per) % 12) + 1);
+  db.cats.push({ id:uid(), g:'g_yearly', name:it.n, part:2, yearly:r2(num(it.amt) * per), due:due.sort(function(a,b){ return a - b; }), budget:0, kw:'', from:'Ahead of It' }); save(); render(); toast('Added to the yearly bills: ' + money(num(it.amt) * per / 12,1) + ' a month.'); openHome(); }
+function keyToAcct(i){ var a = keyData().f2[i]; if(!a) return; openAcct(null, function(){ openHome(); }); var n = document.getElementById('acName'), t = document.getElementById('acType'); if(n) n.value = a.company || ''; if(t && KEY_TYPE[a.kind]){ t.value = KEY_TYPE[a.kind]; acTypeChanged(); }
+  var b = document.getElementById('acBal'); if(b) b.placeholder = 'today’s balance — The Key never holds numbers'; }
+function keyToAdvisor(i){ var p = keyData().f4[i]; if(!p) return; var v = [p.name, p.phone].filter(Boolean).join(' · '); if(/accountant/i.test(p.kind||'')) db.cpa = v; else db.advisor = v; save(); render(); toast('Saved as ' + (/accountant/i.test(p.kind||'') ? 'your CPA' : 'your advisor') + '.'); openHome(); }
 
 if(db && db.ex && (db.v||1) < 2) db = exampleData(); else db = migrate(db);
 loadWX(function(){ if(db) render(); });
