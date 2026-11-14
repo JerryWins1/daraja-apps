@@ -2100,12 +2100,12 @@
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Family Financial Dashboard</title>
-<meta name="description" content="A household's money in one place: budget against what was really spent, what you own and owe, and a short monthly report from your own AI. No bank login, everything stays on this phone.">
+<title>Family Money Dashboard</title>
+<meta name="description" content="Three answers every month: what we must spend, what we must set aside for once-a-year bills, and how much has to come from savings. Built from the statements your bank already gives you. No bank login; everything stays on this device.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Family Dashboard">
+<meta name="apple-mobile-web-app-title" content="Family Money">
 <meta name="theme-color" content="#1E4A6B">
 <style>
   :root{ color-scheme:light;
@@ -2198,6 +2198,11 @@
   .pill{ display:inline-block; font-size:12px; font-weight:800; border-radius:999px; padding:1px 8px; background:#ECE8DF; color:var(--soft); margin-left:4px; vertical-align:middle; }
   .toast{ position:fixed; left:50%; bottom:110px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 18px; border-radius:14px; font-weight:800; z-index:2147481600; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; }
   .toast.on{ opacity:1; }
+  .trow{ display:flex; gap:10px; align-items:center; padding:9px 0; border-top:1px solid var(--line); }
+  .trow:first-of-type{ border-top:0; } .trow span{ flex:1; font-weight:700; font-size:15.5px; min-width:0; } .trow span small{ display:block; font-weight:600; color:var(--soft); font-size:13px; }
+  .trow b{ font-variant-numeric:tabular-nums; font-size:17px; white-space:nowrap; } .trow.strong span, .trow.strong b{ font-weight:900; } .trow.strong{ background:var(--paper); margin:0 -8px; padding:9px 8px; border-radius:10px; border-top:0; }
+  .mchips{ display:flex; flex-wrap:wrap; gap:6px; } .mchips button{ font:inherit; font-weight:800; font-size:14px; min-height:42px; padding:6px 12px; border-radius:999px; border:1.5px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; }
+  .mchips button.on{ background:var(--brand); color:#fff; border-color:transparent; }
   .printable{ display:none; }
   @media print{ body{ background:#fff; } .wrap,.bar,.sheet,.toast{ display:none !important; } .printable{ display:block; font:12.5pt/1.4 Georgia,serif; color:#000; }
     .printable table{ width:100%; border-collapse:collapse; } .printable td,.printable th{ border-bottom:1px solid #999; padding:5px 4px; text-align:left; } .printable td.n,.printable th.n{ text-align:right; } }
@@ -2207,11 +2212,11 @@
 <div class="wrap" id="app">
   <header>
     <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="8" width="56" height="48" rx="12" fill="#1E4A6B"/><rect x="14" y="34" width="8" height="14" rx="2" fill="#D9A93F"/><rect x="28" y="24" width="8" height="24" rx="2" fill="#F5F3EE"/><rect x="42" y="16" width="8" height="32" rx="2" fill="#C9702F"/></svg>
-    <div><h1>Family Financial Dashboard</h1><p id="hhName">budget · what we own and owe · a monthly check-up</p></div>
+    <div><h1>Family Money Dashboard</h1><p id="hhName">what we spend · what we set aside · what comes from savings</p></div>
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Financial Dashboard v0.5 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v1.0 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2225,7 +2230,7 @@
 <input type="file" id="dirIn" webkitdirectory multiple style="display:none">
 
 <script>
-/* Family Financial Dashboard v0.2 · 13 Nov 2026 (v0.2: the report is written by the app straight away; the AI is optional)
+/* Family Money Dashboard (was Family Financial Dashboard) · v1.0 14 Nov 2026 — see familydash/SPEC.md
    A household's money in one place: budget against actual, net worth, and a monthly check-up written by
    the family's own AI through the house hand-off (djAI). No bank login: statements come in as the CSV,
    OFX or QFX files every bank already exports, or as a PDF the family's AI reads into rows.
@@ -2267,9 +2272,7 @@ var TYPES = {
   loan:{ t:'Car or other loan', s:'l', em:'📄' }, otherL:{ t:'Other money we owe', s:'l', em:'🧾' }
 };
 function acct(id){ for(var i=0;i<db.accts.length;i++) if(db.accts[i].id===id) return db.accts[i]; return null; }
-function counts(a){ return a && !a.closed && !a.notPersonal; }
 function stmtAccts(){ return db.accts.filter(function(a){ return TYPES[a.type] && TYPES[a.type].st && !a.closed; }); }
-function netWorth(){ var own = 0, owe = 0; db.accts.forEach(function(a){ if(!counts(a)) return; if(TYPES[a.type].s === 'a') own += a.bal||0; else owe += a.bal||0; }); return { own:r2(own), owe:r2(owe), net:r2(own-owe) }; }
 function netWorthAt(m){   /* the last balance each account had before month m began */
   var start = m + '-01', own = 0, owe = 0, any = false;
   db.accts.forEach(function(a){ if(!counts(a)) return; var h = (a.hist||[]).filter(function(x){ return x.d < start; }).sort(function(x,y){ return x.d < y.d ? -1 : 1; });
@@ -2286,10 +2289,8 @@ function setBal(a, bal, d){ a.bal = r2(bal); a.asOf = d || today(); a.hist = (a.
 var SYS = { inc:{ name:'Money in', em:'💵' }, xfer:{ name:'Moving between our accounts', em:'🔁' }, uncat:{ name:'Not sorted yet', em:'❓' } };
 function cat(id){ for(var i=0;i<db.cats.length;i++) if(db.cats[i].id===id) return db.cats[i]; return null; }
 function catLabel(c){ var dup = db.cats.some(function(x){ return x !== c && x.name === c.name; }); var g = group(c.g); return dup && g ? g.name + ' · ' + c.name : c.name; }
-function catName(id){ var c = cat(id); if(c) return catLabel(c); return SYS[id] ? SYS[id].name : 'Not sorted yet'; }
 function group(id){ for(var i=0;i<db.groups.length;i++) if(db.groups[i].id===id) return db.groups[i]; return null; }
 function catsIn(g){ return db.cats.filter(function(c){ return c.g === g; }); }
-function totalBudget(){ return r2(db.cats.reduce(function(s,c){ return s + (c.budget||0); },0)); }
 var KW = {
   give:'church,tithe,donat,charity,ministr,offering,mission,samaritan,salvation army,red cross,food bank',
   mortgage:'mortgage,home loan,loan servic,rent pay,rocket mort,mr cooper',
@@ -2314,27 +2315,6 @@ var KW = {
 };
 var XFER = /(payment.{0,12}thank you|autopay|auto pay|online pmt|online payment|credit card payment|card payment|epay|transfer (to|from)|xfer|internal transfer|payment received|pymt)/i;
 var INCOME = /(payroll|direct dep|dir dep|salary|social security|ssa treas|ss benefit|pension|annuity|dividend|interest paid|interest earned|deposit)/i;
-function defaultPlan(homes){
-  var G = [], C = [];
-  function g(id, name, em){ G.push({ id:id, name:name, em:em }); }
-  function c(gid, name, kw, id){ C.push({ id:id || uid(), g:gid, name:name, budget:0, kw:kw ? KW[kw] : '' }); }
-  g('g_give','Giving','🙏'); c('g_give','Church & giving','give');
-  (homes && homes.length ? homes : ['Our home']).forEach(function(h, i){
-    var gid = 'g_home' + i; g(gid, homes && homes.length > 1 ? h : 'Housing', '🏠');
-    var first = i === 0;
-    c(gid,'Mortgage or rent', first && 'mortgage'); c(gid,'HOA', first && 'hoa'); c(gid,'Utilities', first && 'util');
-    c(gid,'Property tax', first && 'ptax'); c(gid,'Home insurance', first && 'hins'); c(gid,'Repairs & upkeep', first && 'repair');
-  });
-  g('g_life','Everyday','🛒'); c('g_life','Groceries','groc'); c('g_life','Eating out','eat'); c('g_life','Gas & car','car');
-  c('g_life','Phone','phone'); c('g_life','Car insurance','cins'); c('g_life','Shopping','shop'); c('g_life','Subscriptions','subs');
-  g('g_var','Variable (comes and goes)','🌦️'); c('g_var','Healthcare','health'); c('g_var','Travel','travel'); c('g_var','Golf & hobbies','hobby'); c('g_var','Gifts','gifts');
-  g('g_save','Saving','💰'); c('g_save','Savings & investing','save');
-  g('g_fee','Fees & interest','⚠️'); c('g_fee','Fees & interest','fees');
-  return { groups:G, cats:C };
-}
-function blank(){ return { v:1, cur:'$', name:'', setup:false, budgetSet:false, groups:[], cats:[], accts:[], tx:[], rules:[],
-  guaranteed:0, rule:true, reports:{}, seen:{}, made:today() }; }
-
 /* ── sorting: the family's own rules first, then the built-in words ── */
 function mkey(desc){
   var s = String(desc||'').toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
@@ -2354,149 +2334,13 @@ function learn(desc, cid){ var k = mkey(desc); if(!k) return 0; db.rules = db.ru
   var n = 0; db.tx.forEach(function(t){ if(mkey(t.desc) === k && t.cat !== cid){ t.cat = cid; n++; } }); return n; }
 
 /* ── the numbers for a month ── */
-function txIn(m){ return db.tx.filter(function(t){ return t.d.slice(0,7) === m && counts(acct(t.a)); }); }
-function spentBy(m){ var o = {}; txIn(m).forEach(function(t){ o[t.cat] = r2((o[t.cat]||0) + t.amt); }); return o; }
-function months(){ var o = {}; db.tx.forEach(function(t){ if(counts(acct(t.a))) o[t.d.slice(0,7)] = 1; }); return Object.keys(o).sort(); }
-function spendTotal(sp){ var s = 0; for(var k in sp){ if(k !== 'inc' && k !== 'xfer') s += sp[k]; } return r2(s); }
 function moneyIn(sp){ return r2(-(sp.inc||0)); }
-function uncatCount(){ return db.tx.filter(function(t){ return t.cat === 'uncat' && counts(acct(t.a)); }).length; }
-
 /* ── what is worth a look this month ── */
-function notices(m){
-  var N = [], sp = spentBy(m), T = txIn(m), earlier = {};
-  db.cats.forEach(function(c){ var s = sp[c.id]||0; if(c.budget > 0 && s > c.budget + 0.5) N.push({ k:'over:'+m+':'+c.id, em:'🔴', t:'<b>' + esc(catLabel(c)) + '</b> went over: ' + money(s,1) + ' of ' + money(c.budget,1) + ' (' + money(s-c.budget,1) + ' over).', go:'openCatTx(\''+c.id+'\')' }); });
-  T.filter(function(t){ return t.amt > 0 && (t.cat === catByKw('fees') || /\b(fee|interest charge|finance charge|overdraft|late charge)\b/i.test(t.desc)); }).slice(0,6).forEach(function(t){
-    N.push({ k:'fee:'+t.id, em:'⚠️', t:'A fee or interest: <b>' + esc(t.desc) + '</b>, ' + money(t.amt) + ' on ' + shortDate(t.d) + ' (' + esc((acct(t.a)||{}).name||'') + ').' }); });
-  var S = T.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer'; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; });
-  for(var i=0;i<S.length;i++) for(var j=i+1;j<S.length;j++){ var a = S[i], b = S[j]; if(daysBetween(a.d, b.d) > 3) break;
-    if(a.a === b.a && a.amt === b.amt && mkey(a.desc) === mkey(b.desc)) N.push({ k:'dup:'+a.id+':'+b.id, em:'👯', t:'Charged twice? <b>' + esc(a.desc) + '</b>, ' + money(a.amt) + ' on ' + shortDate(a.d) + ' and ' + shortDate(b.d) + '.' }); }
-  db.tx.forEach(function(t){ if(t.d.slice(0,7) < m) earlier[mkey(t.desc)] = 1; });
-  var hasEarlier = Object.keys(earlier).length > 0, subs = catByKw('subs'), seenNew = {};
-  if(hasEarlier) T.forEach(function(t){ var k = mkey(t.desc); if(t.amt > 0 && t.cat === subs && !earlier[k] && !seenNew[k]){ seenNew[k] = 1;
-    N.push({ k:'new:'+m+':'+k, em:'🆕', t:'A new subscription? <b>' + esc(t.desc) + '</b>, ' + money(t.amt) + '. It was not there in earlier months.' }); } });
-  var u = uncatCount(); if(u) N.push({ k:'uncat:'+m+':'+u, em:'❓', t:u + ' line' + (u===1?' is':'s are') + ' not sorted into a category yet.', go:'openSort()', btn:'Sort them' });
-  if(db.rule && db.guaranteed > 0 && totalBudget() > db.guaranteed) N.push({ k:'rule:'+totalBudget()+':'+db.guaranteed, em:'📏', t:'Your rule: the budget stays under guaranteed income. The budget is ' + money(totalBudget(),1) + ', guaranteed income is ' + money(db.guaranteed,1) + '.', go:'openBudget()', btn:'Adjust' });
-  var old = db.accts.filter(function(a){ return !a.closed && (!a.asOf || daysBetween(a.asOf, today()) > 40); });
-  if(old.length) N.push({ k:'stale:'+thisMonth(), em:'🕰️', t:old.length + ' balance' + (old.length===1?' is':'s are') + ' more than 40 days old: ' + old.slice(0,4).map(function(a){ return esc(a.name); }).join(', ') + (old.length>4?'…':'') + '.', go:'openBalances()', btn:'Update' });
-  db.accts.filter(function(a){ return a.type === 'card' && counts(a) && !a.autopay && (a.bal||0) > 0; }).forEach(function(a){
-    N.push({ k:'pay:'+a.id+':'+thisMonth(), em:'💳', t:'<b>' + esc(a.name) + '</b> is not on autopay. Check when it is due.' }); });
-  return N.filter(function(n){ return !db.seen[n.k]; });
-}
 function catByKw(k){ var w = KW[k]; for(var i=0;i<db.cats.length;i++) if(db.cats[i].kw === w) return db.cats[i].id; return '__none'; }
 function seen(k){ db.seen[k] = 1; save(); render(); }
 
 /* ── the main screen ── */
-function render(){
-  var main = document.getElementById('main'), bar = document.getElementById('bar');
-  document.getElementById('hhName').textContent = db && db.name ? db.name : 'budget · what we own and owe · a monthly check-up';
-  if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
-  if(!db.setup){ bar.style.display = 'none'; main.innerHTML = '<div class="card callout"><b>Setup is not finished.</b><button class="b primary" onclick="setupStep(1)">Carry on with setup</button></div>'; return; }
-  bar.style.display = '';
-  var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
-  var h = '';
-  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>';
-  if(!db.tx.length){
-    h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Bring in a few months of statements</h2><p style="margin:0 0 4px">Three months is a good start. The app reads them, sorts the spending, and shows you what a normal month looks like. Then you set the budget from that.</p><button class="b primary" onclick="openImport()">＋ Add statements</button><button class="b" onclick="openHowTo()">How do I get them from my bank?</button></div>';
-  } else if(!db.budgetSet){
-    h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Turn what you spent into a budget</h2><p style="margin:0 0 4px">See each category’s normal month, move each one up or down, and that becomes your budget.</p><button class="b primary" onclick="openFirstLoad()">Make our budget</button>' + (uncatCount() ? '<button class="b" onclick="openSort()">Sort ' + uncatCount() + ' first</button>' : '') + '</div>';
-  }
-  var due = checkupDue(); if(due && db.budgetSet) h += '<div class="card callout"><h2>🗓️ Time for ' + monthOnly(due) + '’s check-up</h2><p style="margin:0">Four short steps. About ten minutes.</p><button class="b primary" onclick="openCheckup(\'' + due + '\')">Start the check-up</button></div>';
-  /* month */
-  var first = ms[0] || view, last = thisMonth();
-  h += '<div class="mnav"><button aria-label="Earlier month" onclick="view=addMonths(view,-1);render()"' + (view <= first ? ' disabled' : '') + '>‹</button><b id="monthName">' + monthName(view) + '</b><button aria-label="Later month" onclick="view=addMonths(view,1);render()"' + (view >= last ? ' disabled' : '') + '>›</button></div>';
-  var sp = spentBy(view), out = spendTotal(sp), bud = totalBudget(), inn = moneyIn(sp);
-  h += '<div class="card" id="sumCard"><div class="sum"><div><b>' + money(inn,1) + '</b><span>came in</span></div><div><b>' + money(out,1) + '</b><span>went out</span></div><div><b>' + (db.budgetSet ? money(bud,1) : '—') + '</b><span>budget</span></div></div>';
-  if(db.budgetSet){ var left = r2(bud - out);
-    h += '<div class="line ' + (left >= 0 ? 'ok' : 'bad') + '">' + (left >= 0 ? '✓ ' + money(left,1) + ' under the budget' + (view === thisMonth() ? ' so far' : '') + '.' : money(-left,1) + ' over the budget.') + '</div>';
-    if(db.rule && db.guaranteed > 0) h += '<div class="line ' + (bud <= db.guaranteed ? 'ok' : 'warn') + '">📏 Budget ' + (bud <= db.guaranteed ? 'is under' : 'is ABOVE') + ' guaranteed income (' + money(db.guaranteed,1) + ').</div>';
-  }
-  h += '</div>';
-  var N = db.budgetSet ? notices(view) : [];
-  var showAll = render.all; if(N.length) h += '<div class="card" id="notices"><h2>👀 Worth a look <small>' + N.length + '</small></h2>' + N.slice(0, showAll ? 99 : 4).map(function(n){
-    return '<div class="notice"><span class="em">' + n.em + '</span><span class="tx">' + n.t + '</span>' + (n.go ? '<button class="b small" onclick="' + n.go + '">' + (n.btn||'See') + '</button>' : '') + '<button class="b small ghost" aria-label="Seen it" onclick="seen(\'' + n.k.replace(/'/g,'') + '\')">✓</button></div>'; }).join('') + (N.length > 4 && !showAll ? '<button class="b full" onclick="render.all=1;render()">Show ' + (N.length-4) + ' more</button>' : '') + '</div>';
-  /* budget against actual, group by group */
-  if(db.tx.length) db.groups.forEach(function(g){
-    var cs = catsIn(g.id); if(!cs.length) return; var gs = 0, gb = 0;
-    var rows = cs.map(function(c){ var s = sp[c.id]||0; gs += s; gb += c.budget||0; if(!s && !c.budget) return '';
-      var p = c.budget > 0 ? s / c.budget : (s > 0 ? 1.01 : 0), cl = p > 1.0001 ? 'over' : p >= .85 ? 'near' : '';
-      return '<button class="cat ' + cl + '" onclick="openCatTx(\'' + c.id + '\')"><div class="top"><span class="nm">' + esc(c.name) + '</span><span class="amt">' + money(s,1) + (db.budgetSet ? ' <small>of ' + money(c.budget||0,1) + '</small>' : '') + '</span></div>' + (db.budgetSet ? '<div class="meter"><i style="width:' + Math.min(100, Math.round(p*100)) + '%"></i></div>' : '') + '</button>'; }).join('');
-    if(!rows) return;
-    h += '<div class="card grp"><h2>' + g.em + ' ' + esc(g.name) + '<small>' + money(gs,1) + (db.budgetSet ? ' of ' + money(gb,1) : '') + '</small></h2>' + rows + '</div>';
-  });
-  var nw = netWorth(), ch = nwChange(thisMonth());
-  h += '<div class="card" id="nwCard" onclick="openNetWorth()" style="cursor:pointer"><h2>📊 Net worth<small>today</small></h2><div class="nw">' + money(nw.net,1) + '</div>'
-    + (ch != null ? '<div style="font-weight:800;color:' + (ch >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (ch >= 0 ? '▲ ' : '▼ ') + money(Math.abs(ch),1) + ' since ' + monthOnly(addMonths(thisMonth(),-1)) + '</div>' : '')
-    + '<div class="nwrow"><div><b>' + money(nw.own,1) + '</b><span>what we own</span></div><div><b>' + money(nw.owe,1) + '</b><span>what we owe</span></div></div></div>';
-  var IA = invAccts(); if(IA.length){ var iv = invTotal(), im = invChange(thisMonth() + '-01');
-    h += '<div class="card" id="invCard" onclick="openInvest()" style="cursor:pointer"><h2>📈 Investments<small>' + IA.length + ' account' + (IA.length===1?'':'s') + '</small></h2><div class="nw" style="font-size:28px">' + money(iv,1) + '</div>'
-      + (im != null ? '<div style="font-weight:800;color:' + (im >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (im >= 0 ? '▲ ' : '▼ ') + money(Math.abs(im),1) + ' this month</div>' : '')
-      + (WX && WX.name ? '<div class="line warn" style="margin-top:10px">🌤️ Market weather: <b>' + esc(WX.name) + '</b></div>' : '') + '</div>'; }
-  h += '<div class="tools">'
-    + '<button class="tool" onclick="openBalances()">🧮 Update balances<small>bank, cards, home, car</small></button>'
-    + '<button class="tool" onclick="openSort()">❓ Sort spending<small>' + (uncatCount() ? uncatCount() + ' waiting' : 'all sorted') + '</small></button>'
-    + '<button class="tool" onclick="openBudget()">✏️ Our budget<small>move it up or down</small></button>'
-    + '<button class="tool" onclick="openTx()">📃 Everything this month<small>' + txIn(view).length + ' lines</small></button>'
-    + '<button class="tool" onclick="openAccounts()">🏦 Our accounts<small>' + db.accts.filter(function(a){ return !a.closed; }).length + ' open</small></button>'
-    + '<button class="tool" onclick="openSettings()">⚙️ Settings<small>reminder, rule, AI</small></button></div>';
-  main.innerHTML = h;
-}
-function welcomeHTML(){
-  return '<div class="card welcome"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="8" width="56" height="48" rx="12" fill="#1E4A6B"/><rect x="14" y="34" width="8" height="14" rx="2" fill="#D9A93F"/><rect x="28" y="24" width="8" height="24" rx="2" fill="#F5F3EE"/><rect x="42" y="16" width="8" height="32" rx="2" fill="#C9702F"/></svg>'
-    + '<h2>Your family’s money, in one place</h2><p>Every month, on one screen:</p><ul><li><b>The budget against what you really spent</b>, in groups you choose</li><li><b>What you own and what you owe</b>, kept up to date</li><li><b>A short report from your own AI</b>: what changed, where you went over, anything odd</li></ul>'
-    + '<p style="font-size:15px">No bank login. You bring in the statement files your bank already gives you. Everything stays on this phone.</p>'
-    + '<button class="b primary" id="startBtn" onclick="setupStep(1)">Set up ours</button><button class="b" id="exBtn" onclick="startExample()">Show me an example family first</button></div>';
-}
-
 /* ── setup: four short steps ── */
-var SU = null;
-function setupStep(n){
-  if(!db){ db = blank(); }
-  if(!SU) SU = { homes:['Our home'] };
-  if(n === 1){
-    openSheet('<div class="stepno">Setup · step 1 of 4</div><h3>Who is this for?</h3><p class="sub">A name for the top of the screen, if you like. Then how many homes you keep.</p>'
-      + '<label for="suName">Household name (optional)</label><input id="suName" placeholder="The Smith household" value="' + esc(db.name) + '">'
-      + '<label for="suCur">Money</label><select id="suCur">' + ['$','KSh','£','€'].map(function(c){ return '<option' + (db.cur===c?' selected':'') + '>' + c + '</option>'; }).join('') + '</select>'
-      + '<label>How many homes?</label><p class="sub" style="margin:0 0 6px">Each home gets its own group: mortgage, HOA, utilities, property tax.</p><div class="pick" id="suHomes">' + [1,2,3].map(function(k){ return '<button class="' + (SU.homes.length===k?'on':'') + '" onclick="suHomes(' + k + ')">' + k + (k===1?' home':' homes') + '</button>'; }).join('') + '</div><div id="suHomeNames"></div>'
-      + '<button class="b primary full" onclick="suNext1()">Next</button>');
-    suHomeNames(); return;
-  }
-  if(n === 2){
-    var plan = defaultPlan(SU.homes); SU.plan = plan; var jb = jbjJars();
-    openSheet('<div class="stepno">Setup · step 2 of 4</div><h3>Your categories</h3><p class="sub">Here is a starting set. Untick anything you never spend on. You can add, rename or remove any of them later.</p>'
-      + plan.groups.map(function(g){ return '<h4>' + g.em + ' ' + esc(g.name) + '</h4>' + plan.cats.filter(function(c){ return c.g === g.id; }).map(function(c){ return '<label class="ck"><input type="checkbox" data-c="' + c.id + '" checked> ' + esc(c.name) + '</label>'; }).join(''); }).join('')
-      + (jb ? '<div class="card callout" style="margin-top:14px"><b>🫙 You use Jar by Jar on this phone.</b><label class="ck"><input type="checkbox" id="suJbj" checked> Bring in my ' + jb.jars.length + ' jars and their amounts as categories</label></div>' : '')
-      + '<button class="b primary full" onclick="suNext2()">Next</button><button class="b ghost" style="width:100%" onclick="setupStep(1)">Back</button>');
-    return;
-  }
-  if(n === 3){
-    openSheet('<div class="stepno">Setup · step 3 of 4</div><h3>What do you have?</h3><p class="sub">Add each account, and anything you own or owe. Just a name and today’s balance — never an account number or a password.</p>'
-      + '<div id="suAccts"></div><button class="b warm full" onclick="openAcct(null, function(){ setupStep(3); })">＋ Add one</button>'
-      + '<button class="b primary full" onclick="setupStep(4)">' + (db.accts.length ? 'Next' : 'Skip for now') + '</button><button class="b ghost" style="width:100%" onclick="setupStep(2)">Back</button>');
-    document.getElementById('suAccts').innerHTML = acctListHTML(true); return;
-  }
-  if(n === 4){
-    openSheet('<div class="stepno">Setup · step 4 of 4</div><h3>What comes in for sure?</h3><p class="sub">Pension, Social Security, a salary — money you can count on every month. Leave it at 0 if it changes.</p>'
-      + '<label for="suGi">Guaranteed income each month</label><input id="suGi" inputmode="decimal" value="' + (db.guaranteed||'') + '" placeholder="0">'
-      + '<label class="ck"><input type="checkbox" id="suRule"' + (db.rule ? ' checked' : '') + '> Our rule: the budget stays under our guaranteed income</label>'
-      + '<button class="b primary full" onclick="suDone()">Finish setup</button><button class="b ghost" style="width:100%" onclick="setupStep(3)">Back</button>');
-  }
-}
-function suHomes(k){ var names = SU.homes.slice(0,k); while(names.length < k) names.push('Home ' + (names.length+1)); if(k === 1) names = ['Our home']; SU.homes = names; setupStep(1); }
-function suHomeNames(){ var el = document.getElementById('suHomeNames'); if(!el) return; if(SU.homes.length < 2){ el.innerHTML = ''; return; }
-  el.innerHTML = SU.homes.map(function(h, i){ return '<label for="suH' + i + '">Name for home ' + (i+1) + '</label><input id="suH' + i + '" value="' + esc(h) + '" placeholder="e.g. The lake house">'; }).join(''); }
-function suNext1(){ db.name = document.getElementById('suName').value.trim(); db.cur = document.getElementById('suCur').value;
-  if(SU.homes.length > 1) SU.homes = SU.homes.map(function(h, i){ var v = (document.getElementById('suH' + i)||{}).value; return (v && v.trim()) || ('Home ' + (i+1)); });
-  db.ex = false; save(); setupStep(2); }
-function suNext2(){
-  var keep = {}; Array.prototype.forEach.call(document.querySelectorAll('[data-c]'), function(b){ if(b.checked) keep[b.getAttribute('data-c')] = 1; });
-  db.groups = SU.plan.groups.slice(); db.cats = SU.plan.cats.filter(function(c){ return keep[c.id]; });
-  db.groups = db.groups.filter(function(g){ return catsIn(g.id).length; });
-  var jb = document.getElementById('suJbj'); if(jb && jb.checked){ var n = bringJars(); if(n) toast(n + ' jars brought in from Jar by Jar.'); }
-  save(); setupStep(3);
-}
-function suDone(){ db.guaranteed = num(document.getElementById('suGi').value); db.rule = document.getElementById('suRule').checked; db.setup = true; save(); SU = null; closeSheet(); view = null; render(); window.scrollTo(0,0);
-  setTimeout(function(){ openImport(); }, 250); }
-
 /* ── Jar by Jar: same phone, same address, so its jars can be read directly ── */
 function jbjJars(){ try{ var d = JSON.parse(localStorage.getItem(JBJ_KEY) || 'null'); if(d && d.jars && d.jars.length && !d.ex) return d; }catch(e){} return null; }
 function bringJars(){
@@ -2512,41 +2356,8 @@ function bringJars(){
 }
 
 /* ── accounts ── */
-function acctListHTML(short){
-  if(!db.accts.length) return '<p class="sub">Nothing added yet.</p>';
-  return '<ul class="list">' + db.accts.map(function(a){ var T = TYPES[a.type] || TYPES.otherA;
-    var tags = (a.notPersonal ? '<span class="pill">not personal</span>' : '') + (a.autopay ? '<span class="pill">autopay</span>' : '') + (a.closed ? '<span class="pill">closed</span>' : '');
-    return '<li class="tap" onclick="openAcct(\'' + a.id + '\'' + (short ? ', function(){ setupStep(3); }' : '') + ')"><span style="font-size:22px">' + T.em + '</span><span class="ds">' + esc(a.name) + tags + '<small>' + T.t + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + '</small></span><span class="amt" style="color:' + (T.s === 'l' ? 'var(--red)' : 'inherit') + '">' + (T.s === 'l' ? '−' : '') + money(a.bal||0,1) + '</span></li>'; }).join('') + '</ul>';
-}
 var ACCT_DONE = null;
-function openAcct(id, done){
-  ACCT_DONE = done || null; var a = id ? acct(id) : { id:'', name:'', type:'checking', bal:0 };
-  openSheet('<h3>' + (id ? esc(a.name) : 'Add an account or a thing') + '</h3>'
-    + '<label for="acName">What do you call it?</label><input id="acName" value="' + esc(a.name) + '" placeholder="Joint checking, Blue card, Lake house…">'
-    + '<label for="acType">What is it?</label><select id="acType" onchange="acTypeChanged()">' + Object.keys(TYPES).map(function(k){ return '<option value="' + k + '"' + (a.type===k?' selected':'') + '>' + TYPES[k].em + ' ' + TYPES[k].t + '</option>'; }).join('') + '</select>'
-    + '<label for="acBal" id="acBalL">Balance today</label><input id="acBal" inputmode="decimal" value="' + (a.bal || '') + '" placeholder="0">'
-    + '<label class="ck"><input type="checkbox" id="acNP"' + (a.notPersonal?' checked':'') + '> Not personal (a church or business card) — keep it out of our numbers</label>'
-    + '<label class="ck" id="acAPL"><input type="checkbox" id="acAP"' + (a.autopay?' checked':'') + '> This card is paid in full on autopay</label>'
-    + (id ? '<label class="ck"><input type="checkbox" id="acCl"' + (a.closed?' checked':'') + '> This account is closed</label>' : '')
-    + '<p class="sub" style="margin-top:10px">Never put an account number or a password here. A name is all it needs.</p>'
-    + '<button class="b primary full" onclick="saveAcct(\'' + (id||'') + '\')">' + (id ? 'Save' : 'Add it') + '</button>'
-    + (id ? '<button class="b ghost" style="width:100%;color:var(--red)" onclick="delAcct(\'' + id + '\')">Remove it</button>' : '')
-    + '<button class="b ghost" style="width:100%" onclick="acctBack()">Back</button>');
-  acTypeChanged();
-}
-function acTypeChanged(){ var t = document.getElementById('acType').value, T = TYPES[t];
-  document.getElementById('acAPL').style.display = t === 'card' ? '' : 'none';
-  document.getElementById('acBalL').textContent = T.s === 'l' ? 'How much is owed today' : (/home|vehicle|otherA/.test(t) ? 'What it is worth today (your best guess)' : 'Balance today'); }
 function acctBack(){ if(ACCT_DONE){ var f = ACCT_DONE; ACCT_DONE = null; f(); } else if(db.setup) openAccounts(); else closeSheet(); }
-function saveAcct(id){
-  var name = document.getElementById('acName').value.trim(); if(!name){ alert('Give it a name first.'); return; }
-  if(/\d{6,}/.test(name.replace(/\s/g,''))){ alert('That looks like an account number. Use a plain name instead, like “Joint checking”.'); return; }
-  var a = id ? acct(id) : { id:uid(), hist:[] }, bal = Math.abs(num(document.getElementById('acBal').value));
-  a.name = name; a.type = document.getElementById('acType').value; a.notPersonal = document.getElementById('acNP').checked;
-  a.autopay = a.type === 'card' && document.getElementById('acAP').checked; var cl = document.getElementById('acCl'); a.closed = cl ? cl.checked : false;
-  if(!id || r2(bal) !== r2(a.bal||0)) setBal(a, bal);
-  if(!id) db.accts.push(a); save(); render(); acctBack();
-}
 function delAcct(id){ var n = db.tx.filter(function(t){ return t.a === id; }).length;
   if(!confirm('Remove this' + (n ? ' and its ' + n + ' spending lines' : '') + '? If it is only closed, tick “closed” instead and its history stays.')) return;
   db.accts = db.accts.filter(function(a){ return a.id !== id; }); db.tx = db.tx.filter(function(t){ return t.a !== id; }); save(); render(); acctBack(); }
@@ -2853,86 +2664,22 @@ function openManual(){
     + '<label for="mnC">Category</label><select id="mnC">' + catOptions('uncat') + '</select>'
     + '<button class="b primary full" onclick="saveManual()">Add it</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Cancel</button>');
 }
-function catOptions(sel){ return db.groups.map(function(g){ return '<optgroup label="' + esc(g.name) + '">' + catsIn(g.id).map(function(c){ return '<option value="' + c.id + '"' + (sel===c.id?' selected':'') + '>' + esc(c.name) + '</option>'; }).join('') + '</optgroup>'; }).join('')
-  + '<optgroup label="Other">' + ['inc','xfer','uncat'].map(function(k){ return '<option value="' + k + '"' + (sel===k?' selected':'') + '>' + SYS[k].name + '</option>'; }).join('') + '</optgroup>'; }
 function saveManual(){ var amt = Math.abs(num(document.getElementById('mnA').value)); if(!amt){ alert('How much?'); return; }
   if(document.getElementById('mnIn').checked) amt = -amt;
   db.tx.push({ id:uid(), a:document.getElementById('mnAc').value, d:document.getElementById('mnD').value || today(), desc:document.getElementById('mnW').value.trim() || 'Added by hand', amt:amt, cat:document.getElementById('mnC').value });
   save(); closeSheet(); render(); toast('Added.'); }
 
 /* ── sorting what the app could not ── */
-function openSort(firstTime){
-  var by = {}; db.tx.forEach(function(t){ if(t.cat !== 'uncat' || !counts(acct(t.a))) return; var k = mkey(t.desc) || t.desc; if(!by[k]) by[k] = { k:k, desc:t.desc, n:0, amt:0 }; by[k].n++; by[k].amt = r2(by[k].amt + t.amt); });
-  var L = Object.keys(by).map(function(k){ return by[k]; }).sort(function(a,b){ return Math.abs(b.amt) - Math.abs(a.amt); });
-  if(!L.length){ openSheet('<h3>All sorted ✓</h3><p class="sub">Every line has a category.</p>' + (!db.budgetSet ? '<button class="b primary full" onclick="openFirstLoad()">Make our budget</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); return; }
-  openSheet('<h3>' + (firstTime ? 'A few I could not sort' : 'Sort the spending') + '</h3><p class="sub">Tap one and pick its category. It is remembered, so the same shop sorts itself next month.</p>'
-    + '<button class="b warm full" onclick="sortAI()">✨ Let my AI sort these</button>'
-    + '<ul class="list">' + L.slice(0,60).map(function(x){ return '<li class="tap" onclick="pickCatFor(\'' + esc(x.desc).replace(/'/g,'') + '\')"><span class="ds">' + esc(x.desc) + '<small>' + x.n + (x.n===1?' time':' times') + '</small></span><span class="amt">' + money(x.amt,1) + '</span></li>'; }).join('') + '</ul>'
-    + (L.length > 60 ? '<p class="sub">…and ' + (L.length-60) + ' more.</p>' : '')
-    + (!db.budgetSet ? '<button class="b primary full" onclick="openFirstLoad()">Skip — make our budget now</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
-}
-function pickCatFor(desc, txid){
-  openSheet('<h3>' + esc(desc) + '</h3><p class="sub">Which category?</p><select id="pcC">' + catOptions(txid ? (db.tx.filter(function(t){ return t.id===txid; })[0]||{}).cat : 'uncat') + '</select>'
-    + '<label class="ck"><input type="checkbox" id="pcAll" checked> Always put “' + esc(mkey(desc) || desc) + '” here</label>'
-    + '<button class="b primary full" onclick="doPick(\'' + esc(desc).replace(/'/g,'') + '\',\'' + (txid||'') + '\')">Save</button>'
-    + (txid ? '<button class="b ghost" style="width:100%;color:var(--red)" onclick="delTx(\'' + txid + '\')">Remove this line</button>' : '')
-    + '<button class="b ghost" style="width:100%" onclick="' + (txid ? 'openTx()' : 'openSort()') + '">Back</button>');
-}
 function doPick(desc, txid){ var c = document.getElementById('pcC').value, all = document.getElementById('pcAll').checked, n = 0;
   if(txid){ db.tx.forEach(function(t){ if(t.id === txid) t.cat = c; }); n = 1; }
   if(all) n += learn(desc, c); else if(!txid) db.tx.forEach(function(t){ if(t.desc === desc && t.cat === 'uncat'){ t.cat = c; n++; } });
   save(); render(); toast('Sorted into ' + catName(c) + '.'); if(txid) openTx(); else openSort(); }
 function delTx(id){ if(!confirm('Remove this line?')) return; db.tx = db.tx.filter(function(t){ return t.id !== id; }); save(); render(); openTx(); }
-function sortAI(){
-  var by = {}; db.tx.forEach(function(t){ if(t.cat === 'uncat' && counts(acct(t.a))) by[mkey(t.desc) || t.desc] = t.desc; });
-  var D = Object.keys(by).slice(0,80).map(function(k){ return by[k]; }); if(!D.length) return;
-  var names = db.cats.map(function(c){ return c.name; }).concat([SYS.inc.name, SYS.xfer.name]);
-  ask({ title:'Sort my spending', want:'json', circle:false,
-    prompt:'Here are shop and payee names from my bank statements, and my budget categories. Put each name in the best category. Answer with JSON only: {"name exactly as given": "category exactly as given"}. If you really cannot tell, use "' + SYS.uncat.name + '".\n\nCategories:\n' + names.join('\n') + '\n\nNames:\n' + D.join('\n'),
-    onResult:function(v){ if(!v || typeof v !== 'object'){ alert('That answer did not come back in the expected shape.'); return; }
-      var byName = {}; db.cats.forEach(function(c){ byName[c.name.toLowerCase()] = c.id; }); byName[SYS.inc.name.toLowerCase()] = 'inc'; byName[SYS.xfer.name.toLowerCase()] = 'xfer';
-      var n = 0; Object.keys(v).forEach(function(d){ var cid = byName[String(v[d]||'').toLowerCase().trim()]; if(cid) n += learn(d, cid); });
-      save(); render(); toast(n + ' lines sorted by your AI. Tap any to change it.'); openSort(); } });
-}
-
 /* ── the first load: what a normal month looks like, then up or down ── */
 function niceRound(n){ if(n <= 0) return 0; if(n < 100) return Math.ceil(n/5)*5; if(n < 1000) return Math.ceil(n/10)*10; return Math.ceil(n/25)*25; }
-function averages(){
-  var ms = months(), cur = thisMonth(); var full = ms.filter(function(m){ return m !== cur; }); if(!full.length) full = ms;
-  var n = Math.max(1, full.length), tot = {};
-  db.tx.forEach(function(t){ if(!counts(acct(t.a)) || full.indexOf(t.d.slice(0,7)) < 0) return; tot[t.cat] = (tot[t.cat]||0) + t.amt; });
-  var avg = {}; for(var k in tot) avg[k] = r2(tot[k]/n); return { avg:avg, n:n, months:full };
-}
 var ADJ = {};
-function openFirstLoad(again){
-  var A = averages(); ADJ = {};
-  db.cats.forEach(function(c){ ADJ[c.id] = again || db.budgetSet ? (c.budget||0) : niceRound(Math.max(0, A.avg[c.id]||0)); });
-  var inc = -(A.avg.inc||0), unc = A.avg.uncat||0;
-  openSheet('<div class="stepno">' + (db.budgetSet ? 'Our budget' : 'Your first summary') + '</div><h3>' + (db.budgetSet ? 'Move the budget up or down' : 'Here is a normal month') + '</h3>'
-    + '<p class="sub">From ' + A.n + ' month' + (A.n===1?'':'s') + ' of statements (' + A.months.map(function(m){ return monthOnly(m); }).join(', ') + '). Under each one is what you really spent on average. Tap − or ＋ to set the budget.</p>'
-    + '<div class="stick" id="adjTot"></div>'
-    + db.groups.map(function(g){ var cs = catsIn(g.id); if(!cs.length) return ''; return '<h4>' + g.em + ' ' + esc(g.name) + '</h4>' + cs.map(function(c){
-        return '<div class="adj"><span class="nm">' + esc(c.name) + '<small>spent about ' + money(Math.max(0, A.avg[c.id]||0),1) + ' a month</small></span><button aria-label="Less for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',-1)">−</button><input id="adj_' + c.id + '" inputmode="decimal" value="' + ADJ[c.id] + '" oninput="ADJ[\'' + c.id + '\']=Math.max(0,num(this.value));adjTot()"><button aria-label="More for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',1)">＋</button></div>'; }).join(''); }).join('')
-    + (unc > 0 ? '<p class="sub" style="margin-top:12px">❓ About ' + money(unc,1) + ' a month is not sorted yet. <a href="#" onclick="openSort();return false" style="color:var(--brand);font-weight:800">Sort it first</a> for a truer picture.</p>' : '')
-    + '<button class="b primary full" onclick="saveBudget()">' + (db.budgetSet ? 'Save the budget' : 'Make this our budget') + '</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Not now</button>');
-  ADJ.__inc = inc; adjTot();
-}
 function adj(id, dir){ var v = ADJ[id]||0, step = v < 100 ? 5 : v < 1000 ? 10 : 25; v = Math.max(0, (dir > 0 ? Math.floor(v/step)*step + step : Math.ceil(v/step)*step - step)); ADJ[id] = v; document.getElementById('adj_' + id).value = v; adjTot(); }
-function adjTot(){ var t = 0; db.cats.forEach(function(c){ t += ADJ[c.id]||0; }); t = r2(t); var el = document.getElementById('adjTot'); if(!el) return;
-  var lines = '<div class="line ok" style="margin:0">Budget: <b>' + money(t,1) + '</b> a month' + (ADJ.__inc > 0 ? ' · money in has averaged ' + money(ADJ.__inc,1) : '') + '</div>';
-  if(db.rule && db.guaranteed > 0) lines += '<div class="line ' + (t <= db.guaranteed ? 'ok' : 'bad') + '" style="margin:6px 0 0">📏 ' + (t <= db.guaranteed ? money(db.guaranteed - t,1) + ' under' : money(t - db.guaranteed,1) + ' OVER') + ' our guaranteed income of ' + money(db.guaranteed,1) + '</div>';
-  el.innerHTML = lines; }
-function saveBudget(){ db.cats.forEach(function(c){ c.budget = r2(ADJ[c.id]||0); }); var first = !db.budgetSet; db.budgetSet = true; save(); closeSheet(); view = null; render(); window.scrollTo(0,0);
-  toast(first ? 'That is your budget. Each month, a check-up keeps it honest.' : 'Budget saved.'); if(first) setTimeout(openReminder, 1200); }
 function openBudget(){ if(!db.tx.length && !db.budgetSet){ openCats(); return; } openFirstLoad(true); setTimeout(function(){ var el = document.getElementById('sheetIn'); if(el) el.insertAdjacentHTML('beforeend', '<button class="b full" onclick="openCats()">Add, rename or remove categories</button>'); }, 0); }
-function openCats(){
-  openSheet('<h3>Categories</h3><p class="sub">Tap a name to rename it. Spending in a removed category goes back to “not sorted”.</p>'
-    + db.groups.map(function(g){ return '<h4><input value="' + esc(g.name) + '" aria-label="Group name" onchange="group(\'' + g.id + '\').name=this.value.trim()||\'Group\';save();render()" style="font-weight:800"></h4>'
-      + catsIn(g.id).map(function(c){ return '<div class="row" style="margin:6px 0"><input value="' + esc(c.name) + '" aria-label="Category name" style="flex:1" onchange="cat(\'' + c.id + '\').name=this.value.trim()||\'Category\';save();render()"><button class="b small" aria-label="Remove ' + esc(c.name) + '" onclick="delCat(\'' + c.id + '\')">✕</button></div>'; }).join('')
-      + '<button class="b small" onclick="addCat(\'' + g.id + '\')">＋ Add a category here</button>'; }).join('')
-    + '<button class="b warm full" onclick="addGroup()">＋ Add a group (a second home, a business…)</button><button class="b primary full" onclick="closeSheet()">Done</button>');
-}
-function addCat(g){ var n = prompt('Name of the new category?'); if(!n || !n.trim()) return; db.cats.push({ id:uid(), g:g, name:n.trim(), budget:0, kw:'' }); save(); render(); openCats(); }
 function delCat(id){ if(!confirm('Remove “' + catName(id) + '”?')) return; db.cats = db.cats.filter(function(c){ return c.id !== id; }); db.tx.forEach(function(t){ if(t.cat === id) t.cat = 'uncat'; }); db.rules = db.rules.filter(function(r){ return r.cat !== id; }); save(); render(); openCats(); }
 function addGroup(){ var n = prompt('Name of the new group? (for a second home, its name)'); if(!n || !n.trim()) return; var id = 'g_' + uid();
   var home = confirm('Is it a home? OK adds Mortgage, HOA, Utilities, Property tax and Home insurance to it.');
@@ -2953,60 +2700,6 @@ function openCatTx(id){
 
 /* ── the monthly check-up, around the 5th ── */
 var CK = null;
-function checkupDue(){ var last = addMonths(thisMonth(), -1); if(new Date().getDate() < 3) return null; if((db.read||{})[last] || db.reports[last]) return null; if(db.made && db.made.slice(0,7) > last) return null; return last; }
-function openCheckup(m){
-  CK = m; var stA = stmtAccts().filter(function(a){ return !a.notPersonal; }), haveTx = stA.filter(function(a){ return db.tx.some(function(t){ return t.a === a.id && t.d.slice(0,7) === m; }); }).length;
-  var s1 = stA.length && haveTx === stA.length, s2 = !uncatCount(), s3 = db.accts.filter(function(a){ return !a.closed; }).every(function(a){ return a.asOf && a.asOf >= addMonths(m,1) + '-01'; }), s4 = !!((db.read||{})[m] || db.reports[m]);
-  function row(done, t, sub, go, btn){ return '<div class="chk' + (done ? ' done' : '') + '"><span class="tick">' + (done ? '✓' : '') + '</span><span class="tx">' + t + '<small>' + sub + '</small></span><button class="b small' + (done ? '' : ' primary') + '" onclick="' + go + '">' + btn + '</button></div>'; }
-  openSheet('<h3>' + monthOnly(m) + '’s check-up</h3><p class="sub">Four short steps. Do them in order.</p>'
-    + row(s1, '1. Bring in ' + monthOnly(m) + '’s statements', haveTx + ' of ' + stA.length + ' accounts so far', 'openImport()', s1 ? 'Add more' : 'Add')
-    + row(s2, '2. Sort anything new', s2 ? 'all sorted' : uncatCount() + ' waiting', 'openSort()', 'Sort')
-    + row(s3, '3. Update the balances', 'bank, cards, investments, home', 'openBalances()', 'Update')
-    + row(s4, '4. Read the report', 'ready now, written from your numbers', 'view=\'' + m + '\';openReport(\'' + m + '\')', 'Read')
-    + '<button class="b ghost" style="width:100%;margin-top:10px" onclick="CK=null;closeSheet()">Later</button>');
-}
-function reportData(m){
-  var sp = spentBy(m), L = [], nw = netWorth(), before = netWorthAt(addMonths(m,1)), prev = netWorthAt(m);
-  L.push('Month: ' + monthName(m));
-  L.push('Money in: ' + money(moneyIn(sp),1) + '. Spent: ' + money(spendTotal(sp),1) + '. Budget: ' + money(totalBudget(),1) + '.');
-  if(db.guaranteed > 0) L.push('Guaranteed income: ' + money(db.guaranteed,1) + (db.rule ? '. Our rule: the budget stays under guaranteed income.' : '.'));
-  L.push('', 'Category: spent / budget / average of the earlier months');
-  var avg = {}, earlier = months().filter(function(x){ return x < m; }).slice(-3);
-  db.tx.forEach(function(t){ if(counts(acct(t.a)) && earlier.indexOf(t.d.slice(0,7)) >= 0) avg[t.cat] = (avg[t.cat]||0) + t.amt; });
-  db.groups.forEach(function(g){ catsIn(g.id).forEach(function(c){ var s = sp[c.id]||0; if(!s && !c.budget) return; L.push('- ' + g.name + ' / ' + c.name + ': ' + money(s,1) + ' / ' + money(c.budget||0,1) + (earlier.length ? ' / ' + money((avg[c.id]||0)/earlier.length,1) : '')); }); });
-  if(sp.uncat) L.push('- Not sorted yet: ' + money(sp.uncat,1));
-  var N = notices(m).concat([]); var raw = N.map(function(n){ return n.t.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'"); });
-  if(raw.length) L.push('', 'Things the app noticed:', raw.map(function(x){ return '- ' + x; }).join('\n'));
-  var big = txIn(m).filter(function(t){ return t.amt > 0 && t.cat !== 'xfer'; }).sort(function(a,b){ return b.amt - a.amt; }).slice(0,8);
-  if(big.length) L.push('', 'Biggest spending:', big.map(function(t){ return '- ' + t.desc + ': ' + money(t.amt,1) + ' (' + catName(t.cat) + ')'; }).join('\n'));
-  L.push('', 'Net worth now: ' + money(nw.net,1) + ' (own ' + money(nw.own,1) + ', owe ' + money(nw.owe,1) + ')' + (nwChange(m) != null ? '. Change since ' + monthOnly(m) + ' began: ' + money(nwChange(m),1) : '') + '.');
-  return L.join('\n');
-}
-/* v0.2 · the report is ready the moment it is opened: the app writes it from the numbers itself, in four short
-   parts. The family's own AI is now an optional second step ("say it in warmer words"), not the only way in —
-   Jerry, 13 Nov: the AI-first report was "a little clunky". */
-function reportParts(m){
-  var sp = spentBy(m), out = spendTotal(sp), bud = totalBudget(), inn = moneyIn(sp), P = [];
-  var earlier = months().filter(function(x){ return x < m; }).slice(-3), avg = {};
-  db.tx.forEach(function(t){ if(counts(acct(t.a)) && earlier.indexOf(t.d.slice(0,7)) >= 0) avg[t.cat] = (avg[t.cat]||0) + t.amt; });
-  var top = [(inn ? money(inn,1) + ' came in. ' : '') + money(out,1) + ' went out' + (bud ? ', against a budget of ' + money(bud,1) + ' — ' + (out <= bud ? money(bud-out,1) + ' to spare.' : money(out-bud,1) + ' over.') : '.')];
-  if(db.rule && db.guaranteed > 0) top.push(bud <= db.guaranteed ? 'The budget stays under your guaranteed income of ' + money(db.guaranteed,1) + ', as your rule asks.' : 'The budget is ' + money(bud - db.guaranteed,1) + ' above your guaranteed income. Your rule says it should stay under.');
-  P.push({ h:'The month in one line', em:'🧾', L:top });
-  if(earlier.length){
-    var ch = db.cats.map(function(c){ var s = sp[c.id]||0, a = (avg[c.id]||0)/earlier.length; return { c:c, s:s, d:r2(s - a) }; })
-      .filter(function(x){ return Math.abs(x.d) >= 25 && Math.abs(x.d) >= Math.max(x.s, Math.abs(x.s - x.d)) * .15; })
-      .sort(function(a,b){ return Math.abs(b.d) - Math.abs(a.d); }).slice(0,4);
-    P.push({ h:'What changed from a usual month', em:'📈', L: ch.length ? ch.map(function(x){ var why = x.d > 0 ? txIn(m).filter(function(t){ return t.cat === x.c.id; }).sort(function(a,b){ return b.amt - a.amt; })[0] : null;
-      return catLabel(x.c) + ': ' + money(x.s,1) + ', usually about ' + money(x.s - x.d,1) + (why && why.amt >= x.d * .5 ? ' — mostly ' + why.desc : '') + '.'; }) : ['Nothing big. It looked like a usual month.'] });
-  }
-  var over = db.cats.filter(function(c){ return c.budget > 0 && (sp[c.id]||0) > c.budget + .5; }).sort(function(a,b){ return ((sp[b.id]||0) - b.budget) - ((sp[a.id]||0) - a.budget); });
-  P.push({ h:'Where you went over', em:'🔴', L: over.length ? over.map(function(c){ return catLabel(c) + ': ' + money(sp[c.id],1) + ' of ' + money(c.budget,1) + ', ' + money(sp[c.id]-c.budget,1) + ' over.'; }) : ['Nowhere. Every category stayed inside its budget.'] });
-  var odd = notices(m).filter(function(n){ return /^(fee|dup|new|uncat):/.test(n.k); }).map(function(n){ return plain(n.t); });
-  P.push({ h:'Worth checking', em:'👀', L: odd.length ? odd : ['Nothing odd: no fees, no double charges, no new subscriptions.'] });
-  var nw = netWorth(), c2 = nwChange(addMonths(m,1));
-  P.push({ h:'What you own and owe', em:'📊', L:['Net worth ' + money(nw.net,1) + ' today' + (c2 != null ? ', ' + (c2 >= 0 ? 'up ' : 'down ') + money(Math.abs(c2),1) + ' since ' + monthOnly(m) + ' ended.' : '.')] });
-  return P;
-}
 function plain(t){ return String(t).replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'"); }
 function reportMonth(){ var last = addMonths(thisMonth(),-1); return months().indexOf(last) >= 0 && view >= last ? last : view; }
 function openReport(m, mine){
@@ -3044,87 +2737,651 @@ function openReminder(){
 function makeICS(){
   var n = new Date(), d = new Date(n.getFullYear(), n.getMonth() + (n.getDate() > 5 ? 1 : 0), 5), s = d.getFullYear() + pad2(d.getMonth()+1) + pad2(d.getDate());
   var url = location.href.split('#')[0].split('?')[0];
-  var ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja//Family Financial Dashboard//EN','BEGIN:VEVENT','UID:familydash-checkup-' + uid() + '@daraja','DTSTAMP:' + n.toISOString().replace(/[-:]/g,'').slice(0,15) + 'Z',
-    'DTSTART;VALUE=DATE:' + s,'RRULE:FREQ=MONTHLY;BYMONTHDAY=5','SUMMARY:Family money check-up','DESCRIPTION:Open the Family Financial Dashboard and do last month’s check-up: ' + url,'BEGIN:VALARM','TRIGGER:PT9H','ACTION:DISPLAY','DESCRIPTION:Family money check-up','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  var ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja//Family Money Dashboard//EN','BEGIN:VEVENT','UID:familydash-checkup-' + uid() + '@daraja','DTSTAMP:' + n.toISOString().replace(/[-:]/g,'').slice(0,15) + 'Z',
+    'DTSTART;VALUE=DATE:' + s,'RRULE:FREQ=MONTHLY;BYMONTHDAY=5','SUMMARY:Family money check-up','DESCRIPTION:Open the Family Money Dashboard and do last month’s check-up: ' + url,'BEGIN:VALARM','TRIGGER:PT9H','ACTION:DISPLAY','DESCRIPTION:Family money check-up','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
   var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type:'text/calendar' })); a.download = 'family-money-checkup.ics'; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); }, 1000);
   closeSheet(); toast('Open the file to add it to your calendar.'); }
 
 /* ── settings ── */
-function openSettings(){
-  var jb = jbjJars();
-  openSheet('<h3>Settings</h3><label for="stName">Household name</label><input id="stName" value="' + esc(db.name) + '">'
-    + '<label for="stCur">Money</label><select id="stCur">' + ['$','KSh','£','€'].map(function(c){ return '<option' + (db.cur===c?' selected':'') + '>' + c + '</option>'; }).join('') + '</select>'
-    + '<label for="stGi">Guaranteed income each month</label><input id="stGi" inputmode="decimal" value="' + (db.guaranteed||0) + '">'
-    + '<label class="ck"><input type="checkbox" id="stRule"' + (db.rule?' checked':'') + '> Our rule: the budget stays under guaranteed income</label>'
-    + '<button class="b primary full" onclick="saveSettings()">Save</button>'
-    + '<h4>More</h4><button class="b full" onclick="openReminder()">🗓️ Monthly reminder in my calendar</button>'
-    + '<button class="b full" onclick="window.djAI && djAI.choose()">🤖 Which AI do I use?</button>'
-    + '<button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
-    + (jb ? '<button class="b full" onclick="var n=bringJars();save();render();toast(n+\' jars brought in from Jar by Jar.\')">🫙 Bring in my Jar by Jar jars</button>' : '')
-    + '<button class="b full" onclick="if(confirm(\'Forget the shops the app has learned to sort?\')){db.rules=[];save();toast(\'Forgotten.\');}">Forget learned sorting (' + db.rules.length + ')</button>'
-    + '<button class="b full" style="color:var(--red)" onclick="startOver()">Start over</button>'
-    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
-}
-function saveSettings(){ db.name = document.getElementById('stName').value.trim(); db.cur = document.getElementById('stCur').value; db.guaranteed = Math.abs(num(document.getElementById('stGi').value)); db.rule = document.getElementById('stRule').checked; save(); closeSheet(); render(); toast('Saved.'); }
 function startOver(){ if(!confirm('Clear everything in this app on this phone? This cannot be undone. (Use the house “Save a copy” first if you want a backup.)')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; closeSheet(); render(); }
 
 /* ── the example family: invented, every number made up ── */
-function exampleData(){
-  var d = blank(); d.ex = true; d.setup = true; d.budgetSet = true; d.name = 'The Henderson household'; d.guaranteed = 9200; d.rule = true;
-  var P = defaultPlan(['Main home','Mountain cabin']); d.groups = P.groups; d.cats = P.cats;
-  var C = {}; d.cats.forEach(function(c){ C[c.g + '|' + c.name] = c; });
-  function cid(g, n){ return C[g + '|' + n].id; }
-  var B = { 'g_give|Church & giving':900, 'g_home0|Mortgage or rent':2150, 'g_home0|HOA':180, 'g_home0|Utilities':340, 'g_home0|Property tax':420, 'g_home0|Home insurance':160, 'g_home0|Repairs & upkeep':150,
-    'g_home1|Mortgage or rent':0, 'g_home1|HOA':95, 'g_home1|Utilities':190, 'g_home1|Property tax':210, 'g_home1|Home insurance':110, 'g_home1|Repairs & upkeep':100,
-    'g_life|Groceries':850, 'g_life|Eating out':300, 'g_life|Gas & car':260, 'g_life|Phone':140, 'g_life|Car insurance':185, 'g_life|Shopping':250, 'g_life|Subscriptions':60,
-    'g_var|Healthcare':300, 'g_var|Travel':400, 'g_var|Golf & hobbies':250, 'g_var|Gifts':100, 'g_save|Savings & investing':500, 'g_fee|Fees & interest':0 };
-  d.cats.forEach(function(c){ c.budget = B[c.g + '|' + c.name] || 0; });
-  var now = new Date(), cm = monthKey(now), tday = now.getDate();
-  function A(name, type, bal, x){ var a = { id:'a' + d.accts.length, name:name, type:type, bal:bal, asOf:ymd(new Date(now.getTime() - 9*864e5)), hist:[] }; for(var k in (x||{})) a[k] = x[k]; d.accts.push(a); return a.id; }
-  var chk = A('Joint checking','checking',8450), sav = A('Savings','savings',22300), card = A('Everyday card','card',1240,{ autopay:true }), card2 = A('Travel card','card',386),
-      church = A('Church mission card','card',310,{ notPersonal:true }), ret = A('Retirement accounts','retire',412000), ira = A('Brokerage','invest',61500), coll = A('Grandkids’ college plan','college',38500),
-      life = A('Whole life policy (cash value)','cashval',27400), home = A('Main home','home',465000), cabin = A('Mountain cabin','home',240000), car = A('The car','vehicle',21000),
-      mort = A('Main home mortgage','mortgage',212000), heloc = A('Cabin home equity line','heloc',18000), old = A('Old store card','card',0,{ closed:true });
-  /* a year back of balances, so net worth and investments have a story */
-  d.accts.forEach(function(a){ if(!INV_TYPES[a.type]) return; for(var i=12;i>=4;i--){ var day = ymd(new Date(now.getFullYear(), now.getMonth()-i+1, 0)); var w = 1 - i*0.008 + Math.sin(i*1.3)*0.012; a.hist.push({ d:day, bal:r2(a.bal * w) }); } });
-  [['retire',{ s:60, b:35, c:5 }],['invest',{ s:80, b:10, c:10 }],['college',{ s:70, b:30, c:0 }]].forEach(function(x){ d.accts.forEach(function(a){ if(a.type === x[0]) a.mix = x[1]; }); });
-  d.accts.forEach(function(a){ for(var i=3;i>=1;i--){ var day = ymd(new Date(now.getFullYear(), now.getMonth()-i+1, 0)); var drift = { retire:-4200, invest:-900, mortgage:1150, heloc:400, savings:-500, home:0, cabin:0 }[a.type] || 0; a.hist.push({ d:day, bal:r2(Math.max(0, a.bal + drift*i)) }); } a.hist.push({ d:a.asOf, bal:a.bal }); });
-  var seed = 7; function rnd(){ seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
-  function T(m, day, acc, desc, amt, c){ var dd = Math.min(day, 28); if(m === cm && dd > tday) return; d.tx.push({ id:uid(), a:acc, d:m + '-' + pad2(dd), desc:desc, amt:amt, cat:c }); }
-  for(var i=3;i>=0;i--){ var m = addMonths(cm, -i), late = i === 0;
-    T(m,1,chk,'PENSION DIRECT DEP',-5400,'inc'); T(m,3,chk,'SSA TREAS 310 SOC SEC',-3800,'inc'); T(m,15,chk,'DIVIDEND BROKERAGE',-640,'inc');
-    T(m,2,chk,'GRACE COMMUNITY CHURCH TITHE',900,cid('g_give','Church & giving'));
-    T(m,1,chk,'LAKESIDE MORTGAGE SERVICING',2150,cid('g_home0','Mortgage or rent')); T(m,5,chk,'WILLOW CREEK HOA DUES',180,cid('g_home0','HOA'));
-    T(m,12,chk,'CITY POWER & LIGHT',r2(180+rnd()*60),cid('g_home0','Utilities')); T(m,14,chk,'METRO WATER UTILITY',r2(60+rnd()*25),cid('g_home0','Utilities')); T(m,18,chk,'XFINITY INTERNET',89.99,cid('g_home0','Utilities'));
-    T(m,20,chk,'COUNTY TREASURER PROPERTY TAX',420,cid('g_home0','Property tax')); T(m,8,chk,'HOMEOWNERS INSURANCE PREM',160,cid('g_home0','Home insurance'));
-    T(m,6,chk,'PINE RIDGE OWNERS ASSOC',95,cid('g_home1','HOA')); T(m,13,chk,'MOUNTAIN ELECTRIC COOP',r2(90+rnd()*50),cid('g_home1','Utilities')); T(m,22,chk,'HIGH COUNTRY PROPANE',r2(40+rnd()*60),'uncat');
-    T(m,20,chk,'SUMMIT COUNTY TAX COLLECTOR',210,cid('g_home1','Property tax'));
-    T(m,26,chk,'TRANSFER TO SAVINGS',500,'xfer'); T(m,27,chk,'EVERYDAY CARD AUTOPAY PAYMENT',1900,'xfer');
-    [4,9,16,23].forEach(function(dd){ T(m,dd,card,'KROGER #4471',r2(150+rnd()*90),cid('g_life','Groceries')); });
-    [7,19].forEach(function(dd){ T(m,dd,card,'COSTCO WHOLESALE',r2(90+rnd()*80),cid('g_life','Groceries')); });
-    [6,11,17,24,27].forEach(function(dd){ T(m,dd,card,['OLIVE BISTRO','STARBUCKS 2231','PIZZA BARN','RIVER GRILL','PANERA BREAD'][dd%5],r2(18+rnd()*70),cid('g_life','Eating out')); });
-    [5,15,25].forEach(function(dd){ T(m,dd,card,'SHELL OIL 5741',r2(55+rnd()*25),cid('g_life','Gas & car')); });
-    T(m,9,card,'VERIZON WIRELESS',140,cid('g_life','Phone')); T(m,10,card,'STATE FARM AUTO INSUR',185,cid('g_life','Car insurance'));
-    T(m,12,card,'AMAZON MKTPL',r2(40+rnd()*120),cid('g_life','Shopping')); T(m,21,card,'TARGET 1180',r2(30+rnd()*90),cid('g_life','Shopping'));
-    T(m,3,card,'NETFLIX.COM',15.49,cid('g_life','Subscriptions')); T(m,8,card,'SPOTIFY USA',11.99,cid('g_life','Subscriptions'));
-    T(m,14,card,'WALGREENS PHARMACY',r2(25+rnd()*40),cid('g_var','Healthcare')); T(m,10,card,'PINE VALLEY GOLF CLUB',r2(120+rnd()*90),cid('g_var','Golf & hobbies'));
-    T(m,16,church,'OFFICE SUPPLY - MISSIONS',r2(60+rnd()*100),'uncat');
-    if(i === 2){ T(m,9,card2,'DELTA AIR LINES',684.20,cid('g_var','Travel')); T(m,10,card2,'MARRIOTT HOTELS',512.00,cid('g_var','Travel')); T(m,3,chk,'SMITH DENTAL CLINIC',380,cid('g_var','Healthcare')); }
-    if(i === 1){ T(m,22,card2,'ANNUAL MEMBERSHIP FEE',95,cid('g_fee','Fees & interest')); T(m,11,chk,'MOUNTAIN ROOFING CO',1450,cid('g_home1','Repairs & upkeep')); T(m,18,card,'HALLMARK STORE',42.5,cid('g_var','Gifts'));
-      T(m,4,card,'PEACOCK PREMIUM',7.99,cid('g_life','Subscriptions')); T(m,25,card,'RIVER GRILL',86.40,cid('g_life','Eating out')); T(m,25,card,'RIVER GRILL',86.40,cid('g_life','Eating out')); T(m,27,card2,'INTEREST CHARGE ON PURCHASES',6.12,cid('g_fee','Fees & interest')); }
-  }
-  return d;
-}
-function startExample(){ db = exampleData(); save(); view = addMonths(thisMonth(), -1); render(); window.scrollTo(0,0); toast('This is the Hendersons. Everything here is pretend.'); }
 function leaveExample(){ if(!confirm('Put the example family away and set up your own?')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; render(); setupStep(1); }
 
 /* the ✨ button: ask about this screen, never with the raw lines */
 window.DJ_AI = { title:'Ask about our money', prompt:function(){ return db && db.budgetSet ? 'I use a household budget app. Here is a summary of the month on my screen:\n\n' + reportData(view) + '\n\nExplain what I am looking at in plain words, and tell me the one most useful thing to look at next. Keep it short. Suggestions only.' : null; } };
 
+/* ════════════════════════════════════════════════════════════════════════════════════════════
+   v1.0 · 14 Nov 2026 — rebuilt to Jerry's own instructions (familydash/SPEC.md):
+   the three-part budget (spend each month · save each month for later bills · as needed), big bills
+   spread over the year with a balance each, Getting to Know You for unclear payments, the setup asked one
+   question per screen, the flags he chose, and the rules: never guess a number, show where it came from,
+   card payments are never spending, private by default, and taxes or investments go to the advisor named.
+   ════════════════════════════════════════════════════════════════════════════════════════════ */
+function blank(){ return { v:2, cur:'$', name:'', people:'', setup:false, sq:0, budgetSet:false, groups:[], cats:[], accts:[], tx:[], rules:[],
+  homes:['Our home'], incomes:[], budgetFrom:thisMonth(), historyFrom:'', threePart:true, setAside:true, rule:true,
+  helpees:[], lists:[], uses529:false, bizCard:false, flagsOn:{ interest:1, fees:1, cashadv:1, overdraft:1, autopay:1, newsub:1, overseas:1 },
+  threshold:500, emailOk:'later', whoAnswers:'me', spouse:'', cpa:'', advisor:'', reclass:[], notSure:[], asked:{}, pats:[],
+  reports:{}, seen:{}, read:{}, p2seen:{}, made:today() }; }
+function migrate(d){ if(!d) return d; var b = blank(); for(var k in b) if(d[k] === undefined) d[k] = b[k];
+  if(d.guaranteed && !d.incomes.length) d.incomes = [{ id:uid(), name:'Guaranteed income', amt:d.guaranteed }];
+  d.cats.forEach(function(c){ if(!c.part) c.part = 1; }); if(d.v < 2 && d.setup) d.sq = 99; d.v = 2; return d; }
+function income(){ return r2((db.incomes||[]).reduce(function(s,i){ return s + (num(i.amt)||0); },0)); }
+
+/* ── categories beyond the budget ones ── */
+SYS.onetime = { name:'One-time purchase', em:'🎁' };
+SYS.biz = { name:'Business or nonprofit (not ours)', em:'🏢' };
+SYS.edu529 = { name:'School costs paid by the 529', em:'🎓' };
+function helpee(id){ for(var i=0;i<db.helpees.length;i++) if(db.helpees[i].id === id) return db.helpees[i]; return null; }
+function catName(id){ var c = cat(id); if(c) return catLabel(c); if(/^help:/.test(id||'')){ var h = helpee(id.slice(5)); return 'As-needed help: ' + (h ? h.name : 'someone'); } return SYS[id] ? SYS[id].name : 'Not sorted yet'; }
+function catOptions(sel){
+  var o = db.groups.map(function(g){ var cs = catsIn(g.id); if(!cs.length) return ''; return '<optgroup label="' + esc(g.name) + '">' + cs.map(function(c){ return '<option value="' + c.id + '"' + (sel===c.id?' selected':'') + '>' + esc(c.name) + '</option>'; }).join('') + '</optgroup>'; }).join('');
+  var x = ['onetime'].concat(db.helpees.map(function(h){ return 'help:' + h.id; })).concat(db.bizCard ? ['biz'] : []).concat(db.uses529 ? ['edu529'] : []).concat(['inc','xfer','uncat']);
+  return o + '<optgroup label="Other">' + x.map(function(k){ return '<option value="' + k + '"' + (sel===k?' selected':'') + '>' + esc(catName(k)) + '</option>'; }).join('') + '</optgroup>';
+}
+
+/* ── which money counts ── a closed account keeps its history; an account that isn't the family's never counts */
+function counts(a){ return !!a && !a.notPersonal; }
+function txIn(m){ return db.tx.filter(function(t){ return t.d.slice(0,7) === m && counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom); }); }
+function months(){ var o = {}; db.tx.forEach(function(t){ if(counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom)) o[t.d.slice(0,7)] = 1; }); return Object.keys(o).sort(); }
+function netWorth(){ var own = 0, owe = 0; db.accts.forEach(function(a){ if(a.closed || a.notPersonal) return; if(TYPES[a.type].s === 'a') own += a.bal||0; else owe += a.bal||0; }); return { own:r2(own), owe:r2(owe), net:r2(own-owe) }; }
+function isP3(id){ return id === 'onetime' || /^help:/.test(id||''); }
+function notSpending(id){ return id === 'inc' || id === 'xfer' || id === 'biz' || id === 'edu529'; }
+function part(c){ return db.threePart ? c.part : 1; }
+function p1Cats(){ return db.cats.filter(function(c){ return part(c) === 1; }); }
+function p2Cats(){ return db.cats.filter(function(c){ return part(c) === 2; }); }
+function monthsBefore(m, n){ var o = [], all = months(); for(var i=1;i<=n;i++){ var x = addMonths(m, -i); if(all.indexOf(x) >= 0) o.push(x); } return o; }
+function avgFor(id, m, n){ var ms = monthsBefore(m || thisMonth(), n || 3); if(!ms.length) return null; var t = 0; db.tx.forEach(function(x){ if(x.cat === id && counts(acct(x.a)) && ms.indexOf(x.d.slice(0,7)) >= 0) t += x.amt; }); return r2(t / ms.length); }
+function lowHigh(id){ var by = {}; months().forEach(function(m){ by[m] = 0; }); db.tx.forEach(function(x){ if(x.cat === id && counts(acct(x.a)) && by[x.d.slice(0,7)] != null) by[x.d.slice(0,7)] += x.amt; });
+  var v = Object.keys(by).map(function(m){ return { m:m, v:r2(by[m]) }; }); if(v.length < 2) return null; v.sort(function(a,b){ return a.v - b.v; }); return { lo:v[0], hi:v[v.length-1] }; }
+function mBud(c, m){ if(part(c) === 2) return c.yearly == null ? 0 : r2(c.yearly / 12); if(c.variable){ var a = avgFor(c.id, m); return a == null ? (c.budget||0) : niceRound(Math.max(0,a)); } return c.budget || 0; }
+function totalBudget(m){ return r2(db.cats.reduce(function(s,c){ return s + mBud(c, m); },0)); }
+function p1Budget(m){ return r2(p1Cats().reduce(function(s,c){ return s + mBud(c, m); },0)); }
+function p2Budget(){ return r2(p2Cats().reduce(function(s,c){ return s + mBud(c); },0)); }
+function p2Unknown(){ return p2Cats().filter(function(c){ return c.yearly == null; }); }
+function spentBy(m){ var o = {}; txIn(m).forEach(function(t){ o[t.cat] = r2((o[t.cat]||0) + t.amt); }); return o; }
+function p1Spent(sp){ var s = 0; for(var k in sp){ var c = cat(k); if((c && part(c) === 1) || k === 'uncat') s += sp[k]; } return r2(s); }
+function p3Spent(sp){ var s = 0; for(var k in sp) if(isP3(k)) s += sp[k]; return r2(s); }
+function spendTotal(sp){ var s = 0; for(var k in sp){ if(!notSpending(k)) s += sp[k]; } return r2(s); }
+function three(m){ var sp = spentBy(m), P1 = p1Budget(m), P2 = db.threePart ? p2Budget() : 0, inc = income(), reg = r2(P1 + P2), left = r2(inc - reg), P3 = p3Spent(sp);
+  return { sp:sp, P1:P1, P2:P2, reg:reg, inc:inc, left:left, P3:P3, take:r2(Math.max(0, P3 - left)), p1s:p1Spent(sp) }; }
+
+/* ── Part 2: each big bill saves yearly ÷ 12 every month from the budget start, and is paid from its own balance ── */
+function monthsFrom(a, b){ var x = a.split('-'), y = b.split('-'); return (+y[0] - +x[0]) * 12 + (+y[1] - +x[1]); }
+function p2State(c){
+  if(c.yearly == null) return { unknown:true };
+  var per = r2(c.yearly / 12), start = db.budgetFrom || thisMonth(), n = Math.max(0, monthsFrom(start, thisMonth()) + 1), saved = r2((num(c.open)||0) + n * per);
+  var paid = r2(db.tx.filter(function(t){ return t.cat === c.id && t.d.slice(0,7) >= start && counts(acct(t.a)); }).reduce(function(s,t){ return s + t.amt; },0));
+  var bal = r2(saved - paid), now = new Date(), cm = now.getMonth() + 1, due = (c.due||[]).slice().sort(function(a,b){ return a - b; });
+  var paidThisMonth = db.tx.some(function(t){ return t.cat === c.id && t.d.slice(0,7) === thisMonth(); });
+  var next = null; for(var i=0;i<due.length;i++){ if(due[i] > cm || (due[i] === cm && !paidThisMonth)){ next = due[i]; break; } } if(next == null && due.length) next = due[0] + 12;
+  var dueM = next == null ? null : monthKey(new Date(now.getFullYear(), next - 1, 1)), ahead = next == null ? null : next - cm;
+  var each = due.length ? r2(c.yearly / due.length) : null, warn = null;
+  if(dueM && each != null){ var by = r2(bal + Math.max(0, ahead) * per); if(by < each - 0.5) warn = 'Won’t cover the ' + monthOnly(dueM) + ' bill (' + money(each,1) + '): about ' + money(each - by,1) + ' short by then.'; }
+  var bk = (c.booked||[]).filter(function(b){ return b.due >= thisMonth(); }).sort(function(a,b){ return a.due < b.due ? -1 : 1; }), need = 0;
+  bk.forEach(function(b){ need += num(b.amt); var gap = monthsFrom(thisMonth(), b.due); var by = r2(bal + Math.max(0, gap) * per); if(!warn && by < need - 0.5) warn = 'Booked: ' + b.what + ' (' + money(b.amt,1) + ', ' + monthOnly(b.due) + '). The balance will be ' + money(need - by,1) + ' short — raise this line to about ' + money(Math.ceil((need - bal) / Math.max(1, gap)),1) + ' a month.'; });
+  return { per:per, saved:saved, paid:paid, bal:bal, dueM:dueM, each:each, warn:warn, booked:bk };
+}
+
+/* ── Getting to Know You: the queue of unclear payments, asked one at a time ── */
+var P2P = /venmo|zelle|paypal|cash ?app|square cash|apple cash/i, CASHW = /\batm\b|cash withdrawal|withdrawal|withdrwl|cash wd/i, CHECK = /\bcheck\b|\bchk\b|check ?#|cheque|^\s*#?\d{3,6}\s*$/i;
+function channel(t){ var d = t.desc || ''; if(P2P.test(d)) return (d.match(P2P)[0] || 'p2p').toLowerCase(); if(CASHW.test(d)) return 'cash'; if(CHECK.test(d)) return 'check'; return ''; }
+function inQueue(t){
+  if(db.asked[t.id] || !counts(acct(t.a)) || (db.historyFrom && t.d < db.historyFrom)) return false;
+  if(t.cat === 'xfer' || t.cat === 'inc') return !!channel(t) && t.amt > 0;
+  if(!channel(t) && !t.sug && t.cat !== 'uncat' && known(t)) return false;   /* a payee already answered, at about the same amount: never asked twice */
+  return !!channel(t) || t.amt >= (db.threshold || 500) || t.cat === 'uncat' || !!t.sug;
+}
+function known(t){ var k = mkey(t.desc); return db.reclass.some(function(r){ return r.cat === t.cat && mkey(r.desc) === k && Math.abs(r.amt - t.amt) <= Math.max(5, Math.abs(r.amt) * .1); }); }
+function queue(){ return db.tx.filter(inQueue).filter(function(t){ return db.notSure.indexOf(t.id) < 0; }).sort(function(a,b){ return a.d < b.d ? 1 : -1; }); }
+function suggestFor(t){
+  var ch = channel(t), k = mkey(t.desc);
+  if(t.sug || (t.cat !== 'uncat' && !ch)) return { cat:t.cat, why:t.sug ? 'Your AI thinks so.' : 'The app sorted it this way from the words on the statement.' };
+  if(ch){ var full = fkey(t.desc), same = full.split(' ').length > 2 ? db.reclass.filter(function(r){ return fkey(r.desc) === full; })[0] : null;
+    if(same) return { cat:same.cat, why:'Same payee as ' + money(same.amt,1) + ' on ' + shortDate(same.d) + ', which you said was this.' };
+    var p = db.pats.filter(function(x){ return x.ch === ch && Math.abs(x.amt - t.amt) <= Math.max(5, x.amt * .1); })[0]; if(p) return { cat:p.cat, why:'You said a ' + ch + ' payment of about ' + money(p.amt,1) + ' was this before.' }; }
+  else { var r = db.rules.filter(function(x){ return x.k === k; })[0]; if(r) return { cat:r.cat, why:'You told me about ' + k + ' before.' }; }
+  if(db.uses529 && t.amt > 0){ var back = db.tx.filter(function(x){ return x.amt < 0 && /529|college sav|tuition|education/i.test(x.desc) && Math.abs(-x.amt - t.amt) <= Math.max(5, t.amt * .05) && Math.abs(daysBetween(t.d, x.d)) <= 75; })[0];
+    if(back) return { cat:'edu529', why:'A matching ' + money(-back.amt,1) + ' came in from “' + back.desc + '” on ' + shortDate(back.d) + ', which looks like the 529 paying it back.' }; }
+  return null;
+}
+var GK = null;
+function openGTKY(id){
+  var Q = queue(); if(id){ var one = db.tx.filter(function(t){ return t.id === id; })[0]; if(one){ Q = [one].concat(Q.filter(function(t){ return t.id !== id; })); db.notSure = db.notSure.filter(function(x){ return x !== id; }); } }
+  if(!GK || id) GK = { total:Q.length, done:0 };
+  var t = Q[0];
+  if(!t){ GK = null; openSheet('<h3>All caught up ✓</h3><p class="sub">Nothing left to ask about.' + (db.notSure.length ? ' ' + db.notSure.length + ' “not sure” item' + (db.notSure.length===1?' is':'s are') + ' kept for later.' : '') + '</p>' + (db.notSure.length ? '<button class="b full" onclick="openNotSure()">See the not-sure list</button>' : '') + (!db.budgetSet && db.tx.length ? '<button class="b primary full" onclick="openFirstLoad()">Make our budget</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button>'); return; }
+  var a = acct(t.a) || {}, sg = suggestFor(t), ch = channel(t), n = GK.done + 1, tot = Math.max(GK.total, n);
+  var opts = [];
+  if(sg) opts.push(['sug', '✓ ' + catName(sg.cat), sg.why, 1]);
+  opts.push(['onetime', 'One-time purchase', 'a car, a big trip, an event']);
+  opts.push(['help', 'As-needed help for a person', db.helpees.length ? db.helpees.map(function(h){ return h.name; }).join(', ') : 'a loan or a gift']);
+  if(db.bizCard) opts.push(['biz', 'Business or nonprofit', 'kept out of family spending']);
+  if(db.uses529 && (!sg || sg.cat !== 'edu529')) opts.push(['edu529', 'School cost the 529 covers', 'not family spending · tax flag']);
+  opts.push(['pick', sg ? 'A different category' : 'One of our categories', 'groceries, utilities, travel…']);
+  opts.push(['else', 'Something else', 'type what it was']);
+  opts.push(['unsure', 'Not sure — skip for now', 'kept on a short list for later']);
+  openSheet('<div class="stepno">Getting to know you · item ' + n + ' of ' + tot + '</div>'
+    + '<div class="card" style="margin:8px 0 10px"><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:24px">' + (t.amt < 0 ? '+' + money(-t.amt) : money(t.amt)) + '</b><span style="margin-left:auto;color:var(--soft);font-weight:700">' + shortDate(t.d) + '</span></div>'
+    + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin-top:6px;word-break:break-word">' + esc(t.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(a)) + (ch ? ' · ' + esc(ch) : '') + (t.src ? ' · from ' + esc(t.src) : '') + '</div></div>'
+    + '<h3 style="font-size:19px">' + (sg ? 'This looks like <b>' + esc(catName(sg.cat)) + '</b> — right?' : 'What was this?') + '</h3>'
+    + '<div class="pick" style="grid-template-columns:1fr">' + opts.map(function(o){ return '<button class="' + (o[3] ? 'on' : '') + '" onclick="gkAnswer(\'' + t.id + '\',\'' + o[0] + '\',\'' + (o[0] === 'sug' ? sg.cat : '') + '\')">' + esc(o[1]) + '<small>' + esc(o[2]) + '</small></button>'; }).join('') + '</div>'
+    + (db.lists.length ? '<p class="sub" style="margin:10px 0 4px">Also add it to a list:</p>' + db.lists.map(function(l){ return '<label class="ck"><input type="checkbox" data-list="' + l.id + '"' + ((t.tags||[]).indexOf(l.id) >= 0 ? ' checked' : '') + '> ' + esc(l.name) + '</label>'; }).join('') : '')
+    + (db.whoAnswers === 'spouse' && db.spouse ? '<button class="b full" onclick="askSpouse(\'' + t.id + '\')">💬 Ask ' + esc(db.spouse) + '</button>' : '')
+    + (Q.length > 3 ? '<button class="b full" onclick="sortAI()">✨ Let my AI suggest answers for all ' + Q.length + '</button>' : '')
+    + '<button class="b ghost" style="width:100%;margin-top:6px" onclick="GK=null;closeSheet();render()">Done for now</button>');
+}
+function fkey(d){ return String(d||'').toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ').replace(/\s+/g,' ').trim(); }
+function acctLabel(a){ return (a.name || 'an account') + (a.last4 ? ' ••' + a.last4 : ''); }
+function gkTags(t){ var L = []; Array.prototype.forEach.call(document.querySelectorAll('[data-list]'), function(b){ if(b.checked) L.push(b.getAttribute('data-list')); }); t.tags = L; }
+function gkAnswer(id, kind, c){
+  var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return; gkTags(t);
+  if(kind === 'unsure'){ if(db.notSure.indexOf(id) < 0) db.notSure.push(id); save(); GK.done++; openGTKY(); return; }
+  if(kind === 'help'){ gkHelp(id); return; }
+  if(kind === 'pick'){ openSheet('<h3>Which category?</h3><p class="sub">' + esc(t.desc) + ' · ' + money(t.amt) + '</p><select id="gkC">' + catOptions(t.cat === 'uncat' ? '' : t.cat) + '</select><button class="b primary full" onclick="gkSave(\'' + id + '\',document.getElementById(\'gkC\').value,\'\')">Save</button><button class="b ghost" style="width:100%" onclick="openGTKY(\'' + id + '\')">Back</button>'); return; }
+  if(kind === 'else'){ openSheet('<h3>What was it?</h3><p class="sub">' + esc(t.desc) + ' · ' + money(t.amt) + '</p><label for="gkW">In your words</label><input id="gkW" placeholder="e.g. Piano lessons for the kids"><label for="gkC">Which category does it belong in?</label><select id="gkC">' + catOptions('onetime') + '</select><button class="b primary full" onclick="gkSave(\'' + id + '\',document.getElementById(\'gkC\').value,document.getElementById(\'gkW\').value)">Save</button><button class="b ghost" style="width:100%" onclick="openGTKY(\'' + id + '\')">Back</button>'); return; }
+  gkSave(id, kind === 'sug' ? c : kind, '');
+}
+function gkHelp(id){
+  openSheet('<h3>Help for whom?</h3><div class="pick" style="grid-template-columns:1fr">' + db.helpees.map(function(h){ return '<button onclick="gkSave(\'' + id + '\',\'help:' + h.id + '\',\'\')">' + esc(h.name) + '<small>' + (h.kind === 'loan' ? 'a loan, to be paid back' : 'a gift') + '</small></button>'; }).join('') + '</div>'
+    + '<label for="hpN">Someone new</label><input id="hpN" placeholder="Their name"><div class="pick" style="margin-top:8px"><button onclick="gkNewHelp(\'' + id + '\',\'loan\')">A loan<small>to be paid back</small></button><button onclick="gkNewHelp(\'' + id + '\',\'gift\')">A gift<small>not paid back</small></button></div>'
+    + '<button class="b ghost" style="width:100%;margin-top:8px" onclick="openGTKY(\'' + id + '\')">Back</button>'); }
+function gkNewHelp(id, kind){ var n = document.getElementById('hpN').value.trim(); if(!n){ alert('Type their name first.'); return; } var h = { id:uid(), name:n, kind:kind }; db.helpees.push(h); gkSave(id, 'help:' + h.id, ''); }
+function gkSave(id, c, what){
+  var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t || !c) return;
+  t.cat = c; delete t.sug; if(what) t.note = what.trim(); db.asked[id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== id; });
+  db.reclass = db.reclass.filter(function(r){ return r.id !== id; });
+  db.reclass.unshift({ id:id, d:t.d, amt:t.amt, desc:t.desc, what:t.note || catName(c), cat:c, at:today() });
+  var ch = channel(t); if(ch){ db.pats = db.pats.filter(function(p){ return !(p.ch === ch && Math.abs(p.amt - t.amt) <= Math.max(5, p.amt * .1)); }); db.pats.unshift({ ch:ch, amt:t.amt, cat:c }); }
+  else if(!isP3(c) && c !== 'onetime'){ var k = mkey(t.desc); if(k){ db.rules = db.rules.filter(function(r){ return r.k !== k; }); db.rules.unshift({ k:k, cat:c });
+      db.tx.forEach(function(x){ if(x.id !== id && mkey(x.desc) === k && x.cat === 'uncat'){ x.cat = c; x.sug = 1; } }); } }
+  save(); if(GK) GK.done++; render(); openGTKY();
+}
+function askSpouse(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return;
+  var q = 'Quick money question: what was this? ' + money(t.amt) + ' on ' + shortDate(t.d) + ' — “' + t.desc + '” (' + acctLabel(acct(t.a)||{}) + ').';
+  if(navigator.share) navigator.share({ text:q }).catch(function(){}); else { try{ navigator.clipboard.writeText(q); toast('Copied — paste it into a text to ' + db.spouse + '.'); }catch(e){} } }
+function openSort(){ openGTKY(); }
+function uncatCount(){ return queue().length; }
+function sortAI(){
+  var by = {}; queue().forEach(function(t){ var k = channel(t) ? t.desc + ' (' + money(t.amt) + ')' : (mkey(t.desc) || t.desc); by[k] = t.id; });
+  var D = Object.keys(by).slice(0,80); if(!D.length) return;
+  var names = db.cats.map(function(c){ return catLabel(c); }).concat([SYS.onetime.name]);
+  ask({ title:'Suggest answers', want:'json', circle:false,
+    prompt:'These are payments from my bank statements, and my budget categories. Suggest the best category for each. Answer with JSON only: {"payment exactly as given": "category exactly as given"}. If you cannot tell, leave it out.\n\nCategories:\n' + names.join('\n') + '\n\nPayments:\n' + D.join('\n'),
+    onResult:function(v){ if(!v || typeof v !== 'object'){ alert('That answer did not come back in the expected shape.'); return; }
+      var byName = {}; db.cats.forEach(function(c){ byName[catLabel(c).toLowerCase()] = c.id; }); byName[SYS.onetime.name.toLowerCase()] = 'onetime';
+      var n = 0; Object.keys(v).forEach(function(k){ var cid = byName[String(v[k]||'').toLowerCase().trim()], tid = by[k]; if(!cid || !tid) return;
+        db.tx.forEach(function(t){ if(t.id === tid || (!channel(t) && mkey(t.desc) === k && !db.asked[t.id])){ t.cat = cid; t.sug = 1; n++; } }); });
+      save(); render(); GK = null; toast(n + ' suggestions added. You still say yes to each one.'); openGTKY(); } });
+}
+function openNotSure(){ var L = db.tx.filter(function(t){ return db.notSure.indexOf(t.id) >= 0; });
+  openSheet('<h3>Not sure yet</h3><p class="sub">Kept so they can be asked again, or looked up — a check image on the bank’s website often answers it.</p><ul class="list">' + (L.map(function(t){ return '<li class="tap" onclick="openGTKY(\'' + t.id + '\')"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '<small>' + esc(acctLabel(acct(t.a)||{})) + '</small></span><span class="amt">' + money(t.amt) + '</span></li>'; }).join('') || '<li>Nothing here.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
+function openReclass(){ openSheet('<h3>What you told me</h3><p class="sub">Every answer, newest first. Tap one to change it.</p><ul class="list">' + (db.reclass.slice(0,200).map(function(r){ return '<li class="tap" onclick="openGTKY(\'' + r.id + '\');delete db.asked[\'' + r.id + '\']"><span class="d">' + shortDate(r.d) + '</span><span class="ds">' + esc(r.what) + '<small>' + esc(r.desc) + ' · ' + esc(catName(r.cat)) + '</small></span><span class="amt">' + money(r.amt) + '</span></li>'; }).join('') || '<li>Nothing yet.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
+function pickCatFor(desc, txid){ if(txid){ delete db.asked[txid]; openGTKY(txid); } else openGTKY(); }
+
+/* ── lists: business, a person tracked separately, the as-needed logs ── */
+function openLists(){
+  var biz = db.tx.filter(function(t){ return t.cat === 'biz'; }), e529 = db.tx.filter(function(t){ return t.cat === 'edu529'; });
+  openSheet('<h3>Lists</h3>'
+    + db.helpees.map(function(h){ var T = db.tx.filter(function(t){ return t.cat === 'help:' + h.id; }), s = r2(T.reduce(function(a,t){ return a + t.amt; },0)); return '<button class="b full" style="text-align:left" onclick="openList(\'help:' + h.id + '\')">🤝 ' + esc(h.name) + ' · ' + (h.kind === 'loan' ? 'loan' : 'gift') + '<span style="float:right">' + money(s,1) + '</span></button>'; }).join('')
+    + db.lists.map(function(l){ var T = db.tx.filter(function(t){ return (t.tags||[]).indexOf(l.id) >= 0; }), s = r2(T.reduce(function(a,t){ return a + t.amt; },0)); return '<button class="b full" style="text-align:left" onclick="openList(\'tag:' + l.id + '\')">📋 ' + esc(l.name) + '<span style="float:right">' + money(s,1) + '</span></button>'; }).join('')
+    + (db.bizCard || biz.length ? '<button class="b full" style="text-align:left" onclick="openList(\'biz\')">🏢 Business or nonprofit<span style="float:right">' + money(biz.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
+    + (db.uses529 || e529.length ? '<button class="b full" style="text-align:left" onclick="openList(\'edu529\')">🎓 Paid by the 529<span style="float:right">' + money(e529.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
+    + '<button class="b full" style="text-align:left" onclick="openList(\'onetime\')">🎁 One-time purchases</button>'
+    + '<button class="b full" style="text-align:left" onclick="openNotSure()">❔ Not sure yet (' + db.notSure.length + ')</button>'
+    + '<button class="b full" style="text-align:left" onclick="openReclass()">🗂️ What you told me (' + db.reclass.length + ')</button>'
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
+}
+function listTx(key){ if(/^tag:/.test(key)){ var id = key.slice(4); return db.tx.filter(function(t){ return (t.tags||[]).indexOf(id) >= 0; }); } return db.tx.filter(function(t){ return t.cat === key; }); }
+function listName(key){ if(/^tag:/.test(key)){ var l = db.lists.filter(function(x){ return x.id === key.slice(4); })[0]; return l ? l.name : 'List'; } return catName(key); }
+function openList(key){ var T = listTx(key).sort(function(a,b){ return a.d < b.d ? 1 : -1; }), run = 0, rows = T.slice().reverse().map(function(t){ run = r2(run + t.amt); return [t, run]; }).reverse();
+  var h = /^help:/.test(key) ? helpee(key.slice(5)) : null;
+  openSheet('<h3>' + esc(listName(key)) + '</h3><p class="sub">' + T.length + ' line' + (T.length===1?'':'s') + ', ' + money(run,1) + ' in all' + (h && h.kind === 'loan' ? ' — a loan, to be paid back' : '') + '.' + (key === 'biz' ? ' Kept out of family spending; copy it for the other books.' : '') + (key === 'edu529' ? ' Not family spending. Each one carries a tax flag' + (db.cpa ? ' for ' + esc(db.cpa) : ' for your CPA') + '.' : '') + '</p>'
+    + '<ul class="list">' + (rows.map(function(x){ var t = x[0]; return '<li class="tap" onclick="openGTKY(\'' + t.id + '\');delete db.asked[\'' + t.id + '\']"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.note || t.desc) + '<small>' + esc(t.desc) + ' · ' + esc(acctLabel(acct(t.a)||{})) + '</small></span><span class="amt">' + money(t.amt) + '<small style="display:block;color:var(--soft);font-weight:700">' + money(x[1],1) + ' so far</small></span></li>'; }).join('') || '<li>Nothing yet.</li>') + '</ul>'
+    + '<button class="b full" onclick="copyList(\'' + key + '\')">Copy as a spreadsheet (CSV)</button><button class="b ghost" style="width:100%" onclick="openLists()">Back</button>'); }
+function copyList(key){ var T = listTx(key).sort(function(a,b){ return a.d < b.d ? -1 : 1; }), L = ['Date,Statement words,What it was,Account,Amount'];
+  T.forEach(function(t){ L.push([t.d, t.desc, t.note || catName(t.cat), acctLabel(acct(t.a)||{}), t.amt].map(function(v){ v = String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(',')); });
+  var s = L.join('\n'); try{ navigator.clipboard.writeText(s).then(function(){ toast('Copied. Paste it into a spreadsheet.'); }, function(){ toast('Could not copy on this phone.'); }); }catch(e){} }
+
+/* ── the flags chosen in setup, plus the warnings the engine raises ── */
+var FLAGS = { interest:['Interest', /interest charge|finance charge|purchase interest|interest charged/i], fees:['Fees', /\bfee\b|service charge|annual fee|late charge|late payment/i], cashadv:['Cash advances', /cash advance|cash adv/i],
+  overdraft:['Overdrafts', /overdraft|\bnsf\b|insufficient/i], autopay:['A missing autopay', null], newsub:['A subscription not seen before', null], overseas:['Money sent overseas', /international|intl|foreign transaction|wire transfer|western union|remitly|wise\.com|worldremit|swift|moneygram/i] };
+function notices(m){
+  var N = [], T = txIn(m), F = db.flagsOn || {}, sp = spentBy(m), earlier = {};
+  ['interest','fees','cashadv','overdraft','overseas'].forEach(function(f){ if(!F[f]) return; T.filter(function(t){ return t.amt > 0 && FLAGS[f][1].test(t.desc); }).slice(0,5).forEach(function(t){
+    N.push({ k:f + ':' + t.id, em:f === 'overseas' ? '🌍' : '⚠️', t:FLAGS[f][0] + ': <b>' + esc(t.desc) + '</b>, ' + money(t.amt) + ' on ' + shortDate(t.d) + ' (' + esc(acctLabel(acct(t.a)||{})) + ').' }); }); });
+  if(F.autopay) db.accts.filter(function(a){ return a.type === 'card' && !a.closed && counts(a); }).forEach(function(a){
+    var charged = T.some(function(t){ return t.a === a.id && t.amt > 0 && t.cat !== 'xfer'; }), paid = T.some(function(t){ return t.a === a.id && t.amt < 0 && t.cat === 'xfer'; }) || db.tx.some(function(t){ return t.d.slice(0,7) === m && t.cat === 'xfer' && t.amt > 0 && new RegExp(a.name.split(' ')[0], 'i').test(t.desc); });
+    if(a.payMode && a.payMode !== 'full') N.push({ k:'pm:' + a.id + ':' + m, em:'💳', t:'<b>' + esc(acctLabel(a)) + '</b> is paid ' + (a.payMode === 'min' ? 'at the minimum' : 'by hand') + '. Anything left on it costs interest — the full balance on autopay avoids that.' });
+    else if(charged && !paid && m < thisMonth()) N.push({ k:'ap:' + a.id + ':' + m, em:'💳', t:'No payment seen on <b>' + esc(acctLabel(a)) + '</b> in ' + monthOnly(m) + '. Check the autopay went through.' }); });
+  var S = T.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer'; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; });
+  for(var i=0;i<S.length;i++) for(var j=i+1;j<S.length;j++){ var a = S[i], b = S[j]; if(daysBetween(a.d, b.d) > 3) break; if(a.a === b.a && a.amt === b.amt && mkey(a.desc) === mkey(b.desc)) N.push({ k:'dup:'+a.id+':'+b.id, em:'👯', t:'Charged twice? <b>' + esc(a.desc) + '</b>, ' + money(a.amt) + ' on ' + shortDate(a.d) + ' and ' + shortDate(b.d) + '.' }); }
+  if(F.newsub){ db.tx.forEach(function(t){ if(t.d.slice(0,7) < m) earlier[mkey(t.desc)] = 1; }); var subs = catByKw('subs'), sn = {};
+    if(Object.keys(earlier).length) T.forEach(function(t){ var k = mkey(t.desc); if(t.amt > 0 && t.cat === subs && !earlier[k] && !sn[k]){ sn[k] = 1; N.push({ k:'new:'+m+':'+k, em:'🆕', t:'A subscription not seen before: <b>' + esc(t.desc) + '</b>, ' + money(t.amt) + '.' }); } }); }
+  db.cats.forEach(function(c){ var b = mBud(c, m), s = sp[c.id]||0; if(part(c) === 1 && b > 0 && s > b + 0.5) N.push({ k:'over:'+m+':'+c.id, em:'🔴', t:'<b>' + esc(catLabel(c)) + '</b> went over: ' + money(s,1) + ' of ' + money(b,1) + '.', go:'openCatTx(\''+c.id+'\')' }); });
+  p2Cats().forEach(function(c){ var st = p2State(c); if(st.warn) N.push({ k:'p2:' + c.id + ':' + thisMonth(), em:'📅', t:'<b>' + esc(catLabel(c)) + '</b>: ' + esc(st.warn), go:'openPart2()' }); });
+  var unk = p2Unknown(); if(unk.length) N.push({ k:'unk:' + unk.length + ':' + thisMonth(), em:'❔', t:'Unknown yet: ' + unk.map(function(c){ return esc(c.name); }).join(', ') + '. Type last year’s amount from the bill or statement, and the set-aside starts.', go:'openPart2()', btn:'Fill in' });
+  var q = queue().length; if(q) N.push({ k:'q:'+m+':'+q, em:'❓', t:q + ' payment' + (q===1?'':'s') + ' to ask you about.', go:'openGTKY()', btn:'Start' });
+  var x = three(m); if(db.rule && x.inc > 0 && x.reg > x.inc) N.push({ k:'rule:'+x.reg+':'+x.inc, em:'📏', t:'The regular budget (' + money(x.reg,1) + ') is ' + money(x.reg - x.inc,1) + ' more than income (' + money(x.inc,1) + '). Trim a line, or plan to cover the gap from investments.', go:'openBudget()', btn:'Trim' });
+  var e = T.filter(function(t){ return t.cat === 'edu529'; }); if(e.length) N.push({ k:'tax529:' + m, em:'🧾', t:'Tax flag: ' + money(e.reduce(function(a,t){ return a + t.amt; },0),1) + ' of school costs covered by the 529 this month. A question for ' + (db.cpa ? esc(db.cpa) : 'your CPA') + ' at tax time.', go:'openList(\'edu529\')' });
+  var old = db.accts.filter(function(a){ return !a.closed && (!a.asOf || daysBetween(a.asOf, today()) > 40); });
+  if(old.length) N.push({ k:'stale:'+thisMonth(), em:'🕰️', t:old.length + ' balance' + (old.length===1?' is':'s are') + ' more than 40 days old.', go:'openBalances()', btn:'Update' });
+  return N.filter(function(n){ return !db.seen[n.k]; });
+}
+function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
+
+/* ── the main screen ── */
+function render(){
+  var main = document.getElementById('main'), bar = document.getElementById('bar');
+  document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
+  if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
+  if(!db.setup){ bar.style.display = 'none'; main.innerHTML = '<div class="card callout"><div class="stepno">Setup</div><h2 style="margin-top:4px">Question ' + Math.min(db.sq + 1, SQ.length) + ' of ' + SQ.length + '</h2><p style="margin:0">Your answers so far are saved.</p><button class="b primary" onclick="setupQ(db.sq)">Carry on with setup</button></div>'; return; }
+  bar.style.display = '';
+  var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
+  var h = '', q = queue().length;
+  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>';
+  if(!db.tx.length) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Bring in your statements</h2><p style="margin:0 0 4px">From ' + (db.historyFrom ? shortDate(db.historyFrom) : 'a few months back') + ' to now. The app sorts what it can, then asks you about the rest, one at a time.</p><button class="b primary" onclick="openImport()">＋ Add statements</button></div>';
+  else if(q && (!db.budgetSet || q >= 5)) h += '<div class="card callout"><div class="stepno">Getting to know you</div><h2 style="margin-top:4px">' + q + ' payment' + (q===1?'':'s') + ' I’m not sure about</h2><p style="margin:0 0 4px">One question at a time. Each answer is remembered.</p><button class="b primary" id="gkBtn" onclick="openGTKY()">Start</button></div>';
+  else if(!db.budgetSet) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Set the monthly amounts</h2><p style="margin:0 0 4px">See each line’s normal month and move it up or down.</p><button class="b primary" onclick="openFirstLoad()">Make our budget</button></div>';
+  var due = checkupDue(); if(due && db.budgetSet) h += '<div class="card callout"><h2>🗓️ Time for ' + monthOnly(due) + '’s check-up</h2><p style="margin:0">Five short steps.</p><button class="b primary" onclick="openCheckup(\'' + due + '\')">Start the check-up</button></div>';
+  var first = ms[0] || view, last = thisMonth();
+  h += '<div class="mnav"><button aria-label="Earlier month" onclick="view=addMonths(view,-1);render()"' + (view <= first ? ' disabled' : '') + '>‹</button><b id="monthName">' + monthName(view) + '</b><button aria-label="Later month" onclick="view=addMonths(view,1);render()"' + (view >= last ? ' disabled' : '') + '>›</button></div>';
+  var x = three(view);
+  function row(label, val, sub, strong, go){ return '<div class="trow' + (strong ? ' strong' : '') + '"' + (go ? ' onclick="' + go + '" style="cursor:pointer"' : '') + '><span>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</span><b>' + val + '</b></div>'; }
+  h += '<div class="card" id="sumCard"><h2>🧮 ' + monthOnly(view) + ' in three parts</h2>'
+    + row('1 · Spend each month', money(x.P1,1), money(x.p1s,1) + ' spent so far', 0, 'openWhy(\'p1\')')
+    + (db.threePart ? row('2 · Save for later bills', money(x.P2,1) + (p2Unknown().length ? '*' : ''), 'set aside every month' + (p2Unknown().length ? ' · *some still unknown' : ''), 0, 'openPart2()') : '')
+    + row('Regular budget', money(x.reg,1), '', 1)
+    + row('Income', x.inc ? money(x.inc,1) : 'unknown', x.inc ? '' : 'add it in Settings', 0, 'openWhy(\'inc\')')
+    + row('Left over', money(x.left,1), x.left < 0 ? 'the budget is more than income' : '', 1)
+    + (db.threePart ? row('3 · As needed this month', money(x.P3,1), 'help and one-time payments', 0, 'openLists()') : '')
+    + '<div class="line ' + (x.take > 0 ? 'warn' : 'ok') + '" onclick="openWhy(\'take\')" style="cursor:pointer">' + (x.take > 0 ? '🏦 Take <b>' + money(x.take,1) + '</b> from savings or investments this month.' : '✓ Nothing needs to come from savings this month.') + '</div>'
+    + (db.setAside && db.threePart && x.P2 ? '<div class="line ok">🐖 Move ' + money(x.P2,1) + ' to the set-aside savings this month.</div>' : '') + '</div>';
+  var N = db.budgetSet ? notices(view) : [];
+  var showAll = render.all; if(N.length) h += '<div class="card" id="notices"><h2>🚩 Worth a look <small>' + N.length + '</small></h2>' + N.slice(0, showAll ? 99 : 4).map(function(n){
+    return '<div class="notice"><span class="em">' + n.em + '</span><span class="tx">' + n.t + '</span>' + (n.go ? '<button class="b small" onclick="' + n.go + '">' + (n.btn||'See') + '</button>' : '') + '<button class="b small ghost" aria-label="Seen it" onclick="seen(\'' + n.k.replace(/'/g,'') + '\')">✓</button></div>'; }).join('') + (N.length > 4 && !showAll ? '<button class="b full" onclick="render.all=1;render()">Show ' + (N.length-4) + ' more</button>' : '') + '</div>';
+  if(db.tx.length){
+    var sp = x.sp, varC = [];
+    db.groups.forEach(function(g){ var cs = catsIn(g.id).filter(function(c){ if(part(c) !== 1) return false; if(c.variable){ varC.push(c); return false; } return true; }); h += groupCard(g.em + ' ' + esc(g.name), cs, sp); });
+    if(varC.length) h += groupCard('🌦️ Goes up and down', varC, sp, true);
+    if(db.threePart && p2Cats().length) h += part2Card();
+  }
+  var G = db.budgetSet ? gaps(view) : []; if(G.length) h += '<div class="card" id="gapCard"><h2>📐 Biggest gaps<small>3-month average vs budget</small></h2>' + G.map(function(g){ return '<div class="trow" onclick="openCatTx(\'' + g.c.id + '\')" style="cursor:pointer"><span>' + esc(catLabel(g.c)) + '<small>averages ' + money(g.avg,1) + ', budget ' + money(g.bud,1) + '</small></span><b style="color:' + (g.gap > 0 ? 'var(--red)' : 'var(--ok)') + '">' + (g.gap > 0 ? '+' : '−') + money(Math.abs(g.gap),1) + '</b></div>'; }).join('') + '</div>';
+  var nw = netWorth(), ch = nwChange(thisMonth());
+  h += '<div class="card" id="nwCard" onclick="openNetWorth()" style="cursor:pointer"><h2>📊 Net worth<small>today</small></h2><div class="nw">' + money(nw.net,1) + '</div>'
+    + (ch != null ? '<div style="font-weight:800;color:' + (ch >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (ch >= 0 ? '▲ ' : '▼ ') + money(Math.abs(ch),1) + ' since ' + monthOnly(addMonths(thisMonth(),-1)) + '</div>' : '')
+    + '<div class="nwrow"><div><b>' + money(nw.own,1) + '</b><span>what we own</span></div><div><b>' + money(nw.owe,1) + '</b><span>what we owe</span></div></div></div>';
+  var IA = invAccts(); if(IA.length){ var iv = invTotal(), im = invChange(thisMonth() + '-01');
+    h += '<div class="card" id="invCard" onclick="openInvest()" style="cursor:pointer"><h2>📈 Investments<small>' + IA.length + ' account' + (IA.length===1?'':'s') + '</small></h2><div class="nw" style="font-size:28px">' + money(iv,1) + '</div>'
+      + (im != null ? '<div style="font-weight:800;color:' + (im >= 0 ? 'var(--ok)' : 'var(--red)') + '">' + (im >= 0 ? '▲ ' : '▼ ') + money(Math.abs(im),1) + ' this month</div>' : '')
+      + (WX && WX.name ? '<div class="line warn" style="margin-top:10px">🌤️ Market weather: <b>' + esc(WX.name) + '</b></div>' : '') + '</div>'; }
+  h += '<div class="tools">'
+    + '<button class="tool" onclick="openGTKY()">❓ Getting to know you<small>' + (q ? q + ' to ask' : 'all caught up') + '</small></button>'
+    + '<button class="tool" onclick="openBalances()">🧮 Update balances<small>bank, cards, home, car</small></button>'
+    + '<button class="tool" onclick="openBudget()">✏️ Our budget<small>move it up or down</small></button>'
+    + '<button class="tool" onclick="openTx()">📃 Everything this month<small>' + txIn(view).length + ' lines</small></button>'
+    + '<button class="tool" onclick="openLists()">📋 Lists<small>help, business, 529, not sure</small></button>'
+    + '<button class="tool" onclick="openAccounts()">🏦 Our accounts<small>' + db.accts.filter(function(a){ return !a.closed; }).length + ' open</small></button>'
+    + '<button class="tool" onclick="openSettings()">⚙️ Settings<small>every setup answer</small></button>'
+    + '<button class="tool" onclick="openAdvisors()">🧑‍💼 Our advisors<small>' + esc(db.cpa || db.advisor ? [db.cpa, db.advisor].filter(Boolean).join(' · ') : 'CPA and advisor') + '</small></button></div>';
+  main.innerHTML = h;
+}
+function groupCard(title, cs, sp, isVar){
+  var gs = 0, gb = 0, rows = cs.map(function(c){ var s = sp[c.id]||0, b = mBud(c, view); gs += s; gb += b; if(!s && !b) return '';
+    var p = b > 0 ? s / b : (s > 0 ? 1.01 : 0), cl = p > 1.0001 ? 'over' : p >= .85 ? 'near' : '', lh = isVar ? lowHigh(c.id) : null;
+    return '<button class="cat ' + cl + '" onclick="openCatTx(\'' + c.id + '\')"><div class="top"><span class="nm">' + esc(c.name) + (c.variable ? ' <span class="pill">average</span>' : '') + '</span><span class="amt">' + money(s,1) + (db.budgetSet ? ' <small>of ' + money(b,1) + '</small>' : '') + '</span></div>'
+      + (db.budgetSet ? '<div class="meter"><i style="width:' + Math.min(100, Math.round(p*100)) + '%"></i></div>' : '')
+      + (lh ? '<div class="sub" style="margin:4px 0 0;font-size:13px">low ' + money(lh.lo.v,1) + ' (' + monthName(lh.lo.m, true) + ') · high ' + money(lh.hi.v,1) + ' (' + monthName(lh.hi.m, true) + ')</div>' : '') + '</button>'; }).join('');
+  return rows ? '<div class="card grp"><h2>' + title + '<small>' + money(gs,1) + (db.budgetSet ? ' of ' + money(gb,1) : '') + '</small></h2>' + rows + '</div>' : '';
+}
+function part2Card(){
+  return '<div class="card" id="p2Card"><h2>📅 Bills once or twice a year<small>' + money(p2Budget(),1) + ' a month</small></h2>' + p2Cats().map(function(c){ var st = p2State(c);
+    return '<div class="trow" onclick="openPart2()" style="cursor:pointer"><span>' + esc(catLabel(c)) + '<small>' + (st.unknown ? 'unknown — type last year’s amount' : money(st.per,1) + ' a month · ' + (st.dueM ? 'next due ' + monthName(st.dueM, true) + (st.each != null ? ' (' + money(st.each,1) + ')' : '') : 'no due month set')) + '</small>' + (st.warn ? '<small style="color:var(--red);font-weight:800">' + esc(st.warn) + '</small>' : '') + '</span><b>' + (st.unknown ? 'unknown' : money(st.bal,1)) + '</b></div>'; }).join('') + '<p class="sub" style="margin:6px 0 0">The amount on the right is what’s been set aside and not yet spent.</p></div>';
+}
+function openPart2(){
+  db.p2seen[thisMonth()] = 1; save();
+  openSheet('<h3>Bills once or twice a year</h3><p class="sub">Each one saves its yearly cost ÷ 12 every month from ' + monthName(db.budgetFrom) + '. When the bill is paid it comes out of its own balance, so the month still looks normal.</p>'
+    + p2Cats().map(function(c){ var st = p2State(c);
+      return '<div class="card"><h2>' + esc(catLabel(c)) + '<small>' + (st.unknown ? 'unknown' : money(st.bal,1) + ' set aside') + '</small></h2>'
+        + '<label for="y_' + c.id + '">Yearly cost</label><input id="y_' + c.id + '" inputmode="decimal" placeholder="unknown" value="' + (c.yearly == null ? '' : c.yearly) + '">'
+        + '<label for="o_' + c.id + '">Already set aside when the budget started</label><input id="o_' + c.id + '" inputmode="decimal" placeholder="0" value="' + (c.open || '') + '">'
+        + '<label>Months it’s due</label><div class="mchips">' + [1,2,3,4,5,6,7,8,9,10,11,12].map(function(k){ return '<button class="' + ((c.due||[]).indexOf(k) >= 0 ? 'on' : '') + '" onclick="this.classList.toggle(\'on\')" data-m="' + k + '" data-c="' + c.id + '">' + new Date(2026, k-1, 1).toLocaleDateString('en-US',{ month:'short' }) + '</button>'; }).join('') + '</div>'
+        + (st.unknown ? '<p class="sub">Unknown. Last year’s bill or a statement line will fill it in — the app won’t guess.</p>' : '<p class="sub">' + money(st.saved,1) + ' set aside so far (counting from ' + monthName(db.budgetFrom, true) + '), ' + money(st.paid,1) + ' paid out.' + (st.warn ? ' <b style="color:var(--red)">' + esc(st.warn) + '</b>' : '') + '</p>')
+        + ((c.booked||[]).length ? '<ul class="list">' + c.booked.map(function(b, i){ return '<li><span class="ds">' + esc(b.what) + '<small>' + monthName(b.due, true) + '</small></span><span class="amt">' + money(b.amt,1) + '</span><button aria-label="Remove" onclick="c2bk(\'' + c.id + '\',' + i + ')">✕</button></li>'; }).join('') + '</ul>' : '')
+        + '<button class="b small" onclick="addBooked(\'' + c.id + '\')">＋ Something already booked</button></div>'; }).join('')
+    + '<button class="b warm full" onclick="addYearly()">＋ Add another yearly bill</button><button class="b primary full" onclick="savePart2()">Save</button><button class="b ghost" style="width:100%" onclick="' + (CK ? 'openCheckup(CK)' : 'closeSheet()') + '">' + (CK ? 'Back to the check-up' : 'Close') + '</button>');
+}
+function savePart2(){ p2Cats().forEach(function(c){ var el = document.getElementById('y_' + c.id), o = document.getElementById('o_' + c.id); if(o) c.open = Math.abs(num(o.value)) || 0; if(el){ var v = el.value.trim(); c.yearly = v === '' ? null : Math.abs(num(v)); }
+  c.due = Array.prototype.filter.call(document.querySelectorAll('[data-c="' + c.id + '"]'), function(b){ return b.classList.contains('on'); }).map(function(b){ return +b.getAttribute('data-m'); }); }); save(); render(); toast('Saved.'); openPart2(); }
+function addBooked(id){ var w = prompt('What is booked? (e.g. Spring trip)'); if(!w) return; var a = Math.abs(num(prompt('How much will it cost?'))); if(!a) return; var m = prompt('Which month is it due? (YYYY-MM)', addMonths(thisMonth(), 3)); if(!/^\d{4}-\d{2}$/.test(m||'')) return;
+  savePart2Silent(); var c = cat(id); c.booked = (c.booked||[]).concat([{ what:w.trim(), amt:a, due:m }]); save(); render(); openPart2(); }
+function c2bk(id, i){ savePart2Silent(); var c = cat(id); c.booked.splice(i, 1); save(); render(); openPart2(); }
+function savePart2Silent(){ p2Cats().forEach(function(c){ var el = document.getElementById('y_' + c.id), o = document.getElementById('o_' + c.id); if(o) c.open = Math.abs(num(o.value)) || 0; if(el){ var v = el.value.trim(); c.yearly = v === '' ? null : Math.abs(num(v)); } }); }
+function addYearly(){ var n = prompt('Name of the yearly bill?'); if(!n || !n.trim()) return; savePart2Silent(); ensureYearlyGroup(); db.cats.push({ id:uid(), g:'g_yearly', name:n.trim(), part:2, yearly:null, due:[], budget:0, kw:'' }); save(); render(); openPart2(); }
+function ensureYearlyGroup(){ if(!group('g_yearly')) db.groups.push({ id:'g_yearly', name:'Bills once or twice a year', em:'📅' }); }
+function openWhy(k){
+  var x = three(view), h = '';
+  if(k === 'p1') h = '<h3>Spend each month: ' + money(x.P1,1) + '</h3><p class="sub">The budget for every monthly line. Lines that go up and down use their 3-month average.</p><ul class="list">' + p1Cats().map(function(c){ var b = mBud(c, view); return b ? '<li class="tap" onclick="openCatTx(\'' + c.id + '\')"><span class="ds">' + esc(catLabel(c)) + '<small>' + (c.variable ? '3-month average' : 'budget you set') + '</small></span><span class="amt">' + money(b,1) + '</span></li>' : ''; }).join('') + '</ul>';
+  else if(k === 'inc') h = '<h3>Income: ' + (x.inc ? money(x.inc,1) : 'unknown') + '</h3><p class="sub">The sources you listed in setup. Change them in Settings.</p><ul class="list">' + (db.incomes.map(function(i){ return '<li><span class="ds">' + esc(i.name) + '</span><span class="amt">' + money(num(i.amt),1) + '</span></li>'; }).join('') || '<li>None listed yet.</li>') + '</ul>';
+  else h = '<h3>From savings this month: ' + money(x.take,1) + '</h3><p class="sub">Income ' + money(x.inc,1) + ' − regular budget ' + money(x.reg,1) + ' = left over ' + money(x.left,1) + '. As-needed payments this month: ' + money(x.P3,1) + '. Whatever the as-needed payments are beyond what’s left over comes from savings or investments.</p><ul class="list">' + txIn(view).filter(function(t){ return isP3(t.cat); }).map(txRow).join('') + '</ul>';
+  openSheet(h + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
+}
+function openAdvisors(){ openSheet('<h3>Our advisors</h3><p class="sub">The app points out tax and investment questions and leaves the answers to them.</p><label for="avC">CPA</label><input id="avC" value="' + esc(db.cpa) + '" placeholder="Name, and how to reach them"><label for="avA">Financial advisor</label><input id="avA" value="' + esc(db.advisor) + '" placeholder="Name, and how to reach them">'
+  + '<button class="b primary full" onclick="db.cpa=document.getElementById(\'avC\').value.trim();db.advisor=document.getElementById(\'avA\').value.trim();save();render();closeSheet();toast(\'Saved.\')">Save</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
+function welcomeHTML(){
+  return '<div class="card welcome"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="8" width="56" height="48" rx="12" fill="#1E4A6B"/><rect x="14" y="34" width="8" height="14" rx="2" fill="#D9A93F"/><rect x="28" y="24" width="8" height="24" rx="2" fill="#F5F3EE"/><rect x="42" y="16" width="8" height="32" rx="2" fill="#C9702F"/></svg>'
+    + '<h2>Three answers, every month</h2><ul><li><b>What we must spend</b> this month</li><li><b>What we must set aside</b> for bills that come once or twice a year</li><li><b>How much has to come from savings</b> or investments</li></ul>'
+    + '<p style="font-size:15px">Bring in the statement files your bank already gives you. The app sorts what it can and asks you about the rest, one question at a time. No bank login, and nothing leaves this device.</p>'
+    + '<button class="b primary" id="startBtn" onclick="setupQ(0)">Set up ours</button><button class="b" id="exBtn" onclick="startExample()">Show me an example family first</button></div>';
+}
+
+/* ── setup: one question per screen, saved as it goes, every answer changeable later in Settings ── */
+var SQ = [], SQEDIT = false;
+function sqHead(i, sec){ return '<div class="stepno">' + sec + ' · question ' + (i+1) + ' of ' + SQ.length + '</div><div class="meter" style="margin:6px 0 10px"><i style="width:' + Math.round((i+1)/SQ.length*100) + '%;background:var(--accent)"></i></div>'; }
+function sqFoot(i){ return '<button class="b primary full" onclick="sqNext(' + i + ')">' + (SQEDIT ? 'Save' : 'Next') + '</button>' + (SQEDIT ? '<button class="b ghost" style="width:100%" onclick="openSettings()">Back</button>' : '<div class="row">' + (i ? '<button class="b ghost" onclick="setupQ(' + (i-1) + ')">Back</button>' : '') + '<button class="b ghost" onclick="sqLater(' + i + ')">Done for now</button></div>'); }
+function taps(name, opts, val){ return '<div class="pick" style="grid-template-columns:1fr" id="tp_' + name + '">' + opts.map(function(o){ return '<button class="' + (val === o[0] ? 'on' : '') + '" data-v="' + esc(o[0]) + '" onclick="tapPick(\'' + name + '\',this)">' + esc(o[1]) + (o[2] ? '<small>' + esc(o[2]) + '</small>' : '') + '</button>'; }).join('') + '</div>'; }
+function tapPick(name, el){ Array.prototype.forEach.call(document.querySelectorAll('#tp_' + name + ' button'), function(b){ b.classList.remove('on'); }); el.classList.add('on'); var f = window['tap_' + name]; if(f) f(el.getAttribute('data-v')); }
+function tapVal(name){ var b = document.querySelector('#tp_' + name + ' button.on'); return b ? b.getAttribute('data-v') : null; }
+function setupQ(i, edit){ if(!db){ db = blank(); save(); } SQEDIT = !!edit; i = Math.max(0, Math.min(i, SQ.length)); if(!edit){ db.sq = i; save(); } if(i >= SQ.length){ setupSummary(); return; } var q = SQ[i]; openSheet(sqHead(i, q.sec) + '<h3>' + q.ask + '</h3>' + q.html() + sqFoot(i)); if(q.after) q.after(); }
+function sqNext(i){ var q = SQ[i]; if(q.save && q.save() === false) return; save(); if(SQEDIT){ rebuildPlan(); save(); render(); openSettings(); toast('Saved.'); return; } setupQ(i + 1); }
+function sqLater(i){ var q = SQ[i]; if(q.save) q.save(); db.sq = i; save(); closeSheet(); render(); toast('Saved. Carry on whenever you like.'); }
+var YCHIPS = [['Property tax','ptax'],['Estimated income tax','esttax'],['Home insurance (yearly)','hins'],['Car insurance (yearly)','cinsY'],['Landscaping or snow removal','lawn'],['Club dues','club'],['Boat or RV storage','storage'],['Card annual fees','annual'],['Travel','travel']];
+var YKW = { ptax:'property tax,county treas,tax collector,county tax,assessor', esttax:'usataxpymt,irs ,estimated tax,est tax,dept of revenue,department of revenue', hins:'homeowners ins,home insur,hazard ins', cinsY:'auto insur,car insur,geico,state farm,allstate,progressive,usaa',
+  lawn:'landscap,lawn,snow removal,snow plow', club:'country club,club dues,golf club', storage:'storage,marina,rv park', annual:'annual fee,annual membership', travel:'airline,airlines,delta,united air,american air,southwest,hotel,marriott,hilton,hyatt,airbnb,vrbo,expedia,cruise' };
+SQ = [
+  { sec:'Household', ask:'Who is in the household, and who can see the dashboard?',
+    html:function(){ return taps('ppl', [['me','Just me'],['two','Me and my spouse'],['fam','Our family']], db.peopleTap||null) + '<label for="qP">Their names (as you’d like them shown)</label><input id="qP" value="' + esc(db.people) + '" placeholder="e.g. Pat and Sam">'; },
+    save:function(){ db.peopleTap = tapVal('ppl'); db.people = document.getElementById('qP').value.trim(); if(db.people && !db.name) db.name = db.people; } },
+  { sec:'Household', ask:'Do you have more than one home? Name each one.',
+    html:function(){ var n = (db.homes||[]).length || 1; return taps('homes', [['1','One home'],['2','Two homes','each becomes its own group'],['3','Three homes']], String(n)) + '<div id="qHomes"></div>'; },
+    after:function(){ sqHomes(); }, save:function(){ var n = +(tapVal('homes')||1), H = []; for(var k=0;k<n;k++){ var el = document.getElementById('qH' + k); H.push((el && el.value.trim()) || (n === 1 ? 'Our home' : 'Home ' + (k+1))); } db.homes = H; } },
+  { sec:'Household', ask:'Monthly income: list each source and its amount.',
+    html:function(){ return '<p class="sub">Tap to add a common one, then type the amount.</p><div class="mchips">' + ['Pension','Social Security','Salary','Rental income','Annuity'].map(function(s){ return '<button onclick="incAdd(\'' + s + '\')">＋ ' + s + '</button>'; }).join('') + '<button onclick="incAdd(\'\')">＋ Other</button></div><div id="qInc"></div>'; },
+    after:function(){ incRows(); }, save:function(){ incRead(); } },
+  { sec:'Household', ask:'When does the budget start, and from what date should past spending be pulled?',
+    html:function(){ var y = new Date().getFullYear(); return '<label>The budget starts</label>' + taps('bf', [[thisMonth(), 'This month', monthName(thisMonth())], [addMonths(thisMonth(),1), 'Next month', monthName(addMonths(thisMonth(),1))]], db.budgetFrom) + '<label>Pull past spending from</label>' + taps('hf', [[y + '-01-01','January 1 this year','recommended'],[addMonths(thisMonth(),-3) + '-01','3 months back'],[addMonths(thisMonth(),-12) + '-01','12 months back']], db.historyFrom || (y + '-01-01')) + '<label for="qHF">Or type a date</label><input id="qHF" type="date" value="">'; },
+    save:function(){ db.budgetFrom = tapVal('bf') || thisMonth(); var t = document.getElementById('qHF').value; db.historyFrom = t || tapVal('hf') || (new Date().getFullYear() + '-01-01'); } },
+  { sec:'Accounts', ask:'Add each checking, savings and card account.',
+    html:function(){ return '<p class="sub">Just a name and the last 4 digits — never a full number or a password. For each one you’ll say whose money it is, and how a card gets paid. Statements come in after setup.</p><div id="suAccts">' + acctListHTML(true) + '</div><button class="b warm full" onclick="openAcct(null, function(){ setupQ(4, SQEDIT); })">＋ Add an account</button>'; } },
+  { sec:'How the budget is built', ask:'Use the three-part budget?',
+    html:function(){ return '<div class="note" style="margin-bottom:10px">1 · Spend each month<br>2 · Save each month for bills that come once or twice a year<br>3 · As needed — help and one-time payments from savings</div>' + taps('tp', [['1','Yes, three parts','recommended'],['0','No, keep one simple budget']], db.threePart ? '1' : '0'); },
+    save:function(){ db.threePart = tapVal('tp') !== '0'; } },
+  { sec:'How the budget is built', ask:'List your bills that come once or twice a year.',
+    html:function(){ return '<p class="sub">Tap the ones you have. Leave the amount blank if you don’t know it yet — it will show as unknown, never a guess.</p><div class="mchips">' + YCHIPS.map(function(c){ return '<button onclick="yAdd(\'' + c[0] + '\',\'' + c[1] + '\')">＋ ' + c[0] + '</button>'; }).join('') + '<button onclick="yAdd(\'\',\'\')">＋ Other</button></div><div id="qY"></div>'; },
+    after:function(){ yRows(); }, save:function(){ yRead(); } },
+  { sec:'How the budget is built', ask:'Will you move the set-aside money into a separate savings account each month?',
+    html:function(){ return taps('sa', [['1','Yes','recommended — the app says how much each month'],['0','No']], db.setAside ? '1' : '0'); }, save:function(){ db.setAside = tapVal('sa') !== '0'; } },
+  { sec:'How the budget is built', ask:'Which spending goes up and down from month to month?',
+    html:function(){ rebuildPlan(); return '<p class="sub">These use an average instead of a fixed number, and show their low and high months.</p><div class="mchips" id="qVar">' + p1Cats().map(function(c){ return '<button class="' + (c.variable ? 'on' : '') + '" data-id="' + c.id + '" onclick="this.classList.toggle(\'on\')">' + esc(catLabel(c)) + '</button>'; }).join('') + '</div>'; },
+    save:function(){ Array.prototype.forEach.call(document.querySelectorAll('#qVar button'), function(b){ var c = cat(b.getAttribute('data-id')); if(c) c.variable = b.classList.contains('on'); }); } },
+  { sec:'How the budget is built', ask:'Must the regular budget stay at or under income?',
+    html:function(){ return taps('rule', [['1','Yes','recommended — if not, the app shows the gap'],['0','No']], db.rule ? '1' : '0'); }, save:function(){ db.rule = tapVal('rule') !== '0'; } },
+  { sec:'Special categories', ask:'Do you regularly help anyone in a way that isn’t a monthly bill?',
+    html:function(){ return '<p class="sub">A loan, or help as it’s needed. Each person gets their own log with a running total.</p><div id="qHelp"></div><label for="qHN">Add someone</label><input id="qHN" placeholder="Their name"><div class="pick" style="margin-top:8px"><button onclick="helpAdd(\'loan\')">A loan<small>to be paid back</small></button><button onclick="helpAdd(\'gift\')">A gift<small>not paid back</small></button></div>'; },
+    after:function(){ helpRows(); } },
+  { sec:'Special categories', ask:'Do you pay for things that are later covered by another account?',
+    html:function(){ return '<p class="sub">For example, school costs paid by card and then covered by a 529. Those count as education paid by the 529 — not family spending — and get a tax flag.</p>' + taps('e529', [['1','Yes, a 529 covers some costs'],['0','No']], db.uses529 ? '1' : '0'); }, save:function(){ db.uses529 = tapVal('e529') === '1'; } },
+  { sec:'Special categories', ask:'Do you sometimes pay for a business or nonprofit on a personal card?',
+    html:function(){ return '<p class="sub">Those come out of family spending and go on a list for the other books.</p>' + taps('biz', [['1','Yes'],['0','No']], db.bizCard ? '1' : '0'); }, save:function(){ db.bizCard = tapVal('biz') === '1'; } },
+  { sec:'Special categories', ask:'Is there anyone whose subscriptions and costs you want to track separately?',
+    html:function(){ return '<p class="sub">Each name gets its own list. You tick it when the app asks about a payment.</p><div id="qLists"></div><label for="qLN">Add a list</label><input id="qLN" placeholder="e.g. The grandkids"><button class="b full" onclick="listAdd()">＋ Add this list</button>'; },
+    after:function(){ listRows(); } },
+  { sec:'Special categories', ask:'Which kinds of payments should be flagged?',
+    html:function(){ return '<div class="mchips" id="qFl">' + Object.keys(FLAGS).map(function(k){ return '<button class="' + (db.flagsOn[k] ? 'on' : '') + '" data-k="' + k + '" onclick="this.classList.toggle(\'on\')">' + FLAGS[k][0] + '</button>'; }).join('') + '</div><p class="sub">All of them are on unless you turn one off.</p>'; },
+    save:function(){ var o = {}; Array.prototype.forEach.call(document.querySelectorAll('#qFl button'), function(b){ o[b.getAttribute('data-k')] = b.classList.contains('on') ? 1 : 0; }); db.flagsOn = o; } },
+  { sec:'Getting to know you', ask:'At what amount should every charge be questioned?',
+    html:function(){ var v = String(db.threshold || 500); return taps('thr', [['250','$250'],['500','$500','recommended'],['1000','$1,000']], ['250','500','1000'].indexOf(v) >= 0 ? v : null) + '<label for="qThr">Or type an amount</label><input id="qThr" inputmode="decimal" value="' + (['250','500','1000'].indexOf(v) >= 0 ? '' : v) + '">'; },
+    save:function(){ var t = num(document.getElementById('qThr').value); db.threshold = t > 0 ? t : +(tapVal('thr') || 500); } },
+  { sec:'Getting to know you', ask:'May the app look in your email for receipts and invoices to explain a charge?',
+    html:function(){ return '<p class="sub">Honest answer: this version can’t open email on its own yet, so for now your answers teach it instead. When it can, it will only ever read — never send.</p>' + taps('em', [['later','Ask me again when it can','recommended'],['no','No, never look in my email']], db.emailOk); }, save:function(){ db.emailOk = tapVal('em') || 'later'; } },
+  { sec:'Getting to know you', ask:'Who answers the questions?',
+    html:function(){ return taps('who', [['me','Me','recommended'],['spouse','Me, and I can pass some to my spouse','a button sends the question by text']], db.whoAnswers) + '<label for="qSp">Spouse’s name</label><input id="qSp" value="' + esc(db.spouse) + '" placeholder="Only if you picked the second one">'; },
+    save:function(){ db.whoAnswers = tapVal('who') || 'me'; db.spouse = document.getElementById('qSp').value.trim(); } },
+  { sec:'Your advisors', ask:'Who are your CPA and financial advisor?',
+    html:function(){ return '<p class="sub">The app points out tax and investment questions and leaves the decisions to them.</p><label for="qCpa">CPA</label><input id="qCpa" value="' + esc(db.cpa) + '" placeholder="Name (optional)"><label for="qAdv">Financial advisor</label><input id="qAdv" value="' + esc(db.advisor) + '" placeholder="Name (optional)">'; },
+    save:function(){ db.cpa = document.getElementById('qCpa').value.trim(); db.advisor = document.getElementById('qAdv').value.trim(); } }
+];
+function sqHomes(){ var el = document.getElementById('qHomes'); if(!el) return; var n = +(tapVal('homes')||1); el.innerHTML = n < 2 ? '' : Array.apply(null, Array(n)).map(function(_, k){ return '<label for="qH' + k + '">Name for home ' + (k+1) + '</label><input id="qH' + k + '" value="' + esc((db.homes||[])[k] || '') + '" placeholder="e.g. The lake house">'; }).join(''); }
+window.tap_homes = function(){ sqHomes(); };
+function incRows(){ var el = document.getElementById('qInc'); if(!el) return; el.innerHTML = db.incomes.map(function(i, k){ return '<div class="row" style="margin:8px 0;align-items:center;flex-wrap:nowrap"><input data-in="' + k + '" value="' + esc(i.name) + '" placeholder="Source" style="flex:1.4;min-width:0"><input data-ia="' + k + '" inputmode="decimal" value="' + (i.amt||'') + '" placeholder="$ a month" style="flex:1;min-width:0"><button class="b small" style="flex:none" aria-label="Remove" onclick="incRead();db.incomes.splice(' + k + ',1);incRows()">✕</button></div>'; }).join('') + (db.incomes.length ? '<div class="line ok">Total: ' + money(income(),1) + ' a month</div>' : ''); }
+function incRead(){ db.incomes.forEach(function(i, k){ var n = document.querySelector('[data-in="' + k + '"]'), a = document.querySelector('[data-ia="' + k + '"]'); if(n) i.name = n.value.trim() || 'Income'; if(a) i.amt = Math.abs(num(a.value)); }); }
+function incAdd(n){ incRead(); db.incomes.push({ id:uid(), name:n, amt:0 }); incRows(); var el = document.querySelector('[data-ia="' + (db.incomes.length-1) + '"]'); if(el) el.focus(); }
+function yList(){ return db.cats.filter(function(c){ return c.part === 2; }); }
+function yRows(){ var el = document.getElementById('qY'); if(!el) return; el.innerHTML = yList().map(function(c){ return '<div class="card" style="padding:10px 12px;margin:8px 0"><input data-yn="' + c.id + '" value="' + esc(c.name) + '" aria-label="Bill name"><div class="row" style="align-items:center;margin-top:6px;flex-wrap:nowrap"><input data-ya="' + c.id + '" inputmode="decimal" placeholder="Yearly amount (blank = unknown)" value="' + (c.yearly == null ? '' : c.yearly) + '" style="flex:1;min-width:0" aria-label="Yearly amount"><button class="b small" style="flex:none" aria-label="Remove" onclick="yRead();db.cats=db.cats.filter(function(x){return x.id!==\'' + c.id + '\'});yRows()">✕</button></div><div class="mchips" style="margin-top:6px">' + [1,2,3,4,5,6,7,8,9,10,11,12].map(function(k){ return '<button class="' + ((c.due||[]).indexOf(k) >= 0 ? 'on' : '') + '" data-ym="' + c.id + '" data-m="' + k + '" onclick="this.classList.toggle(\'on\')">' + new Date(2026, k-1, 1).toLocaleDateString('en-US',{ month:'short' }) + '</button>'; }).join('') + '</div></div>'; }).join(''); }
+function yRead(){ yList().forEach(function(c){ var n = document.querySelector('[data-yn="' + c.id + '"]'), a = document.querySelector('[data-ya="' + c.id + '"]'); if(n) c.name = n.value.trim() || 'Yearly bill'; if(a){ var v = a.value.trim(); c.yearly = v === '' ? null : Math.abs(num(v)); }
+  var ms = document.querySelectorAll('[data-ym="' + c.id + '"]'); if(ms.length) c.due = Array.prototype.filter.call(ms, function(b){ return b.classList.contains('on'); }).map(function(b){ return +b.getAttribute('data-m'); }); }); }
+function yAdd(n, kw){ yRead(); ensureYearlyGroup(); var names = kw === 'ptax' && (db.homes||[]).length > 1 ? db.homes.map(function(h){ return 'Property tax · ' + h; }) : [n];
+  names.forEach(function(nm, k){ db.cats.push({ id:uid(), g:'g_yearly', name:nm, part:2, yearly:null, due:[], budget:0, kw:k === 0 && YKW[kw] ? YKW[kw] : '' }); }); yRows(); }
+function helpRows(){ var el = document.getElementById('qHelp'); if(!el) return; el.innerHTML = db.helpees.length ? '<ul class="list">' + db.helpees.map(function(h, k){ return '<li><span class="ds">' + esc(h.name) + '<small>' + (h.kind === 'loan' ? 'a loan' : 'a gift') + '</small></span><button aria-label="Remove" onclick="db.helpees.splice(' + k + ',1);helpRows()">✕</button></li>'; }).join('') + '</ul>' : '<p class="sub">No one yet. Leave it empty if there isn’t anyone.</p>'; }
+function helpAdd(kind){ var el = document.getElementById('qHN'), n = el.value.trim(); if(!n){ alert('Type their name first.'); return; } db.helpees.push({ id:uid(), name:n, kind:kind }); el.value = ''; helpRows(); }
+function listRows(){ var el = document.getElementById('qLists'); if(!el) return; el.innerHTML = db.lists.length ? '<ul class="list">' + db.lists.map(function(l, k){ return '<li><span class="ds">' + esc(l.name) + '</span><button aria-label="Remove" onclick="db.lists.splice(' + k + ',1);listRows()">✕</button></li>'; }).join('') + '</ul>' : '<p class="sub">No lists yet. Leave it empty if there isn’t anyone.</p>'; }
+function listAdd(){ var el = document.getElementById('qLN'), n = el.value.trim(); if(!n) return; db.lists.push({ id:uid(), name:n }); el.value = ''; listRows(); }
+/* the categories follow the answers: a group per home, then shared fixed costs, everyday spending, saving, fees; yearly bills are Part 2 */
+function defaultPlan(homes){
+  var G = [], C = [];
+  function g(id, name, em){ G.push({ id:id, name:name, em:em }); }
+  function c(gid, name, kw, extra){ var o = { id:uid(), g:gid, name:name, budget:0, part:1, kw:kw ? (KW[kw] || kw) : '' }; for(var k in (extra||{})) o[k] = extra[k]; C.push(o); }
+  (homes && homes.length ? homes : ['Our home']).forEach(function(h, i){ var gid = 'g_home' + i, f = i === 0; g(gid, h, '🏠');
+    c(gid,'Mortgage or rent', f && 'mortgage'); c(gid,'HOA', f && 'hoa'); c(gid,'Utilities', f && 'util'); c(gid,'Repairs & upkeep', f && 'repair'); });
+  g('g_fixed','Shared fixed costs','🧾'); c('g_fixed','Insurance','cins'); c('g_fixed','Phones','phone'); c('g_fixed','Giving','give'); c('g_fixed','Subscriptions','subs'); c('g_fixed','College savings','college sav,529 contrib');
+  g('g_life','Everyday','🛒'); c('g_life','Groceries','groc'); c('g_life','Dining out','eat'); c('g_life','Shopping','shop'); c('g_life','Personal care','salon,barber,spa ,nail,ulta,sephora,cosmetic');
+  c('g_life','Housekeeping','cleaning,maid,housekeep'); c('g_life','Spending cash',''); c('g_life','Gas & car','car'); c('g_life','Healthcare','health'); c('g_life','Golf & hobbies','hobby'); c('g_life','Gifts','gifts');
+  g('g_save','Saving','💰'); c('g_save','Savings & investing','save');
+  g('g_fee','Fees & interest','⚠️'); c('g_fee','Fees & interest','fees');
+  return { groups:G, cats:C };
+}
+function rebuildPlan(){   /* keep what exists; add home groups for new homes; drop empty groups for removed homes */
+  if(!db.cats.filter(function(c){ return c.part === 1; }).length){ var P = defaultPlan(db.homes); var y = db.cats.filter(function(c){ return c.part === 2; }); db.groups = P.groups; db.cats = P.cats.concat(y);
+    ['Gas & car','Healthcare','Golf & hobbies','Repairs & upkeep'].forEach(function(n){ db.cats.forEach(function(c){ if(c.name === n) c.variable = true; }); }); }
+  (db.homes||[]).forEach(function(h, i){ var gid = 'g_home' + i, gr = group(gid);
+    if(!gr){ db.groups.splice(i, 0, { id:gid, name:h, em:'🏠' }); ['Mortgage or rent','HOA','Utilities','Repairs & upkeep'].forEach(function(n){ db.cats.push({ id:uid(), g:gid, name:n, budget:0, part:1, kw:'' }); }); }
+    else gr.name = (db.homes.length === 1 && h === 'Our home') ? 'Housing' : h; });
+  db.groups = db.groups.filter(function(g){ var m = /^g_home(\d+)$/.exec(g.id); return !m || +m[1] < (db.homes||[]).length; });
+  db.cats = db.cats.filter(function(c){ var m = /^g_home(\d+)$/.exec(c.g); return !m || +m[1] < (db.homes||[]).length; });
+  if(db.cats.some(function(c){ return c.part === 2; })) ensureYearlyGroup();
+}
+function setupSummary(){
+  rebuildPlan(); save();
+  function line(i, v){ return '<div class="trow"><span>' + SQ[i].ask.replace(/<[^>]+>/g,'') + '<small>' + v + '</small></span><button class="b small" onclick="setupQ(' + i + ')">Edit</button></div>'; }
+  var y = yList();
+  openSheet('<div class="stepno">Setup · all done</div><h3>Here’s what you told me</h3>'
+    + line(0, esc(db.people || '—')) + line(1, esc((db.homes||[]).join(', '))) + line(2, db.incomes.length ? db.incomes.map(function(i){ return esc(i.name) + ' ' + money(num(i.amt),1); }).join(', ') + ' = ' + money(income(),1) : 'none yet')
+    + line(3, 'Budget from ' + monthName(db.budgetFrom) + ' · history from ' + (db.historyFrom ? shortDate(db.historyFrom) + ', ' + db.historyFrom.slice(0,4) : '—')) + line(4, db.accts.length + ' account' + (db.accts.length===1?'':'s'))
+    + line(5, db.threePart ? 'Yes' : 'No') + line(6, y.length ? y.map(function(c){ return esc(c.name) + ' ' + (c.yearly == null ? 'unknown' : money(c.yearly,1)); }).join(', ') : 'none') + line(7, db.setAside ? 'Yes' : 'No')
+    + line(8, db.cats.filter(function(c){ return c.variable; }).map(function(c){ return esc(c.name); }).join(', ') || 'none') + line(9, db.rule ? 'Yes' : 'No')
+    + line(10, db.helpees.map(function(h){ return esc(h.name) + ' (' + h.kind + ')'; }).join(', ') || 'no one') + line(11, db.uses529 ? 'Yes' : 'No') + line(12, db.bizCard ? 'Yes' : 'No')
+    + line(13, db.lists.map(function(l){ return esc(l.name); }).join(', ') || 'no one') + line(14, Object.keys(FLAGS).filter(function(k){ return db.flagsOn[k]; }).map(function(k){ return FLAGS[k][0]; }).join(', ') || 'none')
+    + line(15, money(db.threshold,1)) + line(16, db.emailOk === 'no' ? 'Never' : 'Ask again when it can') + line(17, db.whoAnswers === 'spouse' ? 'Me, and ' + esc(db.spouse || 'my spouse') : 'Me')
+    + line(18, esc([db.cpa, db.advisor].filter(Boolean).join(' · ') || 'none named'))
+    + '<button class="b primary full" id="suGo" onclick="suGo()">Looks right — bring in statements</button>');
+}
+function suGo(){ db.setup = true; db.sq = SQ.length; db.ex = false; save(); closeSheet(); view = null; render(); window.scrollTo(0,0); setTimeout(openImport, 250); }
+
+/* ── budgets: Part 1 is set from the statements; variable lines use their average; Part 2 is yearly ÷ 12 ── */
+function averages(){
+  var ms = months(), cur = thisMonth(); var full = ms.filter(function(m){ return m !== cur; }); if(!full.length) full = ms;
+  var n = Math.max(1, full.length), tot = {};
+  db.tx.forEach(function(t){ if(!counts(acct(t.a)) || full.indexOf(t.d.slice(0,7)) < 0) return; tot[t.cat] = (tot[t.cat]||0) + t.amt; });
+  var avg = {}; for(var k in tot) avg[k] = r2(tot[k]/n); return { avg:avg, n:n, months:full };
+}
+function openFirstLoad(again){
+  var A = averages(); ADJ = {};
+  p1Cats().forEach(function(c){ ADJ[c.id] = again || db.budgetSet ? (c.budget||0) : niceRound(Math.max(0, A.avg[c.id]||0)); });
+  var unc = A.avg.uncat||0;
+  openSheet('<div class="stepno">' + (db.budgetSet ? 'Our budget' : 'Your first summary') + '</div><h3>' + (db.budgetSet ? 'Move the budget up or down' : 'Here is a normal month') + '</h3>'
+    + '<p class="sub">From ' + A.n + ' month' + (A.n===1?'':'s') + ' of statements (' + A.months.map(function(m){ return monthName(m, true); }).join(', ') + '). Under each line is what you really spent on average. One-time purchases and as-needed help are left out, so they don’t skew it.</p>'
+    + '<div class="stick" id="adjTot"></div>'
+    + db.groups.map(function(g){ var cs = catsIn(g.id).filter(function(c){ return part(c) === 1; }); if(!cs.length) return ''; return '<h4>' + g.em + ' ' + esc(g.name) + '</h4>' + cs.map(function(c){
+        if(c.variable) return '<div class="adj" style="grid-template-columns:minmax(0,1fr) auto"><span class="nm">' + esc(c.name) + '<small>goes up and down — uses its 3-month average</small></span><b style="text-align:right">' + money(mBud(c),1) + '</b></div>';
+        return '<div class="adj"><span class="nm">' + esc(c.name) + '<small>spent about ' + money(Math.max(0, A.avg[c.id]||0),1) + ' a month</small></span><button aria-label="Less for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',-1)">−</button><input id="adj_' + c.id + '" inputmode="decimal" value="' + ADJ[c.id] + '" oninput="ADJ[\'' + c.id + '\']=Math.max(0,num(this.value));adjTot()"><button aria-label="More for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',1)">＋</button></div>'; }).join(''); }).join('')
+    + (db.threePart && p2Cats().length ? '<h4>📅 Bills once or twice a year</h4>' + p2Cats().map(function(c){ return '<div class="adj" style="grid-template-columns:minmax(0,1fr) auto"><span class="nm">' + esc(c.name) + '<small>' + (c.yearly == null ? 'unknown yet' : money(c.yearly,1) + ' a year ÷ 12') + '</small></span><b style="text-align:right">' + (c.yearly == null ? 'unknown' : money(c.yearly/12,1)) + '</b></div>'; }).join('') + '<button class="b small" style="margin-top:6px" onclick="openPart2()">Change the yearly bills</button>' : '')
+    + (unc > 0 ? '<p class="sub" style="margin-top:12px">❓ About ' + money(unc,1) + ' a month isn’t sorted yet. <a href="#" onclick="openGTKY();return false" style="color:var(--brand);font-weight:800">Answer those first</a> for a truer picture.</p>' : '')
+    + '<button class="b primary full" onclick="saveBudget()">' + (db.budgetSet ? 'Save the budget' : 'Make this our budget') + '</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Not now</button>');
+  adjTot();
+}
+function adjTot(){ var t = 0; p1Cats().forEach(function(c){ t += c.variable ? mBud(c) : (ADJ[c.id]||0); }); t = r2(t); var P2 = db.threePart ? p2Budget() : 0, reg = r2(t + P2), inc = income(), el = document.getElementById('adjTot'); if(!el) return;
+  var lines = '<div class="line ok" style="margin:0">Part 1 ' + money(t,1) + (P2 ? ' + Part 2 ' + money(P2,1) : '') + ' = <b>' + money(reg,1) + '</b> a month</div>';
+  if(db.rule && inc > 0) lines += '<div class="line ' + (reg <= inc ? 'ok' : 'bad') + '" style="margin:6px 0 0">📏 ' + (reg <= inc ? money(inc - reg,1) + ' under' : money(reg - inc,1) + ' OVER') + ' income of ' + money(inc,1) + (reg > inc ? ' — trim a line, or plan to cover it from investments' : '') + '</div>';
+  el.innerHTML = lines; }
+function saveBudget(){ p1Cats().forEach(function(c){ if(!c.variable) c.budget = r2(ADJ[c.id]||0); }); var first = !db.budgetSet; db.budgetSet = true; save(); closeSheet(); view = null; render(); window.scrollTo(0,0);
+  toast(first ? 'That’s your budget. Each month, a check-up keeps it honest.' : 'Budget saved.'); if(first) setTimeout(openReminder, 1200); }
+function openCats(){
+  openSheet('<h3>Categories</h3><p class="sub">Tap a name to rename it. “Average” lines use their 3-month average. Spending in a removed category goes back to “not sorted”.</p>'
+    + db.groups.map(function(g){ return '<h4><input value="' + esc(g.name) + '" aria-label="Group name" onchange="group(\'' + g.id + '\').name=this.value.trim()||\'Group\';save();render()" style="font-weight:800"></h4>'
+      + catsIn(g.id).map(function(c){ return '<div class="row" style="margin:6px 0;align-items:center"><input value="' + esc(c.name) + '" aria-label="Category name" style="flex:1" onchange="cat(\'' + c.id + '\').name=this.value.trim()||\'Category\';save();render()">' + (c.part === 1 ? '<button class="b small' + (c.variable ? ' primary' : '') + '" onclick="cat(\'' + c.id + '\').variable=!cat(\'' + c.id + '\').variable;save();render();openCats()">' + (c.variable ? 'average ✓' : 'fixed') + '</button>' : '<span class="pill">yearly</span>') + '<button class="b small" aria-label="Remove ' + esc(c.name) + '" onclick="delCat(\'' + c.id + '\')">✕</button></div>'; }).join('')
+      + (g.id === 'g_yearly' ? '<button class="b small" onclick="addYearly()">＋ Add a yearly bill</button>' : '<button class="b small" onclick="addCat(\'' + g.id + '\')">＋ Add a category here</button>'); }).join('')
+    + '<button class="b warm full" onclick="addGroup()">＋ Add a group</button><button class="b primary full" onclick="closeSheet()">Done</button>');
+}
+function addCat(g){ var n = prompt('Name of the new category?'); if(!n || !n.trim()) return; db.cats.push({ id:uid(), g:g, name:n.trim(), budget:0, part:1, kw:'' }); save(); render(); openCats(); }
+
+/* ── accounts: a name and the last 4, whose money it is, how a card is paid ── */
+function acctListHTML(short){
+  if(!db.accts.length) return '<p class="sub">Nothing added yet.</p>';
+  return '<ul class="list">' + db.accts.map(function(a){ var T = TYPES[a.type] || TYPES.otherA;
+    var tags = (a.notPersonal ? '<span class="pill">not ours</span>' : '') + (a.familyUse ? '<span class="pill">family use</span>' : '') + (a.type === 'card' ? '<span class="pill">' + ({ full:'pays in full', min:'pays minimum', hand:'paid by hand' }[a.payMode || 'full']) + '</span>' : '') + (a.closed ? '<span class="pill">closed</span>' : '');
+    return '<li class="tap" onclick="openAcct(\'' + a.id + '\'' + (short ? ', function(){ setupQ(4, SQEDIT); }' : '') + ')"><span style="font-size:22px">' + T.em + '</span><span class="ds">' + esc(acctLabel(a)) + tags + '<small>' + T.t + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + '</small></span><span class="amt" style="color:' + (T.s === 'l' ? 'var(--red)' : 'inherit') + '">' + (T.s === 'l' ? '−' : '') + money(a.bal||0,1) + '</span></li>'; }).join('') + '</ul>';
+}
+function openAcct(id, done){
+  ACCT_DONE = done || null; var a = id ? acct(id) : { id:'', name:'', type:'checking', bal:0, payMode:'full' };
+  var own = a.notPersonal ? 'other' : a.familyUse ? 'famuse' : 'family';
+  openSheet('<h3>' + (id ? esc(a.name) : 'Add an account or a thing') + '</h3>'
+    + '<label for="acName">What do you call it?</label><input id="acName" value="' + esc(a.name) + '" placeholder="Joint checking, Blue card, Lake house…">'
+    + '<label for="acType">What is it?</label><select id="acType" onchange="acTypeChanged()">' + Object.keys(TYPES).map(function(k){ return '<option value="' + k + '"' + (a.type===k?' selected':'') + '>' + TYPES[k].em + ' ' + TYPES[k].t + '</option>'; }).join('') + '</select>'
+    + '<label for="acL4" id="acL4L">Last 4 digits (optional)</label><input id="acL4" inputmode="numeric" maxlength="4" value="' + esc(a.last4||'') + '" placeholder="1234">'
+    + '<label for="acBal" id="acBalL">Balance today</label><input id="acBal" inputmode="decimal" value="' + (a.bal || '') + '" placeholder="0">'
+    + '<label>Whose money is this?</label>' + taps('own', [['family','Family money'],['other','It belongs to someone else','a business or nonprofit — left out completely'],['famuse','In another name, but used for family spending','counted as family spending']], own)
+    + '<div id="acPay"><label>How does this card get paid?</label>' + taps('pay', [['full','The full balance, on autopay','recommended'],['min','The minimum','the app warns: this costs interest'],['hand','By hand']], a.payMode || 'full') + '</div>'
+    + (id ? '<label class="ck"><input type="checkbox" id="acCl"' + (a.closed?' checked':'') + '> This account is closed — keep its history</label>' : '')
+    + '<p class="sub" style="margin-top:10px">Never a full account number, a password or a PIN.</p>'
+    + '<button class="b primary full" onclick="saveAcct(\'' + (id||'') + '\')">' + (id ? 'Save' : 'Add it') + '</button>'
+    + (id ? '<button class="b ghost" style="width:100%;color:var(--red)" onclick="delAcct(\'' + id + '\')">Remove it</button>' : '')
+    + '<button class="b ghost" style="width:100%" onclick="acctBack()">Back</button>');
+  acTypeChanged();
+}
+function acTypeChanged(){ var t = document.getElementById('acType').value, T = TYPES[t];
+  document.getElementById('acPay').style.display = t === 'card' ? '' : 'none'; var st = !!T.st; document.getElementById('acL4').style.display = document.getElementById('acL4L').style.display = (st || /invest|retire|college|mortgage|heloc|loan/.test(t)) ? '' : 'none';
+  document.getElementById('acBalL').textContent = T.s === 'l' ? 'How much is owed today' : (/home|vehicle|otherA/.test(t) ? 'What it is worth today (your best guess)' : 'Balance today'); }
+function saveAcct(id){
+  var name = document.getElementById('acName').value.trim(); if(!name){ alert('Give it a name first.'); return; }
+  if(/\d{6,}/.test(name.replace(/\s/g,''))){ alert('That looks like an account number. Use a plain name, and only the last 4 digits in their own box.'); return; }
+  var l4 = document.getElementById('acL4').value.replace(/\D/g,'').slice(-4);
+  var a = id ? acct(id) : { id:uid(), hist:[] }, bal = Math.abs(num(document.getElementById('acBal').value)), own = tapVal('own') || 'family';
+  a.name = name; a.type = document.getElementById('acType').value; a.last4 = l4 || ''; a.notPersonal = own === 'other'; a.familyUse = own === 'famuse';
+  a.payMode = a.type === 'card' ? (tapVal('pay') || 'full') : undefined; a.autopay = a.payMode === 'full'; var cl = document.getElementById('acCl'); a.closed = cl ? cl.checked : false;
+  if(!id || r2(bal) !== r2(a.bal||0)) setBal(a, bal);
+  if(!id) db.accts.push(a); save(); render(); acctBack();
+}
+
+/* ── the monthly routine: five steps ── */
+function checkupDue(){ var last = addMonths(thisMonth(), -1); if(new Date().getDate() < 3) return null; if((db.read||{})[last] || db.reports[last]) return null; if(db.made && db.made.slice(0,7) > last) return null; return last; }
+function openCheckup(m){
+  CK = m; var stA = stmtAccts().filter(function(a){ return counts(a); }), haveTx = stA.filter(function(a){ return db.tx.some(function(t){ return t.a === a.id && t.d.slice(0,7) === m; }); }).length;
+  var s1 = stA.length && haveTx === stA.length, q = queue().length, s2 = !q, s3 = !db.threePart || !p2Cats().length || !!db.p2seen[thisMonth()], s4 = db.accts.filter(function(a){ return !a.closed; }).every(function(a){ return a.asOf && a.asOf >= addMonths(m,1) + '-01'; }), s5 = !!((db.read||{})[m] || db.reports[m]);
+  function row(done, t, sub, go, btn){ return '<div class="chk' + (done ? ' done' : '') + '"><span class="tick">' + (done ? '✓' : '') + '</span><span class="tx">' + t + '<small>' + sub + '</small></span><button class="b small' + (done ? '' : ' primary') + '" onclick="' + go + '">' + btn + '</button></div>'; }
+  openSheet('<h3>' + monthOnly(m) + '’s check-up</h3><p class="sub">The app sorts what it already knows on its own. Five steps for you, in order.</p>'
+    + row(s1, '1. Bring in ' + monthOnly(m) + '’s statements', haveTx + ' of ' + stA.length + ' accounts so far · card payments and accounts that aren’t yours are left out', 'openImport()', s1 ? 'Add more' : 'Add')
+    + row(s2, '2. Getting to know you', s2 ? 'nothing to ask' : q + ' to ask · one-time items and help get logged here', 'openGTKY()', 'Start')
+    + row(s3, '3. Big-bill savings', 'each yearly bill’s balance against its next due date', 'openPart2()', 'Look')
+    + row(s4, '4. Update the balances', 'accounts, investments, homes and vehicles, and loans', 'openBalances()', 'Update')
+    + row(s5, '5. Read the summary', 'the three parts, the flags, and the biggest gaps', 'view=\'' + m + '\';openReport(\'' + m + '\')', 'Read')
+    + '<button class="b ghost" style="width:100%;margin-top:10px" onclick="CK=null;closeSheet()">Done for now</button>');
+}
+function reportParts(m){
+  var x = three(m), P = [];
+  var L = [money(x.P1,1) + ' to spend each month' + (db.threePart ? ', ' + money(x.P2,1) + ' set aside for later bills' : '') + ': a regular budget of ' + money(x.reg,1) + '.',
+    'Income ' + (x.inc ? money(x.inc,1) : 'unknown') + ', so ' + money(x.left,1) + ' is left over.',
+    db.threePart ? (x.take > 0 ? 'As-needed payments came to ' + money(x.P3,1) + ', so ' + money(x.take,1) + ' has to come from savings or investments.' : 'As-needed payments came to ' + money(x.P3,1) + ' — nothing has to come from savings.') : '',
+    money(x.p1s,1) + ' was actually spent on the monthly lines.'].filter(Boolean);
+  P.push({ h:'The three answers', em:'🧮', L:L });
+  var G = gaps(m); P.push({ h:'Biggest gaps (3-month average vs budget)', em:'📐', L: G.length ? G.map(function(g){ return catLabel(g.c) + ': averages ' + money(g.avg,1) + ' against a budget of ' + money(g.bud,1) + ' (' + (g.gap > 0 ? 'over' : 'under') + ' by ' + money(Math.abs(g.gap),1) + ').'; }) : ['Not enough months yet to compare.'] });
+  if(db.threePart && p2Cats().length) P.push({ h:'Big-bill savings', em:'📅', L:p2Cats().map(function(c){ var st = p2State(c); return catLabel(c) + ': ' + (st.unknown ? 'unknown — type last year’s amount' : money(st.bal,1) + ' set aside' + (st.dueM ? ', next due ' + monthName(st.dueM, true) : '') + (st.warn ? '. ' + st.warn : '.')); }) });
+  var fl = notices(m).filter(function(n){ return !/^(q|stale|over|rule):/.test(n.k); }).map(function(n){ return plain(n.t); });
+  P.push({ h:'Flags', em:'🚩', L: fl.length ? fl : ['Nothing flagged this month.'] });
+  var nw = netWorth(), c2 = nwChange(addMonths(m,1));
+  P.push({ h:'Net worth', em:'📊', L:['Net worth ' + money(nw.net,1) + ' today' + (c2 != null ? ', ' + (c2 >= 0 ? 'up ' : 'down ') + money(Math.abs(c2),1) + ' since ' + monthOnly(m) + ' ended.' : '.') + (db.advisor ? ' Investment questions: ' + db.advisor + '.' : '')] });
+  return P;
+}
+function reportData(m){ return reportParts(m).map(function(p){ return p.h + ':\n' + p.L.map(function(x){ return '- ' + x; }).join('\n'); }).join('\n\n'); }
+
+/* ── settings: every setup answer, changeable ── */
+function openSettings(){
+  openSheet('<h3>Settings</h3><p class="sub">Every answer from setup. Tap one to change it.</p>'
+    + SQ.map(function(q, i){ return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + q.ask + '</button>'; }).join('')
+    + '<h4>More</h4><button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
+    + '<button class="b full" onclick="openPart2()">📅 Yearly bills and bookings</button>'
+    + '<label for="stCur">Money</label><select id="stCur" onchange="db.cur=this.value;save();render()">' + ['$','KSh','£','€'].map(function(c){ return '<option' + (db.cur===c?' selected':'') + '>' + c + '</option>'; }).join('') + '</select>'
+    + '<button class="b full" onclick="openReminder()">🗓️ Monthly reminder in my calendar</button>'
+    + '<button class="b full" onclick="window.djAI && djAI.choose()">🤖 Which AI do I use?</button>'
+    + (jbjJars() ? '<button class="b full" onclick="var n=bringJars();save();render();toast(n+\' jars brought in from Jar by Jar.\')">🫙 Bring in my Jar by Jar jars</button>' : '')
+    + '<button class="b full" onclick="if(confirm(\'Forget the shops and patterns the app has learned?\')){db.rules=[];db.pats=[];save();toast(\'Forgotten.\');}">Forget what it has learned (' + (db.rules.length + db.pats.length) + ')</button>'
+    + '<button class="b full" style="color:var(--red)" onclick="startOver()">Start over</button>'
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
+}
+
+/* ── the example family: invented, every number made up ── */
+function exampleData(){
+  var d = blank(); d.ex = true; d.setup = true; d.sq = 99; d.budgetSet = true; d.name = 'The Henderson household'; d.people = 'Pat and Lee Henderson';
+  d.homes = ['Main home','Mountain cabin']; d.incomes = [{ id:'i1', name:'Pension', amt:5400 },{ id:'i2', name:'Social Security', amt:3800 }];
+  var now = new Date(), cm = monthKey(now), tday = now.getDate(); d.budgetFrom = addMonths(cm, -3); d.historyFrom = addMonths(cm, -3) + '-01';
+  d.uses529 = true; d.bizCard = true; d.whoAnswers = 'spouse'; d.spouse = 'Lee'; d.cpa = 'Our CPA'; d.advisor = 'Our advisor';
+  d.helpees = [{ id:'h1', name:'Nephew Sam', kind:'loan' }]; d.lists = [{ id:'l1', name:'The grandkids' }];
+  var keep = db; db = d; var P = defaultPlan(d.homes); d.groups = P.groups; d.cats = P.cats; ensureYearlyGroup(); db = keep;
+  var C = {}; d.cats.forEach(function(c){ C[c.g + '|' + c.name] = c; });
+  function cid(g, n){ return C[g + '|' + n].id; }
+  function Y(name, yearly, due, kw){ var c = { id:uid(), g:'g_yearly', name:name, part:2, yearly:yearly, due:due, budget:0, kw:kw || '' }; d.cats.push(c); C['g_yearly|' + name] = c; return c.id; }
+  var yPT = Y('Property tax · Main home', 5040, [4,10], YKW.ptax), yPT2 = Y('Property tax · Mountain cabin', 2520, [11]), yEst = Y('Estimated income tax', 6000, [1,4,6,9], YKW.esttax),
+      yClub = Y('Club dues', 2400, [1], YKW.club), yTrav = Y('Travel', 4800, [], YKW.travel), yHI = Y('Home insurance (yearly)', null, [6]);
+  C['g_yearly|Travel'].booked = [{ what:'Spring cruise', amt:3900, due:addMonths(cm, 4) }];
+  [[yPT,1700],[yPT2,1700],[yEst,600],[yClub,1500],[yTrav,1000]].forEach(function(x){ d.cats.forEach(function(c){ if(c.id === x[0]) c.open = x[1]; }); });
+  var B = { 'g_home0|Mortgage or rent':2150, 'g_home0|HOA':180, 'g_home0|Utilities':340, 'g_home0|Repairs & upkeep':150, 'g_home1|HOA':95, 'g_home1|Utilities':190, 'g_home1|Repairs & upkeep':100,
+    'g_fixed|Insurance':185, 'g_fixed|Phones':140, 'g_fixed|Giving':900, 'g_fixed|Subscriptions':60, 'g_fixed|College savings':200,
+    'g_life|Groceries':850, 'g_life|Dining out':300, 'g_life|Shopping':250, 'g_life|Personal care':80, 'g_life|Housekeeping':160, 'g_life|Spending cash':200, 'g_life|Gas & car':260, 'g_life|Healthcare':300, 'g_life|Golf & hobbies':250, 'g_life|Gifts':100,
+    'g_save|Savings & investing':0, 'g_fee|Fees & interest':0 };
+  d.cats.forEach(function(c){ if(c.part === 1) c.budget = B[c.g + '|' + c.name] || 0; if(/^(Gas & car|Healthcare|Golf & hobbies|Repairs & upkeep)$/.test(c.name)) c.variable = true; });
+  function A(name, type, bal, x){ var a = { id:'a' + d.accts.length, name:name, type:type, bal:bal, asOf:ymd(new Date(now.getTime() - 9*864e5)), hist:[] }; for(var k in (x||{})) a[k] = x[k]; d.accts.push(a); return a.id; }
+  var chk = A('Joint checking','checking',8450,{ last4:'4410' }), sav = A('Set-aside savings','savings',22300,{ last4:'7781' }), card = A('Everyday card','card',1240,{ last4:'1093', payMode:'full', autopay:true }), card2 = A('Travel card','card',386,{ last4:'5520', payMode:'hand' }),
+      church = A('Church mission card','card',310,{ notPersonal:true, last4:'2208' }), ret = A('Retirement accounts','retire',412000), ira = A('Brokerage','invest',61500), coll = A('Grandkids’ college plan','college',38500),
+      life = A('Whole life policy (cash value)','cashval',27400), home = A('Main home','home',465000), cabin = A('Mountain cabin','home',240000), car = A('The car','vehicle',21000),
+      mort = A('Main home mortgage','mortgage',212000), heloc = A('Cabin home equity line','heloc',18000), old = A('Old store card','card',0,{ closed:true, last4:'0042' });
+  d.accts.forEach(function(a){ if(!INV_TYPES[a.type]) return; for(var i=12;i>=4;i--){ var day = ymd(new Date(now.getFullYear(), now.getMonth()-i+1, 0)); var w = 1 - i*0.008 + Math.sin(i*1.3)*0.012; a.hist.push({ d:day, bal:r2(a.bal * w) }); } });
+  [['retire',{ s:60, b:35, c:5 }],['invest',{ s:80, b:10, c:10 }],['college',{ s:70, b:30, c:0 }]].forEach(function(x){ d.accts.forEach(function(a){ if(a.type === x[0]) a.mix = x[1]; }); });
+  d.accts.forEach(function(a){ for(var i=3;i>=1;i--){ var day = ymd(new Date(now.getFullYear(), now.getMonth()-i+1, 0)); var drift = { retire:-4200, invest:-900, mortgage:1150, heloc:400, savings:-500 }[a.type] || 0; a.hist.push({ d:day, bal:r2(Math.max(0, a.bal + drift*i)) }); } a.hist.push({ d:a.asOf, bal:a.bal }); });
+  var seed = 7; function rnd(){ seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+  function T(m, day, acc, desc, amt, c, asked){ var dd = Math.min(day, 28); if(m === cm && dd > tday) return; var t = { id:uid(), a:acc, d:m + '-' + pad2(dd), desc:desc, amt:amt, cat:c, src:'example statement' }; d.tx.push(t); if(asked) d.asked[t.id] = 1; return t; }
+  for(var i=3;i>=0;i--){ var m = addMonths(cm, -i), mo = +m.slice(5);
+    T(m,1,chk,'PENSION DIRECT DEP',-5400,'inc'); T(m,3,chk,'SSA TREAS 310 SOC SEC',-3800,'inc');
+    T(m,2,chk,'GRACE COMMUNITY CHURCH',900,cid('g_fixed','Giving')); T(m,1,chk,'LAKESIDE MORTGAGE SERVICING',2150,cid('g_home0','Mortgage or rent')); T(m,5,chk,'WILLOW CREEK HOA DUES',180,cid('g_home0','HOA'));
+    T(m,12,chk,'CITY POWER & LIGHT',r2(180+rnd()*60),cid('g_home0','Utilities')); T(m,18,chk,'XFINITY INTERNET',89.99,cid('g_home0','Utilities'));
+    T(m,6,chk,'PINE RIDGE OWNERS ASSOC',95,cid('g_home1','HOA')); T(m,13,chk,'MOUNTAIN ELECTRIC COOP',r2(90+rnd()*50),cid('g_home1','Utilities'));
+    T(m,26,chk,'TRANSFER TO SAVINGS',1200,'xfer'); T(m,27,chk,'EVERYDAY CARD AUTOPAY PAYMENT',1900,'xfer'); T(m,27,card,'AUTOPAY PAYMENT - THANK YOU',-1900,'xfer');
+    [4,9,16,23].forEach(function(dd){ T(m,dd,card,'KROGER #4471',r2(150+rnd()*90),cid('g_life','Groceries')); });
+    [6,11,17,24].forEach(function(dd){ T(m,dd,card,['OLIVE BISTRO','STARBUCKS 2231','PIZZA BARN','RIVER GRILL'][dd%4],r2(18+rnd()*70),cid('g_life','Dining out')); });
+    [5,15,25].forEach(function(dd){ T(m,dd,card,'SHELL OIL 5741',r2(55+rnd()*35),cid('g_life','Gas & car')); });
+    T(m,9,card,'VERIZON WIRELESS',140,cid('g_fixed','Phones')); T(m,10,card,'STATE FARM AUTO INSUR',185,cid('g_fixed','Insurance')); T(m,14,chk,'CLEANING CREW LLC',160,cid('g_life','Housekeeping')); T(m,15,chk,'COLLEGE SAV CONTRIB',200,cid('g_fixed','College savings'));
+    T(m,12,card,'AMAZON MKTPL',r2(40+rnd()*160),cid('g_life','Shopping')); T(m,3,card,'NETFLIX.COM',15.49,cid('g_fixed','Subscriptions')); T(m,8,card,'SPOTIFY USA',11.99,cid('g_fixed','Subscriptions'));
+    T(m,14,card,'WALGREENS PHARMACY',r2(25+rnd()*160),cid('g_life','Healthcare')); T(m,10,card,'PINE VALLEY GOLF CLUB',r2(120+rnd()*190),cid('g_life','Golf & hobbies')); T(m,20,chk,'ATM WITHDRAWAL 0391',200,cid('g_life','Spending cash'), i > 0);
+    T(m,16,church,'OFFICE SUPPLY - MISSIONS',r2(60+rnd()*100),'uncat');
+    if(mo === 10){ T(m,20,chk,'COUNTY TREASURER PROPERTY TAX',2520,yPT,1); }
+    if(mo === 9){ T(m,15,chk,'IRS USATAXPYMT',1500,yEst,1); }
+    if(i === 2){ T(m,9,card2,'DELTA AIR LINES',684.20,yTrav,1); T(m,10,card2,'MARRIOTT HOTELS',512,yTrav,1); T(m,22,chk,'ZELLE TO S MORGAN',600,'help:h1',1); }
+    if(i === 1){ T(m,22,card2,'ANNUAL MEMBERSHIP FEE',95,cid('g_fee','Fees & interest'),1); T(m,11,chk,'MOUNTAIN ROOFING CO',1450,cid('g_home1','Repairs & upkeep')); T(m,4,card,'PEACOCK PREMIUM',7.99,cid('g_fixed','Subscriptions'));
+      T(m,25,card,'RIVER GRILL',86.40,cid('g_life','Dining out')); T(m,25,card,'RIVER GRILL',86.40,cid('g_life','Dining out')); T(m,27,card2,'INTEREST CHARGE ON PURCHASES',6.12,cid('g_fee','Fees & interest'),1);
+      T(m,8,chk,'CHECK 1047',850,'uncat'); T(m,19,chk,'ZELLE TO S MORGAN',400,'uncat'); T(m,17,card,'LAKEVIEW ACADEMY TUITION',1200,'uncat'); T(m,29,chk,'COLLEGE SAV PLAN DISTRIBUTION',-1200,'inc');
+      T(m,21,chk,'VENMO PAYMENT 1022',120,'uncat'); T(m,15,card,'TOYSRUS ONLINE',64.20,'uncat'); }
+    if(i === 0){ T(m,3,chk,'INTL WIRE TRANSFER FEE',45,cid('g_fee','Fees & interest')); }
+  }
+  /* the regular big bills were answered in an earlier month, so only what is new gets asked */
+  var nm = {}; d.cats.forEach(function(c){ nm[c.id] = c.name; });
+  d.tx.forEach(function(t){ if(t.d.slice(0,7) === addMonths(cm,-3) && t.amt >= 500 && nm[t.cat]){ d.asked[t.id] = 1; d.reclass.push({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:nm[t.cat], cat:t.cat, at:t.d }); } });
+  return d;
+}
+function startExample(){ db = exampleData(); save(); view = addMonths(thisMonth(), -1); render(); window.scrollTo(0,0); toast('This is the Hendersons. Everything here is pretend.'); }
+
+if(db && db.ex && (db.v||1) < 2) db = exampleData(); else db = migrate(db);
 loadWX(function(){ if(db) render(); });
 render();
 if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function(){});
 </script>
-<script id="dj-menu-v1">window.DJ_MENU = {"slug": "familydash", "name": "Family Financial Dashboard", "em": "📊", "items": [{"id": "home", "em": "📊", "t": "This month", "sub": "Budget against what we spent", "go": "closeSheet();window.scrollTo(0,0)"}, {"id": "add", "em": "＋", "t": "Add statements", "sub": "CSV, OFX, QFX or a PDF", "go": "db&&db.setup&&openImport()"}, {"id": "report", "em": "📝", "t": "Monthly report", "sub": "Written by your own AI", "go": "db&&db.budgetSet&&openReport()"}]};</script>
+<script id="dj-menu-v1">window.DJ_MENU = {"slug": "familydash", "name": "Family Money Dashboard", "em": "📊", "items": [{"id": "home", "em": "📊", "t": "This month", "sub": "Budget against what we spent", "go": "closeSheet();window.scrollTo(0,0)"}, {"id": "add", "em": "＋", "t": "Add statements", "sub": "CSV, OFX, QFX or a PDF", "go": "db&&db.setup&&openImport()"}, {"id": "report", "em": "📝", "t": "Monthly report", "sub": "Written by your own AI", "go": "db&&db.budgetSet&&openReport()"}]};</script>
 </body>
 </html>
