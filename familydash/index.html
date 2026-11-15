@@ -2217,7 +2217,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v1.8 · 2026-11-14 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v1.9 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2305,8 +2305,8 @@ var KW = {
   groc:'grocery,groceries,supermarket,market,hy-vee,hyvee,schnucks,jewel,county market,dierbergs,kroger,safeway,publix,whole foods,trader joe,aldi,costco,sam’s club,sams club,heb,h-e-b,wegmans,albertsons,food lion,giant,meijer,sprouts,winco',
   eat:'restaurant,cafe,coffee,starbucks,dunkin,mcdonald,burger,pizza,grill,diner,doordash,uber eats,grubhub,chipotle,chick-fil,taco,subway,panera,bistro,bar &,steakhouse,sushi',
   car:'shell,chevron,exxon,mobil,bp ,marathon,valero,sunoco,speedway,circle k,wawa,quiktrip,fuel,gas station,car wash,jiffy,auto parts,autozone,o’reilly,tire,dmv,parking,toll',
-  phone:'verizon,at&t,att*,t-mobile,tmobile,sprint,mint mobile,cricket,phone',
-  subs:'netflix,spotify,hulu,disney,apple.com,itunes,amazon prime,prime video,youtube,paramount,peacock,max.com,hbo,audible,siriusxm,patreon,subscription,membership',
+  phone:'verizon,at&t,att*,t-mobile,tmobile,sprint,mint mobile,cricket,phone,xfinity mobile,visible,consumer cellular,us cellular,google fi',
+  subs:'netflix,spotify,hulu,disney,apple.com,itunes,amazon prime,prime video,youtube,paramount,peacock,max.com,hbo,audible,siriusxm,patreon,subscription,membership,pure flix,pureflix,britbox,expressvpn,nordvpn,acorn tv,crunchyroll,starz,showtime,sling,fubo,philo,discovery+,espn+,apple tv,icloud,dropbox,microsoft 365,adobe,ancestry,nytimes,wsj,washington post,kindle unlimited,great courses,wondrium,masterclass,amazon music',
   shop:'amazon,amzn,target,walmart,wal-mart,best buy,kohl,macy,tj maxx,marshalls,ross,etsy,ebay',
   health:'pharmacy,cvs,walgreens,rite aid,clinic,dental,dentist,medical,hospital,doctor,dr ,vision,optical,urgent care,lab corp,quest diag,therapy,orthodont,health',
   travel:'airline,airlines,delta,united air,american air,southwest,jetblue,alaska air,hotel,marriott,hilton,hyatt,airbnb,vrbo,expedia,booking.com,hertz,avis,enterprise rent,cruise',
@@ -2331,8 +2331,9 @@ function guessCat(desc, amt, a, bcat){
   if(XFER.test(d)) return 'xfer';
   if(bankOf(d) && /pmt|pymt|payment|autopay|epay/i.test(d) && !/fee|interest/i.test(d)) return 'xfer';   /* paying a card from the bank account moves money; it is not spending */
   if(amt < 0){ if(INCOME.test(d) || (a && a.type !== 'card')) return 'inc'; }
-  for(var j=0;j<db.cats.length;j++){ var c = db.cats[j]; if(!c.kw) continue; var w = c.kw.split(',');
-    for(var x=0;x<w.length;x++){ var t = w[x]; if(t && d.indexOf(t) >= 0) return c.id; } }
+  var best = null, bl = 0; for(var j=0;j<db.cats.length;j++){ var c = db.cats[j]; if(!c.kw) continue; var w = c.kw.split(',');
+    for(var x=0;x<w.length;x++){ var t = w[x]; if(t && t.length > bl && d.indexOf(t) >= 0){ best = c.id; bl = t.length; } } }
+  if(best) return best;
   if(bcat && amt > 0){ for(var b=0;b<BCAT.length;b++) if(BCAT[b][1].test(bcat.toLowerCase())){ var id = catByKw(BCAT[b][0]); if(id !== '__none') return id; } }
   return 'uncat';
 }
@@ -2489,6 +2490,7 @@ function canFolder(){ return ('webkitdirectory' in document.createElement('input
    let me choose." A folder with several folders inside first shows them, money-looking ones ticked, and reads only the ticked. */
 var FINW = /bank|card|credit|financ|money|statement|expens|budget|insur|tax|invest|retire|loan|mortgage|bill|account|giving|net ?worth|saving|checking|\bira\b|401|pension|paypal|venmo|brokerage|polic/i, CHOOSE = null;
 function takeList(list, chosen){
+  if(ONE){ chosen = true; AUTO = true; }
   if(!chosen){ var top = {}; list.forEach(function(it){ var p = String(it.path||'').split('/'); if(p.length >= 3) top[p[1]] = (top[p[1]]||0) + 1; });
     var names = Object.keys(top); if(names.length >= 2){ CHOOSE = { list:list, top:top }; return chooseFolders(); } }
   return takeList2(list);
@@ -2567,6 +2569,8 @@ function groupAndGo(list, skip){
   order.forEach(function(k){ var g = G[k], max = {};   /* overlapping statements: keep each line as many times as the most any one file has it */
     g.files.forEach(function(p){ var c = {}; p.rows.forEach(function(r){ var x = r.d + '|' + r.raw + '|' + r.desc; c[x] = (c[x]||0) + 1; if(c[x] > (max[x]||0)){ max[x] = c[x]; g.rows.push(r); } }); }); });
   pending = order.map(function(k){ return G[k]; }); IMP.skip = skip; IMP.files = list.length; IMP.per = {};
+  if(ONE){ pending.forEach(function(g){ g.forceType = ONE.kind; }); if(!pending.length){ afterImport(); return; } nextFile(); return; }
+  if(AUTO && (pending.length || (skip.sheets||[]).length || (skip.pdf||[]).length)){ REV = { groups:pending, skip:skip, step:0 }; pending = []; reviewStep(); return; }
   if(!pending.length){ afterImport(); return; }
   nextFile();
 }
@@ -2682,6 +2686,7 @@ function takeFile(){
   save(); nextFile();
 }
 function afterImport(){
+  if(ONE){ var sk1 = IMP.skip || {}; ['pdf','sheets'].forEach(function(x){ ONE.skip[x] = (ONE.skip[x]||[]).concat(sk1[x]||[]); }); var n1 = IMP.added; IMP = { added:0, skipped:0 }; AUTO = false; ONE.done = ONE.done || {}; ONE.done[ONE.kind] = n1 + ' lines read'; save(); oneStep(); return; }
   if(AUTO){ AUTO = false; var SK = IMP.skip || {}; IMP = { added:0, skipped:0 }; autoFill(SK); return; }
   var I = IMP, msg = I.added + ' lines brought in' + (I.skipped ? ', ' + I.skipped + ' already here' : '') + '.'; IMP = { added:0, skipped:0 };
   view = null; render(); closeSheet();
@@ -3525,6 +3530,7 @@ function autoScreen(){
     + '<div class="pick" style="grid-template-columns:1fr">'
     + (canFolder() ? '<button class="on" onclick="autoGo(\'folder\')">Yes — read my whole folder<small>recommended on a computer: every file inside, and the folders inside it</small></button>' : '')
     + '<button' + (canFolder() ? '' : ' class="on"') + ' onclick="autoGo(\'files\')">Yes — I’ll pick the files<small>CSV, QFX, OFX or Excel downloads from the bank</small></button>'
+    + '<button onclick="oneStart()">Yes — ask me for one kind at a time<small>bank statements, then cards, then the rest; you point to the files for each</small></button>'
     + '<button onclick="autoGo(\'no\')">Not yet — just ask me the questions<small>you can bring statements in afterwards</small></button></div>'
     + '<button class="b full" onclick="folderGuide()">📁 How should I set up my folder?</button>'
     + '<button class="b ghost" style="width:100%;margin-top:8px" onclick="closeSheet();render()">Done for now</button>');
@@ -3544,7 +3550,7 @@ function folderGuide(){
     + '<p class="sub" style="margin-top:10px">From each bank\u2019s website, download the activity as <b>CSV</b> or <b>QFX</b> where it offers it — those I read exactly. PDFs are fine for policies and papers; I list them by folder.</p>'
     + '<button class="b full" onclick="copyFolders()">Copy the folder names</button><button class="b primary full" onclick="autoScreen()">Back</button>'); }
 function copyFolders(){ var t = 'Family Money\n' + FOLDERS.map(function(f){ return '  ' + f[0]; }).join('\n'); try{ navigator.clipboard.writeText(t).then(function(){ toast('Copied.'); }, function(){ toast('Could not copy here.'); }); }catch(e){} }
-function autoAcct(g){
+function guessAcct(g){
   var txt = (g.key + ' ' + (g.files||[]).map(function(f){ return f.path || f.name; }).join(' ')).toLowerCase(), R = g.rows;
   var l4 = ((g.files||[]).map(function(f){ return f.acctNo; }).filter(Boolean)[0]) || '', txt = txt + ' ' + (g.files||[]).map(function(f){ return f.bankText || ''; }).join(' ').toLowerCase();
   var credits = R.filter(function(r){ return /payment.{0,12}thank|autopay payment|payment received/i.test(r.desc); }).length, wages = R.filter(function(r){ return INCOME.test(r.desc); }).length;
@@ -3553,6 +3559,11 @@ function autoAcct(g){
   var bank = /^(bank|acct):/.test(g.key) && g.key.indexOf('|') > 0 || /^bank:/.test(g.key) ? g.key.slice(5).split('|')[0] : '', bank = /^\d{4}$/.test(bank) ? '' : bank;
   if(!bank && type === 'card') bank = bankOf(R.filter(function(r){ return /p(a)?y?mn?t|payment/i.test(r.desc); }).map(function(r){ return r.desc; }).join(' '));
   var nm = bank ? (/^(Venmo|PayPal)$/.test(bank) ? bank + ' (payment app)' : / Credit Union$/.test(bank) ? bank + (type === 'card' ? ' card' : type === 'savings' ? ' savings' : '') : bank + (type === 'card' ? ' card' : type === 'savings' ? ' savings' : ' checking')) : /^(dir|name):/.test(g.key) ? prettyKey(g.key) : TYPES[type].t;
+  return { type:type, name:nm, bank:bank, l4:l4 };
+}
+function autoAcct(g){
+  var G = guessAcct(g), type = g.forceType || G.type, nm = g.forceName || G.name, l4 = G.l4, bank = G.bank, R = g.rows;
+  if(type === 'payapp'){ type = 'checking'; if(!/payment app/.test(nm)) nm = nm + ' (payment app)'; }
   var a = { id:uid(), name:nm, type:type, last4:l4, hist:[], payMode: type === 'card' ? 'full' : undefined, autopay: type === 'card', found:1, bankless: !bank ? 1 : 0 };
   setBal(a, g.bal != null && isFinite(g.bal) ? Math.abs(g.bal) : 0, g.asOf || today()); if(g.bal == null) a.balUnknown = 1;
   db.accts.push(a); var negs = R.filter(function(r){ return r.raw < 0; }).length; CUR.a = a.id; CUR.flip = negs >= R.length - negs;
@@ -3683,8 +3694,48 @@ function applyBudget(){
     if(c.part === 2) c.yearly = r2(l.amt * 12); else { c.budget = r2(l.amt); c.variable = false; } n++; });
   b.incs.forEach(function(i){ if(!db.incomes.some(function(x){ return x.name.toLowerCase() === i.name.toLowerCase(); })) db.incomes.push({ id:uid(), name:i.name, amt:i.amt, found:1 }); });
   db.budgetSet = true; db.budgetFromSheet = today(); save(); render();
-  toast(n + ' budget lines set from your spreadsheet' + (made ? ', ' + made + ' new' : '') + '.'); if(AF) autoSummary(); else closeSheet();
+  toast(n + ' budget lines set from your spreadsheet' + (made ? ', ' + made + ' new' : '') + '.'); if(ONE){ ONE.done = ONE.done || {}; ONE.done.budget = n + ' budget lines set'; oneStep(); } else if(REV) reviewStep(); else if(AF) autoSummary(); else closeSheet();
 }
+
+/* ── v1.9 · two ways in (Jerry, 15 Nov: "read everything and then give a list… one group at a time… agree or change. Let's
+   try a couple different ways and see"). Way 1: read the whole folder, then show each kind of file on its own screen with
+   the guess, which can be agreed with or changed. Way 2: ask for one kind at a time and let the family point to the files. ── */
+var REV = null, KINDOPT = [['checking','Checking'],['savings','Savings'],['card','Credit card'],['payapp','Payment app (Venmo, PayPal)'],['skip','Not a bank account — leave it out']];
+function kindOf(g){ if(g.choice) return g.choice; var G = guessAcct(g); return /payment app/.test(G.name) ? 'payapp' : G.type === 'savings' ? 'checking' : G.type; }
+var REVSTEPS = [['checking','🏦 Bank and credit union accounts','These look like bank or credit union statements.'],['card','💳 Credit cards','These look like credit card statements.'],['payapp','📲 Payment apps','These look like Venmo or PayPal history.'],['sheets','🗂️ Your own spreadsheets','These look like spreadsheets you keep yourself — budgets, summaries, what-ifs. They are not read as accounts.'],['pdf','📄 PDFs','PDFs aren’t read in this step. If one of your banks is missing above, its statements are probably here — download that bank’s activity as CSV and add it.']];
+function revHas(k){ var R = REV; if(k === 'sheets') return (R.skip.sheets||[]).length; if(k === 'pdf') return (R.skip.pdf||[]).length; return R.groups.some(function(g){ return !g.choice && kindOf(g) === k || g.home === k; }); }
+function reviewStep(){
+  var R = REV; while(R.step < REVSTEPS.length && !revHas(REVSTEPS[R.step][0])) R.step++;
+  if(R.step >= REVSTEPS.length){ reviewDone(); return; }
+  var st = REVSTEPS[R.step], k = st[0], n = REVSTEPS.filter(function(x){ return revHas(x[0]); }).length, at = REVSTEPS.slice(0, R.step + 1).filter(function(x){ return revHas(x[0]); }).length, h = '';
+  if(k === 'sheets') h = '<ul class="list">' + R.skip.sheets.map(function(x){ return '<li style="font-size:14px"><span class="ds">' + esc(x) + '</span>' + (SHEETF[x] && !/\.numbers$/i.test(x) ? '<button class="b small" style="flex:none" onclick="budgetFromPath(\'' + esc(x).replace(/'/g,'') + '\')">Use as our budget</button>' : '') + '</li>'; }).join('') + '</ul>';
+  else if(k === 'pdf') h = '<ul class="list">' + R.skip.pdf.slice(0,30).map(function(x){ return '<li style="font-size:14px">' + esc(x) + '</li>'; }).join('') + (R.skip.pdf.length > 30 ? '<li style="font-size:14px">…and ' + (R.skip.pdf.length - 30) + ' more</li>' : '') + '</ul>';
+  else { R.groups.forEach(function(g){ if(!g.home) g.home = kindOf(g); });
+    h = R.groups.map(function(g, i){ if(g.home !== k) return ''; var G = guessAcct(g), d0 = g.rows.reduce(function(a,r){ return r.d < a ? r.d : a; }, '9999'), d1 = g.rows.reduce(function(a,r){ return r.d > a ? r.d : a; }, '');
+      return '<div class="card" style="padding:10px 12px"><input data-gn="' + i + '" value="' + esc(g.forceName || G.name) + '" aria-label="Name"><select data-gk="' + i + '" style="margin-top:6px">' + KINDOPT.map(function(o){ return '<option value="' + o[0] + '"' + ((g.choice || kindOf(g)) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'
+        + '<p class="sub" style="margin:6px 0 0;font-size:13.5px">' + g.rows.length + ' lines, ' + (g.rows.length ? shortDate(d0) + ' ' + d0.slice(0,4) + ' to ' + shortDate(d1) + ' ' + d1.slice(0,4) : '') + (G.l4 ? ' · ending ' + esc(G.l4) : '') + '<br>' + g.files.slice(0,3).map(function(f){ return esc(String(f.path||f.name).split('/').slice(-2).join('/')); }).join('<br>') + (g.files.length > 3 ? '<br>…and ' + (g.files.length - 3) + ' more files' : '') + '</p></div>'; }).join(''); }
+  openSheet('<div class="stepno">Checking what I read · ' + at + ' of ' + n + '</div><h3>' + st[1] + '</h3><p class="sub">' + st[2] + (k !== 'sheets' && k !== 'pdf' ? ' Change a name or a kind if I got it wrong; “Not a bank account” leaves it out.' : '') + '</p>' + h
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="reviewNext()">' + (at === n ? 'That’s right — read them in' : 'That’s right — next') + '</button>' + (R.step ? '<button class="b ghost" style="width:100%" onclick="reviewBack()">Back</button>' : '') + '</div>');
+}
+function reviewSave(){ Array.prototype.forEach.call(document.querySelectorAll('[data-gk]'), function(el){ var g = REV.groups[+el.getAttribute('data-gk')]; g.choice = el.value; });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-gn]'), function(el){ var g = REV.groups[+el.getAttribute('data-gn')], v = el.value.trim(); if(v && v !== guessAcct(g).name) g.forceName = v; }); }
+function reviewNext(){ reviewSave(); REV.step++; reviewStep(); }
+function reviewBack(){ reviewSave(); REV.step--; while(REV.step > 0 && !revHas(REVSTEPS[REV.step][0])) REV.step--; reviewStep(); }
+function reviewDone(){ var R = REV; REV = null; pending = R.groups.filter(function(g){ return (g.choice || kindOf(g)) !== 'skip'; }); pending.forEach(function(g){ g.forceType = g.choice || kindOf(g); }); IMP.skip = R.skip;
+  if(!pending.length){ afterImport(); return; } nextFile(); }
+
+/* way 2: one kind at a time */
+var ONE = null, ONEK = [['checking','🏦 Bank and credit union statements','Checking or share-draft activity from each bank or credit union, downloaded as CSV, QFX or OFX.'],['savings','🐖 Savings statements','Savings or money market activity.'],['card','💳 Credit card statements','Each card’s activity download.'],['payapp','📲 Venmo or PayPal','The history download from the app’s website.'],['budget','📊 Your budget spreadsheet','If you keep a budget in a spreadsheet, I’ll start from it instead of guessing.']];
+function oneStart(){ db.autoAsked = 1; ONE = { i:0, kind:'', skip:{ pdf:[], sheets:[], other:0, bad:[] } }; save(); oneStep(); }
+function oneStep(){ var k = ONEK[ONE.i]; if(!k){ var SK = ONE.skip; ONE = null; AUTO = false; autoFill(SK); return; }
+  ONE.kind = k[0];
+  openSheet('<div class="stepno">One kind at a time · ' + (ONE.i + 1) + ' of ' + ONEK.length + '</div><h3>' + k[1] + '</h3><p class="sub">' + k[2] + '</p><div class="pick" style="grid-template-columns:1fr">'
+    + (k[0] === 'budget' ? '<button class="on" onclick="pickBudgetFile()">Pick the spreadsheet<small>Excel or CSV</small></button>'
+       : '<button class="on" onclick="AUTO=true;document.getElementById(\'fileIn\').click()">Pick the files<small>as many as you like</small></button>' + (canFolder() ? '<button onclick="AUTO=true;document.getElementById(\'dirIn\').click()">Pick a folder that holds only these<small>everything in it is read as ' + esc(k[1].replace(/^\S+\s/,'').toLowerCase()) + '</small></button>' : ''))
+    + '<button onclick="oneNext()">' + (k[0] === 'budget' ? 'I don’t keep one' : 'I don’t have these') + '<small>on to the next kind</small></button></div>'
+    + (ONE.done && ONE.done[k[0]] ? '<div class="line ok">✓ ' + ONE.done[k[0]] + '</div>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="oneNext()">Next</button></div>'); }
+function oneNext(){ ONE.i++; oneStep(); }
 
 /* For the store's videos (shop/watch.html): show the example family without touching anyone's real month.
    The player's tourSet() keeps the example in a layer over this window's storage, so nothing a video does is saved. */

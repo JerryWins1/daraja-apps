@@ -196,3 +196,11 @@ Everything it found is shown on one screen, with a tap to fix each item, and the
 It shows what it read and where each line will go, and changes nothing until "Use this as our budget" is tapped. A Numbers file has to be exported to Excel first.
 
 **Choose which folders to read** (Jerry: his personal folder holds "some things that aren't financial… let me choose"). When the chosen folder has several folders inside, the app first lists them with a tick box each. Ones that look like money (bank, cards, insurance, taxes, expenses, giving, net worth…) come ticked. Only the ticked ones are read, and the choice is remembered for next time.
+
+## Addendum, 15 Nov (v1.9) — two ways in
+
+Jerry: "read everything and then give a list… one group at a time… agree or change. Let's try a couple different ways and see."
+
+- **Way 1, read the whole folder, then check it.** After reading, the app shows one screen per kind — bank and credit union accounts, credit cards, payment apps, the family's own spreadsheets, PDFs — with its guess for each. Each account's name and kind can be changed, or marked "Not a bank account" to leave it out. Nothing is created until the last screen.
+- **Way 2, one kind at a time.** The app asks for bank statements, then savings, cards, Venmo or PayPal, and the budget spreadsheet in turn. Whatever is picked at each step is read as that kind, so nothing is guessed.
+- Sorting: the longest matching word now wins, and more streaming and phone names are known (Pure Flix and BritBox among them).
