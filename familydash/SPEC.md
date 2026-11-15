@@ -225,3 +225,11 @@ Jerry, on his iPhone: "I would like it if I can link a folder… what happens in
 - On any device, when last month's statement is missing for an open account, the home screen says "New month: add October's statements for …". Its Start button walks through those accounts one at a time, each saying which month to download and where from. On a computer with the folder linked, the button reads the folder instead.
 - An iPhone or iPad cannot stay linked to a folder; Apple doesn't let websites do that. The file picker opens where it was last used.
 - A PDF picked for an account is now named in the result ("not read — download CSV or QFX instead") rather than showing only "0 lines read".
+
+## Addendum, 15 Nov (v2.2) — PDFs, and a folder on the phone
+
+Jerry: "You also need to be able to pick pdf files and read them." Then: "You need to pick folders not files."
+
+- PDF statements are read on the device (pdf.js 3.11.174 from cdnjs, loaded the first time it's needed). A line that starts with a date and ends with an amount is a transaction. Where there's a running balance, the change in balance says which way the money went; otherwise the words do ("deposit", "payment – thank you", CR or a minus on a card). The ending or new balance and the statement's closing date set the account's balance. A scanned PDF (a picture) has no text, so it's named and set aside.
+- An iPhone or iPad cannot pick a folder from a website. Instead, in the Files app press and hold the folder and tap Compress, then pick the .zip. The app opens the zip on the device (JSZip 3.10.1) and reads everything in it, PDFs included. On a phone, each account's screen now has "Pick its folder" with that instruction.
+- A bill paid by autopay ("COMED ELECTRIC AUTOPAY") goes to the bill's own category, not to "moving between our accounts". A card or bank payment by autopay still counts as a move.

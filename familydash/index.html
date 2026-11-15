@@ -2219,7 +2219,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v2.1 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v2.2 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2229,7 +2229,7 @@
 <div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="in" id="sheetIn"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="printable" id="printable"></div>
-<input type="file" id="fileIn" accept=".csv,.ofx,.qfx,.qbo,.txt,.xlsx,.xls,.pdf,text/csv" multiple style="display:none">
+<input type="file" id="fileIn" accept=".csv,.ofx,.qfx,.qbo,.txt,.xlsx,.xls,.pdf,.zip,text/csv,application/pdf,application/zip" multiple style="display:none">
 <input type="file" id="dirIn" webkitdirectory multiple style="display:none">
 <input type="file" id="budIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="var f=this.files&&this.files[0];this.value='';if(f)readBudget(f,f.name)">
 
@@ -2330,11 +2330,13 @@ var BCAT = [['util',/util|electric|gas & electric|water|sewer|internet|cable|ene
 function guessCat(desc, amt, a, bcat){
   var d = ' ' + String(desc||'').toLowerCase() + ' ', k = mkey(desc);
   for(var i=0;i<db.rules.length;i++){ var r = db.rules[i]; if(r.k && (k === r.k || d.indexOf(r.k) >= 0)) return r.cat; }
-  if(XFER.test(d)) return 'xfer';
-  if(bankOf(d) && /pmt|pymt|payment|autopay|epay/i.test(d) && !/fee|interest/i.test(d)) return 'xfer';   /* paying a card from the bank account moves money; it is not spending */
-  if(amt < 0){ if(INCOME.test(d) || (a && a.type !== 'card')) return 'inc'; }
   var best = null, bl = 0; for(var j=0;j<db.cats.length;j++){ var c = db.cats[j]; if(!c.kw) continue; var w = c.kw.split(',');
     for(var x=0;x<w.length;x++){ var t = w[x]; if(t && t.length > bl && d.indexOf(t) >= 0){ best = c.id; bl = t.length; } } }
+  /* "COMED ELECTRIC AUTOPAY" is a bill paid automatically, not money moved between accounts: a bill's own name wins over autopay */
+  var billAuto = best && !bankOf(d) && /autopay|auto pay|epay|online pmt|online payment/i.test(d) && !/transfer|xfer|card payment|credit card/i.test(d);
+  if(XFER.test(d) && !billAuto) return 'xfer';
+  if(bankOf(d) && /pmt|pymt|payment|autopay|epay/i.test(d) && !/fee|interest/i.test(d)) return 'xfer';   /* paying a card from the bank account moves money; it is not spending */
+  if(amt < 0){ if(INCOME.test(d) || (a && a.type !== 'card')) return 'inc'; }
   if(best) return best;
   if(bcat && amt > 0){ for(var b=0;b<BCAT.length;b++) if(BCAT[b][1].test(bcat.toLowerCase())){ var id = catByKw(BCAT[b][0]); if(id !== '__none') return id; } }
   return 'uncat';
@@ -2491,7 +2493,18 @@ function canFolder(){ return ('webkitdirectory' in document.createElement('input
 /* v1.8 · Jerry, 14 Nov: "I chose my personal file that has a bunch of folders in it… even some things that aren't financial…
    let me choose." A folder with several folders inside first shows them, money-looking ones ticked, and reads only the ticked. */
 var FINW = /bank|card|credit|financ|money|statement|expens|budget|insur|tax|invest|retire|loan|mortgage|bill|account|giving|net ?worth|saving|checking|\bira\b|401|pension|paypal|venmo|brokerage|polic/i, CHOOSE = null;
+/* a phone cannot pick a folder, but the Files app can squeeze one into a .zip (press and hold → Compress): open it here */
+var JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+function unzipList(list, cb){ var Z = list.filter(function(it){ return /\.zip$/i.test(it.file.name); }), rest = list.filter(function(it){ return !/\.zip$/i.test(it.file.name); });
+  function go(){ var out = rest.slice(), i = 0;
+    (function next(){ var it = Z[i++]; if(!it) return cb(out); var base = it.file.name.replace(/\.zip$/i, '');
+      JSZip.loadAsync(it.file).then(function(z){ var E = Object.keys(z.files).map(function(k){ return z.files[k]; }).filter(function(e){ return !e.dir && !/(^|\/)(__MACOSX|\.)/.test(e.name); });
+        return Promise.all(E.map(function(e){ return e.async('blob').then(function(bl){ var nm = e.name.split('/').pop(); out.push({ file:new File([bl], nm), path:(e.name.indexOf('/') >= 0 ? e.name : base + '/' + e.name) }); }); })); })
+        .then(next, function(){ alert('I could not open ' + it.file.name + '.'); next(); }); })(); }
+  if(!Z.length) return cb(list); if(window.JSZip) return go();
+  var sc = document.createElement('script'); sc.src = JSZIP_URL; sc.onload = go; sc.onerror = function(){ alert('Opening a zip needs the internet once. Try again when you are online.'); cb(rest); }; document.head.appendChild(sc); }
 function takeList(list, chosen){
+  if(!list._unz && list.some(function(it){ return /\.zip$/i.test(it.file.name); })){ openSheet('<h3>Opening the zip…</h3><p class="sub">One moment.</p>'); unzipList(list, function(L){ L._unz = 1; takeList(L, chosen); }); return; }
   if(ONE){ chosen = true; AUTO = true; }
   if(MAPA || ROUTE){ chosen = true; AUTO = false; }
   if(!chosen){ var top = {}; list.forEach(function(it){ var p = String(it.path||'').split('/'); if(p.length >= 3) top[p[1]] = (top[p[1]]||0) + 1; });
@@ -2516,7 +2529,8 @@ function takeList2(list){   /* list: [{ file, path }] */
   list.forEach(function(it){ var f = it.file, nm = f.name, ext = (nm.split('.').pop()||'').toLowerCase();
     if(/^\./.test(nm)){ skip.other++; done(); return; }
     if(/(^|\/)(_?old(er)?( versions?)?|archive[sd]?|backups?|copies)(\/|$)/i.test(it.path || '')){ skip.old = (skip.old||0) + 1; done(); return; }
-    if(ext === 'pdf'){ var fp = String(it.path || nm).split('/'); if(hintOf(it.path) === 'doc' && fp.length > 1){ var fo = fp[fp.length-2]; skip.docs = skip.docs || {}; skip.docs[fo] = (skip.docs[fo]||0) + 1; } else skip.pdf.push(it.path || nm); done(); return; }
+    if(ext === 'pdf'){ var fp = String(it.path || nm).split('/'); if(!MAPA && hintOf(it.path) === 'doc' && fp.length > 1){ var fo = fp[fp.length-2]; skip.docs = skip.docs || {}; skip.docs[fo] = (skip.docs[fo]||0) + 1; done(); return; }
+      readPDF(f, function(p){ if(p && p.rows.length >= 2){ p.path = it.path || nm; out.push(p); } else skip.pdf.push(it.path || nm); done(); }); return; }
     if(ext === 'xlsx' || ext === 'xls'){ readSheet(f, function(p){ if(p && isStatement(p, it.path || nm, true)){ p.path = it.path || nm; out.push(p); } else { (skip.sheets = skip.sheets || []).push(it.path || nm); SHEETF[it.path || nm] = f; } done(); }); return; }
     if(ext === 'numbers' || ext === 'docx' || ext === 'doc' || ext === 'pages'){ (skip.sheets = skip.sheets || []).push(it.path || nm); done(); return; }
     if(!/^(csv|ofx|qfx|qbo|txt|tsv)$/.test(ext)){ skip.other++; done(); return; }
@@ -2689,14 +2703,14 @@ function takeFile(){
   CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
     db.tx.push({ id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }); IMP.added++; });
-  if(CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || (CUR.asOf || today()) >= a.asOf)) setBal(a, Math.abs(CUR.bal), CUR.asOf || today());
+  if(CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || a.balUnknown || (CUR.asOf || today()) >= a.asOf)){ if(a.balUnknown){ a.hist = []; delete a.balUnknown; } setBal(a, Math.abs(CUR.bal), CUR.asOf || today()); }
   if(CUR.key){ db.src = db.src || {}; db.src[CUR.key] = { a:CUR.a, flip:CUR.flip }; }
   IMP.per = IMP.per || {}; IMP.per[a.name] = (IMP.per[a.name]||0) + (CUR.files||[CUR]).length;
   save(); nextFile();
 }
 function afterImport(){
   if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
-    MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' was':'s were') + ' not read — download CSV or QFX from the bank instead' : '');
+    MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
     save(); render(); mapFiles(mid); return; }
   if(ROUTE){ var rn = IMP.added, ru = IMP.unrouted || 0; ROUTE = false; IMP = { added:0, skipped:0 }; save(); render(); toast(rn + ' new lines read' + (ru ? '; ' + ru + ' file group' + (ru===1?'':'s') + ' not in any account’s folder' : '') + '.'); openAudit(); return; }
   if(ONE){ var sk1 = IMP.skip || {}; ['pdf','sheets'].forEach(function(x){ ONE.skip[x] = (ONE.skip[x]||[]).concat(sk1[x]||[]); }); var n1 = IMP.added; IMP = { added:0, skipped:0 }; AUTO = false; ONE.done = ONE.done || {}; ONE.done[ONE.kind] = n1 + ' lines read'; save(); oneStep(); return; }
@@ -3271,7 +3285,7 @@ function setupSummary(){
     + '<button class="b primary full" id="suGo" onclick="suGo()">Looks right — bring in statements</button>');
 }
 function restartSetup(){ if(!confirm('Start setup over? Everything this app has read or been told so far is cleared from this device. Your files are not touched.')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; AF = null; render(); setupQ(0); }
-function suGo(){ db.setup = true; db.sq = SQ.length; db.ex = false; rebuildPlan(); db.tx.forEach(function(t){ if(t.cat === 'uncat') t.cat = guessCat(t.desc, t.amt, acct(t.a), t.bcat); }); save(); closeSheet(); view = null; render(); window.scrollTo(0,0); setTimeout(openImport, 250); }
+function suGo(){ db.setup = true; db.sq = SQ.length; db.ex = false; rebuildPlan(); db.tx.forEach(function(t){ if(t.cat === 'uncat' || (t.cat === 'xfer' && /autopay|auto pay|epay|online pmt|online payment/i.test(t.desc))) t.cat = guessCat(t.desc, t.amt, acct(t.a), t.bcat); }); save(); closeSheet(); view = null; render(); window.scrollTo(0,0); setTimeout(openImport, 250); }
 
 /* ── budgets: Part 1 is set from the statements; variable lines use their average; Part 2 is yearly ÷ 12 ── */
 function averages(){
@@ -3720,7 +3734,7 @@ function applyBudget(){
    the guess, which can be agreed with or changed. Way 2: ask for one kind at a time and let the family point to the files. ── */
 var REV = null, KINDOPT = [['checking','Checking'],['savings','Savings'],['card','Credit card'],['payapp','Payment app (Venmo, PayPal)'],['skip','Not a bank account — leave it out']];
 function kindOf(g){ if(g.choice) return g.choice; var G = guessAcct(g); return /payment app/.test(G.name) ? 'payapp' : G.type === 'savings' ? 'checking' : G.type; }
-var REVSTEPS = [['checking','🏦 Bank and credit union accounts','These look like bank or credit union statements.'],['card','💳 Credit cards','These look like credit card statements.'],['payapp','📲 Payment apps','These look like Venmo or PayPal history.'],['sheets','🗂️ Your own spreadsheets','These look like spreadsheets you keep yourself — budgets, summaries, what-ifs. They are not read as accounts.'],['pdf','📄 PDFs','PDFs aren’t read in this step. If one of your banks is missing above, its statements are probably here — download that bank’s activity as CSV and add it.']];
+var REVSTEPS = [['checking','🏦 Bank and credit union accounts','These look like bank or credit union statements.'],['card','💳 Credit cards','These look like credit card statements.'],['payapp','📲 Payment apps','These look like Venmo or PayPal history.'],['sheets','🗂️ Your own spreadsheets','These look like spreadsheets you keep yourself — budgets, summaries, what-ifs. They are not read as accounts.'],['pdf','📄 PDFs','These PDFs had no statement lines I could read — a scanned picture, a policy, or a letter. If one of your banks is missing above, download its activity as CSV and add it.']];
 function revHas(k){ var R = REV; if(k === 'sheets') return (R.skip.sheets||[]).length; if(k === 'pdf') return (R.skip.pdf||[]).length; return R.groups.some(function(g){ return !g.choice && kindOf(g) === k || g.home === k; }); }
 function reviewStep(){
   var R = REV; while(R.step < REVSTEPS.length && !revHas(REVSTEPS[R.step][0])) R.step++;
@@ -3842,7 +3856,8 @@ function mapFiles(id){ var a = acct(id); if(!a) return mapStep(); var g = mapGro
     + (canFolder() ? '<div data-drop="' + id + '" class="dropbox">⬇️ Drag its files or its folder here</div>' : '')
     + '<div class="pick" style="grid-template-columns:1fr;margin-top:10px">'
     + (canFolder() ? '<button class="on" onclick="MAPA=\'' + id + '\';document.getElementById(\'dirIn\').click()">Pick its folder<small>everything in it is read as ' + esc(a.name) + '</small></button>' : '')
-    + '<button' + (canFolder() ? '' : ' class="on"') + ' onclick="MAPA=\'' + id + '\';document.getElementById(\'fileIn\').click()">Pick its files<small>CSV, QFX, OFX or Excel — as many as you like</small></button>'
+    + (canFolder() ? '' : '<button class="on" onclick="MAPA=\'' + id + '\';document.getElementById(\'fileIn\').click()">Pick its folder<small>first, in the Files app, press and hold the folder and tap Compress; then pick the .zip it makes</small></button>')
+    + '<button' + (canFolder() ? '' : '') + ' onclick="MAPA=\'' + id + '\';document.getElementById(\'fileIn\').click()">Pick its files<small>PDF, CSV, QFX, OFX or Excel — as many as you like</small></button>'
     + '<button onclick="mapAdd(\'' + g.k + '\',\'' + id + '\')">Change its details<small>name, open or closed, last 4</small></button></div>'
     + '<div class="stickfoot">' + (MW ? '<button class="b primary full" style="margin-top:0" onclick="mwNext()">' + (MW.i + 1 < MW.ids.length ? 'Next account (' + (MW.i + 2) + ' of ' + MW.ids.length + ')' : 'That\u2019s all of them') + '</button><button class="b ghost" style="width:100%" onclick="MW=null;closeSheet()">Stop for now</button>' : '<button class="b primary full" style="margin-top:0" onclick="' + (MAP ? 'mapStep()' : 'openMap()') + '">' + (MAP ? 'Done with this one' : 'Back to the map') + '</button>') + '</div>');
 }
@@ -3907,6 +3922,63 @@ function openAudit(first){ var F = auditFind(), sc = mapScore(), h = '';
   openSheet('<div class="stepno">' + (first ? 'Our money map · the check' : 'Is anything missing?') + '</div><h3>🔎 What’s missing</h3><p class="sub">Every account, month by month since January, plus anything paid that isn’t in your map.</p>' + h
     + '<div class="stickfoot">' + (first ? '<button class="b primary full" style="margin-top:0" onclick="mapOn()">On to the questions</button>' : '<button class="b primary full" style="margin-top:0" onclick="openMap()">Our money map</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button></div>'); }
 function mapOn(){ if(db.tx.length) autoFill({ pdf:[], sheets:[], other:0, bad:[] }); else setupQ(0); }
+
+/* ── v2.2 · PDF statements read on this device (Jerry, 15 Nov: "You also need to be able to pick pdf files and read them").
+   pdf.js turns the PDF into lines of text; a line that starts with a date and ends in money is a transaction. Where the
+   statement has a running balance, the change in balance says which way the money went; otherwise the words do. A PDF
+   that is a picture (a scan) has no text, and is left for the AI door. Nothing leaves the device. ── */
+var PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function pdfLib(cb){ if(window.pdfjsLib) return cb(window.pdfjsLib); var sc = document.createElement('script'); sc.src = PDFJS_URL;
+  sc.onload = function(){ try{ pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; }catch(e){} cb(window.pdfjsLib || null); }; sc.onerror = function(){ cb(null); }; document.head.appendChild(sc); }
+function pdfLines(f, cb){ pdfLib(function(L){ if(!L) return cb(null);
+  var r = new FileReader(); r.onload = function(){ L.getDocument({ data:new Uint8Array(r.result) }).promise.then(function(doc){ var out = [], n = doc.numPages, i = 0;
+      (function page(){ if(++i > Math.min(n, 40)) return cb(out); doc.getPage(i).then(function(pg){ return pg.getTextContent(); }).then(function(tc){ var rows = {};
+          tc.items.forEach(function(it){ if(!it.str || !it.str.trim()) return; var y = Math.round(it.transform[5] / 3), x = it.transform[4]; (rows[y] = rows[y] || []).push({ x:x, s:it.str.trim() }); });
+          Object.keys(rows).map(Number).sort(function(a,b){ return b - a; }).forEach(function(y){ out.push(rows[y].sort(function(a,b){ return a.x - b.x; })); }); page(); }, function(){ page(); }); })();
+    }, function(){ cb(null); }); }; r.onerror = function(){ cb(null); }; r.readAsArrayBuffer(f); }); }
+var MON3 = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, sept:9, oct:10, nov:11, dec:12 };
+var MONEY_RE = /^\(?-?\s?\$?\s?-?[\d,]*\d\.\d{2}\)?(\s?(cr|dr|-))?$/i;
+function pdfParse(lines, name){
+  var txt = lines.map(function(l){ return l.map(function(c){ return c.s; }).join(' '); }), all = txt.join('\n');
+  var out = { name:name, rows:[], bal:null, asOf:null, pdf:true, hasDesc:true, bankText:txt.slice(0, 25).join(' ') };
+  out.acctNo = last4Of(all) || (/(?:\*{2,}|x{2,}|ending in\s*)(\d{4})\b/i.exec(all) || [])[1] || last4Name(name) || null;
+  var card = /credit limit|minimum payment|card ending|new balance|billing cycle|credit card/i.test(all);
+  /* the statement's last date sets the year: "Period 10/01/2026 - 10/31/2026", "Sep 28, 2026 - Oct 27, 2026", "October 31, 2026" */
+  var endY = null, endM = null, m, re = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})|([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})/g;
+  while((m = re.exec(all))){ var y = m[3] ? +m[3] : +m[6], mo = m[1] ? +m[1] : MON3[(m[4]||'').slice(0,4).toLowerCase()] || MON3[(m[4]||'').slice(0,3).toLowerCase()]; if(y < 100) y += 2000; if(!mo || y < 2000 || y > 2100) continue; if(!endY || y * 100 + mo > endY * 100 + endM){ endY = y; endM = mo; } }
+  if(!endY){ var yy = /\b(20\d\d)\b/.exec(all); endY = yy ? +yy[1] : new Date().getFullYear(); endM = 12; }
+  function dateOf(s){ var a = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/.exec(s), mo, d, y;
+    if(a){ mo = +a[1]; d = +a[2]; y = a[3] ? (+a[3] < 100 ? 2000 + +a[3] : +a[3]) : null; }
+    else { var b = /^([A-Za-z]{3,4})\.?$/.exec(s); return null; }
+    if(mo < 1 || mo > 12 || d < 1 || d > 31) return null; if(!y) y = mo > endM ? endY - 1 : endY; return y + '-' + pad2(mo) + '-' + pad2(d); }
+  function amt(s){ var neg = /^\(|\)$|^-|-\s?\$|\s?(cr|-)$/i.test(s.trim()), n = num(s.replace(/cr|dr/ig,'').replace(/[()]/g,'')); return { n:Math.abs(n), minus:neg, cr:/cr$/i.test(s.trim()) }; }
+  var prevBal = null, IN = /deposit|credit(?! card)|refund|dividend|interest paid|payment.{0,12}thank|thank you|returned|reversal|transfer from|from share|ach credit|direct dep|payroll|ssa treas|annuity|pension|cashback|cash back/i;
+  lines.forEach(function(l){ var c = l.map(function(x){ return x.s; }), tok = c.join(' ').split(/\s+/);
+    /* split the line back into words, then: a date first (with an optional second, the posting date), money last */
+    var d = null, k = 0;
+    if(/^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[0])){ d = dateOf(tok[0]); k = 1; if(tok[1] && /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[1])) k = 2; }
+    else if(MON3[(tok[0]||'').replace('.','').toLowerCase()] && /^\d{1,2},?$/.test(tok[1]||'')){ var mo = MON3[tok[0].replace('.','').toLowerCase()], dd = parseInt(tok[1], 10); d = (mo > endM ? endY - 1 : endY) + '-' + pad2(mo) + '-' + pad2(dd); k = 2;
+      if(MON3[(tok[2]||'').replace('.','').toLowerCase()] && /^\d{1,2},?$/.test(tok[3]||'')) k = 4; }
+    if(!d) { var bm = /(ending|closing|new) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(bm){ out.bal = Math.abs(num(bm[2])); } var sb = /(beginning|opening|previous) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(sb && prevBal == null) prevBal = num(sb[2]); return; }
+    var rest = tok.slice(k), money = [];
+    /* gather money from the end: "1,500.00", "- $1,500.00", "(24.50)", "24.50 CR" */
+    while(rest.length){ var t = rest[rest.length-1], t2 = rest.length > 1 ? rest[rest.length-2] + ' ' + t : '';
+      if(t2 && /^(-|\$|-\$)$/.test(rest[rest.length-2]) && MONEY_RE.test(t2.replace(/\s/g,''))){ money.unshift(t2.replace(/\s/g,'')); rest.splice(-2, 2); continue; }
+      if(/^(cr|dr)$/i.test(t) && rest.length > 1 && MONEY_RE.test(rest[rest.length-2])){ money.unshift(rest[rest.length-2] + t); rest.splice(-2, 2); continue; }
+      if(MONEY_RE.test(t)){ money.unshift(t); rest.pop(); continue; } break; }
+    var desc = rest.join(' ').replace(/\s+/g,' ').trim();
+    if(!money.length || !desc || /^(beginning|opening|previous|ending|closing|new) balance|^total|^balance/i.test(desc)){ if(/balance/i.test(desc) && money.length){ var bv = num(money[money.length-1]); if(/beginning|opening|previous/i.test(desc)) prevBal = bv; else out.bal = Math.abs(bv); } return; }
+    var A = amt(money[0]), into;
+    if(money.length >= 2){ var bal = num(money[money.length-1].replace(/cr|dr/ig,'')); if(prevBal != null && Math.abs(Math.abs(bal - prevBal) - A.n) < 0.02) into = bal > prevBal; prevBal = bal; out.bal = Math.abs(bal); }
+    if(into == null) into = card ? (A.minus || A.cr || /payment|pymt|pmt|credit/i.test(desc) && A.minus) : (A.cr || (!A.minus && IN.test(desc)));
+    if(!card && A.minus && !A.cr) into = false;
+    if(A.n) out.rows.push({ d:d, desc:desc.slice(0,80), raw: into ? A.n : -A.n });
+  });
+  if(endY && endM){ out.asOf = endY + '-' + pad2(endM) + '-' + pad2(new Date(endY, endM, 0).getDate()); }
+  if(card){ out.bankText += ' credit card'; }
+  return out;
+}
+function readPDF(f, cb){ pdfLines(f, function(L){ cb(L && L.length ? pdfParse(L, f.name) : null); }); }
 
 /* For the store's videos (shop/watch.html): show the example family without touching anyone's real month.
    The player's tourSet() keeps the example in a layer over this window's storage, so nothing a video does is saved. */
