@@ -272,3 +272,13 @@ After the accounts are checked, a second deck called "Found in your statements" 
 - **The money map:** an investment account where money goes to Fidelity, Vanguard and the like; a mortgage from its payments; insurance policies, with premium and how often, from what is paid.
 
 A bill paid by autopay is sorted again once the categories exist, so it isn't left as a transfer. The first question shown says how many were answered from the statements.
+
+## Addendum, 15 Nov (v3.0) — one folder
+
+Jerry didn't like the previous approach and asked for: "Gather all the files… just the one folder. Maybe give the user a folder structure maybe graphically then get the main folder. Then you will have everything you need. Then structure the question and naming process accordingly."
+
+- **Step 1 of 3:** a picture of the Family Money folder. It has eight group folders (1 Bank accounts, 2 Credit cards, 3 Payment apps, 4 Investments and retirement, 5 Education funds, 6 Loans and mortgage, 7 Insurance, 8 Other papers). Inside each group goes one folder per account, named for it, for example "Capital One 4417". "Download this folder, ready to fill" makes the empty folder as a zip, with a "Read me" in each group.
+- **Step 2 of 3:** pick the Family Money folder. On a computer you pick the folder itself. On an iPhone you compress it in Files (two taps, explained in three numbered boxes) and pick the zip.
+- **Step 3 of 3:** "Here's what your folder holds". The group folder sets the account's kind and its folder sets the name and last 4, so nothing is guessed. Investment, 529 and loan folders keep only the latest total, taken from the statement's ending balance. Insurance folders become policies, and their premiums are found from payments next. Other papers are listed, not read. Tap any account to change it.
+- After "Looks right" come the "Found in your statements" cards, then the summary, then only the questions that are left.
+- The earlier ways (gather files and check cards, the money map, just the questions) remain under "Other ways to start".
