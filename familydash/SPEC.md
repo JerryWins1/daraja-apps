@@ -243,3 +243,14 @@ Jerry: "I think you should gather all the files then read them so you can have i
 - When setup is done, the money map's check opens. It shows the months still missing and a "Not in your map yet" list (investments, education funds, loans, insurance) for the things statements can't show.
 - The "one kind at a time" choice is gone from the first screen; the money map covers one-at-a-time.
 - A credit union's name taken from a file name no longer drags the file name along ("CTCU Statement Oct.pdf Community Trust Credit Union" is now "Community Trust Credit Union"), and "Navy Federal" keeps "Federal".
+
+## Addendum, 15 Nov (v2.4) — checking what was read, as cards
+
+Jerry: "something a little more graphical, like columns and options to touch… less typing… predictive… I'm using my phone." He approved a mockup first.
+
+- After everything is read, setup shows a row of columns across the top (Banks, Cards, Venmo, Investments, 529s, Loans, Insurance, Sheets, PDFs). Each column has a count and how far through it you are, and tapping one jumps to it.
+- Below the columns is one big card per account with the app's guess: the name, the last 4, the line count, the balance, and a green or red square for each month since January.
+- Tap ✓ or swipe right for yes, and ✗ or swipe left for not mine. Those buttons stay pinned at the bottom of a phone screen.
+- ✎ Change opens chips: the kind of account (Checking, Savings, Credit card, Venmo / PayPal), Still open or Closed this year, and a name picked from the banks found in the files, with typing only as a fallback. Closed this year marks the account closed as of its last month.
+- Investments, 529s, loans and insurance get an "ask" card each, with ＋ Add one or "We don't have any". Spreadsheets get "Use as our budget" or "Leave it".
+- On a laptop, a card can also be dragged onto the Banks, Cards or Venmo column.
