@@ -443,7 +443,26 @@ real risk without drama, and walk him through rotating it.
 ## What a cloud session cannot reach
 
 Outbound network from the Claude container is heavily restricted. Verified blocked:
-every ESPN host and every Yahoo host, including their developer and API domains.
+every ESPN host and every Yahoo host, including their developer and API domains;
+`api.jolpi.ca`, the free F1 data service Pit Wall reads; and `script.google.com`,
+which is where every mailbox in the house lives.
+
+Those last two were measured on 15 November, and each one costs a chat something
+specific that looks exactly like a bug:
+
+**Pit Wall's two videos cannot pass `shop/checkvideos.js` from a cloud chat, ever.**
+The app asks `api.jolpi.ca` for the calendar, gets `ERR_TUNNEL_CONNECTION_FAILED`,
+and correctly sits on *"Loading the 2026 calendar…"* — so `.weekend`,
+`#view .tablewrap` and the Test drive button are never built. That is the whole
+reason `pitwall-overview` steps 3 and 6 and `pitwall-firsttime` steps 10, 14 and 15
+fail. It is not the videos and it is not the app: all four selectors are in
+`f1/index.html` and are correct, and on a real phone every pointer lands. Treat
+those five lines as expected failures from a cloud chat and do not go hunting.
+
+**A cloud chat cannot read or write a mailbox.** `script.google.com` is blocked the
+same way, so whether a mailbox is connected, what it holds, and whether a paste
+landed are things only Jerry's phone can see. Ask him, and never report a mailbox's
+state as checked.
 
 So Claude cannot read his fantasy leagues, open a link he pastes, or fill in a web
 form. Anything happening on a website is his hands on the keyboard. Pasting page
