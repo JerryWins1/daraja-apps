@@ -2316,7 +2316,7 @@
   <div class="host" id="host"></div>
   <div id="startDay"></div>
   <div id="shelfView"></div>
-  <p class="foot">Daraja v1.6 · 2026-10-15 · <a href="https://jerrywins1.github.io/daraja-apps/shop/">the store</a> · <a href="https://jerrywins1.github.io/daraja-apps/whats-new/">what’s new</a> · new apps appear here on their own · donations help orphans and students in Kenya, through Loving InDeed</p>
+  <p class="foot">Daraja v1.7 · 2026-11-15 · <a href="https://jerrywins1.github.io/daraja-apps/shop/">the store</a> · <a href="https://jerrywins1.github.io/daraja-apps/whats-new/">what’s new</a> · new apps appear here on their own · donations help orphans and students in Kenya, through Loving InDeed</p>
 </div>
 <nav id="nav"></nav>
 <div id="frame"><div class="bar"><button onclick="closeApp()">‹ Daraja</button><b id="frameTitle"></b><a id="frameOut" href="#" target="_blank" rel="noopener">open on its own ↗</a></div><div class="win"><iframe id="frameIn" allow="microphone; camera; clipboard-write; web-share" title="app"></iframe></div></div>
@@ -2330,7 +2330,15 @@ function load(){ try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch(
 function save(){ localStorage.setItem(LS,JSON.stringify(db)); }
 let db=load();
 const SHELF={ home:{em:'🏠',name:'Your household',sub:'The day, the dates, and where everything is.'}, later:{em:'🌷',name:'Later life & the people we love',sub:'Company, stories, and learning at your own pace.'}, church:{em:'⛪',name:'Your church',sub:'For the people who keep a church running.'}, work:{em:'💼',name:'Your business or nonprofit',sub:'The back office, for people who do not have one.'}, free:{em:'🎁',name:'Free, and for good',sub:'The ones that were never about money.'}, fun:{em:'🏁',name:'Just for fun',sub:'The league, and whatever comes next.'}, ownday:{em:'🧭',name:'Your own day',sub:'A hand with your own day, whoever you are.'} };
-const ORDER=['home','later','church','work','free','fun'];
+const ORDER=['home','later','church','work','free','fun','ownday'];
+/* 15 Nov 2026: 'ownday' had a full SHELF entry and a name Jerry picked, but it was on
+   neither ORDER — which drives both the nav and the "which shelf is yours?" picker — so
+   One Thing, a finished app, could not be reached from the front door at all. The nav's
+   short names used to be a ternary chain ending in 'Fun', so any shelf added after it
+   was silently labelled "Fun"; they are a map now, and a shelf with no short name falls
+   back to its own full one instead of to the wrong one. 'kenya' is deliberately still
+   off: it has no SHELF entry, and Duka, its only app, is reachable under Business. */
+const NAVNAME={home:'Household',later:'Later',church:'Church',work:'Business',free:'Free',fun:'Fun',ownday:'Your day',kenya:'Kenya'};
 /* Jerry’s sort for the door, 18 Sep — the store keeps its own shelves for selling */
 const DOOR_LOCAL={ pitwall:'fun', everyday:'home', nourishdairy:'home', nourishpeanut:'home', academy:'later' };
 const shelfOf=k=>((typeof DOOR!=='undefined'?DOOR:DOOR_LOCAL)[k])||APPS[k].cat;
@@ -2367,11 +2375,35 @@ function hostLine(){
 }
 function setShelf(s){ db.shelf=s; save(); if(!db.name){ let n=''; try{ n=localStorage.getItem('dj_name')||''; }catch(e){} if(!n){ n=prompt('And what should I call you?')||''; } if(n.trim()){ db.name=n.trim(); try{ localStorage.setItem('dj_name',db.name); }catch(e){} } save(); } render(); }
 
+/* ── what a card says it costs ──────────────────────────
+   15 Nov 2026: this was a ternary chain inside the card template, and it had never been
+   taught about PHASE 'donate', which went on 12 Nov. So while the store said "Free" and
+   "Get it free", the door was still quoting the old prices — 42 cards of them, including
+   "$149 first year · then $49 a year" for The Church App. The words here are the store's
+   own (shop/index.html card()): in donate mode every launched app is free, an app not yet
+   in LAUNCH is "Coming soon", and no card names a price. A blank price used to leave a
+   dangling separator — Duka and the Family Money Dashboard both read "try it · " with
+   nothing after it — so no price now means say nothing after the words.
+   It is a function and not a ternary so that the store and the door can be compared. */
+function offerOf(k){
+  const a = APPS[k]; if(!a) return '';
+  const book = a.kind === 'download';
+  if(typeof PHASE !== 'undefined' && PHASE === 'donate'){
+    if(typeof LAUNCH !== 'undefined' && LAUNCH.indexOf(k) < 0) return 'Coming soon';
+    return book ? 'a book' : 'free';
+  }
+  if(typeof PHASE !== 'undefined' && PHASE === 'testing') return 'try it · free while testing';
+  const p = String(a.price || '');
+  if(book) return p ? 'a book · ' + p : 'a book';
+  if(p === 'Free') return 'free';
+  return p ? 'try it · ' + p : 'try it';
+}
+
 /* ── shelves ─────────────────────────────────────────────────── */
 let cur='';
 function showShelf(s){ cur=s; db.last=s; save(); const S=SHELF[s]; const apps=APPLIST.filter(k=>doorOnShelf(k,s)).sort((a,b)=>(inUse(b)-inUse(a))||((APPS[b].fresh?1:0)-(APPS[a].fresh?1:0)));
-  $('shelfView').innerHTML=`<h2 class="shelf">${S.em} ${S.name}</h2><p class="shelfSub">${S.sub}${s===db.shelf?' · your shelf':''}</p><div class="grid">${apps.map(k=>{ const a=APPS[k]; const u=inUse(k); return `<button class="app ${u?'use':'try'}" onclick="openApp('${k}')" aria-label="${esc(a.name)}, ${u?'you use this':'try it'}">${a.fresh?'<span class="new">NEW</span>':''}<div class="em">${a.em||'📱'}</div><div class="nm">${esc(a.name)}</div><div class="sub">${esc(a.sub||a.tag||'')}</div><div class="st">${u?'you use this':a.kind==='download'?'a book · '+esc(a.price||''):(typeof PHASE!=='undefined'&&PHASE==='testing')?'try it · free while testing':(a.price==='Free'?'free':'try it · '+esc(a.price||''))}</div></button>`; }).join('')||'<p class="small">Nothing on this shelf yet.</p>'}</div>`;
-  $('nav').innerHTML=ORDER.map(x=>`<button class="${x===s?'on':''}" onclick="showShelf('${x}')"><span>${SHELF[x].em}</span>${x==='home'?'Household':x==='later'?'Later':x==='church'?'Church':x==='work'?'Business':x==='free'?'Free':'Fun'}</button>`).join('');
+  $('shelfView').innerHTML=`<h2 class="shelf">${S.em} ${S.name}</h2><p class="shelfSub">${S.sub}${s===db.shelf?' · your shelf':''}</p><div class="grid">${apps.map(k=>{ const a=APPS[k]; const u=inUse(k); return `<button class="app ${u?'use':'try'}" onclick="openApp('${k}')" aria-label="${esc(a.name)}, ${esc(u?'you use this':offerOf(k))}">${a.fresh?'<span class="new">NEW</span>':''}<div class="em">${a.em||'📱'}</div><div class="nm">${esc(a.name)}</div><div class="sub">${esc(a.sub||a.tag||'')}</div><div class="st">${esc(u?'you use this':offerOf(k))}</div></button>`; }).join('')||'<p class="small">Nothing on this shelf yet.</p>'}</div>`;
+  $('nav').innerHTML=ORDER.map(x=>`<button class="${x===s?'on':''}" onclick="showShelf('${x}')"><span>${SHELF[x].em}</span>${esc(NAVNAME[x]||SHELF[x].name)}</button>`).join('');
   window.scrollTo({top:0}); }
 
 /* ── open an app inside the door ────────────────────────────── */
