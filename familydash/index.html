@@ -2219,7 +2219,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v2.2 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v2.3 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2629,7 +2629,8 @@ var BANKS = [[/chase/,'Chase'],[/capital ?one|capitol ?one/,'Capital One'],[/wel
 var SHEETF = {};   /* spreadsheets seen this session, by path — kept in memory only, so 'Use as our budget' can read one */
 function isStatement(p, path, sheet){ if(p.ofx) return true; var b = bankOf(path + ' ' + (p.bankText||'')); if(sheet) return !!(b && p.hasDesc) || !!(p.hasDesc && p.postCol); return p.hasDesc !== false || !!b; }
 var SIGS = [['status,date,description,debit,credit','Citi'],['transaction date,post date,description,category,type,amount,memo','Chase'],['details,posting date,description,amount,type,balance','Chase'],['trans. date,post date,description,amount,category','Discover'],['posted date,reference number,payee,address,amount','Bank of America'],['transaction date,posted date,card no.,description,category,debit,credit','Capital One']];
-function bankOf(t){ t = String(t||'').toLowerCase(); var cu = /([a-z][a-z.&' ]{2,40}?) (federal )?credit union/.exec(t); if(cu && !/^(the|a|your|my)$/.test(cu[1].trim())) return cu[1].trim().replace(/\b\w/g, function(c){ return c.toUpperCase(); }) + ' Credit Union';
+function bankOf(t){ t = String(t||'').toLowerCase(); var cu = /([a-z][a-z.&' ]{2,40}?) (federal )?credit union/.exec(t); if(cu){ var cw = cu[1].trim().split(/\s+/), cut = 0; cw.forEach(function(w, i){ if(/[.\d]|^(statement|statements|activity|export|download|history|account|acct|stmt|for|from|of|and|the|a|your|my|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|share|draft|checking|savings)$/.test(w)) cut = i + 1; }); cu[1] = cw.slice(cut).join(' ') + (cu[2] ? ' federal' : ''); }
+  if(cu && cu[1] && !/^(the|a|your|my)$/.test(cu[1].trim())) return cu[1].trim().replace(/\b\w/g, function(c){ return c.toUpperCase(); }) + ' Credit Union';
   for(var j=0;j<SIGS.length;j++) if(t.indexOf(SIGS[j][0]) >= 0) return SIGS[j][1];
   for(var i=0;i<BANKS.length;i++) if(BANKS[i][0].test(t)) return BANKS[i][1]; return ''; }
 function last4Name(n){ var m = /[a-z]{3,}[ _\-]?(\d{4})(?!\d)/i.exec(String(n||'').replace(/\.[a-z0-9]+$/i,'')); return m && !/^(19|20)\d\d$/.test(m[1]) ? m[1] : ''; }
@@ -3285,7 +3286,7 @@ function setupSummary(){
     + '<button class="b primary full" id="suGo" onclick="suGo()">Looks right — bring in statements</button>');
 }
 function restartSetup(){ if(!confirm('Start setup over? Everything this app has read or been told so far is cleared from this device. Your files are not touched.')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; AF = null; render(); setupQ(0); }
-function suGo(){ db.setup = true; db.sq = SQ.length; db.ex = false; rebuildPlan(); db.tx.forEach(function(t){ if(t.cat === 'uncat' || (t.cat === 'xfer' && /autopay|auto pay|epay|online pmt|online payment/i.test(t.desc))) t.cat = guessCat(t.desc, t.amt, acct(t.a), t.bcat); }); save(); closeSheet(); view = null; render(); window.scrollTo(0,0); setTimeout(openImport, 250); }
+function suGo(){ db.setup = true; db.sq = SQ.length; db.ex = false; rebuildPlan(); db.tx.forEach(function(t){ if(t.cat === 'uncat' || (t.cat === 'xfer' && /autopay|auto pay|epay|online pmt|online payment/i.test(t.desc))) t.cat = guessCat(t.desc, t.amt, acct(t.a), t.bcat); }); save(); closeSheet(); view = null; render(); window.scrollTo(0,0); setTimeout(db.tx.length ? function(){ openAudit(); } : openImport, 250); }
 
 /* ── budgets: Part 1 is set from the statements; variable lines use their average; Part 2 is yearly ÷ 12 ── */
 function averages(){
@@ -3556,13 +3557,12 @@ function copyMoving(aid){ var a = acct(aid), mv = ((db.moved||{})[aid]) || {}, L
    once-a-year bills it can see — all on this device. Only the last 4 digits of an account are ever kept. ── */
 var AUTO = false;
 function autoScreen(){
-  openSheet('<div class="stepno">Before the questions</div><h3>Are your bank and card statements already saved?</h3>'
-    + '<p class="sub">If they are, I’ll read them first and fill in as much as I can: your accounts, your income, and the bills that come once or twice a year. Then you check it and change anything. It all happens on this device, and only the last 4 digits of an account are ever kept.</p>'
+  openSheet('<div class="stepno">Before the questions</div><h3>Let\u2019s gather your statements first</h3>'
+    + '<p class="sub">Pick every statement you have — bank, card, Venmo, PDFs or downloads. I\u2019ll read them all, then suggest your accounts, your income and the bills that come once or twice a year, one group at a time, for you to approve or change. The questions come after, already filled in. It all happens on this device, and only the last 4 digits of an account are ever kept.</p>'
     + '<div class="pick" style="grid-template-columns:1fr">'
-    + '<button class="on" onclick="mapStart()">Build our money map<small>recommended: one group at a time — banks, then cards, then investments, insurance and the rest; each account gets its own folder</small></button>'
-    + (canFolder() ? '<button onclick="autoGo(\'folder\')">Yes — read my whole folder<small>recommended on a computer: every file inside, and the folders inside it</small></button>' : '')
-    + '<button onclick="autoGo(\'files\')">Yes — I’ll pick the files<small>CSV, QFX, OFX or Excel downloads from the bank</small></button>'
-    + '<button onclick="oneStart()">Yes — ask me for one kind at a time<small>bank statements, then cards, then the rest; you point to the files for each</small></button>'
+    + '<button class="on" onclick="autoGo(\'' + (canFolder() ? 'folder' : 'files') + '\')">Gather all my files first<small>recommended · ' + (canFolder() ? 'pick your money folder; everything inside it is read' : 'in the folder, tap Select, then Select All, then Open — PDFs too') + '</small></button>'
+    + (canFolder() ? '<button onclick="autoGo(\'files\')">Pick the files instead<small>as many as you like, PDFs too</small></button>' : '')
+    + '<button onclick="mapStart()">Build our money map one account at a time<small>banks, then cards, investments, insurance and the rest</small></button>'
     + '<button onclick="autoGo(\'no\')">Not yet — just ask me the questions<small>you can bring statements in afterwards</small></button></div>'
     + '<button class="b full" onclick="folderGuide()">📁 How should I set up my folder?</button>'
     + '<button class="b ghost" style="width:100%;margin-top:8px" onclick="closeSheet();render()">Done for now</button>');
@@ -3596,7 +3596,7 @@ function guessAcct(g){
 function autoAcct(g){
   var G = guessAcct(g), type = g.forceType || G.type, nm = g.forceName || G.name, l4 = G.l4, bank = G.bank, R = g.rows;
   if(type === 'payapp'){ type = 'checking'; if(!/payment app/.test(nm)) nm = nm + ' (payment app)'; }
-  var a = { id:uid(), name:nm, type:type, last4:l4, hist:[], payMode: type === 'card' ? 'full' : undefined, autopay: type === 'card', found:1, bankless: !bank ? 1 : 0 };
+  var a = { id:uid(), name:nm, inst:bank || '', type:type, last4:l4, hist:[], payMode: type === 'card' ? 'full' : undefined, autopay: type === 'card', found:1, bankless: !bank ? 1 : 0 };
   setBal(a, g.bal != null && isFinite(g.bal) ? Math.abs(g.bal) : 0, g.asOf || today()); if(g.bal == null) a.balUnknown = 1;
   db.accts.push(a); var negs = R.filter(function(r){ return r.raw < 0; }).length; CUR.a = a.id; CUR.flip = negs >= R.length - negs;
 }
@@ -3918,6 +3918,9 @@ function openAudit(first){ var F = auditFind(), sc = mapScore(), h = '';
   if(F.stopped.length) h += '<h4>⏸️ Regular payments that stopped</h4><ul class="list">' + F.stopped.slice(0,8).map(function(g){ return '<li><span class="ds">' + esc(g.desc) + '<small>Paid ' + g.months + ' months, about ' + money(g.avg) + '; last on ' + shortDate(g.last.d) + '. Cancelled, moved to another account, or a statement missing?</small></span></li>'; }).join('') + '</ul>';
   var R = Object.keys(F.rx); if(R.length) h += '<h4>💊 Prescriptions and pharmacy</h4><ul class="list">' + R.map(function(k){ var L = F.rx[k], ms = {}; L.forEach(function(t){ ms[t.d.slice(0,7)] = (ms[t.d.slice(0,7)]||0) + t.amt; }); var M = Object.keys(ms).sort();
       return '<li><span class="ds">' + esc(L[0].desc) + '<small>' + M.map(function(m){ return monthName(m,true) + ' ' + money(ms[m],1); }).join(' · ') + '</small></span></li>'; }).join('') + '</ul><p class="sub">A month with no pharmacy line, for a medicine taken every month, is worth a look: a missed refill, or a different card.</p>';
+  var have = {}; db.accts.forEach(function(a){ have[mapOf(a)] = 1; }); if((db.policies||[]).length) have.ins = 1;
+  var gone = MAPG.filter(function(g){ return g.k !== 'own' && g.k !== 'pay' && !have[g.k]; });
+  if(gone.length) h += '<h4>➕ Not in your map yet</h4><p class="sub" style="margin:0 0 6px">Statements can\u2019t show these. Add any you have, or skip them.</p><ul class="list">' + gone.map(function(g){ return '<li><span>' + g.em + '</span><span class="ds">' + g.t + '<small>' + g.ask + '</small></span><button class="b small" style="flex:none" onclick="MAP={i:' + MAPG.indexOf(g) + '};mapStep()">Add</button></li>'; }).join('') + '</ul>';
   if(!F.miss.length && !U.length && !I.length && !F.stopped.length && !F.changed.length) h += '<div class="line ok">✓ Nothing missing that I can see.</div>';
   openSheet('<div class="stepno">' + (first ? 'Our money map · the check' : 'Is anything missing?') + '</div><h3>🔎 What’s missing</h3><p class="sub">Every account, month by month since January, plus anything paid that isn’t in your map.</p>' + h
     + '<div class="stickfoot">' + (first ? '<button class="b primary full" style="margin-top:0" onclick="mapOn()">On to the questions</button>' : '<button class="b primary full" style="margin-top:0" onclick="openMap()">Our money map</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button></div>'); }
