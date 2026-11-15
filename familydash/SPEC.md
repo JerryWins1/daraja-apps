@@ -233,3 +233,13 @@ Jerry: "You also need to be able to pick pdf files and read them." Then: "You ne
 - PDF statements are read on the device (pdf.js 3.11.174 from cdnjs, loaded the first time it's needed). A line that starts with a date and ends with an amount is a transaction. Where there's a running balance, the change in balance says which way the money went; otherwise the words do ("deposit", "payment – thank you", CR or a minus on a card). The ending or new balance and the statement's closing date set the account's balance. A scanned PDF (a picture) has no text, so it's named and set aside.
 - An iPhone or iPad cannot pick a folder from a website. Instead, in the Files app press and hold the folder and tap Compress, then pick the .zip. The app opens the zip on the device (JSZip 3.10.1) and reads everything in it, PDFs included. On a phone, each account's screen now has "Pick its folder" with that instruction.
 - A bill paid by autopay ("COMED ELECTRIC AUTOPAY") goes to the bill's own category, not to "moving between our accounts". A card or bank payment by autopay still counts as a move.
+
+## Addendum, 15 Nov (v2.3) — gather everything first
+
+Jerry: "I think you should gather all the files then read them so you can have information that answers the questions you ask so those parts can be suggested and then approve."
+
+- The setup screen now leads with "Gather all my files first". On a phone, the tip is: in the folder, tap Select, Select All, Open (PDFs and zips are fine). On a computer, you pick the money folder.
+- Everything is read first. Then one screen per kind (bank accounts, cards, payment apps, your own spreadsheets, PDFs with nothing readable) shows what was suggested, for approving or changing. Next comes the summary of accounts, income and yearly bills, then the questions, filled in where the statements answer them.
+- When setup is done, the money map's check opens. It shows the months still missing and a "Not in your map yet" list (investments, education funds, loans, insurance) for the things statements can't show.
+- The "one kind at a time" choice is gone from the first screen; the money map covers one-at-a-time.
+- A credit union's name taken from a file name no longer drags the file name along ("CTCU Statement Oct.pdf Community Trust Credit Union" is now "Community Trust Credit Union"), and "Navy Federal" keeps "Federal".
