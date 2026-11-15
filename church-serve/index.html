@@ -66,7 +66,27 @@
     function sbxCSS(){ if(document.getElementById('djSbxCSS') || !document.head) return; var st = document.createElement('style'); st.id = 'djSbxCSS';
       st.textContent = '@media print{#djSbx,#djSbxPop{display:none !important}}#djSbx{position:fixed;z-index:2147483001;display:flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:0;background:#5B3FA0;color:#fff;font:800 14px/1 -apple-system,system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;white-space:nowrap;box-sizing:border-box;transition:opacity .2s}#djSbx.djSbxTight{visibility:hidden;pointer-events:none}#djSbx.djSbxMini{width:44px;padding:0;justify-content:center}#djSbx.djSbxMini span+span{display:none}#djSbxPop{position:fixed;z-index:2147483002;left:8px;right:8px;max-width:360px;margin:0 auto;background:#fff;color:#1F2622;border:2px solid #5B3FA0;border-radius:16px;padding:12px 14px;font:15px/1.4 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);box-sizing:border-box}#djSbxPop b{color:#5B3FA0}#djSbxPop .djSbxRow{display:flex;gap:8px;margin-top:10px}#djSbxPop button{flex:1;font:inherit;font-weight:800;min-height:44px;border-radius:12px;cursor:pointer}';
       document.head.appendChild(st); }
-    function safeTop(){ try{ var p = document.createElement('div'); p.style.cssText = 'position:fixed;top:0;left:0;width:1px;visibility:hidden;padding-top:env(safe-area-inset-top)'; document.body.appendChild(p); var h = p.offsetHeight; p.remove(); return h; }catch(e){ return 0; } }
+    /* 15 Nov 2026 — found by the Store Manager chat driving Business Manager, traced here.
+       safeTop() used to probe the DOM on EVERY place(): append a hidden div to body, read its
+       height, remove it. place() runs several times a second, and the pill's own
+       MutationObserver in bar() watches body's children, so each probe triggered the next
+       place() — a loop that produced about 21 body mutations a second for as long as a test
+       copy was open. Every other house routine that waits 250-300 ms for the page to settle is
+       a clearTimeout debounce — dock(), yieldDock(), liftTip(), floatPad(), floors(),
+       inputFloor(), buttonInk(), backupHome() — so inside a test copy NONE of them ever ran:
+       measured 161 such timers cleared and 0 fired over a quiet 5 seconds, against 34 fired
+       and 2 cleared outside a test copy. What the testers saw was the round ? sitting over the
+       right half of the bottom tab bar, because the dock never got to lift it.
+       The inset only changes when the window does, so it is measured once and kept; the resize
+       handler in bar() throws the cached value away. Do not put a DOM write back in here. */
+    var SAFE_TOP = null;
+    function safeTop(){
+      if(SAFE_TOP !== null) return SAFE_TOP;
+      if(!document.body) return 0;   /* never cache a 0 measured before there is a body to measure in */
+      try{ var p = document.createElement('div'); p.style.cssText = 'position:fixed;top:0;left:0;width:1px;visibility:hidden;padding-top:env(safe-area-inset-top)'; document.body.appendChild(p); SAFE_TOP = p.offsetHeight; p.remove(); }
+      catch(e){ SAFE_TOP = 0; }
+      return SAFE_TOP;
+    }
     function obstacles(pill){
       /* everything the pill must not sit on, each with a kind: tap (a control), box (something floating), head (a title),
          txt (words), media (a picture). Only what is really on top counts — the page under an open sheet or the tour is not in the way. */
@@ -159,7 +179,7 @@
       b.style.top = '-200px'; b.style.left = '8px';
       b.onclick = pop;
       document.body.appendChild(b); place();
-      window.addEventListener('resize', function(){ lastPos = null; placeSoon(150); });
+      window.addEventListener('resize', function(){ SAFE_TOP = null; lastPos = null; placeSoon(150); });
       window.addEventListener('scroll', function(){ placeSoon(200); }, true);
       document.addEventListener('transitionend', function(e){ if(e.target && e.target.id !== 'djSbx') placeSoon(60); }, true);   /* a sheet that slides in changes no attribute when it arrives */
       document.addEventListener('animationend', function(){ placeSoon(60); }, true);
