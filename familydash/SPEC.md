@@ -204,3 +204,15 @@ Jerry: "read everything and then give a list… one group at a time… agree or 
 - **Way 1, read the whole folder, then check it.** After reading, the app shows one screen per kind — bank and credit union accounts, credit cards, payment apps, the family's own spreadsheets, PDFs — with its guess for each. Each account's name and kind can be changed, or marked "Not a bank account" to leave it out. Nothing is created until the last screen.
 - **Way 2, one kind at a time.** The app asks for bank statements, then savings, cards, Venmo or PayPal, and the budget spreadsheet in turn. Whatever is picked at each step is read as that kind, so nothing is guessed.
 - Sorting: the longest matching word now wins, and more streaming and phone names are known (Pure Flix and BritBox among them).
+
+## Addendum, 15 Nov (v2.0) — the money map
+
+Jerry: "ask for bank statements then ask for the bank name and … that folder. Then each month that is where the next month statement will be saved… Then go to credit cards, then investment folders then insurance… Allow for self defined folders and their types… open or closed… track things like prescriptions and recurring payments so they can be validated… do an audit of transactions and report on what's missing." Then: both a guided checklist and drag-and-drop.
+
+- **Build our money map** is the first choice on the setup screen. Eight groups, one at a time: banks and credit unions, credit cards, payment apps, investments and retirement, education funds, mortgage and loans, insurance policies, and something of your own (any account type, following every line or just the total).
+- Each account gets a bank or company name, an optional nickname and last 4, open or closed this year (with its last month), and, for totals-only accounts, today's total. Its folder is named for it: `Family Money / 1 Bank statements / <bank> <last 4>`. Files picked or dropped for it are read as that account, so nothing is guessed.
+- Each account shows one square per month since January (or since it opened, up to when it closed): green is in, red is missing. The map shows how complete the picture is, as a percentage.
+- **Read this month's statements** (on a computer) reads the whole Family Money folder and sends each file to the account whose folder it sits in.
+- **Is anything missing?** lists missing months with how to download them, payments to banks or cards not in the map, insurance paid with no policy listed, premiums checked against each policy, regular payments that went up (more than $1.99 and 5%) or stopped, and pharmacy spending month by month.
+- On a computer, a statement can be dragged onto an account row, or onto an account's own drop box.
+- Not built: direct connections to bank websites. The app reads files only; that is a decision for Jerry.
