@@ -2214,6 +2214,10 @@
   .dbt{ font:inherit; border-radius:18px; padding:12px 4px; text-align:center; font-weight:900; font-size:16px; border:1.5px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; } .dbt span{ display:block; font-size:24px; line-height:1.2; }
   .dbt.yes{ background:var(--ok); color:#fff; border-color:transparent; } .dbt.no{ color:var(--red); }
   .dcol.dragon{ outline:3px dashed var(--accent); }
+  .tree{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:10px 12px; font-size:15px; }
+  .tree .tr0{ font-size:17px; padding:2px 0 6px; } .tree .tr1{ padding:6px 0 2px 14px; border-left:2px solid var(--line); margin-left:8px; } .tree .tr1 small{ display:block; color:var(--soft); font-size:12px; font-weight:700; margin-left:24px; }
+  .tree .tr2{ padding:2px 0 2px 44px; border-left:2px solid var(--line); margin-left:8px; color:var(--soft); font-size:14px; } .tree .tr2.ok{ color:var(--ok); font-weight:800; } .tree .tr2.none{ color:#B9B2A6; }
+  .steps3 div{ background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:10px 12px 10px 46px; margin:8px 0; position:relative; font-size:15.5px; } .steps3 b:first-child{ position:absolute; left:12px; top:9px; width:24px; height:24px; border-radius:50%; background:var(--brand); color:#fff; text-align:center; line-height:24px; font-size:14px; }
   .dropbox{ margin-top:10px; border:2px dashed var(--line); border-radius:14px; padding:16px; text-align:center; font-weight:800; color:var(--soft); }
   [data-drop].dragon{ outline:3px dashed var(--accent); outline-offset:-3px; background:#FFF6E5; }
   .pill{ display:inline-block; font-size:12px; font-weight:800; border-radius:999px; padding:1px 8px; background:#ECE8DF; color:var(--soft); margin-left:4px; vertical-align:middle; }
@@ -2237,7 +2241,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v2.5.1 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v3.0 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2521,10 +2525,19 @@ function unzipList(list, cb){ var Z = list.filter(function(it){ return /\.zip$/i
         .then(next, function(){ alert('I could not open ' + it.file.name + '.'); next(); }); })(); }
   if(!Z.length) return cb(list); if(window.JSZip) return go();
   var sc = document.createElement('script'); sc.src = JSZIP_URL; sc.onload = go; sc.onerror = function(){ alert('Opening a zip needs the internet once. Try again when you are online.'); cb(rest); }; document.head.appendChild(sc); }
+var STRUCTSK = null;
 function takeList(list, chosen){
   if(!list._unz && list.some(function(it){ return /\.zip$/i.test(it.file.name); })){ openSheet('<h3>Opening the zip…</h3><p class="sub">One moment.</p>'); unzipList(list, function(L){ L._unz = 1; takeList(L, chosen); }); return; }
   if(ONE){ chosen = true; AUTO = true; }
   if(MAPA || ROUTE){ chosen = true; AUTO = false; }
+  if(STRUCT){ var keep = [], loose = 0, docs = {}, any = list.some(function(it){ return structOf(it.path); });
+    if(!any){ STRUCT = false; alert('I couldn\u2019t find the group folders (1 Bank accounts, 2 Credit cards…) inside that. I\u2019ll read the files and ask you about each one instead.'); }
+    else { list.forEach(function(it){ var st = structOf(it.path); if(!st){ loose++; return; }
+        if(st.g === 'ins' && st.acct){ db.policies = db.policies || []; if(!db.policies.some(function(p){ return p.sfolder === st.acct; })){ var co = (/(state farm|allstate|geico|progressive|usaa|farmers|liberty mutual|nationwide|travelers|erie|amica|mutual of omaha|northwestern mutual|new york life|metlife|prudential|aflac|genworth|lincoln|transamerica|john hancock|blue cross|aetna|cigna|humana|unitedhealth)/i.exec(st.acct) || [])[1] || '';
+            db.policies.push({ id:uid(), name:st.acct, company:co.replace(/\b\w/g, function(c){ return c.toUpperCase(); }), premium:0, every:'month', renew:'', sfolder:st.acct }); } docs['Insurance · ' + st.acct] = (docs['Insurance · ' + st.acct]||0) + 1; return; }
+        if(st.g === 'ins' || st.g === 'other'){ var f = st.acct || TREE.filter(function(t){ return t[0] === st.g; })[0][2]; docs[f] = (docs[f]||0) + 1; return; }
+        keep.push(it); });
+      STRUCTSK = { loose:loose, docs:docs }; save(); return takeList2(keep); } }
   if(!chosen){ var top = {}; list.forEach(function(it){ var p = String(it.path||'').split('/'); if(p.length >= 3) top[p[1]] = (top[p[1]]||0) + 1; });
     var names = Object.keys(top); if(names.length >= 2){ CHOOSE = { list:list, top:top }; return chooseFolders(); } }
   return takeList2(list);
@@ -2547,7 +2560,7 @@ function takeList2(list){   /* list: [{ file, path }] */
   list.forEach(function(it){ var f = it.file, nm = f.name, ext = (nm.split('.').pop()||'').toLowerCase();
     if(/^\./.test(nm)){ skip.other++; done(); return; }
     if(/(^|\/)(_?old(er)?( versions?)?|archive[sd]?|backups?|copies)(\/|$)/i.test(it.path || '')){ skip.old = (skip.old||0) + 1; done(); return; }
-    if(ext === 'pdf'){ var fp = String(it.path || nm).split('/'); if(!MAPA && hintOf(it.path) === 'doc' && fp.length > 1){ var fo = fp[fp.length-2]; skip.docs = skip.docs || {}; skip.docs[fo] = (skip.docs[fo]||0) + 1; done(); return; }
+    if(ext === 'pdf'){ var fp = String(it.path || nm).split('/'); if(!MAPA && !STRUCT && hintOf(it.path) === 'doc' && fp.length > 1){ var fo = fp[fp.length-2]; skip.docs = skip.docs || {}; skip.docs[fo] = (skip.docs[fo]||0) + 1; done(); return; }
       readPDF(f, function(p){ if(p && p.rows.length >= 2){ p.path = it.path || nm; out.push(p); } else skip.pdf.push(it.path || nm); done(); }); return; }
     if(ext === 'xlsx' || ext === 'xls'){ readSheet(f, function(p){ if(p && isStatement(p, it.path || nm, true)){ p.path = it.path || nm; out.push(p); } else { (skip.sheets = skip.sheets || []).push(it.path || nm); SHEETF[it.path || nm] = f; } done(); }); return; }
     if(ext === 'numbers' || ext === 'docx' || ext === 'doc' || ext === 'pages'){ (skip.sheets = skip.sheets || []).push(it.path || nm); done(); return; }
@@ -2599,11 +2612,17 @@ function srcKey(p){
 function prettyKey(k){ if(/^bank:/.test(k)){ var b = k.slice(5).split('|'); return b[0] + (b[1] ? ' card' : ''); } if(/^acct:/.test(k)){ var q = k.slice(5).split('|'); return (q.length > 1 ? q[0] + ' ••' + q[1] : 'Account ••' + q[0]); } var s = k.replace(/^(dir|name|acct):/,''); return s.replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
 function groupAndGo(list, skip){
   var G = {}, order = [];
+  if(STRUCT){ list.forEach(function(p){ var st = structOf(p.path); if(!st) return; var a = structAcct(st.g, st.acct || prettyKey(srcKey(p)), p);
+      if(a.track === 'total'){ if(p.bal != null && isFinite(p.bal) && (!a.asOf || a.balUnknown || (p.asOf || today()) >= a.asOf)){ a.hist = a.balUnknown ? [] : a.hist; delete a.balUnknown; setBal(a, Math.abs(p.bal), p.asOf || today()); } return; }
+      var k = 'acct:' + a.id; if(!G[k]){ G[k] = { key:k, name:a.name, files:[], rows:[], bal:null, asOf:null, last:'', forceA:a.id }; order.push(k); } var g = G[k]; g.files.push(p);
+      var lastD = p.rows.reduce(function(x,r){ return r.d > x ? r.d : x; }, ''); if(p.bal != null && (p.asOf || lastD) >= g.last){ g.bal = p.bal; g.asOf = p.asOf || lastD; g.last = p.asOf || lastD; } });
+    list = []; }
   list.forEach(function(p){ var k = srcKey(p); if(!G[k]){ G[k] = { key:k, name:prettyKey(k), files:[], rows:[], bal:null, asOf:null, last:'' }; order.push(k); } var g = G[k]; g.files.push(p);
     var lastD = p.rows.reduce(function(a,r){ return r.d > a ? r.d : a; }, ''); if(p.bal != null && (p.asOf || lastD) >= g.last){ g.bal = p.bal; g.asOf = p.asOf || lastD; g.last = p.asOf || lastD; } });
   order.forEach(function(k){ var g = G[k], max = {};   /* overlapping statements: keep each line as many times as the most any one file has it */
     g.files.forEach(function(p){ var c = {}; p.rows.forEach(function(r){ var x = r.d + '|' + r.raw + '|' + r.desc; c[x] = (c[x]||0) + 1; if(c[x] > (max[x]||0)){ max[x] = c[x]; g.rows.push(r); } }); }); });
   pending = order.map(function(k){ return G[k]; }); IMP.skip = skip; IMP.files = list.length; IMP.per = {};
+  if(STRUCT){ var sk2 = STRUCTSK || {}; skip.loose = sk2.loose || 0; skip.docs = Object.assign(skip.docs || {}, sk2.docs || {}); IMP.skip = skip; STRUCTSK = null; if(!pending.length){ afterImport(); return; } nextFile(); return; }
   if(MAPA){ var a0 = acct(MAPA), fp = String(((list[0]||{}).path)||'').split('/'); if(a0 && fp.length >= 2 && !a0.folder) a0.folder = fp[fp.length-2]; pending.forEach(function(g){ g.forceA = MAPA; }); if(!pending.length){ afterImport(); return; } nextFile(); return; }
   if(ROUTE){ IMP.unrouted = 0; pending.forEach(function(g){ var r = routeOf(g.files[0]); if(r) g.forceA = r; }); if(!pending.length){ afterImport(); return; } nextFile(); return; }
   if(ONE){ pending.forEach(function(g){ g.forceType = ONE.kind; }); if(!pending.length){ afterImport(); return; } nextFile(); return; }
@@ -2733,6 +2752,7 @@ function afterImport(){
     save(); render(); mapFiles(mid); return; }
   if(ROUTE){ var rn = IMP.added, ru = IMP.unrouted || 0; ROUTE = false; IMP = { added:0, skipped:0 }; save(); render(); toast(rn + ' new lines read' + (ru ? '; ' + ru + ' file group' + (ru===1?'':'s') + ' not in any account’s folder' : '') + '.'); openAudit(); return; }
   if(ONE){ var sk1 = IMP.skip || {}; ['pdf','sheets'].forEach(function(x){ ONE.skip[x] = (ONE.skip[x]||[]).concat(sk1[x]||[]); }); var n1 = IMP.added; IMP = { added:0, skipped:0 }; AUTO = false; ONE.done = ONE.done || {}; ONE.done[ONE.kind] = n1 + ' lines read'; save(); oneStep(); return; }
+  if(AUTO && STRUCT){ AUTO = false; var SKs = IMP.skip || {}; IMP = { added:0, skipped:0 }; save(); render(); fmDone(SKs); return; }
   if(AUTO){ AUTO = false; var SK = IMP.skip || {}; IMP = { added:0, skipped:0 }; autoFill(SK); return; }
   var I = IMP, msg = I.added + ' lines brought in' + (I.skipped ? ', ' + I.skipped + ' already here' : '') + '.'; IMP = { added:0, skipped:0 };
   view = null; render(); closeSheet();
@@ -3575,7 +3595,8 @@ function copyMoving(aid){ var a = acct(aid), mv = ((db.moved||{})[aid]) || {}, L
    question the app offers to read the folder, makes an account for each group of statements, and fills in the income and the
    once-a-year bills it can see — all on this device. Only the last 4 digits of an account are ever kept. ── */
 var AUTO = false;
-function autoScreen(){
+function autoScreen(){ fmStart(); }
+function autoScreenOld(){
   openSheet('<div class="stepno">Before the questions</div><h3>Let\u2019s gather your statements first</h3>'
     + '<p class="sub">Pick every statement you have — bank, card, Venmo, PDFs or downloads. I\u2019ll read them all, then suggest your accounts, your income and the bills that come once or twice a year, one group at a time, for you to approve or change. The questions come after, already filled in. It all happens on this device, and only the last 4 digits of an account are ever kept.</p>'
     + '<div class="pick" style="grid-template-columns:1fr">'
@@ -3833,7 +3854,7 @@ function deckSwipe(){ var el = document.getElementById('dtop'); if(!el || el.get
   Array.prototype.forEach.call(document.querySelectorAll('[data-dcol]'), function(b){ var col = b.getAttribute('data-dcol'); if(!/^(bank|card|pay)$/.test(col)) return;
     b.addEventListener('dragover', function(e){ e.preventDefault(); b.classList.add('dragon'); }); b.addEventListener('dragleave', function(){ b.classList.remove('dragon'); });
     b.addEventListener('drop', function(e){ e.preventDefault(); e.stopPropagation(); var i = +el.getAttribute('data-g'), g = REV.groups[i]; g.choice = col === 'card' ? 'card' : col === 'pay' ? 'payapp' : 'checking'; g.home = col; deckMark(); reviewStep(); }); }); }
-function mapBack(){ if(REV) reviewStep(); else mapStep(); }
+function mapBack(){ if(ONESK) fmDone(ONESK); else if(REV) reviewStep(); else mapStep(); }
 function reviewDone(){ var R = REV; REV = null; pending = R.groups.filter(function(g){ return (g.choice || kindOf(g)) !== 'skip'; }); pending.forEach(function(g){ g.forceType = g.choice || kindOf(g); }); IMP.skip = R.skip;
   if(!pending.length){ afterImport(); return; } nextFile(); }
 
@@ -3925,6 +3946,7 @@ function mapSave(k, id){ var g = mapGroup(k), inst = document.getElementById('mp
   a.closed = document.getElementById('mpCl').checked; a.closedM = a.closed ? document.getElementById('mpCM').value : ''; a.openM = document.getElementById('mpOM').value || '';
   var bE = document.getElementById('mpB'); if(bE && bE.value.trim() !== ''){ setBal(a, Math.abs(num(bE.value))); delete a.balUnknown; } else if(!id){ setBal(a, 0); a.balUnknown = 1; }
   if(!id) db.accts.push(a); save(); render();
+  if(ONESK){ fmDone(ONESK); return; }
   if(a.track === 'lines') mapFiles(a.id); else { toast('Saved.'); mapBack(); } }
 function mapFiles(id){ var a = acct(id); if(!a) return mapStep(); var g = mapGroup(mapOf(a)), miss = mapMissing(a), done = MDONE[id] || '';
   if(!tracksLines(a)) return mapAdd(mapOf(a), id);
@@ -3954,7 +3976,7 @@ function mapPolicy(id){ var P = db.policies = db.policies || [], p = id ? P.filt
 function mapPolicySave(id){ var n = document.getElementById('poN').value.trim(); if(!n){ alert('What does it cover?'); return; }
   var P = db.policies = db.policies || [], p = id ? P.filter(function(x){ return x.id === id; })[0] : { id:uid() };
   p.name = n; p.company = document.getElementById('poC').value.trim(); p.premium = Math.abs(num(document.getElementById('poP').value)) || 0; p.every = document.getElementById('poE').value; p.renew = document.getElementById('poR').value || '';
-  if(!id) P.push(p); save(); if(REV) reviewStep(); else if(MAP) mapStep(); else openAudit(); }
+  if(!id) P.push(p); save(); if(ONESK) fmDone(ONESK); else if(REV) reviewStep(); else if(MAP) mapStep(); else openAudit(); }
 
 /* each month: one tap reads the whole money folder and sends each file to the account whose folder it is in */
 function mapRefresh(){ ROUTE = true; if(FS.h && window.showDirectoryPicker) checkFolder(); else if(canFolder()) document.getElementById('dirIn').click(); else { ROUTE = false; alert('On a phone or tablet, open each account in the money map and pick its new files.'); openMap(); } }
@@ -4128,11 +4150,11 @@ function findings(){ var F = [], T = spendTx(), all = db.tx, inM = {};
       yes:function(){ var a = { id:uid(), name:'Mortgage · ' + mg, inst:mg, type:'mortgage', track:'total', mapG:'loan', hist:[] }; setBal(a, 0); a.balUnknown = 1; db.accts.push(a); } }); }
   var IN = /insur|geico|state farm|allstate|progressive|usaa|farmers ins|liberty mutual|nationwide|travelers|erie ins|amica|mutual of omaha|northwestern mut|new york life|metlife|prudential|aflac|genworth|lincoln fin|transamerica|john hancock/i, ins = {};
   all.forEach(function(t){ if(t.amt > 0 && IN.test(t.desc) && !/health ins|medicare/i.test('')){ var k = bankOf(t.desc) || prettyKey('name:' + (mkey(t.desc) || t.desc)); (ins[k] = ins[k] || []).push(t); } });
-  var IK = Object.keys(ins).filter(function(k){ return !(db.policies||[]).some(function(p){ return (p.company||'').toLowerCase().indexOf(k.toLowerCase().split(' ')[0]) >= 0; }); });
+  var IK = Object.keys(ins).filter(function(k){ return !(db.policies||[]).some(function(p){ return p.premium && ((p.company || p.name)||'').toLowerCase().indexOf(k.toLowerCase().split(' ')[0]) >= 0; }); });
   if(IK.length) F.push({ key:'map', em:'🛡️', t:'Your insurance', why:'Premiums paid from your accounts. Each becomes a policy in the map, and each payment is checked against it.', ev:IK.map(function(k){ return ins[k][ins[k].length-1]; }),
     body:IK.slice(0,6).map(function(k){ var L = ins[k], mm = {}; L.forEach(function(t){ mm[t.d.slice(0,7)] = 1; }); var n = Object.keys(mm).length, ev = n >= 6 ? 'month' : n >= 3 ? 'quarter' : n === 2 ? 'half year' : 'year';
       return '<div class="dchips" data-fi="' + esc(k) + '" data-fe="' + ev + '" data-fa="' + L[L.length-1].amt + '"><span class="dchip on" style="cursor:default">' + esc(k) + ' · ' + money(L[L.length-1].amt) + ' a ' + ev + '</span>' + ['Home','Car','Life','Health','Other'].map(function(w, j){ return '<button class="dchip' + (j === 0 && /home|homeowner/i.test(L[0].desc) || j === 1 && /auto|car|geico|progressive/i.test(L[0].desc) || j === 2 && /life/i.test(L[0].desc) ? ' on' : '') + '" data-k="' + w + '" onclick="fPick(this)">' + w + '</button>'; }).join('') + '</div>'; }).join(''),
-    yes:function(){ db.policies = db.policies || []; Array.prototype.forEach.call(document.querySelectorAll('[data-fi]'), function(r){ var on = r.querySelector('button.on'); db.policies.push({ id:uid(), name:on ? on.getAttribute('data-k') : r.getAttribute('data-fi'), company:r.getAttribute('data-fi'), premium:+r.getAttribute('data-fa'), every:r.getAttribute('data-fe'), renew:'' }); }); } });
+    yes:function(){ db.policies = db.policies || []; Array.prototype.forEach.call(document.querySelectorAll('[data-fi]'), function(r){ var on = r.querySelector('button.on'), w = r.getAttribute('data-fi').toLowerCase().split(' ')[0], ex = db.policies.filter(function(p){ return !p.premium && ((p.company||'') + ' ' + p.name).toLowerCase().indexOf(w) >= 0; })[0]; if(ex){ ex.premium = +r.getAttribute('data-fa'); ex.every = r.getAttribute('data-fe'); if(!ex.company) ex.company = r.getAttribute('data-fi'); return; } db.policies.push({ id:uid(), name:on ? on.getAttribute('data-k') : r.getAttribute('data-fi'), company:r.getAttribute('data-fi'), premium:+r.getAttribute('data-fa'), every:r.getAttribute('data-fe'), renew:'' }); }); } });
   return F; }
 function fName(d, re){ var m = re.exec(d), v = (m ? m[1] : d.split(/\s+/).slice(0,3).join(' ')).replace(/[#*]\S*|\d{3,}/g,'').trim(); return v.toLowerCase().replace(/\b\w/g, function(c){ return c.toUpperCase(); }).replace(/\bCpa\b/,'CPA'); }
 function fPick(b){ Array.prototype.forEach.call(b.parentNode.querySelectorAll('button'), function(x){ x.classList.remove('on'); }); b.classList.add('on'); }
@@ -4147,6 +4169,64 @@ function findStep(){ var F = FIND, c = F.cards[F.i]; if(!c){ var n = F.yes; FIND
 function findYes(){ var c = FIND.cards[FIND.i]; try{ c.yes(); }catch(e){} if(c.key !== 'map') db.ansd[c.key] = 1; FIND.yes++; save(); deckFly(1, function(){ FIND.i++; findStep(); }); }
 var NOANS = { rule:function(){ db.rule = false; }, homes:function(){ db.homes = db.homes && db.homes.length ? db.homes : ['Our home']; }, setAside:function(){ db.setAside = false; }, e529:function(){ db.uses529 = false; }, biz:function(){ db.bizCard = false; } };
 function findNo(){ var c = FIND.cards[FIND.i]; if(NOANS[c.key]){ NOANS[c.key](); db.ansd[c.key] = 1; save(); } deckFly(-1, function(){ FIND.i++; findStep(); }); }
+
+/* ── v3.0 · one folder (Jerry, 15 Nov: "Gather all the files… just the one folder. Maybe give the user a folder structure
+   maybe graphically then get the main folder. Then you will have everything you need. Then structure the question and
+   naming process accordingly"). The family keeps one Family Money folder laid out as the picture shows; inside each
+   group, one folder per account, named for it. The app reads that one folder: the group folder says what kind of
+   account it is and the account folder gives its name and last 4, so nothing is guessed. ── */
+var TREE = [
+  ['bank','🏦','1 Bank accounts','one folder per account','Community Trust Checking 1234',/^\d*\s*(bank|checking|saving|credit union|share)/i],
+  ['card','💳','2 Credit cards','one folder per card','Capital One 4417',/^\d*\s*(credit ?cards?|cards?)$/i],
+  ['pay','📲','3 Payment apps','Venmo, PayPal','Venmo',/^\d*\s*(payment|venmo|paypal)/i],
+  ['inv','📈','4 Investments and retirement','statements; only the total is kept','Fidelity IRA',/^\d*\s*(invest|retire|brokerage|401|ira|pension)/i],
+  ['edu','🎓','5 Education funds','529s; only the total is kept','Emma 529',/^\d*\s*(education|529|college)/i],
+  ['loan','🏡','6 Loans and mortgage','only the balance owed is kept','Mortgage Mr Cooper',/^\d*\s*(loans?|mortgage)/i],
+  ['ins','🛡️','7 Insurance','one folder per policy','Home State Farm',/^\d*\s*(insurance|polic)/i],
+  ['other','📁','8 Other papers','taxes, wills, deeds','Taxes 2025',/^\d*\s*(other|papers|tax|documents)/i]
+];
+function treeHTML(found){ return '<div class="tree">' + '<div class="tr0">📁 <b>Family Money</b></div>' + TREE.map(function(t){ var kids = found ? (found[t[0]] || []) : null;
+    return '<div class="tr1">' + t[1] + ' <b>' + esc(t[2]) + '</b><small>' + esc(t[3]) + '</small></div>'
+      + (kids ? kids.map(function(k){ return '<div class="tr2 ok">📁 ' + esc(k) + '</div>'; }).join('') || '<div class="tr2 none">— none —</div>' : '<div class="tr2">📁 <i>' + esc(t[4]) + '</i></div>'); }).join('') + '</div>'; }
+function fmStart(){ db.autoAsked = 1; save();
+  openSheet('<div class="stepno">Setting up · step 1 of 3</div><h3>Put everything in one folder</h3><p class="sub">Make one folder called <b>Family Money</b>, laid out like this. Inside each group, make one folder for each account, named for it — the bank and the last 4 digits. Then drop that account’s statements in it: PDFs or downloads, any months.</p>'
+    + treeHTML() + '<p class="sub" style="margin-top:10px">The grey names are examples. The folder names become the account names, so name them the way you want them shown.</p>'
+    + '<button class="b full" onclick="fmTemplate()">⬇️ Download this folder, ready to fill</button>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmGet()">My folder is ready</button><button class="b ghost" style="width:100%" onclick="autoScreenOld()">Other ways to start</button></div>'); }
+function fmTemplate(){ function go(){ var z = new JSZip(), root = z.folder('Family Money');
+    TREE.forEach(function(t){ root.folder(t[2]).file('Read me.txt', 'Make one folder in here for each ' + (t[0] === 'ins' ? 'policy' : 'account') + ', named for it — for example: ' + t[4] + '\nThen put its statements inside: PDF, CSV, QFX or Excel, any months.\n'); });
+    z.generateAsync({ type:'blob' }).then(function(b){ var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'Family Money.zip'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      toast(canFolder() ? 'Saved to Downloads. Open it to get the folder.' : 'Saved to Files → Downloads. Tap it there and it opens into the folder.'); }); }
+  if(window.JSZip) return go(); var sc = document.createElement('script'); sc.src = JSZIP_URL; sc.onload = go; sc.onerror = function(){ alert('This needs the internet once. Try again when you are online.'); }; document.head.appendChild(sc); }
+function fmGet(){ openSheet('<div class="stepno">Setting up · step 2 of 3</div><h3>Now give me the Family Money folder</h3>'
+    + (canFolder() ? '<p class="sub">Pick the Family Money folder itself. Everything inside it is read, on this device.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="AUTO=true;STRUCT=true;pickFolder()">Pick the Family Money folder</button><button class="b ghost" style="width:100%" onclick="fmStart()">Back</button></div>'
+      : '<p class="sub">An iPhone can only hand a website single files, not a folder — so wrap the folder into one file first. It takes two taps and changes nothing inside.</p>'
+        + '<div class="steps3"><div><b>1</b>Open the <b>Files</b> app and find <b>Family Money</b>.</div><div><b>2</b>Press and hold it, and tap <b>Compress</b>. A <b>Family Money.zip</b> appears next to it.</div><div><b>3</b>Come back here, tap the button below, and pick <b>Family Money.zip</b>.</div></div>'
+        + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="AUTO=true;STRUCT=true;document.getElementById(\'fileIn\').click()">Pick Family Money.zip</button><button class="b ghost" style="width:100%" onclick="fmStart()">Back</button></div>')); }
+var STRUCT = false;
+/* where a file sits: the group folder and the account folder inside it */
+function structOf(path){ var P = String(path||'').split('/').slice(0,-1);
+  for(var i=0;i<P.length;i++) for(var j=0;j<TREE.length;j++) if(TREE[j][5].test(P[i].trim())){ var acctF = P[i+1] || ''; return { g:TREE[j][0], acct:acctF.trim() }; }
+  return null; }
+function structType(g, n){ if(g === 'bank') return /saving|money market/i.test(n) ? 'savings' : 'checking'; if(g === 'card') return 'card'; if(g === 'pay') return 'checking';
+  if(g === 'inv') return /ira|401|403|retire|pension|roth|annuit/i.test(n) ? 'retire' : 'invest'; if(g === 'edu') return 'college'; if(g === 'loan') return /mortgage|home loan/i.test(n) ? 'mortgage' : /equity|heloc/i.test(n) ? 'heloc' : 'loan'; return 'otherA'; }
+function structAcct(g, folder, sample){ var l4 = (/(\d{4})\D*$/.exec(folder) || [])[1] || '', nm = folder.replace(/[\s_-]*\(?\d{4}\)?\s*$/,'').trim() || (sample && guessAcct(sample).name) || 'Account';
+  var have = db.accts.filter(function(a){ return a.sfolder === folder && a.mapG === g; })[0]; if(have) return have;
+  var type = structType(g, folder), a = { id:uid(), name:nm + (g === 'pay' && !/payment app/i.test(nm) ? ' (payment app)' : ''), inst:bankOf(folder) || nm, type:type, last4:l4, hist:[], mapG:g, sfolder:folder, folder:folder, track: /^(bank|card|pay)$/.test(g) ? 'lines' : 'total', found:1 };
+  if(type === 'card'){ a.payMode = 'full'; a.autopay = true; } setBal(a, 0); a.balUnknown = 1; db.accts.push(a); return a; }
+function fmDone(SK){ var found = {};
+  db.accts.forEach(function(a){ var g = a.mapG || mapOf(a); (found[g] = found[g] || []).push(a.sfolder || a.name); });
+  (db.policies||[]).forEach(function(p){ (found.ins = found.ins || []).push(p.name + (p.company && p.company !== p.name ? ' · ' + p.company : '')); });
+  Object.keys((SK && SK.docs) || {}).forEach(function(f){ (found.other = found.other || []).push(f); });
+  var rows = TREE.map(function(t){ var A = t[0] === 'ins' ? [] : db.accts.filter(function(a){ return (a.mapG || mapOf(a)) === t[0]; }); if(!A.length) return '';
+    return '<h4 style="margin:12px 0 4px">' + t[1] + ' ' + esc(t[2].replace(/^\d+\s*/,'')) + '</h4><ul class="list">' + A.map(function(a){ return '<li class="tap" onclick="mapAdd(\'' + (a.mapG || mapOf(a)) + '\',\'' + a.id + '\')"><span class="ds">' + esc(acctLabel(a)) + (a.closed ? ' <span class="pill">closed</span>' : '') + '<small>' + strip(a) + (tracksLines(a) ? ' · ' + db.tx.filter(function(x){ return x.a === a.id; }).length + ' lines' : '') + '</small></span><span class="amt" style="font-size:13px;color:var(--soft)">tap to change</span></li>'; }).join('') + '</ul>'; }).join('');
+  ONESK = SK;
+  openSheet('<div class="stepno">Setting up · step 3 of 3</div><h3>Here’s what your folder holds</h3><p class="sub">Each account is named from its folder. Tap one to change its name or kind, or to mark it closed.</p>' + rows
+    + ((db.policies||[]).length ? '<h4 style="margin:12px 0 4px">🛡️ Insurance</h4><ul class="list">' + db.policies.map(function(p){ return '<li class="tap" onclick="mapPolicy(\'' + p.id + '\')"><span class="ds">' + esc(p.name) + '<small>' + esc(p.company || '') + (p.premium ? ' · ' + money(p.premium) + ' a ' + p.every : ' · premium found from payments next') + '</small></span></li>'; }).join('') + '</ul>' : '')
+    + ((SK && SK.loose) ? '<p class="sub" style="margin-top:10px">' + SK.loose + ' file' + (SK.loose===1?' was':'s were') + ' outside the group folders and left alone.</p>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmOn()">Looks right — next</button></div>'); }
+var ONESK = null;
+function fmOn(){ var SK = ONESK || {}; ONESK = null; STRUCT = false; autoFill(SK); }
 
 /* For the store's videos (shop/watch.html): show the example family without touching anyone's real month.
    The player's tourSet() keeps the example in a layer over this window's storage, so nothing a video does is saved. */
