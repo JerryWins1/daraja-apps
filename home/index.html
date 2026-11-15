@@ -1246,9 +1246,75 @@
     try{ var r = await fetch('https://jerrywins1.github.io/daraja-apps/control/ai.json?cb=' + Math.floor(Date.now()/600000)); AI_CFG = await r.json(); }catch(e){ AI_CFG = {}; }
     return AI_CFG || {};
   }
+  /* ── one sheet, every sender ─────────────────────────────────────
+     15 Nov 2026, Jerry's decision, brought over by the My Circle chat: the Daraja door must
+     show the words before it sends, like every other AI path already did.
+
+     Until today djAI.ask had two senders with two different manners. viaDaraja() put up a
+     "Thinking — a few seconds." sheet and POSTed the prompt straight to Jerry's Worker: no
+     preview, no way out. The external-assistant path showed the one-line preview, a "see the
+     words" button over the full text, the My Circle tick box and a cancel. And viaDaraja()
+     runs FIRST, so the quieter of the two was the one that would get used.
+
+     It mattered most where a prompt carries a real person. My Circle's giftFor() builds
+     "three thoughtful birthday gift ideas for Eli, my grandchild", and My Circle is sold on
+     the promise that you see the exact words an AI would read about you before you send
+     them. Nothing was leaking — control/ai.json's endpoint is still "", so viaDaraja()
+     returned null before it did anything — but the hole was waiting for the day the door is
+     switched on.
+
+     So the sheet is ONE function now and both senders call it. One and not two because this
+     file has already paid for that lesson: copies of a rule are how the rule drifts. If you
+     ever add a third sender, call this; do not write a third sheet.
+
+     It resolves false when the person backs out, and true once o.prompt holds what they
+     agreed to send — they may have edited it in the box, and the My Circle tick box is
+     applied here, so what was on screen is what goes.
+
+     opt.circle === false leaves My Circle out of the sheet entirely, and that is what the
+     door passes. The door has never sent the circle summary (path 1 wraps the prompt with
+     withCircle(), path 3 adds it only if the box is ticked, the door sent o.prompt raw), and
+     a tick box that defaults to ON would have quietly started sending it. Showing the words
+     was the decision; sending MORE of them was not. So on the door path the words on screen
+     are byte for byte the words that are POSTed, which is the only thing that makes a
+     preview worth having. */
+  function confirmWords(o, opt){
+    opt = opt || {};
+    return new Promise(function(done){
+      var LINK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
+      var short = String(o.prompt).replace(/\s+/g, ' ').trim();
+      if(short.length > 110) short = short.slice(0, 108) + '\u2026';
+      var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
+      var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
+        + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+        + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
+           : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
+        + '<button type="button" id="djAIGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">' + esc(opt.go || 'Send it \u2192') + '</button>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px">'
+        + (opt.alt ? '<button type="button" id="djAISw" style="' + LINK + '">' + esc(opt.alt) + '</button>' : '<span></span>')
+        + '<button type="button" id="djAIX" style="' + LINK + '">cancel</button></div>');
+      b.querySelector('#djAIQ').value = o.prompt;
+      b.querySelector('#djAIShow').onclick = function(){ var t = b.querySelector('#djAIQ'); t.style.display = ''; this.style.display = 'none'; };
+      b.querySelector('#djAIGo').onclick = function(){
+        var cb = b.querySelector('#djAICircle');
+        if(cb){ try{ localStorage.setItem('dj_circle_include', cb.checked ? '1' : '0'); }catch(e){} }
+        o.prompt = (cb && cb.checked) ? (djCircle.summary() + '\n\n' + b.querySelector('#djAIQ').value) : b.querySelector('#djAIQ').value;
+        closeAISheet(); done(true);
+      };
+      var sw = b.querySelector('#djAISw');
+      if(sw) sw.onclick = function(){ closeAISheet(); done(false); if(opt.onAlt) opt.onAlt(); };
+      b.querySelector('#djAIX').onclick = function(){ closeAISheet(); done(false); };
+    });
+  }
+  /* not null: null from viaDaraja means the door failed and the next path should try.
+     This means the person read the words and said no, and nothing else should ask again. */
+  var AI_CANCELLED = { cancelled: true };
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
+    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false });
+    if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
       var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
@@ -1336,25 +1402,25 @@
       var local = await builtIn(withCircle(o, o.prompt));
       if(local){ deliver(o, local); return; }
       var viaD = await viaDaraja(o);
+      if(viaD === AI_CANCELLED) return;   /* they read the words and backed out. Cancel means cancel — falling through to the
+                                             next sender would put the same words back on screen under a different
+                                             name, which reads as nagging and is a second chance to send by accident.
+                                             The external path's own cancel has always ended the ask; same gesture,
+                                             same meaning. A door that FAILS still returns null and still falls through. */
       if(viaD){ deliver(o, viaD); return; }
       var k = aiChoice();
       if(!k){ pickAssistant(function(){ djAI.ask(o); }); return; }
       if(k === 'none'){ pickAssistant(function(){ djAI.ask(o); }); return; }   /* v62: the picker itself is the place to choose — no alert pointing elsewhere */
       var who = ASSISTANTS[k].name;
-      /* show what will be sent, in one line — the full words only if asked for */
-      var short = String(o.prompt).replace(/\s+/g,' ').trim(); if(short.length > 110) short = short.slice(0, 108) + '…';
-      var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Ask ' + who) + '</div>'
-        + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(who) + '</b>: <span id="djAIShort">“' + esc(short) + '”</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
-        + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
-        + ((o.circle !== false && djCircle.summary()) ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
-           : (o.circle !== false && !djCircle.get() ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once →</a></p>' : ''))
-        + '<button type="button" id="djAIGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Open ' + esc(who) + ' →</button>'
-        + '<div style="display:flex;justify-content:space-between;margin-top:8px"><button type="button" id="djAISw" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">different AI</button><button type="button" id="djAIX" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
-      b.querySelector('#djAIQ').value = o.prompt;
-      b.querySelector('#djAIShow').onclick = function(){ var t = b.querySelector('#djAIQ'); t.style.display = ''; this.style.display = 'none'; };
-      b.querySelector('#djAIGo').onclick = function(){ var cb = b.querySelector('#djAICircle'); if(cb){ try{ localStorage.setItem('dj_circle_include', cb.checked ? '1' : '0'); }catch(e){} } o.prompt = (cb && cb.checked) ? (djCircle.summary() + '\n\n' + b.querySelector('#djAIQ').value) : b.querySelector('#djAIQ').value; o.who = who; closeAISheet(); openAssistant(o, function(){ if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); }); };
-      b.querySelector('#djAISw').onclick = function(){ closeAISheet(); pickAssistant(function(){ djAI.ask(o); }); };
-      b.querySelector('#djAIX').onclick = function(){ closeAISheet(); };
+      /* the same sheet the door uses — see confirmWords above. This path used to build its
+         own copy of it here; that copy was the only one of the two that showed the words,
+         which is how the door came to be the quiet one. */
+      var okx = await confirmWords(o, { who: who, title: (o.title || 'Ask ' + who),
+        go: 'Open ' + who + ' \u2192', alt: 'different AI',
+        onAlt: function(){ pickAssistant(function(){ djAI.ask(o); }); } });
+      if(!okx) return;
+      o.who = who;
+      openAssistant(o, function(){ if(o.onResult) setTimeout(function(){ pasteBack(o); }, 600); });
     },
     choose: function(){ pickAssistant(); },
     which: aiChoice,
