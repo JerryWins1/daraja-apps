@@ -1765,6 +1765,12 @@ const APPS = {
   name:'Pit Wall', em:'🏁', sub:'your racing league, run for you', cat:'off', off:'personal — Jerry’s own racing league, not for sale', price:'$9 per season you play — nothing renews', testing:true, video:true,
   tag:'Picks, deadlines, scoring and standings for your friends’ fantasy racing league, done the same way every race. The commissioner finally gets to watch. Pay only for the seasons you play; nothing renews by itself.',
   try:BASE+'f1/?test=1',
+  /* These videos cannot pass shop/checkvideos.js from a cloud chat, and never will.
+     api.jolpi.ca is blocked there, so the calendar never arrives and .weekend,
+     #view .tablewrap and the Test drive button are never built — which is the only
+     reason the overview's steps 3 and 6 and the first-time walkthrough's 10, 14 and 15
+     fail. Not a video fault and not an app fault; on a phone every pointer lands.
+     See "What a cloud session cannot reach" in CLAUDE.md. Measured 15 Nov 2026. */
   
   
   extra:{
