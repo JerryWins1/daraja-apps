@@ -254,3 +254,21 @@ Jerry: "something a little more graphical, like columns and options to touch… 
 - ✎ Change opens chips: the kind of account (Checking, Savings, Credit card, Venmo / PayPal), Still open or Closed this year, and a name picked from the banks found in the files, with typing only as a fallback. Closed this year marks the account closed as of its last month.
 - Investments, 529s, loans and insurance get an "ask" card each, with ＋ Add one or "We don't have any". Spreadsheets get "Use as our budget" or "Leave it".
 - On a laptop, a card can also be dragged onto the Banks, Cards or Venmo column.
+
+## Addendum, 15 Nov (v2.5) — what the statements already answer
+
+Jerry: "if you would read the bank statements you would know the answers to the questions… gather all the folders by type then analyze them then fill in the details."
+
+After the accounts are checked, a second deck called "Found in your statements" shows each answer the statements suggest, with the lines that show it. Yes fills in the setup question, and that question is skipped later. No leaves it to be asked; for a yes/no question, No is itself the answer.
+- **Two homes:** more than one power or gas company paid month after month. The card asks for a name for each home.
+- **Set-aside savings:** a transfer to savings in 3 or more months.
+- **Spending that goes up and down:** categories whose months vary by more than about a third. Each is a chip, ticked, showing its low and high.
+- **Helping someone:** Zelle, Venmo, Cash App or PayPal sent to the same person, but not every month. Each is marked a gift, a loan, or not help.
+- **A 529 paying costs back:** money coming in from a 529.
+- **Business on a personal card:** office supplies, Intuit, web hosting and the like.
+- **Budget under income:** average income against average spending, with the gap or the room to spare.
+- **The amount to question:** set above almost all charges that aren't regular bills.
+- **CPA and advisor:** names taken from fees paid to them.
+- **The money map:** an investment account where money goes to Fidelity, Vanguard and the like; a mortgage from its payments; insurance policies, with premium and how often, from what is paid.
+
+A bill paid by autopay is sorted again once the categories exist, so it isn't left as a transfer. The first question shown says how many were answered from the statements.
