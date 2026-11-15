@@ -2219,7 +2219,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v2.0.1 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v2.1 · 2026-11-15 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2695,7 +2695,9 @@ function takeFile(){
   save(); nextFile();
 }
 function afterImport(){
-  if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped; MAPA = null; IMP = { added:0, skipped:0 }; if(MAP){ MAP.done = MAP.done || {}; MAP.done[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : ''); } else toast(mn + ' lines read.'); save(); render(); mapFiles(mid); return; }
+  if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
+    MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' was':'s were') + ' not read — download CSV or QFX from the bank instead' : '');
+    save(); render(); mapFiles(mid); return; }
   if(ROUTE){ var rn = IMP.added, ru = IMP.unrouted || 0; ROUTE = false; IMP = { added:0, skipped:0 }; save(); render(); toast(rn + ' new lines read' + (ru ? '; ' + ru + ' file group' + (ru===1?'':'s') + ' not in any account’s folder' : '') + '.'); openAudit(); return; }
   if(ONE){ var sk1 = IMP.skip || {}; ['pdf','sheets'].forEach(function(x){ ONE.skip[x] = (ONE.skip[x]||[]).concat(sk1[x]||[]); }); var n1 = IMP.added; IMP = { added:0, skipped:0 }; AUTO = false; ONE.done = ONE.done || {}; ONE.done[ONE.kind] = n1 + ' lines read'; save(); oneStep(); return; }
   if(AUTO){ AUTO = false; var SK = IMP.skip || {}; IMP = { added:0, skipped:0 }; autoFill(SK); return; }
@@ -3028,7 +3030,9 @@ function notices(m){
   var e = T.filter(function(t){ return t.cat === 'edu529'; }); if(e.length) N.push({ k:'tax529:' + m, em:'🧾', t:'Tax flag: ' + money(e.reduce(function(a,t){ return a + t.amt; },0),1) + ' of school costs covered by the 529 this month. A question for ' + (db.cpa ? esc(db.cpa) : 'your CPA') + ' at tax time.', go:'openList(\'edu529\')' });
   aheadSoon(14).forEach(function(it){ N.push({ k:'due:' + it.id + ':' + it.due, em:'⏰', t:'Due ' + shortDate(it.due) + ': <b>' + esc(it.n) + '</b>' + (num(it.amt) ? ', ' + money(num(it.amt),1) : '') + ' (from Ahead of It).', go:'openHome()' }); });
   var unkB = db.accts.filter(function(a){ return !a.closed && a.balUnknown; }); if(unkB.length) N.push({ k:'unkbal:' + unkB.length + ':' + thisMonth(), em:'❔', t:'Balance unknown for ' + unkB.map(function(a){ return esc(acctLabel(a)); }).join(', ') + '. Type today’s balance, and net worth includes it.', go:'openBalances()', btn:'Update' });
-  var mm = db.accts.filter(function(a){ return !a.notPersonal && mapMissing(a).length; }); if(mm.length && !db.ex) N.push({ k:'mapmiss:' + thisMonth() + ':' + mm.length, em:'📅', t:'Statements missing for ' + mm.map(function(a){ return esc(acctLabel(a)); }).slice(0,3).join(', ') + (mm.length > 3 ? ' and ' + (mm.length - 3) + ' more' : '') + '.', go:'openAudit()', btn:'See' });
+  var lastM = addMonths(thisMonth(), -1), nm = db.accts.filter(function(a){ return !a.notPersonal && !a.closed && mapMissing(a).indexOf(lastM) >= 0; });
+  if(nm.length && !db.ex) N.push({ k:'newmonth:' + lastM + ':' + nm.length, em:'📥', t:'New month: add ' + monthOnly(lastM) + '\u2019s statement' + (nm.length===1?'':'s') + ' for ' + nm.map(function(a){ return esc(acctLabel(a)); }).slice(0,3).join(', ') + (nm.length > 3 ? ' and ' + (nm.length - 3) + ' more' : '') + '.', go: FS.h ? 'mapRefresh()' : 'monthWalk()', btn: FS.h ? 'Read them' : 'Start' });
+  var mm = db.accts.filter(function(a){ return !a.notPersonal && mapMissing(a).filter(function(m){ return m !== lastM; }).length; }); if(mm.length && !db.ex) N.push({ k:'mapmiss:' + thisMonth() + ':' + mm.length, em:'📅', t:'Earlier months missing for ' + mm.map(function(a){ return esc(acctLabel(a)); }).slice(0,3).join(', ') + (mm.length > 3 ? ' and ' + (mm.length - 3) + ' more' : '') + '.', go:'openAudit()', btn:'See' });
   var old = db.accts.filter(function(a){ return !a.closed && !a.balUnknown && (!a.asOf || daysBetween(a.asOf, today()) > 40); });
   if(old.length) N.push({ k:'stale:'+thisMonth(), em:'🕰️', t:old.length + ' balance' + (old.length===1?' is':'s are') + ' more than 40 days old.', go:'openBalances()', btn:'Update' });
   return N.filter(function(n){ return !db.seen[n.k]; });
@@ -3766,7 +3770,7 @@ var MAPG = [
   { k:'ins', em:'🛡️', t:'Insurance policies', one:'policy', folder:'7 Insurance policies', ask:'Home, car, life, health, long-term care, umbrella. The premium is checked against what is paid.', policy:1 },
   { k:'own', em:'➕', t:'Something of your own', one:'thing of your own', types:Object.keys(TYPES), track:'either', folder:'8 Other', ask:'Anything else you want followed — name it, say what kind it is, and whether to follow every line or just the total.' }
 ];
-var MAP = null, MAPA = null, ROUTE = false;
+var MAP = null, MAPA = null, ROUTE = false, MDONE = {};
 function mapOf(a){ if(a.mapG) return a.mapG; if(/payment app/i.test(a.name)) return 'pay'; for(var i=0;i<MAPG.length;i++) if(MAPG[i].types && MAPG[i].k !== 'own' && MAPG[i].types.indexOf(a.type) >= 0) return MAPG[i].k; return 'own'; }
 function mapGroup(k){ for(var i=0;i<MAPG.length;i++) if(MAPG[i].k === k) return MAPG[i]; return MAPG[0]; }
 function tracksLines(a){ return a.track ? a.track === 'lines' : !!(TYPES[a.type] && TYPES[a.type].st); }
@@ -3785,12 +3789,21 @@ function mapScore(){ var want = 0, got = 0;
   return want ? Math.round(got / want * 100) : 0; }
 
 function mapStart(){ db.autoAsked = 1; save(); MAP = { i:0 }; mapStep(); }
+function linkCard(){ if(!window.showDirectoryPicker) return ''; return FS.h ? '<div class="line ok">🔗 Linked to your ' + esc(FS.name) + ' folder. Each month, one tap reads it.</div>'
+  : '<div class="card" style="padding:10px 12px;margin-top:10px"><b>🔗 Link your Family Money folder once</b><p class="sub" style="margin:4px 0 8px">Make a folder called Family Money, with a folder inside for each account. Link it here once; each month, save the new downloads into it and tap Read this month\u2019s statements.</p><button class="b small" onclick="linkRoot()">Link the folder</button></div>'; }
+function linkRoot(){ window.showDirectoryPicker({ id:'familydash', mode:'read' }).then(function(h){ FS.h = h; FS.name = h.name; fsPut(h); toast('Linked to ' + h.name + '.'); if(MAP) mapStep(); else openMap(); }).catch(function(){}); }
+/* each month, on any device: walk through the accounts still missing last month */
+var MW = null;
+function monthWalk(){ var last = addMonths(thisMonth(), -1), ids = db.accts.filter(function(a){ return !a.notPersonal && !a.closed && mapMissing(a).indexOf(last) >= 0; }).map(function(a){ return a.id; });
+  if(!ids.length){ toast('Every account has ' + monthOnly(last) + '.'); return; } MAP = null; MW = { ids:ids, i:0, m:last }; mapFiles(ids[0]); }
+function mwNext(){ MW.i++; if(MW.i >= MW.ids.length){ MW = null; openAudit(); return; } mapFiles(MW.ids[MW.i]); }
 function mapStep(){ if(!MAP) MAP = { i:0 }; var g = MAPG[MAP.i]; if(!g){ MAP = null; openAudit(true); return; }
   var A = g.policy ? (db.policies||[]) : db.accts.filter(function(a){ return mapOf(a) === g.k; });
   openSheet('<div class="stepno">Our money map · ' + (MAP.i + 1) + ' of ' + MAPG.length + '</div><h3>' + g.em + ' ' + g.t + '</h3><p class="sub">' + g.ask + '</p>'
     + (A.length ? '<ul class="list">' + A.map(function(a){ return g.policy
         ? '<li class="tap" onclick="mapPolicy(\'' + a.id + '\')"><span>🛡️</span><span class="ds">' + esc(a.name) + '<small>' + esc(a.company||'') + (a.premium ? ' · ' + money(a.premium) + ' a ' + (a.every||'month') : '') + '</small></span></li>'
         : '<li class="tap"' + (tracksLines(a) ? ' data-drop="' + a.id + '"' : '') + ' onclick="mapFiles(\'' + a.id + '\')"><span>' + TYPES[a.type].em + '</span><span class="ds">' + esc(acctLabel(a)) + (a.closed ? ' <span class="pill">closed</span>' : '') + '<small>' + strip(a) + '</small></span></li>'; }).join('') + '</ul>' : '')
+    + (MAP.i === 0 ? linkCard() : '')
     + '<button class="b full" onclick="' + (g.policy ? 'mapPolicy()' : 'mapAdd(\'' + g.k + '\')') + '">＋ Add ' + (A.length ? 'another ' : /^[aeiou]/i.test(g.one) ? 'an ' : 'a ') + esc(g.one) + '</button>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="MAP.i++;mapStep()">' + (A.length ? 'That’s all of them — next' : 'We don’t have any — next') + '</button>' + (MAP.i ? '<button class="b ghost" style="width:100%" onclick="MAP.i--;mapStep()">Back</button>' : '<button class="b ghost" style="width:100%" onclick="MAP=null;closeSheet();render()">Done for now</button>') + '</div>');
 }
@@ -3818,9 +3831,9 @@ function mapSave(k, id){ var g = mapGroup(k), inst = document.getElementById('mp
   var bE = document.getElementById('mpB'); if(bE && bE.value.trim() !== ''){ setBal(a, Math.abs(num(bE.value))); delete a.balUnknown; } else if(!id){ setBal(a, 0); a.balUnknown = 1; }
   if(!id) db.accts.push(a); save(); render();
   if(a.track === 'lines') mapFiles(a.id); else { toast('Saved.'); mapStep(); } }
-function mapFiles(id){ var a = acct(id); if(!a) return mapStep(); var g = mapGroup(mapOf(a)), miss = mapMissing(a), done = (MAP && MAP.done && MAP.done[id]) || '';
+function mapFiles(id){ var a = acct(id); if(!a) return mapStep(); var g = mapGroup(mapOf(a)), miss = mapMissing(a), done = MDONE[id] || '';
   if(!tracksLines(a)) return mapAdd(mapOf(a), id);
-  openSheet('<div class="stepno">' + g.em + ' ' + esc(acctLabel(a)) + '</div><h3>Its statements</h3>'
+  openSheet('<div class="stepno">' + g.em + ' ' + esc(acctLabel(a)) + '</div><h3>' + (MW ? esc(monthOnly(MW.m)) + '\u2019s statement' : 'Its statements') + '</h3>' + (MW ? '<p class="sub">Download ' + esc(monthOnly(MW.m)) + ' from ' + esc(a.inst || a.name) + ' (CSV or QFX), then pick it below.</p>' : '')
     + '<p class="sub">Keep this account’s downloads in their own folder, named for it:</p><div class="line ok" style="margin-top:0;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;word-break:break-word">📁 ' + esc(folderPath(a)) + '</div>'
     + '<p class="sub" style="margin-top:10px">Each month, save the new download there. On a computer the app reads that folder again with one tap.</p>'
     + '<p style="margin:8px 0">' + strip(a) + '</p>'
@@ -3831,7 +3844,7 @@ function mapFiles(id){ var a = acct(id); if(!a) return mapStep(); var g = mapGro
     + (canFolder() ? '<button class="on" onclick="MAPA=\'' + id + '\';document.getElementById(\'dirIn\').click()">Pick its folder<small>everything in it is read as ' + esc(a.name) + '</small></button>' : '')
     + '<button' + (canFolder() ? '' : ' class="on"') + ' onclick="MAPA=\'' + id + '\';document.getElementById(\'fileIn\').click()">Pick its files<small>CSV, QFX, OFX or Excel — as many as you like</small></button>'
     + '<button onclick="mapAdd(\'' + g.k + '\',\'' + id + '\')">Change its details<small>name, open or closed, last 4</small></button></div>'
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="mapStep()">' + (MAP ? 'Done with this one' : 'Close') + '</button></div>');
+    + '<div class="stickfoot">' + (MW ? '<button class="b primary full" style="margin-top:0" onclick="mwNext()">' + (MW.i + 1 < MW.ids.length ? 'Next account (' + (MW.i + 2) + ' of ' + MW.ids.length + ')' : 'That\u2019s all of them') + '</button><button class="b ghost" style="width:100%" onclick="MW=null;closeSheet()">Stop for now</button>' : '<button class="b primary full" style="margin-top:0" onclick="' + (MAP ? 'mapStep()' : 'openMap()') + '">' + (MAP ? 'Done with this one' : 'Back to the map') + '</button>') + '</div>');
 }
 /* insurance policies are not accounts: a name, a company, a premium and how often it is paid */
 function mapPolicy(id){ var P = db.policies = db.policies || [], p = id ? P.filter(function(x){ return x.id === id; })[0] : null;
@@ -3858,7 +3871,7 @@ function openMap(){ MAP = null; var by = {}; db.accts.forEach(function(a){ (by[m
         ? '<li class="tap" onclick="mapPolicy(\'' + a.id + '\')"><span class="ds">' + esc(a.name) + '<small>' + esc(a.company||'') + (a.premium ? ' · ' + money(a.premium) + ' a ' + a.every : ' · premium not entered') + '</small></span></li>'
         : '<li class="tap"' + (tracksLines(a) ? ' data-drop="' + a.id + '"' : '') + ' onclick="mapFiles(\'' + a.id + '\')"><span class="ds">' + esc(acctLabel(a)) + (a.closed ? ' <span class="pill">closed</span>' : '') + '<small>' + strip(a) + '</small></span></li>'; }).join('') + '</ul>' : '<p class="sub" style="margin:0">None yet.</p>')
         + '<button class="b small" style="margin-top:6px" onclick="MAP={i:' + i + '};mapStep()">＋ Add or change</button>'; }).join('')
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="openAudit()">🔎 Is anything missing?</button>' + (canFolder() && db.accts.some(function(a){ return a.folder; }) ? '<button class="b full" onclick="mapRefresh()">📥 Read this month’s statements</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="openAudit()">🔎 Is anything missing?</button>' + linkCard() + (canFolder() && (FS.h || db.accts.some(function(a){ return a.folder; })) ? '<button class="b full" onclick="mapRefresh()">📥 Read this month’s statements</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
 
 /* ── the audit: what is missing, and what to do about it ── */
 var RX = /pharmac|\bcvs\b|walgreens|rite aid|express scripts|optum ?rx|caremark|goodrx|amazon pharmacy|capsule|alto pharm|costco pharm|walmart pharm|kroger pharm|\brx\b/i;

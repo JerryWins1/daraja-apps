@@ -216,3 +216,12 @@ Jerry: "ask for bank statements then ask for the bank name and … that folder. 
 - **Is anything missing?** lists missing months with how to download them, payments to banks or cards not in the map, insurance paid with no policy listed, premiums checked against each policy, regular payments that went up (more than $1.99 and 5%) or stopped, and pharmacy spending month by month.
 - On a computer, a statement can be dragged onto an account row, or onto an account's own drop box.
 - Not built: direct connections to bank websites. The app reads files only; that is a decision for Jerry.
+
+## Addendum, 15 Nov (v2.1) — each new month
+
+Jerry, on his iPhone: "I would like it if I can link a folder… what happens in subsequent months, how do I get that document to you." He chose both.
+
+- On a computer (Chrome or Edge), the money map's first screen offers "Link your Family Money folder once". After that, each month one tap reads the folder and sends each file to its account's folder.
+- On any device, when last month's statement is missing for an open account, the home screen says "New month: add October's statements for …". Its Start button walks through those accounts one at a time, each saying which month to download and where from. On a computer with the folder linked, the button reads the folder instead.
+- An iPhone or iPad cannot stay linked to a folder; Apple doesn't let websites do that. The file picker opens where it was last used.
+- A PDF picked for an account is now named in the result ("not read — download CSV or QFX instead") rather than showing only "0 lines read".
