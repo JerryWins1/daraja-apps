@@ -282,3 +282,20 @@ Jerry didn't like the previous approach and asked for: "Gather all the files… 
 - **Step 3 of 3:** "Here's what your folder holds". The group folder sets the account's kind and its folder sets the name and last 4, so nothing is guessed. Investment, 529 and loan folders keep only the latest total, taken from the statement's ending balance. Insurance folders become policies, and their premiums are found from payments next. Other papers are listed, not read. Tap any account to change it.
 - After "Looks right" come the "Found in your statements" cards, then the summary, then only the questions that are left.
 - The earlier ways (gather files and check cards, the money map, just the questions) remain under "Other ways to start".
+
+## Addendum, 15 Nov overnight (v3.1) — full run, sample folder, videos
+
+Jerry, going to bed: "run through… don't stop until you have gone through each app twice with no errors. Think about any improvements… put it on a test list. redo all the videos." The other testing-stage apps were relayed to the Store Manager to route. This chat covered Family Money Dashboard.
+
+- **Sample folder:** `familydash/sample/family-money-sample.zip` holds a made-up family's Family Money folder (Meadowbrook checking and savings, Capital One CSV, Discover PDFs, Venmo, a Fidelity IRA, a 529, a Mr Cooper mortgage, two insurance policies, taxes). The first setup screen has "🧪 No folder yet? Try it with a sample one", so testers and the videos can run the whole setup without anyone's real statements. All of its data is invented.
+- **Fixes found in the runs:**
+  - An investment, 529 or loan folder whose PDF has only an ending balance now still makes its account and takes the total.
+  - Every account folder becomes an account even if its files can't be read.
+  - Two homes are now judged by power companies only (a gas company serves the same house).
+  - Payment-app history is no longer offered as "help someone".
+  - Payment apps aren't flagged for quiet months.
+  - The money map's folder names now match the folder picture.
+  - The summary shows totals for investments and loans instead of "0 lines".
+  - The last setup button says "Looks right — finish" when statements are already in.
+- **Test script:** six new steps (s23–s28) walk the sample folder through setup, the findings cards, the check and the money map. The videos and store card steps are now s29–s30.
+- **Videos:** all three were rewritten where they described the old setup and re-recorded by name. The train video now walks the folder picture, the download, compressing on an iPhone, "what your folder holds", the findings cards, the remaining questions and the check. Overview line 4 and the first-timer's "How to start" were reworded. The first-timer gained a money map line. `voicemaker --check` reports them current; `checkvideos` reports 3 of 3; every step's pointer was found on phone and laptop. Whether the voice is there and sounds right can only be checked on a real phone.
