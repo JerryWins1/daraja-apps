@@ -28,11 +28,46 @@ check a licence against. Jerry decided this twice on 8 November 2026 — here an
 - [ ] Ask who will post the Sunday sermon each week, and get that person on the call
       too. They are the one who ends up holding the church key.
 
-## 1 · Start from the demo
+## 1 · Start from the demo, then take the shop out of it
 
 - [ ] Copy `church-demo/index.html` to a new file. That is the whole app — one file.
 - [ ] Read `church-demo/README.md` first. It lists every spot that holds invented
       content, which is the same list of spots that now needs the church's own.
+
+**Then delete the house layer, before anything else.** The demo lives in Daraja's shop,
+so it carries the shared house layer — about 204 KB of it, two thirds of the file. A
+church's app must not have it. Delete these two things, which sit together at the very
+top of `<body>`:
+
+```html
+<script>window.DJ_GUEST = true;</script>
+<script id="dj-house-v65">          ← and everything down to its matching </script>
+```
+
+The id carries a version number, so it will not read `v65` forever; it is the one
+`<script>` whose id starts `dj-house`.
+
+What you are taking out, and why a church cannot keep it:
+
+| in the house layer | what it would do in a church's app |
+| --- | --- |
+| 🌉 **More from Daraja** | a button in their church's app advertising Daraja's other apps |
+| 📬 **Keep me posted** | a form collecting a member's name and email, sent to Daraja |
+| **openPing** | once a day, every phone reports that the app was opened, to a Google Apps Script mailbox |
+| 🧪 **Test copy** pill | tells their congregation the church's own app is a test |
+| **donation tags** | adds a `client_reference_id` to a giving link |
+
+The Owner's Kit that ships with every church app says *"never add accounts or tracking —
+that's the product's promise"* and *"keep everything in the one file"*. The house layer
+is both. On the demo it is right and it stays; in a church's copy it is a broken promise.
+
+The open ping is already switched off wherever a Test copy pill is present, which is why
+the demo itself sends nothing — but a church's copy has no pill, so it would start
+sending the day it went live.
+
+- [ ] After deleting it, open the file and walk the whole app once. It is designed to
+      work without the layer: a stripped copy passes all 25 on-screen steps of
+      `testers/scripts/church.json`, checked 15 Nov.
 
 ## 2 · Brand it
 
