@@ -2438,6 +2438,10 @@
     font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .askBtn:active{opacity:.85}
   .roster{margin-top:8px;text-align:left}
+  /* Whose roster this is. Both sides' lists open in the same spot, so the name goes on top. */
+  .roster .rwho{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);
+    padding-bottom:4px;margin-bottom:2px;border-bottom:1px solid var(--line);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .roster .rdiv{font-size:10px;font-weight:800;color:#5d6b84;text-transform:uppercase;letter-spacing:.05em;
     padding:8px 0 2px;margin-top:4px;border-top:1px solid var(--line)}
   /* Status is the row's own color, not a 6px dot: a bar down the left edge plus a tint behind the line. */
@@ -2717,7 +2721,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.16 · 2026-10-10</small></div>
+<div class="stamp"><small id="stamp">v4.17 · 2026-11-16</small></div>
 
 <script>
 /* =========================================================================
@@ -3422,9 +3426,11 @@ function cardHTML(cfg, r, err, statusMap, statusMapNext){
   // Tapping either side's score/name opens that team's roster (starters + bench) — no separate
   // "Show players" button any more, on either side.
   const meRosterId = nextRosterId(), oppRosterId = nextRosterId();
+  // Each panel says whose roster it is. The two of them open in the same place under the scores, so
+  // without a name on top there was no way to tell your list from the other team's at a glance.
   const rosterPanels = `
-    <div class="roster" id="${meRosterId}" hidden>${rosterRowsHTML(r.me.starters, statusMap, r.me.bench)}</div>
-    <div class="roster" id="${oppRosterId}" hidden>${rosterRowsHTML(r.opp.starters, statusMap, r.opp.bench)}</div>`;
+    <div class="roster" id="${meRosterId}" hidden><div class="rwho">${esc(r.me.name)}</div>${rosterRowsHTML(r.me.starters, statusMap, r.me.bench)}</div>
+    <div class="roster" id="${oppRosterId}" hidden><div class="rwho">${esc(r.opp.name)}</div>${rosterRowsHTML(r.opp.starters, statusMap, r.opp.bench)}</div>`;
   // Everything else this app can tell you about managing your own team lives under one "Assistant
   // Manager" button instead of a separate button per feature — lineup suggestions, waiver wire, and
   // bye weeks are all sub-sections inside it. A count badge on the button itself still answers "does
@@ -3621,6 +3627,14 @@ function syncSlideHeights(){
     };
     sync();
     let t; box.addEventListener("scroll", ()=>{ clearTimeout(t); t=setTimeout(sync, 80); });
+    // The pinned height is only a snapshot of the moment it was taken, and a slide can change size
+    // after that — a team logo finishing loading, a roster opening, player news arriving. The
+    // container kept the old height, and overflow-y:hidden then quietly cut the bottom of the card
+    // off, which reads as a tap having done nothing. Follow the slide instead of guessing once.
+    if(window.ResizeObserver){
+      const ro = new ResizeObserver(()=>sync());
+      [...box.children].forEach(c=>ro.observe(c));
+    }
   });
 }
 
@@ -3973,8 +3987,8 @@ function leagueSlideHTML(g, statusMap){
       <div class="mid">VS</div>
       ${sideHTML(g.away, lead==="away"?"lead":"", statusMap, awayRosterId)}
     </div>
-    <div class="roster" id="${homeRosterId}" hidden>${rosterRowsHTML(g.home.starters, statusMap, g.home.bench)}</div>
-    <div class="roster" id="${awayRosterId}" hidden>${rosterRowsHTML(g.away.starters, statusMap, g.away.bench)}</div>
+    <div class="roster" id="${homeRosterId}" hidden><div class="rwho">${esc(g.home.name)}</div>${rosterRowsHTML(g.home.starters, statusMap, g.home.bench)}</div>
+    <div class="roster" id="${awayRosterId}" hidden><div class="rwho">${esc(g.away.name)}</div>${rosterRowsHTML(g.away.starters, statusMap, g.away.bench)}</div>
     <div class="foot"><span>${verdict}</span><span>${odds}</span></div>
   </div></div>`;
 }
@@ -4170,21 +4184,51 @@ $("cards").addEventListener("click", async e=>{
     if(slides){ const child = slides.children[Math.round(slides.scrollLeft/(slides.clientWidth||1))];
       if(child) slides.style.height = child.offsetHeight+"px"; }
   };
+  // The swipe group loops by cloning its first and last slide (see buildCardGroup), and a clone is a
+  // copy of the HTML — ids included. So a panel's id can sit in the document twice, and
+  // document.getElementById() hands back whichever copy comes first. That is how a tap on a cloned
+  // slide used to flip a panel on a slide that wasn't on screen: nothing happened where you tapped,
+  // and the twin slide was left with a roster hanging open for whenever you swiped back to it.
+  // Everything below stays inside the tapped swipe group and moves BOTH copies of a panel together,
+  // so the real slide and its clone always agree.
+  const sameId = (el, id) => {
+    const group = el.closest(".slides") || el.closest(".card") || document;
+    const found = [...group.querySelectorAll('[id="'+id+'"]')];
+    return found.length ? found : [document.getElementById(id)].filter(Boolean);
+  };
   // Tap the score/name area to open that side's roster (starters + bench) — the .side element itself
   // carries data-roster pointing at the matching hidden .roster panel elsewhere in the same card.
   const sideEl = e.target.closest(".side[data-roster]");
   if(sideEl){
-    const box = document.getElementById(sideEl.dataset.roster); if(!box) return;
-    box.hidden = !box.hidden;
-    const hint = sideEl.querySelector(".tapHint");
-    if(hint) hint.textContent = box.hidden ? "👥 roster ▾" : "👥 roster ▴";
+    const group = sideEl.closest(".slides") || sideEl.closest(".card") || document;
+    // One roster showing at a time, so a tap always SWITCHES to the side you tapped. Both panels
+    // used to toggle on their own and sit stacked in the same spot under the scores, unlabelled —
+    // so closing your own lifted the opponent's list up into where yours had been, which read as
+    // the app switching teams by itself.
+    const setSide = (id, open) => {
+      sameId(sideEl, id).forEach(p => { p.hidden = !open; });
+      group.querySelectorAll('.side[data-roster="'+id+'"] .tapHint')
+        .forEach(h => { h.textContent = open ? "👥 roster ▴" : "👥 roster ▾"; });
+    };
+    const id = sideEl.dataset.roster;
+    const panel = sameId(sideEl, id)[0]; if(!panel) return;
+    const opening = panel.hidden;
+    const card = sideEl.closest(".card");
+    if(card) card.querySelectorAll(".side[data-roster]").forEach(other => {
+      if(other.dataset.roster !== id) setSide(other.dataset.roster, false);
+    });
+    setSide(id, opening);
     resyncHeight(sideEl);
     return;
   }
   // Tap a hurt player's row for the real story behind the injury tag — lazy-loaded, cached per player.
   const rrow = e.target.closest(".rrow.tappable[data-news]");
   if(rrow){
-    const box = document.getElementById(rrow.dataset.news); if(!box) return;
+    // Same cloned-slide trap as the rosters above: open the copy inside the slide that was tapped,
+    // not whichever copy of that id the document happens to hold first.
+    const local = rrow.closest(".slide") || rrow.closest(".card");
+    const box = (local && local.querySelector('[id="'+rrow.dataset.news+'"]'))
+      || document.getElementById(rrow.dataset.news); if(!box) return;
     const opening = box.hidden;
     box.hidden = !opening;
     if(opening && box.dataset.state==="idle"){
