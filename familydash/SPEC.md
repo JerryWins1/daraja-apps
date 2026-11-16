@@ -339,3 +339,19 @@ Jerry: "you need to be clearer on what you do once you get the folder done." He 
 - Step 1 now opens with three numbered boxes: make the folder like the picture, put each account's statements in, then come back and tap My folder is ready. That last box says the app will then ask you to pick the Family Money folder, as a zip on an iPhone.
 - The download button is now "Haven't made the folders yet? Download them empty", marked optional, with "skip this if your folder is already made".
 - From here on, Jerry asked that videos wait until the changes are done: "Let's make the video at the end."
+
+## Addendum, 16 Nov (v3.6) — Jerry's first real folder
+
+Jerry's first run with his own Family Money folder turned up four problems:
+- One bank account showed with 0 lines.
+- His other bank account was missing.
+- A PayPal folder showed "••2026".
+- Nothing on the screen said why.
+
+Fixes:
+- **Hidden files are ignored.** The 0-line account was a folder he had emptied, which still held a Mac's hidden .DS_Store. Hidden and system files (.DS_Store, desktop.ini, Thumbs.db) are now ignored, so an emptied folder no longer becomes an account.
+- **A year is not a last 4.** A folder name ending in a year (2026) no longer gives that year as the last 4.
+- **Each account lists its files.** Under every account, "Here's what your folder holds" now says how many files its folder held, and names any that gave no lines with the likely reason: a PDF that is a scan or an unknown layout, no dates and amounts, or not a statement. A folder with no files says so.
+- **Stray files are shown.** Anything outside the eight group folders is listed by folder name, with the fix: move it into the right group and pick the folder again.
+- **Nothing is skipped by name in a Family Money folder.** "old", "archive" and "backup" folders are no longer skipped there; the folder is deliberate, and duplicate lines are counted once anyway.
+- **Every folder counts.** Several folders are all read; none replaces another.
