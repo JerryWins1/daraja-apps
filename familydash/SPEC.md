@@ -323,3 +323,7 @@ Jerry: "make the setup process our checklist, a little to-do list… a little ta
   - Once everything is done, the list says "All set up ✓" and can be hidden.
 - **The give-the-folder step follows the device:** a computer says "Give the app the folder — pick the Family Money folder itself, no zip needed". A phone or tablet says "Compress the folder and give it to the app".
 - **Test script:** s22 now checks the list and a hand tick.
+
+## Addendum, 16 Nov (v3.3) — every account its own folder, shown
+
+Jerry: "don't you think there could be more bank accounts, more credit cards, more pay apps… have each folder for each one with the name of that credit card." The app already read any number of account folders in a group. The picture showed one example per group, though, so it looked as if only one was allowed. The picture now shows two or three examples per group and a "＋ one more folder for each account" line, and the words say a separate folder for every checking account, card and pay app. The examples use made-up names. The downloaded Read me in each group lists the examples too.
