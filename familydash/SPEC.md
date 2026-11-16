@@ -428,3 +428,14 @@ Also in v4.4: accounts made before v4.3 knew only their folder name, so the map 
 ## Addendum, 16 Nov (v4.5) — an empty account folder is an account
 
 Jerry made a folder for his new bank account that has no statements yet, and wants it followed from now on. When the Family Money folder is picked on a computer (Chrome or Edge), or as a zip, the app now records folders as well as files. An empty folder inside a group becomes an account straight away, shown as "empty for now — put its statements in". It also appears in that group's folder list as "empty for now". The older folder button used by other browsers still sees only files. A folder he has emptied and no longer wants can be unticked in its group.
+
+## Addendum, 16 Nov (v4.6) — the up-and-down card said plainly
+
+Jerry, on the "These go up and down" card: "I really don't understand what this is… it's hard to tell because I don't know what's in there." He also asked for a way to see what's missing in all his folders.
+
+- **The card is now titled "Spending that changes from month to month".** It explains that each line is a different amount every month, so the app plans for its average and shows the high and low months, and that any line meant to be a set amount should be unticked.
+- **Each line is a tick box** showing:
+  - the category, "about $X a month", and its highest month by name
+  - its lowest month that wasn't zero
+  - "mostly:" with the three places the money went and their totals
+- **The folder map has "🔎 What's missing in my folders?"**, which opens the check. That check has "Back to the folder map" while setup is still underway.

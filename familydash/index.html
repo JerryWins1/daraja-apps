@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v4.5 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v4.6 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4164,7 +4164,7 @@ function openAudit(first){ var F = auditFind(), sc = mapScore(), h = '';
   if(gone.length) h += '<h4>➕ Not in your map yet</h4><p class="sub" style="margin:0 0 6px">Statements can\u2019t show these. Add any you have, or skip them.</p><ul class="list">' + gone.map(function(g){ return '<li><span>' + g.em + '</span><span class="ds">' + g.t + '<small>' + g.ask + '</small></span><button class="b small" style="flex:none" onclick="MAP={i:' + MAPG.indexOf(g) + '};mapStep()">Add</button></li>'; }).join('') + '</ul>';
   if(!F.miss.length && !U.length && !I.length && !F.stopped.length && !F.changed.length) h += '<div class="line ok">✓ Nothing missing that I can see.</div>';
   openSheet('<div class="stepno">' + (first ? 'Our money map · the check' : 'Is anything missing?') + '</div><h3>🔎 What’s missing</h3><p class="sub">Every account, month by month since January, plus anything paid that isn’t in your map.</p>' + h
-    + '<div class="stickfoot">' + (first ? '<button class="b primary full" style="margin-top:0" onclick="mapOn()">On to the questions</button>' : '<button class="b primary full" style="margin-top:0" onclick="openMap()">Our money map</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button></div>'); }
+    + '<div class="stickfoot">' + (first ? '<button class="b primary full" style="margin-top:0" onclick="mapOn()">On to the questions</button>' : (ONESK && !db.setup ? '<button class="b primary full" style="margin-top:0" onclick="fmDone(ONESK)">Back to the folder map</button>' : '<button class="b primary full" style="margin-top:0" onclick="openMap()">Our money map</button>')) + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button></div>'); }
 function mapOn(){ if(db.tx.length) autoFill({ pdf:[], sheets:[], other:0, bad:[] }); else setupQ(0); }
 
 /* ── v2.2 · PDF statements read on this device (Jerry, 15 Nov: "You also need to be able to pick pdf files and read them").
@@ -4244,13 +4244,20 @@ function findings(){ var F = [], T = spendTx(), all = db.tx, inM = {};
   /* set-aside: money already moved to savings every month */
   var sv = all.filter(function(t){ return t.amt > 0 && /saving|to share|money market|transfer to sav|\bsav\b/i.test(t.desc) && (t.cat === 'xfer' || XFER.test(t.desc)); }), svm = {}; sv.forEach(function(t){ svm[t.d.slice(0,7)] = 1; });
   if(Object.keys(svm).length >= 3) F.push({ key:'setAside', em:'🐖', t:'You already move money to savings', why:'A transfer to savings in ' + Object.keys(svm).length + ' months. I’ll say each month how much to move for the yearly bills.', ev:sv.slice(-3), yes:function(){ db.setAside = true; } });
-  /* spending that goes up and down */
-  rebuildPlan(); var ms = {}; T.forEach(function(t){ var m = t.d.slice(0,7); if(m >= thisMonth()) return; ms[m] = 1; }); var M = Object.keys(ms);
-  if(M.length >= 3){ var V = p1Cats().map(function(c){ var by = M.map(function(m){ return T.filter(function(t){ return t.cat === c.id && t.d.slice(0,7) === m; }).reduce(function(a,t){ return a + t.amt; }, 0); }), avg = by.reduce(function(a,b){ return a + b; }, 0) / M.length;
-      if(avg < 40) return null; var sd = Math.sqrt(by.reduce(function(a,b){ return a + (b - avg) * (b - avg); }, 0) / M.length); return sd / avg > 0.35 ? { c:c, lo:Math.min.apply(null, by), hi:Math.max.apply(null, by) } : null; }).filter(Boolean);
-    if(V.length) F.push({ key:'variable', em:'📈', t:'These go up and down', why:'Tap any that are really steady. The rest use an average, with their low and high months.', ev:[],
-      body:'<div class="dchips" id="fVar">' + V.map(function(v){ return '<button class="dchip on" data-id="' + v.c.id + '" onclick="this.classList.toggle(\'on\')">' + esc(v.c.name) + ' · ' + money(v.lo,1) + '–' + money(v.hi,1) + '</button>'; }).join('') + '</div>',
-      yes:function(){ Array.prototype.forEach.call(document.querySelectorAll('#fVar button'), function(b){ var c = cat(b.getAttribute('data-id')); if(c) c.variable = b.classList.contains('on'); }); } }); }
+  /* spending that goes up and down — said plainly, with what is in each (Jerry, 16 Nov: "I really don't understand what
+     this is… it's hard to tell because I don't know what's in there") */
+  rebuildPlan(); var ms = {}; T.forEach(function(t){ var m = t.d.slice(0,7); if(m >= thisMonth()) return; ms[m] = 1; }); var M = Object.keys(ms).sort();
+  if(M.length >= 3){ var V = p1Cats().map(function(c){ var L = T.filter(function(t){ return t.cat === c.id && t.d.slice(0,7) < thisMonth(); }), by = M.map(function(m){ return L.filter(function(t){ return t.d.slice(0,7) === m; }).reduce(function(a,t){ return a + t.amt; }, 0); }), avg = by.reduce(function(a,b){ return a + b; }, 0) / M.length;
+      if(avg < 40) return null; var sd = Math.sqrt(by.reduce(function(a,b){ return a + (b - avg) * (b - avg); }, 0) / M.length); if(sd / avg <= 0.35) return null;
+      var hiI = by.indexOf(Math.max.apply(null, by)), lo = Math.min.apply(null, by.filter(function(x){ return x > 0; }).concat([Infinity])), pl = {};
+      L.forEach(function(t){ var k = mkey(t.desc) || t.desc; pl[k] = pl[k] || { d:t.desc, n:0 }; pl[k].n += t.amt; });
+      var top = Object.keys(pl).map(function(k){ return pl[k]; }).sort(function(a,b){ return b.n - a.n; }).slice(0,3);
+      return { c:c, avg:avg, hi:by[hiI], hiM:M[hiI], lo:isFinite(lo) ? lo : 0, top:top }; }).filter(Boolean);
+    if(V.length) F.push({ key:'variable', em:'📈', t:'Spending that changes from month to month', why:'Each of these is a different amount every month. Rather than a fixed budget, I’ll plan for its <b>average</b> and show you its high and low months. Untick any that should be a set amount every month.', ev:[],
+      body:'<div id="fVar">' + V.map(function(v){ return '<label class="ck vrow" style="margin:0;padding:8px 0;border-top:1px solid var(--line);align-items:flex-start"><input type="checkbox" data-id="' + v.c.id + '" checked style="margin-top:3px"><span><b>' + esc(catLabel(v.c)) + '</b> — about <b>' + money(v.avg,1) + '</b> a month'
+          + '<small style="display:block;color:var(--soft);font-weight:600">highest ' + money(v.hi,1) + ' in ' + monthOnly(v.hiM) + (v.lo ? ', lowest ' + money(v.lo,1) : '') + '</small>'
+          + '<small style="display:block;color:var(--soft);font-weight:600">mostly: ' + v.top.map(function(x){ return esc(prettyKey('name:' + (mkey(x.d) || x.d))) + ' ' + money(x.n,1); }).join(' · ') + '</small></span></label>'; }).join('') + '</div>',
+      yes:function(){ Array.prototype.forEach.call(document.querySelectorAll('#fVar input'), function(b){ var c = cat(b.getAttribute('data-id')); if(c) c.variable = b.checked; }); } }); }
   /* helping someone: Zelle, Venmo, Cash App to the same person, not every month */
   var P2P = /(zelle|venmo|cash ?app|paypal|popmoney)[^a-z]*(payment |transfer |sent )?(to )?([a-z][a-z.' -]{2,30})/i, ppl = {};
   T.concat(all.filter(function(t){ return t.amt > 0 && t.cat === 'xfer'; })).forEach(function(t){ if(/payment app/i.test((acct(t.a)||{}).name || '') || (acct(t.a)||{}).mapG === 'pay') return; var m = P2P.exec(t.desc); if(!m) return; var n = m[4].replace(/\b(on|ref|id|conf|from|web|mobile|payment|transfer|inst|xfer)\b.*$/i,'').trim(); if(n.length < 3) return; n = n.toLowerCase().replace(/\b\w/g, function(c){ return c.toUpperCase(); }); (ppl[n] = ppl[n] || []).push(t); });
@@ -4383,7 +4390,7 @@ function fmDone(SK){
     + (nBad ? '<div class="line warn" style="font-weight:700;font-size:14.5px">📄 ' + nBad + ' PDF' + (nBad===1?'':'s') + ' I couldn’t read myself. <button class="b primary small" style="margin-left:6px" onclick="fmAIall()">✨ Read ' + (nBad===1?'it':'them all') + ' with AI</button></div>' : '')
     + '<div class="fmcanvas" id="fmCanvas"><svg id="fmSvg" aria-hidden="true"></svg><div class="fmroot"><div class="fmn root" data-fm="root">📁 Family Money<small>' + nFold + ' folder' + (nFold===1?'':'s') + ' · ' + nFiles + ' file' + (nFiles===1?'':'s') + '</small></div>' + (loose ? '<div class="fmloose">' + loose + '</div>' : '') + '</div><div class="fmgroups">' + groups + '</div></div>'
     + '<div class="fmlegend"><span style="--c:var(--ok)">all read</span><span style="--c:#E3A23B">some PDFs need AI</span><span style="--c:var(--red)">nothing to read</span>' + (loose ? '<span style="--c:#B9B2A6">outside the groups</span>' : '') + '</div>'
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmOn()">Looks right — next</button></div>');
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmOn()">Looks right — next</button><button class="b full" onclick="openAudit()">🔎 What\u2019s missing in my folders?</button></div>');
   if(FM_AFTER){ var ga = FM_AFTER; FM_AFTER = null; setTimeout(function(){ fmAssign(ga); }, 50); return; }
   document.getElementById('sheetIn').classList.add('wide'); [30, 300, 900].forEach(function(t){ setTimeout(fmLines, t); }); try{ if(window.ResizeObserver){ if(window.FMRO) FMRO.disconnect(); window.FMRO = new ResizeObserver(function(){ fmLines(); }); FMRO.observe(document.getElementById('fmCanvas')); } }catch(e){} }
 /* the joining lines, drawn once the boxes are in place (and again if the window changes size) */
