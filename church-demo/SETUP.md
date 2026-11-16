@@ -183,6 +183,18 @@ another takes two minutes.
 
 ## 10 · Their Weekly Update page
 
+**This is the tool that keeps their app current. Not Church HQ.** Jerry settled that on
+15 November, and it is worth saying plainly because the two look like they overlap and
+a church must not be handed both and left to work it out.
+
+| | |
+| --- | --- |
+| **The Weekly Update page** — `immanuel-update/` | what a church who buys The Church App gets. It edits the content inside their own `index.html` and publishes to their own GitHub repository with their church key. |
+| **Church HQ** — `church-hq/` | a separate tool with its own job. It publishes a file to a Google mailbox and draws its own congregation page. **The Church App reads nothing it publishes**, so it cannot keep this app current, whatever the store card may still say. |
+
+If a church asks about Church HQ, that is the honest answer: a different tool, not the
+one that updates this app.
+
 **The Weekly Update page is not inside the app.** It is a separate page in this
 repository — `immanuel-update/` — and it is hardcoded to one church:
 
