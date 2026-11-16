@@ -422,3 +422,5 @@ Jerry, looking at his real folder map: he has two bank account folders, and one 
 ## Addendum, 16 Nov (v4.4) — the folder is asked for again, not refused
 
 Jerry tapped a group on his folder map after the page had reloaded, and got "Pick the Family Money folder first". The app holds the folder only while the page is open. Now a group tap with no folder in hand says why, offers "Pick the Family Money folder" (re-using the remembered folder on Chrome or Edge), and opens that group's folder list straight after. Re-reading never duplicates lines.
+
+Also in v4.4: accounts made before v4.3 knew only their folder name, so the map showed one of Jerry's as "folder is empty" when it was not. They are now matched by name once and remember their path; no duplicates are made. A folder with no files in it yet does not appear until something is put in it.
