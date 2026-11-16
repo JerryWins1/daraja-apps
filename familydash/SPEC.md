@@ -396,3 +396,17 @@ Jerry wants families to feel safe about their financial data: a password, and a 
 - **On a phone,** setup first says "💻 Best kept on your home computer", gives the link to copy for the computer, and explains that the monthly summary can be sent to each phone. "I only have a phone — set up here" is still allowed.
 - **Reading with AI:** the confirm screen now says plainly that a website can't hand files to another website. So, until the Daraja AI connection is on, the person attaches the PDFs themselves, and the screen names the folder for each account.
 - **Test script:** s21 to s23 updated for the promise screen.
+
+## Addendum, 16 Nov (v4.2) — the folder, drawn
+
+Jerry, showing a Cloudflare diagram: "some kind of graphical connection like this with the files for the different folders… so you can kind of see it visually." He approved a mockup first.
+
+- **"Your folder, connected"** replaces the "what your folder holds" list. On a computer it runs left to right: 📁 Family Money, then its group folders, then each account folder and the account it became, joined by curved lines. On a phone it runs top to bottom, with the lines down the left.
+- **Each account box shows its state:**
+  - **Green:** every file was read.
+  - **Amber:** PDFs still need AI. The box carries its own "✨ Read with AI" chip.
+  - **Red:** there's nothing to read.
+- **What each box says:** the account's files, its year folders (2025 · 2026), and its lines or total. Tapping a box opens the account. Insurance policies and other papers show as their own boxes.
+- **Loose folders** (anything outside the eight groups) sit under Family Money with dashed edges and "move it into one".
+- **"Read them all with AI"** stays at the top. **"See the folder map"** opens the map again from the money map, during the same visit.
+- **Train video, step five:** its pointer now lands on the map. The video's words will be updated with the other video changes at the end, as Jerry asked.
