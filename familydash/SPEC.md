@@ -331,3 +331,11 @@ Jerry: "don't you think there could be more bank accounts, more credit cards, mo
 ## Addendum, 16 Nov (v3.4) — all together, or by year
 
 Jerry asked for it to be said plainly that statements can sit all together in an account's folder or in year folders. He prefers years. The first setup screen now says so under the folder picture: "keep its statements all together, or in a folder for each year — 2025, 2026 — whichever you like". The downloaded Read me says the same, and warns that folders named old, archive or backup are skipped. Tested with an account's statements split into 2025 and 2026 folders: they're read exactly as if they were loose.
+
+## Addendum, 16 Nov (v3.5) — clearer what to do once the folder is made
+
+Jerry: "you need to be clearer on what you do once you get the folder done." He had read "Download this folder, ready to fill" as the app fetching his folder.
+
+- Step 1 now opens with three numbered boxes: make the folder like the picture, put each account's statements in, then come back and tap My folder is ready. That last box says the app will then ask you to pick the Family Money folder, as a zip on an iPhone.
+- The download button is now "Haven't made the folders yet? Download them empty", marked optional, with "skip this if your folder is already made".
+- From here on, Jerry asked that videos wait until the changes are done: "Let's make the video at the end."
