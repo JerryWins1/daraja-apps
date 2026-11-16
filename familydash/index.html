@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v4.4 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v4.5 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2646,20 +2646,23 @@ function canFolder(){ return ('webkitdirectory' in document.createElement('input
 var FINW = /bank|card|credit|financ|money|statement|expens|budget|insur|tax|invest|retire|loan|mortgage|bill|account|giving|net ?worth|saving|checking|\bira\b|401|pension|paypal|venmo|brokerage|polic/i, CHOOSE = null;
 /* a phone cannot pick a folder, but the Files app can squeeze one into a .zip (press and hold → Compress): open it here */
 var JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-function unzipList(list, cb){ var Z = list.filter(function(it){ return /\.zip$/i.test(it.file.name); }), rest = list.filter(function(it){ return !/\.zip$/i.test(it.file.name); });
+function unzipList(list, cb){ var Z = list.filter(function(it){ return it.file && /\.zip$/i.test(it.file.name); }), rest = list.filter(function(it){ return !(it.file && /\.zip$/i.test(it.file.name)); });
   function go(){ var out = rest.slice(), i = 0;
     (function next(){ var it = Z[i++]; if(!it) return cb(out); var base = it.file.name.replace(/\.zip$/i, '');
-      JSZip.loadAsync(it.file).then(function(z){ var E = Object.keys(z.files).map(function(k){ return z.files[k]; }).filter(function(e){ return !e.dir && !/(^|\/)(__MACOSX|\.)/.test(e.name); });
+      JSZip.loadAsync(it.file).then(function(z){ var A0 = Object.keys(z.files).map(function(k){ return z.files[k]; }).filter(function(e){ return !/(^|\/)(__MACOSX|\.)/.test(e.name); }); A0.filter(function(e){ return e.dir; }).forEach(function(e){ out.push({ dir:true, path:(e.name.indexOf('/') < e.name.length - 1 || e.name.split('/').length > 2 ? e.name : base + '/' + e.name) }); }); var E = A0.filter(function(e){ return !e.dir; });
         return Promise.all(E.map(function(e){ return e.async('blob').then(function(bl){ var nm = e.name.split('/').pop(); out.push({ file:new File([bl], nm), path:(e.name.indexOf('/') >= 0 ? e.name : base + '/' + e.name) }); }); })); })
         .then(next, function(){ alert('I could not open ' + it.file.name + '.'); next(); }); })(); }
   if(!Z.length) return cb(list); if(window.JSZip) return go();
   var sc = document.createElement('script'); sc.src = JSZIP_URL; sc.onload = go; sc.onerror = function(){ alert('Opening a zip needs the internet once. Try again when you are online.'); cb(rest); }; document.head.appendChild(sc); }
 var STRUCTSK = null, FMF = {}, FMR = {}, FML = {}, PDFF = {}, FAI = null;
 function takeList(list, chosen){
-  if(!list._unz && list.some(function(it){ return /\.zip$/i.test(it.file.name); })){ openSheet('<h3>Opening the zip…</h3><p class="sub">One moment.</p>'); unzipList(list, function(L){ L._unz = 1; takeList(L, chosen); }); return; }
+  if(!list._unz && list.some(function(it){ return it.file && /\.zip$/i.test(it.file.name); })){ openSheet('<h3>Opening the zip…</h3><p class="sub">One moment.</p>'); unzipList(list, function(L){ L._unz = 1; takeList(L, chosen); }); return; }
+  if(!STRUCT) list = list.filter(function(it){ return !it.dir; });
   if(ONE){ chosen = true; AUTO = true; }
   if(MAPA || ROUTE){ chosen = true; AUTO = false; }
   if(STRUCT){ var keep = [], loose = 0, docs = {}, any = list.some(function(it){ return structOf(it.path); }); FMF = {}; FMR = {}; FML = {}; FMLIST = list;
+    list.filter(function(it){ return it.dir; }).forEach(function(it){ var st = structOf(it.path); if(st && st.acct && st.g !== 'skip' && st.g !== 'ins' && st.g !== 'other' && st.rel === String(it.path).split('/').slice(1, -1).join('/')) structAcct(st.g, st.acct, null, st.rel); });
+    list = list.filter(function(it){ return !it.dir; });
     if(!any){ STRUCT = false; alert('I couldn\u2019t find the group folders (1 Bank accounts, 2 Credit cards…) inside that. I\u2019ll read the files and ask you about each one instead.'); }
     else { list.forEach(function(it){ if(/(^|\/)\./.test(String(it.path||'')) || /^(desktop\.ini|thumbs\.db|icon\r?)$/i.test(String(it.path||'').split('/').pop())) return;   /* hidden files (a Mac's .DS_Store, Windows' desktop.ini) are not statements, and an emptied folder holding only one must not become an account */
       var st = structOf(it.path); if(st && st.g === 'skip') return; if(!st){ loose++; var lp = String(it.path||'').split('/'); var lf = lp.length > 2 ? lp[1] : lp.length > 1 ? lp[lp.length-1] : it.path; if(!/^\./.test(lp[lp.length-1]||'')) FML[lf] = (FML[lf]||0) + 1; return; }
@@ -2722,7 +2725,7 @@ function checkFolder(){
 function readFolder(h){
   var out = [];
   openSheet('<h3>Looking in ' + esc(h.name) + '…</h3><p class="sub">Reading it where it is — nothing is copied or sent.</p>');
-  (async function walk(dir, path){ for await (var en of dir.values()){ if(en.kind === 'file'){ try{ out.push({ file: await en.getFile(), path: path + en.name }); }catch(e){} } else if(en.kind === 'directory' && !/^\./.test(en.name)) await walk(en, path + en.name + '/'); } })(h, h.name + '/')
+  (async function walk(dir, path){ for await (var en of dir.values()){ if(en.kind === 'file'){ try{ out.push({ file: await en.getFile(), path: path + en.name }); }catch(e){} } else if(en.kind === 'directory' && !/^\./.test(en.name)){ out.push({ dir:true, path: path + en.name + '/' }); await walk(en, path + en.name + '/'); } } })(h, h.name + '/')
     .then(function(){ db.fsLast = today(); save(); takeList(out); }, function(){ alert('Could not read that folder.'); closeSheet(); });
 }
 var XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4366,7 +4369,7 @@ function fmDone(SK){
   function years(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || [], Y = {}; L.forEach(function(p){ String(p).split('/').forEach(function(seg){ if(/^(19|20)\d\d$/.test(seg)) Y[seg] = 1; }); }); return Object.keys(Y).sort(); }
   function accNode(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || [], bad = fmBadPdfs(a), n = db.tx.filter(function(x){ return x.a === a.id; }).length, Y = years(a);
     var st = (tracksLines(a) ? !n && !bad.length : a.balUnknown && !bad.length) ? 'bad' : bad.length ? 'amb' : 'ok';
-    var sub = !L.length ? (st === 'bad' ? 'folder is empty' : (tracksLines(a) ? n.toLocaleString('en-US') + ' lines' : 'total ' + money(a.bal||0,1))) : (Y.length ? Y.join(' · ') + ' · ' : L.length + ' file' + (L.length===1?'':'s') + ' · ') + (tracksLines(a) ? (n ? n.toLocaleString('en-US') + ' line' + (n===1?'':'s') : 'no lines yet') : (a.balUnknown ? 'total not read yet' : 'total ' + money(a.bal||0,1) + (a.asOf ? ' · ' + shortDate(a.asOf) : ''))) + (bad.length ? ' · ' + bad.length + ' not read yet' : st === 'ok' ? ' · all read' : '');
+    var sub = !L.length ? (st === 'bad' ? 'empty for now — put its statements in' : (tracksLines(a) ? n.toLocaleString('en-US') + ' lines' : 'total ' + money(a.bal||0,1))) : (Y.length ? Y.join(' · ') + ' · ' : L.length + ' file' + (L.length===1?'':'s') + ' · ') + (tracksLines(a) ? (n ? n.toLocaleString('en-US') + ' line' + (n===1?'':'s') : 'no lines yet') : (a.balUnknown ? 'total not read yet' : 'total ' + money(a.bal||0,1) + (a.asOf ? ' · ' + shortDate(a.asOf) : ''))) + (bad.length ? ' · ' + bad.length + ' not read yet' : st === 'ok' ? ' · all read' : '');
     return '<div class="fmn acc ' + st + '" data-fm="a' + a.id + '" onclick="mapAdd(\'' + (a.mapG || mapOf(a)) + '\',\'' + a.id + '\')"><b><i class="dot"></i>' + esc(acctLabel(a)) + (a.closed ? ' <span class="pill">closed</span>' : '') + '</b><small>📁 ' + sub + '</small>'
       + (bad.length ? '<button class="fmchip" onclick="event.stopPropagation();fmAI(\'' + a.id + '\')">✨ Read ' + (bad.length===1 ? 'it' : bad.length) + ' with AI</button>' : '') + '</div>'; }
   var groups = TREE.map(function(t){ var kids = '';
@@ -4559,15 +4562,15 @@ function setupStart(){ if(!db.lockAsked && !LOCK) return promiseScreen(); profSt
    folder names, is remembered, and nothing is moved on his computer. ── */
 var FMLIST = null, FM_AFTER = null;
 function relDir(path){ return String(path||'').split('/').slice(1, -1); }   /* folders under Family Money, without the file */
-function fmFolders(){ var T = {}; (FMLIST || []).forEach(function(it){ var P = relDir(it.path); if(/(^|\/)\./.test(it.path)) return;
-    for(var k=1;k<=Math.min(P.length, 4);k++){ var r = P.slice(0,k).join('/'); T[r] = (T[r]||0) + 1; } });
+function fmFolders(){ var T = {}; (FMLIST || []).forEach(function(it){ var P = it.dir ? String(it.path).split('/').slice(1, -1) : relDir(it.path); if(/(^|\/)\./.test(it.path)) return;
+    for(var k=1;k<=Math.min(P.length, 4);k++){ var r = P.slice(0,k).join('/'); T[r] = (T[r]||0) + (it.dir ? 0 : 1); } });
   return Object.keys(T).sort().map(function(r){ return { rel:r, depth:r.split('/').length - 1, name:r.split('/').pop(), n:T[r] }; }); }
 function fmAssign(g){ var t = TREE.filter(function(x){ return x[0] === g; })[0], F = fmFolders(), A = db.fmAssign || {};
   if(!F.length){ FM_AFTER = g; AUTO = true; STRUCT = true; openSheet('<h3>One moment — I need to see the folder again</h3><p class="sub">I only hold your Family Money folder while this page is open. Pick it again, and the list of its folders opens straight after.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="' + (window.showDirectoryPicker && FS.h ? 'checkFolder()' : canFolder() ? 'pickFolder()' : 'document.getElementById(\'fileIn\').click()') + '">Pick the Family Money folder</button><button class="b ghost" style="width:100%" onclick="FM_AFTER=null;AUTO=false;STRUCT=false;closeSheet()">Not now</button></div>'); return; }
   var cur = {}; db.accts.forEach(function(a){ if((a.mapG || mapOf(a)) === g && a.srel) cur[a.srel] = 1; }); (db.policies||[]).forEach(function(p){ if(g === 'ins' && p.srel) cur[p.srel] = 1; });
   openSheet('<div class="stepno">Your folder · ' + t[1] + ' ' + esc(t[2].replace(/^\d+\s*/,'')) + '</div><h3>Which folders are your ' + esc(t[2].replace(/^\d+\s*/,'').toLowerCase()) + '?</h3>'
     + '<p class="sub">Tick each folder that is ' + (g === 'ins' ? 'one policy' : 'one account') + ' — its files, and the year folders inside it, all go to that ' + (g === 'ins' ? 'policy' : 'account') + '. Untick anything that isn’t. Nothing on your computer is moved.</p>'
-    + '<div class="fmpick">' + F.map(function(f){ var on = cur[f.rel] || A[f.rel] === g; return '<label class="ck" style="margin:0;padding:7px 0 7px ' + (f.depth * 22) + 'px;border-bottom:1px solid var(--line)"><input type="checkbox" data-fr="' + esc(f.rel) + '"' + (on ? ' checked' : '') + '><span>📁 ' + esc(f.name) + '<small style="display:block;color:var(--soft);font-weight:600">' + f.n + ' file' + (f.n===1?'':'s') + (A[f.rel] && A[f.rel] !== g && A[f.rel] !== 'skip' ? ' · now in ' + esc(TREE.filter(function(x){ return x[0] === A[f.rel]; })[0][2]) : '') + '</small></span></label>'; }).join('') + '</div>'
+    + '<div class="fmpick">' + F.map(function(f){ var on = cur[f.rel] || A[f.rel] === g; return '<label class="ck" style="margin:0;padding:7px 0 7px ' + (f.depth * 22) + 'px;border-bottom:1px solid var(--line)"><input type="checkbox" data-fr="' + esc(f.rel) + '"' + (on ? ' checked' : '') + '><span>📁 ' + esc(f.name) + '<small style="display:block;color:var(--soft);font-weight:600">' + (f.n ? f.n + ' file' + (f.n===1?'':'s') : 'empty for now') + (A[f.rel] && A[f.rel] !== g && A[f.rel] !== 'skip' ? ' · now in ' + esc(TREE.filter(function(x){ return x[0] === A[f.rel]; })[0][2]) : '') + '</small></span></label>'; }).join('') + '</div>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmAssignSave(\'' + g + '\')">Use these — read again</button><button class="b ghost" style="width:100%" onclick="fmDone(ONESK)">Back to the map</button></div>'); }
 function fmAssignSave(g){ var A = db.fmAssign = db.fmAssign || {};
   Array.prototype.forEach.call(document.querySelectorAll('[data-fr]'), function(el){ var r = el.getAttribute('data-fr');
