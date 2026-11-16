@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v4.3 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v4.4 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2664,7 +2664,8 @@ function takeList(list, chosen){
     else { list.forEach(function(it){ if(/(^|\/)\./.test(String(it.path||'')) || /^(desktop\.ini|thumbs\.db|icon\r?)$/i.test(String(it.path||'').split('/').pop())) return;   /* hidden files (a Mac's .DS_Store, Windows' desktop.ini) are not statements, and an emptied folder holding only one must not become an account */
       var st = structOf(it.path); if(st && st.g === 'skip') return; if(!st){ loose++; var lp = String(it.path||'').split('/'); var lf = lp.length > 2 ? lp[1] : lp.length > 1 ? lp[lp.length-1] : it.path; if(!/^\./.test(lp[lp.length-1]||'')) FML[lf] = (FML[lf]||0) + 1; return; }
         if(st.acct) (FMF[st.g + '|' + (st.rel || st.acct)] = FMF[st.g + '|' + (st.rel || st.acct)] || []).push(it.path);
-        if(st.g === 'ins' && st.acct){ db.policies = db.policies || []; if(!db.policies.some(function(p){ return (p.srel || p.sfolder) === (st.rel || st.acct); })){ var co = (/(state farm|allstate|geico|progressive|usaa|farmers|liberty mutual|nationwide|travelers|erie|amica|mutual of omaha|northwestern mutual|new york life|metlife|prudential|aflac|genworth|lincoln|transamerica|john hancock|blue cross|aetna|cigna|humana|unitedhealth)/i.exec(st.acct) || [])[1] || '';
+        if(st.g === 'ins' && st.acct){ db.policies = db.policies || []; var oldP = db.policies.filter(function(p){ return !p.srel && p.sfolder === st.acct; })[0]; if(oldP) oldP.srel = st.rel || st.acct;
+          if(!db.policies.some(function(p){ return (p.srel || p.sfolder) === (st.rel || st.acct); })){ var co = (/(state farm|allstate|geico|progressive|usaa|farmers|liberty mutual|nationwide|travelers|erie|amica|mutual of omaha|northwestern mutual|new york life|metlife|prudential|aflac|genworth|lincoln|transamerica|john hancock|blue cross|aetna|cigna|humana|unitedhealth)/i.exec(st.acct) || [])[1] || '';
             db.policies.push({ id:uid(), name:st.acct, company:co.replace(/\b\w/g, function(c){ return c.toUpperCase(); }), premium:0, every:'month', renew:'', sfolder:st.acct, srel:st.rel || st.acct }); } docs['Insurance · ' + st.acct] = (docs['Insurance · ' + st.acct]||0) + 1; return; }
         if(st.g === 'ins' || st.g === 'other'){ var f = st.acct || TREE.filter(function(t){ return t[0] === st.g; })[0][2]; docs[f] = (docs[f]||0) + 1; return; }
         if(st.acct && st.g !== 'ins' && st.g !== 'other') structAcct(st.g, st.acct, null, st.rel);
@@ -4352,7 +4353,7 @@ function structOf(path){ var P = String(path||'').split('/').slice(0,-1), R = P.
 function structType(g, n){ if(g === 'bank') return /saving|money market/i.test(n) ? 'savings' : 'checking'; if(g === 'card') return 'card'; if(g === 'pay') return 'checking';
   if(g === 'inv') return /ira|401|403|retire|pension|roth|annuit/i.test(n) ? 'retire' : 'invest'; if(g === 'edu') return 'college'; if(g === 'loan') return /mortgage|home loan/i.test(n) ? 'mortgage' : /equity|heloc/i.test(n) ? 'heloc' : 'loan'; return 'otherA'; }
 function structAcct(g, folder, sample, rel){ rel = rel || folder; var l4 = (/(\d{4})\D*$/.exec(folder) || [])[1] || ''; if(/^(19|20)\d\d$/.test(l4)) l4 = ''; var nm = folder.replace(/[\s_-]*\(?\d{4}\)?\s*$/,'').trim() || (sample && guessAcct(sample).name) || 'Account';
-  var have = db.accts.filter(function(a){ return (a.srel || a.sfolder) === rel && a.mapG === g; })[0]; if(have) return have;
+  var have = db.accts.filter(function(a){ return a.mapG === g && (a.srel ? a.srel === rel : a.sfolder === folder); })[0]; if(have){ if(!have.srel) have.srel = rel; return have; }   /* an account made before v4.3 knew only its folder's name: match it, then remember the path */
   var type = structType(g, folder), a = { id:uid(), name:nm + (g === 'pay' && !/payment app/i.test(nm) ? ' (payment app)' : ''), inst:bankOf(folder) || nm, type:type, last4:l4, hist:[], mapG:g, sfolder:folder, srel:rel, folder:folder, track: /^(bank|card|pay)$/.test(g) ? 'lines' : 'total', found:1 };
   if(type === 'card'){ a.payMode = 'full'; a.autopay = true; } setBal(a, 0); a.balUnknown = 1; db.accts.push(a); return a; }
 function fmDone(SK){
@@ -4380,6 +4381,7 @@ function fmDone(SK){
     + '<div class="fmcanvas" id="fmCanvas"><svg id="fmSvg" aria-hidden="true"></svg><div class="fmroot"><div class="fmn root" data-fm="root">📁 Family Money<small>' + nFold + ' folder' + (nFold===1?'':'s') + ' · ' + nFiles + ' file' + (nFiles===1?'':'s') + '</small></div>' + (loose ? '<div class="fmloose">' + loose + '</div>' : '') + '</div><div class="fmgroups">' + groups + '</div></div>'
     + '<div class="fmlegend"><span style="--c:var(--ok)">all read</span><span style="--c:#E3A23B">some PDFs need AI</span><span style="--c:var(--red)">nothing to read</span>' + (loose ? '<span style="--c:#B9B2A6">outside the groups</span>' : '') + '</div>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmOn()">Looks right — next</button></div>');
+  if(FM_AFTER){ var ga = FM_AFTER; FM_AFTER = null; setTimeout(function(){ fmAssign(ga); }, 50); return; }
   document.getElementById('sheetIn').classList.add('wide'); [30, 300, 900].forEach(function(t){ setTimeout(fmLines, t); }); try{ if(window.ResizeObserver){ if(window.FMRO) FMRO.disconnect(); window.FMRO = new ResizeObserver(function(){ fmLines(); }); FMRO.observe(document.getElementById('fmCanvas')); } }catch(e){} }
 /* the joining lines, drawn once the boxes are in place (and again if the window changes size) */
 function fmLines(){ var C = document.getElementById('fmCanvas'), S = document.getElementById('fmSvg'); if(!C || !S) return;
@@ -4555,13 +4557,13 @@ function setupStart(){ if(!db.lockAsked && !LOCK) return promiseScreen(); profSt
    bank account one, bank account two… so I can actually tell you which ones go where"). Tap a group on the folder map:
    every folder the app found is listed, and the ones ticked are that group's accounts. What he picks wins over the
    folder names, is remembered, and nothing is moved on his computer. ── */
-var FMLIST = null;
+var FMLIST = null, FM_AFTER = null;
 function relDir(path){ return String(path||'').split('/').slice(1, -1); }   /* folders under Family Money, without the file */
 function fmFolders(){ var T = {}; (FMLIST || []).forEach(function(it){ var P = relDir(it.path); if(/(^|\/)\./.test(it.path)) return;
     for(var k=1;k<=Math.min(P.length, 4);k++){ var r = P.slice(0,k).join('/'); T[r] = (T[r]||0) + 1; } });
   return Object.keys(T).sort().map(function(r){ return { rel:r, depth:r.split('/').length - 1, name:r.split('/').pop(), n:T[r] }; }); }
 function fmAssign(g){ var t = TREE.filter(function(x){ return x[0] === g; })[0], F = fmFolders(), A = db.fmAssign || {};
-  if(!F.length){ alert('Pick the Family Money folder first.'); return; }
+  if(!F.length){ FM_AFTER = g; AUTO = true; STRUCT = true; openSheet('<h3>One moment — I need to see the folder again</h3><p class="sub">I only hold your Family Money folder while this page is open. Pick it again, and the list of its folders opens straight after.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="' + (window.showDirectoryPicker && FS.h ? 'checkFolder()' : canFolder() ? 'pickFolder()' : 'document.getElementById(\'fileIn\').click()') + '">Pick the Family Money folder</button><button class="b ghost" style="width:100%" onclick="FM_AFTER=null;AUTO=false;STRUCT=false;closeSheet()">Not now</button></div>'); return; }
   var cur = {}; db.accts.forEach(function(a){ if((a.mapG || mapOf(a)) === g && a.srel) cur[a.srel] = 1; }); (db.policies||[]).forEach(function(p){ if(g === 'ins' && p.srel) cur[p.srel] = 1; });
   openSheet('<div class="stepno">Your folder · ' + t[1] + ' ' + esc(t[2].replace(/^\d+\s*/,'')) + '</div><h3>Which folders are your ' + esc(t[2].replace(/^\d+\s*/,'').toLowerCase()) + '?</h3>'
     + '<p class="sub">Tick each folder that is ' + (g === 'ins' ? 'one policy' : 'one account') + ' — its files, and the year folders inside it, all go to that ' + (g === 'ins' ? 'policy' : 'account') + '. Untick anything that isn’t. Nothing on your computer is moved.</p>'
