@@ -1271,9 +1271,23 @@
       var LINK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
       var short = String(o.prompt).replace(/\s+/g, ' ').trim();
       if(short.length > 110) short = short.slice(0, 108) + '\u2026';
+      /* 16 Nov 2026: a sender that attaches a file passes it here, so the sheet can NAME it.
+         The Family Money Dashboard reads a credit union's PDF statement this way, and Jerry
+         chose "both, asking first" when he was asked what a customer should get. A statement
+         is the most private thing any of these apps will ever send, so a preview that showed
+         only the question while a PDF went with it would be worse than no preview: it would
+         be a wrong one. Only the sender that really attaches the file passes opt.file - the
+         external-assistant path cannot attach anything, the person does that themselves at
+         the other end, so it says nothing about a file and that stays true. */
+      var fsz = '';
+      if(opt.file && opt.file.data){
+        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -1300,11 +1314,11 @@
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
-    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false });
+    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
     if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
-      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
       var j = await r.json();
       if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
       closeAISheet(); return j.text;
