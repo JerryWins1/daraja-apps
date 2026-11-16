@@ -1904,7 +1904,7 @@ const APPS = {
   },
 
  churchhq: {
-  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'off', off:'folded into The Church App — it is how you keep the one you bought current', price:'$29 one-time', video:true,
+  name:'Church HQ', em:'🏢', sub:'keep the church app current, yourself', cat:'off', off:'kept off the store — a church keeps The Church App current with its own Weekly Update page and church key, not with Church HQ (Jerry, 15 Nov; church-demo/SETUP.md step 10)', price:'$29 one-time', video:true,
   tag:'The app that keeps your church app up to date — no website, no web designer, no waiting',
   try:BASE+'church-hq/',
   lines:[
