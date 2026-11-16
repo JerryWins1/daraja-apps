@@ -2334,7 +2334,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v3.6 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v3.7 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2618,7 +2618,7 @@ function unzipList(list, cb){ var Z = list.filter(function(it){ return /\.zip$/i
         .then(next, function(){ alert('I could not open ' + it.file.name + '.'); next(); }); })(); }
   if(!Z.length) return cb(list); if(window.JSZip) return go();
   var sc = document.createElement('script'); sc.src = JSZIP_URL; sc.onload = go; sc.onerror = function(){ alert('Opening a zip needs the internet once. Try again when you are online.'); cb(rest); }; document.head.appendChild(sc); }
-var STRUCTSK = null, FMF = {}, FMR = {}, FML = {};
+var STRUCTSK = null, FMF = {}, FMR = {}, FML = {}, PDFF = {}, FAI = null;
 function takeList(list, chosen){
   if(!list._unz && list.some(function(it){ return /\.zip$/i.test(it.file.name); })){ openSheet('<h3>Opening the zip…</h3><p class="sub">One moment.</p>'); unzipList(list, function(L){ L._unz = 1; takeList(L, chosen); }); return; }
   if(ONE){ chosen = true; AUTO = true; }
@@ -2657,7 +2657,7 @@ function takeList2(list){   /* list: [{ file, path }] */
     if(/^\./.test(nm)){ skip.other++; done(); return; }
     if(!STRUCT && /(^|\/)(_?old(er)?( versions?)?|archive[sd]?|backups?|copies)(\/|$)/i.test(it.path || '')){ skip.old = (skip.old||0) + 1; done(); return; }
     if(ext === 'pdf'){ var fp = String(it.path || nm).split('/'); if(!MAPA && !STRUCT && hintOf(it.path) === 'doc' && fp.length > 1){ var fo = fp[fp.length-2]; skip.docs = skip.docs || {}; skip.docs[fo] = (skip.docs[fo]||0) + 1; done(); return; }
-      readPDF(f, function(p){ var st0 = STRUCT && structOf(it.path || nm); if(p && (p.rows.length >= 2 || (st0 && /^(inv|edu|loan)$/.test(st0.g) && p.bal != null))){ p.path = it.path || nm; out.push(p); } else skip.pdf.push(it.path || nm); done(); }); return; }
+      PDFF[it.path || nm] = f; readPDF(f, function(p){ var st0 = STRUCT && structOf(it.path || nm); if(p && (p.rows.length >= 2 || (st0 && /^(inv|edu|loan)$/.test(st0.g) && p.bal != null))){ p.path = it.path || nm; out.push(p); } else skip.pdf.push(it.path || nm); done(); }); return; }
     if(ext === 'xlsx' || ext === 'xls'){ readSheet(f, function(p){ if(p && isStatement(p, it.path || nm, true)){ p.path = it.path || nm; out.push(p); } else { (skip.sheets = skip.sheets || []).push(it.path || nm); SHEETF[it.path || nm] = f; } done(); }); return; }
     if(ext === 'numbers' || ext === 'docx' || ext === 'doc' || ext === 'pages'){ (skip.sheets = skip.sheets || []).push(it.path || nm); done(); return; }
     if(!/^(csv|ofx|qfx|qbo|txt|tsv)$/.test(ext)){ skip.other++; done(); return; }
@@ -2808,7 +2808,7 @@ function nextFile(){
   if(!CUR.rows.length){ alert('I could not read any spending lines in “' + CUR.name + '”. If it came from a bank, try its CSV or QFX download instead.'); nextFile(); return; }
   if(!CUR.key) CUR.key = srcKey(CUR);
   var known = (db.src||{})[CUR.key];
-  if(CUR.forceA && acct(CUR.forceA)){ var fR = CUR.rows, fn = fR.filter(function(r){ return r.raw < 0; }).length; CUR.a = CUR.forceA; CUR.flip = known && known.a === CUR.a ? known.flip : fn >= fR.length - fn; takeFile(); return; }
+  if(CUR.forceA && acct(CUR.forceA)){ var fR = CUR.rows, fn = fR.filter(function(r){ return r.raw < 0; }).length; CUR.a = CUR.forceA; CUR.flip = CUR.aiCSV ? true : known && known.a === CUR.a ? known.flip : fn >= fR.length - fn; takeFile(); return; }
   if(known && acct(known.a) && !acct(known.a).closed){ CUR.a = known.a; CUR.flip = known.flip; takeFile(); return; }
   if(ROUTE){ IMP.unrouted = (IMP.unrouted||0) + 1; nextFile(); return; }
   if(AUTO){ autoAcct(CUR); takeFile(); return; }
@@ -2845,7 +2845,7 @@ function takeFile(){
 function afterImport(){
   if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
     MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
-    save(); render(); mapFiles(mid); return; }
+    save(); render(); if(FAI){ FAI.i++; if(FAI.i < FAI.list.length){ fmAIgo(); return; } FAI = null; } if(ONESK){ fmDone(ONESK); return; } mapFiles(mid); return; }
   if(ROUTE){ var rn = IMP.added, ru = IMP.unrouted || 0; ROUTE = false; IMP = { added:0, skipped:0 }; save(); render(); toast(rn + ' new lines read' + (ru ? '; ' + ru + ' file group' + (ru===1?'':'s') + ' not in any account’s folder' : '') + '.'); openAudit(); return; }
   if(ONE){ var sk1 = IMP.skip || {}; ['pdf','sheets'].forEach(function(x){ ONE.skip[x] = (ONE.skip[x]||[]).concat(sk1[x]||[]); }); var n1 = IMP.added; IMP = { added:0, skipped:0 }; AUTO = false; ONE.done = ONE.done || {}; ONE.done[ONE.kind] = n1 + ' lines read'; save(); oneStep(); return; }
   if(AUTO && STRUCT){ AUTO = false; var SKs = IMP.skip || {}; IMP = { added:0, skipped:0 }; save(); render(); fmDone(SKs); return; }
@@ -4329,11 +4329,28 @@ function fmDone(SK){ var found = {};
     + (Object.keys(FML).length ? '<div class="line warn" style="font-size:14px;font-weight:700">📂 Not inside any of the eight group folders, so not read:<br>' + Object.keys(FML).map(function(f){ return '• ' + esc(f) + ' (' + FML[f] + ' file' + (FML[f]===1?'':'s') + ')'; }).join('<br>') + '<br>If one of these is an account, move its folder into the right group — 1 Bank accounts, 2 Credit cards… — and pick the folder again.</div>' : '')
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmOn()">Looks right — next</button></div>'); }
 var ONESK = null;
+/* PDFs the app can't read itself: with the family's OK, each is handed to an AI that reads it and sends the lines back.
+   Jerry, 16 Nov, chose "both, asking first". Through the Daraja AI door (once it is switched on) that is one tap and the
+   PDF goes straight to Claude; until then, the family's own AI opens and they attach the file there. */
+function fmBadPdfs(a){ return (FMF[(a.mapG || mapOf(a)) + '|' + a.sfolder] || []).filter(function(p){ return !FMR[p] && /\.pdf$/i.test(p) && PDFF[p]; }); }
+function fmAI(id){ var a = acct(id), L = fmBadPdfs(a); if(!L.length) return;
+  openSheet('<div class="stepno">' + esc(acctLabel(a)) + '</div><h3>Read ' + (L.length === 1 ? 'this statement' : 'these ' + L.length + ' statements') + ' with AI?</h3>'
+    + '<p class="sub">I couldn\u2019t read ' + (L.length === 1 ? 'it' : 'them') + ' myself. With your OK, each one is sent to an AI to read, and its lines come back here into ' + esc(a.name) + '. The statement leaves this device for that — to Claude through Daraja, or to your own AI.</p>'
+    + '<ul class="list">' + L.slice(0,8).map(function(p){ return '<li style="font-size:14px">📄 ' + esc(String(p).split('/').pop()) + '</li>'; }).join('') + (L.length > 8 ? '<li style="font-size:13px">…and ' + (L.length - 8) + ' more</li>' : '') + '</ul>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="FAI={ id:\'' + id + '\', list:fmBadPdfs(acct(\'' + id + '\')), i:0 };fmAIgo()">Yes, read ' + (L.length === 1 ? 'it' : 'them') + '</button><button class="b ghost" style="width:100%" onclick="fmDone(ONESK)">Not now</button></div>'); }
+function fmAIgo(){ var F = FAI, path = F.list[F.i], f = PDFF[path], nm = String(path).split('/').pop();
+  var r = new FileReader(); r.onload = function(){ var b64 = String(r.result).split(',')[1] || '';
+    ask({ title:'Read ' + nm + (F.list.length > 1 ? ' (' + (F.i + 1) + ' of ' + F.list.length + ')' : ''), want:'text', circle:false, file:{ name:nm, media_type:'application/pdf', data:b64 },
+      prompt:'I am attaching a bank or credit card statement as a PDF (' + nm + '). Read every transaction on it and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. Do not include account numbers. If the statement shows an ending balance, add one last line: Balance,Ending balance,<the balance as a positive number>',
+      onResult:function(v, raw){ var p = parseCSV(raw, nm); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
+        p.path = path; p.files = [p]; p.forceA = F.id; p.aiCSV = 1; FMR[path] = p.rows.length; MAPA = F.id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); } }); };
+  r.readAsDataURL(f); }
 /* under each account: how many files its folder held, and any that gave no lines, with the likely reason */
 function fmFiles(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + a.sfolder] || []; if(!L.length) return '<br><span style="color:var(--red)">No files found in this folder.</span>';
   var bad = L.filter(function(p){ return !FMR[p]; }); if(!bad.length) return ' · ' + L.length + ' file' + (L.length===1?'':'s') + ', all read';
   function why(p){ var e = (String(p).split('.').pop()||'').toLowerCase(); return e === 'pdf' ? 'a PDF I couldn\u2019t read — a scanned picture, or a layout I don\u2019t know yet' : /^(csv|ofx|qfx|qbo|txt|tsv|xlsx|xls)$/.test(e) ? 'no dates and amounts found in it' : 'not a statement file'; }
-  return ' · ' + L.length + ' file' + (L.length===1?'':'s') + '<br><span style="color:var(--red)">' + bad.length + ' gave no lines:</span> ' + bad.slice(0,4).map(function(p){ return esc(String(p).split('/').pop()) + ' <i>(' + why(p) + ')</i>'; }).join('; ') + (bad.length > 4 ? '; …and ' + (bad.length - 4) + ' more' : ''); }
+  var badPdf = bad.filter(function(p){ return /\.pdf$/i.test(p) && PDFF[p]; });
+  return ' · ' + L.length + ' file' + (L.length===1?'':'s') + (badPdf.length ? '<br><button class="b small" style="margin:6px 0 2px" onclick="event.stopPropagation();fmAI(\'' + a.id + '\')">✨ Read ' + (badPdf.length === 1 ? 'it' : 'these ' + badPdf.length) + ' with AI</button>' : '') + '<br><span style="color:var(--red)">' + bad.length + ' gave no lines:</span> ' + bad.slice(0,4).map(function(p){ return esc(String(p).split('/').pop()) + ' <i>(' + why(p) + ')</i>'; }).join('; ') + (bad.length > 4 ? '; …and ' + (bad.length - 4) + ' more' : ''); }
 function fmOn(){ ckMark('check'); var SK = ONESK || {}; ONESK = null; STRUCT = false; autoFill(SK); }
 
 /* ── v3.2 · setup as a to-do list (Jerry, 16 Nov: "make the setup process our checklist, a little to-do list… a little

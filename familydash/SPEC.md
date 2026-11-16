@@ -355,3 +355,12 @@ Fixes:
 - **Stray files are shown.** Anything outside the eight group folders is listed by folder name, with the fix: move it into the right group and pick the folder again.
 - **Nothing is skipped by name in a Family Money folder.** "old", "archive" and "backup" folders are no longer skipped there; the folder is deliberate, and duplicate lines are counted once anyway.
 - **Every folder counts.** Several folders are all read; none replaces another.
+
+## Addendum, 16 Nov (v3.7) — reading PDFs with AI, asking first
+
+Jerry's credit union PDFs give no lines on the device: its layout is one the app's reader doesn't know. Asked what customers should get, he chose **"both, asking first"**: the app reads every PDF it can on the device, and for the rest it asks before sending them to an AI.
+
+- In "Here's what your folder holds", an account with unreadable PDFs gets a **✨ Read it/these with AI** button.
+- That opens a screen naming the statements, saying they will leave the device to be read, with **Yes, read them** and **Not now**.
+- Each PDF is handed to `djAI.ask` with the file attached and the same CSV prompt the older PDF route used. The lines come back into that account, the AI's own sign convention is trusted, and its ending balance is taken. Then it moves on to the next PDF, and finally back to the folder screen.
+- Through the Daraja AI door the file goes straight to Claude in one tap. That needs the house layer to pass `file` to the door, and the worker already accepts a PDF. Until then, the family's own AI opens and they attach the PDF there.
