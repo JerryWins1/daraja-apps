@@ -381,3 +381,18 @@ Jerry: "the beginning ought to be a questionnaire about how the user operates, w
 - **Reading with AI is a whole account at a time.** The folder screen has one "✨ Read them all with AI" button at the top. Each account gets a single ask with all its unreadable PDFs attached (`file` plus `files`), and a single paste brings back that account's lines. In testing, three PDFs in two accounts took two asks.
 - **The checklist** gains "Tell us how you work" and, when it applies, "Set up your AI first".
 - **Test script:** s21, s23 and s24 now walk the questions.
+
+## Addendum, 16 Nov (v4.1) — a passcode, the promise, and one home computer
+
+Jerry wants families to feel safe about their financial data: a password, and a plain statement up front that nothing is shared and the data stays on the computer, not the phone. He chose **one home computer** as where the data lives.
+
+- **"🔒 Your money stays with you"** comes before anything else in setup. It says:
+  - everything is kept on this computer, in this browser; nothing goes to Daraja, and there is no Daraja account or server
+  - there is no bank login, and the app never moves money
+  - a statement goes to an AI only after a yes for that statement
+  - nothing is ever shared, sold or shown
+  - with a passcode, everything kept here is scrambled, and the app locks itself after 15 minutes without use
+- **The passcode** must be at least 6 characters and typed twice. It is never stored. The data is encrypted with AES-GCM, using a key made from the passcode with PBKDF2 (250,000 rounds of SHA-256), before anything is written to the device. On opening, a lock screen asks for it. A wrong passcode is refused. Forgetting it means starting over; the statements in the folder are simply read again. Settings has Lock it now, Take the passcode off, or Lock it with a passcode. The checklist has "Lock it with a passcode".
+- **On a phone,** setup first says "💻 Best kept on your home computer", gives the link to copy for the computer, and explains that the monthly summary can be sent to each phone. "I only have a phone — set up here" is still allowed.
+- **Reading with AI:** the confirm screen now says plainly that a website can't hand files to another website. So, until the Daraja AI connection is on, the person attaches the PDFs themselves, and the screen names the folder for each account.
+- **Test script:** s21 to s23 updated for the promise screen.
