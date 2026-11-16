@@ -2334,7 +2334,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v3.5 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v3.6 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2618,14 +2618,16 @@ function unzipList(list, cb){ var Z = list.filter(function(it){ return /\.zip$/i
         .then(next, function(){ alert('I could not open ' + it.file.name + '.'); next(); }); })(); }
   if(!Z.length) return cb(list); if(window.JSZip) return go();
   var sc = document.createElement('script'); sc.src = JSZIP_URL; sc.onload = go; sc.onerror = function(){ alert('Opening a zip needs the internet once. Try again when you are online.'); cb(rest); }; document.head.appendChild(sc); }
-var STRUCTSK = null;
+var STRUCTSK = null, FMF = {}, FMR = {}, FML = {};
 function takeList(list, chosen){
   if(!list._unz && list.some(function(it){ return /\.zip$/i.test(it.file.name); })){ openSheet('<h3>Opening the zip…</h3><p class="sub">One moment.</p>'); unzipList(list, function(L){ L._unz = 1; takeList(L, chosen); }); return; }
   if(ONE){ chosen = true; AUTO = true; }
   if(MAPA || ROUTE){ chosen = true; AUTO = false; }
-  if(STRUCT){ var keep = [], loose = 0, docs = {}, any = list.some(function(it){ return structOf(it.path); });
+  if(STRUCT){ var keep = [], loose = 0, docs = {}, any = list.some(function(it){ return structOf(it.path); }); FMF = {}; FMR = {}; FML = {};
     if(!any){ STRUCT = false; alert('I couldn\u2019t find the group folders (1 Bank accounts, 2 Credit cards…) inside that. I\u2019ll read the files and ask you about each one instead.'); }
-    else { list.forEach(function(it){ var st = structOf(it.path); if(!st){ loose++; return; }
+    else { list.forEach(function(it){ if(/(^|\/)\./.test(String(it.path||'')) || /^(desktop\.ini|thumbs\.db|icon\r?)$/i.test(String(it.path||'').split('/').pop())) return;   /* hidden files (a Mac's .DS_Store, Windows' desktop.ini) are not statements, and an emptied folder holding only one must not become an account */
+      var st = structOf(it.path); if(!st){ loose++; var lp = String(it.path||'').split('/'); var lf = lp.length > 2 ? lp[1] : lp.length > 1 ? lp[lp.length-1] : it.path; if(!/^\./.test(lp[lp.length-1]||'')) FML[lf] = (FML[lf]||0) + 1; return; }
+        if(st.acct) (FMF[st.g + '|' + st.acct] = FMF[st.g + '|' + st.acct] || []).push(it.path);
         if(st.g === 'ins' && st.acct){ db.policies = db.policies || []; if(!db.policies.some(function(p){ return p.sfolder === st.acct; })){ var co = (/(state farm|allstate|geico|progressive|usaa|farmers|liberty mutual|nationwide|travelers|erie|amica|mutual of omaha|northwestern mutual|new york life|metlife|prudential|aflac|genworth|lincoln|transamerica|john hancock|blue cross|aetna|cigna|humana|unitedhealth)/i.exec(st.acct) || [])[1] || '';
             db.policies.push({ id:uid(), name:st.acct, company:co.replace(/\b\w/g, function(c){ return c.toUpperCase(); }), premium:0, every:'month', renew:'', sfolder:st.acct }); } docs['Insurance · ' + st.acct] = (docs['Insurance · ' + st.acct]||0) + 1; return; }
         if(st.g === 'ins' || st.g === 'other'){ var f = st.acct || TREE.filter(function(t){ return t[0] === st.g; })[0][2]; docs[f] = (docs[f]||0) + 1; return; }
@@ -2653,7 +2655,7 @@ function takeList2(list){   /* list: [{ file, path }] */
   function done(){ if(--left > 0){ var e = document.getElementById('rdLeft'); if(e) e.textContent = left + ' to go.'; return; } groupAndGo(out, skip); }
   list.forEach(function(it){ var f = it.file, nm = f.name, ext = (nm.split('.').pop()||'').toLowerCase();
     if(/^\./.test(nm)){ skip.other++; done(); return; }
-    if(/(^|\/)(_?old(er)?( versions?)?|archive[sd]?|backups?|copies)(\/|$)/i.test(it.path || '')){ skip.old = (skip.old||0) + 1; done(); return; }
+    if(!STRUCT && /(^|\/)(_?old(er)?( versions?)?|archive[sd]?|backups?|copies)(\/|$)/i.test(it.path || '')){ skip.old = (skip.old||0) + 1; done(); return; }
     if(ext === 'pdf'){ var fp = String(it.path || nm).split('/'); if(!MAPA && !STRUCT && hintOf(it.path) === 'doc' && fp.length > 1){ var fo = fp[fp.length-2]; skip.docs = skip.docs || {}; skip.docs[fo] = (skip.docs[fo]||0) + 1; done(); return; }
       readPDF(f, function(p){ var st0 = STRUCT && structOf(it.path || nm); if(p && (p.rows.length >= 2 || (st0 && /^(inv|edu|loan)$/.test(st0.g) && p.bal != null))){ p.path = it.path || nm; out.push(p); } else skip.pdf.push(it.path || nm); done(); }); return; }
     if(ext === 'xlsx' || ext === 'xls'){ readSheet(f, function(p){ if(p && isStatement(p, it.path || nm, true)){ p.path = it.path || nm; out.push(p); } else { (skip.sheets = skip.sheets || []).push(it.path || nm); SHEETF[it.path || nm] = f; } done(); }); return; }
@@ -2706,7 +2708,7 @@ function srcKey(p){
 function prettyKey(k){ if(/^bank:/.test(k)){ var b = k.slice(5).split('|'); return b[0] + (b[1] ? ' card' : ''); } if(/^acct:/.test(k)){ var q = k.slice(5).split('|'); return (q.length > 1 ? q[0] + ' ••' + q[1] : 'Account ••' + q[0]); } var s = k.replace(/^(dir|name|acct):/,''); return s.replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
 function groupAndGo(list, skip){
   var G = {}, order = [];
-  if(STRUCT){ list.forEach(function(p){ var st = structOf(p.path); if(!st) return; var a = structAcct(st.g, st.acct || prettyKey(srcKey(p)), p);
+  if(STRUCT){ list.forEach(function(p){ FMR[p.path] = p.rows.length || (p.bal != null ? 1 : 0); var st = structOf(p.path); if(!st) return; var a = structAcct(st.g, st.acct || prettyKey(srcKey(p)), p);
       if(a.track === 'total'){ if(p.bal != null && isFinite(p.bal) && (!a.asOf || a.balUnknown || (p.asOf || today()) >= a.asOf)){ a.hist = a.balUnknown ? [] : a.hist; delete a.balUnknown; setBal(a, Math.abs(p.bal), p.asOf || today()); } return; }
       var k = 'acct:' + a.id; if(!G[k]){ G[k] = { key:k, name:a.name, files:[], rows:[], bal:null, asOf:null, last:'', forceA:a.id }; order.push(k); } var g = G[k]; g.files.push(p);
       var lastD = p.rows.reduce(function(x,r){ return r.d > x ? r.d : x; }, ''); if(p.bal != null && (p.asOf || lastD) >= g.last){ g.bal = p.bal; g.asOf = p.asOf || lastD; g.last = p.asOf || lastD; } });
@@ -4311,7 +4313,7 @@ function structOf(path){ var P = String(path||'').split('/').slice(0,-1);
   return null; }
 function structType(g, n){ if(g === 'bank') return /saving|money market/i.test(n) ? 'savings' : 'checking'; if(g === 'card') return 'card'; if(g === 'pay') return 'checking';
   if(g === 'inv') return /ira|401|403|retire|pension|roth|annuit/i.test(n) ? 'retire' : 'invest'; if(g === 'edu') return 'college'; if(g === 'loan') return /mortgage|home loan/i.test(n) ? 'mortgage' : /equity|heloc/i.test(n) ? 'heloc' : 'loan'; return 'otherA'; }
-function structAcct(g, folder, sample){ var l4 = (/(\d{4})\D*$/.exec(folder) || [])[1] || '', nm = folder.replace(/[\s_-]*\(?\d{4}\)?\s*$/,'').trim() || (sample && guessAcct(sample).name) || 'Account';
+function structAcct(g, folder, sample){ var l4 = (/(\d{4})\D*$/.exec(folder) || [])[1] || ''; if(/^(19|20)\d\d$/.test(l4)) l4 = ''; var nm = folder.replace(/[\s_-]*\(?\d{4}\)?\s*$/,'').trim() || (sample && guessAcct(sample).name) || 'Account';
   var have = db.accts.filter(function(a){ return a.sfolder === folder && a.mapG === g; })[0]; if(have) return have;
   var type = structType(g, folder), a = { id:uid(), name:nm + (g === 'pay' && !/payment app/i.test(nm) ? ' (payment app)' : ''), inst:bankOf(folder) || nm, type:type, last4:l4, hist:[], mapG:g, sfolder:folder, folder:folder, track: /^(bank|card|pay)$/.test(g) ? 'lines' : 'total', found:1 };
   if(type === 'card'){ a.payMode = 'full'; a.autopay = true; } setBal(a, 0); a.balUnknown = 1; db.accts.push(a); return a; }
@@ -4320,13 +4322,18 @@ function fmDone(SK){ var found = {};
   (db.policies||[]).forEach(function(p){ (found.ins = found.ins || []).push(p.name + (p.company && p.company !== p.name ? ' · ' + p.company : '')); });
   Object.keys((SK && SK.docs) || {}).forEach(function(f){ (found.other = found.other || []).push(f); });
   var rows = TREE.map(function(t){ var A = t[0] === 'ins' ? [] : db.accts.filter(function(a){ return (a.mapG || mapOf(a)) === t[0]; }); if(!A.length) return '';
-    return '<h4 style="margin:12px 0 4px">' + t[1] + ' ' + esc(t[2].replace(/^\d+\s*/,'')) + '</h4><ul class="list">' + A.map(function(a){ return '<li class="tap" onclick="mapAdd(\'' + (a.mapG || mapOf(a)) + '\',\'' + a.id + '\')"><span class="ds">' + esc(acctLabel(a)) + (a.closed ? ' <span class="pill">closed</span>' : '') + '<small>' + strip(a) + (tracksLines(a) ? ' · ' + db.tx.filter(function(x){ return x.a === a.id; }).length + ' lines' : '') + '</small></span><span class="amt" style="font-size:13px;color:var(--soft)">tap to change</span></li>'; }).join('') + '</ul>'; }).join('');
+    return '<h4 style="margin:12px 0 4px">' + t[1] + ' ' + esc(t[2].replace(/^\d+\s*/,'')) + '</h4><ul class="list">' + A.map(function(a){ return '<li class="tap" onclick="mapAdd(\'' + (a.mapG || mapOf(a)) + '\',\'' + a.id + '\')"><span class="ds">' + esc(acctLabel(a)) + (a.closed ? ' <span class="pill">closed</span>' : '') + '<small>' + strip(a) + (tracksLines(a) ? ' · ' + db.tx.filter(function(x){ return x.a === a.id; }).length + ' lines' : '') + fmFiles(a) + '</small></span><span class="amt" style="font-size:13px;color:var(--soft)">tap to change</span></li>'; }).join('') + '</ul>'; }).join('');
   ONESK = SK;
   openSheet('<div class="stepno">Setting up · step 3 of 3</div><h3>Here’s what your folder holds</h3><p class="sub">Each account is named from its folder. Tap one to change its name or kind, or to mark it closed.</p>' + rows
     + ((db.policies||[]).length ? '<h4 style="margin:12px 0 4px">🛡️ Insurance</h4><ul class="list">' + db.policies.map(function(p){ return '<li class="tap" onclick="mapPolicy(\'' + p.id + '\')"><span class="ds">' + esc(p.name) + '<small>' + esc(p.company || '') + (p.premium ? ' · ' + money(p.premium) + ' a ' + p.every : ' · premium found from payments next') + '</small></span></li>'; }).join('') + '</ul>' : '')
-    + ((SK && SK.loose) ? '<p class="sub" style="margin-top:10px">' + SK.loose + ' file' + (SK.loose===1?' was':'s were') + ' outside the group folders and left alone.</p>' : '')
+    + (Object.keys(FML).length ? '<div class="line warn" style="font-size:14px;font-weight:700">📂 Not inside any of the eight group folders, so not read:<br>' + Object.keys(FML).map(function(f){ return '• ' + esc(f) + ' (' + FML[f] + ' file' + (FML[f]===1?'':'s') + ')'; }).join('<br>') + '<br>If one of these is an account, move its folder into the right group — 1 Bank accounts, 2 Credit cards… — and pick the folder again.</div>' : '')
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmOn()">Looks right — next</button></div>'); }
 var ONESK = null;
+/* under each account: how many files its folder held, and any that gave no lines, with the likely reason */
+function fmFiles(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + a.sfolder] || []; if(!L.length) return '<br><span style="color:var(--red)">No files found in this folder.</span>';
+  var bad = L.filter(function(p){ return !FMR[p]; }); if(!bad.length) return ' · ' + L.length + ' file' + (L.length===1?'':'s') + ', all read';
+  function why(p){ var e = (String(p).split('.').pop()||'').toLowerCase(); return e === 'pdf' ? 'a PDF I couldn\u2019t read — a scanned picture, or a layout I don\u2019t know yet' : /^(csv|ofx|qfx|qbo|txt|tsv|xlsx|xls)$/.test(e) ? 'no dates and amounts found in it' : 'not a statement file'; }
+  return ' · ' + L.length + ' file' + (L.length===1?'':'s') + '<br><span style="color:var(--red)">' + bad.length + ' gave no lines:</span> ' + bad.slice(0,4).map(function(p){ return esc(String(p).split('/').pop()) + ' <i>(' + why(p) + ')</i>'; }).join('; ') + (bad.length > 4 ? '; …and ' + (bad.length - 4) + ' more' : ''); }
 function fmOn(){ ckMark('check'); var SK = ONESK || {}; ONESK = null; STRUCT = false; autoFill(SK); }
 
 /* ── v3.2 · setup as a to-do list (Jerry, 16 Nov: "make the setup process our checklist, a little to-do list… a little
