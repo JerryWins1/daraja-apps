@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v4.6 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v4.7 · 2026-11-16 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3038,7 +3038,7 @@ function counts(a){ return !!a && !a.notPersonal && a.type !== 'miles'; }
 function txIn(m){ return db.tx.filter(function(t){ return t.d.slice(0,7) === m && counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom); }); }
 function months(){ var o = {}; db.tx.forEach(function(t){ if(counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom)) o[t.d.slice(0,7)] = 1; }); return Object.keys(o).sort(); }
 function netWorth(){ var own = 0, owe = 0; db.accts.forEach(function(a){ if(a.closed || a.notPersonal || a.balUnknown || TYPES[a.type].s === 'n') return; if(TYPES[a.type].s === 'a') own += a.bal||0; else owe += a.bal||0; }); return { own:r2(own), owe:r2(owe), net:r2(own-owe) }; }
-function isP3(id){ return id === 'onetime' || /^help:/.test(id||''); }
+function isP3(id){ if(id === 'onetime' || /^help:/.test(id||'')) return true; var c = cat(id); return !!(c && part(c) === 3); }
 function notSpending(id){ return id === 'inc' || id === 'xfer' || id === 'biz' || id === 'edu529'; }
 function part(c){ return db.threePart ? c.part : 1; }
 function p1Cats(){ return db.cats.filter(function(c){ return part(c) === 1; }); }
@@ -3047,7 +3047,7 @@ function monthsBefore(m, n){ var o = [], all = months(); for(var i=1;i<=n;i++){ 
 function avgFor(id, m, n){ var ms = monthsBefore(m || thisMonth(), n || 3); if(!ms.length) return null; var t = 0; db.tx.forEach(function(x){ if(x.cat === id && counts(acct(x.a)) && ms.indexOf(x.d.slice(0,7)) >= 0) t += x.amt; }); return r2(t / ms.length); }
 function lowHigh(id){ var by = {}; months().forEach(function(m){ by[m] = 0; }); db.tx.forEach(function(x){ if(x.cat === id && counts(acct(x.a)) && by[x.d.slice(0,7)] != null) by[x.d.slice(0,7)] += x.amt; });
   var v = Object.keys(by).map(function(m){ return { m:m, v:r2(by[m]) }; }); if(v.length < 2) return null; v.sort(function(a,b){ return a.v - b.v; }); return { lo:v[0], hi:v[v.length-1] }; }
-function mBud(c, m){ if(part(c) === 2) return c.yearly == null ? 0 : r2(c.yearly / 12); if(c.variable){ var a = avgFor(c.id, m); return a == null ? (c.budget||0) : niceRound(Math.max(0,a)); } return c.budget || 0; }
+function mBud(c, m){ if(part(c) === 3) return 0; if(part(c) === 2) return c.yearly == null ? 0 : r2(c.yearly / 12); if(c.variable){ var a = avgFor(c.id, m); return a == null ? (c.budget||0) : niceRound(Math.max(0,a)); } return c.budget || 0; }
 function totalBudget(m){ return r2(db.cats.reduce(function(s,c){ return s + mBud(c, m); },0)); }
 function p1Budget(m){ return r2(p1Cats().reduce(function(s,c){ return s + mBud(c, m); },0)); }
 function p2Budget(){ return r2(p2Cats().reduce(function(s,c){ return s + mBud(c); },0)); }
@@ -3086,7 +3086,7 @@ function inQueue(t){
   return !!channel(t) || t.amt >= (db.threshold || 500) || t.cat === 'uncat' || !!t.sug;
 }
 function known(t){ var k = mkey(t.desc); return db.reclass.some(function(r){ return r.cat === t.cat && mkey(r.desc) === k && Math.abs(r.amt - t.amt) <= Math.max(5, Math.abs(r.amt) * .1); }); }
-function queue(){ return db.tx.filter(inQueue).filter(function(t){ return db.notSure.indexOf(t.id) < 0; }).sort(function(a,b){ return a.d < b.d ? 1 : -1; }); }
+function queue(){ return db.tx.filter(inQueue).filter(function(t){ return db.notSure.indexOf(t.id) < 0 && (!GKA || t.a === GKA); }).sort(function(a,b){ return a.d < b.d ? 1 : -1; }); }
 function suggestFor(t){
   var ch = channel(t), k = mkey(t.desc);
   if(t.sug || (t.cat !== 'uncat' && !ch)) return { cat:t.cat, why:t.sug ? 'Your AI thinks so.' : 'The app sorted it this way from the words on the statement.' };
@@ -3102,7 +3102,9 @@ var GK = null;
 function openGTKY(id){
   var Q = queue(); if(id){ var one = db.tx.filter(function(t){ return t.id === id; })[0]; if(one){ Q = [one].concat(Q.filter(function(t){ return t.id !== id; })); db.notSure = db.notSure.filter(function(x){ return x !== id; }); } }
   if(!GK || id) GK = { total:Q.length, done:0 };
+  if(RV && RV.st === 'chk' && GK.done > 0){ var w = RV.walk; RV = null; GK = null; if(w) rvChkNext(); else rvChk(); return; }
   var t = Q[0];
+  if(!t && GKA){ rvAcctNext(); return; }
   if(!t){ GK = null; openSheet('<h3>All caught up ✓</h3><p class="sub">Nothing left to ask about.' + (db.notSure.length ? ' ' + db.notSure.length + ' “not sure” item' + (db.notSure.length===1?' is':'s are') + ' kept for later.' : '') + '</p>' + (db.notSure.length ? '<button class="b full" onclick="openNotSure()">See the not-sure list</button>' : '') + (!db.budgetSet && db.tx.length ? '<button class="b primary full" onclick="openFirstLoad()">Make our budget</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button>'); return; }
   var a = acct(t.a) || {}, sg = suggestFor(t), ch = channel(t), n = GK.done + 1, tot = Math.max(GK.total, n);
   var opts = [];
@@ -3114,7 +3116,7 @@ function openGTKY(id){
   opts.push(['pick', sg ? 'A different category' : 'One of our categories', 'groceries, utilities, travel…']);
   opts.push(['else', 'Something else', 'type what it was']);
   opts.push(['unsure', 'Not sure — skip for now', 'kept on a short list for later']);
-  openSheet('<div class="stepno">Getting to know you · item ' + n + ' of ' + tot + '</div>'
+  openSheet('<div class="stepno">' + (GKA && RV ? 'Part 1 · account ' + (RV.i + 1) + ' of ' + RV.L.length + ' · ' + esc(acctLabel(a)) + ' · payment ' : 'Getting to know you · item ') + n + ' of ' + tot + '</div>'
     + '<div class="card" style="margin:8px 0 10px"><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:24px">' + (t.amt < 0 ? '+' + money(-t.amt) : money(t.amt)) + '</b><span style="margin-left:auto;color:var(--soft);font-weight:700">' + shortDate(t.d) + '</span></div>'
     + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin-top:6px;word-break:break-word">' + esc(t.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(a)) + (ch ? ' · ' + esc(ch) : '') + (t.src ? ' · from ' + esc(t.src) : '') + '</div></div>'
     + '<h3 style="font-size:19px">' + (sg ? 'This looks like <b>' + esc(catName(sg.cat)) + '</b> — right?' : 'What was this?') + '</h3>'
@@ -3122,7 +3124,7 @@ function openGTKY(id){
     + (db.lists.length ? '<p class="sub" style="margin:10px 0 4px">Also add it to a list:</p>' + db.lists.map(function(l){ return '<label class="ck"><input type="checkbox" data-list="' + l.id + '"' + ((t.tags||[]).indexOf(l.id) >= 0 ? ' checked' : '') + '> ' + esc(l.name) + '</label>'; }).join('') : '')
     + (db.whoAnswers === 'spouse' && db.spouse ? '<button class="b full" onclick="askSpouse(\'' + t.id + '\')">💬 Ask ' + esc(db.spouse) + '</button>' : '')
     + (Q.length > 3 ? '<button class="b full" onclick="sortAI()">✨ Let my AI suggest answers for all ' + Q.length + '</button>' : '')
-    + '<button class="b ghost" style="width:100%;margin-top:6px" onclick="GK=null;closeSheet();render()">Done for now</button>');
+    + '<button class="b ghost" style="width:100%;margin-top:6px" onclick="GK=null;GKA=null;RV=null;closeSheet();render()">Done for now</button>');
 }
 function fkey(d){ return String(d||'').toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ').replace(/\s+/g,' ').trim(); }
 function acctLabel(a){ return (a.name || 'an account') + (a.last4 ? ' ••' + a.last4 : ''); }
@@ -3171,6 +3173,180 @@ function openNotSure(){ var L = db.tx.filter(function(t){ return db.notSure.inde
   openSheet('<h3>Not sure yet</h3><p class="sub">Kept so they can be asked again, or looked up — a check image on the bank’s website often answers it.</p><ul class="list">' + (L.map(function(t){ return '<li class="tap" onclick="openGTKY(\'' + t.id + '\')"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '<small>' + esc(acctLabel(acct(t.a)||{})) + '</small></span><span class="amt">' + money(t.amt) + '</span></li>'; }).join('') || '<li>Nothing here.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
 function openReclass(){ openSheet('<h3>What you told me</h3><p class="sub">Every answer, newest first. Tap one to change it.</p><ul class="list">' + (db.reclass.slice(0,200).map(function(r){ return '<li class="tap" onclick="openGTKY(\'' + r.id + '\');delete db.asked[\'' + r.id + '\']"><span class="d">' + shortDate(r.d) + '</span><span class="ds">' + esc(r.what) + '<small>' + esc(r.desc) + ' · ' + esc(catName(r.cat)) + '</small></span><span class="amt">' + money(r.amt) + '</span></li>'; }).join('') || '<li>Nothing yet.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
 function pickCatFor(desc, txid){ if(txid){ delete db.asked[txid]; openGTKY(txid); } else openGTKY(); }
+
+/* ── v4.7 · Going through it together (Jerry, 16 Nov). The process another chat used with him over two days, account by
+   account: what each account is, then every payment the statement can't explain, then how often each kind of spending
+   comes, then the subscriptions, then the checks, then an honest list of what is still open. Five parts, one question at
+   a time, nothing guessed. ── */
+var RV = null, GKA = null;
+var RV_PARTS = [
+  ['acct','🏦','Account by account','what each account is, then every payment its statements can’t explain'],
+  ['time','📅','How often each kind of spending comes','monthly, up and down, once or twice a year, one-time, or as needed'],
+  ['subs','🔁','Subscriptions','keep, cancel, or decide later'],
+  ['chk','🧾','Checks','every check number, in order, accounted for'],
+  ['open','📌','What’s still open','nothing guessed: the gaps, the fees, the questions for your CPA']];
+function rvDone(k){ return !!(db.rv && db.rv[k]); }
+function rvMark(k){ db.rv = db.rv || {}; db.rv[k] = today(); save(); }
+function openReview(){ GKA = null; RV = null; var nx = RV_PARTS.filter(function(p){ return !rvDone(p[0]); })[0];
+  openSheet('<div class="stepno">Going through it together</div><h3>Five parts, one question at a time</h3><p class="sub">The way a careful bookkeeper would sit down with you: account by account, then each kind of spending. Anything the statements already answer is shown first, for you to say yes to. Nothing is guessed — what nobody knows stays “not sure”.</p>'
+    + RV_PARTS.map(function(p, i){ var d = rvDone(p[0]); return '<button class="chk tap' + (d ? ' done' : '') + '" style="width:100%;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;font:inherit;cursor:pointer" onclick="rvGo(\'' + p[0] + '\')"><span class="tick">' + (d ? '✓' : (i + 1)) + '</span><span class="tx">' + p[1] + ' ' + p[2] + '<small>' + (d ? 'done ' + shortDate(db.rv[p[0]]) + ' · tap to go through it again' : p[3]) + '</small></span></button>'; }).join('')
+    + '<div class="stickfoot">' + (nx ? '<button class="b primary full" style="margin-top:0" onclick="rvGo(\'' + nx[0] + '\')">' + (rvDone('acct') ? 'Carry on: ' : 'Start: ') + esc(nx[2]) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="rvGo(\'open\')">See what’s still open</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button></div>'); }
+function rvGo(k){ if(k === 'acct') rvAcctStart(); else if(k === 'time') rvTimeStart(); else if(k === 'subs') rvSubsStart(); else if(k === 'chk') rvChk(); else rvOpen(); }
+function rvNextPart(k){ rvMark(k); var i = RV_PARTS.map(function(p){ return p[0]; }).indexOf(k), nx = RV_PARTS[i + 1];
+  openSheet('<div class="stepno">Going through it together · part ' + (i + 1) + ' of 5 done</div><h3>✓ ' + esc(RV_PARTS[i][2]) + '</h3>' + (nx ? '<p class="sub">Next: <b>' + nx[1] + ' ' + esc(nx[2]) + '</b> — ' + esc(nx[3]) + '.</p>' : '')
+    + '<div class="stickfoot">' + (nx ? '<button class="b primary full" style="margin-top:0" onclick="rvGo(\'' + nx[0] + '\')">On to part ' + (i + 2) + '</button>' : '') + '<button class="b ghost" style="width:100%" onclick="openReview()">Back to the five parts</button></div>'); }
+
+/* part 1 · account by account: bank accounts, then cards, then payment apps, then insurance, then the 529s */
+function rvAcctList(){ var L = [], ord = { bank:1, card:2, pay:3 };
+  db.accts.filter(function(a){ return tracksLines(a) && ord[a.mapG || mapOf(a)]; }).sort(function(a,b){ return (ord[a.mapG || mapOf(a)] - ord[b.mapG || mapOf(b)]) || (a.closed ? 1 : 0) - (b.closed ? 1 : 0); }).forEach(function(a){ L.push({ k:'a', id:a.id }); });
+  (db.policies||[]).forEach(function(p){ L.push({ k:'p', id:p.id }); });
+  db.accts.filter(function(a){ return a.type === 'college'; }).forEach(function(a){ L.push({ k:'e', id:a.id }); });
+  return L; }
+function rvAcctStart(){ RV = { st:'acct', L:rvAcctList(), i:0, q:0 }; if(!RV.L.length){ openSheet('<h3>No accounts yet</h3><p class="sub">Give the app your Family Money folder first.</p><button class="b primary full" onclick="fmStart()">Go to my folder</button><button class="b ghost" style="width:100%" onclick="openReview()">Back</button>'); return; } rvAcct(); }
+function rvHead(){ var R = RV, it = R.L[R.i], o = it.k === 'p' ? (db.policies||[]).filter(function(p){ return p.id === it.id; })[0] : acct(it.id);
+  var nm = it.k === 'p' ? '🛡️ ' + (o.company ? o.company + ' · ' : '') + o.name : (TYPES[o.type] ? TYPES[o.type].em + ' ' : '') + acctLabel(o);
+  return { o:o, h:'<div class="stepno">Part 1 · account ' + (R.i + 1) + ' of ' + R.L.length + '</div><div class="card" style="margin:6px 0 10px;padding:10px 14px"><b>' + esc(nm) + '</b></div>' }; }
+function rvQs(it, o){ if(it.k === 'p') return ['pEvery','pFor']; if(it.k === 'e') return ['eWho'];
+  var g = o.mapG || mapOf(o), Q = ['whose']; if(g === 'bank') Q.push('joint'); if(g === 'card') Q.push('pay', 'open'); return Q; }
+function rvAcct(){ var R = RV, it = R.L[R.i]; if(!it){ GKA = null; rvNextPart('acct'); return; }
+  var H = rvHead(), o = H.o, Q = rvQs(it, o), q = Q[R.q]; if(!o){ R.i++; R.q = 0; rvAcct(); return; }
+  if(!q){ if(it.k === 'a' && counts(o)){ GKA = o.id; GK = null; if(queue().length){ openGTKY(); return; } } rvAcctNext(); return; }
+  var T = { whose:['Whose money is in this account?', [['family','Ours — family money'],['famuse','In another name, but used for family spending','counted as family'],['other','A business’s or a nonprofit’s','left out of family spending']], o.notPersonal ? 'other' : o.familyUse ? 'famuse' : null],
+    joint:['Is it joint, and is it the account that pays the bills?', [['jp','Joint, and it pays the bills'],['j','Joint, but the bills come from elsewhere'],['op','In one name, and it pays the bills'],['o','In one name, bills come from elsewhere']], o.joint != null ? (o.joint ? 'j' : 'o') + (o.paysBills ? 'p' : '') : null],
+    pay:['How does this card get paid?', [['full','The full statement balance, on autopay','no interest'],['min','The minimum','this costs interest'],['hand','By hand']], o.payMode || null],
+    open:['Is this card still open?', [['open','Open'],['closed','Closed','its history is kept']], o.closed ? 'closed' : null],
+    pEvery:['Is the premium paid monthly or yearly?', [['month','Monthly'],['year','Once a year'],['half','Twice a year']], o.every || null],
+    pFor:['Does it build a cash value meant for something?', [['none','No — it is plain insurance'],['edu','Yes — for education'],['other','Yes — for something else']], o.purpose || null],
+    eWho:['Which grandchild or child is it for?', null, null] }[q];
+  var body = T[1] ? taps('rv', T[1], T[2]) : '<label for="rvW">Their first name</label><input id="rvW" value="' + esc(o.forWho || '') + '" placeholder="e.g. Emma"><label for="rvM">How much goes in each month (blank if nothing)</label><input id="rvM" inputmode="decimal" value="' + (o.monthly || '') + '">';
+  openSheet(H.h + '<div class="stepno">question ' + (R.q + 1) + ' of ' + Q.length + '</div><h3>' + T[0] + '</h3>' + body
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvAcctSave(\'' + q + '\')">Next</button><button class="b ghost" style="width:100%" onclick="rvAcctNext()">Skip this account</button></div>'); }
+function rvAcctSave(q){ var R = RV, it = R.L[R.i], o = rvHead().o, v = tapVal('rv');
+  if(q === 'eWho'){ o.forWho = document.getElementById('rvW').value.trim(); var m = num(document.getElementById('rvM').value); o.monthly = m > 0 ? r2(m) : 0; }
+  else { if(!v){ alert('Tap one of the answers first.'); return; }
+    if(q === 'whose'){ o.notPersonal = v === 'other'; o.familyUse = v === 'famuse'; }
+    if(q === 'joint'){ o.joint = v.charAt(0) === 'j'; o.paysBills = /p$/.test(v); }
+    if(q === 'pay'){ o.payMode = v; o.autopay = v === 'full'; }
+    if(q === 'open') o.closed = v === 'closed';
+    if(q === 'pEvery') o.every = v;
+    if(q === 'pFor') o.purpose = v; }
+  save(); R.q++; rvAcct(); }
+function rvAcctNext(){ GKA = null; GK = null; RV.i++; RV.q = 0; rvAcct(); }
+
+/* part 2 · how often each kind of spending comes */
+function rvTimeCats(){ var ms = months(), by = {};
+  db.tx.forEach(function(t){ var c = cat(t.cat); if(!c || !counts(acct(t.a)) || t.amt <= 0 || (db.historyFrom && t.d < db.historyFrom)) return; var b = by[c.id] = by[c.id] || { c:c, m:{}, n:0, tot:0 }; b.m[t.d.slice(0,7)] = (b.m[t.d.slice(0,7)]||0) + t.amt; b.n++; b.tot += t.amt; });
+  return Object.keys(by).map(function(k){ var b = by[k], v = Object.keys(b.m).map(function(m){ return b.m[m]; }), mean = b.tot / Math.max(1, ms.length), seen = v.length;
+    var avgSeen = b.tot / seen, sd = Math.sqrt(v.reduce(function(s,x){ return s + Math.pow(x - avgSeen, 2); },0) / seen), cv = avgSeen ? sd / avgSeen : 0, sug;
+    if(seen >= Math.max(2, ms.length * .6)) sug = cv < .25 ? 'month' : 'var'; else if(seen <= 2 && ms.length >= 5) sug = 'year'; else sug = 'var';
+    var hi = Object.keys(b.m).sort(function(x,y){ return b.m[y] - b.m[x]; });
+    return { c:b.c, seen:seen, of:ms.length, n:b.n, tot:r2(b.tot), avg:r2(mean), hi:hi[0], lo:hi[hi.length-1], m:b.m, sug:b.c.timing || (part(b.c) === 2 ? 'year' : sug) }; }).sort(function(a,b){ return b.tot - a.tot; }); }
+function rvTimeStart(){ RV = { st:'time', L:rvTimeCats(), i:0 }; rvTime(); }
+var RV_T = { month:['Every month, about the same','mortgage, utilities, phone, groceries, dues'], var:['Most months, but it goes up and down','gas, healthcare, golf, repairs — planned at its average'],
+  year:['Once or twice a year','property tax, insurance paid yearly, pool, annual fees — saved for monthly'], once:['One-time — it won’t repeat on a schedule','a car, a cruise, a family event — kept out of the averages'],
+  need:['As needed — help or gifts when they come up','never budgeted monthly; paid from savings'] };
+function rvTime(){ var R = RV, x = R.L[R.i]; if(!x){ rvNextPart('time'); return; }
+  var one = x.n === 1 ? '<div class="line warn">Only one payment seen. If it has a partner at another time of year — a pool opening and its closing — the yearly amount should include both; you can change it in Our budget.</div>' : '';
+  openSheet('<div class="stepno">Part 2 · kind ' + (R.i + 1) + ' of ' + R.L.length + '</div><h3>' + esc(catLabel(x.c)) + '</h3>'
+    + '<div class="card" style="margin:6px 0 10px;padding:10px 14px">Seen in <b>' + x.seen + ' of ' + x.of + '</b> month' + (x.of===1?'':'s') + ', ' + x.n + ' payment' + (x.n===1?'':'s') + ', ' + money(x.tot,1) + ' in all.'
+      + (x.seen > 1 ? '<br>Highest ' + money(x.m[x.hi],1) + ' in ' + monthName(x.hi, true) + ' · lowest ' + money(x.m[x.lo],1) + ' in ' + monthName(x.lo, true) + '.' : '<br>' + monthName(x.hi, true) + '.') + '</div>' + one
+    + '<h3 style="font-size:18px">How often does this come?</h3>' + taps('rv', Object.keys(RV_T).map(function(k){ return [k, RV_T[k][0] + (k === x.sug ? ' ✓' : ''), RV_T[k][1]]; }), x.sug)
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvTimeSave()">Next</button><button class="b ghost" style="width:100%" onclick="RV.i++;rvTime()">Skip this one</button></div>'); }
+function rvTimeSave(){ var R = RV, x = R.L[R.i], c = x.c, v = tapVal('rv'); if(!v){ alert('Tap one of the answers first.'); return; }
+  db.threePart = true; c.timing = v; c.asNeeded = v === 'need';
+  if(v === 'month' || v === 'var'){ c.part = 1; c.variable = v === 'var'; if(v === 'month' && !c.budget) c.budget = niceRound(x.tot / Math.max(1, x.seen)); }
+  else if(v === 'year'){ c.part = 2; c.variable = false; var yr = addMonths(thisMonth(), -12), s = 0, due = {};
+    Object.keys(x.m).forEach(function(m){ if(m >= yr){ s += x.m[m]; due[+m.slice(5)] = 1; } }); c.yearly = r2(s || x.tot); c.due = Object.keys(due).map(Number).sort(function(a,b){ return a - b; }); ensureYearlyGroup(); }
+  else { c.part = 3; c.variable = false; }
+  save(); R.i++; rvTime(); }
+
+/* part 3 · subscriptions: the same merchant at about the same amount on a regular cycle, on every account */
+var SUBSY = /netflix|hulu|disney|max\b|hbo|peacock|paramount|spotify|apple\.com|itunes|google \*|google play|youtube|prime video|amazon prime|audible|sirius|britbox|pure ?flix|acorn|espn|patreon|icloud|dropbox|microsoft|adobe|subscription|membership/i;
+function rvSubsList(){ var G = {};
+  db.tx.forEach(function(t){ var a = acct(t.a); if(!counts(a) || t.amt <= 0 || channel(t) === 'cash' || channel(t) === 'check' || isP3(t.cat) || notSpending(t.cat) || (db.historyFrom && t.d < db.historyFrom)) return;
+    var k = mkey(t.desc) || t.desc; (G[k] = G[k] || { k:k, T:[] }).T.push(t); });
+  var L = [];
+  Object.keys(G).forEach(function(k){ var T = G[k].T.sort(function(a,b){ return a.d < b.d ? -1 : 1; }), last = T[T.length-1], c = cat(last.cat), named = SUBSY.test(last.desc) || (c && /subscri|stream/i.test(c.name));
+    var same = T.filter(function(t){ return Math.abs(t.amt - last.amt) <= Math.max(1, last.amt * .1); }), ms = {}; same.forEach(function(t){ ms[t.d.slice(0,7)] = 1; }); var nm = Object.keys(ms).length;
+    var cyc = null; if(nm >= 2){ var gap = daysBetween(same[0].d, same[same.length-1].d) / (nm - 1); cyc = gap > 300 ? 'year' : gap > 45 ? 'other' : 'month'; }
+    var loose = !c || /subscri|stream|entertain|member|software|apps?\b|fun|hobb/i.test(c.name);   /* a bill in utilities, insurance, giving or savings recurs too, but it isn't what this part is for */
+    if(!(named || (loose && nm >= 3 && cyc !== 'other'))) return;
+    if(/mortgage|insurance|electric|water|gas co|energy|loan|tax/i.test(last.desc) || (c && part(c) === 2)) return;
+    L.push({ k:k, desc:last.desc, amt:last.amt, cyc:cyc || 'once', a:last.a, last:last.d, n:same.length }); });
+  return L.sort(function(a,b){ return (b.cyc === 'year' ? b.amt / 12 : b.amt) - (a.cyc === 'year' ? a.amt / 12 : a.amt); }); }
+function rvSubsStart(){ RV = { st:'subs', L:rvSubsList(), i:0 }; db.subRev = db.subRev || {}; if(!RV.L.length){ openSheet('<h3>No subscriptions found</h3><p class="sub">Nothing charges the same amount on a regular cycle in these statements.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvNextPart(\'subs\')">Next part</button></div>'); return; } rvSubs(); }
+function rvSubs(){ var R = RV, s = R.L[R.i]; if(!s){ rvSubsSum(); return; } var was = db.subRev[s.k] || {};
+  var store = /apple\.com|itunes/i.test(s.desc) ? '<div class="line warn">Apple bills many apps under one name. To see the real name: on the iPhone, open <b>Settings</b>, tap your name, then <b>Subscriptions</b>.</div>'
+    : /google/i.test(s.desc) ? '<div class="line warn">Google Play bills apps under its own name. To see the real one: open the <b>Play Store</b>, tap your picture, then <b>Payments &amp; subscriptions</b>.</div>'
+    : /paypal/i.test(s.desc) ? '<div class="line warn">PayPal hides the real name. In PayPal, open <b>Settings</b>, then <b>Payments</b>, then <b>Manage automatic payments</b>.</div>' : '';
+  openSheet('<div class="stepno">Part 3 · subscription ' + (R.i + 1) + ' of ' + R.L.length + '</div>'
+    + '<div class="card" style="margin:6px 0 10px"><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:24px">' + money(s.amt) + '</b><span style="margin-left:auto;color:var(--soft);font-weight:700">' + (s.cyc === 'year' ? 'a year' : s.cyc === 'month' ? 'a month' : 'seen once') + '</span></div>'
+    + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin-top:6px;word-break:break-word">' + esc(s.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(acct(s.a)||{})) + ' · last charged ' + shortDate(s.last) + ' · ' + s.n + ' time' + (s.n===1?'':'s') + '</div></div>' + store
+    + '<h3 style="font-size:19px">' + (s.cyc === 'once' ? 'Is this a subscription — and do you want to keep it?' : 'Do you want to keep it?') + '</h3>'
+    + taps('rv', [['keep','Keep it'],['cancel','Cancel it','the app checks the next statement to see it stopped'],['later','Decide later','kept on the open list'],['not','It isn’t a subscription','a one-time charge']], was.say || null)
+    + '<label for="rvWho">Who uses it? (optional)</label><input id="rvWho" value="' + esc(was.who || '') + '" placeholder="e.g. the grandkids">'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvSubsSave()">Next</button><button class="b ghost" style="width:100%" onclick="rvSubsSum()">Stop here — see the list</button></div>'); }
+function rvSubsSave(){ var R = RV, s = R.L[R.i], v = tapVal('rv') || 'keep';
+  db.subRev[s.k] = { say:v, who:document.getElementById('rvWho').value.trim(), at:today(), amt:s.amt, cyc:s.cyc, a:s.a, desc:s.desc }; save(); R.i++; rvSubs(); }
+function perMo(s){ return s.cyc === 'year' ? s.amt / 12 : s.cyc === 'month' ? s.amt : 0; }
+function rvSubsSum(){ var S = db.subRev || {}, K = Object.keys(S), keep = 0, cut = 0, who = {};
+  K.forEach(function(k){ var s = S[k]; if(s.say === 'keep' || s.say === 'later') keep += perMo(s); if(s.say === 'cancel') cut += perMo(s); if(s.who && s.say !== 'not') (who[s.who] = who[s.who] || []).push(s); });
+  var row = function(s){ return '<li><span class="ds">' + esc(s.desc) + '<small>' + esc(acctLabel(acct(s.a)||{})) + ' · ' + ({ keep:'keep', cancel:'cancel', later:'decide later', not:'not a subscription' })[s.say] + '</small></span><span class="amt">' + money(s.amt) + (s.cyc === 'year' ? '/yr' : s.cyc === 'month' ? '/mo' : '') + '</span></li>'; };
+  openSheet('<div class="stepno">Part 3 · subscriptions</div><h3>Your subscriptions</h3>'
+    + '<div class="line ok">Keeping about <b>' + money(keep,1) + '</b> a month.' + (cut ? ' Cancelling saves about <b>' + money(cut,1) + '</b> a month — ' + money(cut * 12,1) + ' a year.' : '') + '</div>'
+    + (cut ? '<p class="sub">Cancelling is done on each company’s own website or app — this app never logs in anywhere. After you do, the next statement shows whether the charge stopped.</p>' : '')
+    + '<ul class="list">' + K.map(function(k){ return S[k]; }).filter(function(s){ return s.say !== 'not'; }).map(row).join('') + '</ul>'
+    + Object.keys(who).map(function(w){ return '<h4>Used by ' + esc(w) + '</h4><ul class="list">' + who[w].map(row).join('') + '</ul>'; }).join('')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvNextPart(\'subs\')">Next part</button><button class="b ghost" style="width:100%" onclick="rvSubsStart()">Go through them again</button></div>'); }
+function subsStillCharging(){ var S = db.subRev || {}, out = [];
+  Object.keys(S).forEach(function(k){ var s = S[k]; if(s.say !== 'cancel') return; var t = db.tx.filter(function(x){ return (mkey(x.desc) || x.desc) === k && x.amt > 0 && x.d > s.at; })[0]; if(t) out.push({ s:s, t:t }); }); return out; }
+
+/* part 4 · checks: every number in order, so nothing is left unexplained */
+function chkNo(t){ var d = t.desc || '', m = d.match(/(?:check|chk|cheque)\s*(?:no\.?|number|#)?\s*#?\s*(\d{3,6})/i) || d.match(/^\s*#?(\d{3,6})\s*$/) || d.match(/#\s*(\d{3,6})/); return m ? +m[1] : null; }
+function chkState(){ var C = {}, T = db.tx.filter(function(t){ return channel(t) === 'check' && counts(acct(t.a)) && t.amt > 0; });
+  T.forEach(function(t){ var n = chkNo(t); if(n != null) C[n] = t; }); var N = Object.keys(C).map(Number).sort(function(a,b){ return a - b; }), gaps = [];
+  for(var i=1;i<N.length;i++) if(N[i] - N[i-1] > 1 && N[i] - N[i-1] <= 20) for(var g = N[i-1] + 1; g < N[i]; g++) gaps.push(g);
+  var G = db.chkGap = db.chkGap || {}, rows = [];
+  N.forEach(function(n){ var t = C[n], ok = db.asked[t.id] && t.cat !== 'uncat' && db.notSure.indexOf(t.id) < 0; rows.push({ n:n, t:t, s:ok ? 'ok' : 'unk' }); });
+  gaps.forEach(function(n){ rows.push({ n:n, s:G[n] || 'gap' }); }); rows.sort(function(a,b){ return a.n - b.n; });
+  return { rows:rows, nolabel:T.filter(function(t){ return chkNo(t) == null; }) }; }
+var CHK_S = { ok:['✓','cleared and explained'], unk:['?','cleared — what was it for?'], gap:['…','not in the statements'], void:['✕','voided'], out:['⏳','written, not cashed yet'], dk:['?','not sure'] };
+function rvChk(){ var S = chkState(), R = S.rows, open = R.filter(function(r){ return r.s === 'unk' || r.s === 'gap'; });
+  if(!R.length && !S.nolabel.length){ openSheet('<h3>No checks found</h3><p class="sub">None of the statements show a paper check.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvNextPart(\'chk\')">Next part</button></div>'); return; }
+  openSheet('<div class="stepno">Part 4 · checks</div><h3>Every check, in order</h3><p class="sub">' + R.length + ' check number' + (R.length===1?'':'s') + (R.length ? ' from #' + R[0].n + ' to #' + R[R.length-1].n : '') + '. ' + (open.length ? open.length + ' still need an answer.' : 'All accounted for.') + '</p>'
+    + (open.length ? '<button class="b primary full" onclick="rvChkNext()">Go through the ' + open.length + ' open one' + (open.length===1?'':'s') + '</button>' : '')
+    + '<ul class="list">' + R.map(function(r){ var s = CHK_S[r.s]; return '<li' + (r.t || r.s !== 'ok' ? ' class="tap" onclick="rvChkOne(' + r.n + ')"' : '') + '><span class="d">#' + r.n + '</span><span class="ds">' + s[0] + ' ' + (r.t ? esc(r.t.note || catName(r.t.cat)) : esc(s[1])) + '<small>' + (r.t ? shortDate(r.t.d) + ' · ' + esc(s[1]) : 'tap to change') + '</small></span><span class="amt">' + (r.t ? money(r.t.amt) : '') + '</span></li>'; }).join('') + '</ul>'
+    + (S.nolabel.length ? '<p class="sub">' + S.nolabel.length + ' more check' + (S.nolabel.length===1?'':'s') + ' show no number on the statement — they are asked about in Getting to know you.</p>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvNextPart(\'chk\')">' + (open.length ? 'Leave the rest open — next part' : 'Next part') + '</button></div>'); }
+function rvChkNext(){ var r = chkState().rows.filter(function(r){ return r.s === 'unk' || r.s === 'gap'; })[0]; if(!r){ rvChk(); return; } rvChkOne(r.n, 1); }
+function rvChkOne(n, walk){ var r = chkState().rows.filter(function(x){ return x.n === n; })[0]; if(!r) return;
+  if(r.t){ RV = { st:'chk', walk:walk }; delete db.asked[r.t.id]; GK = null; openGTKY(r.t.id); return; }
+  openSheet('<div class="stepno">Part 4 · checks</div><h3>Check #' + n + ' isn’t in any statement. What happened to it?</h3>'
+    + taps('rv', [['void','Voided, or never used'],['out','Written, but not cashed yet','it will come out of the account later'],['dk','Not sure','the checkbook register may say']], db.chkGap[n] || null)
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="var v=tapVal(\'rv\');if(!v){alert(\'Tap one of the answers first.\');return;}db.chkGap[' + n + ']=v;save();' + (walk ? 'rvChkNext()' : 'rvChk()') + '">Next</button><button class="b ghost" style="width:100%" onclick="rvChk()">Back to the list</button></div>'); }
+
+/* part 5 · what's still open: never a guess — each gap says where the answer is */
+function feeTx(){ return db.tx.filter(function(t){ return t.amt > 0 && counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom) && (FLAGS.fees[1].test(t.desc) || FLAGS.interest[1].test(t.desc) || FLAGS.overdraft[1].test(t.desc) || FLAGS.cashadv[1].test(t.desc)); }); }
+function rvOpen(){ var q = queue().length, ns = db.notSure.length, miss = 0, ma = 0, C = chkState().rows, cu = C.filter(function(r){ return r.s === 'unk' || r.s === 'gap' || r.s === 'dk'; }).length, co = C.filter(function(r){ return r.s === 'out'; }).length;
+  db.accts.forEach(function(a){ var m = mapMissing(a).length; if(m){ miss += m; ma++; } });
+  var S = db.subRev || {}, later = Object.keys(S).filter(function(k){ return S[k].say === 'later'; }).length, still = subsStillCharging(), F = feeTx(), ft = r2(F.reduce(function(s,t){ return s + t.amt; },0));
+  var e529 = db.tx.filter(function(t){ return t.cat === 'edu529'; }), biz = db.tx.filter(function(t){ return t.cat === 'biz'; }), sum = function(T){ return r2(T.reduce(function(s,t){ return s + t.amt; },0)); };
+  var th = three(thisMonth()), over = th.inc > 0 && th.reg > th.inc, unk = p2Unknown().length, n = 0;
+  var row = function(em, t, sub, go){ n++; return '<button class="chk tap" style="width:100%;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;font:inherit;cursor:pointer"' + (go ? ' onclick="' + go + '"' : '') + '><span class="tick" style="border-color:var(--warn,#c80)">' + em + '</span><span class="tx">' + t + '<small>' + sub + '</small></span></button>'; };
+  var h = (q ? row('❓', q + ' payment' + (q===1?'':'s') + ' not explained yet', 'asked one at a time', 'closeSheet();openGTKY()') : '')
+    + (ns ? row('🤷', ns + ' marked “not sure”', 'a check image on the bank’s website, or an email receipt near that date, often answers it', 'openNotSure()') : '')
+    + (miss ? row('📄', miss + ' month' + (miss===1?'':'s') + ' of statements missing, across ' + ma + ' account' + (ma===1?'':'s'), 'download them into that account’s folder', 'openAudit()') : '')
+    + (cu ? row('🧾', cu + ' check' + (cu===1?'':'s') + ' not accounted for', 'the checkbook register or the bank’s check images', 'rvChk()') : '')
+    + (co ? row('⏳', co + ' check' + (co===1?'':'s') + ' written but not cashed yet', 'watch for them on the next statement', 'rvChk()') : '')
+    + (later ? row('🔁', later + ' subscription' + (later===1?'':'s') + ' to decide on', 'keep or cancel', 'rvSubsSum()') : '')
+    + still.map(function(x){ return row('⚠️', esc(x.s.desc) + ' charged again after you cancelled', money(x.t.amt) + ' on ' + shortDate(x.t.d) + ' — check the cancel went through', ''); }).join('')
+    + (F.length ? row('⚠️', F.length + (F.length===1 ? ' fee or interest charge' : ' fees and interest charges') + ', ' + money(ft,1) + ' in all', 'each belongs with the bill that caused it — setting that bill to autopay usually stops it: ' + esc(F.slice(0,3).map(function(t){ return t.desc; }).join(' · ')), '') : '')
+    + (unk ? row('📅', unk + ' yearly bill' + (unk===1?' has':'s have') + ' no amount yet', 'enter it in Our budget', 'openFirstLoad(true)') : '')
+    + (over ? row('📏', 'The regular budget is ' + money(th.reg - th.inc,1) + ' a month over income', 'trim a line, or plan to cover it from investments', 'openFirstLoad(true)') : '')
+    + (e529.length ? row('🎓', 'For your CPA: ' + money(sum(e529),1) + ' of school costs covered by a 529', 'whether each was a qualified expense is a tax question', '') : '')
+    + (biz.length ? row('🏢', 'For the other organization’s books: ' + money(sum(biz),1) + ' of business or nonprofit spending', biz.length + ' line' + (biz.length===1?'':'s') + ' on family accounts', 'openList(\'biz\')') : '');
+  openSheet('<div class="stepno">Part 5 · what’s still open</div><h3>' + (n ? n + ' thing' + (n===1?'':'s') + ' still open' : 'Nothing left open ✓') + '</h3><p class="sub">Nothing here is guessed. Each one says where the answer can be found. Tax, legal and investment questions are for your CPA or advisor.</p>' + h
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvMark(\'open\');closeSheet();render()">Done</button><button class="b ghost" style="width:100%" onclick="openReview()">Back to the five parts</button></div>'); }
 
 /* ── lists: business, a person tracked separately, the as-needed logs ── */
 function openLists(){
@@ -3281,6 +3457,7 @@ function render(){
     + (kc ? '<p class="sub" style="margin:6px 0 0">' + kc + ' account' + (kc===1?'':'s') + ', papers and people in The Key.</p>' : '') + '</div>';
   h += '<div class="tools">'
     + '<button class="tool" onclick="openMap()">🗺️ Our money map<small>' + mapScore() + '% complete</small></button>'
+    + '<button class="tool" onclick="openReview()">🧭 Go through it together<small>' + RV_PARTS.filter(function(p){ return rvDone(p[0]); }).length + ' of 5 parts done</small></button>'
     + '<button class="tool" onclick="openGTKY()">❓ Getting to know you<small>' + (q ? q + ' to ask' : 'all caught up') + '</small></button>'
     + '<button class="tool" onclick="openBalances()">🧮 Update balances<small>bank, cards, home, car</small></button>'
     + '<button class="tool" onclick="openBudget()">✏️ Our budget<small>move it up or down</small></button>'
@@ -4451,7 +4628,7 @@ function ckSteps(){ var phone = !canFolder(), C = (db && db.ck) || {}, has = !!(
     ['sum','💵','Check your income and bills','what the statements show, month by month', 'AF ? autoSummary() : autoFill({})', C.sum],
     ['qs','❓','Answer the few questions left','anything already answered is skipped', 'setupQ(db.sq || 0)', db && db.setup],
     ['missing','🔎','Fill in what’s missing','missing months, investments, insurance', 'openAudit()', C.missing || (db && db.setup && mapScore() >= 90)],
-    ['gtky','💬','Answer Getting to know you','payments the app isn’t sure about', 'openGTKY()', C.gtky || (db && db.setup && db.tx.length && !queue().length)],
+    ['gtky','🧭','Go through it together','account by account, then how often, subscriptions and checks', 'openReview()', C.gtky || (db && db.rv && db.rv.open)],
     ['budget','✏️','Set the monthly amounts','move each line up or down', 'openFirstLoad()', db && db.budgetSet]
   ].filter(Boolean).map(function(x){ return { k:x[0], em:x[1], t:x[2], sub:x[3], go:x[4], done:!!x[5], hand:C[x[0]] === 1 }; }); }
 function ckHTML(preview){ var S = ckSteps(), n = S.filter(function(s){ return s.done; }).length, nx = S.filter(function(s){ return !s.done; })[0];
