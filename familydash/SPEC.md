@@ -364,3 +364,20 @@ Jerry's credit union PDFs give no lines on the device: its layout is one the app
 - That opens a screen naming the statements, saying they will leave the device to be read, with **Yes, read them** and **Not now**.
 - Each PDF is handed to `djAI.ask` with the file attached and the same CSV prompt the older PDF route used. The lines come back into that account, the AI's own sign convention is trusted, and its ending balance is taken. Then it moves on to the next PDF, and finally back to the folder screen.
 - Through the Daraja AI door the file goes straight to Claude in one tap. That needs the house layer to pass `file` to the door, and the worker already accepts a PDF. Until then, the family's own AI opens and they attach the PDF there.
+
+## Addendum, 16 Nov (v4.0) — how the family works, asked first
+
+Jerry: "the beginning ought to be a questionnaire about how the user operates, what type of technology they have… If you have to do a little setup first with AI, then let's do that first… if they don't have AI, then tell them… what form they need… more simple and more automatic."
+
+- **"How do you work?"** comes first: three tap questions.
+  - Device: phone, computer or both.
+  - Statements: PDFs, downloads, paper or not sure. "Not sure" is treated as PDF.
+  - AI helper: Claude, ChatGPT, Gemini, Copilot or none.
+  - The AI choice is saved as the house layer's `dj_ai_choice`, so the person is never asked which AI again.
+- **The setup that fits comes next:**
+  - **PDFs or paper with an AI:** "Set up <AI> first". If the Daraja AI connection is on (`control/ai.json` has an endpoint), it says it's ready. Otherwise it says how the AI will be used, a whole account at a time, and offers to open it now.
+  - **PDFs or paper with no AI:** two ways forward. A is to download CSV or Quicken files instead, with the steps. B is to set up Claude free.
+  - **Downloads:** straight on to the folder.
+- **Reading with AI is a whole account at a time.** The folder screen has one "✨ Read them all with AI" button at the top. Each account gets a single ask with all its unreadable PDFs attached (`file` plus `files`), and a single paste brings back that account's lines. In testing, three PDFs in two accounts took two asks.
+- **The checklist** gains "Tell us how you work" and, when it applies, "Set up your AI first".
+- **Test script:** s21, s23 and s24 now walk the questions.
