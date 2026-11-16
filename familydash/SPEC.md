@@ -439,3 +439,42 @@ Jerry, on the "These go up and down" card: "I really don't understand what this 
   - its lowest month that wasn't zero
   - "mostly:" with the three places the money went and their totals
 - **The folder map has "🔎 What's missing in my folders?"**, which opens the check. That check has "Back to the folder map" while setup is still underway.
+
+## v4.7 · 16 Nov 2026 · Go through it together
+
+Jerry's other chat spent two days sorting a year of his statements with him. He brought its written process here. The app now follows that process for every family.
+
+- **"🧭 Go through it together"** is on the main screen and in the setup checklist. It has five parts, asked one question at a time:
+  1. **Account by account.** The order is bank, then cards, then payment apps, then insurance, then 529s.
+     - Every account: whose money it is.
+     - A bank account: whether it is joint and whether it pays the bills.
+     - A card: how it gets paid, and whether it is still open.
+     - Insurance: whether it is paid monthly or yearly, and whether it builds a cash value for something.
+     - A 529: who it is for, and how much goes in each month.
+     - Then come the account's own unexplained payments, through Getting to know you.
+  2. **How often.** Each kind of spending shows how many months it was seen in, plus its high and low. The answers are:
+     - monthly
+     - up and down (budgeted at its average)
+     - once or twice a year (Part 2, yearly ÷ 12, with the due months taken from the statements)
+     - one-time
+     - as needed
+
+     One-time and as-needed go to Part 3, are never budgeted monthly, and are kept out of the averages.
+  3. **Subscriptions.** A subscription is a named streaming or app charge, or a "loose" category charged at the same amount for 3 or more months.
+     - The answers are keep, cancel, decide later, or "not a subscription", plus who uses it.
+     - Apple, Google Play and PayPal charges say where to find the real name.
+     - A cancelled one that charges again shows on the open list.
+  4. **Checks.** Every check number is shown in order.
+     - A gap of 20 or fewer gets one question: voided, written but not cashed, or not sure.
+     - A cleared check with no answer goes to Getting to know you.
+  5. **What's still open.** Nothing on this list is guessed. It shows:
+     - what isn't explained yet
+     - what's marked not sure
+     - missing statements
+     - open checks
+     - subscriptions not yet decided
+     - fees and interest, each tied to its bill
+     - yearly bills with no amount
+     - the budget being over income
+     - the 529 and business totals for the CPA, or for the other organization's books
+- A category can now be part 3. Its budget is 0, and it counts as Part 3 spending.
