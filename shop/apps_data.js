@@ -1088,7 +1088,6 @@ const APPS = {
    {"t": "Once a week it can also go looking for gentle things to do near you — the open gym, the beginner chess night. It uses a grown-up's A.I. to find them. No feed, no pressure.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('wins');window.scrollTo(0,0)}catch(e){};setTimeout(function(){try{var h=document.getElementById('hzCard');if(h)h.scrollIntoView({block:'center'})}catch(e){}},300)", "point": "#hzCard"},
    {"t": "Every new part of it explains itself the first time you touch it, in plain words, out loud if you like.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}"},
    "It is free. No account, no ads, it works with no signal, and your list stays on your phone. Get the whole thing right now with the button below."],
-  buy:'https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800',
   name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'ownday', price:'$4.99', testing:true,
   tag:'Your whole list is in there — it just shows one step at a time, so the day stops looking like a pile. For kids and grown-ups whose brains run fast.',
   try:A+'nownext/?code=TESTING', video:true,   /* ?code= is read by the key gate once nownext ships the 2026-10-02 patch; until then it is ignored */
