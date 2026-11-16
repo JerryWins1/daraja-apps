@@ -299,3 +299,27 @@ Jerry, going to bed: "run through… don't stop until you have gone through each
   - The last setup button says "Looks right — finish" when statements are already in.
 - **Test script:** six new steps (s23–s28) walk the sample folder through setup, the findings cards, the check and the money map. The videos and store card steps are now s29–s30.
 - **Videos:** all three were rewritten where they described the old setup and re-recorded by name. The train video now walks the folder picture, the download, compressing on an iPhone, "what your folder holds", the findings cards, the remaining questions and the check. Overview line 4 and the first-timer's "How to start" were reworded. The first-timer gained a money map line. `voicemaker --check` reports them current; `checkvideos` reports 3 of 3; every step's pointer was found on phone and laptop. Whether the voice is there and sounds right can only be checked on a real phone.
+
+## Addendum, 16 Nov (v3.2) — setup as a to-do list
+
+Jerry: "make the setup process our checklist, a little to-do list… a little taste of what's next… so they can take it off when they're done." He also asked whether a computer needs the download and the zip. It doesn't: a computer picks the folder itself, and the download is optional everywhere.
+
+- **The list:** setup is a ten-step list on the main screen, called "📝 Getting set up":
+  1. Make the folder
+  2. Put the statements in
+  3. Give the app the folder
+  4. Check what it holds
+  5. Approve what the statements answer
+  6. Check income and bills
+  7. Answer the questions left
+  8. Fill in what's missing
+  9. Getting to know you
+  10. Set the monthly amounts
+- **How it works:**
+  - Each step ticks itself when it's done, and any step can be ticked off or untaken by hand.
+  - The next step is marked "up next" and has its own button. Tapping any step goes to it.
+  - A progress bar shows how many steps are done.
+  - Before setup starts, the welcome screen shows the same list as a preview.
+  - Once everything is done, the list says "All set up ✓" and can be hidden.
+- **The give-the-folder step follows the device:** a computer says "Give the app the folder — pick the Family Money folder itself, no zip needed". A phone or tablet says "Compress the folder and give it to the app".
+- **Test script:** s22 now checks the list and a hand tick.
