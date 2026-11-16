@@ -410,3 +410,11 @@ Jerry, showing a Cloudflare diagram: "some kind of graphical connection like thi
 - **Loose folders** (anything outside the eight groups) sit under Family Money with dashed edges and "move it into one".
 - **"Read them all with AI"** stays at the top. **"See the folder map"** opens the map again from the money map, during the same visit.
 - **Train video, step five:** its pointer now lands on the map. The video's words will be updated with the other video changes at the end, as Jerry asked.
+
+## Addendum, 16 Nov (v4.3) — say which folder is which
+
+Jerry, looking at his real folder map: he has two bank account folders, and one wasn't recognised. "let me click each one… so I can actually tell you which ones go where." He also said the lines were "a little bit off".
+
+- **Pick folders for a group.** Every group box on the folder map can be tapped, even an empty one ("— none yet — tap to pick its folders"). It opens "Which folders are your bank accounts?" (or cards, and so on), listing every folder the app found under Family Money, indented as on the computer, with file counts. Ticked folders are that group's accounts: each one, and the year folders inside it, becomes one account. Unticked ones are left out. "Use these — read again" reads the folder again with those choices.
+- **The family's choices win.** They're saved in `db.fmAssign`, keyed by the folder's path inside Family Money, and they take priority over the folder names. Nothing on the computer is moved. Accounts are now keyed by folder path, so two folders with the same name in different places stay separate.
+- **The lines redraw** after the boxes settle (at 30, 300 and 900 ms) and whenever the map changes size.
