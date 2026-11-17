@@ -746,3 +746,13 @@ Jerry had three other AIs (Gemini, Copilot, Grok) read OVERVIEW.md. He chose Gro
   - "🔊 Read it aloud" uses the computer's own voice, and there's a Print button. It is never sent anywhere.
   - "Same as usual" and "Read the note" open it. The old report's "Send to my spouse" button now opens the note instead.
 - **Videos:** two lines were added to "Explain it to me" (the squares and the note). It was re-recorded by name, and checkvideos passes 3 of 3.
+
+## v7.3 · 17 Nov 2026 · which AI, said plainly
+
+Jerry asked: *"what if they don't have Claude? What if they have something else?"*
+
+- **On "How do you work?":** choosing "Let my AI do it" together with Gemini, Copilot or None in question 3 now shows a line right there. It says only Claude or ChatGPT, in their apps on a computer, can read a whole folder, and that both need a paid plan; otherwise "myself" does the same job here.
+  - Next won't continue until that's resolved.
+  - The old silent switch to Claude is gone.
+- **On the "Let ___ sort your folder" page:** the top now has two choices, Claude and ChatGPT, with theirs already picked. Switching rewrites the page's steps for that app.
+  - It also says a paid plan is needed, with a "do it yourself here" link.
