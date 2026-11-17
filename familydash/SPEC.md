@@ -545,3 +545,7 @@ Jerry, 17 Nov:
   - An empty "Your category" goes to not sure.
   - Each payee is learned for next time.
 - Then the app offers a fresh sheet of only what's still open, and the rounds repeat until none is left.
+
+## v5.2 · 17 Nov 2026 · the start date is asked on the way in, too
+
+Jerry had finished the folder map before v5.1, so he never came through the new start-date question. Now "Approve what your statements answer" (autoFill) asks for the start date first if it hasn't been answered yet, whichever path leads there.
