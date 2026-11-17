@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v7.0 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v7.1 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2886,6 +2886,7 @@ function afterImport(){
   if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
     MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
     save(); render(); if(FAI){ var fa = acct(FAI.ids[FAI.i]); if(!(fa && fmBadPdfs(fa).length)) FAI.i++; if(FAI.i < FAI.ids.length){ fmAIgo(); return; } FAI = null; } if(ONESK){ fmDone(ONESK); return; } mapFiles(mid); return; }
+  if(ROUTE && NEWM){ var rn0 = IMP.added; ROUTE = false; IMP = { added:0, skipped:0 }; newMonthDone(rn0); return; }
   if(ROUTE){ var rn = IMP.added, ru = IMP.unrouted || 0; ROUTE = false; IMP = { added:0, skipped:0 }; save(); render(); toast(rn + ' new lines read' + (ru ? '; ' + ru + ' file group' + (ru===1?'':'s') + ' not in any account’s folder' : '') + '.'); openAudit(); return; }
   if(ONE){ var sk1 = IMP.skip || {}; ['pdf','sheets'].forEach(function(x){ ONE.skip[x] = (ONE.skip[x]||[]).concat(sk1[x]||[]); }); var n1 = IMP.added; IMP = { added:0, skipped:0 }; AUTO = false; ONE.done = ONE.done || {}; ONE.done[ONE.kind] = n1 + ' lines read'; save(); oneStep(); return; }
   if(AUTO && STRUCT){ AUTO = false; var SKs = IMP.skip || {}; IMP = { added:0, skipped:0 }; save(); render(); fmDone(SKs); return; }
@@ -3125,7 +3126,7 @@ function openGTKY(id){
     + '<div class="pick" style="grid-template-columns:1fr">' + opts.map(function(o){ return '<button class="' + (o[3] ? 'on' : '') + '" onclick="gkAnswer(\'' + t.id + '\',\'' + o[0] + '\',\'' + (o[0] === 'sug' ? sg.cat : '') + '\')">' + esc(o[1]) + '<small>' + esc(o[2]) + '</small></button>'; }).join('') + '</div>'
     + (db.lists.length ? '<p class="sub" style="margin:10px 0 4px">Also add it to a list:</p>' + db.lists.map(function(l){ return '<label class="ck"><input type="checkbox" data-list="' + l.id + '"' + ((t.tags||[]).indexOf(l.id) >= 0 ? ' checked' : '') + '> ' + esc(l.name) + '</label>'; }).join('') : '')
     + (ch === 'check' ? '<p class="sub" style="margin:10px 0 4px">📒 The checkbook register usually says. Your bank’s website also shows a picture of each cashed check.</p>' : ch === 'cash' ? '<p class="sub" style="margin:10px 0 4px">💵 Cash: spending money, or for something specific?</p>' : '')
-    + '<button class="b full" onclick="askSpouse(\'' + t.id + '\')">💬 Ask ' + esc(db.spouse || 'someone') + ' — sends this as a text</button>'
+    + '<button class="b full" onclick="askSpouse(\'' + t.id + '\')">💬 Save it for ' + esc(db.spouse || 'my spouse') + ' to answer here</button>'
     + (Q.length > 3 ? '<button class="b full" onclick="sortAI()">✨ Let my AI suggest answers for all ' + Q.length + '</button>' : '')
     + '<button class="b ghost" style="width:100%;margin-top:6px" onclick="GK=null;GKA=null;RV=null;closeSheet();render()">Done for now</button>');
 }
@@ -3158,9 +3159,8 @@ function gkSave(id, c, what){
       db.tx.forEach(function(x){ if(x.id !== id && mkey(x.desc) === k && x.cat === 'uncat'){ x.cat = c; x.sug = 1; } }); } }
   save(); if(GK) GK.done++; render(); openGTKY();
 }
-function askSpouse(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return;
-  var q = 'Quick money question: what was this? ' + money(t.amt) + ' on ' + shortDate(t.d) + ' — “' + t.desc + '” (' + acctLabel(acct(t.a)||{}) + ').';
-  if(navigator.share) navigator.share({ text:q }).catch(function(){}); else { try{ navigator.clipboard.writeText(q); toast('Copied — paste it into a text to ' + db.spouse + '.'); }catch(e){} } }
+function askSpouse(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return;   /* v7.1 · it waits on this device; nothing financial goes out by text */
+  db.spouseQ = (db.spouseQ||[]).filter(function(x){ return x !== id; }).concat([id]); if(db.notSure.indexOf(id) < 0) db.notSure.push(id); save(); toast('Saved for ' + (db.spouse || 'your spouse') + ' — it waits here until they sit down.'); if(GK) GK.done++; openGTKY(); }
 function openSort(){ openGTKY(); }
 function uncatCount(){ return queue().length; }
 function sortAI(){
@@ -3645,7 +3645,7 @@ function aiCopy(month){ var t = aiInstr(month); ckMark('aihand');
 function aiAcct(name){ var n = String(name||'').trim(), l = n.toLowerCase(); if(!n) n = 'Account';
   var a = db.accts.filter(function(x){ var f = String(x.srel || x.sfolder || '').split('/').pop().toLowerCase(); return x.name.toLowerCase() === l || (f && f === l); })[0]; if(a) return a;
   var l4 = (n.match(/(\d{4})(?!.*\d)/) || [])[1] || '', card = /card|visa|master|amex|american express|discover|capital one|citi|chase|sapphire|freedom|quicksilver/i.test(n), pay = /paypal|venmo|cash ?app|zelle/i.test(n), sav = /saving|money market/i.test(n);
-  a = { id:uid(), name:n.replace(/\s*\d{4}\s*$/, '').trim() || n, type:card ? 'card' : sav ? 'savings' : 'checking', last4:l4, hist:[], found:1, sfolder:n, mapG:card ? 'card' : pay ? 'pay' : 'bank', track:'lines' };
+  a = { id:uid(), name:n.replace(/\s*\d{4}\s*$/, '').trim() || n, type:card ? 'card' : sav ? 'savings' : 'checking', last4:l4, hist:[], found:1, sfolder:n, mapG:card ? 'card' : pay ? 'pay' : 'bank', track:'lines', folder:n };
   if(card){ a.payMode = 'full'; a.autopay = true; } db.accts.push(a); return a; }
 function aiRead(f){ if(!f) return; needXLSX(function(){ var r = new FileReader(); r.onload = function(){ try{
   var wb = XLSX.read(new Uint8Array(r.result), { type:'array' }), ws = wb.Sheets['Transactions'] || wb.Sheets[wb.SheetNames[0]], A = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
@@ -3670,6 +3670,83 @@ function aiRead(f){ if(!f) return; needXLSX(function(){ var r = new FileReader()
     + '<p class="sub">Every payee is remembered. Next month, give the same chat the new statements and bring the spreadsheet back here.</p>'
     + '<div class="stickfoot">' + (blank ? '<button class="b primary full" style="margin-top:0" onclick="askRound()">Answer the ' + blank + ' not-sure ones</button>' : '') + '<button class="b' + (blank ? '' : ' primary') + ' full" style="margin-top:0" onclick="openFlow()">See where the money went</button></div>');
   }catch(e){ alert('Could not read that spreadsheet: ' + e.message); } }; r.readAsArrayBuffer(f); }); }
+
+/* ── v7.1 · the calm home (Jerry chose, 17 Nov, the plan three other AIs helped shape). The face of the app is one sentence
+   about the month, three short lines, and one thing to do. Everything else stays below it. ── */
+function pulseMonth(){ var lm = addMonths(thisMonth(), -1); if(db.historyTo && db.historyTo.slice(0,7) < lm) lm = db.historyTo.slice(0,7); return view && view <= lm ? view : lm; }
+function pulseData(m){ var th = three(m), out = r2(th.p1s + th.P2), inc = th.inc, diff = r2(inc - out), q = queue().length, sp = (db.spouseQ||[]).filter(function(id){ return !db.asked[id]; });
+  var jar = null; p2Cats().some(function(c){ var st = p2State(c); if(st.unknown) return false; if(st.warn){ var mm = st.warn.match(/about (\$[\d,]+(?:\.\d\d)?) short/); jar = { t:c.name + ' is short ' + (mm ? mm[1] : ''), bad:1 }; return true; } if(!jar) jar = { t:c.name + ' is on track' }; return false; });
+  var miss = db.accts.filter(function(a){ return !a.notPersonal && mapMissing(a).indexOf(m) >= 0; });
+  return { m:m, inc:inc, out:out, diff:diff, q:q, sp:sp, jar:jar, miss:miss, closed:(db.closedM||{})[m], noInc:inc <= 0, backup:!db.backupAt && db.tx.length > 0 }; }
+function pulseHTML(){ var P = pulseData(pulseMonth()), mn = monthName(P.m).split(' ')[0], sentence, act = [], lines = [];
+  if(P.closed) sentence = mn + ' is closed.';
+  else if(P.noInc) sentence = 'Add your monthly income to see where ' + mn + ' stands.';
+  else sentence = mn + ' is ' + money(Math.abs(P.diff), 1) + (P.diff >= 0 ? ' under' : ' over') + ' income.';
+  if(P.jar) lines.push('<span style="color:' + (P.jar.bad ? 'var(--red)' : 'inherit') + '">' + esc(P.jar.t) + '.</span>');
+  if(P.miss.length) lines.push('<a href="#" onclick="openAudit();return false" style="color:inherit">' + P.miss.length + ' statement' + (P.miss.length===1?'':'s') + ' missing</a>');
+  if(P.q) lines.push(P.q + ' question' + (P.q===1?'':'s') + ' for you');
+  if(P.sp.length) lines.push(P.sp.length + ' question' + (P.sp.length===1?'':'s') + ' for ' + esc(db.spouse || 'your spouse'));
+  if(P.backup) lines.push('<a href="#" onclick="backupOpen();return false" style="color:var(--red)">No backup saved yet</a>');
+  if(P.q) act.push(['askRound()', P.q === 1 ? 'Answer the question' : 'Answer the questions']);
+  else if(P.sp.length) act.push(['spouseRound()', 'Answer ' + esc(db.spouse || 'your spouse') + '’s questions']);
+  else if(P.noInc) act.push(['setupQ(0, true)', 'Add our income']);
+  else if(!P.closed && P.diff < 0) act.push(['openGap(\'' + P.m + '\')', 'See the gap']);
+  else if(P.closed) act.push(['openReport(\'' + P.m + '\')', 'Read the note']);
+  else if(P.miss.length) act.push(['newMonth()', 'Read the new statements']);
+  else act.push(['closeMonth(\'' + P.m + '\')', 'Same as usual']);
+  var quiet = P.closed ? '' : (!P.q && !P.miss.length && act[0][1] !== 'Same as usual' && P.diff >= 0 ? '<button class="b ghost" onclick="closeMonth(\'' + P.m + '\')">Same as usual</button>' : '<button class="b ghost" onclick="newMonth()">📥 New month — read my folder</button>');
+  return '<div class="card" id="pulse" style="padding:22px 20px"><div style="font-weight:800;color:var(--soft);letter-spacing:.02em">' + esc(mn) + '</div>'
+    + '<div id="pulseLine" style="font-size:30px;font-weight:900;line-height:1.15;margin:6px 0 12px">' + esc(sentence) + '</div>'
+    + (lines.length ? '<div style="font-size:17px;line-height:1.7;font-weight:600">' + lines.join('<br>') + '</div>' : '')
+    + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px"><button class="b primary full" style="margin:0" onclick="' + act[0][0] + '">' + act[0][1] + '</button>' + quiet + '</div></div>'; }
+/* "Same as usual": only when every payee this month is known and nothing is missing. It closes the month and writes the note. */
+function closeMonth(m){ var P = pulseData(m); if(P.q || P.miss.length){ alert('There ' + (P.q ? 'are questions' : 'are statements missing') + ' for this month first.'); return; }
+  db.closedM = db.closedM || {}; db.closedM[m] = today(); save(); render(); openReport(m); }
+/* the gap: only when Part 1 + Part 2 is over income. The three largest lines to trim, or cover it from investments (logged, not advice). */
+function openGap(m){ var P = pulseData(m), C = p1Cats().filter(function(c){ return !c.variable && (c.budget||0) > 0; }).sort(function(a,b){ return (b.budget||0) - (a.budget||0); }).slice(0,3);
+  openSheet('<div class="stepno">' + esc(monthName(m)) + '</div><h3>' + money(-P.diff,1) + ' over income</h3><p class="sub">Spent ' + money(P.out - pulsePart2(),1) + ' and set aside ' + money(pulsePart2(),1) + ', against income of ' + money(P.inc,1) + '. Trim a line, or cover it from investments this month.</p>'
+    + (C.length ? '' : '<p class="sub">No monthly amounts are set yet. <a href="#" onclick="openFirstLoad(true);return false" style="color:var(--brand);font-weight:800">Set them</a>, then come back here.</p>')
+    + C.map(function(c){ return '<div class="adj"><span class="nm">' + esc(c.name) + '<small>budget a month</small></span><button aria-label="Less for ' + esc(c.name) + '" onclick="gapStep(\'' + c.id + '\',-25,\'' + m + '\')">−</button><input value="' + Math.round(c.budget) + '" readonly style="text-align:center"><button aria-label="More for ' + esc(c.name) + '" onclick="gapStep(\'' + c.id + '\',25,\'' + m + '\')">＋</button></div>'; }).join('')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="db.gapCover=db.gapCover||{};db.gapCover[\'' + m + '\']=today();save();closeSheet();render();toast(\'Noted: this month is covered from investments.\')">Cover it from investments this month</button><button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done</button></div>'); }
+function pulsePart2(){ return db.threePart ? p2Budget() : 0; }
+function gapStep(id, d, m){ var c = cat(id); if(!c) return; c.budget = Math.max(0, (c.budget||0) + d); save(); openGap(m); render(); }
+
+/* New month, with nothing to paste: the app reads the linked folder, every payee it already knows files itself, and only the
+   new ones come to you as questions. Statements it can't read go to AI the way the family chose. */
+var NEWM = 0;
+function newMonth(){ if(!(FS.h && window.showDirectoryPicker) && !canFolder()){ alert('On a phone or tablet, open each account in the money map and add its new statement there.'); openMap(); return; } NEWM = 1; mapRefresh(); }
+function newMonthDone(added){ NEWM = 0; var n = 0, card = 0; sortAccts().forEach(function(a){ var r = autoKnown(a.id); n += r.n; card += r.card; }); reguess(); save(); render();
+  var q = queue().length, bad = db.accts.filter(function(a){ return fmBadPdfs(a).length; }).length;
+  openSheet('<div class="stepno">New month</div><h3>' + added + ' new line' + (added===1?'':'s') + ' read</h3><div class="line ok">' + n + ' filed themselves — payees you already know' + (card ? ' · ' + card + ' card payment' + (card===1?'':'s') : '') + '</div>'
+    + (bad ? '<p class="sub">' + bad + ' account' + (bad===1?' has':'s have') + ' a PDF I couldn’t read — the money map shows which.</p>' : '')
+    + '<div class="stickfoot">' + (q ? '<button class="b primary full" style="margin-top:0" onclick="askRound()">Answer the ' + q + ' new one' + (q===1?'':'s') + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="closeSheet();render()">Nothing new to ask — done</button>') + '</div>'); }
+
+/* Ask my spouse: the question waits on this device for when they sit down. Nothing financial goes out by text. */
+function spouseRound(){ db.askList = (db.askList||[]).concat((db.spouseQ||[]).filter(function(id){ return !db.asked[id]; })); db.notSure = db.notSure.filter(function(id){ return (db.spouseQ||[]).indexOf(id) < 0; }); save(); GK = null; ASKR = 1; openGTKY(); }
+
+/* backup: a file of exactly what is kept here. With a passcode it is the scrambled copy, so it needs the same passcode to open. */
+function backupOpen(){ openSheet('<div class="stepno">Backup</div><h3>💾 Keep a copy somewhere safe</h3><p class="sub">Everything lives in this browser on this computer. If the browser’s data is cleared, or the computer is lost, the backup is how you get it back. ' + (LOCK ? 'Your copy is scrambled with your passcode — it opens only with the same passcode. <b>If the passcode is forgotten, nobody can open it, not even us.</b>' : '<b>You have no passcode, so this copy is not scrambled.</b> Keep it somewhere private, or set a passcode first.') + '</p>'
+    + (db.backupAt ? '<div class="line ok">Last saved ' + shortDate(db.backupAt) + '.</div>' : '<div class="line warn">No backup saved yet.</div>')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="backupNow()">⬇️ Save a backup now</button><button class="b full" onclick="document.getElementById(\'bkIn\').click()">Bring back a backup</button><input type="file" id="bkIn" accept=".fmbak,.json,.txt" style="display:none" onchange="backupRestore(this.files[0]);this.value=\'\'">' + (LOCK ? '' : '<button class="b full" onclick="promiseScreen()">🔐 Set a passcode first</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
+function backupNow(){ db.backupAt = today(); Promise.resolve(save()).then(function(){ setTimeout(function(){ var raw = ''; try{ raw = localStorage.getItem(KEY) || ''; }catch(e){}
+    if(!raw){ alert('Nothing to back up yet.'); return; } var u = URL.createObjectURL(new Blob([raw], { type:'application/octet-stream' })), l = document.createElement('a'); l.href = u; l.download = 'Family Money backup ' + today() + '.fmbak'; document.body.appendChild(l); l.click(); setTimeout(function(){ URL.revokeObjectURL(u); l.remove(); }, 3000);
+    render(); backupOpen(); toast('Saved. Keep it in iCloud, a USB stick, or an email to yourself.'); }, 300); }); }
+function backupRestore(f){ if(!f) return; var r = new FileReader(); r.onload = function(){ var t = String(r.result||'');
+    var ok = t.slice(0,5) === 'ENC1:' || (function(){ try{ var d = JSON.parse(t); return !!(d && d.cats); }catch(e){ return false; } })();
+    if(!ok){ alert('That isn’t a Family Money backup.'); return; }
+    if(!confirm('Bring back this backup? It replaces everything kept here now.')) return;
+    try{ localStorage.setItem(KEY, t); }catch(e){ alert('This browser would not take it.'); return; } location.reload(); }; r.readAsText(f); }
+
+/* first run: the next single step, not a list of thirteen */
+function nextStepHTML(){ var S = ckSteps(), nx = S.filter(function(s){ return !s.done; })[0], n = S.filter(function(s){ return s.done; }).length;
+  if(!nx) return ckHTML();
+  return '<div class="card" style="padding:22px 20px"><div style="font-weight:800;color:var(--soft)">Setting up · ' + n + ' of ' + S.length + ' done</div>'
+    + '<div style="font-size:28px;font-weight:900;line-height:1.2;margin:6px 0 4px">' + nx.em + ' ' + esc(nx.t) + '</div><p class="sub" style="margin:0 0 14px">' + esc(nx.sub) + '</p>'
+    + '<button class="b primary full" style="margin:0" onclick="' + nx.go + '">Do this now</button>'
+    + '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--soft)">See all the steps</summary>' + ckHTML() + '</details></div>'; }
+
+/* anything that goes to an AI has long numbers masked first: account and card numbers keep only their last 4 */
+function maskNums(t){ return String(t||'').replace(/\b\d(?:[ -]?\d){7,18}\b/g, function(s){ if(/^\s*\d{4}-\d{1,2}-\d{1,2}\s*$/.test(s)) return s; var d = s.replace(/\D/g,''); return d.length >= 8 ? '••••' + d.slice(-4) : s; }).replace(/\b\d{3}-\d{2}-\d{4}\b/g, '•••-••-••••'); }
 
 /* ── lists: business, a person tracked separately, the as-needed logs ── */
 function openLists(){
@@ -3734,14 +3811,14 @@ function render(){
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
   if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
-  if(!db.setup){ bar.style.display = 'none'; main.innerHTML = ckHTML() + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
+  if(!db.setup){ bar.style.display = 'none'; main.innerHTML = nextStepHTML() + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
   bar.style.display = '';
   var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
   var h = '', q = queue().length;
-  if(!db.ex) h += ckHTML();
-  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>';
+  if(!db.ex){ h += pulseHTML(); h += ckHTML(); }   /* v7.1 · the month in one sentence comes first */
+  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>' + pulseHTML();
   if(!db.tx.length) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Bring in your statements</h2><p style="margin:0 0 4px">From ' + (db.historyFrom ? shortDate(db.historyFrom) : 'a few months back') + ' to now. The app sorts what it can, then asks you about the rest, one at a time.</p><button class="b primary" onclick="openImport()">＋ Add statements</button></div>';
-  else if(q && (!db.budgetSet || q >= 5)) h += '<div class="card callout"><div class="stepno">Getting to know you</div><h2 style="margin-top:4px">' + q + ' payment' + (q===1?'':'s') + ' I’m not sure about</h2><p style="margin:0 0 4px">One question at a time. Each answer is remembered.</p><button class="b primary" id="gkBtn" onclick="openGTKY()">Start</button></div>';
+  else if(db.ex && q && (!db.budgetSet || q >= 5)) h += '<div class="card callout"><div class="stepno">Getting to know you</div><h2 style="margin-top:4px">' + q + ' payment' + (q===1?'':'s') + ' I’m not sure about</h2><p style="margin:0 0 4px">One question at a time. Each answer is remembered.</p><button class="b primary" id="gkBtn" onclick="openGTKY()">Start</button></div>';
   else if(!db.budgetSet) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Set the monthly amounts</h2><p style="margin:0 0 4px">See each line’s normal month and move it up or down.</p><button class="b primary" onclick="openFirstLoad()">Make our budget</button></div>';
   var due = checkupDue(); if(due && db.budgetSet) h += '<div class="card callout"><h2>🗓️ Time for ' + monthOnly(due) + '’s check-up</h2><p style="margin:0">Five short steps.</p><button class="b primary" onclick="openCheckup(\'' + due + '\')">Start the check-up</button></div>';
   var first = ms[0] || view, last = thisMonth();
@@ -3795,6 +3872,7 @@ function render(){
     + '<button class="tool" onclick="openLists()">📋 Lists<small>help, business, 529, not sure</small></button>'
     + '<button class="tool" id="pfBtn" onclick="openPaidFrom()">🔗 What\u2019s paid from where<small>if an account ever closes</small></button>'
     + '<button class="tool" onclick="openAccounts()">🏦 Our accounts<small>' + db.accts.filter(function(a){ return !a.closed; }).length + ' open</small></button>'
+    + '<button class="tool" onclick="backupOpen()">💾 Backup<small>' + (db.backupAt ? 'saved ' + shortDate(db.backupAt) : 'not saved yet') + '</small></button>'
     + '<button class="tool" onclick="openSettings()">⚙️ Settings<small>every setup answer</small></button>'
     + '<button class="tool" onclick="openAdvisors()">🧑‍💼 Our advisors<small>' + esc(db.cpa || db.advisor ? [db.cpa, db.advisor].filter(Boolean).join(' · ') : 'CPA and advisor') + '</small></button></div>';
   main.innerHTML = h;
@@ -4962,7 +5040,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door); openSh
       o.onResult = function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
         p.path = covered[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; covered.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); };
       ask(o); }
-    var textPrompt = function(also){ return 'Below is the text of ' + ok.length + ' bank or card statement' + (ok.length===1?'':'s') + ' from one account (' + a.name + ')' + (also ? also : '') + '. ' + HEAD + '\n\n' + ok.map(function(x){ return '===== ' + x.name + ' =====\n' + x.text; }).join('\n\n'); };
+    var textPrompt = function(also){ return 'Below is the text of ' + ok.length + ' bank or card statement' + (ok.length===1?'':'s') + ' from one account (' + a.name + ')' + (also ? also : '') + '. ' + HEAD + '\n\n' + ok.map(function(x){ return '===== ' + x.name + ' =====\n' + maskNums(x.text); }).join('\n\n'); };
     /* with the Daraja AI connection: the words of every readable PDF go in one question, and each scanned one goes as itself,
        one at a time (the connection takes one file per question). Nothing to attach, nothing to paste back. */
     if(door){ if(ok.length) return send({ prompt:textPrompt('') }, ok.map(function(x){ return x.path; }));
@@ -5102,11 +5180,11 @@ function promiseScreen(){ db.autoAsked = 1; save();
     + '<ul class="list" style="font-size:15.5px">'
     + '<li><span>💻</span><span class="ds">Everything is kept <b>on this computer</b>, in this browser. Nothing is sent to Daraja — there is no Daraja account and no server holding it.</span></li>'
     + '<li><span>🏦</span><span class="ds"><b>No bank login.</b> The app only reads statement files you give it, and never moves money.</span></li>'
-    + '<li><span>✨</span><span class="ds">A statement only goes to an AI to be read if you say yes to that statement, each time.</span></li>'
-    + '<li><span>🤝</span><span class="ds">Nothing is ever shared, sold or shown to anyone. Your spouse sees what you choose to send.</span></li>'
+    + '<li><span>✨</span><span class="ds"><b>If you let an AI read the folder, those PDFs go to that company’s servers.</b> We store only the last 4 digits of an account. The PDF still has the full number.</span></li>'
+    + '<li><span>🤝</span><span class="ds">Nothing is ever shared, sold or shown to anyone. Questions for your spouse wait on this computer — nothing goes out by text.</span></li>'
     + '<li><span>🔐</span><span class="ds">With a passcode, everything kept here is scrambled, and it locks itself after 15 minutes without use.</span></li></ul>'
     + '<label for="lpA">Choose a passcode (at least 6 characters)</label><input id="lpA" type="password" autocomplete="new-password"><label for="lpB">Type it again</label><input id="lpB" type="password" autocomplete="new-password">'
-    + '<p class="sub" style="margin:6px 0 0">Write it down somewhere safe. If it’s forgotten, nobody can open what’s kept here — you would start over, and your statements are simply read again.</p>'
+    + '<p class="sub" style="margin:6px 0 0">Write it down somewhere safe. <b>If it’s forgotten, nobody can open what’s kept here — not us, not anyone.</b> Your backups use the same passcode. You would start over, and your statements are simply read again.</p>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="promiseSet()">Lock it with this passcode</button><button class="b ghost" style="width:100%" onclick="db.lockAsked=1;save();profStart()">Not now — no passcode</button></div>'); }
 function promiseSet(){ var a = document.getElementById('lpA').value, b = document.getElementById('lpB').value;
   if(a.length < 6){ alert('Use at least 6 characters.'); return; } if(a !== b){ alert('The two don’t match. Type them again.'); return; }
