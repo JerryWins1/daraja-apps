@@ -656,3 +656,32 @@ Jerry asked: *"ask a question up front if the user felt comfortable loading or c
 - **With the Daraja AI connection on**, every readable PDF's words go in one question per account. Each scanned PDF goes as itself, one per question, because the worker takes one file. The account stays in the loop until all its PDFs are read, and the lines come back with no pasting. The house layer still shows its one confirm screen before anything is sent.
 - **"No, never"** hides the AI button and says to download CSV files for those months, with a "this once" link.
 - **What's still missing:** the connection's endpoint in `control/ai.json` is still empty. Deploying it is the house layer chat's work, with Jerry.
+
+## v7.0 · 17 Nov 2026 · let your AI do it, or do it yourself
+
+Jerry, 17 Nov:
+
+> "I don't like the copy and pasting back and forth between the app and the AI program… give them the option to connect the family finance folder up to Claude in the beginning and let it build the spreadsheet right from the get-go… give them the option to automate it or do it manually."
+
+**Question 4 of "How do you work?"** is now "Who sorts the statements?", with two answers: "Let my AI do it" and "I'll do it myself, here".
+
+**Let my AI do it** (`aiHandoff`, `aiInstr`, `aiRead`):
+- Claude (Cowork, in the Claude desktop app) and the ChatGPT desktop app can both be given a folder on the computer.
+- After the year and the folder, the app shows three steps:
+  1. open your AI's desktop app on the Family Money folder;
+  2. copy and paste ONE instruction;
+  3. give the app "Family Money - sorted.xlsx" when the AI saves it.
+- The instruction is written from the app's own year window and category list. It tells the AI to:
+  - read every statement in the window, listing each transaction once;
+  - use only those category names, or a new short one if none fits;
+  - treat card payments and own-account transfers as moving money;
+  - ask the family about checks, cash, money sent to people, $500+ and unknown payees, one at a time, never twice;
+  - save one Transactions sheet with Date, Account, Amount, Statement words, What it was, Category;
+  - never guess, move files or send anything.
+- `aiRead` makes accounts from the Account column (card, bank or pay app, with the last four digits) and skips lines already in the app. A line with a category counts as answered and teaches its payee. A blank one goes to the question round.
+- **Each month:** "📥 New month from Claude" copies a short instruction for the same chat, which adds only the new dates to the same file.
+- **The checklist** swaps "give the folder / check it / sort each account" for "Let Claude sort the folder" and "Give the app the finished spreadsheet".
+
+**I'll do it myself** is the v6 path, unchanged.
+
+**Videos:** "Explain it to me" gains a line on the two ways, and "Train me" gains a step. Both were re-recorded by name, and checkvideos passes 3 of 3.
