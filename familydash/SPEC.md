@@ -574,3 +574,57 @@ Jerry asked: *"I don't know how you know these totals are great if you don't see
 - **Every findings card that shows example lines** now has "See all N, one by one", listing every line with its date, year, account and amount. It replaces "…and N more".
 - **Every findings card** has "📊 I'd rather check every line in a spreadsheet", which goes straight to the spreadsheet round trip.
 - **The checklist has a step** "📊 Check every line in a spreadsheet" right after the findings. It is done once a filled-in sheet has been given back.
+
+## v6.0–6.1 · 17 Nov 2026 · the simpler way
+
+Jerry described how the work went with his other chat:
+
+> "when I did this with just doing it on my own with Claude… put in the checking account and the credit cards first and then gave me some drop down options in the spreadsheet and we just kept going through it and only took a couple passes… then there was a round of questions."
+
+On month-by-month sorting he added:
+
+> "month by month the list of things you don't know are smaller… on a bank statement all you're gonna see is the payment to the credit card."
+
+**Setup is now:**
+1. how you work
+2. passcode
+3. AI
+4. the year
+5. the folder (three steps)
+6. **sort each account**
+7. **the questions**
+8. **where the money went**
+9. household questions
+10. **the budget**
+
+The findings deck, the separate "Getting to know you" step, the money-map audit step and the five-part "Go through it together" are gone from setup. Their functions are kept, and the main screen still reaches subscriptions, what's still open, and the checks.
+
+**Sort each account** (`sortHub`, `sortMake`, `sortBack`):
+- The order is checking first, then savings, then each card, then the payment apps.
+- **Each pass is one month.**
+- Before each pass, `autoKnown` sorts two kinds of line by itself:
+  - lines whose payee was confirmed before
+  - payments to a credit card, whose detail is on the card's own statement
+- Checks, cash and money sent to people are never sorted automatically.
+- The sheet is made with ExcelJS from jsdelivr, falling back to SheetJS. Its columns are Date, Amount, Statement words, What it was, Your category, App's guess, and Row, matching the Reclassified sheet Jerry kept. "Your category" is yellow and has a real drop-down list taken from the Categories tab.
+- After each sheet comes back, `reguess()` re-guesses every unconfirmed line in every account using what was learned.
+
+**The questions** (`askRound`):
+- Every line left blank on a sheet, plus checks, cash and money sent to people, comes up one at a time.
+- Checks show a checkbook hint. "Ask someone" sends the question as a text.
+
+**Where the money went** (`openFlow`) is an SVG flow:
+- Accounts are on the left and categories on the right, with band width equal to the amount.
+- Each label gets a minimum of 32px of space.
+- Grey (not sorted) is always shown, at the bottom.
+- Tapping a category opens its lines.
+
+**The budget** (`budStart`):
+- It first asks how often each kind of spending comes, then shows the monthly amounts.
+- `budgetXlsx` downloads the budget laid out like the Winslow budget:
+  - THIS MONTH at the top, with formulas
+  - Part 1 by group, with low month, high month and notes
+  - a Variable section
+  - Part 2 with yearly ÷ 12 formulas and due months
+  - a Part 3 log for each person helped, with a running total
+  - a Reclassified tab
