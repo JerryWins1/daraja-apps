@@ -518,3 +518,30 @@ Jerry asked: *"go out to the website that item was for… from the button that's
 - **On Getting to know you,** each payment now has "🔎 Search the web for …" under the statement words.
 - **What gets searched.** The search uses the payee name cleaned of "PAYPAL *", phone numbers and reference digits. The app itself reads nothing; it only opens the tab.
 - **No search for a person.** Zelle, Venmo and Cash App payments to a person, and checks or cash, get no web search. Searching a private person's name helps nobody.
+
+## v5.1 · 17 Nov 2026 · start date first, no business guessing, sort in a spreadsheet
+
+Jerry, 17 Nov:
+
+> "We don't have a business… what if I think there's transactions back into 2025… 1 out of 4 are wrong, then I don't know how you come back and try to fix it… throw it on a spreadsheet… re-input it and process it until you get it right."
+
+**The start date comes first.**
+- Right after the folder map, the app asks "What date should we start counting from?" The choices are this year, last year too, everything, or a date.
+- Lines older than that date are kept, but they are not counted, not asked about, and not put on the spreadsheet.
+- The findings use only lines from that date on.
+
+**No more "Business costs on a personal card?"**
+- The app no longer guesses business spending from merchant names.
+- Instead, Go through it together asks for each account whose money it is.
+
+**"📊 Sort in a spreadsheet"** is on the main screen and on the Go through it together screen.
+- It writes an .xlsx with two tabs:
+  - **Sort these**, with the columns Row, Date, Account, Statement words, Amount, App's guess or yours, Your category, and What it was.
+  - **Categories**, listing the names to use.
+- "Your category" starts out holding the app's guess. Jerry changes the wrong ones and clears any he isn't sure of.
+- When he gives the sheet back, each row is applied on its own:
+  - A new name makes a new category under "Other spending".
+  - "Help: Name" makes a person.
+  - An empty "Your category" goes to not sure.
+  - Each payee is learned for next time.
+- Then the app offers a fresh sheet of only what's still open, and the rounds repeat until none is left.

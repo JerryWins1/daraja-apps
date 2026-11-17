@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v5.0 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v5.1 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3193,6 +3193,7 @@ function rvMark(k){ db.rv = db.rv || {}; db.rv[k] = today(); save(); }
 function openReview(){ GKA = null; RV = null; var nx = RV_PARTS.filter(function(p){ return !rvDone(p[0]); })[0];
   openSheet('<div class="stepno">Going through it together</div><h3>Five parts, one question at a time</h3><p class="sub">The way a careful bookkeeper would sit down with you: account by account, then each kind of spending. Anything the statements already answer is shown first, for you to say yes to. Nothing is guessed — what nobody knows stays “not sure”.</p>'
     + RV_PARTS.map(function(p, i){ var d = rvDone(p[0]); return '<button class="chk tap' + (d ? ' done' : '') + '" style="width:100%;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;font:inherit;cursor:pointer" onclick="rvGo(\'' + p[0] + '\')"><span class="tick">' + (d ? '✓' : (i + 1)) + '</span><span class="tx">' + p[1] + ' ' + p[2] + '<small>' + (d ? 'done ' + shortDate(db.rv[p[0]]) + ' · tap to go through it again' : p[3]) + '</small></span></button>'; }).join('')
+    + '<button class="b full" style="text-align:left;margin-top:12px" onclick="openSheetSort()">📊 Sort every line in a spreadsheet instead<small style="display:block;font-weight:600;color:var(--soft)">best on the computer — fix the wrong guesses, give it back, repeat until none are left</small></button>'
     + '<div class="stickfoot">' + (nx ? '<button class="b primary full" style="margin-top:0" onclick="rvGo(\'' + nx[0] + '\')">' + (rvDone('acct') ? 'Carry on: ' : 'Start: ') + esc(nx[2]) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="rvGo(\'open\')">See what’s still open</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button></div>'); }
 function rvGo(k){ if(k === 'acct') rvAcctStart(); else if(k === 'time') rvTimeStart(); else if(k === 'subs') rvSubsStart(); else if(k === 'chk') rvChk(); else rvOpen(); }
 function rvNextPart(k){ rvMark(k); var i = RV_PARTS.map(function(p){ return p[0]; }).indexOf(k), nx = RV_PARTS[i + 1];
@@ -3351,6 +3352,68 @@ function rvOpen(){ var q = queue().length, ns = db.notSure.length, miss = 0, ma 
   openSheet('<div class="stepno">Part 5 · what’s still open</div><h3>' + (n ? n + ' thing' + (n===1?'':'s') + ' still open' : 'Nothing left open ✓') + '</h3><p class="sub">Nothing here is guessed. Each one says where the answer can be found. Tax, legal and investment questions are for your CPA or advisor.</p>' + h
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvMark(\'open\');closeSheet();render()">Done</button><button class="b ghost" style="width:100%" onclick="openReview()">Back to the five parts</button></div>'); }
 
+/* ── v5.1 · Jerry, 17 Nov: "1 out of 4 are wrong, then I don't know how you come back and try to fix it… throw it on a
+   spreadsheet and let the user go through each one… re-input it and process it until you get it right." The app writes
+   every line to a spreadsheet with its best guess already in the "Your category" column. He fixes the wrong ones, types
+   what each was, clears any he isn't sure of, and gives the sheet back. Each row is applied on its own, so one wrong
+   guess never drags three right ones with it. Then a fresh sheet of only what is left, until nothing is. ── */
+function needXLSX(cb){ if(window.XLSX) return cb(); var s = document.createElement('script'); s.src = XLSX_URL; s.onload = cb; s.onerror = function(){ alert('The spreadsheet maker didn’t load. Check the internet connection and try again.'); }; document.head.appendChild(s); }
+function shCatNames(){ var N = db.cats.map(function(c){ return catLabel(c); }); N.push(SYS.onetime.name); db.helpees.forEach(function(h){ N.push('Help: ' + h.name); }); N.push('Help: (type their name)', 'Business or nonprofit (not ours)', 'School costs paid by the 529', 'Moving money between our accounts', 'Income'); return N; }
+function shName(id){ if(id === 'uncat') return ''; if(/^help:/.test(id)){ var h = helpee(id.slice(5)); return 'Help: ' + (h ? h.name : ''); } if(id === 'xfer') return 'Moving money between our accounts'; if(id === 'inc') return 'Income'; return catName(id); }
+function shRows(only){ return db.tx.filter(function(t){ if(!counts(acct(t.a)) || (db.historyFrom && t.d < db.historyFrom)) return false; if(!only) return true; return !db.asked[t.id] || db.notSure.indexOf(t.id) >= 0 || t.cat === 'uncat'; }).sort(function(a,b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.a < b.a ? -1 : 1); }); }
+function openSheetSort(){ var all = shRows(false).length, left = shRows(true).length;
+  openSheet('<div class="stepno">Sort them in a spreadsheet</div><h3>Go through every line at your own pace</h3>'
+    + '<p class="sub">Best on the computer. The app makes a spreadsheet of your lines' + (db.historyFrom ? ' since ' + shortDate(db.historyFrom) + ', ' + db.historyFrom.slice(0,4) : '') + '. Each row has the date, the amount, the account and the exact words on the statement, and the app’s guess already filled in.</p>'
+    + '<ol class="sub" style="padding-left:20px;margin:0 0 10px"><li>In <b>Your category</b>, change the wrong ones. The second tab, <b>Categories</b>, lists the names to use. A new name makes a new category.</li><li>In <b>What it was</b>, type anything worth remembering.</li><li>Not sure? Clear <b>Your category</b> and leave it empty. It comes back on the next sheet.</li><li>Save it, then give it back here. In Numbers, use File › Export To › Excel.</li></ol>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="shMake(' + (left < all ? 'true' : 'false') + ')">⬇️ Make the spreadsheet' + (left < all ? ' — the ' + left + ' still open' : ' — all ' + all + ' lines') + '</button>'
+    + (left < all ? '<button class="b full" onclick="shMake(false)">⬇️ All ' + all + ' lines instead</button>' : '')
+    + '<button class="b full" onclick="document.getElementById(\'shIn\').click()">⬆️ Give back the filled-in spreadsheet</button><input type="file" id="shIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="shRead(this.files[0]);this.value=\'\'">'
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button></div>'); }
+function shMake(only){ needXLSX(function(){ var R = shRows(only), A = [['Row','Date','Account','Statement words','Amount','App’s guess or yours','Your category','What it was']];
+  R.forEach(function(t, i){ A.push([t.id, t.d, acctLabel(acct(t.a)||{}), t.desc, t.amt, db.asked[t.id] && db.notSure.indexOf(t.id) < 0 ? 'yours' : (t.cat === 'uncat' ? 'no guess' : 'guess'), shName(t.cat), t.note || '']); });
+  var ws = XLSX.utils.aoa_to_sheet(A); ws['!cols'] = [{ wch:10 },{ wch:11 },{ wch:22 },{ wch:44 },{ wch:10 },{ wch:12 },{ wch:30 },{ wch:36 }]; ws['!autofilter'] = { ref:'A1:H' + A.length };
+  var wc = XLSX.utils.aoa_to_sheet([['Use one of these names in “Your category”. A new name makes a new category.']].concat(shCatNames().map(function(n){ return [n]; }))); wc['!cols'] = [{ wch:44 }];
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sort these'); XLSX.utils.book_append_sheet(wb, wc, 'Categories');
+  XLSX.writeFile(wb, 'Family Money - sort these ' + today() + '.xlsx'); db.shMade = today(); save(); toast(R.length + ' lines in the spreadsheet. Fill it in, then give it back.'); }); }
+function shFind(name){ var n = String(name||'').trim(), l = n.toLowerCase(); if(!n) return null;
+  var c = db.cats.filter(function(x){ return catLabel(x).toLowerCase() === l || x.name.toLowerCase() === l; })[0]; if(c) return c.id;
+  if(l === SYS.onetime.name.toLowerCase() || l === 'one-time' || l === 'one time') return 'onetime';
+  if(/^business|nonprofit|not ours/.test(l)) return 'biz'; if(/529/.test(l)) return 'edu529'; if(/^moving money|^transfer/.test(l)) return 'xfer'; if(l === 'income') return 'inc';
+  var hm = n.match(/^help\s*:?\s*(.+)$/i); if(hm && !/type their name/i.test(hm[1])){ var hn = hm[1].trim(), h = db.helpees.filter(function(x){ return x.name.toLowerCase() === hn.toLowerCase(); })[0]; if(!h){ h = { id:uid(), name:hn, kind:'gift' }; db.helpees.push(h); SHNEW.push('Help: ' + hn); } return 'help:' + h.id; }
+  if(!group('g_other')) db.groups.push({ id:'g_other', name:'Other spending', em:'📦' }); c = { id:uid(), g:'g_other', name:n, budget:0, part:1, kw:'' }; db.cats.push(c); SHNEW.push(n); return c.id; }
+var SHNEW = [];
+function shRead(f){ if(!f) return; needXLSX(function(){ var r = new FileReader(); r.onload = function(){ try{
+  var wb = XLSX.read(new Uint8Array(r.result), { type:'array' }), ws = wb.Sheets['Sort these'] || wb.Sheets[wb.SheetNames[0]], A = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
+  var H = (A[0]||[]).map(function(h){ return String(h).toLowerCase(); }), ci = H.findIndex(function(h){ return /your category/.test(h); }), wi = H.findIndex(function(h){ return /what it was/.test(h); }), ri = H.findIndex(function(h){ return h === 'row'; });
+  if(ci < 0 || ri < 0){ alert('That isn’t the Family Money spreadsheet — it needs the “Row” and “Your category” columns.'); return; }
+  var byId = {}; db.tx.forEach(function(t){ byId[t.id] = t; }); SHNEW = []; var ch = 0, ok = 0, uns = 0, miss = 0;
+  A.slice(1).forEach(function(row){ var t = byId[String(row[ri]).trim()]; if(!t){ if(String(row[ri]).trim()) miss++; return; }
+    var cv = String(row[ci]||'').trim(), w = wi >= 0 ? String(row[wi]||'').trim() : '';
+    if(w) t.note = w;
+    if(!cv){ if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); delete db.asked[t.id]; uns++; return; }
+    var id = shFind(cv); if(!id) return; if(id !== t.cat) ch++; else ok++;
+    t.cat = id; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; });
+    db.reclass = db.reclass.filter(function(x){ return x.id !== t.id; }); db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:t.note || catName(id), cat:id, at:today() });
+    if(!channel(t) && !isP3(id) && id !== 'onetime' && id !== 'inc' && id !== 'xfer'){ var k = mkey(t.desc); if(k){ db.rules = db.rules.filter(function(x){ return x.k !== k; }); db.rules.unshift({ k:k, cat:id }); } } });
+  db.shRound = (db.shRound||0) + 1; save(); render(); var left = shRows(true).length;
+  openSheet('<div class="stepno">Sort them in a spreadsheet · round ' + db.shRound + '</div><h3>' + (left ? 'Got it — ' + left + ' still open' : 'Every line is sorted ✓') + '</h3>'
+    + '<div class="line ok">' + ok + ' guess' + (ok===1?'':'es') + ' you kept · ' + ch + ' you changed' + (uns ? ' · ' + uns + ' left for later' : '') + '</div>'
+    + (SHNEW.length ? '<p class="sub">New: ' + SHNEW.map(esc).join(', ') + '.' + (SHNEW.some(function(n){ return !/^Help: /.test(n); }) ? ' A new category has no monthly amount yet — set it in Our budget.' : '') + '</p>' : '')
+    + (miss ? '<p class="sub">' + miss + ' row' + (miss===1?'':'s') + ' didn’t match a line here, and were left alone.</p>' : '')
+    + '<p class="sub">Each payee you sorted is remembered, so next month’s lines from them sort themselves.</p>'
+    + '<div class="stickfoot">' + (left ? '<button class="b primary full" style="margin-top:0" onclick="shMake(true)">⬇️ A fresh spreadsheet of the ' + left + ' still open</button>' : '<button class="b primary full" style="margin-top:0" onclick="openReview()">On to Go through it together</button>')
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Close</button></div>');
+  }catch(e){ alert('Could not read that spreadsheet: ' + e.message); } }; r.readAsArrayBuffer(f); }); }
+
+/* v5.1 · the start date comes first: lines older than it are kept, but not counted, not asked about, and not on the sheet */
+function fmStartDate(){ var y = new Date().getFullYear(), first = db.tx.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999'), cur = db.historyFrom || (y + '-01-01');
+  var cnt = function(d){ return db.tx.filter(function(t){ return t.d < d; }).length; };
+  openSheet('<div class="stepno">Before I sort anything</div><h3>What date should we start counting from?</h3><p class="sub">Your statements go back to ' + (first < '9999' ? shortDate(first) + ', ' + first.slice(0,4) : 'the start') + '. Anything older than the date you pick is set aside — kept, but not counted and not asked about.</p>'
+    + taps('hf0', [[y + '-01-01', 'January 1, ' + y + ' — this year', cnt(y + '-01-01') + ' older lines set aside'], [(y-1) + '-01-01', 'January 1, ' + (y-1) + ' — last year too', cnt((y-1) + '-01-01') + ' older lines set aside'], ['all', 'Everything I gave you', 'nothing set aside']], cur === (y-1) + '-01-01' ? cur : y + '-01-01')
+    + '<label for="hf0d">Or another date</label><input id="hf0d" type="date">'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmStartSave()">Start from there</button></div>'); }
+function fmStartSave(){ var d = document.getElementById('hf0d').value || tapVal('hf0') || (new Date().getFullYear() + '-01-01'); db.historyFrom = d === 'all' ? '' : d; db.hfSet = 1; save(); fmOn(); }
+
 /* ── lists: business, a person tracked separately, the as-needed logs ── */
 function openLists(){
   var biz = db.tx.filter(function(t){ return t.cat === 'biz'; }), e529 = db.tx.filter(function(t){ return t.cat === 'edu529'; });
@@ -3461,6 +3524,7 @@ function render(){
   h += '<div class="tools">'
     + '<button class="tool" onclick="openMap()">🗺️ Our money map<small>' + mapScore() + '% complete</small></button>'
     + '<button class="tool" onclick="openReview()">🧭 Go through it together<small>' + RV_PARTS.filter(function(p){ return rvDone(p[0]); }).length + ' of 5 parts done</small></button>'
+    + '<button class="tool" onclick="openSheetSort()">📊 Sort in a spreadsheet<small>' + shRows(true).length + ' still open</small></button>'
     + '<button class="tool" onclick="openGTKY()">❓ Getting to know you<small>' + (q ? q + ' to ask' : 'all caught up') + '</small></button>'
     + '<button class="tool" onclick="openBalances()">🧮 Update balances<small>bank, cards, home, car</small></button>'
     + '<button class="tool" onclick="openBudget()">✏️ Our budget<small>move it up or down</small></button>'
@@ -3965,7 +4029,7 @@ function autoFill(SK){
   var T = db.tx.slice(), first = T.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999'), floor = (new Date().getFullYear() - 1) + '-01-01';
   AF = { first:first, n:T.length, old:T.filter(function(t){ return t.d < floor; }).length, unsure:[], sk:SK || {} };
   nameCards();
-  if(T.length) db.historyFrom = first < floor ? floor : first;   /* very old lines stay stored, but the budget reads from January last year */
+  if(T.length && !db.hfSet) db.historyFrom = first < floor ? floor : first;   /* very old lines stay stored, but the budget reads from January last year */
   rebuildPlan(); db.tx.forEach(function(t){ if(t.cat === 'uncat' || (t.cat === 'xfer' && /autopay|auto pay|epay|online pmt|online payment/i.test(t.desc))) t.cat = guessCat(t.desc, t.amt, acct(t.a), t.bcat); });
   /* income: only deposits that clearly are income go straight in; other regular deposits wait for a yes */
   var inc = {}; T.forEach(function(t){ if(t.amt >= 0 || t.cat === 'xfer' || t.d < db.historyFrom) return; var k = mkey(t.desc) || t.desc; if(!inc[k]) inc[k] = { tot:0, ms:{}, desc:t.desc, a:t.a }; inc[k].tot += -t.amt; inc[k].ms[t.d.slice(0,7)] = 1; });
@@ -4413,7 +4477,7 @@ SQKEY.forEach(function(k, i){ if(SQ[i]) SQ[i].key = k; });
 var FIND = null;
 function spendTx(){ return db.tx.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer' && counts(acct(t.a)) && t.d >= (db.historyFrom || ''); }); }
 function evid(L){ return '<ul class="list" style="margin-top:8px">' + L.slice(0, 4).map(function(t){ return '<li style="font-size:14px"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '</span><span class="amt">' + money(Math.abs(t.amt)) + '</span></li>'; }).join('') + (L.length > 4 ? '<li style="font-size:13px;color:var(--soft)">…and ' + (L.length - 4) + ' more</li>' : '') + '</ul>'; }
-function findings(){ var F = [], T = spendTx(), all = db.tx, inM = {};
+function findings(){ var F = [], T = spendTx(), all = db.tx.filter(function(t){ return t.d >= (db.historyFrom || ''); }), inM = {};
   /* two homes: more than one electric or gas company */
   var EL = /electric|edison|power|comed|duke energy|xcel|\baps\b|\bsrp\b|pg&e|pge|dominion|entergy|ameren|national grid|eversource|coned|con ed|fpl|tva/i, ut = {};
   all.forEach(function(t){ if(t.amt > 0 && EL.test(t.desc) && !bankOf(t.desc)){ var k = mkey(t.desc) || t.desc; (ut[k] = ut[k] || []).push(t); } });
@@ -4457,7 +4521,7 @@ function findings(){ var F = [], T = spendTx(), all = db.tx, inM = {};
   if(E.length && !db.uses529) F.push({ key:'e529', em:'🎓', t:'A 529 pays some costs back', why:'Money came in from a 529. School costs it covers are counted as education paid by the 529, not family spending, with a tax flag.', ev:E, yes:function(){ db.uses529 = true; } });
   /* business on a personal card */
   var BZ = /staples|office ?depot|officemax|intuit|quickbooks|godaddy|squarespace|wix\.com|mailchimp|vistaprint|fedex office|ups store|zoom\.us|dropbox business|google \*?gsuite|google workspace|shopify|canva|constant contact|linkedin prem/i, bz = T.filter(function(t){ return BZ.test(t.desc); });
-  if(bz.length >= 2 && !db.bizCard) F.push({ key:'biz', em:'💼', t:'Business costs on a personal card?', why:'These look like business or ministry costs. If they are, they come out of family spending and go on a list for the other books.', ev:bz, yes:function(){ db.bizCard = true; bz.forEach(function(t){ t.cat = 'biz'; }); } });
+  if(false) F.push(   /* v5.1 · Jerry, 17 Nov: "We don't have a business… I don't know how you come to that." No more guessing it from merchant names; each account is asked whose it is instead. */{ key:'biz', em:'💼', t:'Business costs on a personal card?', why:'These look like business or ministry costs. If they are, they come out of family spending and go on a list for the other books.', ev:bz, yes:function(){ db.bizCard = true; bz.forEach(function(t){ t.cat = 'biz'; }); } });
   /* the charge to question: above the usual big ones */
   var regK = {}; regulars().forEach(function(g){ regK[g.k] = 1; }); var A = T.filter(function(t){ return !regK[mkey(t.desc) || t.desc]; }).map(function(t){ return t.amt; }).sort(function(a,b){ return a - b; });
   if(A.length >= 20){ var p = A[Math.floor(A.length * 0.97)], thr = p < 250 ? 250 : p < 500 ? 500 : p < 1000 ? 1000 : Math.ceil(p / 500) * 500;
@@ -4624,7 +4688,7 @@ function fmFiles(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfold
   function why(p){ var e = (String(p).split('.').pop()||'').toLowerCase(); return e === 'pdf' ? 'a PDF I couldn\u2019t read — a scanned picture, or a layout I don\u2019t know yet' : /^(csv|ofx|qfx|qbo|txt|tsv|xlsx|xls)$/.test(e) ? 'no dates and amounts found in it' : 'not a statement file'; }
   var badPdf = bad.filter(function(p){ return /\.pdf$/i.test(p) && PDFF[p]; });
   return ' · ' + L.length + ' file' + (L.length===1?'':'s') + (badPdf.length ? '<br><button class="b small" style="margin:6px 0 2px" onclick="event.stopPropagation();fmAI(\'' + a.id + '\')">✨ Read ' + (badPdf.length === 1 ? 'it' : 'these ' + badPdf.length) + ' with AI</button>' : '') + '<br><span style="color:var(--red)">' + bad.length + ' gave no lines:</span> ' + bad.slice(0,4).map(function(p){ return esc(String(p).split('/').pop()) + ' <i>(' + why(p) + ')</i>'; }).join('; ') + (bad.length > 4 ? '; …and ' + (bad.length - 4) + ' more' : ''); }
-function fmOn(){ ckMark('check'); var SK = ONESK || {}; ONESK = null; STRUCT = false; autoFill(SK); }
+function fmOn(){ if(!db.hfSet){ fmStartDate(); return; } ckMark('check'); var SK = ONESK || {}; ONESK = null; STRUCT = false; autoFill(SK); }
 
 /* ── v3.2 · setup as a to-do list (Jerry, 16 Nov: "make the setup process our checklist, a little to-do list… a little
    taste of what's next… so they can take it off when they're done"). Each step ticks itself when it is done, and any
