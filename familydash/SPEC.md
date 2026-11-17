@@ -636,3 +636,13 @@ The findings deck, the separate "Getting to know you" step, the money-map audit 
   - "Train me": 11 steps.
   - "Watch it work": lines 3–5 changed.
 - **The "spreadsheet is downloading" screen shows the sheet's first four rows**, with the yellow Your category column. A viewer sees what the spreadsheet looks like without opening Excel, and the video has something real to point at.
+
+## v6.3 · 17 Nov 2026 · PDFs read by AI with nothing to attach
+
+Jerry, about 12 PDFs the app couldn't read: *"it gives them the message, but it doesn't give them the documents… Is there anyway you can do that automatically?"*
+
+A website can't attach a file to another website. So when the Daraja AI connection is off, `fmAIgoText` handles it a different way:
+
+- It reads the words off each PDF on this device with pdf.js (`pdfText`), and puts them in the question, under a heading per file. Nothing needs attaching.
+- A PDF with no words in it, which is a scanned picture, is the only kind still attached by hand. The app names those files and the folder to find them in.
+- When the Daraja AI connection is on, the PDFs themselves go, as before.
