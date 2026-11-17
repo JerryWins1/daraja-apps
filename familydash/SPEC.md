@@ -685,3 +685,40 @@ Jerry, 17 Nov:
 **I'll do it myself** is the v6 path, unchanged.
 
 **Videos:** "Explain it to me" gains a line on the two ways, and "Train me" gains a step. Both were re-recorded by name, and checkvideos passes 3 of 3.
+
+## v7.1 · 17 Nov 2026 · the calm home, a new month with nothing to paste, the plain privacy promise
+
+Jerry had three other AIs (Gemini, Copilot, Grok) read OVERVIEW.md. He chose Grok's build order, steps 1 to 3, plus two of Gemini's ideas.
+
+**1. The calm home** (`pulseHTML`)
+- The top of the main screen gives the month's name and one sentence:
+  - "October is $2,453 under income."
+  - or "…over income"
+  - or "…is closed"
+- Under it, up to three short lines:
+  - a Part 2 bill running short ("Travel is short $247"), or one that's on track
+  - statements missing
+  - questions for you
+  - questions saved for your spouse
+  - no backup yet
+- One button: answer the questions, answer the spouse's questions, add income, see the gap, read the note, or "Same as usual".
+- "Same as usual" closes the month and writes the note. It only shows when nothing is asked and nothing is missing.
+- "See the gap" (`openGap`) shows how far over income the month is and the three largest lines with −/＋. Or "cover it from investments this month", which is logged, not advised.
+- Before setup is done, the home shows the next single step, not the list. The full list is folded under "See all the steps".
+- The example family shows the same sentence.
+
+**2. New month, nothing to paste** (`newMonth`)
+- The app reads the linked folder again (the existing ROUTE path).
+- Every payee already known files itself (`autoKnown` on every account, Gemini's "silent filing"), and so do card payments.
+- Only the new ones come to you as questions. On the sample: 36 lines read, 33 filed themselves, 18 questions.
+- Accounts made from an AI's spreadsheet now carry their folder name, so new files find them.
+
+**3. Privacy and backup**
+- The privacy screen now says: "If you let an AI read the folder, those PDFs go to that company's servers. We store only the last 4 digits of an account. The PDF still has the full number."
+- It also says: if the passcode is forgotten, nobody can open what's kept here, not us, not anyone, and backups use the same passcode.
+- "💾 Backup" (`backupOpen`, `backupNow`, `backupRestore`) saves exactly what is stored, which is the scrambled copy when there's a passcode. It can bring a backup back. The home says "No backup saved yet" until one is saved.
+
+**Also**
+- "Ask my spouse" no longer texts anything. The question is saved on this device, and the home says "1 question for Lee" with a button to answer it there.
+- Anything sent to an AI as text has long numbers masked to their last 4 (account and card numbers, Social Security numbers), using Gemini's PII rule (`maskNums`). Dates and amounts are left alone.
+- Videos: one line about the sentence was added to "Explain it to me" and to "Watch it work". Both were re-recorded by name, and checkvideos passes 3 of 3.
