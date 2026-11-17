@@ -509,3 +509,12 @@ Jerry's request: *"loving Adidas as a donation that's not on your drop-down list
   - or searching email by name and date
 
   Not sure keeps it for later.
+
+## v5.0 · 17 Nov 2026 · Search the web for it
+
+Jerry asked: *"go out to the website that item was for… from the button that's lit up, or give another option."*
+
+- **On the "Who are these?" card, the lit-up name is now a 🔎 button.** It opens a web search for that name in a new tab. "See the payments" has the same link.
+- **On Getting to know you,** each payment now has "🔎 Search the web for …" under the statement words.
+- **What gets searched.** The search uses the payee name cleaned of "PAYPAL *", phone numbers and reference digits. The app itself reads nothing; it only opens the tab.
+- **No search for a person.** Zelle, Venmo and Cash App payments to a person, and checks or cash, get no web search. Searching a private person's name helps nobody.
