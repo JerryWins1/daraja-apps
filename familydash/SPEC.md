@@ -722,3 +722,27 @@ Jerry had three other AIs (Gemini, Copilot, Grok) read OVERVIEW.md. He chose Gro
 - "Ask my spouse" no longer texts anything. The question is saved on this device, and the home says "1 question for Lee" with a button to answer it there.
 - Anything sent to an AI as text has long numbers masked to their last 4 (account and card numbers, Social Security numbers), using Gemini's PII rule (`maskNums`). Dates and amounts are left alone.
 - Videos: one line about the sentence was added to "Explain it to me" and to "Watch it work". Both were re-recorded by name, and checkvideos passes 3 of 3.
+
+## v7.2 · 17 Nov 2026 · the statement squares and the note (Grok's plan, steps 4–6)
+
+- **Step 4 (spouse questions stay on the device)** was already done in v7.1.
+- **Statement squares on the home** (`squaresHTML`, `missingOne`):
+  - A small grid sits under the month's sentence, with one row per bank or card account and one square per month in the year window up to the last full month. Green means the statement is here; red means it's missing.
+  - Tapping a red square says which website, which month, and which folder to put it in, then offers "New month — read my folder".
+  - Payment apps are left out, because a quiet month there isn't a missing statement.
+  - This is the only nag.
+- **The note for both of you** (`openNote`, `noteLines`):
+  - It's eight to twelve plain lines:
+    - the month against income
+    - what was spent against the plan
+    - what was set aside
+    - as-needed spending and what comes from savings
+    - one thing that went well
+    - one thing that changed (up 15% or more on a usual month)
+    - any yearly-bill savings running short
+    - what's coming up (Part 2 bills due, and "Ahead of It" items)
+    - anything still open
+    - the one decision, if the month is over income
+  - "🔊 Read it aloud" uses the computer's own voice, and there's a Print button. It is never sent anywhere.
+  - "Same as usual" and "Read the note" open it. The old report's "Send to my spouse" button now opens the note instead.
+- **Videos:** two lines were added to "Explain it to me" (the squares and the note). It was re-recorded by name, and checkvideos passes 3 of 3.

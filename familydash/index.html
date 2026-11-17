@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v7.1 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v7.2 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2964,7 +2964,7 @@ function openReport(m, mine){
     : '<div id="repText">' + reportParts(m).map(function(p){ return '<div class="card" style="margin-bottom:10px;padding:12px 14px"><h2 style="font-size:16.5px;margin:0 0 4px">' + p.em + ' ' + esc(p.h) + '</h2>' + p.L.map(function(x){ return '<p style="margin:4px 0;font-size:15.5px">' + esc(x) + '</p>'; }).join('') + '</div>'; }).join('') + '</div>'
       + (r ? '<p class="sub"><a href="#" onclick="openReport(\'' + m + '\');return false" style="color:var(--brand);font-weight:800">Show your AI’s version</a></p>' : '');
   openSheet('<h3>' + monthName(m) + '</h3>' + body
-    + '<div class="row" style="margin-top:8px"><button class="b" onclick="shareReport(\'' + m + '\',' + (showAI?0:1) + ')">📤 Send to my spouse</button><button class="b" onclick="printReport(\'' + m + '\',' + (showAI?0:1) + ')">🖨️ Print</button></div>'
+    + '<div class="row" style="margin-top:8px"><button class="b" onclick="openNote(\'' + m + '\')">📝 The note for both of us</button><button class="b" onclick="printReport(\'' + m + '\',' + (showAI?0:1) + ')">🖨️ Print</button></div>'
     + '<button class="b full" onclick="writeReport(\'' + m + '\')">✨ ' + (r ? 'Ask my AI again' : 'Have my AI say it in warmer words') + '</button>'
     + '<button class="b ghost" style="width:100%" onclick="' + (CK ? 'openCheckup(CK)' : 'closeSheet()') + '">' + (CK ? 'Back to the check-up' : 'Close') + '</button>');
 }
@@ -3691,7 +3691,7 @@ function pulseHTML(){ var P = pulseData(pulseMonth()), mn = monthName(P.m).split
   else if(P.sp.length) act.push(['spouseRound()', 'Answer ' + esc(db.spouse || 'your spouse') + '’s questions']);
   else if(P.noInc) act.push(['setupQ(0, true)', 'Add our income']);
   else if(!P.closed && P.diff < 0) act.push(['openGap(\'' + P.m + '\')', 'See the gap']);
-  else if(P.closed) act.push(['openReport(\'' + P.m + '\')', 'Read the note']);
+  else if(P.closed) act.push(['openNote(\'' + P.m + '\')', 'Read the note']);
   else if(P.miss.length) act.push(['newMonth()', 'Read the new statements']);
   else act.push(['closeMonth(\'' + P.m + '\')', 'Same as usual']);
   var quiet = P.closed ? '' : (!P.q && !P.miss.length && act[0][1] !== 'Same as usual' && P.diff >= 0 ? '<button class="b ghost" onclick="closeMonth(\'' + P.m + '\')">Same as usual</button>' : '<button class="b ghost" onclick="newMonth()">📥 New month — read my folder</button>');
@@ -3701,7 +3701,7 @@ function pulseHTML(){ var P = pulseData(pulseMonth()), mn = monthName(P.m).split
     + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px"><button class="b primary full" style="margin:0" onclick="' + act[0][0] + '">' + act[0][1] + '</button>' + quiet + '</div></div>'; }
 /* "Same as usual": only when every payee this month is known and nothing is missing. It closes the month and writes the note. */
 function closeMonth(m){ var P = pulseData(m); if(P.q || P.miss.length){ alert('There ' + (P.q ? 'are questions' : 'are statements missing') + ' for this month first.'); return; }
-  db.closedM = db.closedM || {}; db.closedM[m] = today(); save(); render(); openReport(m); }
+  db.closedM = db.closedM || {}; db.closedM[m] = today(); save(); render(); openNote(m); }
 /* the gap: only when Part 1 + Part 2 is over income. The three largest lines to trim, or cover it from investments (logged, not advice). */
 function openGap(m){ var P = pulseData(m), C = p1Cats().filter(function(c){ return !c.variable && (c.budget||0) > 0; }).sort(function(a,b){ return (b.budget||0) - (a.budget||0); }).slice(0,3);
   openSheet('<div class="stepno">' + esc(monthName(m)) + '</div><h3>' + money(-P.diff,1) + ' over income</h3><p class="sub">Spent ' + money(P.out - pulsePart2(),1) + ' and set aside ' + money(pulsePart2(),1) + ', against income of ' + money(P.inc,1) + '. Trim a line, or cover it from investments this month.</p>'
@@ -3747,6 +3747,49 @@ function nextStepHTML(){ var S = ckSteps(), nx = S.filter(function(s){ return !s
 
 /* anything that goes to an AI has long numbers masked first: account and card numbers keep only their last 4 */
 function maskNums(t){ return String(t||'').replace(/\b\d(?:[ -]?\d){7,18}\b/g, function(s){ if(/^\s*\d{4}-\d{1,2}-\d{1,2}\s*$/.test(s)) return s; var d = s.replace(/\D/g,''); return d.length >= 8 ? '••••' + d.slice(-4) : s; }).replace(/\b\d{3}-\d{2}-\d{4}\b/g, '•••-••-••••'); }
+
+/* ── v7.2 · the statement squares on the home, and the note for the other person (Grok's plan, steps 5–6). ── */
+function squaresHTML(){ var A = db.accts.filter(function(a){ return tracksLines(a) && !a.notPersonal && (a.mapG || mapOf(a)) !== 'pay' && mapMonths(a).length; });   /* a payment app can go quiet for a month; that isn't a missing statement */ if(!A.length) return '';
+  var M = {}; A.forEach(function(a){ mapMonths(a).forEach(function(m){ M[m] = 1; }); }); var ms = Object.keys(M).sort(); if(!ms.length) return '';
+  var red = 0, rows = A.map(function(a){ var h = mapHave(a), mine = mapMonths(a);
+    return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0"><span style="flex:0 0 108px;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.name) + '</span><span style="display:flex;gap:3px;flex-wrap:wrap">'
+      + ms.map(function(m){ if(mine.indexOf(m) < 0) return '<i style="width:14px;height:14px;border-radius:3px;background:transparent;display:inline-block"></i>'; var ok = !!h[m]; if(!ok) red++;
+        return ok ? '<i title="' + esc(a.name + ', ' + monthName(m) + ': here') + '" style="width:14px;height:14px;border-radius:3px;background:var(--ok);display:inline-block"></i>'
+          : '<button aria-label="' + esc(a.name + ', ' + monthName(m) + ': missing') + '" onclick="missingOne(\'' + a.id + '\',\'' + m + '\')" style="width:14px;height:14px;min-height:0;padding:0;border:0;border-radius:3px;background:var(--red);cursor:pointer"></button>'; }).join('') + '</span></div>'; }).join('');
+  return '<div class="card" id="squares" style="padding:14px 16px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Statements</b><span class="sub" style="margin:0;font-size:13px">' + esc(monthName(ms[0], true)) + ' – ' + esc(monthName(ms[ms.length-1], true)) + '</span></div>'
+    + rows + '<div class="sub" style="margin:6px 0 0;font-size:13px">' + (red ? 'Red is a month that isn’t here yet — tap it to see which file to add.' : 'Every month is here.') + '</div></div>'; }
+function missingOne(aid, m){ var a = acct(aid); if(!a) return; var g = mapGroup(a.mapG || mapOf(a));
+  openSheet('<div class="stepno">Statement missing</div><h3>' + esc(acctLabel(a)) + ' · ' + esc(monthName(m)) + '</h3>'
+    + '<div class="steps3"><div><b>1</b>On ' + esc(a.inst || a.name) + '’s website, sign in and find <b>Statements</b> (or Activity). Download ' + esc(monthName(m)) + ' — a PDF, or better, a CSV download.</div>'
+    + '<div><b>2</b>Put it in your Family Money folder, in <b>' + esc(g.folder || g.t) + ' / ' + esc(folderFor(a)) + '</b>.</div>'
+    + '<div><b>3</b>Come back and tap <b>New month — read my folder</b>.</div></div>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="newMonth()">📥 New month — read my folder</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Later</button></div>'); }
+
+/* the note for the other person: eight to twelve lines to read aloud together, kept on this device */
+function noteLines(m){ var th = three(m), P = pulseData(m), mn = monthName(m).split(' ')[0], L = [], sp = spentBy(m);
+  L.push(P.noInc ? mn + ': our income isn’t entered yet.' : mn + ' was ' + money(Math.abs(P.diff),1) + (P.diff >= 0 ? ' under' : ' over') + ' our income of ' + money(P.inc,1) + '.');
+  L.push('We spent ' + money(th.p1s,1) + ' on the monthly bills and everyday things' + (db.budgetSet ? ', against a plan of ' + money(th.P1,1) : '') + '.');
+  if(db.threePart && th.P2) L.push('We set aside ' + money(th.P2,1) + ' for the bills that come once or twice a year.');
+  L.push(th.P3 ? 'Help and one-time things came to ' + money(th.P3,1) + (th.take > 0 ? ', so ' + money(th.take,1) + ' comes from savings.' : ', covered without touching savings.') : 'Nothing as-needed this month.');
+  var good = p1Cats().map(function(c){ var b = mBud(c, m), s = sp[c.id]||0; return { c:c, d:r2(b - s), b:b }; }).filter(function(x){ return x.b > 0 && x.d > 0; }).sort(function(a,b){ return b.d - a.d; })[0];
+  if(good) L.push('Went well: ' + good.c.name + ' came in ' + money(good.d,1) + ' under plan.');
+  var ch = p1Cats().map(function(c){ var avg = avgFor(c.id, m, 3), s = sp[c.id]||0; return avg && avg > 25 ? { c:c, pct:Math.round((s - avg) / avg * 100), s:s } : null; }).filter(function(x){ return x && x.pct >= 15; }).sort(function(a,b){ return b.pct - a.pct; })[0];
+  if(ch) L.push('Changed: ' + ch.c.name + ' was up ' + ch.pct + '% on a usual month.');
+  var short = [], soon = []; p2Cats().forEach(function(c){ var st = p2State(c); if(st.unknown) return; if(st.warn) short.push(c.name); if(st.dueM && st.dueM <= addMonths(m, 3) && st.dueM > m) soon.push(c.name + ' in ' + monthName(st.dueM).split(' ')[0]); });
+  L.push(short.length ? 'Running short for: ' + short.join(', ') + '.' : (p2Cats().length ? 'The savings for yearly bills are on track.' : ''));
+  var ah = aheadSoon(60).slice(0, 2).map(function(it){ return it.n; }).filter(Boolean);
+  if(soon.length || ah.length) L.push('Coming up: ' + soon.concat(ah).slice(0, 3).join('; ') + '.');
+  var open = []; if(P.q) open.push(P.q + ' question' + (P.q===1?'':'s')); if(P.sp.length) open.push(P.sp.length + ' for ' + (db.spouse || 'you')); if(P.miss.length) open.push(P.miss.length + ' statement' + (P.miss.length===1?'':'s') + ' missing');
+  L.push(open.length ? 'Still open: ' + open.join(', ') + '.' : 'Nothing is left open.');
+  if(!P.noInc && P.diff < 0) L.push('One decision: trim a line, or take ' + money(-P.diff,1) + ' from investments this month.');
+  return L.filter(Boolean); }
+function openNote(m){ m = m || pulseMonth(); var L = noteLines(m);
+  openSheet('<div class="stepno">The note · for both of you</div><h3>' + esc(monthName(m)) + '</h3>'
+    + '<div class="card" id="noteText" style="font-size:19px;line-height:1.55;padding:16px 18px">' + L.map(function(x){ return '<p style="margin:0 0 10px">' + esc(x) + '</p>'; }).join('') + '</div>'
+    + '<p class="sub">It stays on this computer. Read it together, or print it.</p>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="noteSay(\'' + m + '\')">🔊 Read it aloud</button><button class="b full" onclick="notePrint(\'' + m + '\')">🖨️ Print</button><button class="b ghost" style="width:100%" onclick="try{speechSynthesis.cancel()}catch(e){};closeSheet()">Close</button></div>'); }
+function noteSay(m){ try{ if(window.djSayNow) djSayNow(); speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(monthName(m) + '. ' + noteLines(m).join(' ')); u.rate = .95; speechSynthesis.speak(u); }catch(e){ alert('This browser can’t read aloud. Read it together from the screen.'); } }
+function notePrint(m){ document.getElementById('printable').innerHTML = '<h2>' + esc((db.name ? db.name + ' — ' : '') + monthName(m)) + '</h2>' + noteLines(m).map(function(x){ return '<p>' + esc(x) + '</p>'; }).join(''); window.print(); }
 
 /* ── lists: business, a person tracked separately, the as-needed logs ── */
 function openLists(){
@@ -3815,8 +3858,8 @@ function render(){
   bar.style.display = '';
   var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
   var h = '', q = queue().length;
-  if(!db.ex){ h += pulseHTML(); h += ckHTML(); }   /* v7.1 · the month in one sentence comes first */
-  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>' + pulseHTML();
+  if(!db.ex){ h += pulseHTML() + squaresHTML(); h += ckHTML(); }   /* v7.1 · the month in one sentence comes first */
+  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>' + pulseHTML() + squaresHTML();
   if(!db.tx.length) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Bring in your statements</h2><p style="margin:0 0 4px">From ' + (db.historyFrom ? shortDate(db.historyFrom) : 'a few months back') + ' to now. The app sorts what it can, then asks you about the rest, one at a time.</p><button class="b primary" onclick="openImport()">＋ Add statements</button></div>';
   else if(db.ex && q && (!db.budgetSet || q >= 5)) h += '<div class="card callout"><div class="stepno">Getting to know you</div><h2 style="margin-top:4px">' + q + ' payment' + (q===1?'':'s') + ' I’m not sure about</h2><p style="margin:0 0 4px">One question at a time. Each answer is remembered.</p><button class="b primary" id="gkBtn" onclick="openGTKY()">Start</button></div>';
   else if(!db.budgetSet) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Set the monthly amounts</h2><p style="margin:0 0 4px">See each line’s normal month and move it up or down.</p><button class="b primary" onclick="openFirstLoad()">Make our budget</button></div>';
