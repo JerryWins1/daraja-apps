@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v6.4 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v7.0 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3605,6 +3605,72 @@ function budgetXlsx(){ needExcelJS(function(){ try{
   wb.xlsx.writeBuffer().then(function(buf){ var url = URL.createObjectURL(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })), l = document.createElement('a'); l.href = url; l.download = 'Family Money - budget ' + today() + '.xlsx'; document.body.appendChild(l); l.click(); setTimeout(function(){ URL.revokeObjectURL(url); l.remove(); }, 4000); toast('Your budget is downloading — open it in Excel or Numbers.'); });
   }catch(e){ alert('Could not make the budget spreadsheet: ' + e.message); } }, function(){ alert('The spreadsheet maker didn’t load. Check the internet connection and try again.'); }); }
 
+/* ── v7.0 · let your AI do it (Jerry, 17 Nov): "I don't like the copy and pasting back and forth between the app and the AI
+   program… give them the option to connect the family finance folder up to Claude in the beginning and let it build the
+   spreadsheet right from the get-go… give them the option to automate it or do it manually."
+   Claude (Cowork, in the Claude desktop app) and ChatGPT (its desktop app) can both be given a folder on the computer. So
+   option one: the family opens their AI there, picks the Family Money folder, and pastes ONE instruction this app writes for
+   them. Their AI reads every statement, asks them about the unclear ones in its own chat, and saves one spreadsheet into the
+   folder. The app reads that spreadsheet once. Each month after: the same chat, "new month", the same spreadsheet given back.
+   Option two is the app doing it all here, by hand, as before. ── */
+var AI_DESK = { claude:{ name:'Claude', app:'the Claude desktop app', get:'https://claude.ai/download', how:'Open the Claude desktop app and choose <b>Cowork</b>. When it asks for a folder, pick your <b>Family Money</b> folder.' },
+  chatgpt:{ name:'ChatGPT', app:'the ChatGPT desktop app', get:'https://chatgpt.com/download', how:'Open the ChatGPT desktop app and start work in a folder: pick your <b>Family Money</b> folder.' } };
+function aiWho(){ var k = (db.prof||{}).ai; return AI_DESK[k] || AI_DESK.claude; }
+function aiInstr(month){ if(!db.cats.length) rebuildPlan(); var from = db.historyFrom || (new Date().getFullYear() + '-01-01'), to = db.historyTo || (new Date().getFullYear() + '-12-31'), names = shCatNames().filter(function(n){ return !/type their name/.test(n); });
+  if(month) return 'New month for our Family Money spreadsheet. Read only the statements in this folder with dates after the last date already in "Family Money - sorted.xlsx" (and on or before ' + to + '). Sort them exactly the way you did before, using the same categories. Ask me about anything you can’t tell, one at a time. Then add the new lines to the Transactions sheet of that same file and save it. Tell me how many lines you added, and whether any account is missing a statement for a month.';
+  return 'Please help our family sort a year of bank and card statements.\n\n'
+    + 'The folder you have open is our "Family Money" folder. Each folder inside it is one account (a bank account, a credit card, PayPal, an investment, an insurance policy), named for it. The statements inside are PDFs, CSV downloads or spreadsheets. Some accounts keep them in a folder for each year.\n\n'
+    + 'Do this:\n'
+    + '1. Read every statement in every account folder. Only count transactions dated from ' + from + ' to ' + to + '.\n'
+    + '2. List every transaction once, even when two statements overlap. Leave out balances, totals and summaries.\n'
+    + '3. Give each one a category, using ONLY these names:\n' + names.map(function(n){ return '   - ' + n; }).join('\n') + '\n'
+    + '   If none of them fits, you may use a short new name of your own \u2014 I\u2019ll add it.\n'
+    + '   A payment from a bank account to one of our credit cards, and a transfer between our own accounts, is "Moving money between our accounts" (what the card bought is on the card’s own statement). Use "One-time purchase" for big things that won’t repeat, like a car or a cruise. Use "Help: <their name>" for money given or lent to a family member.\n'
+    + '4. Where the statement can’t tell you what something was — checks, cash, PayPal, Venmo or Zelle to a person, charges of $500 or more, or a payee you don’t recognize — ask me, ONE at a time. Show the date, the amount, the account and the exact statement words, with a few short answers, the likeliest first. Tell me how many are left. Once I’ve told you about a payee, don’t ask about it again. If I don’t know, leave the category empty and write "not sure".\n'
+    + '5. When you are done, save a spreadsheet in this folder named "Family Money - sorted.xlsx", with one sheet named "Transactions" and exactly these columns: Date (YYYY-MM-DD), Account (the account’s folder name), Amount (a positive number for money going out, negative for money coming in), Statement words (exactly as on the statement), What it was, Category.\n'
+    + '6. Then tell me how many lines there are, and any month an account has no statement for.\n\n'
+    + 'Never guess a number. Do not move, rename or delete any of my files, and do not send anything anywhere.'; }
+function aiHandoff(month){ var W = aiWho(), t = aiInstr(month);
+  openSheet('<div class="stepno">' + (month ? 'A new month' : 'Setting up · let ' + W.name + ' do it') + '</div><h3>' + (month ? 'Let ' + W.name + ' add the new month' : 'Let ' + W.name + ' sort your folder') + '</h3>'
+    + '<p class="sub">' + W.name + ' reads every statement in your Family Money folder, asks you about anything it can’t tell, and saves one spreadsheet into the folder. You give that spreadsheet to this app once. No copying back and forth.</p>'
+    + '<div class="steps3"><div><b>1</b>' + (month ? 'Put this month’s statements in their folders. Then open the same ' + W.name + ' chat as last time.' : W.how + ' <a href="' + W.get + '" target="_blank" rel="noopener" style="color:var(--brand);font-weight:800">Get ' + W.app + '</a> if you don’t have it.') + '</div>'
+    + '<div><b>2</b>Tap <b>Copy the instruction</b> below, paste it into ' + W.name + ', and send it. Answer its questions as it goes — a checkbook or a quick word with your spouse settles most of them.</div>'
+    + '<div><b>3</b>When it says <b>Family Money - sorted.xlsx</b> is saved, come back here and tap <b>Give me the finished spreadsheet</b>.</div></div>'
+    + '<details style="margin:10px 0"><summary style="cursor:pointer;font-weight:800;color:var(--brand)">See the instruction</summary><pre style="white-space:pre-wrap;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:260px;overflow:auto">' + esc(t) + '</pre></details>'
+    + '<p class="sub">The statements stay in your folder. ' + W.name + ' reads them on your computer, through your own account with them.</p>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="aiCopy(' + (month ? 1 : 0) + ')">📋 Copy the instruction</button><button class="b full" onclick="document.getElementById(\'aiIn\').click()">⬆️ Give me the finished spreadsheet</button><input type="file" id="aiIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="aiRead(this.files[0]);this.value=\'\'">'
+    + (month ? '' : '<button class="b ghost" style="width:100%" onclick="db.prof.mode=\'manual\';save();fmStart()">I’d rather do it myself in this app</button>') + '</div>'); }
+function aiCopy(month){ var t = aiInstr(month); ckMark('aihand');
+  try{ navigator.clipboard.writeText(t).then(function(){ toast('Copied. Paste it into ' + aiWho().name + '.'); }, function(){ prompt('Copy this, then paste it into ' + aiWho().name + ':', t); }); }catch(e){ prompt('Copy this, then paste it into ' + aiWho().name + ':', t); } }
+function aiAcct(name){ var n = String(name||'').trim(), l = n.toLowerCase(); if(!n) n = 'Account';
+  var a = db.accts.filter(function(x){ var f = String(x.srel || x.sfolder || '').split('/').pop().toLowerCase(); return x.name.toLowerCase() === l || (f && f === l); })[0]; if(a) return a;
+  var l4 = (n.match(/(\d{4})(?!.*\d)/) || [])[1] || '', card = /card|visa|master|amex|american express|discover|capital one|citi|chase|sapphire|freedom|quicksilver/i.test(n), pay = /paypal|venmo|cash ?app|zelle/i.test(n), sav = /saving|money market/i.test(n);
+  a = { id:uid(), name:n.replace(/\s*\d{4}\s*$/, '').trim() || n, type:card ? 'card' : sav ? 'savings' : 'checking', last4:l4, hist:[], found:1, sfolder:n, mapG:card ? 'card' : pay ? 'pay' : 'bank', track:'lines' };
+  if(card){ a.payMode = 'full'; a.autopay = true; } db.accts.push(a); return a; }
+function aiRead(f){ if(!f) return; needXLSX(function(){ var r = new FileReader(); r.onload = function(){ try{
+  var wb = XLSX.read(new Uint8Array(r.result), { type:'array' }), ws = wb.Sheets['Transactions'] || wb.Sheets[wb.SheetNames[0]], A = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
+  var H = (A[0]||[]).map(function(h){ return String(h).toLowerCase().trim(); }), col = function(re){ return H.findIndex(function(h){ return re.test(h); }); };
+  var cd = col(/^date/), ca = col(/^account/), cm = col(/^amount/), cs = col(/statement|description/), cw = col(/what it was|note/), cc = col(/^category/);
+  if(cd < 0 || cm < 0 || cs < 0){ alert('That spreadsheet doesn’t have the Date, Amount and Statement words columns. Ask your AI to save it again with exactly the columns in the instruction.'); return; }
+  var seen = {}; db.tx.forEach(function(t){ seen[t.a + '|' + t.d + '|' + r2(t.amt) + '|' + mkey(t.desc)] = 1; });
+  SHNEW = []; var add = 0, dup = 0, blank = 0, A2 = {};
+  A.slice(1).forEach(function(row){ var d = String(row[cd]||'').trim(), m = d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/) || d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(!m) return;
+    var ymd2 = m[0].indexOf('-') > 0 ? m[1] + '-' + pad2(+m[2]) + '-' + pad2(+m[3]) : ((+m[3] < 100 ? 2000 + +m[3] : +m[3]) + '-' + pad2(+m[1]) + '-' + pad2(+m[2]));
+    var amt = num(row[cm]); if(!amt) return; var a = aiAcct(ca >= 0 ? row[ca] : 'Account'), desc = String(row[cs]||'').trim(), k = a.id + '|' + ymd2 + '|' + r2(amt) + '|' + mkey(desc);
+    if(seen[k]){ dup++; return; } seen[k] = 1; A2[a.id] = 1;
+    var cv = cc >= 0 ? String(row[cc]||'').trim() : '', w = cw >= 0 ? String(row[cw]||'').trim() : '', id = cv ? shFind(cv) : null;
+    var t = { id:uid(), a:a.id, d:ymd2, amt:r2(amt), desc:desc, cat:id || 'uncat', src:'Sorted by your AI' }; if(w && !/^not sure$/i.test(w)) t.note = w; db.tx.push(t); add++;
+    if(id){ db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:t.note || catName(id), cat:id, at:today(), ai:1 }); if(!channel(t) && !isP3(id) && id !== 'onetime' && id !== 'inc' && id !== 'xfer'){ var kk = mkey(desc); if(kk){ db.rules = db.rules.filter(function(x){ return x.k !== kk; }); db.rules.unshift({ k:kk, cat:id }); } } }
+    else { db.notSure.push(t.id); blank++; } });
+  if(!add && !dup){ alert('I found no lines in that spreadsheet. Ask your AI to save it again with the columns in the instruction.'); return; }
+  db.aiImported = today(); ckMark('aiback'); ckMark('sort'); ckMark('give'); ckMark('check'); ckMark('found'); ckMark('sum'); save(); render();
+  openSheet('<div class="stepno">From your AI</div><h3>✓ ' + add + ' line' + (add===1?'':'s') + ' brought in</h3>'
+    + '<div class="line ok">' + Object.keys(A2).length + ' account' + (Object.keys(A2).length===1?'':'s') + (dup ? ' · ' + dup + ' already here, skipped' : '') + (blank ? ' · ' + blank + ' your AI left as not sure' : '') + '</div>'
+    + (SHNEW.length ? '<p class="sub">New categories: ' + SHNEW.map(esc).join(', ') + '.</p>' : '')
+    + '<p class="sub">Every payee is remembered. Next month, give the same chat the new statements and bring the spreadsheet back here.</p>'
+    + '<div class="stickfoot">' + (blank ? '<button class="b primary full" style="margin-top:0" onclick="askRound()">Answer the ' + blank + ' not-sure ones</button>' : '') + '<button class="b' + (blank ? '' : ' primary') + ' full" style="margin-top:0" onclick="openFlow()">See where the money went</button></div>');
+  }catch(e){ alert('Could not read that spreadsheet: ' + e.message); } }; r.readAsArrayBuffer(f); }); }
+
 /* ── lists: business, a person tracked separately, the as-needed logs ── */
 function openLists(){
   var biz = db.tx.filter(function(t){ return t.cat === 'biz'; }), e529 = db.tx.filter(function(t){ return t.cat === 'edu529'; });
@@ -3715,7 +3781,7 @@ function render(){
     + (kc ? '<p class="sub" style="margin:6px 0 0">' + kc + ' account' + (kc===1?'':'s') + ', papers and people in The Key.</p>' : '') + '</div>';
   h += '<div class="tools">'
     + '<button class="tool" onclick="openMap()">🗺️ Our money map<small>' + mapScore() + '% complete</small></button>'
-    + '<button class="tool" onclick="sortHub()">📊 Sort each account<small>a spreadsheet with a drop-down</small></button>'
+    + ((db.prof||{}).mode === 'ai' ? '<button class="tool" onclick="aiHandoff(1)">📥 New month from ' + esc(aiWho().name) + '<small>same chat, one spreadsheet back</small></button>' : '<button class="tool" onclick="sortHub()">📊 Sort each account<small>a spreadsheet with a drop-down</small></button>')
     + '<button class="tool" onclick="openFlow()">🗺️ Where the money went<small>' + esc(winLabel()) + '</small></button>'
     + '<button class="tool" onclick="rvSubsStart()">🔁 Subscriptions<small>keep or cancel</small></button>'
     + '<button class="tool" onclick="rvOpen()">📌 What’s still open<small>nothing guessed</small></button>'
@@ -4791,11 +4857,11 @@ function treeHTML(found){ return '<div class="tree">' + '<div class="tr0">📁 <
       + (kids ? kids.map(function(k){ return '<div class="tr2 ok">📁 ' + esc(k) + '</div>'; }).join('') || '<div class="tr2 none">— none —</div>' : t[4].map(function(k){ return '<div class="tr2">📁 <i>' + esc(k) + '</i></div>'; }).join('') + '<div class="tr2 more">＋ one more folder for each ' + (t[0] === 'ins' ? 'policy' : t[0] === 'other' ? 'kind of paper' : 'account') + '</div>'); }).join('') + '</div>'; }
 function fmStart(){ if(!db.hfSet){ yearPick('fm'); return; } db.autoAsked = 1; save();
   openSheet('<div class="stepno">Setting up · step 1 of 3</div><h3>Put everything in one folder</h3><p class="sub" style="margin-bottom:4px">Three things, in this order:</p>'
-    + '<div class="steps3"><div><b>1</b>On your phone or computer, make one folder called <b>Family Money</b>, laid out like the picture below — a separate folder for every account, card and pay app, named with the bank and the last 4 digits.</div><div><b>2</b>Put each account\u2019s statements in its folder: PDFs or downloads, any months.</div><div><b>3</b>Come back here and tap <b>My folder is ready</b> at the bottom. I\u2019ll ask you to pick the Family Money folder' + (canFolder() ? '' : ' (on an iPhone, as a zip — I\u2019ll show you how)') + ', and I read everything in it.</div></div>'
+    + '<div class="steps3"><div><b>1</b>On your phone or computer, make one folder called <b>Family Money</b>, laid out like the picture below — a separate folder for every account, card and pay app, named with the bank and the last 4 digits.</div><div><b>2</b>Put each account\u2019s statements in its folder: PDFs or downloads, any months.</div><div><b>3</b>Come back here and tap <b>My folder is ready</b> at the bottom. ' + ((db.prof||{}).mode === 'ai' ? 'Then I show you how to hand the folder to ' + aiWho().name + '.' : 'I\u2019ll ask you to pick the Family Money folder' + (canFolder() ? '' : ' (on an iPhone, as a zip — I\u2019ll show you how)') + ', and I read everything in it.') + '</div></div>'
     + treeHTML() + '<div class="line ok" style="font-size:14.5px;font-weight:700">📅 Inside each account\u2019s folder, keep its statements all together, or in a folder for each year — <b>2025</b>, <b>2026</b> — whichever you like. I read the dates on every line, and a month that two files both cover is only counted once.</div><p class="sub" style="margin-top:10px">The grey names are examples. The folder names become the account names, so name them the way you want them shown.</p>'
     + '<button class="b full" onclick="fmTemplate()">⬇️ Haven\u2019t made the folders yet? Download them empty<small style="display:block;font-weight:600;color:var(--soft);font-size:12.5px">optional — skip this if your folder is already made</small></button>'
     + '<button class="b ghost" style="width:100%;margin-top:6px" onclick="fmSample()">🧪 No folder yet? Try it with a sample one</button>'
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmGet()">My folder is ready</button><button class="b ghost" style="width:100%" onclick="autoScreenOld()">Other ways to start</button></div>'); }
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="((db.prof||{}).mode===\'ai\')?aiHandoff():fmGet()">My folder is ready</button><button class="b ghost" style="width:100%" onclick="autoScreenOld()">Other ways to start</button></div>'); }
 function fmTemplate(){ function go(){ var z = new JSZip(), root = z.folder('Family Money');
     TREE.forEach(function(t){ root.folder(t[2]).file('Read me.txt', 'Make one folder in here for each ' + (t[0] === 'ins' ? 'policy' : 'account') + ', named for it — for example: ' + t[4].join(', ') + '\nThen put its statements inside: PDF, CSV, QFX or Excel, any months.\nKeep them all together in the account\'s folder, or in a folder for each year (2025, 2026) - either works.\nDon\'t name a folder old, archive or backup: those are skipped.\n'); });
     z.generateAsync({ type:'blob' }).then(function(b){ var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'Family Money.zip'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
@@ -4935,7 +5001,11 @@ function ckSteps(){ var phone = !canFolder(), C = (db && db.ck) || {}, has = !!(
     ['flow','🗺️','See where the money went','each account flowing into its categories', 'openFlow()', C.flow],
     ['qs','🏡','A few questions about your household','income, homes, who answers — anything known is skipped', 'setupQ(db.sq || 0)', db && db.setup],
     ['budget','✏️','Set the budget','how often each kind comes, then the monthly amounts', 'budStart()', db && db.budgetSet]
-  ].filter(Boolean).map(function(x){ return { k:x[0], em:x[1], t:x[2], sub:x[3], go:x[4], done:!!x[5], hand:C[x[0]] === 1 }; }); }
+  ].filter(Boolean).reduce(function(out, x){ if(P.mode !== 'ai') { out.push(x); return out; }
+      if(x[0] === 'aiset' || x[0] === 'check') return out;
+      if(x[0] === 'give'){ out.push(['aihand','🤖','Let ' + aiWho().name + ' sort the folder','paste one instruction; it asks you what it can’t tell', 'aiHandoff()', C.aihand || (db && db.aiImported)]); return out; }
+      if(x[0] === 'sort'){ out.push(['aiback','📥','Give the app the finished spreadsheet','Family Money - sorted.xlsx, from your folder', 'aiHandoff()', db && db.aiImported]); return out; }
+      out.push(x); return out; }, []).map(function(x){ return { k:x[0], em:x[1], t:x[2], sub:x[3], go:x[4], done:!!x[5], hand:C[x[0]] === 1 }; }); }
 function ckHTML(preview){ var S = ckSteps(), n = S.filter(function(s){ return s.done; }).length, nx = S.filter(function(s){ return !s.done; })[0];
   if(!preview && !nx && db.ck && db.ck.hidden) return '';
   return '<div class="card cklist"><div class="ckhead"><h2 style="margin:0">📝 ' + (preview ? 'Setting up, step by step' : nx ? 'Getting set up' : 'All set up ✓') + '</h2><small>' + (preview ? S.length + ' short steps' : n + ' of ' + S.length + ' done') + '</small></div>'
@@ -4964,15 +5034,17 @@ function profStart(){ db.autoAsked = 1; db.prof = db.prof || {}; save(); var P =
     + grp('dev', '1 · What will you use for this?', [['phone','A phone or tablet'],['computer','A computer'],['both','Both']])
     + grp('src', '2 · What are your bank and card statements mostly?', [['pdf','PDFs'],['csv','Downloads (CSV, Quicken)'],['paper','Paper'],['unsure','Not sure']])
     + grp('ai', '3 · Do you use an AI helper?', AIS)
-    + grp('send', '4 · Statements the app can’t read itself: may they go to Claude to be read?', [['auto','Yes, every time'],['ask','Ask me each time'],['no','No, never']])
-    + '<p class="sub" style="margin:6px 0 0">Only those statements leave this computer, and only to be read. Through the Daraja AI connection they go straight to Claude and the lines come back by themselves — nothing to attach or paste, every month. Under Anthropic’s business terms they are not used to train AI. “No” works too: bank downloads (CSV) and most PDFs never need AI.</p>'
+    + grp('mode', '4 · Who sorts the statements?', [['ai','Let my AI do it'],['manual','I’ll do it myself, here']])
+    + '<p class="sub" style="margin:6px 0 0"><b>Let my AI do it:</b> Claude or ChatGPT, in its app on your computer, is given your Family Money folder. It reads every statement, asks you about anything unclear in its own chat, and saves one finished spreadsheet. This app reads that once — no copying back and forth. <b>Myself:</b> this app reads the files, and you sort each account in a spreadsheet, month by month.</p>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="profSave()">Next</button><button class="b ghost" style="width:100%" onclick="autoScreenOld()">Other ways to start</button></div>'); }
 function profSave(){ var P = db.prof = db.prof || {}, miss = [];
   Array.prototype.forEach.call(document.querySelectorAll('[data-pq]'), function(g){ var on = g.querySelector('button.on'); if(on) P[g.getAttribute('data-pq')] = on.getAttribute('data-v'); else miss.push(g); });
   if(miss.length){ alert('Tap one answer for each question — "Not sure" is fine.'); return; }
   if(P.src === 'unsure') P.src = 'pdf';   /* most statements people keep are PDFs */
+  if(P.mode === 'ai' && (P.ai === 'none' || !AI_DESK[P.ai])) P.ai = 'claude';   /* Cowork in Claude, or the ChatGPT desktop app, can open a folder; the others can't yet */
+  if(P.mode === 'manual' && !P.send) P.send = 'ask';
   if(P.ai !== 'none'){ try{ localStorage.setItem('dj_ai_choice', P.ai); }catch(e){} }
-  ckMark('prof'); save(); profMode(); }
+  ckMark('prof'); save(); if(P.mode === 'ai'){ ckMark('aiset'); fmStart(); return; } profMode(); }
 function doorOn(cb){ fetch('https://jerrywins1.github.io/daraja-apps/control/ai.json?cb=' + Math.floor(Date.now()/600000)).then(function(r){ return r.json(); }).then(function(c){ cb(!!(c && c.endpoint)); }, function(){ cb(false); }); }
 function profMode(){ var P = db.prof, name = (AIS.filter(function(a){ return a[0] === P.ai; })[0] || [0,'your AI'])[1];
   if(P.src === 'csv'){ fmStart(); return; }
@@ -5078,6 +5150,7 @@ function videoFind(i){ videoReady(); db.ansd = db.ansd || {}; FIND = { cards:fin
 function videoSort(step){ videoReady(); var A = sortAccts(), a = A[0]; if(!a) return;
   if(step === 'year'){ yearPick(); return; }
   if(step === 'folder'){ db.hfSet = 1; fmStart(); return; }
+  if(step === 'ai'){ db.prof = db.prof || {}; db.prof.ai = db.prof.ai || 'claude'; aiHandoff(); return; }
   if(step === 'hub'){ sortHub(); return; }
   if(step === 'sheet' || step === 'back'){ var all = acctLines(a.id).sort(function(x,y){ return x.d < y.d ? -1 : 1; }), M = all.length ? all[0].d.slice(0,7) : thisMonth(), R = all.filter(function(t){ return t.d.slice(0,7) === M; });
     SORTA = a.id; SORTM = { m:M, auto:{ n:0, card:1 }, rest:Math.max(0, all.length - R.length) }; if(step === 'sheet') sortMade(a, R.length, R); else sortBack(Math.max(0, R.length - 2), 2, 1); return; }
