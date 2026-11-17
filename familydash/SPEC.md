@@ -478,3 +478,19 @@ Jerry's other chat spent two days sorting a year of his statements with him. He 
      - the budget being over income
      - the 529 and business totals for the CPA, or for the other organization's books
 - A category can now be part 3. Its budget is 0, and it counts as Part 3 spending.
+
+## v4.8 · 17 Nov 2026 · Who are these?
+
+Jerry's PayPal card was listing Hulu, Paramount+, Uber and Walmart as people he helps.
+
+- **Fewer false "people".** A PayPal, Venmo or Zelle payment is no longer offered as help for a person in three cases:
+  - it already sorts into a category
+  - it is a known streaming service or subscription
+  - it is a known shop or ride service (Uber, Walmart, Amazon and so on)
+- **New keywords.** "Paramnt" now sorts as a subscription, and Uber and Lyft sort as car.
+- **The card is now "Who are these?"** Each line has:
+  - A gift, A loan, or Not sure
+  - a drop-down "Something else — pick what it was", listing every category and One-time purchase
+  - an optional box to type what it was
+
+  Picking from the list files every payment to that payee there, notes it in "What you told me", and remembers the payee for next time.
