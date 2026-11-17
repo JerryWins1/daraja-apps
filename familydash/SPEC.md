@@ -628,3 +628,11 @@ The findings deck, the separate "Getting to know you" step, the money-map audit 
   - Part 2 with yearly ÷ 12 formulas and due months
   - a Part 3 log for each person helped, with a running total
   - a Reclassified tab
+
+## v6.2 · 17 Nov 2026 · the videos follow the new flow
+
+- **All three videos are rewritten for the v6 flow and recorded.** Each step opens its own screen through a new `videoSort(step)` helper, using the example family. The steps are: the year, the folder, the folder map, sort each account, the month's sheet, giving it back, the questions, where the money went, how often, and the budget.
+  - "Explain it to me": 25 lines, about 3½ minutes.
+  - "Train me": 11 steps.
+  - "Watch it work": lines 3–5 changed.
+- **The "spreadsheet is downloading" screen shows the sheet's first four rows**, with the yellow Your category column. A viewer sees what the spreadsheet looks like without opening Excel, and the video has something real to point at.
