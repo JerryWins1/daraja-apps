@@ -646,3 +646,13 @@ A website can't attach a file to another website. So when the Daraja AI connecti
 - It reads the words off each PDF on this device with pdf.js (`pdfText`), and puts them in the question, under a heading per file. Nothing needs attaching.
 - A PDF with no words in it, which is a scanned picture, is the only kind still attached by hand. The app names those files and the folder to find them in.
 - When the Daraja AI connection is on, the PDFs themselves go, as before.
+
+## v6.4 · 17 Nov 2026 · ask once, then automatic
+
+Jerry asked: *"ask a question up front if the user felt comfortable loading or connecting all the financial folders up to their AI… If that's true, it runs more automatic… if every month… they have to physically attach it to Claude… They're not going to do it."*
+
+- **"How do you work?" has a fourth question:** may statements the app can't read go to Claude to be read? The answers are "Yes, every time", "Ask me each time" and "No, never", stored in `db.prof.send`.
+- **"Yes, every time"** skips the confirmation screen. Reading also starts by itself the first time the folder map shows PDFs it couldn't read.
+- **With the Daraja AI connection on**, every readable PDF's words go in one question per account. Each scanned PDF goes as itself, one per question, because the worker takes one file. The account stays in the loop until all its PDFs are read, and the lines come back with no pasting. The house layer still shows its one confirm screen before anything is sent.
+- **"No, never"** hides the AI button and says to download CSV files for those months, with a "this once" link.
+- **What's still missing:** the connection's endpoint in `control/ai.json` is still empty. Deploying it is the house layer chat's work, with Jerry.
