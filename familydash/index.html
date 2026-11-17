@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v6.3 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v6.4 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2885,7 +2885,7 @@ function takeFile(){
 function afterImport(){
   if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
     MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
-    save(); render(); if(FAI){ FAI.i++; if(FAI.i < FAI.ids.length){ fmAIgo(); return; } FAI = null; } if(ONESK){ fmDone(ONESK); return; } mapFiles(mid); return; }
+    save(); render(); if(FAI){ var fa = acct(FAI.ids[FAI.i]); if(!(fa && fmBadPdfs(fa).length)) FAI.i++; if(FAI.i < FAI.ids.length){ fmAIgo(); return; } FAI = null; } if(ONESK){ fmDone(ONESK); return; } mapFiles(mid); return; }
   if(ROUTE){ var rn = IMP.added, ru = IMP.unrouted || 0; ROUTE = false; IMP = { added:0, skipped:0 }; save(); render(); toast(rn + ' new lines read' + (ru ? '; ' + ru + ' file group' + (ru===1?'':'s') + ' not in any account’s folder' : '') + '.'); openAudit(); return; }
   if(ONE){ var sk1 = IMP.skip || {}; ['pdf','sheets'].forEach(function(x){ ONE.skip[x] = (ONE.skip[x]||[]).concat(sk1[x]||[]); }); var n1 = IMP.added; IMP = { added:0, skipped:0 }; AUTO = false; ONE.done = ONE.done || {}; ONE.done[ONE.kind] = n1 + ' lines read'; save(); oneStep(); return; }
   if(AUTO && STRUCT){ AUTO = false; var SKs = IMP.skip || {}; IMP = { added:0, skipped:0 }; save(); render(); fmDone(SKs); return; }
@@ -4822,7 +4822,8 @@ function structAcct(g, folder, sample, rel){ rel = rel || folder; var l4 = (/(\d
   var have = db.accts.filter(function(a){ return a.mapG === g && (a.srel ? a.srel === rel : a.sfolder === folder); })[0]; if(have){ if(!have.srel) have.srel = rel; return have; }   /* an account made before v4.3 knew only its folder's name: match it, then remember the path */
   var type = structType(g, folder), a = { id:uid(), name:nm + (g === 'pay' && !/payment app/i.test(nm) ? ' (payment app)' : ''), inst:bankOf(folder) || nm, type:type, last4:l4, hist:[], mapG:g, sfolder:folder, srel:rel, folder:folder, track: /^(bank|card|pay)$/.test(g) ? 'lines' : 'total', found:1 };
   if(type === 'card'){ a.payMode = 'full'; a.autopay = true; } setBal(a, 0); a.balUnknown = 1; db.accts.push(a); return a; }
-function fmDone(SK){
+var FMAUTO = 0;
+function fmDone(SK){ if(!FMAUTO && !FAI && (db.prof||{}).send === 'auto' && db.accts.some(function(a){ return fmBadPdfs(a).length; })){ FMAUTO = 1; setTimeout(fmAIall, 400); }
   /* v4.2 · the folder, drawn (Jerry, 16 Nov: "some kind of graphical connection like this with the files for the different
      folders… a graphical connection to the actual folder on the drive so you can kind of see it visually"). Family Money on
      the left, its group folders, then each account folder and the account it became, joined by lines; green when every
@@ -4843,7 +4844,7 @@ function fmDone(SK){
     return '<div class="fmrow"><div class="fmn grp tap" data-fm="g' + t[0] + '" onclick="fmAssign(\'' + t[0] + '\')" title="Say which folders belong here">' + t[1] + ' ' + esc(t[2]) + '<small>✎ ' + n + ' ' + (t[0] === 'ins' ? 'polic' + (n===1?'y':'ies') : t[0] === 'other' ? 'folder' + (n===1?'':'s') : 'account' + (n===1?'':'s')) + '</small></div><div class="fmkids">' + kids + '</div></div>'; }).join('');
   var loose = Object.keys(FML).map(function(f){ return '<div class="fmn loose">📂 ' + esc(f) + '<small>' + FML[f] + ' file' + (FML[f]===1?'':'s') + ' · not in a group — move it into one</small></div>'; }).join('');
   openSheet('<div class="stepno">Setting up · step 3 of 3</div><h3>Your folder, connected</h3><p class="sub">Each line runs from a folder on your computer to the account it became. <b>Tap a group</b> to say which folders belong in it; tap an account to rename it.</p>'
-    + (nBad ? '<div class="line warn" style="font-weight:700;font-size:14.5px">📄 ' + nBad + ' PDF' + (nBad===1?'':'s') + ' I couldn’t read myself. <button class="b primary small" style="margin-left:6px" onclick="fmAIall()">✨ Read ' + (nBad===1?'it':'them all') + ' with AI</button></div>' : '')
+    + (nBad ? '<div class="line warn" style="font-weight:700;font-size:14.5px">📄 ' + nBad + ' PDF' + (nBad===1?'':'s') + ' I couldn’t read myself. ' + ((db.prof||{}).send === 'no' ? 'You chose not to send statements to AI — download CSV files for ' + (nBad===1?'that month':'those months') + ' from the bank instead, or <a href="#" onclick="db.prof.send=\'ask\';save();fmAIall();return false" style="color:var(--brand);font-weight:800">read ' + (nBad===1?'it':'them') + ' with AI this once</a>.' : '<button class="b primary small" style="margin-left:6px" onclick="fmAIall()">✨ Read ' + (nBad===1?'it':'them all') + ' with AI</button>') + '</div>' : '')
     + '<div class="fmcanvas" id="fmCanvas"><svg id="fmSvg" aria-hidden="true"></svg><div class="fmroot"><div class="fmn root" data-fm="root">📁 Family Money<small>' + nFold + ' folder' + (nFold===1?'':'s') + ' · ' + nFiles + ' file' + (nFiles===1?'':'s') + '</small></div>' + (loose ? '<div class="fmloose">' + loose + '</div>' : '') + '</div><div class="fmgroups">' + groups + '</div></div>'
     + '<div class="fmlegend"><span style="--c:var(--ok)">all read</span><span style="--c:#E3A23B">some PDFs need AI</span><span style="--c:var(--red)">nothing to read</span>' + (loose ? '<span style="--c:#B9B2A6">outside the groups</span>' : '') + '</div>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmOn()">Looks right — next</button><button class="b full" onclick="openAudit()">🔎 What\u2019s missing in my folders?</button></div>');
@@ -4867,7 +4868,7 @@ var ONESK = null;
 function fmBadPdfs(a){ return (FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []).filter(function(p){ return !FMR[p] && /\.pdf$/i.test(p) && PDFF[p]; }); }
 function fmAI(id){ fmAIask([id]); }
 function fmAIall(){ fmAIask(db.accts.filter(function(a){ return fmBadPdfs(a).length; }).map(function(a){ return a.id; })); }
-function fmAIask(ids){ if(!ids.length) return; var n = 0; ids.forEach(function(id){ n += fmBadPdfs(acct(id)).length; });
+function fmAIask(ids){ if(!ids.length) return; if((db.prof||{}).send === 'auto'){ FAI = { ids:ids, i:0 }; fmAIgo(); return; } var n = 0; ids.forEach(function(id){ n += fmBadPdfs(acct(id)).length; });
   openSheet('<div class="stepno">Reading PDFs with AI</div><h3>Read ' + (n === 1 ? 'this statement' : 'these ' + n + ' statements') + ' with AI?</h3>'
     + '<p class="sub">I couldn\u2019t read ' + (n === 1 ? 'it' : 'them') + ' myself. With your OK they go to ' + ((db.prof && db.prof.door) ? 'Claude, through Daraja' : 'your AI') + ', one account at a time, and the lines come back here. The statements leave this device for that.</p>'
     + '<ul class="list">' + ids.map(function(id){ var a = acct(id), L = fmBadPdfs(a); return '<li style="font-size:14.5px"><span class="ds">' + esc(acctLabel(a)) + '<small>' + L.length + ' PDF' + (L.length===1?'':'s') + ': ' + L.slice(0,3).map(function(p){ return esc(String(p).split('/').pop()); }).join(', ') + (L.length > 3 ? '…' : '') + '</small></span></li>'; }).join('') + '</ul>'
@@ -4879,23 +4880,32 @@ function fmPathOf(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfol
    question. Nothing to attach. Only a scanned PDF (a picture, with no words to read) still has to be attached by hand. */
 function pdfText(f){ return new Promise(function(res){ pdfLines(f, function(L){ res(L && L.length ? L.map(function(r){ return r.map(function(c){ return c.s; }).join('  '); }).join('\n') : ''); }); }); }
 function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a); if(!L.length){ F.i++; if(F.i < F.ids.length) return fmAIgo(); FAI = null; return fmDone(ONESK); }
-  if(!(db.prof && db.prof.door)) return fmAIgoText(F, id, a, L);
+  return fmAIgoText(F, id, a, L);
   Promise.all(L.map(function(path){ return new Promise(function(res){ var r = new FileReader(); r.onload = function(){ res({ name:String(path).split('/').pop(), media_type:'application/pdf', data:String(r.result).split(',')[1] || '' }); }; r.onerror = function(){ res(null); }; r.readAsDataURL(PDFF[path]); }); })).then(function(files){ files = files.filter(Boolean);
     var names = files.map(function(f){ return f.name; });
     ask({ title:a.name + ': read ' + files.length + ' statement' + (files.length===1?'':'s') + (F.ids.length > 1 ? ' (account ' + (F.i + 1) + ' of ' + F.ids.length + ')' : ''), want:'text', circle:false, file:files[0], files:files,
       prompt:'I am attaching ' + files.length + ' statement' + (files.length===1?'':'s') + ' as PDF' + (files.length===1?'':'s') + ' from one account (' + names.join(', ') + '). Read every transaction on ' + (files.length===1?'it':'all of them') + ' and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once, even if two statements overlap. Do not include account numbers. If the latest statement shows an ending balance, add one last line: Balance,Ending balance,<the balance as a positive number>',
       onResult:function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
         p.path = L[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; L.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); } }); }); }
-function fmAIgoText(F, id, a, L){ openSheet('<h3>Reading the words off ' + L.length + ' PDF' + (L.length===1?'':'s') + '…</h3><p class="sub">' + esc(acctLabel(a)) + '</p>');
-  Promise.all(L.map(function(path){ return pdfText(PDFF[path]).then(function(t){ return { name:String(path).split('/').pop(), text:t }; }); })).then(function(T){
+function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door); openSheet('<h3>Reading the words off ' + L.length + ' PDF' + (L.length===1?'':'s') + '…</h3><p class="sub">' + esc(acctLabel(a)) + '</p>');
+  Promise.all(L.map(function(path){ return pdfText(PDFF[path]).then(function(t){ return { path:path, name:String(path).split('/').pop(), text:t }; }); })).then(function(T){
     var ok = T.filter(function(x){ return x.text.trim().length > 40; }), scan = T.filter(function(x){ return x.text.trim().length <= 40; });
-    var body = ok.map(function(x){ return '===== ' + x.name + ' =====\n' + x.text; }).join('\n\n');
-    var prompt = 'Below is the text of ' + ok.length + ' bank or card statement' + (ok.length===1?'':'s') + ' from one account (' + a.name + ')' + (scan.length ? ', and I am also attaching ' + scan.length + ' scanned statement' + (scan.length===1?'':'s') + ' as PDF (' + scan.map(function(x){ return x.name; }).join(', ') + ')' : '') + '. Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.\n\n' + body;
-    var go = function(){ ask({ title:a.name + ': read ' + T.length + ' statement' + (T.length===1?'':'s') + (F.ids.length > 1 ? ' (account ' + (F.i + 1) + ' of ' + F.ids.length + ')' : ''), want:'text', circle:false, prompt:prompt,
-      onResult:function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
-        p.path = L[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; L.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); } }); };
-    if(!ok.length){ openSheet('<h3>These PDFs are pictures</h3><p class="sub">' + esc(acctLabel(a)) + ': ' + scan.length + ' scanned statement' + (scan.length===1?'':'s') + ' with no words to read. When your AI opens, tap its 📎 and attach ' + (scan.length===1?'it':'them') + ' from <b>' + esc(fmPathOf(a)) + '</b>:</p><ul class="list">' + scan.map(function(x){ return '<li><span class="ds">' + esc(x.name) + '</span></li>'; }).join('') + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="FAIGO()">Open my AI</button></div>'); window.FAIGO = go; return; }
-    if(scan.length){ openSheet('<h3>Almost all done for you</h3><p class="sub">I put the words of ' + ok.length + ' statement' + (ok.length===1?'':'s') + ' into the question. ' + scan.length + ' ' + (scan.length===1?'is a scanned picture':'are scanned pictures') + ' — when your AI opens, tap its 📎 and attach ' + (scan.length===1?'it':'them') + ' from <b>' + esc(fmPathOf(a)) + '</b>:</p><ul class="list">' + scan.map(function(x){ return '<li><span class="ds">' + esc(x.name) + '</span></li>'; }).join('') + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="FAIGO()">Open my AI</button></div>'); window.FAIGO = go; return; }
+    var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.';
+    var title = a.name + ': read ' + T.length + ' statement' + (T.length===1?'':'s') + (F.ids.length > 1 ? ' (account ' + (F.i + 1) + ' of ' + F.ids.length + ')' : '');
+    function send(o, covered){ o.title = title; o.want = 'text'; o.circle = false;
+      o.onResult = function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
+        p.path = covered[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; covered.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); };
+      ask(o); }
+    var textPrompt = function(also){ return 'Below is the text of ' + ok.length + ' bank or card statement' + (ok.length===1?'':'s') + ' from one account (' + a.name + ')' + (also ? also : '') + '. ' + HEAD + '\n\n' + ok.map(function(x){ return '===== ' + x.name + ' =====\n' + x.text; }).join('\n\n'); };
+    /* with the Daraja AI connection: the words of every readable PDF go in one question, and each scanned one goes as itself,
+       one at a time (the connection takes one file per question). Nothing to attach, nothing to paste back. */
+    if(door){ if(ok.length) return send({ prompt:textPrompt('') }, ok.map(function(x){ return x.path; }));
+      var x = scan[0], r = new FileReader(); r.onload = function(){ send({ prompt:'I am attaching one bank or card statement as a PDF (' + x.name + ') from one account (' + a.name + '). ' + HEAD, file:{ name:x.name, media_type:'application/pdf', data:String(r.result).split(',')[1] || '' } }, [x.path]); }; r.readAsDataURL(PDFF[x.path]); return; }
+    var all = T.map(function(x){ return x.path; }), go = function(){ send({ prompt:textPrompt(scan.length ? ', and I am also attaching ' + scan.length + ' scanned statement' + (scan.length===1?'':'s') + ' as PDF (' + scan.map(function(x){ return x.name; }).join(', ') + ')' : '') }, all); };
+    var list = '<ul class="list">' + scan.map(function(x){ return '<li><span class="ds">' + esc(x.name) + '</span></li>'; }).join('') + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="FAIGO()">Open my AI</button></div>';
+    window.FAIGO = go;
+    if(!ok.length){ openSheet('<h3>These PDFs are pictures</h3><p class="sub">' + esc(acctLabel(a)) + ': ' + scan.length + ' scanned statement' + (scan.length===1?'':'s') + ' with no words to read. When your AI opens, tap its 📎 and attach ' + (scan.length===1?'it':'them') + ' from <b>' + esc(fmPathOf(a)) + '</b>:</p>' + list); return; }
+    if(scan.length){ openSheet('<h3>Almost all done for you</h3><p class="sub">I put the words of ' + ok.length + ' statement' + (ok.length===1?'':'s') + ' into the question. ' + scan.length + ' ' + (scan.length===1?'is a scanned picture':'are scanned pictures') + ' — when your AI opens, tap its 📎 and attach ' + (scan.length===1?'it':'them') + ' from <b>' + esc(fmPathOf(a)) + '</b>:</p>' + list); return; }
     go(); }); }
 /* under each account: how many files its folder held, and any that gave no lines, with the likely reason */
 function fmFiles(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []; if(!L.length) return '<br><span style="color:var(--red)">No files found in this folder.</span>';
@@ -4950,10 +4960,12 @@ var AIS = [['claude','Claude'],['chatgpt','ChatGPT'],['gemini','Gemini'],['copil
 function profNeedsAI(){ var P = (db && db.prof) || {}; return P.ai && P.ai !== 'none' && P.src !== 'csv'; }
 function profStart(){ db.autoAsked = 1; db.prof = db.prof || {}; save(); var P = db.prof;
   function grp(k, q, opts){ return '<h4 style="margin:14px 0 6px">' + q + '</h4><div class="dchips" data-pq="' + k + '">' + opts.map(function(o){ return '<button class="dchip' + (P[k] === o[0] ? ' on' : '') + '" data-v="' + o[0] + '" onclick="fPick(this)">' + o[1] + '</button>'; }).join('') + '</div>'; }
-  openSheet('<div class="stepno">Before we start · three quick questions</div><h3>How do you work?</h3><p class="sub">So setup fits the way you do things. Tap one answer in each.</p>'
+  openSheet('<div class="stepno">Before we start · four quick questions</div><h3>How do you work?</h3><p class="sub">So setup fits the way you do things. Tap one answer in each.</p>'
     + grp('dev', '1 · What will you use for this?', [['phone','A phone or tablet'],['computer','A computer'],['both','Both']])
     + grp('src', '2 · What are your bank and card statements mostly?', [['pdf','PDFs'],['csv','Downloads (CSV, Quicken)'],['paper','Paper'],['unsure','Not sure']])
     + grp('ai', '3 · Do you use an AI helper?', AIS)
+    + grp('send', '4 · Statements the app can’t read itself: may they go to Claude to be read?', [['auto','Yes, every time'],['ask','Ask me each time'],['no','No, never']])
+    + '<p class="sub" style="margin:6px 0 0">Only those statements leave this computer, and only to be read. Through the Daraja AI connection they go straight to Claude and the lines come back by themselves — nothing to attach or paste, every month. Under Anthropic’s business terms they are not used to train AI. “No” works too: bank downloads (CSV) and most PDFs never need AI.</p>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="profSave()">Next</button><button class="b ghost" style="width:100%" onclick="autoScreenOld()">Other ways to start</button></div>'); }
 function profSave(){ var P = db.prof = db.prof || {}, miss = [];
   Array.prototype.forEach.call(document.querySelectorAll('[data-pq]'), function(g){ var on = g.querySelector('button.on'); if(on) P[g.getAttribute('data-pq')] = on.getAttribute('data-v'); else miss.push(g); });
