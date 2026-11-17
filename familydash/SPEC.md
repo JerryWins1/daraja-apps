@@ -566,3 +566,11 @@ Jerry asked for the setup to begin with "the beginning month and beginning year�
   - "⬇️ Save the year-end summary" saves an .xlsx with three sheets: Summary, For the CPA (529, business, giving), and Every line.
   - "Start the new year" moves the window on 12 months. Each Part 2 balance carries over as its opening amount, along with categories and payee rules. The five-part review starts fresh. The closed year's totals are kept in `db.years`.
 - **"📅 Our year"** on the main screen changes the window. The old "pull past spending from" setup question now just shows the window.
+
+## v5.4 · 17 Nov 2026 · one by one, not one big total
+
+Jerry asked: *"I don't know how you know these totals are great if you don't see them one after one… whatever happened to the spreadsheet."*
+
+- **Every findings card that shows example lines** now has "See all N, one by one", listing every line with its date, year, account and amount. It replaces "…and N more".
+- **Every findings card** has "📊 I'd rather check every line in a spreadsheet", which goes straight to the spreadsheet round trip.
+- **The checklist has a step** "📊 Check every line in a spreadsheet" right after the findings. It is done once a filled-in sheet has been given back.
