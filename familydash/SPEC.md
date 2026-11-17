@@ -494,3 +494,18 @@ Jerry's PayPal card was listing Hulu, Paramount+, Uber and Walmart as people he 
   - an optional box to type what it was
 
   Picking from the list files every payment to that payee there, notes it in "What you told me", and remembers the payee for next time.
+
+## v4.9 · 17 Nov 2026 · see the payments, make a new category
+
+Jerry's request: *"loving Adidas as a donation that's not on your drop-down list… some of these I don't remember."* (He meant Loving Indeed.)
+
+- **Every payee is listed.** Before this, the card showed only the first six.
+- **The typing box is always there.** It reads "What was it, in your words?" and whatever is typed is kept on each payment.
+- **The drop-down ends in "＋ Not on the list — make a new one…".** It asks for a name, such as Donations, and adds that category under "Other spending" on every line.
+- **"See the N payments" opens each payment**, with its date, amount, the exact words on the statement, and the account. It also points to where to look it up:
+  - PayPal's activity page
+  - Venmo
+  - for Zelle, the bank's app
+  - or searching email by name and date
+
+  Not sure keeps it for later.
