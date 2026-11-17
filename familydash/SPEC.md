@@ -549,3 +549,20 @@ Jerry, 17 Nov:
 ## v5.2 · 17 Nov 2026 · the start date is asked on the way in, too
 
 Jerry had finished the folder map before v5.1, so he never came through the new start-date question. Now "Approve what your statements answer" (autoFill) asks for the start date first if it hasn't been answered yet, whichever path leads there.
+
+## v5.3 · 17 Nov 2026 · the year we're working on
+
+Jerry asked for the setup to begin with "the beginning month and beginning year… and ending month and ending year. Anything outside of that window, you disregard." He also said: "consider just doing it for a fiscal year, calendar year."
+
+- **"Which year are we working on?"** comes before the folder, and is also the first step of the checklist. The choices are:
+  - this year, January to December (recommended)
+  - last year
+  - our own 12 months, with a starting and an ending month
+
+  The answer is stored as `db.historyFrom` and `db.historyTo`. `inWin(t)` replaces every old start-date check, so a line outside the window is never counted, asked about, put on the sheet, or used in findings.
+- **Missing months** are judged against the window: every month from its start to the last full month, ending no later than the end of the window.
+- **"📊 This year vs last"** compares each category with the same months a year earlier. Statements from last year are kept for this, and only for this.
+- **When the window ends**, a notice offers "Close the year":
+  - "⬇️ Save the year-end summary" saves an .xlsx with three sheets: Summary, For the CPA (529, business, giving), and Every line.
+  - "Start the new year" moves the window on 12 months. Each Part 2 balance carries over as its opening amount, along with categories and payee rules. The five-part review starts fresh. The closed year's totals are kept in `db.years`.
+- **"📅 Our year"** on the main screen changes the window. The old "pull past spending from" setup question now just shows the window.

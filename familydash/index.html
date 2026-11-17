@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v5.2 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v5.3 · 2026-11-17 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3035,8 +3035,8 @@ function catOptions(sel){
 
 /* ── which money counts ── a closed account keeps its history; an account that isn't the family's never counts */
 function counts(a){ return !!a && !a.notPersonal && a.type !== 'miles'; }
-function txIn(m){ return db.tx.filter(function(t){ return t.d.slice(0,7) === m && counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom); }); }
-function months(){ var o = {}; db.tx.forEach(function(t){ if(counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom)) o[t.d.slice(0,7)] = 1; }); return Object.keys(o).sort(); }
+function txIn(m){ return db.tx.filter(function(t){ return t.d.slice(0,7) === m && counts(acct(t.a)) && inWin(t); }); }
+function months(){ var o = {}; db.tx.forEach(function(t){ if(counts(acct(t.a)) && inWin(t)) o[t.d.slice(0,7)] = 1; }); return Object.keys(o).sort(); }
 function netWorth(){ var own = 0, owe = 0; db.accts.forEach(function(a){ if(a.closed || a.notPersonal || a.balUnknown || TYPES[a.type].s === 'n') return; if(TYPES[a.type].s === 'a') own += a.bal||0; else owe += a.bal||0; }); return { own:r2(own), owe:r2(owe), net:r2(own-owe) }; }
 function isP3(id){ if(id === 'onetime' || /^help:/.test(id||'')) return true; var c = cat(id); return !!(c && part(c) === 3); }
 function notSpending(id){ return id === 'inc' || id === 'xfer' || id === 'biz' || id === 'edu529'; }
@@ -3080,7 +3080,7 @@ function p2State(c){
 var P2P = /venmo|zelle|paypal|cash ?app|square cash|apple cash/i, CASHW = /\batm\b|cash withdrawal|withdrawal|withdrwl|cash wd/i, CHECK = /\bcheck\b|\bchk\b|check ?#|cheque|^\s*#?\d{3,6}\s*$/i;
 function channel(t){ var d = t.desc || ''; if(P2P.test(d)) return (d.match(P2P)[0] || 'p2p').toLowerCase(); if(CASHW.test(d)) return 'cash'; if(CHECK.test(d)) return 'check'; return ''; }
 function inQueue(t){
-  if(db.asked[t.id] || !counts(acct(t.a)) || (db.historyFrom && t.d < db.historyFrom)) return false;
+  if(db.asked[t.id] || !counts(acct(t.a)) || !inWin(t)) return false;
   if(t.cat === 'xfer' || t.cat === 'inc') return !!channel(t) && t.amt > 0;
   if(!channel(t) && !t.sug && t.cat !== 'uncat' && known(t)) return false;   /* a payee already answered, at about the same amount: never asked twice */
   return !!channel(t) || t.amt >= (db.threshold || 500) || t.cat === 'uncat' || !!t.sug;
@@ -3239,7 +3239,7 @@ function rvAcctNext(){ GKA = null; GK = null; RV.i++; RV.q = 0; rvAcct(); }
 
 /* part 2 · how often each kind of spending comes */
 function rvTimeCats(){ var ms = months(), by = {};
-  db.tx.forEach(function(t){ var c = cat(t.cat); if(!c || !counts(acct(t.a)) || t.amt <= 0 || (db.historyFrom && t.d < db.historyFrom)) return; var b = by[c.id] = by[c.id] || { c:c, m:{}, n:0, tot:0 }; b.m[t.d.slice(0,7)] = (b.m[t.d.slice(0,7)]||0) + t.amt; b.n++; b.tot += t.amt; });
+  db.tx.forEach(function(t){ var c = cat(t.cat); if(!c || !counts(acct(t.a)) || t.amt <= 0 || !inWin(t)) return; var b = by[c.id] = by[c.id] || { c:c, m:{}, n:0, tot:0 }; b.m[t.d.slice(0,7)] = (b.m[t.d.slice(0,7)]||0) + t.amt; b.n++; b.tot += t.amt; });
   return Object.keys(by).map(function(k){ var b = by[k], v = Object.keys(b.m).map(function(m){ return b.m[m]; }), mean = b.tot / Math.max(1, ms.length), seen = v.length;
     var avgSeen = b.tot / seen, sd = Math.sqrt(v.reduce(function(s,x){ return s + Math.pow(x - avgSeen, 2); },0) / seen), cv = avgSeen ? sd / avgSeen : 0, sug;
     if(seen >= Math.max(2, ms.length * .6)) sug = cv < .25 ? 'month' : 'var'; else if(seen <= 2 && ms.length >= 5) sug = 'year'; else sug = 'var';
@@ -3267,7 +3267,7 @@ function rvTimeSave(){ var R = RV, x = R.L[R.i], c = x.c, v = tapVal('rv'); if(!
 /* part 3 · subscriptions: the same merchant at about the same amount on a regular cycle, on every account */
 var SUBSY = /netflix|hulu|disney|max\b|hbo|peacock|paramount|spotify|apple\.com|itunes|google \*|google play|youtube|prime video|amazon prime|audible|sirius|britbox|pure ?flix|acorn|espn|patreon|icloud|dropbox|microsoft|adobe|subscription|membership/i;
 function rvSubsList(){ var G = {};
-  db.tx.forEach(function(t){ var a = acct(t.a); if(!counts(a) || t.amt <= 0 || channel(t) === 'cash' || channel(t) === 'check' || isP3(t.cat) || notSpending(t.cat) || (db.historyFrom && t.d < db.historyFrom)) return;
+  db.tx.forEach(function(t){ var a = acct(t.a); if(!counts(a) || t.amt <= 0 || channel(t) === 'cash' || channel(t) === 'check' || isP3(t.cat) || notSpending(t.cat) || !inWin(t)) return;
     var k = mkey(t.desc) || t.desc; (G[k] = G[k] || { k:k, T:[] }).T.push(t); });
   var L = [];
   Object.keys(G).forEach(function(k){ var T = G[k].T.sort(function(a,b){ return a.d < b.d ? -1 : 1; }), last = T[T.length-1], c = cat(last.cat), named = SUBSY.test(last.desc) || (c && /subscri|stream/i.test(c.name));
@@ -3330,7 +3330,7 @@ function rvChkOne(n, walk){ var r = chkState().rows.filter(function(x){ return x
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="var v=tapVal(\'rv\');if(!v){alert(\'Tap one of the answers first.\');return;}db.chkGap[' + n + ']=v;save();' + (walk ? 'rvChkNext()' : 'rvChk()') + '">Next</button><button class="b ghost" style="width:100%" onclick="rvChk()">Back to the list</button></div>'); }
 
 /* part 5 · what's still open: never a guess — each gap says where the answer is */
-function feeTx(){ return db.tx.filter(function(t){ return t.amt > 0 && counts(acct(t.a)) && (!db.historyFrom || t.d >= db.historyFrom) && (FLAGS.fees[1].test(t.desc) || FLAGS.interest[1].test(t.desc) || FLAGS.overdraft[1].test(t.desc) || FLAGS.cashadv[1].test(t.desc)); }); }
+function feeTx(){ return db.tx.filter(function(t){ return t.amt > 0 && counts(acct(t.a)) && inWin(t) && (FLAGS.fees[1].test(t.desc) || FLAGS.interest[1].test(t.desc) || FLAGS.overdraft[1].test(t.desc) || FLAGS.cashadv[1].test(t.desc)); }); }
 function rvOpen(){ var q = queue().length, ns = db.notSure.length, miss = 0, ma = 0, C = chkState().rows, cu = C.filter(function(r){ return r.s === 'unk' || r.s === 'gap' || r.s === 'dk'; }).length, co = C.filter(function(r){ return r.s === 'out'; }).length;
   db.accts.forEach(function(a){ var m = mapMissing(a).length; if(m){ miss += m; ma++; } });
   var S = db.subRev || {}, later = Object.keys(S).filter(function(k){ return S[k].say === 'later'; }).length, still = subsStillCharging(), F = feeTx(), ft = r2(F.reduce(function(s,t){ return s + t.amt; },0));
@@ -3360,7 +3360,7 @@ function rvOpen(){ var q = queue().length, ns = db.notSure.length, miss = 0, ma 
 function needXLSX(cb){ if(window.XLSX) return cb(); var s = document.createElement('script'); s.src = XLSX_URL; s.onload = cb; s.onerror = function(){ alert('The spreadsheet maker didn’t load. Check the internet connection and try again.'); }; document.head.appendChild(s); }
 function shCatNames(){ var N = db.cats.map(function(c){ return catLabel(c); }); N.push(SYS.onetime.name); db.helpees.forEach(function(h){ N.push('Help: ' + h.name); }); N.push('Help: (type their name)', 'Business or nonprofit (not ours)', 'School costs paid by the 529', 'Moving money between our accounts', 'Income'); return N; }
 function shName(id){ if(id === 'uncat') return ''; if(/^help:/.test(id)){ var h = helpee(id.slice(5)); return 'Help: ' + (h ? h.name : ''); } if(id === 'xfer') return 'Moving money between our accounts'; if(id === 'inc') return 'Income'; return catName(id); }
-function shRows(only){ return db.tx.filter(function(t){ if(!counts(acct(t.a)) || (db.historyFrom && t.d < db.historyFrom)) return false; if(!only) return true; return !db.asked[t.id] || db.notSure.indexOf(t.id) >= 0 || t.cat === 'uncat'; }).sort(function(a,b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.a < b.a ? -1 : 1); }); }
+function shRows(only){ return db.tx.filter(function(t){ if(!counts(acct(t.a)) || !inWin(t)) return false; if(!only) return true; return !db.asked[t.id] || db.notSure.indexOf(t.id) >= 0 || t.cat === 'uncat'; }).sort(function(a,b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.a < b.a ? -1 : 1); }); }
 function openSheetSort(){ var all = shRows(false).length, left = shRows(true).length;
   openSheet('<div class="stepno">Sort them in a spreadsheet</div><h3>Go through every line at your own pace</h3>'
     + '<p class="sub">Best on the computer. The app makes a spreadsheet of your lines' + (db.historyFrom ? ' since ' + shortDate(db.historyFrom) + ', ' + db.historyFrom.slice(0,4) : '') + '. Each row has the date, the amount, the account and the exact words on the statement, and the app’s guess already filled in.</p>'
@@ -3406,13 +3406,64 @@ function shRead(f){ if(!f) return; needXLSX(function(){ var r = new FileReader()
   }catch(e){ alert('Could not read that spreadsheet: ' + e.message); } }; r.readAsArrayBuffer(f); }); }
 
 /* v5.1 · the start date comes first: lines older than it are kept, but not counted, not asked about, and not on the sheet */
-function fmStartDate(){ var y = new Date().getFullYear(), first = db.tx.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999'), cur = db.historyFrom || (y + '-01-01');
-  var cnt = function(d){ return db.tx.filter(function(t){ return t.d < d; }).length; };
-  openSheet('<div class="stepno">Before I sort anything</div><h3>What date should we start counting from?</h3><p class="sub">Your statements go back to ' + (first < '9999' ? shortDate(first) + ', ' + first.slice(0,4) : 'the start') + '. Anything older than the date you pick is set aside — kept, but not counted and not asked about.</p>'
-    + taps('hf0', [[y + '-01-01', 'January 1, ' + y + ' — this year', cnt(y + '-01-01') + ' older lines set aside'], [(y-1) + '-01-01', 'January 1, ' + (y-1) + ' — last year too', cnt((y-1) + '-01-01') + ' older lines set aside'], ['all', 'Everything I gave you', 'nothing set aside']], cur === (y-1) + '-01-01' ? cur : y + '-01-01')
-    + '<label for="hf0d">Or another date</label><input id="hf0d" type="date">'
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="fmStartSave()">Start from there</button></div>'); }
-function fmStartSave(){ var d = document.getElementById('hf0d').value || tapVal('hf0') || (new Date().getFullYear() + '-01-01'); db.historyFrom = d === 'all' ? '' : d; db.hfSet = 1; save(); fmOn(); }
+/* v5.3 · Jerry, 17 Nov: "in the very beginning, ask what the beginning month and beginning year are… and ending month and
+   ending year. Anything outside of that window, you disregard… consider just doing it for a fiscal year, calendar year.
+   That's how most tax information… is built." The window is asked before the folder. Lines outside it are kept — the year
+   before is what "this year vs last" compares against — but they are never counted, asked about or put on the sheet. */
+function inWin(t){ return (!db.historyFrom || t.d >= db.historyFrom) && (!db.historyTo || t.d <= db.historyTo); }
+function winLabel(){ if(!db.historyFrom) return 'everything'; var f = db.historyFrom.slice(0,7), t = (db.historyTo || '').slice(0,7);
+  if(f.slice(5) === '01' && t === f.slice(0,4) + '-12') return f.slice(0,4); return monthName(f, true) + ' – ' + (t ? monthName(t, true) : 'now'); }
+function lastDay(m){ var p = m.split('-'); return ymd(new Date(+p[0], +p[1], 0)); }
+var YP_NEXT = '';
+function yearPick(next){ YP_NEXT = next || ''; var y = new Date().getFullYear(), cur = db.hfSet && db.historyFrom ? db.historyFrom.slice(0,4) : String(y), first = db.tx.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999');
+  var own = db.hfSet && db.historyFrom && !(db.historyFrom.slice(5) === '01-01' && (db.historyTo||'').slice(5) === '12-31');
+  openSheet('<div class="stepno">Before anything else</div><h3>Which year are we working on?</h3><p class="sub">Taxes, year-end statements and most money apps work January to December, so that’s the usual choice. The app only counts and asks about what falls inside this window.' + (first < '9999' ? ' Your statements go back to ' + shortDate(first) + ', ' + first.slice(0,4) + '.' : '') + '</p>'
+    + taps('yr', [[String(y), 'This year — January to December ' + y, 'recommended'], [String(y-1), 'Last year — January to December ' + (y-1), 'to finish or tidy a year that is over'], ['own', 'Our own 12 months', 'a fiscal year that starts in another month']], own ? 'own' : cur)
+    + '<div id="yrOwn" style="display:' + (own ? '' : 'none') + '"><label for="yrF">Starting month</label><input id="yrF" type="month" value="' + (own ? db.historyFrom.slice(0,7) : '') + '"><label for="yrT">Ending month</label><input id="yrT" type="month" value="' + (own && db.historyTo ? db.historyTo.slice(0,7) : '') + '"></div>'
+    + '<p class="sub" style="margin-top:10px">Statements from the year before are kept too, so this year can be compared with last. They are never counted or asked about.</p>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="yearSave()">Use this window</button></div>');
+  setTimeout(function(){ Array.prototype.forEach.call(document.querySelectorAll('#tp_yr button'), function(b){ b.addEventListener('click', function(){ document.getElementById('yrOwn').style.display = b.getAttribute('data-v') === 'own' ? '' : 'none'; }); }); }, 0); }
+function yearSave(){ var v = tapVal('yr') || String(new Date().getFullYear()), f, t;
+  if(v === 'own'){ f = document.getElementById('yrF').value; t = document.getElementById('yrT').value; if(!f){ alert('Pick the starting month first.'); return; } if(!t) t = addMonths(f, 11); if(t < f){ alert('The ending month is before the starting month.'); return; } }
+  else { f = v + '-01'; t = v + '-12'; }
+  db.historyFrom = f + '-01'; db.historyTo = lastDay(t); db.hfSet = 1; if(!db.budgetSet && db.budgetFrom < f) db.budgetFrom = f; ckMark('year'); save(); render();
+  var n = YP_NEXT; YP_NEXT = ''; if(n === 'fm') fmStart(); else if(n === 'af') fmOn(); else { closeSheet(); toast('Working on ' + winLabel() + '.'); } }
+function fmStartDate(){ yearPick('af'); }
+
+/* the year is over: close it, keep a year-end summary for the CPA, and start the next one carrying everything over */
+function yearOver(){ return !!(db.hfSet && db.historyTo && today() > db.historyTo && !(db.years||{})[db.historyFrom]); }
+function yearTotals(){ var o = {}, inc = 0; db.tx.forEach(function(t){ if(!inWin(t) || !counts(acct(t.a))) return; if(t.cat === 'inc'){ inc += -t.amt; return; } if(t.amt <= 0 || t.cat === 'xfer') return; var n = shName(t.cat) || 'Not sorted yet'; o[n] = r2((o[n]||0) + t.amt); }); return { cat:o, inc:r2(inc) }; }
+function yearClose(){ var Y = yearTotals(), K = Object.keys(Y.cat).sort(function(a,b){ return Y.cat[b] - Y.cat[a]; }), tot = r2(K.reduce(function(s,k){ return s + Y.cat[k]; },0)), lab = winLabel(), nx = addMonths(db.historyFrom.slice(0,7), 12);
+  openSheet('<div class="stepno">Closing the year</div><h3>' + esc(lab) + ' is over</h3><p class="sub">Save the year-end summary for your records and your CPA, then start ' + esc(monthName(nx, true)) + '. Your categories, everything the app learned about each payee, and the money set aside for big bills all carry over. Nothing is asked twice.</p>'
+    + '<div class="line ok">Income ' + money(Y.inc,1) + ' · spending ' + money(tot,1) + '</div>'
+    + '<ul class="list">' + K.slice(0,12).map(function(k){ return '<li><span class="ds">' + esc(k) + '</span><span class="amt">' + money(Y.cat[k],1) + '</span></li>'; }).join('') + (K.length > 12 ? '<li><span class="ds">…and ' + (K.length - 12) + ' more in the summary</span></li>' : '') + '</ul>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="yearSheet()">⬇️ Save the year-end summary</button><button class="b full" onclick="yearRoll()">Start the new year</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Not yet</button></div>'); }
+function yearSheet(){ needXLSX(function(){ var Y = yearTotals(), lab = winLabel(), A = [['Family Money — ' + lab], [], ['Income', Y.inc], [], ['Category', 'Spent']];
+  Object.keys(Y.cat).sort(function(a,b){ return Y.cat[b] - Y.cat[a]; }).forEach(function(k){ A.push([k, Y.cat[k]]); });
+  var L = [['Date','Account','Statement words','Amount','Category','What it was']]; db.tx.filter(function(t){ return inWin(t) && counts(acct(t.a)); }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }).forEach(function(t){ L.push([t.d, acctLabel(acct(t.a)||{}), t.desc, t.amt, shName(t.cat), t.note || '']); });
+  var C = [['For the CPA'], [], ['School costs covered by a 529'].concat([r2(db.tx.filter(function(t){ return inWin(t) && t.cat === 'edu529'; }).reduce(function(s,t){ return s + t.amt; },0))]), ['Business or nonprofit spending on family accounts'].concat([r2(db.tx.filter(function(t){ return inWin(t) && t.cat === 'biz'; }).reduce(function(s,t){ return s + t.amt; },0))]), ['Giving'].concat([r2(db.tx.filter(function(t){ var c = cat(t.cat); return inWin(t) && c && /giv|donat|church|tith|charit/i.test(c.name); }).reduce(function(s,t){ return s + t.amt; },0))])];
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(A), 'Summary'); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(C), 'For the CPA'); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(L), 'Every line');
+  XLSX.writeFile(wb, 'Family Money - ' + lab.replace(/\s*–\s*/g,' to ') + ' year-end.xlsx'); db.yearSaved = today(); save(); toast('Saved. Keep it with your tax papers.'); }); }
+function yearRoll(){ if(!db.yearSaved && !confirm('Start the new year without saving the year-end summary?')) return;
+  var Y = yearTotals(); db.years = db.years || {}; db.years[db.historyFrom] = { to:db.historyTo, label:winLabel(), closed:today(), cat:Y.cat, inc:Y.inc };
+  p2Cats().forEach(function(c){ var st = p2State(c); if(!st.unknown) c.open = st.bal; });
+  var nf = addMonths(db.historyFrom.slice(0,7), 12), nt = addMonths(db.historyTo.slice(0,7), 12);
+  db.budgetFrom = nf; db.historyFrom = nf + '-01'; db.historyTo = lastDay(nt); db.rv = {}; delete db.yearSaved; save(); closeSheet(); render(); toast('Now working on ' + winLabel() + '.'); }
+
+/* this year against the same months last year */
+function openCompare(){ if(!db.historyFrom){ alert('Pick the year first.'); yearPick(); return; }
+  var endM = addMonths(thisMonth(), -1), toM = db.historyTo && db.historyTo.slice(0,7) < endM ? db.historyTo.slice(0,7) : endM, fromM = db.historyFrom.slice(0,7);
+  if(toM < fromM){ openSheet('<h3>Nothing to compare yet</h3><p class="sub">The first month of ' + esc(winLabel()) + ' isn’t over.</p><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); return; }
+  var a = fromM + '-01', b = lastDay(toM), a0 = addMonths(fromM, -12) + '-01', b0 = lastDay(addMonths(toM, -12)), N = {}, L = {}, any = false;
+  db.tx.forEach(function(t){ if(t.amt <= 0 || notSpending(t.cat) || !counts(acct(t.a))) return; var k = shName(t.cat) || 'Not sorted yet';
+    if(t.d >= a && t.d <= b) N[k] = r2((N[k]||0) + t.amt); else if(t.d >= a0 && t.d <= b0){ L[k] = r2((L[k]||0) + t.amt); any = true; } });
+  var K = Object.keys(N).concat(Object.keys(L).filter(function(k){ return !(k in N); })).sort(function(x,y){ return Math.max(N[y]||0, L[y]||0) - Math.max(N[x]||0, L[x]||0); });
+  var tn = r2(K.reduce(function(s,k){ return s + (N[k]||0); },0)), tl = r2(K.reduce(function(s,k){ return s + (L[k]||0); },0)), span = monthName(fromM, true) + (toM !== fromM ? ' – ' + monthName(toM, true) : '');
+  var ch = function(n, l){ if(!l) return '<small>new</small>'; var d = n - l, p = Math.round(d / l * 100); return '<small style="color:' + (d > 0 ? 'var(--red)' : 'var(--ok)') + '">' + (d > 0 ? '▲ ' : '▼ ') + Math.abs(p) + '%</small>'; };
+  openSheet('<div class="stepno">This year vs last</div><h3>' + esc(span) + '</h3><p class="sub">Against the same months a year earlier.' + (any ? '' : ' There are no statements from last year yet — put last year’s statements in each account’s folder and give the folder again, and this fills in. They are never counted or asked about.') + '</p>'
+    + '<div class="line ' + (tn <= tl || !any ? 'ok' : 'bad') + '">Spent ' + money(tn,1) + (any ? ' · last year ' + money(tl,1) + ' ' + ch(tn, tl) : '') + '</div>'
+    + '<ul class="list">' + K.map(function(k){ return '<li><span class="ds">' + esc(k) + (any ? '<small>last year ' + money(L[k]||0,1) + '</small>' : '') + '</span><span class="amt">' + money(N[k]||0,1) + (any ? '<br>' + ch(N[k]||0, L[k]||0) : '') + '</span></li>'; }).join('') + '</ul>'
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
 
 /* ── lists: business, a person tracked separately, the as-needed logs ── */
 function openLists(){
@@ -3443,6 +3494,7 @@ var FLAGS = { interest:['Interest', /interest charge|finance charge|purchase int
   overdraft:['Overdrafts', /overdraft|\bnsf\b|insufficient/i], autopay:['A missing autopay', null], newsub:['A subscription not seen before', null], overseas:['Money sent overseas', /international|intl|foreign transaction|wire transfer|western union|remitly|wise\.com|worldremit|swift|moneygram/i] };
 function notices(m){
   var N = [], T = txIn(m), F = db.flagsOn || {}, sp = spentBy(m), earlier = {};
+  if(yearOver()) N.push({ k:'yearover:' + db.historyFrom, em:'📅', t:'<b>' + esc(winLabel()) + '</b> is over. Save its year-end summary and start the new year.', go:'yearClose()', btn:'Close the year' });
   ['interest','fees','cashadv','overdraft','overseas'].forEach(function(f){ if(!F[f]) return; T.filter(function(t){ return t.amt > 0 && FLAGS[f][1].test(t.desc); }).slice(0,5).forEach(function(t){
     N.push({ k:f + ':' + t.id, em:f === 'overseas' ? '🌍' : '⚠️', t:FLAGS[f][0] + ': <b>' + esc(t.desc) + '</b>, ' + money(t.amt) + ' on ' + shortDate(t.d) + ' (' + esc(acctLabel(acct(t.a)||{})) + ').' }); }); });
   if(F.autopay) db.accts.filter(function(a){ return a.type === 'card' && !a.closed && counts(a); }).forEach(function(a){
@@ -3524,6 +3576,8 @@ function render(){
   h += '<div class="tools">'
     + '<button class="tool" onclick="openMap()">🗺️ Our money map<small>' + mapScore() + '% complete</small></button>'
     + '<button class="tool" onclick="openReview()">🧭 Go through it together<small>' + RV_PARTS.filter(function(p){ return rvDone(p[0]); }).length + ' of 5 parts done</small></button>'
+    + '<button class="tool" onclick="openCompare()">📊 This year vs last<small>' + esc(winLabel()) + '</small></button>'
+    + '<button class="tool" onclick="yearPick()">📅 Our year<small>' + esc(winLabel()) + '</small></button>'
     + '<button class="tool" onclick="openSheetSort()">📊 Sort in a spreadsheet<small>' + shRows(true).length + ' still open</small></button>'
     + '<button class="tool" onclick="openGTKY()">❓ Getting to know you<small>' + (q ? q + ' to ask' : 'all caught up') + '</small></button>'
     + '<button class="tool" onclick="openBalances()">🧮 Update balances<small>bank, cards, home, car</small></button>'
@@ -3610,8 +3664,8 @@ SQ = [
     html:function(){ return '<p class="sub">Tap to add a common one, then type the amount.</p><div class="mchips">' + ['Pension','Social Security','Salary','Rental income','Annuity'].map(function(s){ return '<button onclick="incAdd(\'' + s + '\')">＋ ' + s + '</button>'; }).join('') + '<button onclick="incAdd(\'\')">＋ Other</button></div><div id="qInc"></div>'; },
     after:function(){ incRows(); }, save:function(){ incRead(); } },
   { sec:'Household', ask:'When does the budget start, and from what date should past spending be pulled?',
-    html:function(){ var y = new Date().getFullYear(); return '<label>The budget starts</label>' + taps('bf', [[thisMonth(), 'This month', monthName(thisMonth())], [addMonths(thisMonth(),1), 'Next month', monthName(addMonths(thisMonth(),1))]], db.budgetFrom || thisMonth()) + '<label>Pull past spending from</label>' + (db.tx.length ? '<p class="sub" style="margin:0 0 6px">Your statements go back to ' + (function(){ var f = db.tx.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999'); return shortDate(f) + ', ' + f.slice(0,4); })() + '.</p>' : '') + taps('hf', [[y + '-01-01','January 1 this year','recommended'],[addMonths(thisMonth(),-3) + '-01','3 months back'],[addMonths(thisMonth(),-12) + '-01','12 months back']], db.historyFrom || (y + '-01-01')) + '<label for="qHF">Or type a date</label><input id="qHF" type="date" value="' + (db.historyFrom && [y + '-01-01', addMonths(thisMonth(),-3) + '-01', addMonths(thisMonth(),-12) + '-01'].indexOf(db.historyFrom) < 0 ? db.historyFrom : '') + '">'; },
-    save:function(){ db.budgetFrom = tapVal('bf') || thisMonth(); var t = document.getElementById('qHF').value; db.historyFrom = t || tapVal('hf') || (new Date().getFullYear() + '-01-01'); } },
+    html:function(){ var y = new Date().getFullYear(); return '<label>The budget starts</label>' + taps('bf', [[thisMonth(), 'This month', monthName(thisMonth())], [addMonths(thisMonth(),1), 'Next month', monthName(addMonths(thisMonth(),1))]], db.budgetFrom || thisMonth()) + (db.hfSet ? '<p class="sub" style="margin-top:10px">Working on <b>' + esc(winLabel()) + '</b>. <a href="#" onclick="yearPick();return false" style="color:var(--brand);font-weight:800">Change it</a></p>' : '<label>Pull past spending from</label>' + (db.tx.length ? '<p class="sub" style="margin:0 0 6px">Your statements go back to ' + (function(){ var f = db.tx.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999'); return shortDate(f) + ', ' + f.slice(0,4); })() + '.</p>' : '') + taps('hf', [[y + '-01-01','January 1 this year','recommended'],[addMonths(thisMonth(),-3) + '-01','3 months back'],[addMonths(thisMonth(),-12) + '-01','12 months back']], db.historyFrom || (y + '-01-01')) + '<label for="qHF">Or type a date</label><input id="qHF" type="date" value="' + (db.historyFrom && [y + '-01-01', addMonths(thisMonth(),-3) + '-01', addMonths(thisMonth(),-12) + '-01'].indexOf(db.historyFrom) < 0 ? db.historyFrom : '') + '">'); },
+    save:function(){ db.budgetFrom = tapVal('bf') || thisMonth(); if(db.hfSet) return; var t = document.getElementById('qHF').value; db.historyFrom = t || tapVal('hf') || (new Date().getFullYear() + '-01-01'); } },
   { sec:'Accounts', ask:'Add each checking, savings and card account.',
     html:function(){ return '<p class="sub">Just a name and the last 4 digits — never a full number or a password. For each one you’ll say whose money it is, and how a card gets paid. Statements come in after setup.</p><div id="suAccts">' + acctListHTML(true) + '</div><button class="b warm full" onclick="openAcct(null, function(){ setupQ(4, SQEDIT); })">＋ Add an account</button>'; } },
   { sec:'How the budget is built', ask:'Use the three-part budget?',
@@ -4033,7 +4087,7 @@ function autoFill(SK){
   if(T.length && !db.hfSet) db.historyFrom = first < floor ? floor : first;   /* very old lines stay stored, but the budget reads from January last year */
   rebuildPlan(); db.tx.forEach(function(t){ if(t.cat === 'uncat' || (t.cat === 'xfer' && /autopay|auto pay|epay|online pmt|online payment/i.test(t.desc))) t.cat = guessCat(t.desc, t.amt, acct(t.a), t.bcat); });
   /* income: only deposits that clearly are income go straight in; other regular deposits wait for a yes */
-  var inc = {}; T.forEach(function(t){ if(t.amt >= 0 || t.cat === 'xfer' || t.d < db.historyFrom) return; var k = mkey(t.desc) || t.desc; if(!inc[k]) inc[k] = { tot:0, ms:{}, desc:t.desc, a:t.a }; inc[k].tot += -t.amt; inc[k].ms[t.d.slice(0,7)] = 1; });
+  var inc = {}; T.forEach(function(t){ if(t.amt >= 0 || t.cat === 'xfer' || !inWin(t)) return; var k = mkey(t.desc) || t.desc; if(!inc[k]) inc[k] = { tot:0, ms:{}, desc:t.desc, a:t.a }; inc[k].tot += -t.amt; inc[k].ms[t.d.slice(0,7)] = 1; });
   Object.keys(inc).forEach(function(k){ var n = Object.keys(inc[k].ms).length, amt = r2(inc[k].tot / n); if(n < 2 || amt < 50) return;
     if(STRONG_INC.test(inc[k].desc)){ var nm = prettyIncome(k + ' ' + inc[k].desc), have = db.incomes.filter(function(i){ return i.name === nm; })[0]; if(have && have.found) have.amt = r2(num(have.amt) + amt); else if(!have) db.incomes.push({ id:uid(), name:nm, amt:amt, found:1 }); }
     else if(n >= 3 && (acct(inc[k].a)||{}).type !== 'card') AF.unsure.push({ k:k, desc:inc[k].desc, amt:amt, n:n, a:inc[k].a }); });
@@ -4054,7 +4108,7 @@ function nameCards(){ db.accts.filter(function(a){ return a.bankless && a.type =
   db.tx.filter(function(t){ return t.a === a.id && t.amt < 0; }).some(function(c){ var m = db.tx.filter(function(t){ return t.a !== a.id && t.amt > 0 && Math.abs(t.amt + c.amt) < 0.01 && Math.abs(daysBetween(t.d, c.d)) <= 5 && bankOf(t.desc); })[0]; if(m){ b = bankOf(m.desc); return true; } return false; });
   if(b){ a.name = b + ' card'; a.bankless = 0; } }); }
 /* every payee that takes money month after month, across all the accounts */
-function regulars(){ var G = {}; db.tx.forEach(function(t){ if(t.amt <= 0 || t.cat === 'xfer' || isP3(t.cat) || !counts(acct(t.a)) || t.d < (db.historyFrom || '')) return; var k = mkey(t.desc) || t.desc; if(!G[k]) G[k] = { k:k, desc:t.desc, ms:{}, tot:0, n:0, last:t };
+function regulars(){ var G = {}; db.tx.forEach(function(t){ if(t.amt <= 0 || t.cat === 'xfer' || isP3(t.cat) || !counts(acct(t.a)) || !inWin(t)) return; var k = mkey(t.desc) || t.desc; if(!G[k]) G[k] = { k:k, desc:t.desc, ms:{}, tot:0, n:0, last:t };
     var g = G[k]; g.ms[t.d.slice(0,7)] = 1; g.tot += t.amt; g.n++; if(t.d >= g.last.d) g.last = t; });
   return Object.keys(G).map(function(k){ var g = G[k]; g.months = Object.keys(g.ms).length; g.avg = r2(g.tot / g.n); return g; }).filter(function(g){ return g.months >= 3 && channel(g.last) !== 'cash'; }); }
 var REGROUP = [['Utilities','util'],['Subscriptions','subs'],['Phones','phone'],['Insurance','cins'],['Housing','mortgage'],['Giving','give'],['Groceries','groc'],['Dining out','eat'],['Gas & car','car'],['Healthcare','health'],['Fees & interest','fees']];
@@ -4276,7 +4330,7 @@ function tracksLines(a){ return a.track ? a.track === 'lines' : !!(TYPES[a.type]
 function folderFor(a){ var g = mapGroup(mapOf(a)); return a.folder || ((a.inst || a.name).replace(/[\/\\:*?"<>|]/g,'').trim() + (a.last4 ? ' ' + a.last4 : '')); }
 function folderPath(a){ return 'Family Money / ' + mapGroup(mapOf(a)).folder + ' / ' + folderFor(a); }
 /* the months an account should have lines for: January (or when it opened) to last month (or when it closed) */
-function mapMonths(a){ var y = thisMonth().slice(0,4) + '-01', from = a.openM && a.openM > y ? a.openM : y, to = addMonths(thisMonth(), -1); if(a.closed && a.closedM && a.closedM < to) to = a.closedM;
+function mapMonths(a){ var y = db.historyFrom ? db.historyFrom.slice(0,7) : thisMonth().slice(0,4) + '-01', from = a.openM && a.openM > y ? a.openM : y, to = addMonths(thisMonth(), -1); if(db.historyTo && db.historyTo.slice(0,7) < to) to = db.historyTo.slice(0,7); if(a.closed && a.closedM && a.closedM < to) to = a.closedM;
   var L = []; for(var m = from; m <= to; m = addMonths(m, 1)) L.push(m); return L; }
 function mapHave(a){ var h = {}; db.tx.forEach(function(t){ if(t.a === a.id) h[t.d.slice(0,7)] = 1; }); return h; }
 function mapMissing(a){ if(!tracksLines(a) || (a.mapG || mapOf(a)) === 'pay') return [];   /* a payment app can go quiet for a month; that isn't a missing statement */ var h = mapHave(a); return mapMonths(a).filter(function(m){ return !h[m]; }); }
@@ -4476,9 +4530,9 @@ function readPDF(f, cb){ pdfLines(f, function(L){ cb(L && L.length ? pdfParse(L,
 var SQKEY = ['ppl','homes','inc','start','accts','three','yearly','setAside','variable','rule','help','e529','biz','lists','flags','thr','email','who','adv'];
 SQKEY.forEach(function(k, i){ if(SQ[i]) SQ[i].key = k; });
 var FIND = null;
-function spendTx(){ return db.tx.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer' && counts(acct(t.a)) && t.d >= (db.historyFrom || ''); }); }
+function spendTx(){ return db.tx.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer' && counts(acct(t.a)) && inWin(t); }); }
 function evid(L){ return '<ul class="list" style="margin-top:8px">' + L.slice(0, 4).map(function(t){ return '<li style="font-size:14px"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '</span><span class="amt">' + money(Math.abs(t.amt)) + '</span></li>'; }).join('') + (L.length > 4 ? '<li style="font-size:13px;color:var(--soft)">…and ' + (L.length - 4) + ' more</li>' : '') + '</ul>'; }
-function findings(){ var F = [], T = spendTx(), all = db.tx.filter(function(t){ return t.d >= (db.historyFrom || ''); }), inM = {};
+function findings(){ var F = [], T = spendTx(), all = db.tx.filter(function(t){ return inWin(t); }), inM = {};
   /* two homes: more than one electric or gas company */
   var EL = /electric|edison|power|comed|duke energy|xcel|\baps\b|\bsrp\b|pg&e|pge|dominion|entergy|ameren|national grid|eversource|coned|con ed|fpl|tva/i, ut = {};
   all.forEach(function(t){ if(t.amt > 0 && EL.test(t.desc) && !bankOf(t.desc)){ var k = mkey(t.desc) || t.desc; (ut[k] = ut[k] || []).push(t); } });
@@ -4591,7 +4645,7 @@ var TREE = [
 function treeHTML(found){ return '<div class="tree">' + '<div class="tr0">📁 <b>Family Money</b></div>' + TREE.map(function(t){ var kids = found ? (found[t[0]] || []) : null;
     return '<div class="tr1">' + t[1] + ' <b>' + esc(t[2]) + '</b><small>' + esc(t[3]) + '</small></div>'
       + (kids ? kids.map(function(k){ return '<div class="tr2 ok">📁 ' + esc(k) + '</div>'; }).join('') || '<div class="tr2 none">— none —</div>' : t[4].map(function(k){ return '<div class="tr2">📁 <i>' + esc(k) + '</i></div>'; }).join('') + '<div class="tr2 more">＋ one more folder for each ' + (t[0] === 'ins' ? 'policy' : t[0] === 'other' ? 'kind of paper' : 'account') + '</div>'); }).join('') + '</div>'; }
-function fmStart(){ db.autoAsked = 1; save();
+function fmStart(){ if(!db.hfSet){ yearPick('fm'); return; } db.autoAsked = 1; save();
   openSheet('<div class="stepno">Setting up · step 1 of 3</div><h3>Put everything in one folder</h3><p class="sub" style="margin-bottom:4px">Three things, in this order:</p>'
     + '<div class="steps3"><div><b>1</b>On your phone or computer, make one folder called <b>Family Money</b>, laid out like the picture below — a separate folder for every account, card and pay app, named with the bank and the last 4 digits.</div><div><b>2</b>Put each account\u2019s statements in its folder: PDFs or downloads, any months.</div><div><b>3</b>Come back here and tap <b>My folder is ready</b> at the bottom. I\u2019ll ask you to pick the Family Money folder' + (canFolder() ? '' : ' (on an iPhone, as a zip — I\u2019ll show you how)') + ', and I read everything in it.</div></div>'
     + treeHTML() + '<div class="line ok" style="font-size:14.5px;font-weight:700">📅 Inside each account\u2019s folder, keep its statements all together, or in a folder for each year — <b>2025</b>, <b>2026</b> — whichever you like. I read the dates on every line, and a month that two files both cover is only counted once.</div><p class="sub" style="margin-top:10px">The grey names are examples. The folder names become the account names, so name them the way you want them shown.</p>'
@@ -4701,6 +4755,7 @@ function ckSteps(){ var phone = !canFolder(), C = (db && db.ck) || {}, has = !!(
     ['prof','🙋','Tell us how you work','phone or computer, PDFs or downloads, which AI', 'profStart()', !!P.ai],
     ['lock','🔐','Lock it with a passcode','everything kept here is scrambled; it locks itself after 15 minutes', 'promiseScreen()', !!LOCK || (db && db.lockAsked)],
     profNeedsAI() ? ['aiset','✨','Set up your AI first', (P.door ? 'the Daraja AI connection is on' : 'so every PDF can be read for you'), 'profMode()', C.aiset || P.door] : null,
+    ['year','📅','Pick the year we’re working on', db && db.hfSet ? 'working on ' + winLabel() : 'January to December, or your own 12 months', 'yearPick()', db && db.hfSet],
     ['folder','📁','Make the Family Money folder','one folder for each account, inside eight groups — or download it ready made', 'fmStart()', C.folder || has],
     ['files','📄','Put each account’s statements in its folder','PDFs or downloads from the bank, any months', 'fmStart()', C.files || has],
     ['give','📥', phone ? 'Compress the folder and give it to the app' : 'Give the app the folder', phone ? 'in Files: press and hold it, tap Compress, then pick the zip' : 'pick the Family Money folder itself — no zip needed', 'fmGet()', has],
