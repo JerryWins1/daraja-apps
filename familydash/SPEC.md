@@ -844,3 +844,7 @@ Jerry: "If you know I'm gonna use AI why do you have to ask? Just go do it." Als
 Jerry's run stopped at "I could not find any lines in that answer". His Community Trust PDFs have the header in words and the transactions as a picture. Because they had some words, eleven nearly empty texts went in one batch, and the AI found nothing in them.
 - A statement only counts as text if its words hold at least three amounts. Otherwise the PDF itself goes, one per ask.
 - If a text batch gives no lines, those statements are sent again as PDFs. A PDF that still gives nothing, or is over 5 MB, is set aside with a short notice. No pop-up stops the run.
+
+## v8.1 · the AI connection's daily limit is 200 (18 Nov)
+
+Jerry raised the door's cap from 40 to 200 a day per household (PR #423). The app kept its own count, hardcoded to 40 in four places. That count is now one number, `DOOR_CAP`, set to 200.
