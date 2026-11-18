@@ -2447,7 +2447,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.0 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.1 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -5177,8 +5177,10 @@ function fmLines(){ var C = document.getElementById('fmCanvas'), S = document.ge
   S.innerHTML = '<path d="' + d + '" fill="none" stroke="#9AA6B2" stroke-width="2"/>'; }
 window.addEventListener('resize', function(){ if(document.getElementById('fmCanvas')) fmLines(); });
 var ONESK = null, DOOR_SEEN = 0, FCHUNK = {};
-/* the Daraja AI connection reads up to 40 times a day per household; count ours so a long first year can say so up front */
-function doorLeft(){ var d = db.aiDay || {}; return d.d === today() ? 40 - d.n : 40; }
+/* the Daraja AI connection's daily cap per household, set in tools/ai-door/worker.js (raised from 40 to 200 on 18 Nov, PR #423).
+   The door itself is the judge; this count only lets a long first year say so up front. One number, here. */
+var DOOR_CAP = 200;
+function doorLeft(){ var d = db.aiDay || {}; return d.d === today() ? DOOR_CAP - d.n : DOOR_CAP; }
 function doorUse(){ var d = db.aiDay = db.aiDay && db.aiDay.d === today() ? db.aiDay : { d:today(), n:0 }; d.n++; save(); }
 /* PDFs the app can't read itself: with the family's OK, each is handed to an AI that reads it and sends the lines back.
    Jerry, 16 Nov, chose "both, asking first". Through the Daraja AI door (once it is switched on) that is one tap and the
@@ -5186,13 +5188,13 @@ function doorUse(){ var d = db.aiDay = db.aiDay && db.aiDay.d === today() ? db.a
 function fmBadPdfs(a){ return (FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []).filter(function(p){ return !FMR[p] && /\.pdf$/i.test(p) && PDFF[p]; }); }
 function fmAI(id){ fmAIask([id]); }
 function fmCap(){ var left = 0; db.accts.forEach(function(x){ left += fmBadPdfs(x).length; });
-  openSheet('<h3>That’s today’s AI reading used up</h3><p class="sub">Daraja’s AI connection reads 40 times a day for each household. ' + left + ' PDF' + (left===1?' is':'s are') + ' still to read. Open the app tomorrow and read your folder — they’ll go by themselves. Everything read so far is kept.</p>'
+  openSheet('<h3>That’s today’s AI reading used up</h3><p class="sub">Daraja’s AI connection reads ' + DOOR_CAP + ' times a day for each household. ' + left + ' PDF' + (left===1?' is':'s are') + ' still to read. Open the app tomorrow and read your folder — they’ll go by themselves. Everything read so far is kept.</p>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet();render()">OK</button></div>'); }
 function fmAIall(){ fmAIask(db.accts.filter(function(a){ return fmBadPdfs(a).length; }).map(function(a){ return a.id; })); }
 function fmAIask(ids){ if(!ids.length) return; if(aiAuto()){ FAI = { ids:ids, i:0 }; fmAIgo(); return; } var n = 0; ids.forEach(function(id){ n += fmBadPdfs(acct(id)).length; });
   openSheet('<div class="stepno">Reading PDFs with AI</div><h3>Read ' + (n === 1 ? 'this statement' : 'these ' + n + ' statements') + ' with AI?</h3>'
     + '<p class="sub">I couldn\u2019t read ' + (n === 1 ? 'it' : 'them') + ' myself. With your OK they go to ' + ((db.prof && db.prof.door) ? 'Claude, through Daraja' : 'your AI') + ', one account at a time, and the lines come back here. The statements leave this device for that.</p>'
-    + ((db.prof && db.prof.door && n > doorLeft()) ? '<div class="line warn" style="font-size:14.5px">The Daraja AI connection reads up to 40 times a day, and ' + doorLeft() + ' are left today. A long first year may finish tomorrow — or your own AI takes the rest.</div>' : '')
+    + ((db.prof && db.prof.door && n > doorLeft()) ? '<div class="line warn" style="font-size:14.5px">The Daraja AI connection reads up to ' + DOOR_CAP + ' times a day, and ' + doorLeft() + ' are left today. A long first year may finish tomorrow — or your own AI takes the rest.</div>' : '')
     + '<ul class="list">' + ids.map(function(id){ var a = acct(id), L = fmBadPdfs(a); return '<li style="font-size:14.5px"><span class="ds">' + esc(acctLabel(a)) + '<small>' + L.length + ' PDF' + (L.length===1?'':'s') + ': ' + L.slice(0,3).map(function(p){ return esc(String(p).split('/').pop()); }).join(', ') + (L.length > 3 ? '…' : '') + '</small></span></li>'; }).join('') + '</ul>'
     + ((db.prof && db.prof.door) ? '' : '<div class="line warn" style="font-weight:700;font-size:14.5px">A website isn\u2019t allowed to hand files to another website. So I read the words off each PDF myself and put them in the question — there is nothing to attach. Only a scanned PDF, which is a picture, would need attaching by hand, and I’ll say which.</div>' + ids.map(function(id){ var a = acct(id); return '<p class="sub" style="margin:4px 0;font-family:ui-monospace,Menlo,monospace;font-size:13px">📁 ' + esc(fmPathOf(a)) + '</p>'; }).join(''))
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="FAI={ ids:' + JSON.stringify(ids).replace(/"/g,"\'") + ', i:0 };fmAIgo()">Yes, read ' + (n === 1 ? 'it' : 'them') + '</button><button class="b ghost" style="width:100%" onclick="fmDone(ONESK)">Not now</button></div>'); }
@@ -5228,7 +5230,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
     var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.';
     var title = 'Reading ' + acctLabel(a) + ' with AI' + (F.ids.length > 1 ? ' · account ' + (F.i + 1) + ' of ' + F.ids.length : '');
     function send(o, covered){ o.title = title; o.want = 'text'; o.circle = false; o.agreed = 1; closeSheet();
-      if(door) o.onFail = function(msg){ FAI = null; var cap = /all the asks for today/.test(msg); if(cap){ db.aiDay = { d:today(), n:40 }; save(); }
+      if(door) o.onFail = function(msg){ FAI = null; var cap = /all the asks for today/.test(msg); if(cap){ db.aiDay = { d:today(), n:DOOR_CAP }; save(); }
         if(cap) return fmCap();
         openSheet('<h3>The AI didn’t answer</h3><p class="sub">' + esc(acctLabel(a)) + ': ' + esc(msg) + '. Everything read so far is kept.</p>'
           + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet();FMAUTO=0;fmAIall()">Try again</button><button class="b ghost" style="width:100%" onclick="closeSheet();render()">Later</button></div>'); };
@@ -5244,7 +5246,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
     var textPrompt = function(also){ return 'Below is the text of ' + ok.length + ' bank or card statement' + (ok.length===1?'':'s') + ' from one account (' + a.name + ')' + (also ? also : '') + '. ' + HEAD + '\n\n' + ok.map(function(x){ return '===== ' + x.name + ' =====\n' + maskNums(x.text); }).join('\n\n'); };
     /* with the Daraja AI connection: the words of every readable PDF go in one question, and each scanned one goes as itself,
        one at a time (the connection takes one file per question). Nothing to attach, nothing to paste back. */
-    if(door && doorLeft() <= 0){ FAI = null; return fmCap(); }   /* v7.9 · 40 a day used: say so, and the rest is read tomorrow by itself */
+    if(door && doorLeft() <= 0){ FAI = null; return fmCap(); }   /* v7.9 · the day's reads used: say so, and the rest is read tomorrow by itself */
     if(door){ var LIM = 10000,   /* v7.9 · the door answers in at most 2,000 tokens: about one statement's lines. Bigger batches came back cut short */ pre = 'Below is the text of bank or card statements from one account (' + a.name + '). ' + HEAD + '\n\n';
       if(ok.length){ var batch = [], size = pre.length;
         for(var bi = 0; bi < ok.length; bi++){ var piece = '===== ' + ok[bi].name + ' =====\n' + maskNums(ok[bi].text); if(batch.length && size + piece.length > LIM) break; batch.push({ x:ok[bi], t:piece }); size += piece.length; if(size > LIM) break; }
