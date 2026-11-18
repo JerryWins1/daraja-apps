@@ -29,7 +29,7 @@ const MODEL = 'claude-haiku-5-5';        /* $0.10 in / $0.50 out per million. Je
 const DAILY_PER_HOUSEHOLD = 40;          /* asks per day per address */
 const MAX_PROMPT_CHARS = 24000;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;  /* the PDF a Dashboard statement arrives as */
-const MAX_TOKENS = 2000;
+const MAX_TOKENS = 8000;            /* was 2000, which a month of statement lines ran past. See the thinking note below. */
 const ALLOWED = ['https://jerrywins1.github.io'];
 
 const cors = (origin) => ({
@@ -113,6 +113,18 @@ export default {
           max_tokens: MAX_TOKENS,
           system,
           output_config: { effort: 'low' },   /* these are short everyday asks, not hard problems */
+          /* 18 Nov 2026: thinking OFF, and this is the line that fixed the PDFs.
+             Haiku 5.5 runs ADAPTIVE THINKING BY DEFAULT when no thinking field is sent, and the
+             thinking is drawn from max_tokens. On a dense scanned bank statement it used the whole
+             2000-token budget before writing a word, so the reply came back with
+             stop_reason 'max_tokens' and NO text block at all, and the door answered
+             "the assistant sent nothing back". The Family Money Dashboard hit it on a Community
+             Trust statement. Disabled is accepted on Haiku 5.5 at effort high or below, and the
+             door sits at low. These asks are transcription and plain answers, not reasoning, so
+             there is nothing for thinking to buy here — it only ate the budget.
+             If a future model refuses type 'disabled', raise the effort question before deleting
+             this: silently dropping it brings the empty answers straight back. */
+          thinking: { type: 'disabled' },
           messages: [{ role: 'user', content }],
         }),
       });
@@ -128,6 +140,12 @@ export default {
     /* A safety classifier can decline. Haiku has no server-side fallback, so the
        app falls back to the person's own AI, which is the old behaviour anyway. */
     if (j.stop_reason === 'refusal') return say({ error: 'the assistant declined that one' }, 422, origin);
+
+    /* Its own answer, so the next person does not have to guess the way we did. If this ever
+       fires, the reply really was cut off mid-thought: raise MAX_TOKENS or send less at a time. */
+    if (j.stop_reason === 'max_tokens') {
+      return say({ error: 'that was too much to read in one go — try a smaller piece' }, 502, origin);
+    }
 
     let text = (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
     if (body.want === 'json') text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
