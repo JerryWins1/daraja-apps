@@ -2471,10 +2471,12 @@
 
   <button class="btn gold" onclick="makeLetters()">✉️ Make the letters</button>
   <button class="btn" onclick="window.print()" id="printBtn" style="display:none">🖨 Print them all</button>
+  <button class="btn" onclick="showYearEndSummary()" id="summaryBtn" style="display:none">📊 Year-end summary</button>
   <p class="hint" id="madeMsg"></p>
   <p class="hint" id="editHint" style="display:none">✏️ Tap any letter below to change its words before you print.</p>
 
   <div id="letters"></div>
+  <div id="summary" style="display:none"></div>
 </main>
 
 <script>
@@ -2560,15 +2562,79 @@ function makeLetters(){
   }
   $('letters').innerHTML=html;
   $('printBtn').style.display= made? 'inline-block':'none';
+  $('summaryBtn').style.display= made? 'inline-block':'none';
   if($('editHint')) $('editHint').style.display= made? 'block':'none';
   $('madeMsg').textContent = made+' letter'+(made!==1?'s':'')+' ready below.'+(skipped.length? ' Skipped '+skipped.length+' row(s): '+skipped.join(' | ')+'.' : '')+' Print puts each on its own page.';
   if(made) document.querySelector('.letter').scrollIntoView({behavior:'smooth'});
 }
+function aggregateDonorSummary(){
+  const gifts=giftsFromRows();
+  const donors={};
+  for(const g of gifts){
+    if(!g.n || !g.a) continue;
+    const inKind=/^in-?kind/i.test(g.a);
+    if(inKind) continue;
+    const amt=fmtAmt(g.a);
+    if(amt===null || Number(String(g.a).replace(/[$,\s]/g,''))<=0) continue;
+    if(!donors[g.n]) donors[g.n]={total:0, donations:[], inKind:[]};
+    donors[g.n].total+=Number(String(g.a).replace(/[$,\s]/g,''));
+    donors[g.n].donations.push({amt:Number(String(g.a).replace(/[$,\s]/g,'')), date:g.d});
+  }
+  for(const g of gifts){
+    if(!g.n || !g.a) continue;
+    const inKind=/^in-?kind/i.test(g.a);
+    if(!inKind) continue;
+    if(!donors[g.n]) donors[g.n]={total:0, donations:[], inKind:[]};
+    donors[g.n].inKind.push({desc:g.a.replace(/^in-?kind:?\s*/i,''), date:g.d});
+  }
+  const sorted=Object.entries(donors).sort((a,b)=>b[1].total-a[1].total);
+  return sorted;
+}
+function downloadDonorCSV(){
+  const org=$('orgName').value.trim();
+  const sorted=aggregateDonorSummary();
+  let csv='Donor Name,Total Amount,Number of Gifts,Dates\n';
+  for(const [name, data] of sorted){
+    const dates=data.donations.map(d=>d.date).join('; ');
+    csv+=`"${name}","${data.total.toFixed(2)}","${data.donations.length}","${dates}"\n`;
+  }
+  const total=sorted.reduce((sum,[,d])=>sum+d.total,0);
+  csv+=`\n"TOTAL","${total.toFixed(2)}","${sorted.reduce((sum,[,d])=>sum+d.donations.length,0)}"\n`;
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);
+  const year=new Date().getFullYear();
+  link.download=`${org.replace(/[^\w\s]/g,'')}_donors_${year}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+function showYearEndSummary(){
+  const org={name:$('orgName').value.trim(), ein:$('orgEin').value.trim(), addr:$('orgAddr').value.trim(), signer:$('orgSigner').value.trim()};
+  if(!org.name) return;
+  const sorted=aggregateDonorSummary();
+  if(!sorted.length){alert('No cash donations to summarize.'); return;}
+  const year=new Date().getFullYear();
+  const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  let html=`<div style="max-width:900px;margin:40px auto;padding:40px;border:1px solid #ddd;border-radius:12px;background:#fff;font-family:Arial,sans-serif;line-height:1.6;"><div style="text-align:center;margin-bottom:30px;"><h1 style="margin:0;font-size:24px;font-weight:bold;">${escH(org.name)}</h1><p style="margin:4px 0;font-size:13px;color:#666;">${org.ein?'EIN '+escH(org.ein)+' · ':''}${escH(org.addr)}</p><h2 style="margin:12px 0 4px;font-size:16px;font-weight:bold;">Year-End Donor Summary ${year}</h2><p style="margin:0;font-size:12px;color:#999;">Generated ${today}</p></div><table style="width:100%;border-collapse:collapse;margin:20px 0;"><thead><tr style="background:#f5f5f5;border-bottom:2px solid #333;"><th style="text-align:left;padding:12px;border:1px solid #ddd;font-weight:bold;">Donor Name</th><th style="text-align:right;padding:12px;border:1px solid #ddd;font-weight:bold;">Total Amount</th><th style="text-align:center;padding:12px;border:1px solid #ddd;font-weight:bold;">Gifts</th><th style="text-align:left;padding:12px;border:1px solid #ddd;font-weight:bold;">Dates</th></tr></thead><tbody>`;
+  let grandTotal=0;let totalGifts=0;
+  for(const [name, data] of sorted){
+    const dates=data.donations.map(d=>fmtDate(d.date)).join(', ');
+    html+=`<tr style="border-bottom:1px solid #ddd;"><td style="padding:10px;border:1px solid #ddd;">${escH(name)}</td><td style="text-align:right;padding:10px;border:1px solid #ddd;font-family:monospace;font-weight:bold;">$${data.total.toFixed(2)}</td><td style="text-align:center;padding:10px;border:1px solid #ddd;">${data.donations.length}</td><td style="padding:10px;border:1px solid #ddd;font-size:12px;">${dates}</td></tr>`;
+    grandTotal+=data.total;totalGifts+=data.donations.length;
+  }
+  html+=`<tr style="background:#f5f5f5;border-top:2px solid #333;border-bottom:2px solid #333;font-weight:bold;"><td style="padding:12px;border:1px solid #ddd;">TOTAL</td><td style="text-align:right;padding:12px;border:1px solid #ddd;font-family:monospace;font-size:16px;">$${grandTotal.toFixed(2)}</td><td style="text-align:center;padding:12px;border:1px solid #ddd;">${totalGifts}</td><td style="padding:12px;border:1px solid #ddd;"></td></tr></tbody></table>`;
+  if(sorted.some(([,d])=>d.inKind.length)){html+=`<div style="margin-top:30px;padding-top:20px;border-top:1px solid #ddd;"><h3 style="margin:0 0 10px;font-size:14px;font-weight:bold;">In-Kind Contributions</h3>`;for(const [name, data] of sorted){if(!data.inKind.length) continue;html+=`<div style="margin:10px 0;"><strong>${escH(name)}:</strong> ${data.inKind.map(ik=>`${escH(ik.desc)} (${fmtDate(ik.date)})`).join('; ')}</div>`;}html+=`</div>`;}
+  html+=`<div style="margin-top:30px;text-align:center;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#999;">This summary is for reference only. Not tax advice — when in doubt, ask your accountant.</div><div style="margin-top:20px;text-align:center;"><button onclick="downloadDonorCSV()" style="padding:10px 20px;margin:5px;background:#23504F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Download CSV</button> <button onclick="window.print()" style="padding:10px 20px;margin:5px;background:#23504F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">🖨 Print Summary</button> <button onclick="closeSummary()" style="padding:10px 20px;margin:5px;background:#ccc;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">Close</button></div></div>`;
+  $('summary').innerHTML=html;$('summary').style.display='block';$('letters').style.display='none';
+  document.querySelector('#summary').scrollIntoView({behavior:'smooth'});
+}
+function closeSummary(){$('summary').style.display='none';$('summary').innerHTML='';$('letters').style.display='block';}
 </script>
 
 <footer style="text-align:center;font-size:11.5px;color:var(--soft);padding:20px;line-height:1.6">
   Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
-  <span style="opacity:.8">Receipt Maker v1.11 · 2026-11-04 · Daraja Studio · donations help orphans and students in Kenya</span>
+  <span style="opacity:.8">Receipt Maker v1.11 · 2026-11-18 · Daraja Studio · donations help orphans and students in Kenya</span>
 </footer>
 <script>window.DJ_START = {"slug": "receipts", "em": "🧾", "title": "Welcome — this writes your donor letters.", "lede": "Every gift of $250 or more needs a letter with the words the IRS requires. This writes one for each gift, all at once, so nobody spends January on it.", "cta": "Start with my details →", "firstSelector": "input, button", "dataKeys": ["receipts_v1", "np_receipts_v1"], "steps": ["<b>Put your organization's details in</b> — name, address, EIN.", "<b>Add your gifts</b> — one donor, one amount, one date at a time.", "<b>Make the letters</b>, tap any one to change its words, then print the lot."]};</script>
 
