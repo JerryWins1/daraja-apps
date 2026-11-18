@@ -756,3 +756,27 @@ Jerry asked: *"what if they don't have Claude? What if they have something else?
   - The old silent switch to Claude is gone.
 - **On the "Let ___ sort your folder" page:** the top now has two choices, Claude and ChatGPT, with theirs already picked. Switching rewrites the page's steps for that app.
   - It also says a paid plan is needed, with a "do it yourself here" link.
+
+## v7.4 · 18 Nov 2026 · the Daraja AI connection is live
+
+The house layer chat switched the connection on, in PRs #364 and #396. `control/ai.json` now carries the real endpoint, and Jerry tested it himself.
+
+**Question 4 is now "Who reads the statements?"** There are two answers.
+- **"This app — it reads my folder"** is listed first and recommended.
+  - The family picks the Family Money folder once.
+  - Any PDF the app can't read goes to Claude through the connection, after the house layer's one confirm screen. The lines come back by themselves, with nothing to attach and nothing to paste.
+  - "New month" reads the folder again.
+- **"My own Claude or ChatGPT app"** is the v7 desktop hand-off. It is for people whose app can open a folder: Cowork wasn't showing in Jerry's Claude app on 17 Nov.
+
+**`fmAIgo` checks the connection fresh** (`doorOn`) the first time it runs in a session.
+
+**The connection's limits, which the Worker enforces:**
+- **A question is at most 24,000 characters.** Readable PDFs go in batches of 20,000 characters or less. A single very long statement goes in parts, "Part 1 of 4" and so on, and counts as read only after the last part. A part with no lines in it is fine.
+- **A file is at most 5 MB.** A scanned PDF over 5 MB is said so up front and goes to the family's own AI instead.
+- **There are 40 questions a day per household.** `db.aiDay` counts them. The "Read with AI?" screen says so when a year of statements needs more than are left. At 40, the app switches to the family's own AI for the rest of the day.
+
+**Account and card numbers are masked** to their last 4 in everything that goes.
+
+**Tested:** three PDFs, one of them very long, needed 6 questions, every one under 20,000 characters. All three were marked read, and 34 questions were left that day.
+
+**Videos:** the "two ways" lines in "Explain it to me" and "Train me" now put the app reading the folder first. Both were re-recorded.

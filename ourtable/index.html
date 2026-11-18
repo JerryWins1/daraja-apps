@@ -2460,6 +2460,7 @@
   <section class="pane on" id="p-recipes">
     <div class="row" style="margin-bottom:10px"><input id="search" placeholder="Find a recipe…" aria-label="Find a recipe" style="flex:1;min-width:160px" oninput="renderRecipes()"><button class="accent" onclick="openEdit()" style="font-size:16px">＋ New recipe</button></div>
     <button type="button" class="ghost" id="impBtn" data-act="import" style="width:100%;margin-bottom:10px;text-align:left">📥 Bring your dinners over — paste from Mealime, a website or notes</button>
+    <button type="button" class="primary" id="tonightBtn" onclick="openTonight()" style="width:100%;margin-bottom:10px;text-align:left">🍳 What can I cook tonight?</button>
     <div class="chips" id="tagChips" style="margin-bottom:10px"></div>
     <div class="card" id="quickAdd" style="display:none;border:1.5px solid var(--gold)">
       <h2>Put your own dinners in</h2>
@@ -2506,7 +2507,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.19 · 2026-11-06 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
+  <p class="foot">Our Table v1.20 · 2026-11-18 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
 </div>
 
 <nav>
@@ -2529,6 +2530,7 @@
   <label for="rSteps">How to make it (optional)</label><textarea id="rSteps" placeholder="Brown the chicken… "></textarea>
   <label for="rTime">Time on the table (optional)</label><input id="rTime" placeholder="45 min">
   <label for="rServes">How many does it feed, as written? (optional)</label><input id="rServes" type="number" inputmode="numeric" min="1" max="60" placeholder="4">
+  <label for="rCost">About how much does it cost to make? (optional)</label><input id="rCost" inputmode="decimal" placeholder="12" autocomplete="off">
   <div class="row" style="margin-top:12px"><button class="ok" style="flex:1" onclick="saveRecipe()">Save</button><button class="ghost" onclick="closeEdit()">Cancel</button><button class="ghost" id="delBtn" style="display:none" onclick="delRecipe()">🗑 Delete</button></div>
 </div></div>
 
@@ -2541,6 +2543,9 @@
   <div class="row" style="margin-top:10px"><button type="button" class="primary" style="flex:1" data-act="imp-read">Read it</button><button type="button" class="ghost" data-act="imp-close">Close</button></div>
   <div id="impPrev" aria-live="polite"></div>
 </div></div>
+
+<!-- 🍳 what can I cook tonight? (v1.20) -->
+<div class="sheet" id="tonightSheet" onclick="if(event.target===this)closeTonight()"><div class="in" id="tonightIn"></div></div>
 
 <!-- who likes it? round -->
 <div class="sheet" id="roundSheet"><div class="in" id="roundIn"></div></div>
@@ -2627,16 +2632,16 @@ function renderRecipes(){
   $('quickAdd').style.display=(!db.qaDone && mine<3) ? '' : 'none';
   $('tagChips').innerHTML=['All',...TAGS].map(t=>`<span class="chip ${(t==='All'?'':t)===tagFilter?'on':''}" onclick="tagFilter='${t==='All'?'':t}';renderRecipes()">${t}</span>`).join('');
   const list=db.recipes.filter(r=>(!q||r.name.toLowerCase().includes(q)||(r.ing||[]).join(' ').toLowerCase().includes(q))&&(!tagFilter||(r.tags||[]).includes(tagFilter)));
-  $('recipeList').innerHTML=list.map(r=>`<div class="recipe" onclick="openView('${r.id}')" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')||'no tags'}${r.time?' · '+esc(r.time):''}${heartBadge(r)}</small></div><div class="made">${r.made||0}<span>made</span></div></div>`).join('')||'<div class="empty">No recipes match. Tap ＋ New to add one.</div>';
+  $('recipeList').innerHTML=list.map(r=>`<div class="recipe" onclick="openView('${r.id}')" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')||'no tags'}${r.time?' · '+esc(r.time):''}${costLine(r)?' · '+esc(costLine(r)):''}${heartBadge(r)}</small></div><div class="made">${r.made||0}<span>made</span></div></div>`).join('')||'<div class="empty">No recipes match. Tap ＋ New to add one.</div>';
 }
 let editId=null, editEm='', editPhoto='', editTags=[];
 function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?(r.em||''):''; editPhoto=r?(r.photo||''):''; editTags=r?[...(r.tags||[])]:[];
-  $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('rServes').value=(r&&+r.serves>0)?r.serves:''; $('delBtn').style.display=r?'':'none';
+  $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('rServes').value=(r&&+r.serves>0)?r.serves:''; $('rCost').value=(r&&costNum(r.cost))?r.cost:''; $('delBtn').style.display=r?'':'none';
   drawEmChips(); drawTagPick(); editAskHide(); $('editSheet').classList.add('on'); closeView(); editStart=editSnap(); setTimeout(()=>$('rName').focus(),100); }
 /* v1.18 (22 Oct, tester audit: a tap on the dim area above the edit sheet closed it and threw the typing away):
    if anything changed, it asks first — Save / Discard / Keep editing. Cancel still closes straight away. */
 let editStart='';
-function editSnap(){ return JSON.stringify([$('rName').value,$('rIng').value,$('rSteps').value,$('rTime').value,$('rServes').value,editEm,editPhoto,editTags]); }
+function editSnap(){ return JSON.stringify([$('rName').value,$('rIng').value,$('rSteps').value,$('rTime').value,$('rServes').value,$('rCost').value,editEm,editPhoto,editTags]); }
 function editOutside(){ if(editSnap()===editStart){ closeEdit(); return; }
   let A=$('editAsk'); if(!A){ A=document.createElement('div'); A.id='editAsk'; A.className='note'; A.setAttribute('role','alertdialog'); A.setAttribute('aria-label','Save your changes?'); A.style.cssText='display:block;margin:0 0 12px'; }
   A.innerHTML='<b style="display:block;margin-bottom:8px">Save your changes?</b><div class="row"><button type="button" class="ok" data-act="edit-ask" data-w="save" style="flex:1">Save</button><button type="button" class="ghost" data-act="edit-ask" data-w="discard">Discard</button><button type="button" class="primary" data-act="edit-ask" data-w="keep">Keep editing</button></div>';
@@ -2677,7 +2682,7 @@ function splitIng(text){ const out=[];
     parts.push(cur); parts.forEach(x=>{ x=x.trim(); if(x) out.push(x); }); });
   return out; }
 function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName').focus(); return; }
-  const rec={ name, em:(editPhoto?'':(editEm||guessEm(name))), photo:editPhoto, tags:editTags, ing:splitIng($('rIng').value), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() }; const sv=parseInt($('rServes').value,10); rec.serves=(sv>0&&sv<=60)?sv:undefined;
+  const rec={ name, em:(editPhoto?'':(editEm||guessEm(name))), photo:editPhoto, tags:editTags, ing:splitIng($('rIng').value), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() }; const sv=parseInt($('rServes').value,10); rec.serves=(sv>0&&sv<=60)?sv:undefined; const cv=costNum($('rCost').value); rec.cost=cv?Math.round(cv*100)/100:undefined;
   if(editId){ Object.assign(db.recipes.find(x=>x.id===editId),rec); } else db.recipes.unshift({id:uid(),made:0,...rec});
   save(); closeEdit(); render(); toast('Saved ✓'); }
 function delRecipe(id){ id=id||editId; const r=db.recipes.find(x=>x.id===id); if(!r) return; if(!confirm('Delete “'+r.name+'”? It also comes off any night it is on.')) return; const u=otSnap();
@@ -2687,7 +2692,7 @@ function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return;
   $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}${r.made>0?` <button type="button" class="ghost" data-act="made-less" data-r="${esc(r.id)}" aria-label="Take one off the made count" style="min-height:44px;min-width:44px;padding:2px 10px;font-size:14px">−1</button>`:''}</p>
     <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
     ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
-    ${r.serves?`<p class="small">Feeds ${esc(r.serves)}, as written.</p>`:''}
+    ${r.serves?`<p class="small">Feeds ${esc(r.serves)}, as written.</p>`:''}${costNum(r.cost)?`<p class="small">💵 About ${esc(costFmt(costNum(r.cost)))} to make${costPer(r)?' — '+esc(costFmt(costPer(r)))+' a serving':''}.</p>`:''}
     <div class="row" style="margin-top:8px">${day?`<button onclick="closeView();openPick('${day}')">🔁 Swap ${day}</button>`:`<button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>`}${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="clearNight('${day}')">Clear ${day}</button><button onclick="madeIt('${r.id}')">✓ Made it tonight</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
     ${day?nightServHTML(r,day):''}${likesHTML(r,false)}`;
   $('viewSheet').classList.add('on'); if(keep) $('viewIn').scrollTop=keep; }
@@ -2708,7 +2713,7 @@ function renderWeek(){ const mon=new Date(db.weekOf+'T12:00:00'); $('weekTitle')
     return `<div class="day"><div class="dn">${d}<small>${dt.getDate()}</small></div><button class="pick ${n?'set':''}" onclick="${n?`openNight('${d}')`:`openPick('${d}')`}">${r?`<span class="em">${pic(r,24)}</span><span>${esc(r.name)}${r.time?`<span class="who">${esc(r.time)}</span>`:''}</span>`:n?`<span class="em">✍️</span><span>${esc(n.txt)}</span>`:'<span class="small">tap to choose…</span>'}</button></div>`; }).join('');
   const withRecipe=DAYS.filter(d=>{ const n=nightOf(d); return n&&n.r; }).length; let lv=1; try{ lv=(JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}')||{}).level||1; }catch(e){}
   let ml=$('otMakeList'); if(!ml){ ml=document.createElement('div'); ml.id='otMakeList'; $('weekList').after(ml); }
-  ml.innerHTML=(withRecipe>=2&&lv<2)?'<button class="primary" style="width:100%;margin-top:12px" onclick="makeMyList()">🧺 Make my shopping list from these dinners</button>':(shopStale()?staleHTML():''); }
+  ml.innerHTML=weekCostHTML()+((withRecipe>=2&&lv<2)?'<button class="primary" style="width:100%;margin-top:12px" onclick="makeMyList()">🧺 Make my shopping list from these dinners</button>':(shopStale()?staleHTML():'')); }
 window.makeMyList=function(){ try{ const f=window.djLevelSet_ourtable; if(f) f(2,true); }catch(e){} buildList(); };
 function openNight(d){ const n=nightOf(d); if(!n) return openPick(d); if(n.r) return openView(n.r.id,d);
   $('viewIn').innerHTML=`<h3>✍️ ${esc(n.txt)}</h3><p class="small">Dinner on ${d} · your own words, no recipe</p>
@@ -2904,6 +2909,74 @@ function atHome(x){ const k=homeKey(x); return !!(k&&pantryHit(k)); }
 function pantryClearHTML(){ const n=Object.keys(db.pantry||{}).length; return n?`<button type="button" class="ghost" data-act="pantry-clear" style="width:100%;margin-top:10px">Clear “already have it” (${n})</button>`:''; }
 function setHome(kind,id,on){ const arr=kind==='s'?db.shop:db.extras; const o=arr.find(x=>x.id===id); if(!o) return; const k=homeKey(o); if(!k) return; db.pantry=db.pantry||{}; if(on){ db.pantry[k]=1; o.done=false; } else { const s=sing(k); Object.keys(db.pantry).forEach(p=>{ if(p===k||sing(p)===s) delete db.pantry[p]; }); } save(); renderShop(); hostLine(); }
 
+/* ══ v1.20 · 18 Nov 2026 (Jerry: "Yes, all of them") ═════════════════════════════════════════════
+   ⑤ 🍳 What can I cook tonight? — the "already have it" ticks (db.pantry) plus anything typed in here, any of them
+   marked ⏰ use soon, go to the person's own AI through the house djAI hand-off, asking for 3 dinners that use them
+   first, from their own saved recipes where one fits. The answer is pasted back, kept (db.tonight.ans), and shown
+   as three cards; one tap puts a card on tonight (a saved recipe if the name matches one, else the night's own words).
+   ⑥ 💵 cost per serving — a recipe can carry r.cost ("about how much it costs to make", a number). With r.serves it
+   shows as a cost a serving on the recipe card; the week shows a rough total for the dinners that have one, scaled
+   to "How many at the table?" when the recipe says how many it feeds. Quiet when empty. */
+function tState(){ const t=db.tonight=(db.tonight&&typeof db.tonight==='object')?db.tonight:{}; if(!Array.isArray(t.extra)) t.extra=[]; if(!t.soon||typeof t.soon!=='object') t.soon={}; if(!t.skip||typeof t.skip!=='object') t.skip={}; if(!Array.isArray(t.ideas)) t.ideas=[]; return t; }
+function tItems(){ const t=tState(), out=[], seen=new Set();
+  Object.keys(db.pantry||{}).filter(k=>db.pantry[k]).forEach(k=>{ const s=sing(k); if(seen.has(s)) return; seen.add(s); out.push({k,t:k,from:'p',soon:!!t.soon[k],off:!!t.skip[k]}); });
+  t.extra.forEach((x,i)=>{ const s=sing(norm(x.t)); if(seen.has(s)) return; seen.add(s); out.push({k:'x'+i,t:x.t,from:'x',i,soon:!!x.soon,off:false}); });
+  return out; }
+function openTonight(){ tState(); drawTonight(); $('tonightSheet').classList.add('on'); }
+function closeTonight(){ $('tonightSheet').classList.remove('on'); }
+function drawTonight(){ const t=tState(), items=tItems(), use=items.filter(x=>!x.off);
+  const row=x=>`<div class="item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)${x.off?';opacity:.5':''}"><span style="flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere">${x.from==='p'?'🏠 ':''}${esc(x.t)}</span>`
+    +`<button type="button" class="${x.soon?'accent':'ghost'}" data-act="tn-soon" data-k="${esc(x.k)}" aria-pressed="${x.soon}" style="min-height:44px;padding:4px 10px;font-size:14px">⏰ ${x.soon?'Use soon':'Use soon?'}</button>`
+    +`<button type="button" class="ghost" data-act="tn-off" data-k="${esc(x.k)}" aria-label="${x.off?'Use':'Leave out'} ${esc(x.t)}" style="min-height:44px;min-width:44px;padding:4px 8px">${x.off?'↩︎':'✕'}</button></div>`;
+  let h=`<h3>🍳 What can I cook tonight?</h3><p class="small" style="font-size:15px;margin-top:0">What’s in the kitchen? Mark anything that needs using up with ⏰, and your AI suggests 3 dinners that use it first — from your own recipes when one fits.</p>`
+    +`<div class="row" style="flex-wrap:nowrap"><input id="tnAdd" placeholder="Something you have — chicken, rice, spinach…" aria-label="Something you have" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')tnAdd()"><button type="button" class="ok" onclick="tnAdd()">Add</button></div>`
+    +`<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="tnSoon" style="width:22px;height:22px"> ⏰ It needs using soon</label>`
+    +`<div id="tnList" style="margin-top:8px">${items.length?items.map(row).join(''):'<p class="small">Nothing yet. Type what you have above. (Things you tick “Already have it” on the shopping list show up here too, with a 🏠.)</p>'}</div>`
+    +`<button type="button" class="primary" id="tnAsk" data-act="tn-ask" style="width:100%;margin-top:12px;min-height:54px;font-size:17px"${use.length?'':' disabled'}>✨ Ask my AI for 3 dinners</button>`;
+  if(t.ideas.length||t.ans){ h+=`<h3 style="margin-top:16px">Ideas${t.at?' <small class="small" style="font-weight:500">from '+esc(t.at)+'</small>':''}</h3>`;
+    h+=t.ideas.length?t.ideas.map((x,i)=>{ const r=tMatch(x.name); return `<div class="card tnIdea" style="margin:0 0 10px;padding:12px"><b style="font-size:17px">${r?pic(r,22)+' ':''}${esc(x.name)}</b>${r?' <span class="small" style="color:var(--ok);font-weight:800">· one of your recipes</span>':''}${x.why?`<p class="small" style="margin:4px 0 8px;font-size:14.5px">${esc(x.why)}</p>`:''}<button type="button" class="ok" data-act="tn-pick" data-i="${i}" style="width:100%">📅 Put it on tonight</button></div>`; }).join('')
+      :'<p class="small">I couldn’t pick out three ideas in that answer, so here it is as it came:</p>';
+    if(t.ans) h+=`<details style="margin-top:4px"><summary class="small" style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:800">The whole answer</summary><div style="white-space:pre-wrap;font-size:15px;line-height:1.45">${esc(t.ans)}</div></details>`; }
+  h+=`<div class="row" style="margin-top:12px"><button type="button" class="ghost" onclick="closeTonight()">Close</button></div>`;
+  $('tonightIn').innerHTML=h; }
+window.tnAdd=function(){ const v=($('tnAdd').value||'').trim(); if(!v){ $('tnAdd').focus(); return; } const t=tState(), soon=$('tnSoon').checked;
+  v.split(/\s*[,;]\s*/).filter(Boolean).forEach(w=>{ if(!t.extra.some(x=>sing(norm(x.t))===sing(norm(w)))) t.extra.push({t:w.slice(0,60),soon}); });
+  save(); drawTonight(); setTimeout(()=>{ try{ $('tnAdd').focus(); }catch(e){} },50); };
+function tnToggle(k,what){ const t=tState(); if(k[0]==='x'&&/^x\d+$/.test(k)){ const i=+k.slice(1), x=t.extra[i]; if(!x) return; if(what==='soon') x.soon=!x.soon; else t.extra.splice(i,1); }
+  else { const box=what==='soon'?t.soon:t.skip; if(box[k]) delete box[k]; else box[k]=1; } save(); drawTonight(); }
+const tClean=s=>String(s||'').replace(/\s*\(example\)\s*$/i,'').trim();
+function tMatch(name){ const n=tClean(name).toLowerCase(); if(!n) return null;
+  return db.recipes.find(r=>tClean(r.name).toLowerCase()===n)||db.recipes.find(r=>{ const m=tClean(r.name).toLowerCase(); return m.length>3&&(n.includes(m)||m.includes(n)); })||null; }
+function tPrompt(){ const use=tItems().filter(x=>!x.off), soon=use.filter(x=>x.soon).map(x=>x.t), rest=use.filter(x=>!x.soon).map(x=>x.t);
+  const mine=db.recipes.map(r=>tClean(r.name)).filter(Boolean).slice(0,60);
+  return 'I need to cook dinner tonight. '
+    +(soon.length?'These need using up soon, so use them first: '+soon.join(', ')+'. ':'')
+    +(rest.length?(soon.length?'I also have: ':'Here is what I already have: ')+rest.join(', ')+'. ':'')
+    +(mine.length?'These are recipes I already make: '+mine.join('; ')+'. If one of them fits, suggest it by that exact name. ':'')
+    +'Suggest exactly 3 dinner ideas that use what I have first. Write each on its own line, like this:\n1. Dinner name — what it uses from my list, anything I would need to buy, and about how long it takes.\nPlain words, short. No other text.'; }
+function tAsk(){ const use=tItems().filter(x=>!x.off); if(!use.length){ toast('Add one thing you have first'); return; }
+  if(!window.djAI||!djAI.ask){ toast('The AI helper didn’t load — try again in a moment'); return; }
+  closeTonight();
+  djAI.ask({ title:'What can I cook tonight?', want:'text', prompt:tPrompt(), onResult:function(v,raw){ tGot(raw||v); } }); }
+function tParse(text){ const out=[]; String(text||'').split(/\r?\n/).forEach(line=>{ const m=line.replace(/\*\*|__/g,'').match(/^\s*(?:#+\s*)?(?:idea\s*)?(\d)\s*[.):-]\s*(.+)$/i); if(!m||out.length>=3) return;
+    let body=m[2].trim(), name=body, why=''; const sp=body.match(/^(.{2,80}?)\s+(?:—|–|-|:)\s+(.+)$/)||body.match(/^(.{2,80}?):\s*(.+)$/); if(sp){ name=sp[1]; why=sp[2]; }
+    name=name.replace(/^["“”']+|["“”'.]+$/g,'').trim(); if(name) out.push({name:name.slice(0,80),why:why.slice(0,300)}); });
+  return out; }
+function tGot(text){ const t=tState(); t.ans=String(text||'').trim().slice(0,4000); t.ideas=tParse(t.ans); t.at=new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); save(); openTonight();
+  setTimeout(()=>{ try{ const c=document.querySelector('#tonightIn .tnIdea')||document.querySelector('#tonightIn details'); if(c) c.scrollIntoView({block:'start',behavior:'smooth'}); }catch(e){} },120); }
+function tPick(i){ const t=tState(), x=t.ideas[i]; if(!x) return; const d=DAYS[(new Date().getDay()+6)%7], cur=nightOf(d);
+  if(cur){ const was=cur.r?cur.r.name:cur.txt; if(!confirm('Tonight ('+d+') already has '+was+'. Put '+x.name+' on tonight instead?')) return; }
+  const u=otSnap(), r=tMatch(x.name); db.week[d]=r?r.id:'txt:'+x.name; save(); closeTonight(); go('week'); render(); otUndoOffer((r?r.em||'🍽️':'✍️')+' '+(r?r.name:x.name)+' is on tonight ('+d+')', u); }
+/* ⑥ cost per serving */
+const COSTSYM=(()=>{ try{ return /Nairobi/.test(Intl.DateTimeFormat().resolvedOptions().timeZone||'')||/-KE$/i.test(navigator.language||'')?'KES ':'$'; }catch(e){ return '$'; } })();
+function costNum(v){ const n=parseFloat(String(v==null?'':v).replace(/[^\d.]/g,'')); return isFinite(n)&&n>0?n:0; }
+function costFmt(n){ return COSTSYM+(COSTSYM==='$'?(Math.round(n*100)/100).toFixed(2):Math.round(n).toLocaleString('en-KE')); }
+function costPer(r){ const c=costNum(r&&r.cost), s=+(r&&r.serves)||0; return c&&s>0?c/s:0; }
+function costLine(r){ const c=costNum(r&&r.cost); if(!c) return ''; const p=costPer(r); return p?costFmt(p)+' a serving':'about '+costFmt(c)+' to make'; }
+function weekCost(){ let sum=0, n=0, of=0; DAYS.forEach(d=>{ const x=nightOf(d); if(!x||!x.r) return; of++; const c=costNum(x.r.cost); if(!c) return; n++;
+    const p=costPer(x.r), ppl=+((db.nightServ||{})[d])||+db.servings||0; sum+=(p&&ppl)?p*ppl:c; }); return {sum,n,of}; }
+function weekCostHTML(){ const w=weekCost(); if(!w.n) return ''; return `<p class="small" id="weekCost" style="margin:10px 2px 0;font-size:15px">💵 Roughly <b>${costFmt(w.sum)}</b> for ${w.n===1?'the one dinner':'the '+w.n+' dinners'} with a cost this week${w.n<w.of?' ('+(w.of-w.n)+' more without one)':''}.</p>`; }
+
 /* ── ⑤ bring your dinners over: read pasted recipes on the phone ── */
 const IMP={ ing:/^(ingredients?|what you.{0,3}ll need|you.{0,3}ll need|shopping list)\b[^a-z0-9]{0,3}(\(.{0,40}\)|for .{0,30}|\d+\s*(servings?|people|portions?))?\s*[:.\-–—]?\s*$/i,
   steps:/^(instructions?|directions?|method|steps|preparation|prep|how to (make|cook)( it)?|cooking instructions|to make it)\s*[:.\-–—]?\s*$/i,
@@ -3012,7 +3085,7 @@ function clearWhat(w){
   if(w==='shop') return clearShop();
   if(w==='examples') return dropExamples();
   if(w==='all'){ if(!confirm('Start over? This clears every recipe (yours too), the week, the shopping list and the family names on this phone.\n\nYou can tap Undo straight after.')) return; const u=otSnap();
-    db.recipes=[]; db.week={}; db.nightServ={}; db.shop=[]; db.extras=[]; db.family=[]; db.pantry={}; delete db.shopSig; delete db.servings; delete db.qaDone; fillMsg='';
+    db.recipes=[]; db.week={}; db.nightServ={}; db.shop=[]; db.extras=[]; db.family=[]; db.pantry={}; delete db.tonight; delete db.shopSig; delete db.servings; delete db.qaDone; fillMsg='';
     try{ localStorage.setItem('dj_ourtable_seen','1'); localStorage.removeItem(OT_PLAN); }catch(e){} save(); render(); go('recipes'); otUndoOffer('Everything is cleared', u); } }
 
 /* ── one listener for every new button ── */
@@ -3037,6 +3110,10 @@ document.addEventListener('click',function(e){ const b=e.target&&e.target.closes
   else if(a==='cook-next'){ const total=stepsOf(cookR||{}).length+((cookR&&(cookR.ing||[]).length)?1:0); if(cookI>=total-1){ closeCook(); toast('Enjoy your dinner'); } else { cookI++; drawCook(); } }
   else if(a==='have') setHome(D('k'),D('id'),true);
   else if(a==='need') setHome(D('k'),D('id'),false);
+  else if(a==='tn-soon'){ tnToggle(D('k'),'soon'); }
+  else if(a==='tn-off'){ tnToggle(D('k'),'off'); }
+  else if(a==='tn-ask'){ tAsk(); }
+  else if(a==='tn-pick'){ tPick(+D('i')); }
   else if(a==='pantry-clear'){ if(!confirm('Clear every “already have it” tick? Those things go back on the list.')) return; const u=otSnap(); db.pantry={}; save(); renderShop(); hostLine(); otUndoOffer('“Already have it” cleared', u); }
   else if(a==='undo') otUndoNow();
   else if(a==='shop-rm') rmItem(D('k'),D('id'));
