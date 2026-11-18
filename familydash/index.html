@@ -2373,7 +2373,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v7.9 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.0 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -5138,7 +5138,7 @@ function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a);
         p.path = L[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; L.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); } }); }); }
 /* v7.5 · Jerry, 18 Nov: it sat on "Reading the words off 12 PDFs…". Now one PDF at a time, with a count, a 20-second limit
    for each (a PDF that hangs is skipped and goes to AI as a file instead of stopping everything), and a Stop button. */
-var FREAD = 0;
+var FREAD = 0, FSCAN = {};   /* PDFs whose words gave no lines: sent as the PDF itself next time */
 var PTXT = {};   /* each PDF is read once a session; the next batch doesn't read it again */
 function pdfTextSafe(f){ if(f && PTXT[f.name + '|' + f.size + '|' + f.lastModified] != null) return Promise.resolve(PTXT[f.name + '|' + f.size + '|' + f.lastModified]); return Promise.race([ pdfText(f).catch(function(){ return ''; }), new Promise(function(res){ setTimeout(function(){ res(''); }, 20000); }) ]).then(function(t){ if(f) PTXT[f.name + '|' + f.size + '|' + f.lastModified] = t || ''; return t; }); }
 function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = ++FREAD, T = [], k = 0; F.tot = F.tot || {}; if(!F.tot[id]) F.tot[id] = L.length;
@@ -5147,7 +5147,10 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
     pdfTextSafe(PDFF[path]).then(function(t){ if(run !== FREAD) return; T.push({ path:path, name:String(path).split('/').pop(), text:t || '' }); k++; next(); }); }
   next();
   function done(T){
-    var ok = T.filter(function(x){ return x.text.trim().length > 40; }), scan = T.filter(function(x){ return x.text.trim().length <= 40; });
+    /* v8.0 · Jerry's Community Trust PDFs have a header in words and the transactions as a picture, so "has words" sent eleven
+       near-empty texts in one batch and the AI found no lines. A statement counts as text only if its words hold amounts. */
+    var hasMoney = function(x){ return !FSCAN[x.path] && (x.text.match(/\d[\d,]*\.\d{2}\b/g) || []).length >= 3; };
+    var ok = T.filter(hasMoney), scan = T.filter(function(x){ return !hasMoney(x); });
     var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.';
     var title = 'Reading ' + acctLabel(a) + ' with AI' + (F.ids.length > 1 ? ' · account ' + (F.i + 1) + ' of ' + F.ids.length : '');
     function send(o, covered){ o.title = title; o.want = 'text'; o.circle = false; o.agreed = 1; closeSheet();
@@ -5157,7 +5160,11 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
           + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet();FMAUTO=0;fmAIall()">Try again</button><button class="b ghost" style="width:100%" onclick="closeSheet();render()">Later</button></div>'); };
       var tot = F.tot[id], doneN = tot - L.length, have = db.tx.filter(function(t){ return t.a === id; }).length;
       o.wait = 'Statements ' + (doneN + 1) + (covered.length > 1 ? '–' + (doneN + covered.length) : '') + ' of ' + tot + (have ? ' · ' + have + ' lines in so far' : '') + '. Nothing to tap — it carries on by itself.';
-      o.onResult = function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ if(o.partial){ fmAIgo(); return; } alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
+      o.onResult = function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ if(o.partial){ fmAIgo(); return; }
+          /* no lines: words that gave nothing go again as the PDF itself; a PDF that gives nothing is set aside, not asked about */
+          if(o.file){ covered.forEach(function(path){ FMR[path] = 1; }); toast(String(covered[0]).split('/').pop() + ': no lines found in it — set aside.'); }
+          else covered.forEach(function(path){ FSCAN[path] = 1; });
+          fmAIgo(); return; }
         p.path = covered[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; covered.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); };
       ask(o); }
     var textPrompt = function(also){ return 'Below is the text of ' + ok.length + ' bank or card statement' + (ok.length===1?'':'s') + ' from one account (' + a.name + ')' + (also ? also : '') + '. ' + HEAD + '\n\n' + ok.map(function(x){ return '===== ' + x.name + ' =====\n' + maskNums(x.text); }).join('\n\n'); };
@@ -5173,7 +5180,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
           var k = FCHUNK[one.x.path] || 0, last = k >= parts.length - 1; FCHUNK[one.x.path] = k + 1; doorUse();
           return send({ prompt:pre + '(Part ' + (k + 1) + ' of ' + parts.length + ' of ' + one.x.name + '.)\n' + parts[k], partial:!last }, last ? [one.x.path] : []); }
         doorUse(); return send({ prompt:pre + batch.map(function(b){ return b.t; }).join('\n\n') }, batch.map(function(b){ return b.x.path; })); }
-      var x = scan[0]; if(PDFF[x.path].size > 5 * 1024 * 1024){ alert(x.name + ' is over 5 MB, too big for the Daraja AI connection. Your own AI will open for it instead.'); door = false; }
+      var x = scan[0]; if(PDFF[x.path].size > 5 * 1024 * 1024){ FMR[x.path] = 1; toast(x.name + ' is over 5 MB, too big to send — set aside.'); return fmAIgo(); }
       else { doorUse(); }
     }
     if(door && scan.length && !ok.length && PDFF[scan[0].path].size <= 5 * 1024 * 1024){
