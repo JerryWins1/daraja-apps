@@ -107,9 +107,9 @@ console.log('\n=== everything that must not break ===');
 
   const e = env();
   stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'ok' }] } }));
-  for (let i = 0; i < 40; i++) await call({ prompt: 'hi' }, e);
+  for (let i = 0; i < 200; i++) await call({ prompt: 'hi' }, e);
   r = await call({ prompt: 'hi' }, e);
-  ck('the 41st ask in a day is capped', r.status === 429, r.status + ' ' + JSON.stringify(r.j));
+  ck('the 201st ask in a day is capped', r.status === 429, r.status + ' ' + JSON.stringify(r.j));
 
   const noKv = env({ DOOR_COUNT: undefined });
   r = await call({ prompt: 'hi' }, noKv);
