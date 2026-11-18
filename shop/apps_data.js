@@ -121,6 +121,7 @@ const TEST_NOW = [
      already marked READY, which hoists it above this order anyway. */
   'churchdrive',
   /* 13 Nov 2026: Jar by Jar, new — a family budget in jars, built out for the store */ 'jarbyjar',
+  /* 18 Nov 2026: Trip Tab, new — one phone keeps the tab for a group trip, built out for the store */ 'tripstab',
   /* changed 6 Nov */ 'businessmanager','whoscoming','everyday','drumbeat','churchserve','ourtable',
   /* Group 1, the rest */ 'home','duka','nownext','nextstep','church',
   /* Group 2, the rest */ 'ahead','compass','safety','porchlight','rafiki','npreceipts','churchclubhouse'
@@ -952,6 +953,67 @@ const APPS = {
   name:'Jar by Jar', em:'🫙', sub:'give first, every dollar a jar', fresh:true, cat:'home', price:'$19', testing:true,
   tag:'Plan the month at the kitchen table: give first, then put every dollar in a jar. Tap a jar when you spend and you always know what’s left. No bank login — it all stays on your phone.',
   try:BASE+'jarbyjar/', video:true
+ },
+ tripstab: {
+  /* 18 Nov 2026: Trip Tab, built out for the store. In TEST_NOW for the testers; NOT in LAUNCH until it passes,
+     so the store shows Coming soon. No suggested donation yet (Jerry's call). Every directed line puts the
+     invented example trip (exampleDB(), the same one ?tour=1 shows) on screen in memory only: EX is true, so
+     save() writes nothing and a viewer's real trips are never touched. */
+  extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
+    {"t": "Welcome. In about three minutes, you will know what Trip Tab is for and how to use it.", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+    {"t": "First, the problem. On a trip together, one person pays for the cabin, another for the groceries, someone else for gas. By the end, nobody is sure who owes who.", "point": "#costs", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+    {"t": "Trip Tab is one phone keeping the tab. Write down who paid for what, and at the end it tells you the fewest payments that square everyone.", "point": "#balances"},
+    {"t": "Who is it for? A family reunion, a golf weekend, a week at the cabin, or a group outing with friends. Only one person needs the app. Nobody else has to download anything."},
+    {"t": "What you see here is an example trip, a lake weekend with Maya, Tom, Grace and Sam. Nothing in it is saved. Start my own trip puts it away.", "point": "#ownBtn", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+    {"t": "At the top is the trip's name, how many people are on it, how many costs, and how much was spent altogether.", "point": "#tripName"},
+    {"t": "Then, where everyone stands. Each person shows what they paid, and what their share was.", "point": "#balances"},
+    {"t": "Green means they get money back. Maya paid for the cabin, so she gets back the most.", "point": ".people li[data-person=\"p1\"] .st"},
+    {"t": "Red means they owe. Grace only paid for the gas, so she owes the most.", "point": ".people li[data-person=\"p3\"] .st"},
+    {"t": "Under that is every cost on the trip: what it was, who paid, how it was split, and how much. Tap one to change it.", "point": "#costs .costs"},
+    {"t": "To write down a cost, tap Add a cost at the bottom.", "point": "#addBtn", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+    {"t": "The quick way is to type one line, like: Tom paid 30 ice cream split 4. Then tap Read it.", "point": "#qLine", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openAdd();var q=document.getElementById('qLine');q.value='Tom paid 30 ice cream split 4';readLine();}catch(e){}"},
+    {"t": "It says what it understood, and fills in the form below. Check it, then tap Add it.", "point": "#qSaw"},
+    {"t": "Or fill it in yourself. Tap who paid, type how much, and say what it was for.", "point": "#payPick"},
+    {"t": "Then say who shares it: everyone equally, only some people, or different amounts.", "point": "#seg"},
+    {"t": "Only some people is for a cost not everyone shares. Here, the gas was shared by Tom and Grace only.", "point": "#amongPick", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openAdd('e2');}catch(e){}"},
+    {"t": "Different amounts is for when each person's part is different, like the boat rental. The line underneath checks that the parts add up.", "point": "#splitSay", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openAdd('e4');}catch(e){}"},
+    {"t": "When it is time to square up, tap Settle up. It shows the fewest payments that square everyone. Here, just three: Grace pays Maya, Tom pays Maya, and Tom pays Sam.", "point": "#pays", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openSettle();}catch(e){}"},
+    {"t": "When one is paid, tap Paid, and it moves down to Already paid.", "point": "[data-paid=\"0\"]"},
+    {"t": "Copy the settle-up, text it, or send it on WhatsApp to the group chat.", "point": "#waBtn"},
+    {"t": "Under the costs are four buttons: people and trip name, all my trips, start another trip, and finish this trip.", "point": ".tools", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+    {"t": "In People and trip name, you can add someone, change a name, or pick dollars, Kenya shillings, pounds or euros.", "point": "#tpCur", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openTrip();}catch(e){}"},
+    {"t": "How to start: tap Start my own trip. Give the trip a name, write who is coming, pick the money, and tap Start the trip.", "point": "#ntName", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{EX=true;db=blank();render();openNewTrip();}catch(e){}"},
+    {"t": "Everything stays on this phone. There is no account, and nothing to sign up for.", "point": "#ver", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+    {"t": "Save a copy keeps a backup of your trips, and the question mark button in the corner has help any time.", "point": "#djBackup"},
+    {"t": "Trip Tab is free. If it helps your group, a gift to Loving InDeed helps orphans and students in Kenya. Enjoy the trip.", "point": ".give"}]} },
+  train:[
+   {"t": "Setting up Trip Tab takes about two minutes, before the trip. Step one: open it, tap Start my own trip, and give the trip a name.", "point": "#ntName", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{EX=true;db=blank();render();openNewTrip();}catch(e){}"},
+   {"t": "Step two: write the name of everyone who is coming. Tap Another person for more.", "point": "#ntPeople"},
+   {"t": "Step three: pick the money, dollars or Kenya shillings, and tap Start the trip.", "point": "#ntCur"},
+   {"t": "Step four: each time someone pays for something, tap Add a cost.", "point": "#addBtn", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "Step five: tap who paid, type how much, and say what it was for. Or type it all in one line and tap Read it.", "point": "#payPick", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openAdd();}catch(e){}"},
+   {"t": "Step six: say who shares it, then tap Add it.", "point": "#seg"},
+   {"t": "Step seven: if a cost was wrong, tap it in the list to change it or take it off.", "point": "#costs .costs li button", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "Step eight: at the end of the trip, tap Settle up.", "point": "#pays", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openSettle();}catch(e){}"},
+   {"t": "Step nine: send it to the group, and tap Paid as each payment is made.", "point": "[data-paid=\"0\"]"},
+   {"t": "Step ten: when everyone is square, tap Finish this trip. It is kept with your finished trips.", "point": ".tools button[onclick=\"finishTrip()\"]", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "You will know you are done when every name says all square, and nobody owes anything.", "point": ".square", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{var t=trip();settle(t).forEach(function(p){t.paid.push({id:uid(),from:p.from,to:p.to,amt:p.amt,d:today()});});render();}catch(e){}"}],
+  lines:[
+   {"t": "This is Trip Tab. One phone keeps the tab for a trip with friends or family.", "point": "#tripName", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "One person pays for the cabin, another for the groceries, someone else for gas. By the end, nobody knows who owes who.", "point": "#costs", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "Each time someone pays, tap Add a cost. Type one line, like: Tom paid 30 ice cream split 4, and tap Read it.", "point": "#qLine", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openAdd();var q=document.getElementById('qLine');q.value='Tom paid 30 ice cream split 4';readLine();}catch(e){}"},
+   {"t": "It says what it understood. Check it, and tap Add it.", "point": "#qSaw"},
+   {"t": "Not everyone in on everything? Pick only some people, or a different amount for each person.", "point": "#seg", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openAdd('e4');}catch(e){}"},
+   {"t": "Where everyone stands is always on the front. Green gets money back. Red owes.", "point": "#balances", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "At the end, tap Settle up. Four people and six costs, and just three payments square everyone.", "point": "#pays", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openSettle();}catch(e){}"},
+   {"t": "Tap Paid as each one is paid.", "point": "[data-paid=\"0\"]"},
+   {"t": "Then send the settle-up to the group, by text or on WhatsApp.", "point": "#waBtn"},
+   {"t": "It works in dollars, Kenya shillings, pounds or euros.", "point": "#tpCur", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openTrip();}catch(e){}"},
+   {"t": "There is no account, and nobody else has to download anything. Everything stays on this phone.", "point": "#ver", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   {"t": "Trip Tab is free, and a gift to Loving InDeed helps orphans and students in Kenya. Try it: look around the example trip, then start your own.", "point": "#ownBtn", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"}],
+  name:'Trip Tab', em:'🧾', sub:'who paid what, who owes who', fresh:true, cat:'home', price:'', testing:true,
+  tag:'One phone keeps the tab for a trip, a reunion or a group outing. Write down who paid for what, and at the end it gives the fewest payments that square everyone. Nobody else downloads anything — it all stays on your phone.',
+  try:BASE+'tripstab/', video:true
  },
  familydash: {
   /* 14 Nov 2026: Family Money Dashboard (was Family Financial Dashboard), its own chat. Not in LAUNCH or TEST_NOW:
