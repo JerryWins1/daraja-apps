@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v7.4 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v7.5 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -5080,8 +5080,17 @@ function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a);
       prompt:'I am attaching ' + files.length + ' statement' + (files.length===1?'':'s') + ' as PDF' + (files.length===1?'':'s') + ' from one account (' + names.join(', ') + '). Read every transaction on ' + (files.length===1?'it':'all of them') + ' and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once, even if two statements overlap. Do not include account numbers. If the latest statement shows an ending balance, add one last line: Balance,Ending balance,<the balance as a positive number>',
       onResult:function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
         p.path = L[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; L.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); } }); }); }
-function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door); openSheet('<h3>Reading the words off ' + L.length + ' PDF' + (L.length===1?'':'s') + '…</h3><p class="sub">' + esc(acctLabel(a)) + '</p>');
-  Promise.all(L.map(function(path){ return pdfText(PDFF[path]).then(function(t){ return { path:path, name:String(path).split('/').pop(), text:t }; }); })).then(function(T){
+/* v7.5 · Jerry, 18 Nov: it sat on "Reading the words off 12 PDFs…". Now one PDF at a time, with a count, a 20-second limit
+   for each (a PDF that hangs is skipped and goes to AI as a file instead of stopping everything), and a Stop button. */
+var FREAD = 0;
+var PTXT = {};   /* each PDF is read once a session; the next batch doesn't read it again */
+function pdfTextSafe(f){ if(f && PTXT[f.name + '|' + f.size + '|' + f.lastModified] != null) return Promise.resolve(PTXT[f.name + '|' + f.size + '|' + f.lastModified]); return Promise.race([ pdfText(f).catch(function(){ return ''; }), new Promise(function(res){ setTimeout(function(){ res(''); }, 20000); }) ]).then(function(t){ if(f) PTXT[f.name + '|' + f.size + '|' + f.lastModified] = t || ''; return t; }); }
+function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = ++FREAD, T = [], k = 0;
+  function show(){ openSheet('<h3>Reading the words off your PDFs…</h3><p class="sub">' + esc(acctLabel(a)) + ' · ' + Math.min(k + 1, L.length) + ' of ' + L.length + (L[k] ? ': ' + esc(String(L[k]).split('/').pop()) : '') + '</p><div class="meter" style="margin:10px 0"><i style="width:' + Math.round(k / L.length * 100) + '%;background:var(--ok)"></i></div><div class="stickfoot"><button class="b ghost" style="width:100%;margin-top:0" onclick="FREAD++;FAI=null;closeSheet();render()">Stop</button></div>'); }
+  function next(){ if(run !== FREAD) return; if(k >= L.length) return done(T); show(); var path = L[k];
+    pdfTextSafe(PDFF[path]).then(function(t){ if(run !== FREAD) return; T.push({ path:path, name:String(path).split('/').pop(), text:t || '' }); k++; next(); }); }
+  next();
+  function done(T){
     var ok = T.filter(function(x){ return x.text.trim().length > 40; }), scan = T.filter(function(x){ return x.text.trim().length <= 40; });
     var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.';
     var title = a.name + ': read ' + T.length + ' statement' + (T.length===1?'':'s') + (F.ids.length > 1 ? ' (account ' + (F.i + 1) + ' of ' + F.ids.length + ')' : '');
@@ -5112,7 +5121,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door); openSh
     window.FAIGO = go;
     if(!ok.length){ openSheet('<h3>These PDFs are pictures</h3><p class="sub">' + esc(acctLabel(a)) + ': ' + scan.length + ' scanned statement' + (scan.length===1?'':'s') + ' with no words to read. When your AI opens, tap its 📎 and attach ' + (scan.length===1?'it':'them') + ' from <b>' + esc(fmPathOf(a)) + '</b>:</p>' + list); return; }
     if(scan.length){ openSheet('<h3>Almost all done for you</h3><p class="sub">I put the words of ' + ok.length + ' statement' + (ok.length===1?'':'s') + ' into the question. ' + scan.length + ' ' + (scan.length===1?'is a scanned picture':'are scanned pictures') + ' — when your AI opens, tap its 📎 and attach ' + (scan.length===1?'it':'them') + ' from <b>' + esc(fmPathOf(a)) + '</b>:</p>' + list); return; }
-    go(); }); }
+    go(); } }
 /* under each account: how many files its folder held, and any that gave no lines, with the likely reason */
 function fmFiles(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []; if(!L.length) return '<br><span style="color:var(--red)">No files found in this folder.</span>';
   var bad = L.filter(function(p){ return !FMR[p]; }); if(!bad.length) return ' · ' + L.length + ' file' + (L.length===1?'':'s') + ', all read';
