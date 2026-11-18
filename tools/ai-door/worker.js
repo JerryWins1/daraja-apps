@@ -26,7 +26,9 @@
  */
 
 const MODEL = 'claude-haiku-5-5';        /* $0.10 in / $0.50 out per million. Jerry chose the cheapest. */
-const DAILY_PER_HOUSEHOLD = 40;          /* asks per day per address */
+const DAILY_PER_HOUSEHOLD = 200;         /* asks per day per address. 18 Nov: 40 stopped the Dashboard halfway
+                                            through a statement folder, and Jerry chose 200. At Haiku prices a
+                                            statement is about a third of a cent, so a full 200 is roughly 60c. */
 const MAX_PROMPT_CHARS = 24000;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;  /* the PDF a Dashboard statement arrives as */
 const MAX_TOKENS = 8000;            /* was 2000, which a month of statement lines ran past. See the thinking note below. */
