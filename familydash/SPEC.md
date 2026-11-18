@@ -790,3 +790,26 @@ Jerry's screen sat on "Reading the words off 12 PDFs…" and never moved.
 - **Each PDF's words are read once a session** (`PTXT`), so the next batch for the same account doesn't read them again.
 
 **Tested:** three PDFs, one of them hanging forever. The other two went as text (one in 4 parts), and the hanging one went as a file after 20 seconds. All three were marked read.
+
+## v7.6 · 18 Nov 2026 · safe to spend, a giving goal, subscription help
+
+These three came in a relay from the Store Manager. Jerry chose them after comparing the apps with an outside "app ideas" plan.
+
+**Safe to spend** (`safeToSpend`, `openSafe`)
+- When the home card shows this month, it has a new row, "Still safe to spend". It is the Part 1 plan, minus what has already been spent on it, minus the regular bills still to come out.
+- Regular bills are payees seen in 3 or more months, in Part 1, not cash. They count when they haven't been charged yet this month and their usual day is still ahead.
+- Tapping it lists each of those bills with its usual day.
+
+**Giving goal** (`givingCats`, `givenThisYear`, `givingHTML`, `openGiveGoal`)
+- The same card shows "🙏 Giving: $X of $Y" with a bar and a percentage, counted over the year window.
+- Giving categories are found by name (giving, donations, church, tithe, charity, mission, offering) or by the give keyword.
+- With no goal yet, it shows "Given this year: $X. Set a giving goal". The suggested goal is this year's pace.
+
+**Subscriptions**
+- `rvSubsList` flags a price that went up, using the same rule as the audit's 📈 Went up: more than $1.99 and more than 5%. A price rise still counts as the same subscription, so it keeps its monthly cycle.
+- "Cancel it" now opens `cancelHelp`, a ready-made cancellation message that gives only the last 4 of the card. It has "📋 Copy the message" and "✨ Have my AI write one". The AI prompt contains no account number.
+- In the summary list, a cancelled subscription can be tapped to bring the message back. Nothing is ever sent by the app.
+
+**Video and tester script**
+- Two lines were added to "Explain it to me", which was re-recorded; checkvideos passes 3 of 3.
+- The tester script gained two steps.

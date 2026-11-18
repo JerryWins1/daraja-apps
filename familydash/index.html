@@ -2370,7 +2370,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v7.5 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v7.6 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3275,12 +3275,13 @@ function rvSubsList(){ var G = {};
     var k = mkey(t.desc) || t.desc; (G[k] = G[k] || { k:k, T:[] }).T.push(t); });
   var L = [];
   Object.keys(G).forEach(function(k){ var T = G[k].T.sort(function(a,b){ return a.d < b.d ? -1 : 1; }), last = T[T.length-1], c = cat(last.cat), named = SUBSY.test(last.desc) || (c && /subscri|stream/i.test(c.name));
-    var same = T.filter(function(t){ return Math.abs(t.amt - last.amt) <= Math.max(1, last.amt * .1); }), ms = {}; same.forEach(function(t){ ms[t.d.slice(0,7)] = 1; }); var nm = Object.keys(ms).length;
+    var prev = T.length >= 2 ? T[T.length-2].amt : last.amt, same = T.filter(function(t){ return Math.abs(t.amt - last.amt) <= Math.max(1, last.amt * .1) || (last.amt > prev && Math.abs(t.amt - prev) <= Math.max(1, prev * .1)); })   /* a price rise is still the same subscription */, ms = {}; same.forEach(function(t){ ms[t.d.slice(0,7)] = 1; }); var nm = Object.keys(ms).length;
     var cyc = null; if(nm >= 2){ var gap = daysBetween(same[0].d, same[same.length-1].d) / (nm - 1); cyc = gap > 300 ? 'year' : gap > 45 ? 'other' : 'month'; }
     var loose = !c || /subscri|stream|entertain|member|software|apps?\b|fun|hobb/i.test(c.name);   /* a bill in utilities, insurance, giving or savings recurs too, but it isn't what this part is for */
     if(!(named || (loose && nm >= 3 && cyc !== 'other'))) return;
     if(/mortgage|insurance|electric|water|gas co|energy|loan|tax/i.test(last.desc) || (c && part(c) === 2)) return;
-    L.push({ k:k, desc:last.desc, amt:last.amt, cyc:cyc || 'once', a:last.a, last:last.d, n:same.length }); });
+    var up = null; if(T.length >= 2){ var pv = T[T.length-2].amt; if(last.amt - pv > 1.99 && (last.amt - pv) / pv > 0.05) up = { from:pv, to:last.amt, d:last.d }; }   /* the same rule as the audit's 📈 Went up */
+    L.push({ k:k, desc:last.desc, amt:last.amt, cyc:cyc || 'once', a:last.a, last:last.d, n:same.length, up:up }); });
   return L.sort(function(a,b){ return (b.cyc === 'year' ? b.amt / 12 : b.amt) - (a.cyc === 'year' ? a.amt / 12 : a.amt); }); }
 function rvSubsStart(){ RV = { st:'subs', L:rvSubsList(), i:0 }; db.subRev = db.subRev || {}; if(!RV.L.length){ openSheet('<h3>No subscriptions found</h3><p class="sub">Nothing charges the same amount on a regular cycle in these statements.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvNextPart(\'subs\')">Next part</button></div>'); return; } rvSubs(); }
 function rvSubs(){ var R = RV, s = R.L[R.i]; if(!s){ rvSubsSum(); return; } var was = db.subRev[s.k] || {};
@@ -3289,17 +3290,30 @@ function rvSubs(){ var R = RV, s = R.L[R.i]; if(!s){ rvSubsSum(); return; } var 
     : /paypal/i.test(s.desc) ? '<div class="line warn">PayPal hides the real name. In PayPal, open <b>Settings</b>, then <b>Payments</b>, then <b>Manage automatic payments</b>.</div>' : '';
   openSheet('<div class="stepno">Part 3 · subscription ' + (R.i + 1) + ' of ' + R.L.length + '</div>'
     + '<div class="card" style="margin:6px 0 10px"><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:24px">' + money(s.amt) + '</b><span style="margin-left:auto;color:var(--soft);font-weight:700">' + (s.cyc === 'year' ? 'a year' : s.cyc === 'month' ? 'a month' : 'seen once') + '</span></div>'
-    + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin-top:6px;word-break:break-word">' + esc(s.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(acct(s.a)||{})) + ' · last charged ' + shortDate(s.last) + ' · ' + s.n + ' time' + (s.n===1?'':'s') + '</div></div>' + store
+    + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin-top:6px;word-break:break-word">' + esc(s.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(acct(s.a)||{})) + ' · last charged ' + shortDate(s.last) + ' · ' + s.n + ' time' + (s.n===1?'':'s') + '</div></div>' + (s.up ? '<div class="line warn">📈 Went up: ' + money(s.up.from) + ' → ' + money(s.up.to) + ' on ' + shortDate(s.up.d) + '.</div>' : '') + store
     + '<h3 style="font-size:19px">' + (s.cyc === 'once' ? 'Is this a subscription — and do you want to keep it?' : 'Do you want to keep it?') + '</h3>'
     + taps('rv', [['keep','Keep it'],['cancel','Cancel it','the app checks the next statement to see it stopped'],['later','Decide later','kept on the open list'],['not','It isn’t a subscription','a one-time charge']], was.say || null)
     + '<label for="rvWho">Who uses it? (optional)</label><input id="rvWho" value="' + esc(was.who || '') + '" placeholder="e.g. the grandkids">'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvSubsSave()">Next</button><button class="b ghost" style="width:100%" onclick="rvSubsSum()">Stop here — see the list</button></div>'); }
 function rvSubsSave(){ var R = RV, s = R.L[R.i], v = tapVal('rv') || 'keep';
-  db.subRev[s.k] = { say:v, who:document.getElementById('rvWho').value.trim(), at:today(), amt:s.amt, cyc:s.cyc, a:s.a, desc:s.desc }; save(); R.i++; rvSubs(); }
+  db.subRev[s.k] = { say:v, who:document.getElementById('rvWho').value.trim(), at:today(), amt:s.amt, cyc:s.cyc, a:s.a, desc:s.desc, up:s.up || null }; save(); R.i++;
+  if(v === 'cancel'){ cancelHelp(s.k, 'rvSubs()'); return; } rvSubs(); }
+/* v7.6 · a ready-made cancellation message, or an AI prompt to write one (Jerry chose it, 18 Nov). The app never sends it. */
+function cancelText(s){ var a = acct(s.a) || {}, nm = String(s.desc||'').replace(/^(paypal|pp|sq|tst)\s*\*\s*/i,'').replace(/\s{2,}/g,' ').trim();
+  return 'Hello,\n\nPlease cancel my subscription to ' + nm + ', which is billed ' + money(s.amt) + (s.cyc === 'year' ? ' a year' : s.cyc === 'month' ? ' a month' : '') + (a.last4 ? ' to my card ending ' + a.last4 : '') + ', effective immediately, and stop all future charges.\n\nPlease confirm the cancellation in writing, with the date it takes effect.\n\nThank you.'; }
+function cancelHelp(k, back){ var s = (db.subRev||{})[k]; if(!s) return; var t = cancelText(s);
+  openSheet('<div class="stepno">Cancelling</div><h3>' + esc(s.desc) + '</h3><p class="sub">Cancel it on the company’s own website or app, or send them this message. This app never sends it and never logs in anywhere. The next statement shows whether the charge stopped.</p>'
+    + '<pre id="cxMsg" style="white-space:pre-wrap;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px">' + esc(t) + '</pre>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="try{navigator.clipboard.writeText(document.getElementById(\'cxMsg\').textContent).then(function(){toast(\'Copied — paste it into an email or the company’s chat.\')})}catch(e){}">📋 Copy the message</button>'
+    + '<button class="b full" onclick="cancelAI(\'' + k + '\',\'' + (back||'').replace(/'/g,'') + '\')">✨ Have my AI write one</button>'
+    + '<button class="b ghost" style="width:100%" onclick="' + (back || 'rvSubsSum()') + '">Next</button></div>'); }
+function cancelAI(k, back){ var s = (db.subRev||{})[k]; if(!s) return;
+  ask({ title:'A cancellation message', want:'text', circle:false, prompt:'Write a short, polite message I can send to cancel a subscription. It shows on my statement as "' + s.desc + '" and costs ' + money(s.amt) + (s.cyc === 'year' ? ' a year' : s.cyc === 'month' ? ' a month' : '') + '. Ask them to stop all future charges and confirm the cancellation in writing with the date. Under 100 words. Just the message, no other words. Leave a blank where my name goes. Do not include any card or account number.',
+    onResult:function(v, raw){ var t = String(raw||'').trim(); if(!t) return; openSheet('<div class="stepno">Cancelling</div><h3>' + esc(s.desc) + '</h3><pre id="cxMsg" style="white-space:pre-wrap;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px">' + esc(t) + '</pre><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="try{navigator.clipboard.writeText(document.getElementById(\'cxMsg\').textContent).then(function(){toast(\'Copied.\')})}catch(e){}">📋 Copy the message</button><button class="b ghost" style="width:100%" onclick="' + (back || 'rvSubsSum()') + '">Next</button></div>'); } }); }
 function perMo(s){ return s.cyc === 'year' ? s.amt / 12 : s.cyc === 'month' ? s.amt : 0; }
 function rvSubsSum(){ var S = db.subRev || {}, K = Object.keys(S), keep = 0, cut = 0, who = {};
   K.forEach(function(k){ var s = S[k]; if(s.say === 'keep' || s.say === 'later') keep += perMo(s); if(s.say === 'cancel') cut += perMo(s); if(s.who && s.say !== 'not') (who[s.who] = who[s.who] || []).push(s); });
-  var row = function(s){ return '<li><span class="ds">' + esc(s.desc) + '<small>' + esc(acctLabel(acct(s.a)||{})) + ' · ' + ({ keep:'keep', cancel:'cancel', later:'decide later', not:'not a subscription' })[s.say] + '</small></span><span class="amt">' + money(s.amt) + (s.cyc === 'year' ? '/yr' : s.cyc === 'month' ? '/mo' : '') + '</span></li>'; };
+  var row = function(s){ var k = Object.keys(S).filter(function(x){ return S[x] === s; })[0]; return '<li' + (s.say === 'cancel' ? ' class="tap" onclick="cancelHelp(\'' + esc(k).replace(/'/g,'') + '\',\'rvSubsSum()\')"' : '') + '><span class="ds">' + esc(s.desc) + '<small>' + esc(acctLabel(acct(s.a)||{})) + ' · ' + ({ keep:'keep', cancel:'cancel — tap for a cancellation message', later:'decide later', not:'not a subscription' })[s.say] + (s.up ? ' · 📈 went up' : '') + '</small></span><span class="amt">' + money(s.amt) + (s.cyc === 'year' ? '/yr' : s.cyc === 'month' ? '/mo' : '') + '</span></li>'; };
   openSheet('<div class="stepno">Part 3 · subscriptions</div><h3>Your subscriptions</h3>'
     + '<div class="line ok">Keeping about <b>' + money(keep,1) + '</b> a month.' + (cut ? ' Cancelling saves about <b>' + money(cut,1) + '</b> a month — ' + money(cut * 12,1) + ' a year.' : '') + '</div>'
     + (cut ? '<p class="sub">Cancelling is done on each company’s own website or app — this app never logs in anywhere. After you do, the next statement shows whether the charge stopped.</p>' : '')
@@ -3792,6 +3806,32 @@ function openNote(m){ m = m || pulseMonth(); var L = noteLines(m);
 function noteSay(m){ try{ if(window.djSayNow) djSayNow(); speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(monthName(m) + '. ' + noteLines(m).join(' ')); u.rate = .95; speechSynthesis.speak(u); }catch(e){ alert('This browser can’t read aloud. Read it together from the screen.'); } }
 function notePrint(m){ document.getElementById('printable').innerHTML = '<h2>' + esc((db.name ? db.name + ' — ' : '') + monthName(m)) + '</h2>' + noteLines(m).map(function(x){ return '<p>' + esc(x) + '</p>'; }).join(''); window.print(); }
 
+/* v7.6 · safe to spend (Jerry chose it, 18 Nov): one plain figure for the rest of this month — the Part 1 plan, minus what is
+   already spent on it, minus the regular bills that haven't come out yet this month. */
+function safeToSpend(){ var m = thisMonth(), x = three(m), day = new Date().getDate(), due = [];
+  regulars().forEach(function(g){ var c = cat(g.last.cat); if(!c || part(c) !== 1 || channel(g.last)) return;
+    var seen = db.tx.some(function(t){ return t.d.slice(0,7) === m && (mkey(t.desc) || t.desc) === g.k && t.amt > 0; }); if(seen) return;
+    var dd = +g.last.d.slice(8,10); if(dd >= day) due.push({ desc:g.desc, amt:g.avg, day:dd }); });
+  var dueT = r2(due.reduce(function(s,d){ return s + d.amt; },0));
+  return { v:r2(x.P1 - x.p1s - dueT), plan:x.P1, spent:x.p1s, due:due.sort(function(a,b){ return a.day - b.day; }), dueT:dueT }; }
+function openSafe(){ var st = safeToSpend();
+  openSheet('<div class="stepno">' + esc(monthName(thisMonth())) + '</div><h3>' + money(st.v,1) + ' still safe to spend</h3>'
+    + '<div class="trow"><span>Plan for the month (Part 1)</span><b>' + money(st.plan,1) + '</b></div><div class="trow"><span>Spent so far</span><b>− ' + money(st.spent,1) + '</b></div><div class="trow"><span>Bills still to come out</span><b>− ' + money(st.dueT,1) + '</b></div>'
+    + (st.due.length ? '<ul class="list">' + st.due.map(function(d){ return '<li><span class="d">around the ' + d.day + (d.day % 10 === 1 && d.day !== 11 ? 'st' : d.day % 10 === 2 && d.day !== 12 ? 'nd' : d.day % 10 === 3 && d.day !== 13 ? 'rd' : 'th') + '</span><span class="ds">' + esc(d.desc) + '</span><span class="amt">' + money(d.amt,1) + '</span></li>'; }).join('') + '</ul>' : '<p class="sub">No regular bills left to come out this month.</p>')
+    + '<p class="sub">Bills are the payees that come out most months, at their usual amount and day. Yearly bills are saved for separately, in Part 2.</p><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
+
+/* v7.6 · a giving goal with progress (Jerry chose it, 18 Nov) */
+function givingCats(){ return db.cats.filter(function(c){ return /giv|donat|church|tith|charit|mission|offering/i.test(c.name) || (c.kw && c.kw === KW.give); }); }
+function givenThisYear(){ var ids = {}; givingCats().forEach(function(c){ ids[c.id] = 1; }); return r2(db.tx.filter(function(t){ return ids[t.cat] && t.amt > 0 && inWin(t) && counts(acct(t.a)); }).reduce(function(s,t){ return s + t.amt; },0)); }
+function givingHTML(){ if(!givingCats().length) return ''; var g = givenThisYear(), goal = num(db.giveGoal) || 0;
+  if(!goal) return '<div class="line ok" onclick="openGiveGoal()" style="cursor:pointer">🙏 Given this year: <b>' + money(g,1) + '</b>. <u>Set a giving goal</u></div>';
+  var p = Math.min(100, Math.round(g / goal * 100));
+  return '<div onclick="openGiveGoal()" style="cursor:pointer;margin-top:10px" id="giveRow"><div class="trow" style="padding:0"><span>🙏 Giving</span><b>' + money(g,1) + ' of ' + money(goal,1) + '</b></div><div class="meter" style="margin-top:6px"><i style="width:' + p + '%;background:var(--ok)"></i></div><div class="sub" style="margin:4px 0 0;font-size:13px">' + p + '% of this year’s goal' + (g >= goal ? ' — reached ✓' : '') + '</div></div>'; }
+function openGiveGoal(){ var g = givenThisYear(), ms = Math.max(1, months().length), guess = niceRound(g / ms * 12);
+  openSheet('<div class="stepno">Giving</div><h3>Our giving goal for ' + esc(winLabel()) + '</h3><p class="sub">So far this year: <b>' + money(g,1) + '</b>, from ' + givingCats().map(function(c){ return esc(c.name); }).join(', ') + '. At this pace, about ' + money(guess,1) + ' for the year.</p>'
+    + '<label for="ggIn">The goal for the year</label><input id="ggIn" inputmode="decimal" value="' + (db.giveGoal || guess || '') + '">'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="db.giveGoal=num(document.getElementById(\'ggIn\').value)||0;save();closeSheet();render();toast(\'Saved.\')">Save the goal</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
+
 /* ── lists: business, a person tracked separately, the as-needed logs ── */
 function openLists(){
   var biz = db.tx.filter(function(t){ return t.cat === 'biz'; }), e529 = db.tx.filter(function(t){ return t.cat === 'edu529'; });
@@ -3877,7 +3917,9 @@ function render(){
     + row('Left over', money(x.left,1), x.left < 0 ? 'the budget is more than income' : '', 1)
     + (db.threePart ? row('3 · As needed this month', money(x.P3,1), 'help and one-time payments', 0, 'openLists()') : '')
     + '<div class="line ' + (x.take > 0 ? 'warn' : 'ok') + '" onclick="openWhy(\'take\')" style="cursor:pointer">' + (x.take > 0 ? '🏦 Take <b>' + money(x.take,1) + '</b> from savings or investments this month.' : '✓ Nothing needs to come from savings this month.') + '</div>'
-    + (db.setAside && db.threePart && x.P2 ? '<div class="line ok">🐖 Move ' + money(x.P2,1) + ' to the set-aside savings this month.</div>' : '') + '</div>';
+    + (db.setAside && db.threePart && x.P2 ? '<div class="line ok">🐖 Move ' + money(x.P2,1) + ' to the set-aside savings this month.</div>' : '')
+    + (view === thisMonth() && db.budgetSet ? (function(){ var st = safeToSpend(); return '<div class="trow strong" id="safeRow" onclick="openSafe()" style="cursor:pointer"><span>Still safe to spend<small>the rest of ' + monthOnly(view) + ': plan, minus spent, minus ' + st.due.length + ' bill' + (st.due.length===1?'':'s') + ' still due</small></span><b style="color:' + (st.v < 0 ? 'var(--red)' : 'inherit') + '">' + money(st.v,1) + '</b></div>'; })() : '')
+    + givingHTML() + '</div>';
   var N = db.budgetSet ? notices(view) : [];
   var showAll = render.all; if(N.length) h += '<div class="card" id="notices"><h2>🚩 Worth a look <small>' + N.length + '</small></h2>' + N.slice(0, showAll ? 99 : 4).map(function(n){
     return '<div class="notice"><span class="em">' + n.em + '</span><span class="tx">' + n.t + '</span>' + (n.go ? '<button class="b small" onclick="' + n.go + '">' + (n.btn||'See') + '</button>' : '') + '<button class="b small ghost" aria-label="Seen it" onclick="seen(\'' + n.k.replace(/'/g,'') + '\')">✓</button></div>'; }).join('') + (N.length > 4 && !showAll ? '<button class="b full" onclick="render.all=1;render()">Show ' + (N.length-4) + ' more</button>' : '') + '</div>';
