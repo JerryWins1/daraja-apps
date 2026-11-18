@@ -1321,7 +1321,8 @@
       var j = await r.json();
       if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
       closeAISheet(); return j.text;
-    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
+    }catch(e){ if(o.onFail){ closeAISheet(); o.onFail(e.message || 'no answer'); return AI_CANCELLED; }   /* familydash v7.9: a run that reads by itself says what happened, rather than opening a copy-and-paste AI nobody asked for */
+      var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
   async function builtIn(prompt){
     try{
@@ -2372,7 +2373,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v7.8 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v7.9 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -5060,7 +5061,10 @@ function structAcct(g, folder, sample, rel){ rel = rel || folder; var l4 = (/(\d
   var type = structType(g, folder), a = { id:uid(), name:nm + (g === 'pay' && !/payment app/i.test(nm) ? ' (payment app)' : ''), inst:bankOf(folder) || nm, type:type, last4:l4, hist:[], mapG:g, sfolder:folder, srel:rel, folder:folder, track: /^(bank|card|pay)$/.test(g) ? 'lines' : 'total', found:1 };
   if(type === 'card'){ a.payMode = 'full'; a.autopay = true; } setBal(a, 0); a.balUnknown = 1; db.accts.push(a); return a; }
 var FMAUTO = 0;
-function fmDone(SK){ if(!FMAUTO && !FAI && (db.prof||{}).send === 'auto' && db.accts.some(function(a){ return fmBadPdfs(a).length; })){ FMAUTO = 1; setTimeout(fmAIall, 400); }
+/* v7.9 · Jerry, 18 Nov: "If you know I'm gonna use AI why do you have to ask? Just go do it." Unless the family said no to
+   sending statements, a PDF the app can't read goes to AI the moment the folder is read — no button, no question. */
+function aiAuto(){ var P = db.prof || {}; return P.send !== 'no' && P.mode !== 'ai'; }
+function fmDone(SK){ if(!FMAUTO && !FAI && aiAuto() && db.accts.some(function(a){ return fmBadPdfs(a).length; })){ FMAUTO = 1; setTimeout(fmAIall, 400); }
   /* v4.2 · the folder, drawn (Jerry, 16 Nov: "some kind of graphical connection like this with the files for the different
      folders… a graphical connection to the actual folder on the drive so you can kind of see it visually"). Family Money on
      the left, its group folders, then each account folder and the account it became, joined by lines; green when every
@@ -5107,8 +5111,11 @@ function doorUse(){ var d = db.aiDay = db.aiDay && db.aiDay.d === today() ? db.a
    PDF goes straight to Claude; until then, the family's own AI opens and they attach the file there. */
 function fmBadPdfs(a){ return (FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []).filter(function(p){ return !FMR[p] && /\.pdf$/i.test(p) && PDFF[p]; }); }
 function fmAI(id){ fmAIask([id]); }
+function fmCap(){ var left = 0; db.accts.forEach(function(x){ left += fmBadPdfs(x).length; });
+  openSheet('<h3>That’s today’s AI reading used up</h3><p class="sub">Daraja’s AI connection reads 40 times a day for each household. ' + left + ' PDF' + (left===1?' is':'s are') + ' still to read. Open the app tomorrow and read your folder — they’ll go by themselves. Everything read so far is kept.</p>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet();render()">OK</button></div>'); }
 function fmAIall(){ fmAIask(db.accts.filter(function(a){ return fmBadPdfs(a).length; }).map(function(a){ return a.id; })); }
-function fmAIask(ids){ if(!ids.length) return; if((db.prof||{}).send === 'auto'){ FAI = { ids:ids, i:0 }; fmAIgo(); return; } var n = 0; ids.forEach(function(id){ n += fmBadPdfs(acct(id)).length; });
+function fmAIask(ids){ if(!ids.length) return; if(aiAuto()){ FAI = { ids:ids, i:0 }; fmAIgo(); return; } var n = 0; ids.forEach(function(id){ n += fmBadPdfs(acct(id)).length; });
   openSheet('<div class="stepno">Reading PDFs with AI</div><h3>Read ' + (n === 1 ? 'this statement' : 'these ' + n + ' statements') + ' with AI?</h3>'
     + '<p class="sub">I couldn\u2019t read ' + (n === 1 ? 'it' : 'them') + ' myself. With your OK they go to ' + ((db.prof && db.prof.door) ? 'Claude, through Daraja' : 'your AI') + ', one account at a time, and the lines come back here. The statements leave this device for that.</p>'
     + ((db.prof && db.prof.door && n > doorLeft()) ? '<div class="line warn" style="font-size:14.5px">The Daraja AI connection reads up to 40 times a day, and ' + doorLeft() + ' are left today. A long first year may finish tomorrow — or your own AI takes the rest.</div>' : '')
@@ -5144,6 +5151,10 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
     var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.';
     var title = 'Reading ' + acctLabel(a) + ' with AI' + (F.ids.length > 1 ? ' · account ' + (F.i + 1) + ' of ' + F.ids.length : '');
     function send(o, covered){ o.title = title; o.want = 'text'; o.circle = false; o.agreed = 1; closeSheet();
+      if(door) o.onFail = function(msg){ FAI = null; var cap = /all the asks for today/.test(msg); if(cap){ db.aiDay = { d:today(), n:40 }; save(); }
+        if(cap) return fmCap();
+        openSheet('<h3>The AI didn’t answer</h3><p class="sub">' + esc(acctLabel(a)) + ': ' + esc(msg) + '. Everything read so far is kept.</p>'
+          + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet();FMAUTO=0;fmAIall()">Try again</button><button class="b ghost" style="width:100%" onclick="closeSheet();render()">Later</button></div>'); };
       var tot = F.tot[id], doneN = tot - L.length, have = db.tx.filter(function(t){ return t.a === id; }).length;
       o.wait = 'Statements ' + (doneN + 1) + (covered.length > 1 ? '–' + (doneN + covered.length) : '') + ' of ' + tot + (have ? ' · ' + have + ' lines in so far' : '') + '. Nothing to tap — it carries on by itself.';
       o.onResult = function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ if(o.partial){ fmAIgo(); return; } alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
@@ -5152,8 +5163,8 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
     var textPrompt = function(also){ return 'Below is the text of ' + ok.length + ' bank or card statement' + (ok.length===1?'':'s') + ' from one account (' + a.name + ')' + (also ? also : '') + '. ' + HEAD + '\n\n' + ok.map(function(x){ return '===== ' + x.name + ' =====\n' + maskNums(x.text); }).join('\n\n'); };
     /* with the Daraja AI connection: the words of every readable PDF go in one question, and each scanned one goes as itself,
        one at a time (the connection takes one file per question). Nothing to attach, nothing to paste back. */
-    if(door && doorLeft() <= 0) door = false;   /* 40 a day used: the family's own AI takes the rest today */
-    if(door){ var LIM = 20000, pre = 'Below is the text of bank or card statements from one account (' + a.name + '). ' + HEAD + '\n\n';
+    if(door && doorLeft() <= 0){ FAI = null; return fmCap(); }   /* v7.9 · 40 a day used: say so, and the rest is read tomorrow by itself */
+    if(door){ var LIM = 10000,   /* v7.9 · the door answers in at most 2,000 tokens: about one statement's lines. Bigger batches came back cut short */ pre = 'Below is the text of bank or card statements from one account (' + a.name + '). ' + HEAD + '\n\n';
       if(ok.length){ var batch = [], size = pre.length;
         for(var bi = 0; bi < ok.length; bi++){ var piece = '===== ' + ok[bi].name + ' =====\n' + maskNums(ok[bi].text); if(batch.length && size + piece.length > LIM) break; batch.push({ x:ok[bi], t:piece }); size += piece.length; if(size > LIM) break; }
         var one = batch[0];
@@ -5235,7 +5246,7 @@ function profStart(){ db.autoAsked = 1; db.prof = db.prof || {}; save(); var P =
     + grp('src', '2 · What are your bank and card statements mostly?', [['pdf','PDFs'],['csv','Downloads (CSV, Quicken)'],['paper','Paper'],['unsure','Not sure']])
     + grp('ai', '3 · Do you use an AI helper?', AIS)
     + grp('mode', '4 · Who reads the statements?', [['manual','This app — it reads my folder'],['ai','My own Claude or ChatGPT app']])
-    + '<p class="sub" style="margin:6px 0 0"><b>This app</b> (recommended): you pick your Family Money folder once, and the app reads every statement in it. Any PDF it can’t read goes to Claude through Daraja’s own AI connection, with your OK, and the lines come back by themselves — no attaching, no pasting. Each month, one tap reads the new ones. <b>My own app:</b> for people who already use Claude’s Cowork or ChatGPT’s desktop app on a folder — it sorts everything there and hands this app one spreadsheet.</p>'
+    + '<p class="sub" style="margin:6px 0 0"><b>This app</b> (recommended): you pick your Family Money folder once, and the app reads every statement in it. Any PDF it can’t read goes straight to Claude through Daraja’s own AI connection (account numbers hidden), and the lines come back by themselves — no attaching, no pasting. Each month, one tap reads the new ones. <b>My own app:</b> for people who already use Claude’s Cowork or ChatGPT’s desktop app on a folder — it sorts everything there and hands this app one spreadsheet.</p>'
     + '<div id="profWarn" class="line warn" style="display:none;font-size:14.5px;font-weight:700">Only Claude or ChatGPT, in their apps on a computer, can read a whole folder. Pick one of those in question 3, or choose “This app” in question 4 — it reads your folder itself and does the same job.</div>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="profSave()">Next</button><button class="b ghost" style="width:100%" onclick="autoScreenOld()">Other ways to start</button></div>'); }
 function profWarnCheck(){ var g = function(k){ var b = document.querySelector('[data-pq="' + k + '"] button.on'); return b ? b.getAttribute('data-v') : ''; }, w = document.getElementById('profWarn'); if(!w) return false;

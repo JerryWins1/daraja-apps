@@ -830,3 +830,11 @@ Jerry: "there was like 3 or 4 questions along the way… can you just do that on
 - Instead, one status box: "Reading <account> with AI · Statements 3 of 12 · 85 lines in so far. Nothing to tap — it carries on by itself."
 - On a computer, every sheet sits in the middle of the screen instead of at the bottom edge, where it could fall out of view.
 - The confirmations kept are the ones that guard against losing data (erase, remove, restore, start over).
+
+## v7.9 · PDFs go to AI by themselves, and the daily limit is said plainly (18 Nov)
+
+Jerry: "If you know I'm gonna use AI why do you have to ask? Just go do it." Also, 7308 Old still showed "12 not read yet" after a run.
+- Unless the family said no to sending statements, PDFs the app can't read go to AI as soon as the folder is read. No button, no question.
+- When the AI connection's 40-a-day household limit is reached, the app now says so and leaves the rest for tomorrow. It used to fall back without a word to a copy-and-paste AI.
+- Any other connection error shows "The AI didn't answer" with **Try again**.
+- Batches are now about 10,000 characters, not 20,000. The connection answers in at most 2,000 tokens, so a bigger batch could come back cut short.
