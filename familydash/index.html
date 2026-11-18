@@ -1202,7 +1202,7 @@
   function sheet(html){
     var old = document.getElementById('djAISheet'); if(old) old.remove();
     var w = document.createElement('div'); w.id = 'djAISheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Ask an AI');
-    w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:' + (innerWidth >= 700 ? 'center' : 'flex-end') + ';justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
     box.innerHTML = html; w.appendChild(box);
@@ -1311,9 +1311,11 @@
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
-    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
-    if(!ok) return AI_CANCELLED;
-    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
+    /* familydash v7.8 · Jerry, 18 Nov: "there was like 3 or 4 questions along the way… can you just do that on your own?"
+       o.agreed means the person already said yes to this whole run (Read with AI), so each batch goes without its own box. */
+    if(!o.agreed){ var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
+      if(!ok) return AI_CANCELLED; }
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">' + esc(o.wait || 'Thinking — a few seconds.') + '</p>');
     try{
       var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
       var j = await r.json();
@@ -2252,7 +2254,7 @@
   .give{ text-align:center; font-size:14.5px; color:var(--soft); margin-top:18px; }
   .foot{ color:var(--soft); font-size:13px; text-align:center; margin-top:14px; }
   /* sheets */
-  .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:2147481500; } .sheet.on{ display:flex; }
+  .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:2147481500; } .sheet.on{ display:flex; } @media (min-width:700px){ .sheet{ align-items:center; } }
   .stickfoot{ position:sticky; bottom:calc(-18px - env(safe-area-inset-bottom)); background:var(--paper); padding:10px 0 8px; margin-top:10px; box-shadow:0 -10px 14px var(--paper); }
   .sheet .in{ background:var(--paper); color:var(--ink); width:100%; max-width:640px; margin:0 auto; max-height:92vh; max-height:92dvh; overflow:auto; border-radius:22px 22px 0 0; padding:16px 16px calc(18px + env(safe-area-inset-bottom)); }
   .sheet h3{ margin:0 0 6px; font-size:22px; } .sheet .sub{ margin:0 0 10px; color:var(--soft); font-size:15px; }
@@ -2370,7 +2372,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v7.7 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v7.8 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -5132,16 +5134,18 @@ function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a);
 var FREAD = 0;
 var PTXT = {};   /* each PDF is read once a session; the next batch doesn't read it again */
 function pdfTextSafe(f){ if(f && PTXT[f.name + '|' + f.size + '|' + f.lastModified] != null) return Promise.resolve(PTXT[f.name + '|' + f.size + '|' + f.lastModified]); return Promise.race([ pdfText(f).catch(function(){ return ''; }), new Promise(function(res){ setTimeout(function(){ res(''); }, 20000); }) ]).then(function(t){ if(f) PTXT[f.name + '|' + f.size + '|' + f.lastModified] = t || ''; return t; }); }
-function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = ++FREAD, T = [], k = 0;
+function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = ++FREAD, T = [], k = 0; F.tot = F.tot || {}; if(!F.tot[id]) F.tot[id] = L.length;
   function show(){ openSheet('<h3>Reading the words off your PDFs…</h3><p class="sub">' + esc(acctLabel(a)) + ' · ' + Math.min(k + 1, L.length) + ' of ' + L.length + (L[k] ? ': ' + esc(String(L[k]).split('/').pop()) : '') + '</p><div class="meter" style="margin:10px 0"><i style="width:' + Math.round(k / L.length * 100) + '%;background:var(--ok)"></i></div><div class="stickfoot"><button class="b ghost" style="width:100%;margin-top:0" onclick="FREAD++;FAI=null;closeSheet();render()">Stop</button></div>'); }
-  function next(){ if(run !== FREAD) return; if(k >= L.length) return done(T); show(); var path = L[k];
+  function next(){ if(run !== FREAD) return; if(k >= L.length) return done(T); var path = L[k], f0 = PDFF[path]; if(!(f0 && PTXT[f0.name + '|' + f0.size + '|' + f0.lastModified] != null)) show();
     pdfTextSafe(PDFF[path]).then(function(t){ if(run !== FREAD) return; T.push({ path:path, name:String(path).split('/').pop(), text:t || '' }); k++; next(); }); }
   next();
   function done(T){
     var ok = T.filter(function(x){ return x.text.trim().length > 40; }), scan = T.filter(function(x){ return x.text.trim().length <= 40; });
     var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.';
-    var title = a.name + ': read ' + T.length + ' statement' + (T.length===1?'':'s') + (F.ids.length > 1 ? ' (account ' + (F.i + 1) + ' of ' + F.ids.length + ')' : '');
-    function send(o, covered){ o.title = title; o.want = 'text'; o.circle = false;
+    var title = 'Reading ' + acctLabel(a) + ' with AI' + (F.ids.length > 1 ? ' · account ' + (F.i + 1) + ' of ' + F.ids.length : '');
+    function send(o, covered){ o.title = title; o.want = 'text'; o.circle = false; o.agreed = 1; closeSheet();
+      var tot = F.tot[id], doneN = tot - L.length, have = db.tx.filter(function(t){ return t.a === id; }).length;
+      o.wait = 'Statements ' + (doneN + 1) + (covered.length > 1 ? '–' + (doneN + covered.length) : '') + ' of ' + tot + (have ? ' · ' + have + ' lines in so far' : '') + '. Nothing to tap — it carries on by itself.';
       o.onResult = function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ if(o.partial){ fmAIgo(); return; } alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
         p.path = covered[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; covered.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); };
       ask(o); }

@@ -822,3 +822,11 @@ An account with no lines in the year now shows **no lines yet** in red, with the
 - PDFs it couldn't read itself (with a button to read them with AI);
 - its files gave no lines for the year; or
 - the app doesn't have the folder's files this session (read the folder again).
+
+## v7.8 · reading with AI asks once, then just reports (18 Nov)
+
+Jerry: "there was like 3 or 4 questions along the way… can you just do that on your own? Or maybe just give a status line."
+- Saying yes to **Read with AI** covers the whole run. Each batch to the Daraja AI connection no longer opens its own "Send it" box.
+- Instead, one status box: "Reading <account> with AI · Statements 3 of 12 · 85 lines in so far. Nothing to tap — it carries on by itself."
+- On a computer, every sheet sits in the middle of the screen instead of at the bottom edge, where it could fall out of view.
+- The confirmations kept are the ones that guard against losing data (erase, remove, restore, start over).
