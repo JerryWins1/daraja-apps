@@ -780,3 +780,13 @@ The house layer chat switched the connection on, in PRs #364 and #396. `control/
 **Tested:** three PDFs, one of them very long, needed 6 questions, every one under 20,000 characters. All three were marked read, and 34 questions were left that day.
 
 **Videos:** the "two ways" lines in "Explain it to me" and "Train me" now put the app reading the folder first. Both were re-recorded.
+
+## v7.5 · 18 Nov 2026 · reading PDFs can't get stuck
+
+Jerry's screen sat on "Reading the words off 12 PDFs…" and never moved.
+
+- **One PDF at a time,** with "3 of 12: name.pdf", a progress bar, and a Stop button.
+- **Each PDF gets 20 seconds.** One that hangs is skipped, has no words, and so goes to AI as a file, instead of stopping everything.
+- **Each PDF's words are read once a session** (`PTXT`), so the next batch for the same account doesn't read them again.
+
+**Tested:** three PDFs, one of them hanging forever. The other two went as text (one in 4 parts), and the hanging one went as a file after 20 seconds. All three were marked read.
