@@ -848,3 +848,7 @@ Jerry's run stopped at "I could not find any lines in that answer". His Communit
 ## v8.1 · the AI connection's daily limit is 200 (18 Nov)
 
 Jerry raised the door's cap from 40 to 200 a day per household (PR #423). The app kept its own count, hardcoded to 40 in four places. That count is now one number, `DOOR_CAP`, set to 200.
+
+## v8.2 · the bottom buttons stay on top (18 Nov)
+
+Jerry: the folder map's boxes slid over the "Looks right — next" bar as he scrolled. The sticky bottom bar on every sheet now sits above the content scrolling behind it.
