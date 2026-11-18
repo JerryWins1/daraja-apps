@@ -813,3 +813,12 @@ These three came in a relay from the Store Manager. Jerry chose them after compa
 **Video and tester script**
 - Two lines were added to "Explain it to me", which was re-recorded; checkvideos passes 3 of 3.
 - The tester script gained two steps.
+
+## v7.7 · an account with no lines is not "sorted" (18 Nov)
+
+Jerry: both Community Trust accounts showed "✓ sorted · 0 lines", though 7308 Old holds 2026 statements.
+An account with no lines in the year now shows **no lines yet** in red, with the reason:
+- lines came in but every one is outside the year (with the months, and a link to change the year);
+- PDFs it couldn't read itself (with a button to read them with AI);
+- its files gave no lines for the year; or
+- the app doesn't have the folder's files this session (read the folder again).
