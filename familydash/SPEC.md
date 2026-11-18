@@ -852,3 +852,11 @@ Jerry raised the door's cap from 40 to 200 a day per household (PR #423). The ap
 ## v8.2 · the bottom buttons stay on top (18 Nov)
 
 Jerry: the folder map's boxes slid over the "Looks right — next" bar as he scrolled. The sticky bottom bar on every sheet now sits above the content scrolling behind it.
+
+## v8.3 · sort right here, one payee at a time (18 Nov)
+
+Jerry: "is there a way… AI reads them, and then… would you like to categorize your transactions? And then you go one by one in the app." He chose: build it, and keep the spreadsheet as an option.
+- **👆 Sort it here** on each account (`sortIn`). Lines are grouped by payee, so one answer sorts every line from it. The app's guess is already picked; you can pick another category or name a new one. "Not sure — ask me later" sends the payee to the questions round. Checks, cash and money sent to people come one line at a time, each with a note box.
+- Answers are learned exactly as a returned spreadsheet's are (`sortSet`: rules, reclass, asked). Payees already known, and card payments, sort themselves first (`autoKnown`).
+- The spreadsheet stays as a link under each account's button.
+- The three videos and the tester script describe sorting in the app. All three videos were re-recorded by name.
