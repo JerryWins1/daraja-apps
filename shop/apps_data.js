@@ -886,7 +886,7 @@ const APPS = {
    "New in November: next to Text it there is a WhatsApp button — for the week of dinners and for the shopping list. Pick the family chat and press send.",
    "Our Table is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it below: put in three dinners your family really eats, and plan this week."],
   name:'Our Table', em:'🍽', sub:'dinner, decided', fresh:true, cat:'home', price:'Free', testing:true,
-  tag:'Keep the recipes you actually cook, fill the week in one tap, and get one shopping list for all of it. Your recipes stay on your phone — nobody can shut it down.',
+  tag:'Keep the recipes you actually cook, fill the week in one tap, and get one shopping list for all of it. Stuck tonight? Your own AI suggests dinners from what is already in the kitchen. Your recipes stay on your phone — nobody can shut it down.',
   try:BASE+'ourtable/', video:true
  },
  jarbyjar: {
