@@ -838,3 +838,9 @@ Jerry: "If you know I'm gonna use AI why do you have to ask? Just go do it." Als
 - When the AI connection's 40-a-day household limit is reached, the app now says so and leaves the rest for tomorrow. It used to fall back without a word to a copy-and-paste AI.
 - Any other connection error shows "The AI didn't answer" with **Try again**.
 - Batches are now about 10,000 characters, not 20,000. The connection answers in at most 2,000 tokens, so a bigger batch could come back cut short.
+
+## v8.0 · picture statements go as PDFs, and no pop-up when a read finds nothing (18 Nov)
+
+Jerry's run stopped at "I could not find any lines in that answer". His Community Trust PDFs have the header in words and the transactions as a picture. Because they had some words, eleven nearly empty texts went in one batch, and the AI found nothing in them.
+- A statement only counts as text if its words hold at least three amounts. Otherwise the PDF itself goes, one per ask.
+- If a text batch gives no lines, those statements are sent again as PDFs. A PDF that still gives nothing, or is over 5 MB, is set aside with a short notice. No pop-up stops the run.
