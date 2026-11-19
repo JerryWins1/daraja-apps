@@ -242,7 +242,7 @@ Jerry: "I think you should gather all the files then read them so you can have i
 - Everything is read first. Then one screen per kind (bank accounts, cards, payment apps, your own spreadsheets, PDFs with nothing readable) shows what was suggested, for approving or changing. Next comes the summary of accounts, income and yearly bills, then the questions, filled in where the statements answer them.
 - When setup is done, the money map's check opens. It shows the months still missing and a "Not in your map yet" list (investments, education funds, loans, insurance) for the things statements can't show.
 - The "one kind at a time" choice is gone from the first screen; the money map covers one-at-a-time.
-- A credit union's name taken from a file name no longer drags the file name along ("CTCU Statement Oct.pdf Community Trust Credit Union" is now "Community Trust Credit Union"), and "Navy Federal" keeps "Federal".
+- A credit union's name taken from a file name no longer drags the file name along ("XYZ Statement Oct.pdf Example Credit Union" is now "Example Credit Union"), and "Navy Federal" keeps "Federal".
 
 ## Addendum, 15 Nov (v2.4) — checking what was read, as cards
 
@@ -621,7 +621,7 @@ The findings deck, the separate "Getting to know you" step, the money-map audit 
 
 **The budget** (`budStart`):
 - It first asks how often each kind of spending comes, then shows the monthly amounts.
-- `budgetXlsx` downloads the budget laid out like the Winslow budget:
+- `budgetXlsx` downloads the budget laid out like Jerry’s own family budget spreadsheet:
   - THIS MONTH at the top, with formulas
   - Part 1 by group, with low month, high month and notes
   - a Variable section
@@ -816,7 +816,7 @@ These three came in a relay from the Store Manager. Jerry chose them after compa
 
 ## v7.7 · an account with no lines is not "sorted" (18 Nov)
 
-Jerry: both Community Trust accounts showed "✓ sorted · 0 lines", though 7308 Old holds 2026 statements.
+Jerry: both checking accounts at his bank showed "✓ sorted · 0 lines", though the old checking account holds 2026 statements.
 An account with no lines in the year now shows **no lines yet** in red, with the reason:
 - lines came in but every one is outside the year (with the months, and a link to change the year);
 - PDFs it couldn't read itself (with a button to read them with AI);
@@ -833,7 +833,7 @@ Jerry: "there was like 3 or 4 questions along the way… can you just do that on
 
 ## v7.9 · PDFs go to AI by themselves, and the daily limit is said plainly (18 Nov)
 
-Jerry: "If you know I'm gonna use AI why do you have to ask? Just go do it." Also, 7308 Old still showed "12 not read yet" after a run.
+Jerry: "If you know I'm gonna use AI why do you have to ask? Just go do it." Also, the old checking account still showed "12 not read yet" after a run.
 - Unless the family said no to sending statements, PDFs the app can't read go to AI as soon as the folder is read. No button, no question.
 - When the AI connection's 40-a-day household limit is reached, the app now says so and leaves the rest for tomorrow. It used to fall back without a word to a copy-and-paste AI.
 - Any other connection error shows "The AI didn't answer" with **Try again**.
@@ -841,7 +841,7 @@ Jerry: "If you know I'm gonna use AI why do you have to ask? Just go do it." Als
 
 ## v8.0 · picture statements go as PDFs, and no pop-up when a read finds nothing (18 Nov)
 
-Jerry's run stopped at "I could not find any lines in that answer". His Community Trust PDFs have the header in words and the transactions as a picture. Because they had some words, eleven nearly empty texts went in one batch, and the AI found nothing in them.
+Jerry's run stopped at "I could not find any lines in that answer". His bank’s PDFs have the header in words and the transactions as a picture. Because they had some words, eleven nearly empty texts went in one batch, and the AI found nothing in them.
 - A statement only counts as text if its words hold at least three amounts. Otherwise the PDF itself goes, one per ask.
 - If a text batch gives no lines, those statements are sent again as PDFs. A PDF that still gives nothing, or is over 5 MB, is set aside with a short notice. No pop-up stops the run.
 
@@ -890,3 +890,16 @@ Jerry: "Can you output to a spreadsheet so it's there and we can print it?", kep
 - **📊 Spreadsheet** saves three sheets: Every line, Categories (with the year's totals) and Accounts.
 - **🖨️ Print it** prints the accounts, the categories and every line.
 A line says they aren't scrambled, and that only the backup file brings the app back.
+
+## v8.8 · Ours and Practice, and a full check of every screen (19 Nov)
+
+Jerry: "one that's live and my personal one, and it's separate from all the ones that we use while we test", plus a check of every screen and of security while he was away.
+- **Two households on one device.** **Ours** is the real one and keeps the same storage as before, so nothing moves. **Practice** has its own storage. Switch from Settings (first row), or from the purple **🧪 Practice — not your real money** band shown at the top in Practice. In Practice you can wipe it and start again, or start it as a copy of Ours (a locked copy opens with the same passcode). Backups and spreadsheets made in Practice say PRACTICE in the file name.
+- **Wording that wasn't true any more:** the welcome, the add-statements screen and the privacy promise said nothing goes to Daraja. A PDF the app can't read does pass through Daraja's AI connection to Claude, and isn't kept. All three now say so.
+- **The statement squares on the home screen:** the house layer grows any small button to 44px, so the red "missing" squares came out huge. The whole account row is now the tap, and the squares are plain marks.
+- **Sort each account:** an account with no statements at all says so in grey instead of red. A closed account with nothing in it is left off the list.
+- **"Travel is short ."** now gives the amount ("Travel is $896 short.").
+- **The flow chart** shortens long names with "…" instead of cutting them mid-word, and the full name shows on hover.
+- **Links** in sheets use the app's colour.
+- Checked: harmful text planted in a statement line, a note, a charge name and a category name was opened on 31 screens at phone and computer size, and none of it ran. No screen scrolls sideways.
+- Removed the real bank name, the last 4 digits and the family name from these notes and code comments. They had been written into earlier entries.

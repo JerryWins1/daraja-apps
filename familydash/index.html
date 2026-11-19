@@ -2330,6 +2330,7 @@
   .foot{ color:var(--soft); font-size:13px; text-align:center; margin-top:14px; }
   /* sheets */
   .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:2147481500; } .sheet.on{ display:flex; } @media (min-width:700px){ .sheet{ align-items:center; } }
+  #sheetIn a, #main a{ color:var(--brand); font-weight:700; }
   .stickfoot{ position:sticky; z-index:5; bottom:calc(-18px - env(safe-area-inset-bottom)); background:var(--paper); padding:10px 0 8px; margin-top:10px; box-shadow:0 -10px 14px var(--paper); }
   .sheet .in{ background:var(--paper); color:var(--ink); width:100%; max-width:640px; margin:0 auto; max-height:92vh; max-height:92dvh; overflow:auto; border-radius:22px 22px 0 0; padding:16px 16px calc(18px + env(safe-area-inset-bottom)); }
   .sheet h3{ margin:0 0 6px; font-size:22px; } .sheet .sub{ margin:0 0 10px; color:var(--soft); font-size:15px; }
@@ -2441,13 +2442,14 @@
 </head>
 <body>
 <div class="wrap" id="app">
+  <div id="spaceBand" style="display:none;margin:0 0 10px;padding:10px 14px;border-radius:14px;background:#6B2E86;color:#fff;font-weight:800;align-items:center;gap:10px"><span style="flex:1">🧪 Practice — not your real money</span><button class="b small" style="margin:0" onclick="spaceOpen()">Switch</button></div>
   <header>
     <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="8" width="56" height="48" rx="12" fill="#1E4A6B"/><rect x="14" y="34" width="8" height="14" rx="2" fill="#D9A93F"/><rect x="28" y="24" width="8" height="24" rx="2" fill="#F5F3EE"/><rect x="42" y="16" width="8" height="32" rx="2" fill="#C9702F"/></svg>
     <div><h1>Family Money Dashboard</h1><p id="hhName">what we spend · what we set aside · what comes from savings</p></div>
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.7 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.8 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2467,7 +2469,11 @@
    the family's own AI through the house hand-off (djAI). No bank login: statements come in as the CSV,
    OFX or QFX files every bank already exports, or as a PDF the family's AI reads into rows.
    Everything lives in localStorage under one key. The AI drafts only; nothing here can move money. */
-var KEY = 'dj_familydash_v1'; window.DJ_OWNS = { k:[KEY], p:['dj_familydash_'], idb:['dj_familydash_fs'] };
+/* v8.8 · Jerry, 19 Nov: "one that's live and my personal one, and it's separate from all the ones that we use while we test."
+   Two households on one device: Ours (the real one, the same storage as before) and Practice (its own storage, to wipe and
+   rebuild while getting the steps right). Which one is open is kept here; switching reloads the page. */
+var SPACE = (function(){ try{ return localStorage.getItem('dj_familydash_space') === 'practice' ? 'practice' : 'ours'; }catch(e){ return 'ours'; } })();
+var KEY = SPACE === 'practice' ? 'dj_familydash_practice' : 'dj_familydash_v1'; window.DJ_OWNS = { k:[KEY], p:['dj_familydash_'], idb:['dj_familydash_fs'] };
 var JBJ_KEY = 'dj_jarbyjar_v1';
 var db = load(), view = null, pending = [];
 
@@ -2692,7 +2698,7 @@ function openImport(){
     + '<button class="b full" onclick="openPdf()">📄 I only have a PDF statement</button>'
     + '<button class="b full" onclick="openHowTo()">❔ How do I get the file from my bank?</button>'
     + '<button class="b full" onclick="openManual()">✍️ Add one by hand (cash, a check)</button>'
-    + '<p class="sub" style="margin-top:12px">The files are read right where they are on this device and never sent anywhere. Bringing the same file in twice is fine — lines already here are skipped.</p>'
+    + '<p class="sub" style="margin-top:12px">The files are read right here on this device. Only a PDF the app can’t read goes to the AI to be read. Bringing the same file in twice is fine — lines already here are skipped.</p>'
     + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
 }
 function openHowTo(){
@@ -3570,7 +3576,7 @@ function openCompare(){ if(!db.historyFrom){ alert('Pick the year first.'); year
 var EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
 function needExcelJS(ok, fail){ if(window.ExcelJS) return ok(); var s = document.createElement('script'); s.src = EXCELJS_URL; s.onload = ok; s.onerror = fail; document.head.appendChild(s); }
 var SORT_ORD = { bank:1, card:2, pay:3 };
-function sortAccts(){ return db.accts.filter(function(a){ return tracksLines(a) && counts(a) && SORT_ORD[a.mapG || mapOf(a)]; })
+function sortAccts(){ return db.accts.filter(function(a){ return tracksLines(a) && counts(a) && SORT_ORD[a.mapG || mapOf(a)] && !(a.closed && !db.tx.some(function(t){ return t.a === a.id; })); })   /* a closed account with nothing in it is not one to sort */
   .sort(function(a,b){ var ga = SORT_ORD[a.mapG || mapOf(a)], gb = SORT_ORD[b.mapG || mapOf(b)]; if(ga !== gb) return ga - gb; return (a.type === 'checking' ? 0 : 1) - (b.type === 'checking' ? 0 : 1); }); }
 function acctLines(id){ return db.tx.filter(function(t){ return t.a === id && inWin(t); }); }
 function sortState(id){ var L = acctLines(id), done = L.filter(function(t){ return db.asked[t.id] && t.cat !== 'uncat' && db.notSure.indexOf(t.id) < 0; }).length, later = L.filter(function(t){ return db.notSure.indexOf(t.id) >= 0; }).length;
@@ -3581,8 +3587,8 @@ function sortHub(){ var A = sortAccts(), S = A.map(function(a){ return sortState
   openSheet('<div class="stepno">Sort each account</div><h3>One account at a time</h3><p class="sub">Checking first, then each credit card, then PayPal and Venmo. Right here in the app, one payee at a time, with the app’s guess already picked: tap it if it’s right, or pick another. One answer sorts every line from that payee, and the app remembers it, so next month is shorter. Rather use a spreadsheet? Each account has one too. A payment to a credit card is just money moving — what it bought is sorted on that card.</p>'
     + A.map(function(a, i){ var s = S[i], p = s.n ? Math.round((s.done + s.later) / s.n * 100) : 0, ok = s.n > 0 && !s.left;
       if(!s.n){ var bp = fmBadPdfs(a).length, files = (FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []).length, out = db.tx.filter(function(t){ return t.a === a.id; }), om = {};
-        out.forEach(function(t){ om[t.d.slice(0,7)] = 1; }); var oms = Object.keys(om).sort();   /* v7.7 · no lines is not "sorted" (Jerry, 18 Nov: 7308 Old showed ✓ with 0 lines) */
-        return '<div class="card" style="margin:8px 0;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">' + (TYPES[a.type] ? TYPES[a.type].em : '🏦') + '</span><b style="flex:1">' + esc(acctLabel(a)) + '</b><span style="font-weight:800;color:var(--red)">no lines yet</span></div>'
+        out.forEach(function(t){ om[t.d.slice(0,7)] = 1; }); var oms = Object.keys(om).sort();   /* v7.7 · no lines is not "sorted" (Jerry, 18 Nov: the old checking account showed ✓ with 0 lines) */
+        return '<div class="card" style="margin:8px 0;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">' + (TYPES[a.type] ? TYPES[a.type].em : '🏦') + '</span><b style="flex:1">' + esc(acctLabel(a)) + '</b><span style="font-weight:800;color:' + (out.length || bp ? 'var(--red)' : 'var(--soft)') + '">' + (out.length || bp || files ? 'no lines yet' : 'no statements yet') + '</span></div>'
           + '<div class="sub" style="margin:6px 0 0">' + (out.length ? out.length + ' line' + (out.length===1?'':'s') + ' came in, but ' + (out.length===1?'it is':'all are') + ' from ' + esc(monthName(oms[0])) + (oms.length > 1 ? ' to ' + esc(monthName(oms[oms.length-1])) : '') + ' — outside ' + esc(winLabel()) + '. <a href="#" onclick="yearPick();return false">Change the year</a>' : bp ? bp + ' PDF' + (bp===1?'':'s') + ' here that I couldn’t read myself.' : files ? 'Its files gave no lines for ' + esc(winLabel()) + '.' : 'I don’t have this folder’s files right now — read the folder again.') + '</div>'
           + '<div class="row" style="gap:8px;margin-top:8px">' + (bp ? '<button class="b small primary" style="flex:1" onclick="fmAI(\'' + a.id + '\')">✨ Read ' + (bp===1?'it':'them') + ' with AI</button>' : '<button class="b small" style="flex:1" onclick="newMonth()">📥 Read my folder again</button>') + '</div></div>'; }
       return '<div class="card" style="margin:8px 0;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">' + (TYPES[a.type] ? TYPES[a.type].em : '🏦') + '</span><b style="flex:1">' + esc(acctLabel(a)) + '</b><span style="font-weight:800;color:' + (ok ? 'var(--ok)' : 'var(--soft)') + '">' + (ok ? '✓ sorted' : s.left + ' to go') + '</span></div>'
@@ -3784,14 +3790,14 @@ function openFlow(){ var A = sortAccts(), by = {}, links = {}, tot = 0;
     var hA = v * aSc, hC = v * sc, A0 = ay[a.id], C0 = cy[c.k], y1 = A0.y + A0.off + hA / 2, y2 = C0.y + C0.off + hC / 2; A0.off += hA; C0.off += hC;
     paths += '<path d="M180 ' + y1 + ' C 340 ' + y1 + ', 350 ' + y2 + ', 500 ' + y2 + '" stroke="' + col(c) + '" stroke-opacity="' + (c.id === 'uncat' ? .55 : .28) + '" stroke-width="' + Math.max(1.5, (hA + hC) / 2) + '" fill="none"/>'; }); });
   var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Where the money went">' + paths
-    + Aon.map(function(a){ var n = ay[a.id]; return '<rect x="170" y="' + n.y + '" width="10" height="' + n.h + '" rx="3" fill="var(--ink,#1d2a33)"/><text x="164" y="' + (n.y + n.h / 2 - 2) + '" text-anchor="end" font-size="12" font-weight="800" fill="currentColor">' + esc((a.name||'').slice(0,24)) + '</text><text x="164" y="' + (n.y + n.h / 2 + 12) + '" text-anchor="end" font-size="11" fill="currentColor" opacity=".7">' + money(n.v,1) + '</text>'; }).join('')
-    + top.map(function(c){ var n = cy[c.k]; return '<g style="cursor:pointer" onclick="' + (c.id && c.id !== 'uncat' ? 'openCatTx(\'' + c.id + '\')' : c.id === 'uncat' ? 'askRound()' : '') + '"><rect x="500" y="' + n.y + '" width="10" height="' + n.h + '" rx="3" fill="' + col(c) + '"/><text x="516" y="' + (n.y + n.h / 2 - 2) + '" font-size="12" font-weight="800" fill="currentColor">' + esc(c.k.slice(0,24)) + '</text><text x="516" y="' + (n.y + n.h / 2 + 12) + '" font-size="11" fill="currentColor" opacity=".7">' + money(c.v,1) + ' · ' + Math.round(c.v / Math.max(tot,1) * 100) + '%</text></g>'; }).join('') + '</svg>';
+    + Aon.map(function(a){ var n = ay[a.id]; return '<rect x="170" y="' + n.y + '" width="10" height="' + n.h + '" rx="3" fill="var(--ink,#1d2a33)"/><text x="164" y="' + (n.y + n.h / 2 - 2) + '" text-anchor="end" font-size="12" font-weight="800" fill="currentColor">' + esc((a.name||'').length > 22 ? a.name.slice(0,21).trim() + '…' : (a.name||'')) + '</text><text x="164" y="' + (n.y + n.h / 2 + 12) + '" text-anchor="end" font-size="11" fill="currentColor" opacity=".7">' + money(n.v,1) + '</text>'; }).join('')
+    + top.map(function(c){ var n = cy[c.k]; return '<g style="cursor:pointer" onclick="' + (c.id && c.id !== 'uncat' ? 'openCatTx(\'' + c.id + '\')' : c.id === 'uncat' ? 'askRound()' : '') + '"><rect x="500" y="' + n.y + '" width="10" height="' + n.h + '" rx="3" fill="' + col(c) + '"/><text x="516" y="' + (n.y + n.h / 2 - 2) + '" font-size="12" font-weight="800" fill="currentColor">' + esc(c.k.length > 24 ? c.k.slice(0,23).trim() + '…' : c.k) + '<title>' + esc(c.k) + '</title></text><text x="516" y="' + (n.y + n.h / 2 + 12) + '" font-size="11" fill="currentColor" opacity=".7">' + money(c.v,1) + ' · ' + Math.round(c.v / Math.max(tot,1) * 100) + '%</text></g>'; }).join('') + '</svg>';
   var un = by['Not sorted yet'];
   openSheet('<div class="stepno">Where the money went · ' + esc(winLabel()) + '</div><h3>' + money(tot,1) + ' spent</h3><p class="sub">Each account on the left, each category on the right; the wider the band, the more money. Tap a category to see its lines.' + (un ? ' <b>Grey</b> is not sorted yet — ' + money(un.v,1) + '.' : '') + '</p>'
     + '<div class="card" style="padding:10px;overflow:hidden">' + svg + '</div>'
     + '<div class="stickfoot">' + (un ? '<button class="b full" style="margin-top:0" onclick="askRound()">Answer what’s grey</button>' : '') + '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'flow\');closeSheet();render()">Looks right</button></div>'); }
 
-/* v6.0 · the budget as a spreadsheet, laid out like the Winslow budget Jerry built with his other chat: the month at the top
+/* v6.0 · the budget as a spreadsheet, laid out like the family budget spreadsheet Jerry built with his other chat: the month at the top
    (Part 1, Part 2, income, left over, Part 3 typed in, what to take from savings), then each part with its lines, low and
    high months and a note, then a running log for each person helped. Live formulas, so a changed number updates the totals. */
 function budgetXlsx(){ needExcelJS(function(){ try{
@@ -3903,7 +3909,7 @@ function aiRead(f){ if(!f) return; needXLSX(function(){ var r = new FileReader()
    about the month, three short lines, and one thing to do. Everything else stays below it. ── */
 function pulseMonth(){ var lm = addMonths(thisMonth(), -1); if(db.historyTo && db.historyTo.slice(0,7) < lm) lm = db.historyTo.slice(0,7); return view && view <= lm ? view : lm; }
 function pulseData(m){ var th = three(m), out = r2(th.p1s + th.P2), inc = th.inc, diff = r2(inc - out), q = queue().length, sp = (db.spouseQ||[]).filter(function(id){ return !db.asked[id]; });
-  var jar = null; p2Cats().some(function(c){ var st = p2State(c); if(st.unknown) return false; if(st.warn){ var mm = st.warn.match(/about (\$[\d,]+(?:\.\d\d)?) short/); jar = { t:c.name + ' is short ' + (mm ? mm[1] : ''), bad:1 }; return true; } if(!jar) jar = { t:c.name + ' is on track' }; return false; });
+  var jar = null; p2Cats().some(function(c){ var st = p2State(c); if(st.unknown) return false; if(st.warn){ var mm = st.warn.match(/(\$[\d,]+(?:\.\d\d)?) short/); jar = { t:c.name + ' is ' + (mm ? mm[1] + ' short' : 'running short'), bad:1 }; return true; } if(!jar) jar = { t:c.name + ' is on track' }; return false; });
   var miss = db.accts.filter(function(a){ return !a.notPersonal && mapMissing(a).indexOf(m) >= 0; });
   return { m:m, inc:inc, out:out, diff:diff, q:q, sp:sp, jar:jar, miss:miss, closed:(db.closedM||{})[m], noInc:inc <= 0, backup:!db.backupAt && db.tx.length > 0 }; }
 function pulseHTML(){ var P = pulseData(pulseMonth()), mn = monthName(P.m).split(' ')[0], sentence, act = [], lines = [];
@@ -3958,7 +3964,7 @@ function backupOpen(){ openSheet('<div class="stepno">Backup</div><h3>💾 Keep 
     + '<p class="sub" style="font-size:14px">The spreadsheet and the printout are for reading, or handing to someone you trust. They aren’t scrambled, so keep them private. Only the backup brings the app back on a new phone or computer.</p>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="backupNow()">⬇️ Save a backup now</button><div class="row" style="gap:8px"><button class="b" style="flex:1" onclick="backupSheet()">📊 Spreadsheet</button><button class="b" style="flex:1" onclick="backupPrint()">🖨️ Print it</button></div><button class="b full" onclick="document.getElementById(\'bkIn\').click()">Bring back a backup</button><input type="file" id="bkIn" accept=".fmbak,.json,.txt" style="display:none" onchange="backupRestore(this.files[0]);this.value=\'\'">' + (LOCK ? '' : '<button class="b full" onclick="promiseScreen()">🔐 Set a passcode first</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
 function backupNow(){ db.backupAt = today(); Promise.resolve(save()).then(function(){ setTimeout(function(){ var raw = ''; try{ raw = localStorage.getItem(KEY) || ''; }catch(e){}
-    if(!raw){ alert('Nothing to back up yet.'); return; } var u = URL.createObjectURL(new Blob([raw], { type:'application/octet-stream' })), l = document.createElement('a'); l.href = u; l.download = 'Family Money backup ' + today() + '.fmbak'; document.body.appendChild(l); l.click(); setTimeout(function(){ URL.revokeObjectURL(u); l.remove(); }, 3000);
+    if(!raw){ alert('Nothing to back up yet.'); return; } var u = URL.createObjectURL(new Blob([raw], { type:'application/octet-stream' })), l = document.createElement('a'); l.href = u; l.download = 'Family Money ' + (SPACE === 'practice' ? 'PRACTICE ' : '') + 'backup ' + today() + '.fmbak'; document.body.appendChild(l); l.click(); setTimeout(function(){ URL.revokeObjectURL(u); l.remove(); }, 3000);
     render(); backupOpen(); toast('Saved. Keep it in iCloud, a USB stick, or an email to yourself.'); }, 300); }); }
 /* v8.7 · Jerry, 19 Nov: "Can you output to a spreadsheet so it's there and we can print it?" — kept under the one Backup button,
    not a new one. The spreadsheet is for reading, printing or handing to someone; only the backup file brings the app back. */
@@ -3971,7 +3977,7 @@ function backupSheet(){ needXLSX(function(){ var R = backupRows(), wb = XLSX.uti
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date','Account','Statement words','Amount','Category','Group','What it is','Note','']].concat(R.lines)), 'Every line');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Group','Category','Monthly budget','Total for ' + winLabel()]].concat(R.cats)), 'Categories');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Account','Kind','Last 4','Balance','As of','']].concat(R.acc)), 'Accounts');
-  XLSX.writeFile(wb, 'Family Money ' + today() + '.xlsx'); toast('Saved — a spreadsheet to read or print. To move the app itself, use Save a backup now.'); }); }
+  XLSX.writeFile(wb, 'Family Money ' + (SPACE === 'practice' ? 'PRACTICE ' : '') + today() + '.xlsx'); toast('Saved — a spreadsheet to read or print. To move the app itself, use Save a backup now.'); }); }
 function backupPrint(){ var R = backupRows();
   var tbl = function(h, rows, money_){ return '<table style="width:100%;border-collapse:collapse;margin:6px 0 16px">' + '<tr>' + h.map(function(x){ return '<th style="text-align:left;border-bottom:1px solid #000;padding:3px 6px">' + esc(x) + '</th>'; }).join('') + '</tr>' + rows.map(function(r){ return '<tr>' + r.map(function(v, i){ return '<td style="padding:2px 6px;border-bottom:1px solid #ddd' + (money_.indexOf(i) >= 0 ? ';text-align:right' : '') + '">' + (money_.indexOf(i) >= 0 && v !== '' ? money(+v) : esc(String(v))) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>'; };
   document.getElementById('printable').innerHTML = '<h2>' + esc((db.name ? db.name + ' — ' : '') + 'Family Money, ' + winLabel()) + '</h2><p>Printed ' + esc(shortDate(today())) + '. Account numbers show the last 4 only.</p>'
@@ -3999,13 +4005,14 @@ function maskNums(t){ return String(t||'').replace(/\b\d(?:[ -]?\d){7,18}\b/g, f
 /* ── v7.2 · the statement squares on the home, and the note for the other person (Grok's plan, steps 5–6). ── */
 function squaresHTML(){ var A = db.accts.filter(function(a){ return tracksLines(a) && !a.notPersonal && (a.mapG || mapOf(a)) !== 'pay' && mapMonths(a).length; });   /* a payment app can go quiet for a month; that isn't a missing statement */ if(!A.length) return '';
   var M = {}; A.forEach(function(a){ mapMonths(a).forEach(function(m){ M[m] = 1; }); }); var ms = Object.keys(M).sort(); if(!ms.length) return '';
-  var red = 0, rows = A.map(function(a){ var h = mapHave(a), mine = mapMonths(a);
-    return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0"><span style="flex:0 0 108px;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.name) + '</span><span style="display:flex;gap:3px;flex-wrap:wrap">'
+  var red = 0, rows = A.map(function(a){ var h = mapHave(a), mine = mapMonths(a), miss = mine.filter(function(m){ return !h[m]; });
+    /* v8.8 · the row is the tap, not each 14px square: the house floor grows any small button to 44px, which made the red squares huge */
+    return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;' + (miss.length ? 'cursor:pointer' : '') + '"' + (miss.length ? ' onclick="missingOne(\'' + a.id + '\',\'' + miss[0] + '\')"' : '') + '><span style="flex:0 0 108px;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.name) + '</span><span style="display:flex;gap:3px;flex-wrap:wrap">'
       + ms.map(function(m){ if(mine.indexOf(m) < 0) return '<i style="width:14px;height:14px;border-radius:3px;background:transparent;display:inline-block"></i>'; var ok = !!h[m]; if(!ok) red++;
         return ok ? '<i title="' + esc(a.name + ', ' + monthName(m) + ': here') + '" style="width:14px;height:14px;border-radius:3px;background:var(--ok);display:inline-block"></i>'
-          : '<button aria-label="' + esc(a.name + ', ' + monthName(m) + ': missing') + '" onclick="missingOne(\'' + a.id + '\',\'' + m + '\')" style="width:14px;height:14px;min-height:0;padding:0;border:0;border-radius:3px;background:var(--red);cursor:pointer"></button>'; }).join('') + '</span></div>'; }).join('');
+          : '<i role="img" aria-label="' + esc(a.name + ', ' + monthName(m) + ': missing') + '" style="width:14px;height:14px;border-radius:3px;background:var(--red);display:inline-block"></i>'; }).join('') + '</span></div>'; }).join('');
   return '<div class="card" id="squares" style="padding:14px 16px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Statements</b><span class="sub" style="margin:0;font-size:13px">' + esc(monthName(ms[0], true)) + ' – ' + esc(monthName(ms[ms.length-1], true)) + '</span></div>'
-    + rows + '<div class="sub" style="margin:6px 0 0;font-size:13px">' + (red ? 'Red is a month that isn’t here yet — tap it to see which file to add.' : 'Every month is here.') + '</div></div>'; }
+    + rows + '<div class="sub" style="margin:6px 0 0;font-size:13px">' + (red ? 'Red is a month that isn’t here yet — tap the account to see which file to add.' : 'Every month is here.') + '</div></div>'; }
 function missingOne(aid, m){ var a = acct(aid); if(!a) return; var g = mapGroup(a.mapG || mapOf(a));
   openSheet('<div class="stepno">Statement missing</div><h3>' + esc(acctLabel(a)) + ' · ' + esc(monthName(m)) + '</h3>'
     + '<div class="steps3"><div><b>1</b>On ' + esc(a.inst || a.name) + '’s website, sign in and find <b>Statements</b> (or Activity). Download ' + esc(monthName(m)) + ' — a PDF, or better, a CSV download.</div>'
@@ -4124,7 +4131,7 @@ function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonth
 
 /* ── the main screen ── */
 function render(){
-  var main = document.getElementById('main'), bar = document.getElementById('bar');
+  var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
   if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
@@ -4248,7 +4255,7 @@ function openAdvisors(){ openSheet('<h3>Our advisors</h3><p class="sub">The app 
 function welcomeHTML(){
   return '<div class="card welcome"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="8" width="56" height="48" rx="12" fill="#1E4A6B"/><rect x="14" y="34" width="8" height="14" rx="2" fill="#D9A93F"/><rect x="28" y="24" width="8" height="24" rx="2" fill="#F5F3EE"/><rect x="42" y="16" width="8" height="32" rx="2" fill="#C9702F"/></svg>'
     + '<h2>Three answers, every month</h2><ul><li><b>What we must spend</b> this month</li><li><b>What we must set aside</b> for bills that come once or twice a year</li><li><b>How much has to come from savings</b> or investments</li></ul>'
-    + '<p style="font-size:15px">Bring in the statement files your bank already gives you. The app sorts what it can and asks you about the rest, one question at a time. No bank login, nothing sent to Daraja, and it can be locked with a passcode.</p>'
+    + '<p style="font-size:15px">Bring in the statement files your bank already gives you. The app sorts what it can and asks you about the rest, one question at a time. No bank login, nothing kept by Daraja, and it can be locked with a passcode.</p>'
     + '<button class="b primary" id="startBtn" onclick="setupQ(0)">Set up ours</button><button class="b" id="exBtn" onclick="startExample()">Show me an example family first</button></div>' + ckHTML(true);
 }
 
@@ -4483,8 +4490,18 @@ function reportParts(m){
 function reportData(m){ return reportParts(m).map(function(p){ return p.h + ':\n' + p.L.map(function(x){ return '- ' + x; }).join('\n'); }).join('\n\n'); }
 
 /* ── settings: every setup answer, changeable ── */
+function spaceOpen(){ var pr = SPACE === 'practice', has = function(k){ try{ return !!localStorage.getItem(k); }catch(e){ return false; } };
+  openSheet('<div class="stepno">Which household</div><h3>' + (pr ? '🧪 You’re in Practice' : '🏡 You’re in Ours — the real one') + '</h3>'
+    + '<p class="sub"><b>Ours</b> is your real money. <b>Practice</b> is kept completely apart, for trying things and starting over as often as you like. Nothing done in one touches the other.</p>'
+    + '<div class="stickfoot">' + (pr ? '<button class="b primary full" style="margin-top:0" onclick="spaceGo(\'ours\')">🏡 Go back to Ours</button><button class="b full" onclick="spaceFresh(0)">🧪 Wipe Practice and start again</button><button class="b full" onclick="spaceFresh(1)">🧪 Start Practice as a copy of Ours</button>'
+      : '<button class="b primary full" style="margin-top:0" onclick="spaceGo(\'practice\')">🧪 Open Practice' + (has('dj_familydash_practice') ? '' : ' — empty') + '</button>' + (has('dj_familydash_v1') ? '<button class="b full" onclick="spaceFresh(1)">🧪 Practice with a copy of Ours</button>' : ''))
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
+function spaceGo(to){ Promise.resolve(db && !db.ex ? save() : 0).then(function(){ try{ localStorage.setItem('dj_familydash_space', to); }catch(e){} location.reload(); }); }
+function spaceFresh(copy){ if(!confirm(copy ? 'Replace Practice with a copy of Ours? Ours is not changed. (If Ours has a passcode, the copy opens with the same one.)' : 'Wipe Practice and start again? Ours is not touched.')) return;
+  Promise.resolve(db && !db.ex && SPACE === 'ours' ? save() : 0).then(function(){ try{ var o = localStorage.getItem('dj_familydash_v1'); if(copy && o) localStorage.setItem('dj_familydash_practice', o); else localStorage.removeItem('dj_familydash_practice'); localStorage.setItem('dj_familydash_space', 'practice'); }catch(e){ alert('This browser would not do that.'); return; } location.reload(); }); }
 function openSettings(){
   openSheet('<h3>Settings</h3><p class="sub">Every answer from setup. Tap one to change it.</p>'
+    + '<button class="b full" style="text-align:left;font-weight:800" onclick="spaceOpen()">' + (SPACE === 'practice' ? '🧪 Practice — switch back to Ours' : '🏡 Ours, the real one · 🧪 Practice') + '</button>'
     + SQ.map(function(q, i){ return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + q.ask + '</button>'; }).join('')
     + '<h4>More</h4>' + (LOCK ? '<button class="b full" onclick="lockNow()">🔒 Lock it now</button><button class="b full" onclick="lockOff()">🔓 Take the passcode off</button>' : '<button class="b full" onclick="promiseScreen()">🔐 Lock it with a passcode</button>') + '<button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
     + '<button class="b full" onclick="openPart2()">📅 Yearly bills and bookings</button>'
@@ -5381,7 +5398,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
     pdfTextSafe(PDFF[path]).then(function(t){ if(run !== FREAD) return; T.push({ path:path, name:String(path).split('/').pop(), text:t || '' }); k++; next(); }); }
   next();
   function done(T){
-    /* v8.0 · Jerry's Community Trust PDFs have a header in words and the transactions as a picture, so "has words" sent eleven
+    /* v8.0 · Jerry's bank PDFs have a header in words and the transactions as a picture, so "has words" sent eleven
        near-empty texts in one batch and the AI found no lines. A statement counts as text only if its words hold amounts. */
     var hasMoney = function(x){ return !FSCAN[x.path] && (x.text.match(/\d[\d,]*\.\d{2}\b/g) || []).length >= 3; };
     var ok = T.filter(hasMoney), scan = T.filter(function(x){ return !hasMoney(x); });
@@ -5555,7 +5572,7 @@ function idleArm(){ if(!LOCK) return; clearTimeout(IDLE_T); IDLE_T = setTimeout(
 function promiseScreen(){ db.autoAsked = 1; save();
   openSheet('<div class="stepno">Before we start</div><h3>🔒 Your money stays with you</h3>'
     + '<ul class="list" style="font-size:15.5px">'
-    + '<li><span>💻</span><span class="ds">Everything is kept <b>on this computer</b>, in this browser. Nothing is sent to Daraja — there is no Daraja account and no server holding it.</span></li>'
+    + '<li><span>💻</span><span class="ds">Everything is kept <b>on this computer</b>, in this browser. There is no Daraja account and no server keeping it. A PDF the app can’t read passes through Daraja’s AI connection to Claude to be read, and isn’t kept.</span></li>'
     + '<li><span>🏦</span><span class="ds"><b>No bank login.</b> The app only reads statement files you give it, and never moves money.</span></li>'
     + '<li><span>✨</span><span class="ds"><b>If you let an AI read the folder, those PDFs go to that company’s servers.</b> We store only the last 4 digits of an account. The PDF still has the full number.</span></li>'
     + '<li><span>🤝</span><span class="ds">Nothing is ever shared, sold or shown to anyone. Questions for your spouse wait on this computer — nothing goes out by text.</span></li>'
