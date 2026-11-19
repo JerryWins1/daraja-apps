@@ -860,3 +860,7 @@ Jerry: "is there a way… AI reads them, and then… would you like to categoriz
 - Answers are learned exactly as a returned spreadsheet's are (`sortSet`: rules, reclass, asked). Payees already known, and card payments, sort themselves first (`autoKnown`).
 - The spreadsheet stays as a link under each account's button.
 - The three videos and the tester script describe sorting in the app. All three videos were re-recorded by name.
+
+## v8.4 · the category list puts the ones picked most first (19 Nov)
+
+Jerry: a new category like Donations ends up "all over the place" in the list. The in-app picker now starts with **＋ A new category…**, then up to eight **Picked most** categories (counted from the lines you have sorted), then **All, A to Z**. The spreadsheet's drop-down is A to Z too.

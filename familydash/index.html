@@ -2447,7 +2447,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.3 · 2026-11-18 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.4 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3606,7 +3606,7 @@ function autoKnown(id){ var n = 0, card = 0, K = {};
 function sortMake(id){ SORTA = id; var a = acct(id), AK = autoKnown(id), all = acctLines(id).filter(function(t){ return !(db.asked[t.id] && t.cat !== 'uncat') && db.notSure.indexOf(t.id) < 0; }).sort(function(x,y){ return x.d < y.d ? -1 : 1; });
   if(!all.length){ openSheet('<div class="stepno">Sort each account · ' + esc(acctLabel(a)) + '</div><h3>✓ The rest sorted itself</h3><p class="sub">' + (AK.n ? AK.n + ' line' + (AK.n===1?'':'s') + ' went to payees you already told me about. ' : '') + (AK.card ? AK.card + ' ' + (AK.card===1?'was a payment':'were payments') + ' to a credit card — sorted on the card itself. ' : '') + 'Nothing left to ask on this account.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sortHub()">Back to the accounts</button></div>'); return; }
   var M = all[0].d.slice(0,7), R = all.filter(function(t){ return t.d.slice(0,7) === M; }); SORTM = { m:M, auto:AK, rest:all.length - R.length };
-  var names = shCatNames(), file = 'Family Money - ' + (a.name || 'account').replace(/[\\\/:*?"<>|]/g,'') + (a.last4 ? ' ' + a.last4 : '') + ' - ' + monthName(M, true) + '.xlsx';
+  var names = shCatNames().sort(function(x,y){ return x.localeCompare(y); }), file = 'Family Money - ' + (a.name || 'account').replace(/[\\\/:*?"<>|]/g,'') + (a.last4 ? ' ' + a.last4 : '') + ' - ' + monthName(M, true) + '.xlsx';
   var head = ['Date','Amount','Statement words','What it was','Your category','App’s guess or yours','Row'];   /* the same columns as the Reclassified sheet Jerry kept with his other chat */
   var row = function(t){ return [t.d, t.amt, t.desc, t.note || '', shName(t.cat), t.cat === 'uncat' ? 'no guess' : 'guess', t.id]; };
   function viaExcelJS(){ var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Sort these', { views:[{ state:'frozen', ySplit:1 }] }), wc = wb.addWorksheet('Categories');
@@ -3644,7 +3644,12 @@ function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
       + '<div class="stickfoot">' + (nx ? '<button class="b primary full" style="margin-top:0" onclick="sortIn(\'' + nx.id + '\')">👆 Next: ' + esc(acctLabel(nx)) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'sort\');askRound()">All sorted — on to the questions</button>')
       + '<button class="b ghost" style="width:100%" onclick="sortHub()">Back to the accounts</button></div>'); }
   var t0 = g[0], guess = g[0].cat, tot = g.reduce(function(x,t){ return x + t.amt; }, 0), one = g.length === 1, nm = guess && guess !== 'uncat' ? shName(guess) : '';
-  var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)'; });
+  /* v8.4 · Jerry, 19 Nov: a new category "is all over the place" in the list. The ones picked most come first, then every
+     category A to Z, so a new one lands where you'd look for it. */
+  var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)'; }), use = {};
+  db.tx.forEach(function(t){ if(db.asked[t.id] && t.cat && t.cat !== 'uncat'){ var k = shName(t.cat); if(k) use[k] = (use[k]||0) + 1; } });
+  var top = names.filter(function(n){ return use[n]; }).sort(function(x,y){ return use[y] - use[x]; }).slice(0, 8), az = names.slice().sort(function(x,y){ return x.localeCompare(y); });
+  var opt = function(n){ return '<option' + (n === nm ? ' selected' : '') + '>' + esc(n) + '</option>'; };
   openSheet('<div class="stepno">Sort · ' + esc(acctLabel(a)) + ' · ' + (S.i + 1) + ' of ' + S.groups.length + '</div>'
     + '<div class="meter" style="margin:4px 0 12px"><i style="width:' + Math.round(S.i / S.groups.length * 100) + '%;background:var(--ok)"></i></div>'
     + '<h3 style="font-family:ui-monospace,Menlo,monospace;font-size:18px;word-break:break-word">' + esc(t0.desc) + '</h3>'
@@ -3652,7 +3657,8 @@ function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
     + (one ? '' : '<details style="margin:-4px 0 10px"><summary style="cursor:pointer;font-weight:800;color:var(--brand);font-size:14px">See each line</summary><ul class="list">' + g.map(function(t){ return '<li style="font-size:14px"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '</span><span class="amt">' + money(Math.abs(t.amt)) + '</span></li>'; }).join('') + '</ul></details>')
     + (channel(t0) ? '<p class="sub" style="font-size:14px">A ' + esc(channel(t0)) + ' — only you know what it was for. Add a note if it helps.</p><input id="sinNote" placeholder="What it was (optional)" value="' + esc(t0.note || '') + '">' : '')
     + '<label style="margin-top:12px">Category</label><select id="sinCat" style="width:100%;font-size:17px;padding:10px;border-radius:12px" onchange="document.getElementById(\'sinNew\').style.display=this.value===\'__new\'?\'\':\'none\'">'
-    + (nm ? '' : '<option value="">— pick one —</option>') + names.map(function(n){ return '<option' + (n === nm ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '<option value="__new">＋ A new category…</option></select>'
+    + (nm ? '' : '<option value="">— pick one —</option>') + '<option value="__new">＋ A new category…</option>'
+    + (top.length ? '<optgroup label="Picked most">' + top.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) >= 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup><optgroup label="All, A to Z">' + az.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) < 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup>' : az.map(opt).join('')) + '</select>'
     + '<input id="sinNew" placeholder="Name the new category" style="display:none;margin-top:8px">'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sortInSave()">' + (nm ? '✓ ' + esc(nm) + (one ? '' : ' — all ' + g.length) : 'Save') + '</button>'
     + '<div class="row" style="gap:8px"><button class="b" style="flex:1" onclick="sortInLater()">Not sure — ask me later</button>' + (S.i ? '<button class="b" style="flex:0 0 auto" onclick="SIN.i--;sortInStep()">← Back</button>' : '') + '</div>'
