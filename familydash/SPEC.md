@@ -871,3 +871,15 @@ Jerry: "in the setup, actually go through that list and see which ones are valid
 - Before the first **Sort it here**, the app shows every category by group (`catReview`). Tap one to strike it out. Add missing ones with a name and a group. **These are ours — start sorting** removes the struck ones (their lines go back to unsorted and are guessed again) and then starts.
 - It shows once (`db.catsChecked`). Settings › Categories still does the rest.
 - Tester script s27 covers it. The videos skip it, since their example family has already checked.
+
+## v8.6 · Jerry's seven ideas, folded into the sorting screen (19 Nov)
+
+Jerry: "if there's things that we're already doing that are similar, don't add one to it. Enhance the one that's there." So nothing gets a new screen except the look-into list, which "Not sure" now feeds.
+1. **A letter jumps through the list.** On a computer the category picker has focus. A letter selects the next category A to Z that starts with it (D, then D again), and Enter saves.
+2. **🔍 Look into later** replaces "Not sure — ask me later" and does the same thing. The set-aside lines are now also a list: **🔍 To look into (N)** on Sort each account and at the end of each account. It is grouped by payee and sorted from there. Anything still on it comes up in the questions at the end.
+3. **✂️ Split it across categories** on a single charge. Each part gets a category and an amount, and the last part takes what's left. The charge becomes one line per part, noted "part 1 of 2 of $120". `db.splitKeys` stops a re-read statement from bringing the whole charge back.
+4. **✎ Rename it** beside the picker renames the chosen category. Every line in it keeps it.
+5. **➕ Added together** on the home screen, shown only when the same category name is in more than one group (two homes' Utilities). Each group card already had its own subtotal.
+6. **Several charges inside one payee.** When one payee has different amounts, the screen says "These look like N different charges" and offers **Sort each one**. A price rise stays with its charge. A repeating charge asks **What is it?** (e.g. Hulu), and the name follows that payee and amount into later months (`db.subRules`). Subscriptions then lists it on its own.
+7. **PayPal and Venmo payments are money moving** once that account's own lines are in for the month, the same way a card payment is. PayPal lines are grouped by payee now; only checks and cash still come one line at a time.
+Videos (firsttime, train) and tester script s27 are updated. Both videos were re-recorded by name.

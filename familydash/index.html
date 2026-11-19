@@ -2447,7 +2447,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.5 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.6 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2949,7 +2949,8 @@ function fileAcct(id){
 }
 var IMP = { added:0, skipped:0 };
 function takeFile(){
-  var a = acct(CUR.a), have = {}; db.tx.forEach(function(t){ have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc] = (have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc]||0) + 1; });
+  var a = acct(CUR.a), have = {}; db.tx.forEach(function(t){ if(t.splitOf) return; have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc] = (have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc]||0) + 1; });
+  Object.keys(db.splitKeys || {}).forEach(function(k){ have[k] = (have[k]||0) + db.splitKeys[k]; });   /* a charge that was split counts as already here */
   var seenNow = {};
   CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
@@ -3349,16 +3350,16 @@ function rvTimeSave(){ var R = RV, x = R.L[R.i], c = x.c, v = tapVal('rv'); if(!
 var SUBSY = /netflix|hulu|disney|max\b|hbo|peacock|paramount|spotify|apple\.com|itunes|google \*|google play|youtube|prime video|amazon prime|audible|sirius|britbox|pure ?flix|acorn|espn|patreon|icloud|dropbox|microsoft|adobe|subscription|membership/i;
 function rvSubsList(){ var G = {};
   db.tx.forEach(function(t){ var a = acct(t.a); if(!counts(a) || t.amt <= 0 || channel(t) === 'cash' || channel(t) === 'check' || isP3(t.cat) || notSpending(t.cat) || !inWin(t)) return;
-    var k = mkey(t.desc) || t.desc; (G[k] = G[k] || { k:k, T:[] }).T.push(t); });
+    var k = t.sub ? 'sub:' + t.sub : mkey(t.desc) || t.desc; (G[k] = G[k] || { k:k, T:[], nm:t.sub || '' }).T.push(t); });   /* v8.6 · a named charge (Hulu inside PayPal) is its own subscription */
   var L = [];
-  Object.keys(G).forEach(function(k){ var T = G[k].T.sort(function(a,b){ return a.d < b.d ? -1 : 1; }), last = T[T.length-1], c = cat(last.cat), named = SUBSY.test(last.desc) || (c && /subscri|stream/i.test(c.name));
+  Object.keys(G).forEach(function(k){ var T = G[k].T.sort(function(a,b){ return a.d < b.d ? -1 : 1; }), last = T[T.length-1], c = cat(last.cat), named = !!G[k].nm || SUBSY.test(last.desc) || (c && /subscri|stream/i.test(c.name));
     var prev = T.length >= 2 ? T[T.length-2].amt : last.amt, same = T.filter(function(t){ return Math.abs(t.amt - last.amt) <= Math.max(1, last.amt * .1) || (last.amt > prev && Math.abs(t.amt - prev) <= Math.max(1, prev * .1)); })   /* a price rise is still the same subscription */, ms = {}; same.forEach(function(t){ ms[t.d.slice(0,7)] = 1; }); var nm = Object.keys(ms).length;
     var cyc = null; if(nm >= 2){ var gap = daysBetween(same[0].d, same[same.length-1].d) / (nm - 1); cyc = gap > 300 ? 'year' : gap > 45 ? 'other' : 'month'; }
     var loose = !c || /subscri|stream|entertain|member|software|apps?\b|fun|hobb/i.test(c.name);   /* a bill in utilities, insurance, giving or savings recurs too, but it isn't what this part is for */
     if(!(named || (loose && nm >= 3 && cyc !== 'other'))) return;
     if(/mortgage|insurance|electric|water|gas co|energy|loan|tax/i.test(last.desc) || (c && part(c) === 2)) return;
     var up = null; if(T.length >= 2){ var pv = T[T.length-2].amt; if(last.amt - pv > 1.99 && (last.amt - pv) / pv > 0.05) up = { from:pv, to:last.amt, d:last.d }; }   /* the same rule as the audit's 📈 Went up */
-    L.push({ k:k, desc:last.desc, amt:last.amt, cyc:cyc || 'once', a:last.a, last:last.d, n:same.length, up:up }); });
+    L.push({ k:k, desc:G[k].nm ? G[k].nm + ' · ' + last.desc : last.desc, amt:last.amt, cyc:cyc || 'once', a:last.a, last:last.d, n:same.length, up:up }); });
   return L.sort(function(a,b){ return (b.cyc === 'year' ? b.amt / 12 : b.amt) - (a.cyc === 'year' ? a.amt / 12 : a.amt); }); }
 function rvSubsStart(){ RV = { st:'subs', L:rvSubsList(), i:0 }; db.subRev = db.subRev || {}; if(!RV.L.length){ openSheet('<h3>No subscriptions found</h3><p class="sub">Nothing charges the same amount on a regular cycle in these statements.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvNextPart(\'subs\')">Next part</button></div>'); return; } rvSubs(); }
 function rvSubs(){ var R = RV, s = R.L[R.i]; if(!s){ rvSubsSum(); return; } var was = db.subRev[s.k] || {};
@@ -3585,10 +3586,11 @@ function sortHub(){ var A = sortAccts(), S = A.map(function(a){ return sortState
           + '<div class="sub" style="margin:6px 0 0">' + (out.length ? out.length + ' line' + (out.length===1?'':'s') + ' came in, but ' + (out.length===1?'it is':'all are') + ' from ' + esc(monthName(oms[0])) + (oms.length > 1 ? ' to ' + esc(monthName(oms[oms.length-1])) : '') + ' — outside ' + esc(winLabel()) + '. <a href="#" onclick="yearPick();return false">Change the year</a>' : bp ? bp + ' PDF' + (bp===1?'':'s') + ' here that I couldn’t read myself.' : files ? 'Its files gave no lines for ' + esc(winLabel()) + '.' : 'I don’t have this folder’s files right now — read the folder again.') + '</div>'
           + '<div class="row" style="gap:8px;margin-top:8px">' + (bp ? '<button class="b small primary" style="flex:1" onclick="fmAI(\'' + a.id + '\')">✨ Read ' + (bp===1?'it':'them') + ' with AI</button>' : '<button class="b small" style="flex:1" onclick="newMonth()">📥 Read my folder again</button>') + '</div></div>'; }
       return '<div class="card" style="margin:8px 0;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">' + (TYPES[a.type] ? TYPES[a.type].em : '🏦') + '</span><b style="flex:1">' + esc(acctLabel(a)) + '</b><span style="font-weight:800;color:' + (ok ? 'var(--ok)' : 'var(--soft)') + '">' + (ok ? '✓ sorted' : s.left + ' to go') + '</span></div>'
-        + '<div class="meter" style="margin:8px 0"><i style="width:' + p + '%;background:var(--ok)"></i></div><div class="sub" style="margin:0">' + s.n + ' lines · ' + s.done + ' sorted' + (s.later ? ' · ' + s.later + ' for the questions' : '') + '</div>'
+        + '<div class="meter" style="margin:8px 0"><i style="width:' + p + '%;background:var(--ok)"></i></div><div class="sub" style="margin:0">' + s.n + ' lines · ' + s.done + ' sorted' + (s.later ? ' · ' + s.later + ' to look into' : '') + '</div>'
         + (ok ? '' : '<div class="row" style="gap:8px;margin-top:8px"><button class="b small primary" style="flex:1" onclick="sortIn(\'' + a.id + '\')">👆 Sort it here</button></div><div class="sub" style="margin:6px 0 0;font-size:13px">or <a href="#" onclick="sortMake(\'' + a.id + '\');return false">a spreadsheet</a> · <a href="#" onclick="SORTA=\'' + a.id + '\';document.getElementById(\'shIn\').click();return false">give one back</a></div>') + '</div>'; }).join('')
     + '<input type="file" id="shIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="shRead(this.files[0]);this.value=\'\'">'
     + '<div class="stickfoot">' + (next ? '<button class="b primary full" style="margin-top:0" onclick="sortIn(\'' + next.id + '\')">👆 Next: ' + esc(acctLabel(next)) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'sort\');askRound()">All sorted — on to the questions' + (later ? ' (' + later + ')' : '') + '</button>')
+    + (lookList().length ? '<button class="b full" onclick="openLook()">🔍 To look into (' + lookList().length + ')</button>' : '')
     + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button></div>'); }
 var SORTA = null, SORTM = null;
 /* v6.1 · Jerry, 17 Nov: "you did month one, you categorize everything, then you look at month two, you know… whether utilities
@@ -3598,7 +3600,12 @@ var SORTA = null, SORTM = null;
    its own month-by-month passes. Checks, cash and money sent to people never sort themselves: they are always asked. */
 function autoKnown(id){ var n = 0, card = 0, K = {};
   db.reclass.forEach(function(x){ var k = mkey(x.desc); if(k && !channel({ desc:x.desc })) K[k] = x.cat; });
-  acctLines(id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0 || channel(t)) return; var k = mkey(t.desc), c = null, why = '';
+  /* v8.6 · a payment to PayPal or Venmo is money moving once that account's own lines are in for the same month: what it
+     bought is sorted there, so it isn't counted twice (Jerry's 101 PayPal subscription lines, 19 Nov) */
+  var PM = {}; db.accts.forEach(function(x){ var w = /paypal/i.test(x.name + ' ' + (x.inst||'')) ? 'paypal' : /venmo/i.test(x.name + ' ' + (x.inst||'')) ? 'venmo' : ''; if(!w || x.id === id) return; db.tx.forEach(function(t){ if(t.a === x.id) PM[w + '|' + t.d.slice(0,7)] = 1; }); });
+  acctLines(id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0) return; var k = mkey(t.desc), c = null, why = '', w = /paypal/i.test(t.desc) ? 'paypal' : /venmo/i.test(t.desc) ? 'venmo' : '';
+    if(w && t.amt > 0 && PM[w + '|' + t.d.slice(0,7)]){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'Paid through ' + (w === 'paypal' ? 'PayPal' : 'Venmo') + ' — what it bought is sorted on that account', cat:'xfer', at:today(), auto:1 }); card++; return; }
+    if(channel(t)) return;
     if(t.cat === 'xfer' && t.amt > 0 && (/card|credit|capital one|discover|amex|american express|citi|chase|visa|mastercard/i.test(t.desc))){ c = 'xfer'; why = 'Paying a card — what it bought is on the card’s own statement'; card++; }
     else if(k && K[k] && K[k] !== 'uncat'){ c = K[k]; why = 'Same payee as before'; n++; }
     if(!c) return; t.cat = c; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:why, cat:c, at:today(), auto:1 }); });
@@ -3648,15 +3655,37 @@ function catAddHere(){ var n = (document.getElementById('crNew').value || '').tr
 function catReviewDone(){ var off = Object.keys(CROFF).filter(function(k){ return CROFF[k]; });
   db.cats = db.cats.filter(function(c){ return off.indexOf(c.id) < 0; }); db.tx.forEach(function(t){ if(off.indexOf(t.cat) >= 0){ t.cat = 'uncat'; delete db.asked[t.id]; } }); db.rules = db.rules.filter(function(r){ return off.indexOf(r.cat) < 0; });
   CROFF = {}; db.catsChecked = 1; reguess(); save(); var n = CRNEXT; CRNEXT = null; if(n) n(); else { closeSheet(); render(); } }
-function sortIn(id){ var a = acct(id); if(!a) return sortHub(); if(!db.catsChecked) return catReview(function(){ sortIn(id); }); var AK = autoKnown(id);
-  var L = acctLines(id).filter(function(t){ return !(db.asked[t.id] && t.cat !== 'uncat') && db.notSure.indexOf(t.id) < 0; }).sort(function(x,y){ return x.d < y.d ? -1 : 1; });
-  var G = {}, order = []; L.forEach(function(t){ var k = channel(t) ? 'one:' + t.id : (mkey(t.desc) || t.desc); if(!G[k]){ G[k] = []; order.push(k); } G[k].push(t); });
-  SIN = { a:id, groups:order.map(function(k){ return G[k]; }), i:0, auto:AK, done:0 }; save(); sortInStep(); }
+/* v8.6 · Jerry's seven ideas of 19 Nov, folded into this one screen rather than added as new ones:
+   a letter jumps through the list; "Look into later" (what "Not sure" was) keeps a list you can open from the accounts;
+   a single charge can be split; a category can be renamed from here; a payee with several different charges can be
+   sorted charge by charge and each named (a subscription); and a payment to PayPal or Venmo is money moving once that
+   account's own lines are in, as a card payment already was. */
+function subKey(t){ return t.sub ? 'sub:' + (mkey(t.desc) || t.desc) + '|' + t.sub : ''; }
+function subApply(t){ if(t.sub || !db.subRules || !db.subRules.length) return; var k = mkey(t.desc); if(!k) return;
+  var r = db.subRules.filter(function(x){ return x.k === k && Math.abs(Math.abs(t.amt) - x.amt) <= Math.max(1, x.amt * .1); })[0]; if(r) t.sub = r.name; }
+function sortGroups(L){ var G = {}, order = []; L.forEach(function(t){ subApply(t); var ch = channel(t), k = ch === 'check' || ch === 'cash' ? 'one:' + t.id : subKey(t) || (mkey(t.desc) || t.desc); if(!G[k]){ G[k] = []; order.push(k); } G[k].push(t); });
+  return order.map(function(k){ return G[k]; }); }
+function sortIn(id, only){ var a = acct(id); if(!a) return sortHub(); if(!db.catsChecked) return catReview(function(){ sortIn(id, only); }); var AK = autoKnown(id);
+  var L = (only ? db.tx.filter(function(t){ return t.a === id && db.notSure.indexOf(t.id) >= 0 && inWin(t); }) : acctLines(id).filter(function(t){ return !(db.asked[t.id] && t.cat !== 'uncat') && db.notSure.indexOf(t.id) < 0; })).sort(function(x,y){ return x.d < y.d ? -1 : 1; });
+  SIN = { a:id, groups:sortGroups(L), i:0, auto:AK, done:0, look:!!only }; save(); sortInStep(); }
+/* the "Look into later" list: everything set aside, by account and payee, to open any time */
+function lookList(){ var by = {}; db.tx.forEach(function(t){ if(db.notSure.indexOf(t.id) < 0 || !inWin(t)) return; var k = t.a + '|' + (subKey(t) || mkey(t.desc) || t.desc); (by[k] = by[k] || { a:t.a, T:[] }).T.push(t); });
+  return Object.keys(by).map(function(k){ return by[k]; }); }
+function openLook(){ var L = lookList(), A = {}; L.forEach(function(x){ A[x.a] = (A[x.a]||0) + 1; });
+  openSheet('<div class="stepno">Sort each account</div><h3>🔍 To look into</h3><p class="sub">What you set aside to check — on a website, a receipt, or with your spouse. Open an account to sort them when you know. Anything still here comes up in the questions at the end.</p>'
+    + (L.length ? '<ul class="list">' + L.map(function(x){ var t = x.T[0], tot = x.T.reduce(function(s,t){ return s + Math.abs(t.amt); }, 0); return '<li style="font-size:14.5px"><span class="ds">' + esc(t.sub ? t.sub + ' · ' + t.desc : t.desc) + '<small>' + esc(acctLabel(acct(x.a))) + ' · ' + x.T.length + ' line' + (x.T.length===1?'':'s') + (t.look ? ' · ' + esc(t.look) : '') + '</small></span><span class="amt">' + money(tot) + '</span></li>'; }).join('') + '</ul>' : '<p class="sub">Nothing set aside. ✓</p>')
+    + '<div class="stickfoot">' + Object.keys(A).map(function(id){ return '<button class="b full' + (Object.keys(A)[0] === id ? ' primary' : '') + '" style="margin-top:0" onclick="sortIn(\'' + id + '\',1)">Sort ' + A[id] + ' payee' + (A[id]===1?'':'s') + ' from ' + esc(acctLabel(acct(id))) + '</button>'; }).join('')
+    + '<button class="b ghost" style="width:100%" onclick="sortHub()">Back to the accounts</button></div>'); }
+/* payee lines that are really several different charges: one group per amount (a price rise stays with its charge) */
+function chargeSets(g){ var S = []; g.slice().sort(function(x,y){ return x.d < y.d ? -1 : 1; }).forEach(function(t){ var v = Math.abs(t.amt), s = S.filter(function(x){ return Math.abs(x.last - v) <= Math.max(1, x.last * .1); })[0]; if(s){ s.T.push(t); s.last = v; } else S.push({ last:v, T:[t] }); });
+  return S.map(function(s){ return s.T; }); }
+function sortInSplitBy(){ var S = SIN, g = S.groups[S.i], sets = chargeSets(g); sets.forEach(function(T){ T.forEach(function(t){ t.subAsk = 1; }); }); S.groups.splice.apply(S.groups, [S.i, 1].concat(sets)); sortInStep(); }
 function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
-  if(!g){ var s = sortState(S.a), nx = sortAccts().filter(function(x){ return x.id !== S.a && sortState(x.id).left > 0; })[0]; reguess(); save(); render();
-    return openSheet('<div class="stepno">Sort each account · ' + esc(acctLabel(a)) + '</div><h3>✓ ' + esc(a.name) + ' is sorted</h3>'
-      + '<p class="sub">' + S.done + ' payee' + (S.done===1?'':'s') + ' sorted here' + (S.auto.n ? ', ' + S.auto.n + ' line' + (S.auto.n===1?'':'s') + ' sorted themselves from payees you’d already told me' : '') + (S.auto.card ? ', ' + S.auto.card + ' card payment' + (S.auto.card===1?'':'s') + ' set as money moving' : '') + '.' + (s.later ? ' ' + s.later + ' wait for the questions.' : '') + '</p>'
-      + '<div class="stickfoot">' + (nx ? '<button class="b primary full" style="margin-top:0" onclick="sortIn(\'' + nx.id + '\')">👆 Next: ' + esc(acctLabel(nx)) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'sort\');askRound()">All sorted — on to the questions</button>')
+  if(!g){ var s = sortState(S.a), nx = sortAccts().filter(function(x){ return x.id !== S.a && sortState(x.id).left > 0; })[0], lk = lookList().length; reguess(); save(); render();
+    return openSheet('<div class="stepno">Sort each account · ' + esc(acctLabel(a)) + '</div><h3>✓ ' + esc(a.name) + (S.look ? ': looked into' : ' is sorted') + '</h3>'
+      + '<p class="sub">' + S.done + ' payee' + (S.done===1?'':'s') + ' sorted here' + (S.auto.n ? ', ' + S.auto.n + ' line' + (S.auto.n===1?'':'s') + ' sorted themselves from payees you’d already told me' : '') + (S.auto.card ? ', ' + S.auto.card + ' payment' + (S.auto.card===1?'':'s') + ' to a card, PayPal or Venmo set as money moving' : '') + '.' + (s.later ? ' ' + s.later + ' line' + (s.later===1?' is':'s are') + ' on your 🔍 To look into list.' : '') + '</p>'
+      + '<div class="stickfoot">' + (nx && !S.look ? '<button class="b primary full" style="margin-top:0" onclick="sortIn(\'' + nx.id + '\')">👆 Next: ' + esc(acctLabel(nx)) + '</button>' : !nx ? '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'sort\');askRound()">All sorted — on to the questions</button>' : '')
+      + (lk ? '<button class="b full" onclick="openLook()">🔍 To look into (' + lk + ')</button>' : '')
       + '<button class="b ghost" style="width:100%" onclick="sortHub()">Back to the accounts</button></div>'); }
   var t0 = g[0], guess = g[0].cat, tot = g.reduce(function(x,t){ return x + t.amt; }, 0), one = g.length === 1, nm = guess && guess !== 'uncat' ? shName(guess) : '';
   /* v8.4 · Jerry, 19 Nov: a new category "is all over the place" in the list. The ones picked most come first, then every
@@ -3665,28 +3694,67 @@ function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
   db.tx.forEach(function(t){ if(db.asked[t.id] && t.cat && t.cat !== 'uncat'){ var k = shName(t.cat); if(k) use[k] = (use[k]||0) + 1; } });
   var top = names.filter(function(n){ return use[n]; }).sort(function(x,y){ return use[y] - use[x]; }).slice(0, 8), az = names.slice().sort(function(x,y){ return x.localeCompare(y); });
   var opt = function(n){ return '<option' + (n === nm ? ' selected' : '') + '>' + esc(n) + '</option>'; };
+  var cw = channel(t0) === 'check' || channel(t0) === 'cash', sets = !one && !cw && !t0.subAsk ? chargeSets(g) : [], each = g.length > 1 && g.every(function(t){ return Math.abs(Math.abs(t.amt) - Math.abs(t0.amt)) <= Math.max(1, Math.abs(t0.amt) * .1); });
+  var askName = t0.subAsk || (each && g.length >= 3);
   openSheet('<div class="stepno">Sort · ' + esc(acctLabel(a)) + ' · ' + (S.i + 1) + ' of ' + S.groups.length + '</div>'
     + '<div class="meter" style="margin:4px 0 12px"><i style="width:' + Math.round(S.i / S.groups.length * 100) + '%;background:var(--ok)"></i></div>'
     + '<h3 style="font-family:ui-monospace,Menlo,monospace;font-size:18px;word-break:break-word">' + esc(t0.desc) + '</h3>'
-    + '<p class="sub" style="margin-top:0">' + (one ? shortDate(t0.d) + ' ' + t0.d.slice(0,4) + ' · ' + (t0.amt >= 0 ? 'spent ' + money(t0.amt) : 'came in ' + money(-t0.amt)) : g.length + ' lines · ' + money(Math.abs(tot)) + ' in all · ' + shortDate(g[0].d) + ' to ' + shortDate(g[g.length-1].d)) + '</p>'
+    + '<p class="sub" style="margin-top:0">' + (one ? shortDate(t0.d) + ' ' + t0.d.slice(0,4) + ' · ' + (t0.amt >= 0 ? 'spent ' + money(t0.amt) : 'came in ' + money(-t0.amt)) : g.length + ' lines · ' + (each ? money(Math.abs(t0.amt)) + ' each, ' : '') + money(Math.abs(tot)) + ' in all · ' + shortDate(g[0].d) + ' to ' + shortDate(g[g.length-1].d)) + '</p>'
     + (one ? '' : '<details style="margin:-4px 0 10px"><summary style="cursor:pointer;font-weight:800;color:var(--brand);font-size:14px">See each line</summary><ul class="list">' + g.map(function(t){ return '<li style="font-size:14px"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '</span><span class="amt">' + money(Math.abs(t.amt)) + '</span></li>'; }).join('') + '</ul></details>')
-    + (channel(t0) ? '<p class="sub" style="font-size:14px">A ' + esc(channel(t0)) + ' — only you know what it was for. Add a note if it helps.</p><input id="sinNote" placeholder="What it was (optional)" value="' + esc(t0.note || '') + '">' : '')
-    + '<label style="margin-top:12px">Category</label><select id="sinCat" style="width:100%;font-size:17px;padding:10px;border-radius:12px" onchange="document.getElementById(\'sinNew\').style.display=this.value===\'__new\'?\'\':\'none\'">'
+    + (sets.length > 1 ? '<div class="line warn" style="font-size:14.5px">These look like <b>' + sets.length + ' different charges</b> — ' + sets.slice(0, 4).map(function(T){ return money(Math.abs(T[T.length-1].amt)) + ' ×' + T.length; }).join(', ') + (sets.length > 4 ? '…' : '') + '. <a href="#" onclick="sortInSplitBy();return false" style="font-weight:800">Sort each one</a></div>' : '')
+    + (channel(t0) && !askName ? '<p class="sub" style="font-size:14px">A ' + esc(channel(t0)) + ' — only you know what it was for. Add a note if it helps.</p><input id="sinNote" placeholder="What it was (optional)" value="' + esc(t0.note || '') + '">' : '')
+    + (askName ? '<label style="margin-top:8px">What is it? <small style="font-weight:600;color:var(--soft)">(optional — e.g. Hulu)</small></label><input id="sinSub" placeholder="Name this charge" value="' + esc(t0.sub || '') + '">' : '')
+    + '<div id="sinCatBox"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:12px"><label style="margin:0">Category</label><a href="#" id="sinRen" onclick="sortInRename();return false" style="font-size:14px;font-weight:800">✎ Rename it</a></div>'
+    + '<select id="sinCat" style="width:100%;font-size:17px;padding:10px;border-radius:12px;margin-top:6px" onchange="document.getElementById(\'sinNew\').style.display=this.value===\'__new\'?\'\':\'none\'">'
     + (nm ? '' : '<option value="">— pick one —</option>') + '<option value="__new">＋ A new category…</option>'
     + (top.length ? '<optgroup label="Picked most">' + top.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) >= 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup><optgroup label="All, A to Z">' + az.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) < 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup>' : az.map(opt).join('')) + '</select>'
     + '<input id="sinNew" placeholder="Name the new category" style="display:none;margin-top:8px">'
+    + (innerWidth >= 700 ? '<p class="sub" style="margin:6px 0 0;font-size:13px">Tip: type a letter to jump to it — D, then D again for the next one. Enter saves.</p>' : '')
+    + (one && t0.amt > 0 ? '<p style="margin:8px 0 0"><a href="#" onclick="sortInSplit();return false" style="font-size:14px;font-weight:800">✂️ Split it across categories</a></p>' : '') + '</div><div id="sinSplit"></div>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sortInSave()">' + (nm ? '✓ ' + esc(nm) + (one ? '' : ' — all ' + g.length) : 'Save') + '</button>'
-    + '<div class="row" style="gap:8px"><button class="b" style="flex:1" onclick="sortInLater()">Not sure — ask me later</button>' + (S.i ? '<button class="b" style="flex:0 0 auto" onclick="SIN.i--;sortInStep()">← Back</button>' : '') + '</div>'
+    + '<div class="row" style="gap:8px"><button class="b" style="flex:1" onclick="sortInLater()">🔍 Look into later</button>' + (S.i ? '<button class="b" style="flex:0 0 auto" onclick="SIN.i--;sortInStep()">← Back</button>' : '') + '</div>'
     + '<button class="b ghost" style="width:100%" onclick="sortHub()">Done for now</button></div>');
-  var sel = document.getElementById('sinCat'); if(sel) sel.addEventListener('change', function(){ var b = document.querySelector('#sheetIn .stickfoot button.primary'); if(b) b.textContent = this.value === '__new' ? 'Save' : '✓ ' + this.value + (one ? '' : ' — all ' + g.length); }); }
-function sortInSave(){ var S = SIN, g = S.groups[S.i], v = document.getElementById('sinCat').value, nt = document.getElementById('sinNote');
+  var sel = document.getElementById('sinCat'); if(!sel) return;
+  var lab = function(){ var b = document.querySelector('#sheetIn .stickfoot button.primary'); if(b && !SPLIT) b.textContent = sel.value === '__new' || !sel.value ? 'Save' : '✓ ' + sel.value + (one ? '' : ' — all ' + g.length); var r = document.getElementById('sinRen'); if(r) r.style.visibility = catByName(sel.value) ? '' : 'hidden'; };
+  sel.addEventListener('change', lab); lab(); SPLIT = null;
+  /* a letter jumps to the next category starting with it, A to Z, without opening the list (Jerry: "hit D, it goes to the first one. Hit D again, it goes to the second one") */
+  sel.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); sortInSave(); return; } if(e.key.length !== 1 || !/[a-z0-9]/i.test(e.key) || e.metaKey || e.ctrlKey) return; e.preventDefault();
+    var L = az.filter(function(n){ return n.charAt(0).toLowerCase() === e.key.toLowerCase(); }); if(!L.length) return; var i = L.indexOf(sel.value), nx = L[(i + 1) % L.length];
+    for(var k = sel.options.length - 1; k >= 0; k--) if(sel.options[k].text === nx && (!sel.options[k].parentNode.label || sel.options[k].parentNode.label === 'All, A to Z' || L.length === 1)){ sel.selectedIndex = k; break; }
+    sel.value = nx; lab(); document.getElementById('sinNew').style.display = 'none'; });
+  if(innerWidth >= 700) setTimeout(function(){ try{ sel.focus(); }catch(e){} }, 50); }
+var SPLIT = null;
+function catByName(n){ return db.cats.filter(function(c){ return catLabel(c) === n || c.name === n; })[0] || null; }
+/* rename the chosen category; every line already in it keeps it, under the new name */
+function sortInRename(){ var sel = document.getElementById('sinCat'), c = catByName(sel.value); if(!c) return; var n = prompt('Rename “' + c.name + '” to:', c.name); if(!n || !n.trim() || n.trim() === c.name) return;
+  c.name = n.trim(); save(); render(); sortInStep(); var s2 = document.getElementById('sinCat'); if(s2){ s2.value = catLabel(c); s2.dispatchEvent(new Event('change')); } }
+/* split one charge: rows of category + amount; the last row takes what's left */
+function sortInSplit(){ var g = SIN.groups[SIN.i], t = g[0], names = Array.prototype.map.call(document.querySelectorAll('#sinCat option'), function(o){ return o.text; }).filter(function(n, i, A){ return n !== '＋ A new category…' && n !== '— pick one —' && A.indexOf(n) === i; });
+  var first = document.getElementById('sinCat').value; SPLIT = { t:t, names:names, rows:[{ c:first && first !== '__new' ? first : '', v:'' }, { c:'', v:'' }] }; document.getElementById('sinCatBox').style.display = 'none'; splitDraw(); }
+function splitDraw(){ var S = SPLIT, box = document.getElementById('sinSplit'); if(!S || !box) return; var used = 0; S.rows.forEach(function(r, i){ if(i < S.rows.length - 1) used += +r.v || 0; }); var rest = r2(S.t.amt - used);
+  box.innerHTML = '<div class="card" style="padding:10px 12px;margin-top:8px"><b>Split ' + money(S.t.amt) + '</b>' + S.rows.map(function(r, i){ var last = i === S.rows.length - 1;
+      return '<div class="row" style="gap:8px;margin-top:8px;align-items:center"><select data-si="' + i + '" style="flex:1;font-size:16px;padding:8px;border-radius:10px" onchange="SPLIT.rows[' + i + '].c=this.value"><option value="">— category —</option>' + S.names.map(function(n){ return '<option' + (n === r.c ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select>'
+        + (last ? '<b id="splitRest" style="flex:0 0 90px;text-align:right">' + money(rest) + '</b>' : '<input inputmode="decimal" style="flex:0 0 90px" value="' + esc(r.v) + '" placeholder="$" oninput="SPLIT.rows[' + i + '].v=this.value.replace(/[^0-9.]/g,\'\');splitRest()">') + '</div>'; }).join('')
+    + '<div class="row" style="gap:8px;margin-top:8px"><button class="b small" onclick="SPLIT.rows.splice(SPLIT.rows.length-1,0,{c:\'\',v:\'\'});splitDraw()">＋ Another part</button><button class="b small ghost" onclick="SPLIT=null;document.getElementById(\'sinSplit\').innerHTML=\'\';sortInStep()">Don’t split</button></div>'
+    + (rest < 0 ? '<div class="line warn" style="font-size:14px">The parts add up to more than the charge.</div>' : '') + '</div>';
+  var b = document.querySelector('#sheetIn .stickfoot button.primary'); if(b) b.textContent = '✂️ Save the split'; }
+function splitRest(){ var S = SPLIT, used = 0; S.rows.forEach(function(r, i){ if(i < S.rows.length - 1) used += +r.v || 0; }); var el = document.getElementById('splitRest'); if(el){ var v = r2(S.t.amt - used); el.textContent = money(v); el.style.color = v < 0 ? 'var(--red)' : ''; } }
+function splitSave(){ var S = SPLIT, t = S.t, used = 0, parts = [];
+  for(var i = 0; i < S.rows.length; i++){ var r = S.rows[i], last = i === S.rows.length - 1, v = last ? r2(t.amt - used) : r2(+r.v || 0); if(!r.c || !(v > 0)){ alert('Pick a category and an amount for each part.'); return false; } used += v; parts.push({ c:r.c, v:v }); }
+  if(used - t.amt > 0.005){ alert('The parts add up to more than the charge.'); return false; }
+  db.splitKeys = db.splitKeys || {}; var key = t.a + '|' + t.d + '|' + t.amt + '|' + t.desc; db.splitKeys[key] = (db.splitKeys[key]||0) + 1;   /* so reading the same statement again doesn't bring the whole charge back */
+  var at = db.tx.indexOf(t); db.tx.splice(at, 1); parts.forEach(function(p, k){ SHNEW = []; var id = shFind(p.c); var n = { id:uid(), a:t.a, d:t.d, desc:t.desc, amt:p.v, bcat:t.bcat || '', cat:id, note:'part ' + (k + 1) + ' of ' + parts.length + ' of ' + money(t.amt), splitOf:key }; db.tx.splice(at + k, 0, n); db.asked[n.id] = 1; });
+  SPLIT = null; return true; }
+function sortInSave(){ var S = SIN, g = S.groups[S.i];
+  if(SPLIT){ if(!splitSave()) return; S.done++; S.i++; save(); sortInStep(); return; }
+  var v = document.getElementById('sinCat').value, nt = document.getElementById('sinNote'), sb = document.getElementById('sinSub');
   if(v === '__new'){ v = (document.getElementById('sinNew').value || '').trim(); if(!v){ document.getElementById('sinNew').focus(); return; } }
   if(!v){ document.getElementById('sinCat').focus(); return; }
   SHNEW = []; var id = shFind(v); if(!id) return; if(nt && nt.value.trim()) g[0].note = nt.value.trim();
-  g.forEach(function(t){ sortSet(t, id); }); S.done++; S.i++;
-  /* what was just learned may answer payees further on: drop the ones now sorted */
+  var nmS = sb ? sb.value.trim() : ''; if(nmS){ var k = mkey(g[0].desc); g.forEach(function(t){ t.sub = nmS; t.note = t.note || nmS; }); if(k){ db.subRules = (db.subRules || []).filter(function(x){ return !(x.k === k && x.name === nmS); }); db.subRules.push({ k:k, amt:Math.abs(g[g.length-1].amt), name:nmS }); } }
+  g.forEach(function(t){ delete t.subAsk; sortSet(t, id); }); S.done++; S.i++;
   save(); sortInStep(); }
-function sortInLater(){ var S = SIN, g = S.groups[S.i]; g.forEach(function(t){ delete db.asked[t.id]; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); }); S.i++; save(); sortInStep(); }
+function sortInLater(){ var S = SIN, g = S.groups[S.i]; g.forEach(function(t){ delete t.subAsk; delete db.asked[t.id]; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); }); S.i++; save(); sortInStep(); }
 
 /* after a sheet is given back (shRead calls this when it came from Sort each account) */
 function sortBack(ok, ch, uns){ var n = reguess(), a = acct(SORTA) || {}, s = sortState(a.id || '');
@@ -4072,6 +4140,7 @@ function render(){
     var sp = x.sp, varC = [];
     db.groups.forEach(function(g){ var cs = catsIn(g.id).filter(function(c){ if(part(c) !== 1) return false; if(c.variable){ varC.push(c); return false; } return true; }); h += groupCard(g.em + ' ' + esc(g.name), cs, sp); });
     if(varC.length) h += groupCard('🌦️ Goes up and down', varC, sp, true);
+    h += acrossCard(sp);
     if(db.threePart && p2Cats().length) h += part2Card();
   }
   var G = db.budgetSet ? gaps(view) : []; if(G.length) h += '<div class="card" id="gapCard"><h2>📐 Biggest gaps<small>3-month average vs budget</small></h2>' + G.map(function(g){ return '<div class="trow" onclick="openCatTx(\'' + g.c.id + '\')" style="cursor:pointer"><span>' + esc(catLabel(g.c)) + '<small>averages ' + money(g.avg,1) + ', budget ' + money(g.bud,1) + '</small></span><b style="color:' + (g.gap > 0 ? 'var(--red)' : 'var(--ok)') + '">' + (g.gap > 0 ? '+' : '−') + money(Math.abs(g.gap),1) + '</b></div>'; }).join('') + '</div>';
@@ -4108,6 +4177,12 @@ function render(){
     + '<button class="tool" onclick="openAdvisors()">🧑‍💼 Our advisors<small>' + esc(db.cpa || db.advisor ? [db.cpa, db.advisor].filter(Boolean).join(' · ') : 'CPA and advisor') + '</small></button></div>';
   main.innerHTML = h;
 }
+/* v8.6 · Jerry, 19 Nov: two homes, each with its own Utilities — "I want to know what we pay for utilities". Each group
+   card already has its own subtotal; this adds the other way round, only when a name is in more than one group. */
+function acrossCard(sp){ var by = {}; db.cats.forEach(function(c){ if(part(c) === 3) return; var k = c.name.toLowerCase(); (by[k] = by[k] || []).push(c); });
+  var rows = Object.keys(by).filter(function(k){ var gs = {}; by[k].forEach(function(c){ gs[c.g] = 1; }); return Object.keys(gs).length > 1; }).map(function(k){ var C = by[k], tot = C.reduce(function(s,c){ return s + (sp[c.id]||0); }, 0); if(!tot) return '';
+    return '<div class="trow"><span>' + esc(C[0].name) + '<small>' + C.map(function(c){ var g = group(c.g); return esc(g ? g.name : '') + ' ' + money(sp[c.id]||0, 1); }).join(' · ') + '</small></span><b>' + money(tot, 1) + '</b></div>'; }).join('');
+  return rows ? '<div class="card" id="acrossCard"><h2>➕ Added together<small>the same kind of bill in each place</small></h2>' + rows + '</div>' : ''; }
 function groupCard(title, cs, sp, isVar){
   var gs = 0, gb = 0, rows = cs.map(function(c){ var s = sp[c.id]||0, b = mBud(c, view); gs += s; gb += b; if(!s && !b) return '';
     var p = b > 0 ? s / b : (s > 0 ? 1.01 : 0), cl = p > 1.0001 ? 'over' : p >= .85 ? 'near' : '', lh = isVar ? lowHigh(c.id) : null;
