@@ -864,3 +864,10 @@ Jerry: "is there a way… AI reads them, and then… would you like to categoriz
 ## v8.4 · the category list puts the ones picked most first (19 Nov)
 
 Jerry: a new category like Donations ends up "all over the place" in the list. The in-app picker now starts with **＋ A new category…**, then up to eight **Picked most** categories (counted from the lines you have sorted), then **All, A to Z**. The spreadsheet's drop-down is A to Z too.
+
+## v8.5 · "Are these yours?" before the first sort (19 Nov)
+
+Jerry: "in the setup, actually go through that list and see which ones are valid and not, and add them before you start."
+- Before the first **Sort it here**, the app shows every category by group (`catReview`). Tap one to strike it out. Add missing ones with a name and a group. **These are ours — start sorting** removes the struck ones (their lines go back to unsorted and are guessed again) and then starts.
+- It shows once (`db.catsChecked`). Settings › Categories still does the rest.
+- Tester script s27 covers it. The videos skip it, since their example family has already checked.
