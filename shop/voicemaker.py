@@ -44,6 +44,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import wave
 
@@ -231,7 +232,40 @@ def model_path():
     return path
 
 
+# 19 Nov 2026: Jerry's own voice. With VOICE=elevenlabs each line is read by his
+# "Jerry W" clone on ElevenLabs instead of piper. The chat's environment holds the
+# key as a network secret for api.elevenlabs.io, so the proxy adds it and this file
+# only ever sends a dummy. Speed 1.15 is what he chose: his voice runs slow and low.
+ENGINE = os.environ.get('VOICE', 'piper')
+EL_VOICE = os.environ.get('EL_VOICE', 'FbDmiCefHcLYTtlx6nyc')
+EL_RATE = 24000
+
+
+def say_elevenlabs(text, out_wav):
+    body = json.dumps({'text': text, 'model_id': 'eleven_multilingual_v2',
+                       'voice_settings': {'speed': 1.15, 'stability': 0.5,
+                                          'similarity_boost': 0.75, 'style': 0.3}}).encode()
+    url = ('https://api.elevenlabs.io/v1/text-to-speech/%s?output_format=pcm_%d'
+           % (EL_VOICE, EL_RATE))
+    for attempt in range(4):
+        req = urllib.request.Request(url, data=body, method='POST', headers={
+            'xi-api-key': 'dummy', 'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                pcm = r.read()
+            break
+        except Exception as e:
+            if attempt == 3:
+                sys.exit('ElevenLabs failed on: %r\n%s' % (text[:60], e))
+            time.sleep(3 * (attempt + 1))
+    with wave.open(out_wav, 'wb') as f:
+        f.setnchannels(1); f.setsampwidth(2); f.setframerate(EL_RATE)
+        f.writeframes(pcm)
+
+
 def say(text, model, out_wav):
+    if ENGINE == 'elevenlabs':
+        return say_elevenlabs(text, out_wav)
     r = subprocess.run(['piper', '-m', model, '-f', out_wav],
                        input=text, capture_output=True, text=True)
     if r.returncode or not os.path.exists(out_wav):
@@ -343,7 +377,7 @@ def main():
     p.add_argument('--dry-run', action='store_true', help='say what it would record, record nothing')
     a = p.parse_args()
 
-    for tool, how in (('piper', 'pip install piper-tts'), ('ffmpeg', 'apt-get install -y ffmpeg')):
+    for tool, how in ((('piper', 'pip install piper-tts'),) if ENGINE != 'elevenlabs' else ()) + (('ffmpeg', 'apt-get install -y ffmpeg'),):
         if not shutil.which(tool):
             sys.exit('%s is not on this machine. Install it with: %s' % (tool, how))
 
@@ -405,7 +439,7 @@ def main():
         return
 
     os.makedirs(VOICE_DIR, exist_ok=True)
-    model = model_path()
+    model = model_path() if ENGINE != 'elevenlabs' else None
     done = 0
     for key, appkey, mode in jobs:
         lines = lines_of(apps, appkey, mode)
