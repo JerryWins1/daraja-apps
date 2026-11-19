@@ -2447,7 +2447,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.4 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.5 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3633,7 +3633,22 @@ var SIN = null;
 function sortSet(t, id){ t.cat = id; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; });
   db.reclass = db.reclass.filter(function(x){ return x.id !== t.id; }); db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:t.note || catName(id), cat:id, at:today() });
   if(!channel(t) && !isP3(id) && id !== 'onetime' && id !== 'inc' && id !== 'xfer'){ var k = mkey(t.desc); if(k){ db.rules = db.rules.filter(function(x){ return x.k !== k; }); db.rules.unshift({ k:k, cat:id }); } } }
-function sortIn(id){ var a = acct(id); if(!a) return sortHub(); var AK = autoKnown(id);
+/* v8.5 · Jerry, 19 Nov: "in the setup, actually go through that list and see which ones are valid and not, and add them before
+   you start." Once, before the first sort: every category by group, tap off the ones this family doesn't have, add its own. */
+var CRNEXT = null, CROFF = {};
+function catReview(next){ CRNEXT = next || CRNEXT; var used = {}; db.tx.forEach(function(t){ if(t.cat) used[t.cat] = (used[t.cat]||0) + 1; });
+  openSheet('<div class="stepno">Before sorting · your categories</div><h3>Are these yours?</h3><p class="sub">These are the categories the app sorts into. Tap any your family doesn’t have, and it’s left out. Add any that are missing. The small number is how many lines the app already thinks belong there. You can change all this later in Settings, and make a new one while sorting too.</p>'
+    + db.groups.map(function(g){ var C = catsIn(g.id); if(!C.length) return ''; return '<h4 style="margin:14px 0 6px">' + esc(g.name) + '</h4><div style="display:flex;flex-wrap:wrap;gap:8px">'
+      + C.map(function(c){ var off = !!CROFF[c.id]; return '<button class="b small" style="margin:0;' + (off ? 'text-decoration:line-through;opacity:.5' : 'border-color:var(--ok)') + '" aria-pressed="' + (!off) + '" onclick="CROFF[\'' + c.id + '\']=!CROFF[\'' + c.id + '\'];catReview()">' + (off ? '✗ ' : '✓ ') + esc(c.name) + (used[c.id] ? ' <small style="opacity:.7">' + used[c.id] + '</small>' : '') + '</button>'; }).join('') + '</div>'; }).join('')
+    + '<label style="margin-top:16px">Add one that’s missing</label><div class="row" style="gap:8px"><input id="crNew" placeholder="e.g. Donations, Golf, Pets" style="flex:1"><select id="crG" style="flex:0 0 40%">' + db.groups.filter(function(g){ return g.id !== 'g_yearly'; }).map(function(g){ return '<option value="' + g.id + '">' + esc(g.name) + '</option>'; }).join('') + '</select></div>'
+    + '<button class="b small" style="margin-top:8px" onclick="catAddHere()">＋ Add it</button>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="catReviewDone()">These are ours — start sorting</button></div>'); }
+function catAddHere(){ var n = (document.getElementById('crNew').value || '').trim(), g = document.getElementById('crG').value; if(!n) return document.getElementById('crNew').focus();
+  if(!db.cats.some(function(c){ return c.name.toLowerCase() === n.toLowerCase(); })) db.cats.push({ id:uid(), g:g, name:n, budget:0, part:1, kw:'' }); save(); catReview(); }
+function catReviewDone(){ var off = Object.keys(CROFF).filter(function(k){ return CROFF[k]; });
+  db.cats = db.cats.filter(function(c){ return off.indexOf(c.id) < 0; }); db.tx.forEach(function(t){ if(off.indexOf(t.cat) >= 0){ t.cat = 'uncat'; delete db.asked[t.id]; } }); db.rules = db.rules.filter(function(r){ return off.indexOf(r.cat) < 0; });
+  CROFF = {}; db.catsChecked = 1; reguess(); save(); var n = CRNEXT; CRNEXT = null; if(n) n(); else { closeSheet(); render(); } }
+function sortIn(id){ var a = acct(id); if(!a) return sortHub(); if(!db.catsChecked) return catReview(function(){ sortIn(id); }); var AK = autoKnown(id);
   var L = acctLines(id).filter(function(t){ return !(db.asked[t.id] && t.cat !== 'uncat') && db.notSure.indexOf(t.id) < 0; }).sort(function(x,y){ return x.d < y.d ? -1 : 1; });
   var G = {}, order = []; L.forEach(function(t){ var k = channel(t) ? 'one:' + t.id : (mkey(t.desc) || t.desc); if(!G[k]){ G[k] = []; order.push(k); } G[k].push(t); });
   SIN = { a:id, groups:order.map(function(k){ return G[k]; }), i:0, auto:AK, done:0 }; save(); sortInStep(); }
@@ -5499,6 +5514,7 @@ function videoSort(step){ videoReady(); var A = sortAccts(), a = A[0]; if(!a) re
   if(step === 'hub'){ sortHub(); return; }
   if(step === 'sheet' || step === 'back'){ var all = acctLines(a.id).sort(function(x,y){ return x.d < y.d ? -1 : 1; }), M = all.length ? all[0].d.slice(0,7) : thisMonth(), R = all.filter(function(t){ return t.d.slice(0,7) === M; });
     SORTA = a.id; SORTM = { m:M, auto:{ n:0, card:1 }, rest:Math.max(0, all.length - R.length) }; if(step === 'sheet') sortMade(a, R.length, R); else sortBack(Math.max(0, R.length - 2), 2, 1); return; }
+  if(step === 'in' || step === 'indone') db.catsChecked = 1;
   if(step === 'in'){ sortIn(a.id); return; }
   if(step === 'indone'){ sortIn(a.id); SIN.done = SIN.groups.length; SIN.i = SIN.groups.length; sortInStep(); return; }
   if(step === 'ask'){ askRound(); return; }
