@@ -2447,7 +2447,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.6 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.7 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3955,10 +3955,30 @@ function spouseRound(){ db.askList = (db.askList||[]).concat((db.spouseQ||[]).fi
 /* backup: a file of exactly what is kept here. With a passcode it is the scrambled copy, so it needs the same passcode to open. */
 function backupOpen(){ openSheet('<div class="stepno">Backup</div><h3>💾 Keep a copy somewhere safe</h3><p class="sub">Everything lives in this browser on this computer. If the browser’s data is cleared, or the computer is lost, the backup is how you get it back. ' + (LOCK ? 'Your copy is scrambled with your passcode — it opens only with the same passcode. <b>If the passcode is forgotten, nobody can open it, not even us.</b>' : '<b>You have no passcode, so this copy is not scrambled.</b> Keep it somewhere private, or set a passcode first.') + '</p>'
     + (db.backupAt ? '<div class="line ok">Last saved ' + shortDate(db.backupAt) + '.</div>' : '<div class="line warn">No backup saved yet.</div>')
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="backupNow()">⬇️ Save a backup now</button><button class="b full" onclick="document.getElementById(\'bkIn\').click()">Bring back a backup</button><input type="file" id="bkIn" accept=".fmbak,.json,.txt" style="display:none" onchange="backupRestore(this.files[0]);this.value=\'\'">' + (LOCK ? '' : '<button class="b full" onclick="promiseScreen()">🔐 Set a passcode first</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
+    + '<p class="sub" style="font-size:14px">The spreadsheet and the printout are for reading, or handing to someone you trust. They aren’t scrambled, so keep them private. Only the backup brings the app back on a new phone or computer.</p>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="backupNow()">⬇️ Save a backup now</button><div class="row" style="gap:8px"><button class="b" style="flex:1" onclick="backupSheet()">📊 Spreadsheet</button><button class="b" style="flex:1" onclick="backupPrint()">🖨️ Print it</button></div><button class="b full" onclick="document.getElementById(\'bkIn\').click()">Bring back a backup</button><input type="file" id="bkIn" accept=".fmbak,.json,.txt" style="display:none" onchange="backupRestore(this.files[0]);this.value=\'\'">' + (LOCK ? '' : '<button class="b full" onclick="promiseScreen()">🔐 Set a passcode first</button>') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
 function backupNow(){ db.backupAt = today(); Promise.resolve(save()).then(function(){ setTimeout(function(){ var raw = ''; try{ raw = localStorage.getItem(KEY) || ''; }catch(e){}
     if(!raw){ alert('Nothing to back up yet.'); return; } var u = URL.createObjectURL(new Blob([raw], { type:'application/octet-stream' })), l = document.createElement('a'); l.href = u; l.download = 'Family Money backup ' + today() + '.fmbak'; document.body.appendChild(l); l.click(); setTimeout(function(){ URL.revokeObjectURL(u); l.remove(); }, 3000);
     render(); backupOpen(); toast('Saved. Keep it in iCloud, a USB stick, or an email to yourself.'); }, 300); }); }
+/* v8.7 · Jerry, 19 Nov: "Can you output to a spreadsheet so it's there and we can print it?" — kept under the one Backup button,
+   not a new one. The spreadsheet is for reading, printing or handing to someone; only the backup file brings the app back. */
+function backupRows(){ var acc = db.accts.map(function(a){ return [acctLabel(a), (TYPES[a.type]||{}).t || a.type, a.last4 || '', a.balUnknown ? '' : (a.bal || 0), a.asOf || '', a.closed ? 'closed' : '']; });
+  var lines = db.tx.filter(inWin).sort(function(x,y){ return x.d < y.d ? -1 : 1; }).map(function(t){ var c = cat(t.cat), g = c ? group(c.g) : null; return [t.d, acctLabel(acct(t.a) || {}), t.desc, t.amt, shName(t.cat) || 'Not sorted yet', g ? g.name : '', t.sub || '', t.note || '', db.notSure.indexOf(t.id) >= 0 ? 'to look into' : '']; });
+  var yr = {}; db.tx.forEach(function(t){ if(inWin(t)) yr[t.cat] = r2((yr[t.cat]||0) + t.amt); });
+  var cats = db.cats.map(function(c){ var g = group(c.g); return [g ? g.name : '', c.name, c.budget || 0, yr[c.id] || 0]; });
+  return { acc:acc, lines:lines, cats:cats }; }
+function backupSheet(){ needXLSX(function(){ var R = backupRows(), wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date','Account','Statement words','Amount','Category','Group','What it is','Note','']].concat(R.lines)), 'Every line');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Group','Category','Monthly budget','Total for ' + winLabel()]].concat(R.cats)), 'Categories');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Account','Kind','Last 4','Balance','As of','']].concat(R.acc)), 'Accounts');
+  XLSX.writeFile(wb, 'Family Money ' + today() + '.xlsx'); toast('Saved — a spreadsheet to read or print. To move the app itself, use Save a backup now.'); }); }
+function backupPrint(){ var R = backupRows();
+  var tbl = function(h, rows, money_){ return '<table style="width:100%;border-collapse:collapse;margin:6px 0 16px">' + '<tr>' + h.map(function(x){ return '<th style="text-align:left;border-bottom:1px solid #000;padding:3px 6px">' + esc(x) + '</th>'; }).join('') + '</tr>' + rows.map(function(r){ return '<tr>' + r.map(function(v, i){ return '<td style="padding:2px 6px;border-bottom:1px solid #ddd' + (money_.indexOf(i) >= 0 ? ';text-align:right' : '') + '">' + (money_.indexOf(i) >= 0 && v !== '' ? money(+v) : esc(String(v))) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>'; };
+  document.getElementById('printable').innerHTML = '<h2>' + esc((db.name ? db.name + ' — ' : '') + 'Family Money, ' + winLabel()) + '</h2><p>Printed ' + esc(shortDate(today())) + '. Account numbers show the last 4 only.</p>'
+    + '<h3>Accounts</h3>' + tbl(['Account','Kind','Last 4','Balance','As of'], R.acc.map(function(r){ return r.slice(0,5); }), [3])
+    + '<h3>Categories</h3>' + tbl(['Group','Category','Monthly budget','Total'], R.cats.filter(function(r){ return r[2] || r[3]; }), [2,3])
+    + '<h3>Every line</h3>' + tbl(['Date','Account','Statement words','Amount','Category'], R.lines.map(function(r){ return r.slice(0,5); }), [3]);
+  window.print(); }
 function backupRestore(f){ if(!f) return; var r = new FileReader(); r.onload = function(){ var t = String(r.result||'');
     var ok = t.slice(0,5) === 'ENC1:' || (function(){ try{ var d = JSON.parse(t); return !!(d && d.cats); }catch(e){ return false; } })();
     if(!ok){ alert('That isn’t a Family Money backup.'); return; }

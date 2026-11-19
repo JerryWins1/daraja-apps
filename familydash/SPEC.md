@@ -883,3 +883,10 @@ Jerry: "if there's things that we're already doing that are similar, don't add o
 6. **Several charges inside one payee.** When one payee has different amounts, the screen says "These look like N different charges" and offers **Sort each one**. A price rise stays with its charge. A repeating charge asks **What is it?** (e.g. Hulu), and the name follows that payee and amount into later months (`db.subRules`). Subscriptions then lists it on its own.
 7. **PayPal and Venmo payments are money moving** once that account's own lines are in for the month, the same way a card payment is. PayPal lines are grouped by payee now; only checks and cash still come one line at a time.
 Videos (firsttime, train) and tester script s27 are updated. Both videos were re-recorded by name.
+
+## v8.7 · the backup can also be a spreadsheet or a printout (19 Nov)
+
+Jerry: "Can you output to a spreadsheet so it's there and we can print it?", kept under the one Backup button, not as a new one. Under **⬇️ Save a backup now** there are two smaller buttons:
+- **📊 Spreadsheet** saves three sheets: Every line, Categories (with the year's totals) and Accounts.
+- **🖨️ Print it** prints the accounts, the categories and every line.
+A line says they aren't scrambled, and that only the backup file brings the app back.
