@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v65">
+<script id="dj-house-v68">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -795,7 +795,7 @@
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ dockSheet(); };
+      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -873,18 +873,26 @@
         var row = document.createElement('button'); row.type = 'button';
         row.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
         row.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + lab[0] + '</span><span style="flex:1">' + lab[1] + '</span>';
-        row.onclick = function(){ w.remove(); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
+        row.onclick = function(){ w.remove(); djBackPush(dockSheet); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
         box.appendChild(row); n++;
       })(c, btn_lab(c, lab));
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    var djProbs = djProblems();
+    if(djProbs.length){
+      var pb = document.createElement('button'); pb.type = 'button';
+      pb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      pb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">⚠️</span><span style="flex:1">Recent problems<br><small style="font-weight:600;color:#55605B">' + djProbs.length + ' message' + (djProbs.length === 1 ? '' : 's') + ' that flashed up · copy them to send on</small></span>';
+      pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
+      box.appendChild(pb);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
       ai.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       var ch = aiChoice(), chn = ASSISTANTS[ch] ? ASSISTANTS[ch].name : (ch === 'none' ? 'none' : 'not chosen yet');
       ai.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🤖</span><span style="flex:1">Which AI do you use?<br><small style="font-weight:600;color:#55605B">now: ' + esc(chn) + '</small></span>';
-      ai.onclick = function(){ w.remove(); pickAssistant(); };
+      ai.onclick = function(){ w.remove(); djBackPush(dockSheet); pickAssistant(); };
       box.appendChild(ai);
     }
     if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
@@ -1198,6 +1206,37 @@
     meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
   };
   function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  /* 20 Nov. Jerry, relayed from the Family Money chat: "If you go one screen too far or something,
+     you can't go back to the previous one." So the house keeps a back-stack for its own screens —
+     the ? menu and everything it opens — and hands the same thing to an app for its own screens:
+         window.djBack.push(function(){ ...reopen the screen I am leaving... });
+         window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
+         window.djBack.go()       -> step back one; false when the stack is empty
+     Screens opened through the house's own sheet() get the chip and the wiring for free. */
+  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
+  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
+  function djBackClear(){ DJ_BACK = []; }
+  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djBackGo(){
+    var f = DJ_BACK.pop(); if(!f) return false;
+    var a = document.getElementById('djAISheet'); if(a) a.remove();
+    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    return true;
+  }
+  window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
+                    depth: function(){ return DJ_BACK.length; } };
+  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
+     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+  window.addEventListener('popstate', function(){
+    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(!open) return;
+    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
+    djBackClear(); open.remove();
+    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(other) other.remove();
+  });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
     var old = document.getElementById('djAISheet'); if(old) old.remove();
@@ -1205,8 +1244,11 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    box.innerHTML = html; w.appendChild(box);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    box.innerHTML = djBackBtn() + html; w.appendChild(box);
+    var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
+    /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
+    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
@@ -1268,9 +1310,23 @@
       var LINK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
       var short = String(o.prompt).replace(/\s+/g, ' ').trim();
       if(short.length > 110) short = short.slice(0, 108) + '\u2026';
+      /* 16 Nov 2026: a sender that attaches a file passes it here, so the sheet can NAME it.
+         The Family Money Dashboard reads a credit union's PDF statement this way, and Jerry
+         chose "both, asking first" when he was asked what a customer should get. A statement
+         is the most private thing any of these apps will ever send, so a preview that showed
+         only the question while a PDF went with it would be worse than no preview: it would
+         be a wrong one. Only the sender that really attaches the file passes opt.file - the
+         external-assistant path cannot attach anything, the person does that themselves at
+         the other end, so it says nothing about a file and that stays true. */
+      var fsz = '';
+      if(opt.file && opt.file.data){
+        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -1293,19 +1349,85 @@
   }
   /* not null: null from viaDaraja means the door failed and the next path should try.
      This means the person read the words and said no, and nothing else should ask again. */
+  /* 18 Nov. Jerry: "There were a bunch of error messages flashing at the bottom. They don't stay.
+     So I can't give them to you. But maybe you can record them somewhere." So they are kept here —
+     the last 25, per app, in this browser — and the ? menu reads them back with a Copy button.
+     Nothing leaves the phone: it is localStorage, and only a tap on Copy puts it anywhere. */
+  var PROB_KEY = 'dj_problems';
+  function djProblems(){ try{ return JSON.parse(localStorage.getItem(PROB_KEY) || '[]') || []; }catch(e){ return []; } }
+  function djNote(msg){
+    try{
+      if(msg === null || msg === undefined || msg === '') return;
+      msg = String(msg).replace(/\s+/g, ' ').trim().slice(0, 300);
+      if(!msg) return;
+      var a = djProblems(), last = a[a.length - 1];
+      if(last && last.m === msg && Date.now() - last.t < 60000){ last.n = (last.n || 1) + 1; last.t = Date.now(); }
+      else { a.push({ t: Date.now(), m: msg, a: slugOf(), n: 1 }); }
+      while(a.length > 25) a.shift();
+      localStorage.setItem(PROB_KEY, JSON.stringify(a));
+    }catch(e){}
+  }
+  window.djNote = djNote;   /* an app can record its own: djNote('could not read the Chase file') */
+  window.addEventListener('error', function(e){ try{ if(e && e.message) djNote(e.message + (e.filename ? ' — ' + String(e.filename).split('/').pop() + ':' + e.lineno : '')); }catch(err){} });
+  window.addEventListener('unhandledrejection', function(e){ try{ var r = e && e.reason; djNote('did not finish: ' + ((r && r.message) || r || 'no reason given')); }catch(err){} });
+  function djProbWhen(t){
+    var d = new Date(t);
+    try{ return d.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }); }
+    catch(e){ return d.toISOString().slice(0, 16).replace('T', ' '); }
+  }
+  function djProbText(){
+    return djProblems().slice().reverse().map(function(p){
+      return djProbWhen(p.t) + ' · ' + (p.a || 'app') + ' · ' + p.m + (p.n > 1 ? ' (' + p.n + ' times)' : '');
+    }).join('\n');
+  }
+  function problemsSheet(){
+    var LNK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
+    var a = djProblems().slice().reverse();
+    var rows = a.map(function(p){
+      return '<li style="list-style:none;margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #E2DCCF">'
+        + '<div style="font-size:12.5px;color:#55605B">' + esc(djProbWhen(p.t)) + ' · ' + esc(p.a || 'app') + (p.n > 1 ? ' · ' + p.n + ' times' : '') + '</div>'
+        + '<div style="font-size:15px">' + esc(p.m) + '</div></li>';
+    }).join('');
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Recent problems</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">The messages that flashed up and went away. They stay on this phone until you clear them.</p>'
+      + (rows ? '<ul style="margin:0 0 10px;padding:0">' + rows + '</ul>' : '<p style="margin:0 0 10px">Nothing has gone wrong in this app.</p>')
+      + '<textarea id="djPbRaw" aria-label="The problems as text" style="display:none;width:100%;min-height:120px;font:inherit;font-size:14px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+      + (rows ? '<button type="button" id="djPbCopy" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Copy them all</button>' : '')
+      + '<div style="display:flex;justify-content:space-between;margin-top:8px">'
+      + (rows ? '<button type="button" id="djPbClear" style="' + LNK + '">clear the list</button>' : '<span></span>')
+      + '<button type="button" id="djPbX" style="' + LNK + '">close</button></div>');
+    var cp = b.querySelector('#djPbCopy');
+    if(cp) cp.onclick = function(){
+      var t = djProbText(), self = this;
+      var shown = function(){ self.textContent = 'Copied ✓'; };
+      var manual = function(){
+        var ta = b.querySelector('#djPbRaw'); ta.value = t; ta.style.display = '';
+        try{ ta.focus(); ta.select(); }catch(e){}
+        self.textContent = 'Press and hold to copy ↑';
+      };
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(shown, manual); }
+        else manual();
+      }catch(e){ manual(); }
+    };
+    var cl = b.querySelector('#djPbClear');
+    if(cl) cl.onclick = function(){ try{ localStorage.removeItem(PROB_KEY); }catch(e){} closeAISheet(); };
+    b.querySelector('#djPbX').onclick = function(){ closeAISheet(); };
+  }
   var AI_CANCELLED = { cancelled: true };
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
-    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false });
+    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
     if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
-      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
       var j = await r.json();
       if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
       closeAISheet(); return j.text;
-    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
+    }catch(e){
+      djNote('AI: ' + (e.message || 'no answer')); var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
   async function builtIn(prompt){
     try{
@@ -2642,7 +2764,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.27 · 2026-10-14</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.29 · 2026-11-20</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -2663,6 +2785,8 @@ input, textarea, select{ background:var(--surface-2); }
 <main>
   <!-- ===== TODAY ===== -->
   <section id="v-today" class="view on">
+    <div id="weekOne"></div>
+    <div id="sunCard"></div>
     <div class="now" id="nowCard"></div>
     <div id="inbox"></div>
     <div id="dayline" class="small" style="text-align:center;margin:-4px 0 8px;font-weight:700"></div>
@@ -2673,6 +2797,8 @@ input, textarea, select{ background:var(--surface-2); }
     <div class="next" id="nextCard"></div>
     <div class="card"><h3 id="todayHdr">Today's list</h3><div id="todayList"></div>
       <div class="add"><input id="newTask" placeholder="one small thing… (e.g. 'put shoes on')" onkeydown="if(event.key==='Enter')addTask()"><select id="newMins" onchange="this.dataset.touched=1"><option value="5">5m</option><option value="10" selected>10m</option><option value="15">15m</option><option value="20">20m</option><option value="25">25m</option><option value="30">30m</option><option value="45">45m</option><option value="60">1h</option><option value="90">1.5h</option><option value="120">2h</option><option value="0">∞ open</option></select><button aria-label="Add it to today" onclick="addTask()" title="Add it to today's list">Add</button><button aria-label="Say the task instead of typing it" id="micBtn" class="mic" onclick="voiceAdd()" title="Say the task instead of typing it">🎤</button></div>
+      <button type="button" id="msgBtn" onclick="nnMsg.open()" style="margin-top:8px;width:100%;font:inherit;font-weight:800;font-size:15px;min-height:44px;border:1.5px solid var(--line-strong);background:var(--surface-2);color:var(--ink);border-radius:12px;cursor:pointer">📨 From a message — paste an email or text, get the tasks</button>
+      <div id="sunLink" style="text-align:center"></div>
       <details style="margin-top:6px"><summary class="small" style="cursor:pointer;font-weight:700;color:var(--next)">quick adds & more ▾</summary>
       <div class="chips" id="chipsKid"><button onclick="quick('Drink water',5)">💧 water</button><button onclick="quick('Put things in backpack',10)">🎒 pack</button><button onclick="quick('Homework: first page only',15)">📝 first page</button><button onclick="quick('Tidy one spot',10)">🧹 one spot</button><button onclick="quick('Move / stretch',5)">🏃 move</button></div>
       <div class="chips" id="chipsAdult"><button onclick="quick('Reply to 3 emails',15)">✉️ 3 emails</button><button onclick="quick('Call someone back',10)">📞 call back</button><button onclick="quick('Pay a bill',10)">💳 a bill</button><button onclick="quick('Focus block: one hard thing',25)">🎯 25-min block</button><button onclick="quick('Two-minute tasks — do them now',10)">⚡ 2-min sweep</button><button onclick="quick('Walk / stretch',10)">🚶 walk</button></div>
@@ -2790,7 +2916,7 @@ input, textarea, select{ background:var(--surface-2); }
       <input type="tel" id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)" autocomplete="tel">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">One Thing v7.27 River · 2026-10-14 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">One Thing v7.29 River · 2026-11-20 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -3038,7 +3164,7 @@ function render(){
   $('winStreak').textContent = streak>1?`${streak}-day streak 🔥`:'Finish one thing to start a streak.';
   const wk=[]; const d=new Date(); for(let i=6;i>=0;i--){ const x=new Date(d); x.setDate(d.getDate()-i); const k=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); const v=k===today()?doneToday:(db.history[k]||0); const crown=(db.fullDays&&db.fullDays[k])?'👑':''; wk.push(`<div style="display:inline-block;width:13%;text-align:center"><div class="small" style="height:16px">${crown}</div><div style="height:${Math.min(60,v*12)+4}px;background:var(--win);border-radius:6px 6px 0 0;margin:0 auto;width:60%"></div><div class="small">${x.toLocaleDateString('en',{weekday:'short'}).slice(0,2)}</div><div class="small">${v}</div></div>`); }
   $('winWeek').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end">${wk.join('')}</div>`;
-  renderBuddy(); renderRegulars(); renderUpcoming(); renderRew(); renderLeague(); (function(){ const el=$('rmList'); if(!el) return; const L=(db.removedLog||[]).slice(-12).reverse(); $('rmCount').textContent=(db.removedLog||[]).length; el.innerHTML=L.length?L.map(r=>`<div style="padding:4px 0;border-top:1px dashed var(--line)">${esc(r.t)} <span class="small">— ${esc(r.how)} · ${r.at}</span></div>`).join(''):'<div class="small">Nothing let go yet.</div>'; })();
+  renderBuddy(); renderRegulars(); renderUpcoming(); try{ window.nnAfterRender&&nnAfterRender(); }catch(e){} renderRew(); renderLeague(); (function(){ const el=$('rmList'); if(!el) return; const L=(db.removedLog||[]).slice(-12).reverse(); $('rmCount').textContent=(db.removedLog||[]).length; el.innerHTML=L.length?L.map(r=>`<div style="padding:4px 0;border-top:1px dashed var(--line)">${esc(r.t)} <span class="small">— ${esc(r.how)} · ${r.at}</span></div>`).join(''):'<div class="small">Nothing let go yet.</div>'; })();
   const mSel=$('setMode'); if(mSel&&document.activeElement!==mSel) mSel.value=db.mode||'kid';
   const ck=$('setCheck'); if(ck) ck.checked=!!db.check; const sw=$('setWait'); if(sw) sw.checked=waitAllowed();
   const ph=$('setPhone'); if(ph&&document.activeElement!==ph) ph.value=db.phone||'';
@@ -3479,6 +3605,8 @@ window.rgDay=i=>{ rgDaysV=rgDaysV.includes(i)?rgDaysV.filter(x=>x!==i):[...rgDay
   setInterval(function(){ try{
     if(Date.now()-last < 15*60*1000) return;
     if(typeof tmr!=='undefined' && tmr!==null) return; /* a task is running */
+    /* 20 Nov 2026: on the week's look-back day this same nudge says so, once, instead of a second reminder */
+    if(window.nnSun && nnSun.due() && !window.__nnSunNudged){ window.__nnSunNudged=1; last=Date.now(); toast('\ud83d\uddd3 Your Sunday look-back is ready \u2014 five minutes, at the top of Today.', 6000); return; }
     var open=(db&&db.tasks||[]).filter(function(t){return !t.done;});
     if(!open.length) return;
     last=Date.now();
@@ -3515,6 +3643,358 @@ async function download(name,text){ let dl=null; try{ if(window.claude&&claude.u
 window.exportAll=()=>download('now-next-backup.json',JSON.stringify(db,null,1));
 window.importAll=ev=>{ const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.tasks) throw 0; db=d; save(); render(); toast('Restored'); }catch(e){ toast('Not a One Thing backup'); } }; r.readAsText(f); };
 window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=>t.done)||(db.history[today()]||0)>0, regs:(db.regulars||[]).length});
+/* 20 Nov 2026 — two AI helpers Jerry picked from the One Thing ideas page:
+   1. "From a message": paste (or Share into One Thing) a whole email or text; the person's own AI pulls
+      out every task, date and thing to buy; nothing is added until they have ticked the list.
+      The message itself is never saved: it lives in this page's memory until the sheet closes.
+   2. The Sunday look-back, look-ahead: a five-minute weekly talk, one screen at a time, at a time they
+      pick (Sunday 3 pm unless they change it). It ends by pinning "this week's one thing" to the top of
+      Today. It rides on the existing idle nudge and a card on Today; there is no second reminder.
+   Uses the house layer only (djAI.ask, djCircle). Grown-up profiles get the Sunday talk; kids do not.
+   It sits inside the app's own block because db, save, render and the rest live only in here. */
+(function(){
+  var Z = 2147481400;   /* under the house AI sheet (…1500), so an AI step can sit on top */
+  function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+  function addDays(n){ var d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate() + n); return d; }
+  function dayName(k){ var p = k.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]).toLocaleDateString('en', { weekday:'short', month:'short', day:'numeric' }); }
+  var B = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;cursor:pointer;';
+  var BMAIN = B + 'border:0;background:var(--next);color:#fff;';
+  var BSOFT = B + 'border:1.5px solid var(--line-strong);background:var(--surface-2);color:var(--ink);';
+  var LINK = 'font:inherit;font-size:14px;color:var(--soft);background:none;border:0;min-height:40px;cursor:pointer;text-decoration:underline;padding:0 4px';
+
+  /* one overlay for both helpers */
+  function panel(html){
+    var w = document.getElementById('nnHelp');
+    if(!w){
+      w = document.createElement('div'); w.id = 'nnHelp'; w.setAttribute('role', 'dialog');
+      w.style.cssText = 'position:fixed;inset:0;z-index:' + Z + ';background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;padding:10px';
+      w.innerHTML = '<div id="nnHelpBox" style="background:var(--bg);color:var(--ink);width:100%;max-width:560px;max-height:86vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));font-size:16px;line-height:1.45;box-shadow:0 -10px 40px rgba(0,0,0,.35);border:1px solid var(--line-strong)"></div>';
+      document.body.appendChild(w);
+    }
+    w.style.display = 'flex';
+    var box = document.getElementById('nnHelpBox'); box.innerHTML = html; box.scrollTop = 0; return box;
+  }
+  function hide(){ var w = document.getElementById('nnHelp'); if(w) w.style.display = 'none'; }
+  function close(){ var w = document.getElementById('nnHelp'); if(w) w.remove(); }
+  function head(t, sub){ return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="font-weight:900;font-size:20px">' + t + '</div><button type="button" data-x aria-label="Close" style="' + LINK + ';text-decoration:none;font-size:22px">✕</button></div>' + (sub ? '<p style="margin:2px 0 12px;color:var(--soft);font-size:14.5px">' + sub + '</p>' : ''); }
+  function wireX(box, fn){ box.querySelectorAll('[data-x]').forEach(function(x){ x.onclick = fn || close; }); }
+  function shopAdd(text){
+    var o; try{ o = JSON.parse(localStorage.getItem('dj_ourtable_v1') || 'null') || {}; }catch(e){ o = {}; }
+    o.extras = Array.isArray(o.extras) ? o.extras : [];
+    o.extras.push({ id:'msg' + uid(), text:text, aisle:'Other', done:false });
+    try{ localStorage.setItem('dj_ourtable_v1', JSON.stringify(o)); return true; }catch(e){ return false; }
+  }
+  /* a dated thing goes to Coming up; today, past or no date goes on Today's list */
+  function putTask(text, date){
+    if(date && date > today()){ (db.upcoming = db.upcoming || []).push({ id:uid(), text:text, mins:10, date:date, notes:[], att:null }); return 'up'; }
+    db.tasks.push({ id:uid(), text:text, mins:10, done:false }); return 'today';
+  }
+
+  /* ───────────── 1. FROM A MESSAGE ───────────── */
+  var MAX = 6000, msgText = '', found = null;
+  function msgPrompt(t){
+    var d = new Date();
+    return 'Read the message below and pull out every task in it for me: each thing I need to do, any date or deadline, and anything to buy. '
+      + 'Skip greetings, chit-chat, ads and anything that is not mine to do. Keep each task short, starting with a verb. '
+      + 'Today is ' + d.toLocaleDateString('en', { weekday:'long' }) + ', ' + ymd(d) + '. Turn days like "Friday" or "Dec 7" into a date. '
+      + 'Answer with JSON only, like {"items":[{"kind":"todo","text":"Sign up for Advent","date":"' + ymd(addDays(1)) + '"},{"kind":"shop","text":"Chocolate chips","date":""}]}. '
+      + 'kind is todo (a thing to do) or shop (a thing to buy). date is YYYY-MM-DD or empty. If there is nothing to do, answer {"items":[]}.'
+      + '\n\nThe message:\n' + t;
+  }
+  function tidyItems(v){
+    var list = Array.isArray(v) ? v : (v && Array.isArray(v.items) ? v.items : null);
+    if(!list) return null;
+    var out = [];
+    list.forEach(function(x){
+      if(!x || typeof x !== 'object') return;
+      var t = String(x.text || x.task || '').replace(/\s+/g, ' ').trim().slice(0, 140); if(!t) return;
+      var k = /^(shop|buy|shopping)$/i.test(String(x.kind || '')) ? 'shop' : 'todo';
+      var dt = /^\d{4}-\d\d-\d\d$/.test(String(x.date || '')) ? String(x.date) : '';
+      out.push({ kind:k, text:t, date:k === 'shop' ? '' : dt, on:true });
+    });
+    return out;
+  }
+  function msgOpen(pre){
+    if(typeof pre === 'string') msgText = pre;
+    found = null;
+    var box = panel(head('📨 From a message', 'Paste a whole email or text. Your AI finds every task, date and thing to buy. You tick what to keep.')
+      + '<textarea id="nnMsgIn" aria-label="The message" placeholder="Paste the email or text here…" style="width:100%;min-height:170px;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);box-sizing:border-box"></textarea>'
+      + '<div id="nnMsgSay" style="min-height:22px;margin:8px 0;font-size:14.5px;color:var(--soft)"></div>'
+      + '<button type="button" id="nnMsgGo" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px">✨ Find the tasks</button>'
+      + '<p style="margin:10px 0 0;font-size:13px;color:var(--faint)">The message goes only to your own AI. One Thing keeps the tasks, not the message.</p>');
+    wireX(box, function(){ msgText = ''; close(); });
+    var inp = box.querySelector('#nnMsgIn'), say = box.querySelector('#nnMsgSay');
+    inp.value = msgText; inp.oninput = function(){ msgText = inp.value; say.textContent = ''; };
+    box.querySelector('#nnMsgGo').onclick = function(){
+      var t = inp.value.trim(); msgText = inp.value;
+      if(!t){ say.textContent = 'Paste a message in the box first.'; inp.focus(); return; }
+      if(t.length < 8){ say.textContent = 'That is very short. Paste the whole message.'; return; }
+      if(t.length > MAX){ t = t.slice(0, MAX); }
+      if(!window.djAI){ say.textContent = 'The AI helper did not load. Refresh the page and try again.'; return; }
+      hide();
+      djAI.ask({ title:'Find the tasks in this message', want:'json', circle:false, prompt:msgPrompt(t),
+        onResult:function(v){
+          var items = tidyItems(v);
+          if(!items){ msgOpen(); var s = document.getElementById('nnMsgSay'); if(s) s.textContent = 'That answer did not fit, so nothing was added. Try “Find the tasks” again.'; return; }
+          found = items; msgReview();
+        } });
+    };
+    if(!pre) setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 250);
+  }
+  function msgReview(){
+    var items = found || [];
+    if(!items.length){
+      var b0 = panel(head('📨 Nothing to do in that one') + '<p style="margin:0 0 14px">Your AI read it and found no tasks, dates or things to buy. Nothing was added.</p>'
+        + '<button type="button" id="nnMsgBack" style="' + BSOFT + 'width:100%">Try another message</button>');
+      wireX(b0, function(){ msgText = ''; close(); });
+      b0.querySelector('#nnMsgBack').onclick = function(){ msgText = ''; msgOpen(''); };
+      return;
+    }
+    var rows = items.map(function(x, i){
+      return '<div style="border:1.5px solid var(--line-strong);border-radius:14px;padding:10px;margin-bottom:8px;background:var(--surface)">'
+        + '<label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-i="' + i + '" ' + (x.on ? 'checked' : '') + ' style="width:26px;height:26px;flex:none;accent-color:var(--next)">'
+        + '<input data-t="' + i + '" value="' + esc(x.text) + '" aria-label="Task ' + (i+1) + '" style="flex:1;min-width:0;font:inherit;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></label>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 0 36px">'
+        + '<button type="button" data-k="' + i + '" style="' + BSOFT + 'min-height:38px;padding:4px 10px;font-size:14px">' + (x.kind === 'shop' ? '🛒 to buy' : '📋 to do') + '</button>'
+        + (x.kind === 'shop' ? '<span style="font-size:13.5px;color:var(--soft)">goes on the Our Table shopping list</span>'
+          : '<input type="date" data-d="' + i + '" value="' + x.date + '" aria-label="Date for task ' + (i+1) + '" style="font:inherit;font-size:14px;min-height:38px;padding:4px 8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"><span style="font-size:13.5px;color:var(--soft)">' + (x.date && x.date > today() ? '📅 Coming up' : 'today') + '</span>')
+        + '</div></div>';
+    }).join('');
+    var box = panel(head('✨ Your AI found ' + items.length + ' thing' + (items.length > 1 ? 's' : ''), 'Untick anything that is not yours. Tap the words to change them.')
+      + rows + '<button type="button" id="nnMsgAdd" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px;margin-top:4px"></button>'
+      + '<div style="text-align:right;margin-top:6px"><button type="button" id="nnMsgAgain" style="' + LINK + '">use a different message</button></div>');
+    wireX(box, function(){ msgText = ''; found = null; close(); });
+    function count(){ var n = items.filter(function(x){ return x.on; }).length; var b = box.querySelector('#nnMsgAdd'); b.disabled = !n; b.style.opacity = n ? '1' : '.5'; b.textContent = n ? '✅ Add ' + (n === 1 ? 'this one' : 'these ' + n) : 'Tick at least one'; }
+    box.querySelectorAll('[data-i]').forEach(function(c){ c.onchange = function(){ items[+c.dataset.i].on = c.checked; count(); }; });
+    box.querySelectorAll('[data-t]').forEach(function(c){ c.oninput = function(){ items[+c.dataset.t].text = c.value; }; });
+    box.querySelectorAll('[data-d]').forEach(function(c){ c.onchange = function(){ items[+c.dataset.d].date = c.value || ''; msgReview(); }; });
+    box.querySelectorAll('[data-k]').forEach(function(c){ c.onclick = function(){ var x = items[+c.dataset.k]; x.kind = x.kind === 'shop' ? 'todo' : 'shop'; if(x.kind === 'shop') x.date = ''; msgReview(); }; });
+    box.querySelector('#nnMsgAgain').onclick = function(){ found = null; msgText = ''; msgOpen(''); };
+    count();
+    box.querySelector('#nnMsgAdd').onclick = function(){
+      var n = { today:0, up:0, shop:0 }, bad = 0;
+      items.forEach(function(x){
+        var t = String(x.text || '').trim(); if(!x.on || !t) return;
+        if(x.kind === 'shop'){ if(shopAdd(t)) n.shop++; else bad++; }
+        else n[putTask(t, x.date)]++;
+      });
+      save(); render();
+      var said = [n.today ? n.today + ' on today' : '', n.up ? n.up + ' on Coming up' : '', n.shop ? n.shop + ' on the shopping list' : ''].filter(Boolean).join(', ');
+      msgText = ''; found = null; close();
+      toast(said ? 'Added: ' + said + '.' : (bad ? 'This phone would not save the shopping list.' : 'Nothing was added.'), 4500);
+    };
+  }
+  window.nnMsg = { open:msgOpen, _tidy:tidyItems, _prompt:msgPrompt };
+
+  /* Share → One Thing (Android, once it is installed): the manifest sends ?text=…; open the sheet with it */
+  function fromShare(){
+    try{
+      var q = new URLSearchParams(location.search); var t = [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').trim();
+      if(!t || !(q.has('text') || q.has('title'))) return;   /* Share sends ?title=&text=&url= (manifest share_target) */
+      q.delete('title'); q.delete('text'); q.delete('url');
+      history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+      setTimeout(function(){ msgOpen(t); }, 900);
+    }catch(e){}
+  }
+
+  /* ───────────── 2. SUNDAY LOOK-BACK, LOOK-AHEAD ───────────── */
+  var DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var VERSES = [
+    'Commit thy works unto the Lord, and thy thoughts shall be established. (Proverbs 16:3)',
+    'This is the day which the Lord hath made; we will rejoice and be glad in it. (Psalm 118:24)',
+    'Come unto me, all ye that labour and are heavy laden, and I will give you rest. (Matthew 11:28)',
+    'Take therefore no thought for the morrow: for the morrow shall take thought for the things of itself. (Matthew 6:34)',
+    'Whatsoever ye do, do it heartily, as to the Lord. (Colossians 3:23)',
+    'Be strong and of a good courage… for the Lord thy God is with thee whithersoever thou goest. (Joshua 1:9)',
+    'Let us not be weary in well doing: for in due season we shall reap, if we faint not. (Galatians 6:9)',
+    'A man’s heart deviseth his way: but the Lord directeth his steps. (Proverbs 16:9)'
+  ];
+  function S(){ db.sun = db.sun || {}; var s = db.sun; if(s.day == null) s.day = 0; if(s.hour == null) s.hour = 15; return s; }
+  function grown(){ return db && db.mode === 'adult'; }
+  /* the most recent slot (chosen day at chosen hour) that has started */
+  function slot(now){
+    now = now || new Date(); var s = S(); var d = new Date(now); d.setHours(12,0,0,0);
+    var back = (d.getDay() - s.day + 7) % 7; d.setDate(d.getDate() - back);
+    if(back === 0 && now.getHours() < s.hour) d.setDate(d.getDate() - 7);
+    return d;
+  }
+  function due(now){
+    if(!grown()) return false; var s = S(); if(s.on === false) return false;
+    now = now || new Date(); var sl = slot(now);
+    if(s.done === ymd(sl)) return false;
+    return (now - sl) < 3.5 * 864e5;   /* a missed Sunday is still offered until Wednesday, then waits for next week */
+  }
+  function doneThisWeek(){
+    var h = db.history || {}, n = db.tasks.filter(function(t){ return t.done; }).length + (h[today()] || 0);
+    for(var i = 1; i <= 6; i++) n += (h[ymd(addDays(-i))] || 0);
+    return n;
+  }
+  var T = null;   /* the talk in progress: kept in memory so closing and reopening carries on */
+  function startTalk(){
+    T = { stage:'back', left:db.tasks.filter(function(t){ return !t.done && !t.reg; }).map(function(t){ return t.id; }), li:0, aiDrop:{}, aiWhy:'', added:[], pick:'' };
+    talk();
+  }
+  function talk(){
+    if(!T) return startTalk();
+    var st = T.stage, box;
+    var steps = ['back','left','ahead','one','end'], n = steps.indexOf(st) + 1;
+    var top = '<div style="font-size:12.5px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin-bottom:4px">Sunday look-back · ' + n + ' of 5</div>';
+    if(st === 'back'){
+      var c = doneThisWeek();
+      var line = c >= 10 ? 'You finished <b>' + c + '</b> things this week. That is a full week, and you did it one thing at a time. Well done.'
+        : c > 1 ? 'You finished <b>' + c + '</b> things this week. Every one of them counted. Well done.'
+        : c === 1 ? 'You finished <b>one</b> thing this week. One is a start, and starts are the hard part.'
+        : 'This week was a quiet one on the list, and that is all right. Some weeks are like that. A fresh week starts now.';
+      box = panel(top + head('🌤 This week') + '<div style="background:var(--win-soft);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:17px">' + line + '</div>'
+        + '<button type="button" id="nnSunNext" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px">Next →</button>');
+      box.querySelector('#nnSunNext').onclick = function(){ T.stage = 'left'; talk(); };
+    }
+    else if(st === 'left'){
+      var ids = T.left.filter(function(id){ return db.tasks.some(function(t){ return t.id === id && !t.done; }); });
+      T.left = ids;
+      if(T.li >= ids.length){
+        box = panel(top + head('🧹 Left over') + '<p style="margin:0 0 14px;font-size:17px">' + (ids.length ? 'All sorted. Your list is lighter.' : 'Nothing left over. A clean slate.') + '</p>'
+          + '<button type="button" id="nnSunNext" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px">Next →</button>');
+        box.querySelector('#nnSunNext').onclick = function(){ T.stage = 'ahead'; talk(); };
+      } else {
+        var t = db.tasks.find(function(x){ return x.id === ids[T.li]; });
+        var ai = T.aiDrop[t.id] ? '<div style="margin-top:8px;font-size:14.5px;color:var(--next)">✨ Your AI suggests letting this one go' + (T.aiWhy ? ': ' + esc(T.aiWhy) : '.') + '</div>' : '';
+        box = panel(top + head('🧹 Left over · ' + (T.li + 1) + ' of ' + ids.length)
+          + '<div style="background:var(--surface);border:1.5px solid var(--line-strong);border-radius:14px;padding:12px 14px;margin-bottom:12px"><b style="font-size:18px">' + esc(t.text) + '</b>' + ai + '</div>'
+          + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="keep" style="' + BMAIN + 'flex:1">Keep</button><button type="button" data-a="next" style="' + BSOFT + 'flex:1">Next week</button><button type="button" data-a="drop" style="' + BSOFT + 'flex:1">Drop it</button></div>'
+          + '<div id="nnSunSay" style="min-height:20px;margin-top:8px;font-size:14px;color:var(--soft)"></div>'
+          + (ids.length >= 2 && !T.asked ? '<div style="text-align:right"><button type="button" id="nnSunAI" style="' + LINK + '">✨ ask my AI which to drop</button></div>' : ''));
+        box.querySelectorAll('[data-a]').forEach(function(b){ b.onclick = function(){
+          var a = b.dataset.a;
+          if(a === 'next'){ db.tasks = db.tasks.filter(function(x){ return x.id !== t.id; }); (db.upcoming = db.upcoming || []).push({ id:uid(), text:t.text, mins:t.mins || 10, date:ymd(addDays(8)), notes:t.notes || [], att:t.att || null }); T.left = T.left.filter(function(id){ return id !== t.id; }); }
+          else if(a === 'drop'){ db.tasks = db.tasks.filter(function(x){ return x.id !== t.id; }); T.left = T.left.filter(function(id){ return id !== t.id; }); }
+          else T.li++;
+          save(); render(); talk();
+        }; });
+        var aib = box.querySelector('#nnSunAI');
+        if(aib) aib.onclick = function(){
+          var list = ids.map(function(id, i){ var x = db.tasks.find(function(y){ return y.id === id; }); return (i+1) + '. ' + (x ? x.text : ''); }).join('\n');
+          T.asked = true; hide();
+          djAI.ask({ title:'Which could I drop?', want:'json', circle:false,
+            prompt:'These things are still on my to-do list from last week. Gently suggest which ones, if any, I could drop this week because they no longer matter or are not realistic. Most should stay. Answer with JSON only, like {"drop":[2],"why":"one short kind sentence"}. Use the numbers below; an empty list is fine.\n\n' + list,
+            onResult:function(v){
+              var nums = (v && Array.isArray(v.drop)) ? v.drop : null;
+              if(!nums){ talk(); var s = document.getElementById('nnSunSay'); if(s) s.textContent = 'That answer did not fit, so nothing is marked. Decide as you like.'; return; }
+              T.aiDrop = {}; nums.forEach(function(k){ k = parseInt(k, 10); if(k >= 1 && k <= ids.length) T.aiDrop[ids[k-1]] = 1; });
+              T.aiWhy = String(v.why || '').slice(0, 160);
+              talk(); var s2 = document.getElementById('nnSunSay');
+              if(s2 && !Object.keys(T.aiDrop).length) s2.textContent = 'Your AI thinks they are all worth keeping.';
+            } });
+        };
+      }
+    }
+    else if(st === 'ahead'){
+      var end = ymd(addDays(7)), td = today(), rows = [];
+      (db.upcoming || []).filter(function(u){ return u.date > td && u.date <= end; }).forEach(function(u){ rows.push([u.date, esc(u.text)]); });
+      var daily = [];
+      (db.regulars || []).forEach(function(r){
+        if(r.kind === 'daily'){ daily.push(esc(r.text)); return; }
+        for(var i = 1; i <= 7; i++){ var d = addDays(i); if(dueToday(r, d)) rows.push([ymd(d), '🔁 ' + esc(r.text)]); }
+      });
+      try{ (window.djCircle ? djCircle.upcoming(7) : []).forEach(function(p){ rows.push([ymd(addDays(p.days)), '🎂 ' + esc(p.name) + '’s birthday']); }); }catch(e){}
+      T.added.forEach(function(a){ if(!a.date) rows.push([td, '➕ ' + esc(a.text)]); });   /* a dated one is already in Coming up above */
+      rows.sort(function(a, b){ return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
+      var list = rows.length ? rows.map(function(r){ return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>' + (r[0] === td ? 'Today' : dayName(r[0])) + '</b> · ' + r[1] + '</div>'; }).join('') : '<p style="margin:0;color:var(--soft)">Nothing on the calendar yet.</p>';
+      var chips = '<button type="button" data-day="" style="' + BSOFT + 'min-height:38px;padding:4px 10px;font-size:14px">no day</button>';
+      for(var j = 1; j <= 7; j++){ var dd = addDays(j); chips += '<button type="button" data-day="' + ymd(dd) + '" style="' + BSOFT + 'min-height:38px;padding:4px 10px;font-size:14px">' + dd.toLocaleDateString('en', { weekday:'short' }) + '</button>'; }
+      box = panel(top + head('📅 Coming this week')
+        + '<div style="margin-bottom:12px">' + list + (daily.length ? '<div style="padding:6px 0;color:var(--soft)">Every day: ' + daily.join(', ') + '</div>' : '') + '</div>'
+        + '<div style="font-weight:800;margin-bottom:6px">Anything else coming up?</div>'
+        + '<input id="nnSunAdd" placeholder="e.g. dentist, bake sale cookies" style="width:100%;min-height:48px;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);box-sizing:border-box">'
+        + '<div id="nnSunDays" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + chips + '</div>'
+        + '<div id="nnSunSay" style="min-height:20px;font-size:14px;color:var(--soft)"></div>'
+        + '<div style="display:flex;gap:8px;margin-top:6px"><button type="button" id="nnSunPut" style="' + BSOFT + 'flex:1">Add it</button><button type="button" id="nnSunNext" style="' + BMAIN + 'flex:1">That’s all →</button></div>');
+      var pickDay = '';
+      function mark(){ box.querySelectorAll('[data-day]').forEach(function(b){ var on = b.dataset.day === pickDay; b.style.background = on ? 'var(--next)' : 'var(--surface-2)'; b.style.color = on ? '#fff' : 'var(--ink)'; }); }
+      box.querySelectorAll('[data-day]').forEach(function(b){ b.onclick = function(){ pickDay = b.dataset.day; mark(); }; }); mark();
+      box.querySelector('#nnSunPut').onclick = function(){
+        var inp = box.querySelector('#nnSunAdd'), t = inp.value.trim();
+        if(!t){ box.querySelector('#nnSunSay').textContent = 'Type it in the box first.'; inp.focus(); return; }
+        putTask(t, pickDay); T.added.push({ text:t, date:pickDay }); save(); render(); talk();
+        setTimeout(function(){ var s = document.getElementById('nnSunSay'); if(s) s.textContent = '✓ Added. Anything else?'; }, 0);
+      };
+      box.querySelector('#nnSunAdd').onkeydown = function(e){ if(e.key === 'Enter') box.querySelector('#nnSunPut').click(); };
+      box.querySelector('#nnSunNext').onclick = function(){ T.stage = 'one'; talk(); };
+    }
+    else if(st === 'one'){
+      var seen = {}, opts = [];
+      function o(t){ var k = String(t || '').trim().toLowerCase(); if(!k || seen[k]) return; seen[k] = 1; opts.push(String(t).trim()); }
+      db.tasks.filter(function(t){ return !t.done; }).forEach(function(t){ o(t.text); });
+      var end2 = ymd(addDays(7));
+      (db.upcoming || []).filter(function(u){ return u.date <= end2; }).forEach(function(u){ o(u.text); });
+      opts = opts.slice(0, 8);
+      box = panel(top + head('📌 This week’s one thing', 'If only one thing gets done this week, which one?')
+        + (opts.length ? '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">' + opts.map(function(t, i){ return '<button type="button" data-o="' + i + '" style="' + BSOFT + 'text-align:left;font-weight:700">' + esc(t) + '</button>'; }).join('') + '</div>' : '')
+        + '<input id="nnSunOne" placeholder="' + (opts.length ? 'or type a different one' : 'type it here') + '" value="' + esc(T.pick) + '" style="width:100%;min-height:48px;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);box-sizing:border-box">'
+        + '<div id="nnSunSay" style="min-height:20px;margin:6px 0;font-size:14px;color:var(--soft)"></div>'
+        + '<button type="button" id="nnSunPin" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px">📌 Pin it to the top of Today</button>'
+        + '<div style="text-align:right;margin-top:6px"><button type="button" id="nnSunSkip" style="' + LINK + '">not this week</button></div>');
+      var one = box.querySelector('#nnSunOne');
+      box.querySelectorAll('[data-o]').forEach(function(b){ b.onclick = function(){ one.value = opts[+b.dataset.o]; T.pick = one.value;
+        box.querySelectorAll('[data-o]').forEach(function(x){ x.style.background = x === b ? 'var(--next)' : 'var(--surface-2)'; x.style.color = x === b ? '#fff' : 'var(--ink)'; }); }; });
+      one.oninput = function(){ T.pick = one.value; };
+      box.querySelector('#nnSunPin').onclick = function(){
+        var t = one.value.trim(); if(!t){ box.querySelector('#nnSunSay').textContent = 'Tap one, or type it.'; return; }
+        S().pin = { text:t.slice(0, 140), at:today(), done:false }; save(); render(); T.stage = 'end'; talk();
+      };
+      box.querySelector('#nnSunSkip').onclick = function(){ T.stage = 'end'; talk(); };
+    }
+    else {
+      var s = S(); s.done = ymd(slot()); s.last = today(); save(); render();
+      var v = s.verse ? '<div style="background:var(--surface-2);border-radius:14px;padding:12px 14px;margin-bottom:12px;font-style:italic">' + esc(VERSES[Math.floor(Date.now() / 6048e5) % VERSES.length]) + '</div>' : '';
+      var dsel = DAYS.map(function(d, i){ return '<option value="' + i + '"' + (i === s.day ? ' selected' : '') + '>' + d + '</option>'; }).join('');
+      var hsel = ''; for(var hh = 7; hh <= 21; hh++) hsel += '<option value="' + hh + '"' + (hh === s.hour ? ' selected' : '') + '>' + (hh % 12 || 12) + (hh < 12 ? ' am' : ' pm') + '</option>';
+      var SEL = 'font:inherit;font-size:15px;min-height:42px;padding:4px 8px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)';
+      box = panel(top + head('🙌 All set') + (s.pin && !s.pin.done ? '<p style="margin:0 0 12px">Your one thing is pinned to the top of Today: <b>' + esc(s.pin.text) + '</b>.</p>' : '<p style="margin:0 0 12px">Your week is ready.</p>')
+        + v
+        + '<details style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700;color:var(--next);min-height:36px">When this talk comes, and a word for the week</summary>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><select id="nnSunDay" aria-label="Which day" style="' + SEL + '">' + dsel + '</select><select id="nnSunHour" aria-label="What time" style="' + SEL + '">' + hsel + '</select></div>'
+        + '<label style="display:flex;gap:10px;align-items:center;min-height:44px"><input type="checkbox" id="nnSunVerse"' + (s.verse ? ' checked' : '') + ' style="width:24px;height:24px;accent-color:var(--next)"> End with a short Bible verse</label>'
+        + '<label style="display:flex;gap:10px;align-items:center;min-height:44px"><input type="checkbox" id="nnSunOn"' + (s.on !== false ? ' checked' : '') + ' style="width:24px;height:24px;accent-color:var(--next)"> Offer this talk every week</label></details>'
+        + '<button type="button" id="nnSunDone" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px">Done</button>');
+      box.querySelector('#nnSunDay').onchange = function(e){ s.day = +e.target.value; s.done = ymd(slot()); save(); };
+      box.querySelector('#nnSunHour').onchange = function(e){ s.hour = +e.target.value; s.done = ymd(slot()); save(); };
+      box.querySelector('#nnSunVerse').onchange = function(e){ s.verse = e.target.checked; save(); T.stage = 'end'; talk(); var d = document.querySelector('#nnHelpBox details'); if(d) d.open = true; };
+      box.querySelector('#nnSunOn').onchange = function(e){ s.on = e.target.checked; save(); render(); };
+      box.querySelector('#nnSunDone').onclick = function(){ T = null; close(); render(); };
+      wireX(box, function(){ T = null; close(); render(); });
+      return;
+    }
+    wireX(box, function(){ close(); render(); });
+  }
+  /* Today: the pinned one thing at the top, and the talk's card when it is due */
+  function afterRender(){
+    linkRender(); var w = document.getElementById('weekOne'), c = document.getElementById('sunCard'); if(!w || !c) return;
+    var s = grown() ? S() : null, p = s && s.pin;
+    w.innerHTML = (p && !p.done) ? '<div style="border:2px solid var(--sun);background:var(--surface);border-radius:16px;padding:10px 12px;margin-bottom:10px">'
+      + '<div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)">📌 This week’s one thing</div>'
+      + '<div style="font-weight:800;font-size:18px;margin:2px 0 8px">' + esc(p.text) + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" onclick="nnSun.now()" style="' + BSOFT + 'min-height:40px;padding:4px 12px;font-size:14px">▶ Do it now</button><button type="button" onclick="nnSun.pinDone()" style="' + BSOFT + 'min-height:40px;padding:4px 12px;font-size:14px">✓ Done</button><button type="button" onclick="nnSun.unpin()" style="' + LINK + 'font-size:13px">unpin</button></div></div>' : '';
+    c.innerHTML = due() ? '<div style="border:1.5px solid var(--next);background:var(--next-soft);border-radius:16px;padding:12px;margin-bottom:10px">'
+      + '<div style="font-weight:800;font-size:17px">🗓 Your Sunday look-back is ready</div><div style="font-size:14.5px;color:var(--soft);margin:2px 0 8px">Five minutes: last week, the leftovers, this week, and one thing.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" onclick="nnSun.open()" style="' + BMAIN + 'min-height:44px">Start</button><button type="button" onclick="nnSun.skip()" style="' + LINK + '">not this week</button></div></div>' : '';
+  }
+  window.nnAfterRender = afterRender;
+  function linkRender(){ var l = document.getElementById('sunLink'); if(!l) return;
+    l.innerHTML = grown() ? '<button type="button" onclick="nnSun.open()" style="' + LINK + '">🗓 Sunday look-back — start it now</button>' : ''; }
+  window.nnSun = {
+    open:function(){ if(T && T.stage !== 'end') talk(); else startTalk(); },
+    due:due, slot:slot,
+    skip:function(){ S().done = ymd(slot()); save(); render(); toast('All right. See you next week.'); },
+    now:function(){ var p = S().pin; if(!p) return; var t = db.tasks.find(function(x){ return !x.done && x.text.trim().toLowerCase() === p.text.trim().toLowerCase(); });
+      if(!t){ t = { id:uid(), text:p.text, mins:10, done:false }; db.tasks.push(t); save(); }
+      makeNow(t.id); render(); window.scrollTo(0, 0); },
+    pinDone:function(){ var s = S(); if(!s.pin) return; s.pin.done = true; save(); render(); toast('That was the one for this week. Well done. 🙌', 4000); },
+    unpin:function(){ var s = S(); delete s.pin; save(); render(); }
+  };
+  function boot(){ try{ afterRender(); }catch(e){} fromShare(); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
 render(); applyMode(); renderWho(); renderInbox(); renderSendWho(); urlHandoff(); renderFam(); setTimeout(()=>famSync(false),1500); setInterval(()=>famSync(false),300000);
 if(!PROF.cur){ openPicker(true); }
 else if(MORNING||db.mcar){ if(!MORNING) MORNING=db.mcar; setTimeout(showMorning, 400); }
@@ -4611,6 +5091,7 @@ window.DJ_AI = { title:'Break my one thing into three small pieces', want:'json'
 })();
 </script>
 
+
 <script id="dj-stamp-v1">
 /* One Thing carried two version stamps: the splash said v7.10 while the footer — the one testers
    read, and the one Feedback Studio reports — still said v7.6 from 3 September. The footer is now
@@ -5675,7 +6156,7 @@ function showGate(expired){
    +'<div class="em">'+(expired?'⏰':'🔑')+'</div>'
    +(expired
      ? '<h2>Your '+((CODES[s.code]||{}).days||30)+' days are <span>done</span> — thank you!</h2>'
-       +'<p>Everything you made is saved and waiting right here. To keep going, buy it once ($4.99) — or enter a new code if you have one.</p>'
+       +'<p>Everything you made is saved and waiting right here. To keep going, enter a new code if you have one, or ask Daraja for one — it is free.</p>'
      : '<h2>Welcome to <span>One Thing</span></h2>'
        +'<p>This app starts with a code — it came with your invitation. Type it below and you\'re in.</p>')
    +'<input id="djCode" placeholder="type your code here" autocomplete="off">'
@@ -5683,7 +6164,6 @@ function showGate(expired){
    +'<div class="err" id="djErr"></div>'
    +'<div class="alt">'
    +(expired?'':'<button onclick="DJKEY.preview()">👀 Just looking — 7-day preview</button>')
-   +(expired?'<a href="https://buy.stripe.com/aFaeVcey6ch5eE23Qo04800" target="_blank" rel="noopener">💳 Buy it — $4.99</a>':'')
    +'<a href="mailto:jerrywins1@gmail.com?subject=One Thing — I\'d like a code">📧 Ask Daraja for a code</a>'
    +'</div></div>';
   gate.classList.add('show');

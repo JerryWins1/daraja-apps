@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v65">
+<script id="dj-house-v68">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -795,7 +795,7 @@
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ dockSheet(); };
+      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -873,18 +873,26 @@
         var row = document.createElement('button'); row.type = 'button';
         row.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
         row.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + lab[0] + '</span><span style="flex:1">' + lab[1] + '</span>';
-        row.onclick = function(){ w.remove(); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
+        row.onclick = function(){ w.remove(); djBackPush(dockSheet); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
         box.appendChild(row); n++;
       })(c, btn_lab(c, lab));
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    var djProbs = djProblems();
+    if(djProbs.length){
+      var pb = document.createElement('button'); pb.type = 'button';
+      pb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      pb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">⚠️</span><span style="flex:1">Recent problems<br><small style="font-weight:600;color:#55605B">' + djProbs.length + ' message' + (djProbs.length === 1 ? '' : 's') + ' that flashed up · copy them to send on</small></span>';
+      pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
+      box.appendChild(pb);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
       ai.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       var ch = aiChoice(), chn = ASSISTANTS[ch] ? ASSISTANTS[ch].name : (ch === 'none' ? 'none' : 'not chosen yet');
       ai.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🤖</span><span style="flex:1">Which AI do you use?<br><small style="font-weight:600;color:#55605B">now: ' + esc(chn) + '</small></span>';
-      ai.onclick = function(){ w.remove(); pickAssistant(); };
+      ai.onclick = function(){ w.remove(); djBackPush(dockSheet); pickAssistant(); };
       box.appendChild(ai);
     }
     if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
@@ -1198,6 +1206,37 @@
     meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
   };
   function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  /* 20 Nov. Jerry, relayed from the Family Money chat: "If you go one screen too far or something,
+     you can't go back to the previous one." So the house keeps a back-stack for its own screens —
+     the ? menu and everything it opens — and hands the same thing to an app for its own screens:
+         window.djBack.push(function(){ ...reopen the screen I am leaving... });
+         window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
+         window.djBack.go()       -> step back one; false when the stack is empty
+     Screens opened through the house's own sheet() get the chip and the wiring for free. */
+  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
+  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
+  function djBackClear(){ DJ_BACK = []; }
+  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djBackGo(){
+    var f = DJ_BACK.pop(); if(!f) return false;
+    var a = document.getElementById('djAISheet'); if(a) a.remove();
+    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    return true;
+  }
+  window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
+                    depth: function(){ return DJ_BACK.length; } };
+  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
+     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+  window.addEventListener('popstate', function(){
+    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(!open) return;
+    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
+    djBackClear(); open.remove();
+    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(other) other.remove();
+  });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
     var old = document.getElementById('djAISheet'); if(old) old.remove();
@@ -1205,8 +1244,11 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    box.innerHTML = html; w.appendChild(box);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    box.innerHTML = djBackBtn() + html; w.appendChild(box);
+    var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
+    /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
+    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
@@ -1268,9 +1310,23 @@
       var LINK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
       var short = String(o.prompt).replace(/\s+/g, ' ').trim();
       if(short.length > 110) short = short.slice(0, 108) + '\u2026';
+      /* 16 Nov 2026: a sender that attaches a file passes it here, so the sheet can NAME it.
+         The Family Money Dashboard reads a credit union's PDF statement this way, and Jerry
+         chose "both, asking first" when he was asked what a customer should get. A statement
+         is the most private thing any of these apps will ever send, so a preview that showed
+         only the question while a PDF went with it would be worse than no preview: it would
+         be a wrong one. Only the sender that really attaches the file passes opt.file - the
+         external-assistant path cannot attach anything, the person does that themselves at
+         the other end, so it says nothing about a file and that stays true. */
+      var fsz = '';
+      if(opt.file && opt.file.data){
+        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -1293,19 +1349,85 @@
   }
   /* not null: null from viaDaraja means the door failed and the next path should try.
      This means the person read the words and said no, and nothing else should ask again. */
+  /* 18 Nov. Jerry: "There were a bunch of error messages flashing at the bottom. They don't stay.
+     So I can't give them to you. But maybe you can record them somewhere." So they are kept here —
+     the last 25, per app, in this browser — and the ? menu reads them back with a Copy button.
+     Nothing leaves the phone: it is localStorage, and only a tap on Copy puts it anywhere. */
+  var PROB_KEY = 'dj_problems';
+  function djProblems(){ try{ return JSON.parse(localStorage.getItem(PROB_KEY) || '[]') || []; }catch(e){ return []; } }
+  function djNote(msg){
+    try{
+      if(msg === null || msg === undefined || msg === '') return;
+      msg = String(msg).replace(/\s+/g, ' ').trim().slice(0, 300);
+      if(!msg) return;
+      var a = djProblems(), last = a[a.length - 1];
+      if(last && last.m === msg && Date.now() - last.t < 60000){ last.n = (last.n || 1) + 1; last.t = Date.now(); }
+      else { a.push({ t: Date.now(), m: msg, a: slugOf(), n: 1 }); }
+      while(a.length > 25) a.shift();
+      localStorage.setItem(PROB_KEY, JSON.stringify(a));
+    }catch(e){}
+  }
+  window.djNote = djNote;   /* an app can record its own: djNote('could not read the Chase file') */
+  window.addEventListener('error', function(e){ try{ if(e && e.message) djNote(e.message + (e.filename ? ' — ' + String(e.filename).split('/').pop() + ':' + e.lineno : '')); }catch(err){} });
+  window.addEventListener('unhandledrejection', function(e){ try{ var r = e && e.reason; djNote('did not finish: ' + ((r && r.message) || r || 'no reason given')); }catch(err){} });
+  function djProbWhen(t){
+    var d = new Date(t);
+    try{ return d.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }); }
+    catch(e){ return d.toISOString().slice(0, 16).replace('T', ' '); }
+  }
+  function djProbText(){
+    return djProblems().slice().reverse().map(function(p){
+      return djProbWhen(p.t) + ' · ' + (p.a || 'app') + ' · ' + p.m + (p.n > 1 ? ' (' + p.n + ' times)' : '');
+    }).join('\n');
+  }
+  function problemsSheet(){
+    var LNK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
+    var a = djProblems().slice().reverse();
+    var rows = a.map(function(p){
+      return '<li style="list-style:none;margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #E2DCCF">'
+        + '<div style="font-size:12.5px;color:#55605B">' + esc(djProbWhen(p.t)) + ' · ' + esc(p.a || 'app') + (p.n > 1 ? ' · ' + p.n + ' times' : '') + '</div>'
+        + '<div style="font-size:15px">' + esc(p.m) + '</div></li>';
+    }).join('');
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Recent problems</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">The messages that flashed up and went away. They stay on this phone until you clear them.</p>'
+      + (rows ? '<ul style="margin:0 0 10px;padding:0">' + rows + '</ul>' : '<p style="margin:0 0 10px">Nothing has gone wrong in this app.</p>')
+      + '<textarea id="djPbRaw" aria-label="The problems as text" style="display:none;width:100%;min-height:120px;font:inherit;font-size:14px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+      + (rows ? '<button type="button" id="djPbCopy" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Copy them all</button>' : '')
+      + '<div style="display:flex;justify-content:space-between;margin-top:8px">'
+      + (rows ? '<button type="button" id="djPbClear" style="' + LNK + '">clear the list</button>' : '<span></span>')
+      + '<button type="button" id="djPbX" style="' + LNK + '">close</button></div>');
+    var cp = b.querySelector('#djPbCopy');
+    if(cp) cp.onclick = function(){
+      var t = djProbText(), self = this;
+      var shown = function(){ self.textContent = 'Copied ✓'; };
+      var manual = function(){
+        var ta = b.querySelector('#djPbRaw'); ta.value = t; ta.style.display = '';
+        try{ ta.focus(); ta.select(); }catch(e){}
+        self.textContent = 'Press and hold to copy ↑';
+      };
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(shown, manual); }
+        else manual();
+      }catch(e){ manual(); }
+    };
+    var cl = b.querySelector('#djPbClear');
+    if(cl) cl.onclick = function(){ try{ localStorage.removeItem(PROB_KEY); }catch(e){} closeAISheet(); };
+    b.querySelector('#djPbX').onclick = function(){ closeAISheet(); };
+  }
   var AI_CANCELLED = { cancelled: true };
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
-    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false });
+    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
     if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
-      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
       var j = await r.json();
       if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
       closeAISheet(); return j.text;
-    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
+    }catch(e){
+      djNote('AI: ' + (e.message || 'no answer')); var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
   async function builtIn(prompt){
     try{
@@ -2362,6 +2484,11 @@
   .muted{ color:var(--soft); font-size:15px; }
   .small{ font-size:13.5px; }
   .big{ font-size:30px; font-weight:850; letter-spacing:-.01em; line-height:1.1; }
+  .brief p{ margin:0 0 6px; font-size:16.5px; line-height:1.45; } .brief .chip{ min-height:36px; padding:4px 12px; }
+  .talkbtn{ min-height:60px; font-size:18px; margin-bottom:10px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  .daytexts{ margin:0 0 10px; } .daytexts .btn{ flex:1 1 30%; padding:8px 6px; font-size:15px; }
+  .live{ display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; margin:0 -2px 10px; padding:0 2px 4px; scrollbar-width:none; } .live::-webkit-scrollbar{ display:none; }
+  .live .live1{ flex:0 0 88%; scroll-snap-align:start; text-align:left; margin:0; cursor:pointer; font:inherit; color:inherit; }
   .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px; }
   .stat{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px; cursor:pointer; text-align:left; }
   .stat .lbl{ font-size:14px; color:var(--soft); font-weight:700; }
@@ -2499,7 +2626,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.6 · 2026-11-06';
+var VER = 'v1.9.2 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -2666,7 +2793,7 @@ function pill(st, label){ return '<span class="pill ' + st + '">' + esc(label ||
 /* ── screens ────────────────────────────────────────────────── */
 var TABS = { home:1, jobs:1, money:1, more:1, prices:1 };
 /* in Quick Quote these screens are hidden (their data is kept) */
-var QBLOCK = { money:1, inv:1, expenses:1, expense:1, import:1, export:1, hours:1, pl:1, receipt:1, receipts:1, rcpt:1, todo:1, sched:1 };
+var QBLOCK = { money:1, ahead:1, inv:1, expenses:1, expense:1, import:1, export:1, hours:1, pl:1, receipt:1, receipts:1, rcpt:1, todo:1, sched:1 };
 var route = [], after = null;
 function go(h){ if(location.hash === '#' + h) render(); else location.hash = h; }
 function back(){ if(history.length > 1) history.back(); else go('home'); }
@@ -2687,7 +2814,7 @@ function render(){
   after = null;
   var html = V();
   $('main').innerHTML = html;
-  var tab = TABS[r] ? r : (QM() && r === 'set' && route[1] === 'prices') ? 'prices' : ({ job:'jobs', upgrade:'more', newquote:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', ok:'jobs', todo:'home', receipt:'money', receipts:'money', rcpt:'money', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
+  var tab = TABS[r] ? r : (QM() && r === 'set' && route[1] === 'prices') ? 'prices' : ({ job:'jobs', upgrade:'more', newquote:'jobs', newjob:'jobs', editjob:'jobs', cust:'jobs', ok:'jobs', todo:'home', receipt:'money', receipts:'money', rcpt:'money', newcust:'jobs', editcust:'jobs', custs:'jobs', sched:'jobs', inv:'money', ahead:'money', expenses:'money', expense:'money', import:'money', export:'money', hours:'money', pl:'money' })[r] || 'more';
   document.querySelectorAll('nav.tabs button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-go') === tab); });
   var setupMode = (r === 'welcome' || r === 'setup');
   $('tabs').style.display = setupMode ? 'none' : '';
@@ -2725,11 +2852,11 @@ VIEWS.home = function(){
   if(S.setup.demo) h.push('<div class="banner demo"><b>This is an example business.</b> Play with anything. <div class="btns" style="margin-top:8px"><button class="btn sm main" onclick="BM.fresh()">Start my own business</button></div></div>');
   if(S.clock){ var cj = job(S.clock.jobId), cw = S.crew.filter(function(c){ return c.id === S.clock.who; })[0];
     h.push('<div class="clockbar"><div class="grow"><b>⏱ On the clock</b><div class="small">' + esc(cj ? cj.title : '') + (cw ? ' · ' + esc(cw.name) : '') + ' · since ' + new Date(S.clock.start).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + '</div></div><button class="btn sm" onclick="BM.clockOut()">Clock out</button></div>'); }
-  h.push('<div class="muted" style="margin:2px 2px 10px">' + (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (S.biz.owner ? ', ' + esc(first(S.biz.owner)) : '') + '.</div>');
-  var ow = owed(), owT = ow.reduce(function(a, v){ return a + invBal(v); }, 0), od = ow.filter(invOverdue).length;
-  var m0 = t.slice(0, 7), paidM = 0; S.invoices.forEach(function(v){ (v.payments || []).forEach(function(p){ if((p.date || '').slice(0, 7) === m0) paidM += num(p.amount); }); });
-  h.push('<div class="stats"><button class="stat owe" onclick="BM.go(\'money\')"><div class="lbl">Owed to me</div><div class="val">' + money0(owT) + '</div><div class="small muted">' + ow.length + ' unpaid' + (od ? ' · <b style="color:var(--bad)">' + od + ' late</b>' : '') + '</div></button>'
-    + '<button class="stat paid" onclick="BM.go(\'money\')"><div class="lbl">Paid this month</div><div class="val">' + money0(paidM) + '</div><div class="small muted">' + MON[new Date().getMonth()] + ' so far</div></button></div>');
+  h.push(briefCard());
+  h.push(textRow());
+  h.push(talkButton());
+  h.push(liveCards());
+  after = talkWire;
   if(F('schedule')){
     var tj = S.jobs.filter(function(j){ return j.date === t && j.status !== 'lost' && j.status !== 'closed'; }).sort(byTime);
     h.push('<h2>Today</h2>');
@@ -2756,7 +2883,7 @@ function needs(){
     var c = cust(j.customerId);
     if(!QM() && j.status === 'done' && jobBilled(j) < jobTotal(j) - 0.004) out.push({ em:'💵', t:'Bill ' + c.name, s:j.title + ' is done · ' + money(jobTotal(j) - jobBilled(j)) + ' not billed yet', a:'Bill it', go:"BM.go('job/" + j.id + "')", k:1 });
     if(F('estimates') && j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) >= 3) out.push({ em:'📨', t:'Follow up with ' + c.name, s:'Estimate sent ' + fd(j.estSent) + ' · ' + money(jobTotal(j)), a:'Check in', go:"BM.followUp('" + j.id + "')", k:2 });
-    if(F('estimates') && j.status === 'new' && daysBetween(j.created, t) >= 1) out.push({ em:'📝', t:'Send ' + c.name + ' a price', s:j.title, a:'Estimate', go:"BM.go('job/" + j.id + "')", k:3 });
+    if(F('estimates') && j.status === 'new' && (daysBetween(j.created, t) >= 1 || j.said)) out.push({ em:'📝', t:(j.said && j.items && j.items.length ? 'Draft estimate ready for ' : 'Send ') + c.name + (j.said && j.items && j.items.length ? '' : ' a price'), s:j.title + (j.said ? ' · you said it' : ''), a:'Estimate', go:"BM.go('job/" + j.id + "')", k:3 });
     if(F('schedule') && j.status === 'approved' && !j.date) out.push({ em:'📅', t:'Put ' + c.name + ' on the schedule', s:j.title + ' was approved', a:'Schedule', go:"BM.go('job/" + j.id + "')", k:3 });
   });
   if(F('todos')) soonTodos(7).forEach(function(td){ var late = effDue(td) < t; out.push({ em:TCAT[td.cat] || '📌', t:td.text, s:dueText(td) + (td.repeat && td.repeat !== 'none' ? ' · repeats' : ''), a:late ? 'Late' : 'Due', go:"BM.go('todo')", k:late ? 0 : 2 }); });
@@ -2765,6 +2892,364 @@ function needs(){
 function jobCard(j){
   var c = cust(j.customerId), late = jobInvoices(j).some(invOverdue);
   return '<button class="card tap" onclick="BM.go(\'job/' + j.id + '\')"><div class="row"><div class="grow"><b>' + esc(j.title || 'Job') + '</b><div class="small muted">' + esc(c.name) + (j.date ? ' · ' + fd(j.date) + (j.time ? ' ' + ft(j.time) : '') : '') + '</div></div><div style="text-align:right"><div style="font-weight:800">' + money0(jobTotal(j)) + '</div>' + (late ? pill('overdue', 'Late') : pill(j.status)) + '</div></div></button>';
+}
+
+/* ── 🚚 The truck-cab day, part 1 (v1.8 · 20 Nov 2026) ──────────────────────────────────────────
+   Jerry kept idea 4 from the AI-helper review ("the big one"). Part 1 is the Today screen itself, built only from
+   what this book already holds: a morning brief (today's stops in order, what to bring, what is owed, what is due,
+   the next open time this week) that can be read aloud; three one-tap texts — Running late, On my way, Done, bill it —
+   each shown in the usual message box before anything is sent; an evening wrap-up; and the live business view
+   (today / week / month / year) one swipe across. Parts 2 (hold-to-talk) and 3 (alerts) come later.
+   LOCATION: asked for only when Running late or On my way is tapped, read once, used on this phone to guess the drive,
+   and never stored or sent. To know where the customer is, their saved address is looked up once on OpenStreetMap
+   (the address only, never the phone's position) and the answer is kept on the customer. No permission, no address,
+   or no answer: the person picks the minutes instead. */
+var DOWL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function liveJob(j){ return j.status !== 'lost' && j.status !== 'closed'; }
+function todayJobs(){ var t = today(); return S.jobs.filter(function(j){ return j.date === t && liveJob(j); }).sort(byTime); }
+function nowHM(){ var d = new Date(), h = d.getHours(), m = d.getMinutes(); return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; }
+/* the next stop: the first of today's jobs not started yet */
+function nextStop(){ return todayJobs().filter(function(j){ return j.status !== 'working' && j.status !== 'done'; })[0] || null; }
+/* the job being worked on now: one on the clock or marked Working, else the latest of today's whose time has come */
+function currentStop(){
+  var tj = todayJobs().filter(function(j){ return j.status !== 'done'; }); if(!tj.length) return null;
+  if(S.clock){ var cj = job(S.clock.jobId); if(cj && tj.indexOf(cj) >= 0) return cj; }
+  var w = tj.filter(function(j){ return j.status === 'working'; })[0]; if(w) return w;
+  var n = nowHM(), past = tj.filter(function(j){ return j.time && j.time <= n; });
+  return past.length ? past[past.length - 1] : tj[0];
+}
+function stopLine(j){ var c = cust(j.customerId); return (j.time ? ft(j.time) + ' · ' : '') + j.title + ' for ' + c.name + (c.address ? ', ' + c.address : ''); }
+/* the next open time in the coming week (Sunday is left alone) */
+function nextGap(){
+  var t = today();
+  for(var i = 1; i <= 7; i++){
+    var d = addDays(t, i), wd = parseD(d).getDay(); if(wd === 0) continue;
+    var js = S.jobs.filter(function(j){ return j.date === d && j.status !== 'lost'; });
+    var name = i === 1 ? 'Tomorrow' : DOWL[wd];
+    if(!js.length) return name + ' is open';
+    if(js.some(function(j){ return !j.time; })) continue;
+    if(js.every(function(j){ return j.time < '12:00'; })) return name + ' afternoon is open';
+    if(js.every(function(j){ return j.time >= '12:00'; })) return name + ' morning is open';
+  }
+  return '';
+}
+function waitingEstimates(){ return F('estimates') ? S.jobs.filter(function(j){ return j.status === 'estimate' && j.estSent; }) : []; }
+function dueToday(){
+  var t = today(), out = [];
+  S.invoices.forEach(function(v){ if(v.sent && v.due === t && invBal(v) > 0.004) out.push(cust(v.customerId).name + '’s invoice #' + v.num + ' (' + money0(invBal(v)) + ')'); });
+  if(F('todos')) soonTodos(0).forEach(function(td){ out.push(td.text + (effDue(td) < t ? ' (late)' : '')); });
+  if(F('estimates')) S.jobs.forEach(function(j){ if(j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) === 3) out.push('a follow-up to ' + cust(j.customerId).name + ' about the estimate'); });
+  return out;
+}
+/* the brief as plain sentences: shown on the card and read aloud word for word */
+function morningBrief(){
+  var tj = todayJobs().filter(function(j){ return j.status !== 'done'; }), out = [];
+  var hi = (new Date().getHours() < 12 ? 'Good morning' : 'Hello') + (S.biz.owner ? ', ' + first(S.biz.owner) : '') + '.';
+  if(F('schedule')){
+    if(!tj.length) out.push({ k:'jobs', t:hi + ' Nothing on the schedule today.' });
+    else {
+      out.push({ k:'jobs', t:hi + ' ' + tj.length + ' job' + (tj.length > 1 ? 's' : '') + ' today. First: ' + stopLine(tj[0]) + '.' });
+      tj.slice(1).forEach(function(j, i){ out.push({ k:'stop', t:(i === 0 ? 'Then ' : 'After that, ') + stopLine(j) + '.' }); });
+      tj.forEach(function(j){ if(j.bring) out.push({ k:'bring', t:'Bring for ' + cust(j.customerId).name + ': ' + j.bring + '.' }); });
+    }
+  } else out.push({ k:'jobs', t:hi });
+  var ow = owed(), owT = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0)), late = ow.filter(invOverdue).sort(function(a, b){ return a.due.localeCompare(b.due); });
+  if(!ow.length) out.push({ k:'owed', t:'Nobody owes you money right now.' });
+  else out.push({ k:'owed', t:'Owed to you: ' + money0(owT) + (late.length ? '. ' + cust(late[0].customerId).name + '’s invoice is ' + daysBetween(late[0].due, today()) + ' days late' + (late.length > 1 ? ', and ' + (late.length - 1) + ' more' + (late.length > 2 ? ' are' : ' is') + ' late too' : '') : '') + '.' });
+  var due = dueToday();
+  out.push({ k:'due', t:due.length ? 'Due today: ' + due.join('; ') + '.' : 'Nothing else is due today.' });
+  if(F('schedule')){ var g = nextGap(), we = waitingEstimates();
+    if(g) out.push({ k:'gap', t:g + '.' + (we.length ? ' ' + we.length + ' estimate' + (we.length > 1 ? 's are' : ' is') + ' waiting on a reply.' : '') }); }
+  return out;
+}
+function eveningWrap(){
+  var t = today(), R = pl(t, t), out = [], acts = [];
+  out.push({ k:'profit', t:F('expenses') ? 'Today: ' + money0(R.income) + ' came in and ' + money0(R.out) + ' went out, so ' + (R.profit >= 0 ? 'you made ' + money0(R.profit) : 'you are down ' + money0(-R.profit)) + '.' : 'Today: ' + money0(R.income) + ' came in.' });
+  var unb = S.jobs.filter(function(j){ return j.status === 'done' && jobTotal(j) - jobBilled(j) > 0.004; });
+  if(unb.length){ out.push({ k:'unbilled', t:'Done but not billed: ' + unb.map(function(j){ return cust(j.customerId).name + ' (' + money0(jobTotal(j) - jobBilled(j)) + ')'; }).join(', ') + '.' });
+    unb.slice(0, 3).forEach(function(j){ acts.push('<button class="btn sm" onclick="BM.go(\'job/' + j.id + '\')">💵 Bill ' + esc(first(cust(j.customerId).name)) + '? ' + money0(jobTotal(j) - jobBilled(j)) + '</button>'); }); }
+  else out.push({ k:'unbilled', t:'Every finished job has been billed.' });
+  if(F('expenses')){ var loose = S.expenses.filter(function(e){ return e.date === t && !e.jobId && e.cat === CATS[0]; });
+    if(loose.length){ out.push({ k:'loose', t:loose.length + ' receipt' + (loose.length > 1 ? 's' : '') + ' from today ' + (loose.length > 1 ? 'have' : 'has') + ' no job: ' + loose.map(function(e){ return (e.vendor || 'no name') + ' ' + money0(e.amount); }).join(', ') + '.' });
+      loose.slice(0, 3).forEach(function(e){ acts.push('<button class="btn sm" onclick="BM.addExpense(\'' + e.id + '\')">🧾 Pick a job: ' + esc(e.vendor || 'receipt') + '</button>'); }); } }
+  if(F('schedule')){ var tm = S.jobs.filter(function(j){ return j.date === addDays(t, 1) && liveJob(j); }).sort(byTime)[0];
+    out.push({ k:'tomorrow', t:tm ? 'Tomorrow’s first stop: ' + stopLine(tm) + '.' : 'Nothing booked for tomorrow yet.' }); }
+  return { lines:out, acts:acts };
+}
+function briefCard(){
+  var eve = BM._brief ? BM._brief === 'eve' : new Date().getHours() >= 15;
+  var lines = eve ? eveningWrap() : { lines:morningBrief(), acts:[] };
+  var acts = lines.acts.slice();
+  if(!eve){ var we = waitingEstimates(); if(F('schedule') && nextGap() && we.length) acts.push('<button class="btn sm" onclick="BM.go(\'jobs/estimate\')">📨 Nudge them</button>'); }
+  return '<div class="card brief" id="tdBrief"><div class="row" style="align-items:center;margin-bottom:6px"><b class="grow">' + (eve ? '🌙 Evening wrap-up' : '☀️ Your day') + '</b>'
+    + '<button class="chip' + (eve ? '' : ' on') + '" onclick="BM.briefShow(\'am\')">Morning</button><button class="chip' + (eve ? ' on' : '') + '" onclick="BM.briefShow(\'eve\')">Evening</button></div>'
+    + lines.lines.map(function(x){ return '<p data-k="' + x.k + '">' + esc(x.t) + '</p>'; }).join('')
+    + '<div class="btns" style="margin-top:8px"><button class="btn sm" id="tdRead" onclick="BM.briefRead()" aria-label="Read it to me">🔊 Read it to me</button>' + acts.join('') + '</div></div>';
+}
+function briefShow(w){ BM._brief = w; render(); }
+function briefRead(){
+  var p = document.querySelectorAll('#tdBrief p'), t = Array.prototype.map.call(p, function(x){ return x.textContent; }).join(' ');
+  if(!window.speechSynthesis || !window.SpeechSynthesisUtterance){ toast('This phone can’t read aloud here. The words are all on the card.'); return; }
+  try{ if(window.djSayNow) djSayNow(); speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t.replace(/\$/g, ' dollars ').replace(/(\d) dollars ([\d,]+)/g, '$1$2 dollars')); u.rate = 0.95;
+    var vs = speechSynthesis.getVoices().filter(function(v){ return /^en/i.test(v.lang); }); var pick = vs.filter(function(v){ return /Samantha|Karen|Moira|Serena|Google US English/i.test(v.name); })[0] || vs[0]; if(pick) u.voice = pick;
+    speechSynthesis.speak(u); }catch(e){ toast('This phone can’t read aloud here. The words are all on the card.'); }
+}
+/* the three one-tap texts */
+function textRow(){
+  if(!F('schedule')) return '';
+  return '<div class="btns daytexts" id="tdTexts"><button class="btn" onclick="BM.dayText(\'late\')">⏱ Running late</button><button class="btn" onclick="BM.dayText(\'onway\')">🚚 On my way</button><button class="btn" onclick="BM.dayText(\'done\')">✅ Done, bill it</button></div>';
+}
+function hmPlus(min){ var d = new Date(Date.now() + min * 6e4); return ft((d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes()); }
+function roundUp5(m){ return Math.max(5, Math.ceil(m / 5) * 5); }
+function km(a, b){ var R = 6371, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLo = (b.lon - a.lon) * r; var x = Math.sin(dLa / 2) * Math.sin(dLa / 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLo / 2) * Math.sin(dLo / 2); return 2 * R * Math.asin(Math.sqrt(x)); }
+function hereNow(){ return new Promise(function(res){ if(!navigator.geolocation) return res(null); var done = false; setTimeout(function(){ if(!done){ done = true; res(null); } }, 9000);
+  try{ navigator.geolocation.getCurrentPosition(function(p){ if(done) return; done = true; res({ lat:p.coords.latitude, lon:p.coords.longitude }); }, function(){ if(done) return; done = true; res(null); }, { enableHighAccuracy:false, timeout:8000, maximumAge:120000 }); }catch(e){ done = true; res(null); } }); }
+async function custPlace(c){
+  if(c.geo && c.geo.a === c.address) return c.geo;
+  if(!c.address || preview) return null;
+  try{ var q = c.address + (S.biz.address && !/\d{5}|,.*,/.test(c.address) ? ', ' + S.biz.address.split(',').slice(-1)[0].trim() : '');
+    var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q)); var a = await r.json();
+    if(a && a[0]){ c.geo = { lat:+a[0].lat, lon:+a[0].lon, a:c.address }; save(); return c.geo; } }catch(e){}
+  return null;
+}
+/* drive minutes from here to the customer, or null: straight line × 1.3 for roads, at about 40 km/h */
+async function driveMin(c){ var here = await hereNow(); if(!here) return { min:null, why:'loc' }; var there = await custPlace(c); if(!there) return { min:null, why:'addr' };
+  return { min:roundUp5(km(here, there) * 1.3 / 40 * 60), why:'' }; }
+function dayTextWords(kind, j, min){
+  var c = cust(j.customerId), n = first(c.name), b = S.biz, at = hmPlus(min);
+  var sig = b.owner ? '\n— ' + first(b.owner) + (b.name ? ', ' + b.name : '') : (b.name ? '\n— ' + b.name : '');
+  if(kind === 'onway') return 'Hi ' + n + ', this is ' + (b.owner ? first(b.owner) : L('your contractor', 'your fundi')) + (b.name ? ' with ' + b.name : '') + '. I’m on my way and should be there around ' + at + '.';
+  var behind = 0; if(j.time){ var d = new Date(), p = j.time.split(':'); d.setHours(+p[0], +p[1] || 0, 0, 0); behind = roundUp5((Date.now() + min * 6e4 - d.getTime()) / 6e4); if(Date.now() + min * 6e4 <= d.getTime()) behind = 0; }
+  if(behind > 120) behind = -1;   /* hours past the booked time: say so plainly, not "300 minutes" */
+  return 'Hi ' + n + ', I’m running ' + (behind > 0 ? 'about ' + behind + ' minutes behind' : behind < 0 ? 'well behind today' : 'a little behind') + '. Sorry about that. See you around ' + at + '.' + sig;
+}
+async function dayText(kind){
+  if(kind === 'done'){ var cj = currentStop(); if(!cj){ toast('No job left on today’s schedule to finish.'); return; }
+    var c0 = cust(cj.customerId), sig = S.biz.owner ? '\n— ' + first(S.biz.owner) + (S.biz.name ? ', ' + S.biz.name : '') : '';
+    compose({ c:c0, jobId:cj.id, kind:'finished', label:'Done, bill it', redo:{ f:'dayText', a:['done'] },
+      text:'Hi ' + first(c0.name) + ', all done at your place today. Thanks for having me! Your invoice is on its way.' + sig,
+      onSent:function(){ if(cj.status !== 'done' && cj.status !== 'closed') cj.status = 'done'; setTimeout(function(){ go('job/' + cj.id); }, 350); } });
+    return; }
+  var j = nextStop(); if(!j){ toast('No more stops on today’s schedule.'); return; }
+  var c = cust(j.customerId);
+  sheet('<h3>' + (kind === 'late' ? '⏱ Running late' : '🚚 On my way') + ' · ' + esc(c.name) + '</h3><p class="muted small" id="dtWhy" style="margin:0 0 8px">Working out how far away you are…</p><div id="dtBody"></div>'
+    + '<p class="hint">Your location is only read now, on this phone, to guess the drive. It’s never saved or sent.</p>');
+  var r = await driveMin(c), w = $('dtWhy'), body = $('dtBody'); if(!w || !body) return;
+  BM._dt = { kind:kind, jid:j.id, min:r.min == null ? 20 : r.min };
+  w.textContent = r.min != null ? 'About ' + r.min + ' minutes from ' + c.name.split(' ')[0] + '’s, so around ' + hmPlus(r.min) + '.' : r.why === 'loc' ? 'Location is off, so pick how long you’ll be.' : 'I couldn’t find ' + (c.address ? 'that address' : 'an address for ' + c.name) + ' on the map, so pick how long you’ll be.';
+  dtDraw();
+}
+function dtDraw(){
+  var o = BM._dt, j = job(o.jid), body = $('dtBody'); if(!o || !j || !body) return;
+  body.innerHTML = '<div class="chips">' + [10, 20, 30, 45, 60].concat([10, 20, 30, 45, 60].indexOf(o.min) < 0 ? [o.min] : []).sort(function(a, b){ return a - b; }).map(function(m){ return '<button class="chip' + (m === o.min ? ' on' : '') + '" onclick="BM.dtMin(' + m + ')">' + m + ' min</button>'; }).join('') + '</div>'
+    + '<div class="card small" id="dtWords" style="white-space:pre-wrap;background:#F7F4EC">' + esc(dayTextWords(o.kind, j, o.min)) + '</div>'
+    + '<button class="btn main full" id="dtGo" onclick="BM.dtGo()">Next: check it and send →</button>';
+}
+function dtMin(m){ BM._dt.min = m; dtDraw(); }
+function dtGo(){ var o = BM._dt, j = job(o.jid), c = cust(j.customerId);
+  compose({ c:c, jobId:j.id, kind:o.kind, label:o.kind === 'late' ? 'Running late' : 'On my way', redo:{ f:'dayText', a:[o.kind] }, text:dayTextWords(o.kind, j, o.min),
+    onSent:function(){ if(o.kind === 'onway' && (j.status === 'scheduled' || j.status === 'approved')) j.status = 'working'; } }); }
+/* the live business view: four cards side by side, one swipe apart */
+function billsDue(from, to){ aheadState(); var n = 0;
+  S.repeats.forEach(function(r){ var a = num(r.amount); if(!a) return; var d = parseD(from), end = parseD(to), day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
+    for(var y = d.getFullYear(), m = d.getMonth(); new Date(y, m, 1) <= end; m++){ var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last)); if(when >= d && when <= end) n += a; } });
+  return r2(n); }
+function liveCards(){
+  var t = today(), d = parseD(t), y = d.getFullYear(), mo = d.getMonth(), wd = (d.getDay() + 6) % 7, wk0 = addDays(t, -wd);
+  var ow = owed(), owT = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0)), od = ow.filter(invOverdue).length;
+  var P = [['Today', t, t], ['This week', wk0, addDays(wk0, 6)], [MON[mo] + ' so far', ymd(new Date(y, mo, 1)), ymd(new Date(y, mo + 1, 0))], [y + ' so far', y + '-01-01', y + '-12-31']];
+  return '<div class="live" id="tdLive" aria-label="The business: today, this week, this month, this year">' + P.map(function(p, i){ var R = pl(p[1], p[2]), by = billsDue(t, p[2]);
+    return '<button class="card live1" data-p="' + i + '" onclick="BM.go(\'money/' + (i === 3 ? 'ty' : 'tm') + '\')"><div class="row"><b class="grow">' + esc(p[0]) + '</b><span class="small muted">' + (i < 3 ? 'swipe ›' : '‹') + '</span></div>'
+      + '<div class="tot"><span>Money in</span><b style="color:var(--good)">' + money0(R.income) + '</b></div>'
+      + (F('expenses') ? '<div class="tot"><span>Money out</span><b>' + (R.out ? '−' : '') + money0(R.out) + '</b></div><div class="tot"><span>Profit</span><b style="color:' + (R.profit >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + money0(R.profit) + '</b></div>' : '')
+      + '<div class="tot"><span>Owed to me</span><b style="color:var(--bad)">' + money0(owT) + (od ? ' <span class="small">· ' + od + ' late</span>' : '') + '</b></div>'
+      + '<div class="tot"><span>Bills still to pay</span><b>' + money0(by) + '</b></div></button>'; }).join('') + '</div>'
+    + '<p class="hint" style="margin:-4px 4px 10px">Bills still to pay are the monthly bills you listed in Money → Next 30 / 60 days.</p>';
+}
+
+/* ── 🎤 The truck-cab day, part 2: hold to talk (v1.9 · 20 Nov 2026) ─────────────────────────────
+   Jerry: "Build part 2 now." Hold the button on Today and say one thing — "Receipt, 84 dollars Home Depot,
+   Johnson job" or "Quote the Patels: replace disposal, 2 hours, Badger 5". It is read on this phone first
+   (amount, store, customer, the work); nothing is saved until the person taps Save on what it heard. If the
+   phone can't make sense of it, "Ask my AI to sort it" sends the sentence through djAI.ask and comes back to
+   the same check. A receipt becomes a one-line receipt (with a photo if they add one) and its expense, filed
+   to the job; a quote becomes a new job priced from the price list, waiting under Needs you. Talking uses
+   the phone's own speech typing, the same as the house 🎤; with none, the person types the same sentence. */
+var TALK = null;   /* { said, plan } while the check is open */
+function talkWords(t){ return String(t || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9$.,& -]/g, ' '); }
+/* numbers said as words ("eighty four", "one hundred twenty") become digits before anything else reads the sentence */
+var NUMW = { zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16, seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40, fifty:50, sixty:60, seventy:70, eighty:80, ninety:90 };
+function wordsToDigits(t){
+  var toks = String(t || '').replace(/(\w)-(\w)/g, '$1 $2').split(/\s+/), out = [], total = 0, cur = 0, on = false;
+  function flush(){ if(on){ out.push(String(total + cur)); total = 0; cur = 0; on = false; } }
+  toks.forEach(function(tok, i){
+    var m = tok.match(/^([A-Za-z]+)([,.;:!?]*)$/), w = m ? m[1].toLowerCase() : '', p = m ? m[2] : '';
+    if(w && NUMW.hasOwnProperty(w)){ var v = NUMW[w]; if(on && ((v >= 10 && cur % 100 !== 0) || (v < 10 && cur % 10 !== 0))) flush(); cur += v; on = true; }   /* “eighty four fifty” is 84 then 50, not 134 */
+    else if(w === 'hundred' && on){ cur = (cur || 1) * 100; }
+    else if(w === 'thousand' && on){ total += (cur || 1) * 1000; cur = 0; }
+    else if(w === 'and' && on && cur % 100 === 0 && toks[i + 1] && NUMW.hasOwnProperty(toks[i + 1].toLowerCase().replace(/[^a-z]/g, '')) && !/^cents?\b/i.test(toks[i + 2] || '') && !/^cents?\b/i.test(toks[i + 3] || '')){ return; }   /* “one hundred and twenty”, not “twenty and fifty cents” */
+    else { flush(); out.push(tok); return; }
+    if(p){ out.push(String(total + cur) + p); total = 0; cur = 0; on = false; }
+  });
+  flush(); return out.join(' ');
+}
+function talkAmount(t){ var m = String(t).replace(/(\d),(\d{3})/g, '$1$2').match(/(?:\$|kes\s*|ksh\s*)?(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars?|bucks|shillings?|bob))?(?:\s*(?:and\s*)?(\d{1,2})\s*cents?)?/i);
+  return m ? r2(+m[1] + (m[2] ? +m[2] / 100 : 0)) : 0; }
+/* a customer named in the sentence: "Johnson job", "the Patels", "for Sarah" */
+function talkCust(t){
+  var w = ' ' + talkWords(t).replace(/[.,]/g, ' ') + ' ', best = null, score = 0;
+  S.customers.forEach(function(c){ talkWords(c.name).split(/[\s&]+/).forEach(function(p, i){ if(p.length < 3 || /^(the|and|mrs?|ms|dr)$/.test(p)) return;
+    if(new RegExp(' ' + p + '(s|es|s)? ').test(w)){ var sc = p.length + (i ? 2 : 0); if(sc > score){ score = sc; best = c; } } }); });
+  return best;
+}
+function custJob(c){ if(!c) return null; var js = S.jobs.filter(function(j){ return j.customerId === c.id && j.status !== 'lost'; });
+  var open = js.filter(function(j){ return j.status !== 'closed'; }); var pick = (open.length ? open : js).slice().sort(function(a, b){ return (a.date === today() ? -1 : 0) - (b.date === today() ? -1 : 0) || (b.date || b.created || '').localeCompare(a.date || a.created || ''); });
+  return pick[0] || null; }
+function talkStore(t){ var w = talkWords(t), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
+  var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
+function talkPlan(said, force){
+  var t = wordsToDigits(String(said || '').trim()), w = talkWords(t); if(!t) return { kind:force || '' };
+  var kind = force || ((/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\breceipt\b/.test(w)) ? 'receipt' : /^\s*(quote|estimate|price|bid)\b/.test(w) ? 'quote' : '');
+  if(kind === 'receipt'){
+    var c = talkCust(t), j = custJob(c), amt = talkAmount(t.replace(/^\D*?(?=\$|\d)/, ''));
+    return { kind:'receipt', amount:amt, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
+  }
+  if(kind === 'quote'){
+    var c2 = talkCust(t), rest = t.replace(/^\s*(quote|estimate|price|bid)\s*(for|up)?\s*/i, ''), name = '', work = rest;
+    var m = rest.match(/^([^:,.]{2,40})[:,.]\s*(.+)$/);
+    if(m){ name = m[1].replace(/^the\s+/i, '').trim(); work = m[2].trim(); }
+    if(c2) name = c2.name;
+    else if(name) name = name.replace(/\b\w/g, function(x){ return x.toUpperCase(); }).replace(/^(\w+?)s$/, '$1');
+    return { kind:'quote', custId:c2 ? c2.id : '', name:name, work:work };
+  }
+  return { kind:'' };
+}
+/* what is still missing, in plain words, or '' when it can be saved */
+function talkMissing(p){
+  if(!p || !p.kind) return 'Tap 🧾 Receipt or 📝 Quote, so I know which it is.';
+  if(p.kind === 'receipt') return p.amount > 0 ? '' : 'How much was it? Type the amount in the box above.';
+  return !p.name ? 'Who is the quote for? Type their name above.' : !p.work ? 'What’s the work? Type it above.' : '';
+}
+function talkOK(p){ return !talkMissing(p); }
+function talkButton(){
+  var r = F('expenses') || F('materials'), q = F('estimates'); if(!r && !q) return '';
+  return '<button class="btn main full talkbtn" id="tdTalk" aria-label="Hold to talk">🎤 Hold to talk</button><p class="hint" style="margin:-4px 4px 10px;text-align:center">' + (r && q ? 'Say “Receipt, 84 dollars Home Depot, Johnson job” or “Quote the Patels: replace disposal, 2 hours”.' : r ? 'Say “Receipt, 84 dollars Home Depot, Johnson job”.' : 'Say “Quote the Patels: replace disposal, 2 hours”.') + '</p>';
+}
+/* hold = listen; let go = stop and show what it heard. A quick tap, or a phone without speech typing, opens the box to type in. */
+/* hold = listen; let go = stop. done(said, how): how is 'tap' (a quick tap, not a hold), 'none' (no speech typing
+   on this phone), 'denied' (microphone refused) or '' (it listened). Used by Today's big button and, so a person can
+   keep talking instead of typing, by the 🎤 inside the box (Jerry, 20 Nov: "I don't have any way to do a voice command"). */
+function holdMic(b, idle, done){
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, said = '', down = 0, live = false;
+  b.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  b.addEventListener('pointerdown', function(e){
+    e.preventDefault(); down = Date.now(); said = ''; if(!SR) return;
+    try{ rec = new SR(); }catch(err){ rec = null; return; }
+    rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = true;
+    rec.onresult = function(ev){ said = ''; for(var i = 0; i < ev.results.length; i++) said += ev.results[i][0].transcript; b.textContent = '● ' + said; };
+    rec.onerror = function(ev){ live = false; rec = null; b.textContent = idle; if(ev && ev.error === 'not-allowed'){ toast('Microphone not allowed — type it instead'); done('', 'denied'); } };
+    rec.onend = function(){ var was = live; live = false; rec = null; b.textContent = idle; if(was || said) done(said, ''); };
+    try{ rec.start(); live = true; b.textContent = '● Listening… let go when done'; }catch(err){ rec = null; }
+  });
+  function up(){ if(!down) return; var held = Date.now() - down; down = 0;
+    if(!SR || !rec){ done('', SR ? 'tap' : 'none'); return; }
+    if(held < 350){ live = false; var r0 = rec; rec = null; r0.onresult = r0.onend = r0.onerror = null; try{ r0.abort ? r0.abort() : r0.stop(); }catch(e){} b.textContent = idle; done('', 'tap'); return; }   /* a tap, not a hold */
+    try{ rec.stop(); }catch(e){} }
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', function(){ if(down && rec) up(); });
+  b.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); done('', 'tap'); } });
+}
+function talkWire(){ var b = $('tdTalk'); if(b) holdMic(b, '🎤 Hold to talk', function(said){ talkOpen(said); }); }
+function talkMore(){
+  var b = $('tkMic'), box = $('tkIn'); if(!b || !box) return;
+  if(!(window.SpeechRecognition || window.webkitSpeechRecognition)){ b.hidden = true; return; }
+  holdMic(b, '🎤 Hold to add more', function(said, how){
+    if(how === 'tap'){ toast('Hold the 🎤 down while you talk, then let go'); return; }
+    said = String(said || '').trim(); if(!said) return;
+    var cur = box.value.trim(); box.value = cur ? cur.replace(/[.,]?$/, ', ') + said : said;
+    box.dispatchEvent(new Event('input', { bubbles:true }));
+  });
+}
+function talkOpen(said, plan, note){
+  var old = TALK && TALK.plan && TALK.plan.photo;
+  TALK = { said:String(said || '').trim(), plan:null, picked:'' };
+  sheet('<h3>🎤 Say it, or type it</h3><label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="Receipt, 84 dollars Home Depot, Johnson job">' + esc(TALK.said) + '</textarea>'
+    + '<button class="btn full talkbtn" id="tkMic" type="button" aria-label="Hold to add more" style="margin:8px 0 0;min-height:50px;font-size:16px">🎤 Hold to add more</button>'
+    + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
+    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p>'
+    + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
+    + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
+    + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
+      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); talkMore(); });
+  TALK.plan = plan || talkPlan(TALK.said); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
+  talkDraw(note);
+  if(!TALK.said) setTimeout(function(){ try{ $('tkIn').focus(); }catch(e){} }, 250);
+}
+function talkDraw(note){
+  var p = TALK && TALK.plan, more = $('tkMore'), kind = $('tkKind'), msg = $('tkPlan'); if(!more || !p) return;
+  var r = F('expenses') || F('materials'), q = F('estimates');
+  kind.innerHTML = (r ? '<button type="button" class="chip' + (p.kind === 'receipt' ? ' on' : '') + '" onclick="BM.talkKind(\'receipt\')">🧾 Receipt</button>' : '')
+    + (q ? '<button type="button" class="chip' + (p.kind === 'quote' ? ' on' : '') + '" onclick="BM.talkKind(\'quote\')">📝 Quote</button>' : '');
+  if(p.kind === 'receipt'){
+    var js = S.jobs.filter(function(j){ return j.status !== 'lost' && (j.status !== 'closed' || j.id === p.jobId); }).sort(function(a, b){ return b.num - a.num; }).slice(0, 40);
+    more.innerHTML = '<div class="two"><div><label class="f" for="tkA" style="margin-top:0">Amount</label><input class="i" id="tkA" data-nomic inputmode="decimal" placeholder="' + CUR + '" value="' + (p.amount > 0 ? p.amount : '') + '" oninput="BM.talkField(\'amount\',this.value)"></div>'
+      + '<div><label class="f" for="tkS" style="margin-top:0">Store</label><input class="i" id="tkS" data-nomic value="' + esc(p.store || '') + '" placeholder="' + esc(STORES[0]) + '" oninput="BM.talkField(\'store\',this.value)"></div></div>'
+      + '<label class="f" for="tkJ">For which job?</label><select class="i" id="tkJ" onchange="BM.talkJob(this.value)"><option value="">— Not for one job —</option>' + js.map(function(j){ return '<option value="' + j.id + '"' + (j.id === p.jobId ? ' selected' : '') + '>' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('') + '</select>'
+      + '<label class="btn full" style="margin-top:8px">📸 ' + (p.photo ? 'Photo added ✓ — change it' : 'Add the photo') + '<input type="file" accept="image/*" capture="environment" hidden onchange="BM.talkPhoto(this)"></label>';
+  } else if(p.kind === 'quote'){
+    more.innerHTML = '<label class="f" for="tkC" style="margin-top:0">Customer</label><input class="i" id="tkC" data-nomic list="tkCL" value="' + esc(p.name || '') + '" placeholder="Their name" oninput="BM.talkField(\'name\',this.value)">'
+      + '<datalist id="tkCL">' + S.customers.map(function(c){ return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist>'
+      + '<label class="f" for="tkW">The work</label><textarea class="i" id="tkW" data-nomic style="min-height:60px" placeholder="Replace disposal, 2 hours" oninput="BM.talkField(\'work\',this.value)">' + esc(p.work || '') + '</textarea>';
+  } else more.innerHTML = '';
+  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : ''));
+}
+function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(TALK.said, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
+function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
+  if(k === 'amount') p.amount = num(v);
+  else if(k === 'name'){ p.name = String(v).trim(); var c = S.customers.filter(function(x){ return x.name.toLowerCase() === p.name.toLowerCase(); })[0]; p.custId = c ? c.id : ''; }
+  else p[k] = String(v).trim();
+  var msg = $('tkPlan'); if(msg){ msg.style.color = ''; msg.textContent = talkMissing(p); } }
+function talkJob(v){ if(TALK && TALK.plan) TALK.plan.jobId = v; }
+async function talkPhoto(inp){ var f = inp.files && inp.files[0]; if(!f || !TALK || !TALK.plan) return;
+  try{ var blob = await shrink(f), id = 'rc_' + uid(); await putFile(id, blob); if(TALK.plan.photo) delFile(TALK.plan.photo); TALK.plan.photo = id; toast('Photo added'); }catch(e){ alert('That photo wouldn’t save on this phone.'); }
+  talkDraw(); }
+/* the box stays open underneath while the AI is asked, so cancelling, or an answer that doesn't fit, never loses the words */
+function talkAI(){
+  var said = (($('tkIn') || {}).value || '').trim(), msg = $('tkPlan');
+  if(!said){ if(msg){ msg.style.color = 'var(--bad)'; msg.textContent = 'Say or type something first, then ask.'; } return; }
+  djAI.ask({ title:'Sort this for me', want:'text', circle:false,
+    prompt:'A ' + (TRADES[S.biz.trade] || TRADES.other).name.toLowerCase() + ' business owner said this into their phone. Is it a store receipt to file, or a quote to write? Answer with JSON only, like {"kind":"receipt","amount":84.12,"store":"Home Depot","customer":"Johnson"} or {"kind":"quote","customer":"Patel","work":"Replace garbage disposal, 2 hours"}. If it is neither, answer {"kind":"neither"}. customer is the customer’s name as said, or empty.\n\nWhat they said: ' + said,
+    onResult:function(v, raw){
+      var j = null; try{ j = djAI.extractJSON(raw || v); }catch(e){} if(!j && v && typeof v === 'object') j = v;
+      var k = j && (j.kind === 'receipt' || j.kind === 'quote') ? j.kind : '';
+      var who = aiLabel() === 'my AI' ? 'The AI' : aiLabel();
+      if(!k){ talkOpen(said, { kind:'' }, (j && j.kind === 'neither' ? who + ' says that isn’t a receipt or a quote.' : who + ' couldn’t tell either.') + ' Tap 🧾 Receipt or 📝 Quote, then fill in the boxes.'); return; }
+      var c = j.customer ? talkCust(String(j.customer)) : null;
+      talkOpen(said, k === 'receipt' ? { kind:'receipt', amount:num(j.amount), store:String(j.store || ''), jobId:(custJob(c) || {}).id || '', who:c ? c.name : '' }
+        : { kind:'quote', custId:c ? c.id : '', name:c ? c.name : String(j.customer || '').trim(), work:String(j.work || '').trim() }, '✨ Sorted by ' + (aiLabel() === 'my AI' ? 'the AI' : aiLabel()) + ' — check it, then Save it.');
+    } });
+}
+function talkSave(){
+  var p = TALK && TALK.plan, miss = talkMissing(p);
+  if(miss){ var msg = $('tkPlan'); if(msg){ msg.style.color = 'var(--bad)'; msg.textContent = miss; } var f = !p || !p.kind ? null : p.kind === 'receipt' ? $('tkA') : !p.name ? $('tkC') : $('tkW'); if(f) try{ f.focus(); }catch(e){} return; }
+  var sv = TALK.said || (p.kind === 'receipt' ? 'Receipt ' + money(p.amount) + (p.store ? ' ' + p.store : '') : 'Quote ' + p.name + ': ' + p.work); TALK.said = sv;
+  if(p.kind === 'receipt'){
+    var to = p.jobId ? 'job:' + p.jobId : 'supplies', vendor = p.store || 'Receipt', rid = uid(), eid = uid();
+    var cat = p.jobId ? 'Materials & supplies' : guessCat(vendor); if(cat === 'Other business') cat = 'Materials & supplies';
+    var rec = { id:rid, date:today(), vendor:vendor, how:'voice', photo:p.photo || '', items:p.amount, tax:0, total:p.amount, lines:[{ name:TALK.said.slice(0, 120), amount:p.amount, to:to }], most:to, created:today(), expenses:[eid] };
+    S.expenses.push({ id:eid, date:rec.date, vendor:vendor, amount:p.amount, cat:cat, jobId:p.jobId, note:'Said: ' + TALK.said.slice(0, 200), source:'voice', receiptId:rid });
+    (S.receipts = S.receipts || []).push(rec);
+    if(p.jobId && job(p.jobId)) logJob(job(p.jobId), 'Receipt (said): ' + vendor + ' ' + money(p.amount));
+    TALK = null; save(); closeSheet(true); render(); toast('Saved ' + money(rec.total) + ' → ' + destName(to));
+    return;
+  }
+  var c = p.custId ? cust(p.custId) : null;
+  if(!c){ c = { id:uid(), name:p.name, phone:'', email:'', address:'', created:today() }; S.customers.push(c); }
+  var title = p.work.split(/[,.;]/)[0].trim(); title = title.charAt(0).toUpperCase() + title.slice(1); if(title.length > 48) title = title.slice(0, 45).trim() + '…';
+  var j = { id:uid(), num:S.seq.job++, customerId:c.id, title:title, desc:p.work, status:'new', created:today(), items:[], times:[], log:[{ d:today(), t:'Said into the phone: ' + TALK.said.slice(0, 200) }], said:true };
+  S.jobs.push(j);
+  if(F('lineItems')){ j.items = draftItems(j.title + '. ' + j.desc); j.via = 'list'; }
+  TALK = null; save(); closeSheet(true); render();
+  toast('Draft estimate for ' + c.name + ' is waiting in Needs you' + (j.items.length ? '' : ' — add the prices'));
 }
 
 /* ── jobs list / customers / schedule ── */
@@ -2858,6 +3343,7 @@ VIEWS.newjob = function(){
   var h = '<div class="card"><label class="f" for="jc" style="margin-top:0">Customer</label><select class="i" id="jc" onchange="BM.toggleNewCust()">' + opts + '</select><div id="ncBox"' + (pre ? ' hidden' : '') + '>' + custForm({}, 'n') + '</div></div>';
   h += '<div class="card"><label class="f" for="jt" style="margin-top:0">What’s the job?</label><input class="i" id="jt" placeholder="' + esc(sampleTitle()) + '">'
     + '<label class="f" for="jd">Details <span class="muted small">(' + (F('estimates') && F('lineItems') ? 'the more you say, the better the price draft' : 'optional') + ' — tap the 🎤 on your keyboard to talk)</span></label><textarea class="i" id="jd" placeholder="What the customer wants, what you saw, sizes, how many hours — anything to remember"></textarea>';
+  if(F('schedule')) h += '<label class="f" for="jb">What to bring <span class="muted small">(optional — it’s in the morning brief)</span></label><input class="i" id="jb" placeholder="' + L('e.g. 40-gal water heater, the long ladder', 'e.g. 5,000 L tank, the long ladder') + '">';
   if(!F('lineItems')) h += '<label class="f" for="jp">Price</label><input class="i" id="jp" inputmode="decimal" placeholder="' + L('$0.00', 'KES') + '">';
   if(F('schedule')) h += '<div class="two"><div><label class="f" for="jdt">Day</label><input class="i" id="jdt" type="date"></div><div><label class="f" for="jtm">Time</label><input class="i" id="jtm" type="time"></div></div>';
   h += '</div><button class="btn main full" onclick="BM.saveNewJob()">Save job →</button>';
@@ -2872,6 +3358,7 @@ function saveNewJob(){
   if(!cid){ var c = readCust('n'); if(!c.name){ alert('Who is the job for? Pick a customer or type a name.'); return; } c.id = uid(); c.created = today(); S.customers.push(c); cid = c.id; }
   var title = $('jt').value.trim(); if(!title){ alert('Give the job a short name, like “' + sampleTitle() + '”.'); return; }
   var j = { id:uid(), num:S.seq.job++, customerId:cid, title:title, desc:$('jd').value.trim(), status:'new', created:today(), items:[], times:[], log:[] };
+  if($('jb') && $('jb').value.trim()) j.bring = $('jb').value.trim();
   if($('jp')) j.price = num($('jp').value);
   if($('jdt') && $('jdt').value){ j.date = $('jdt').value; j.time = $('jtm').value; if(!F('estimates')) j.status = 'scheduled'; }
   S.jobs.push(j); save(); go('job/' + j.id);
@@ -2883,6 +3370,7 @@ VIEWS.editjob = function(){
   var h = '<div class="card"><label class="f" for="jc" style="margin-top:0">Customer</label><select class="i" id="jc">' + opts + '</select>'
     + '<label class="f" for="jt">What’s the job?</label><input class="i" id="jt" value="' + esc(j.title) + '">'
     + '<label class="f" for="jd">Details</label><textarea class="i" id="jd">' + esc(j.desc || '') + '</textarea>';
+  if(F('schedule')) h += '<label class="f" for="jb">What to bring</label><input class="i" id="jb" value="' + esc(j.bring || '') + '" placeholder="' + L('e.g. 40-gal water heater, the long ladder', 'e.g. 5,000 L tank, the long ladder') + '">';
   if(!F('lineItems')) h += '<label class="f" for="jp">Price</label><input class="i" id="jp" inputmode="decimal" value="' + (j.price || '') + '">';
   if(F('schedule')) h += '<div class="two"><div><label class="f" for="jdt">Day</label><input class="i" id="jdt" type="date" value="' + esc(j.date || '') + '"></div><div><label class="f" for="jtm">Time</label><input class="i" id="jtm" type="time" value="' + esc(j.time || '') + '"></div></div>';
   h += '<label class="f" for="js">Where it stands</label><select class="i" id="js">' + stages().concat(['lost']).map(function(s){ return '<option value="' + s + '"' + (s === j.status ? ' selected' : '') + '>' + STAGE[s] + '</option>'; }).join('') + '</select></div>';
@@ -2891,6 +3379,7 @@ VIEWS.editjob = function(){
 };
 function saveEditJob(id){
   var j = job(id); j.customerId = $('jc').value; j.title = $('jt').value.trim() || j.title; j.desc = $('jd').value.trim();
+  if($('jb')) j.bring = $('jb').value.trim();
   if($('jp')) j.price = num($('jp').value);
   if($('jdt')){ j.date = $('jdt').value; j.time = $('jtm').value; }
   j.status = $('js').value; save(); go('job/' + id);
@@ -3381,6 +3870,7 @@ VIEWS.money = function(){
     + (F('expenses') ? '<div class="tot"><span>Money out (business costs)</span><b>−' + money(R.out) + '</b></div><div class="tot grand"><span>Profit</span><span style="color:' + (R.profit >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + money(R.profit) + '</span></div>' : '')
     + (R.salesTax ? '<p class="hint">' + L('Sales tax collected: ' + money(R.salesTax) + ' — that belongs to the state, so it’s not in your income.', 'VAT collected: ' + money(R.salesTax) + ' — that belongs to KRA, so it’s not in your income. File and pay it by the 20th of the next month.') + '</p>' : '')
     + (F('expenses') && R.profit > 0 ? '<div class="banner" style="margin:10px 0 0">💡 Set aside about <b>' + money0(R.profit * num(S.biz.setAside) / 100) + '</b> for income tax (' + num(S.biz.setAside) + '% of profit). Your accountant can tell you the right number for you.</div>' : '') + '</div>');
+  h.push(aheadCard());
   var ow = owed().sort(function(a, b){ return (a.due || '').localeCompare(b.due || ''); });
   h.push('<h2>Owed to me (' + money0(ow.reduce(function(a, v){ return a + invBal(v); }, 0)) + ')</h2>');
   h.push(ow.length ? ow.map(function(v){ var c = cust(v.customerId), late = invOverdue(v) ? daysBetween(v.due, today()) : 0; return '<button class="card tap" onclick="BM.go(\'inv/' + v.id + '\')"><div class="row"><div class="grow"><b>' + esc(c.name) + '</b><div class="small muted">#' + v.num + ' · ' + (late ? '<b style="color:var(--bad)">' + late + ' days late</b>' : 'due ' + fd(v.due)) + '</div></div><b>' + money(invBal(v)) + '</b></div></button>'; }).join('') : '<div class="card muted">Nobody owes you right now. 👍</div>');
@@ -3428,6 +3918,99 @@ function saveExpense(id){
   save(); closeSheet(); render(); toast('Saved');
 }
 function delExpense(id){ if(!confirm('Delete this expense?')) return; S.expenses = S.expenses.filter(function(x){ return x.id !== id; }); save(); closeSheet(); render(); }
+
+/* ── 📅 Next 30 / 60 days (v1.7 · 18 Nov 2026, Jerry: "Yes, all of them") ──────────────────────
+   A cash look-ahead on this phone, nothing sent anywhere. Money coming in is every unpaid invoice's balance by its
+   due date (a late one counts in the next 30 days, flagged); money going out is the repeating costs the person types
+   in here (S.repeats: name, amount, day of the month — insurance, the truck payment), since expenses don't repeat.
+   Start from "cash in the bank today" (S.ahead.cash) and the two big numbers are what should be there at day 30 and day 60.
+   Windows: day 0 is today; "next 30 days" is day 0 to day 29, "days 31 to 60" is day 30 to day 59, so nothing counts twice. */
+function aheadState(){ if(!S.ahead || typeof S.ahead !== 'object') S.ahead = { cash:'' }; if(!Array.isArray(S.repeats)) S.repeats = []; return S.ahead; }
+function repeatDates(r, from, to){   /* every day-of-month date for this cost between from and to (inclusive) */
+  var out = [], d = parseD(from), end = parseD(to), day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
+  for(var y = d.getFullYear(), m = d.getMonth(), g = 0; g < 4; g++, m++){
+    var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last));
+    if(when >= d && when <= end) out.push(ymd(when));
+  }
+  return out;
+}
+function ahead(){
+  aheadState();
+  var t = today(), d30 = addDays(t, 30), d60 = addDays(t, 60), R = { t:t, d30:d30, d60:d60, inA:[], inB:[], outA:[], outB:[], later:0, laterN:0 };
+  S.invoices.forEach(function(v){ var b = invBal(v); if(b <= 0.004) return; var due = v.due || t, x = { v:v, amt:b, due:due, late:due < t };
+    if(due < d30) R.inA.push(x); else if(due < d60) R.inB.push(x); else { R.later += b; R.laterN++; } });
+  S.repeats.forEach(function(r){ var a = num(r.amount); if(!a) return;
+    repeatDates(r, t, addDays(d30, -1)).forEach(function(dt){ R.outA.push({ r:r, amt:a, due:dt }); });
+    repeatDates(r, d30, addDays(d60, -1)).forEach(function(dt){ R.outB.push({ r:r, amt:a, due:dt }); }); });
+  function sum(l){ return r2(l.reduce(function(a, x){ return a + x.amt; }, 0)); }
+  ['inA', 'inB', 'outA', 'outB'].forEach(function(k){ R[k].sort(function(a, b){ return a.due.localeCompare(b.due); }); R[k + 'Sum'] = sum(R[k]); });
+  R.cash = S.ahead.cash === '' || S.ahead.cash == null ? null : num(S.ahead.cash);
+  R.at30 = r2((R.cash || 0) + R.inASum - R.outASum);
+  R.at60 = r2(R.at30 + R.inBSum - R.outBSum);
+  R.lateSum = r2(R.inA.filter(function(x){ return x.late; }).reduce(function(a, x){ return a + x.amt; }, 0));
+  return R;
+}
+function aheadCard(){   /* the tappable summary on the Money tab */
+  var R = ahead();
+  return '<button class="card tap" id="aheadCard" onclick="BM.go(\'ahead\')"><div class="row"><div class="grow"><b>📅 Next 30 / 60 days</b><div class="small muted">'
+    + (R.cash == null ? 'Type in what’s in the bank today and see what should be there in a month, and in two.' : 'Expected in the bank: <b style="color:' + (R.at30 >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + money0(R.at30) + '</b> in 30 days · <b style="color:' + (R.at60 >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + money0(R.at60) + '</b> in 60')
+    + '</div></div><b style="font-size:22px">›</b></div></button>';
+}
+VIEWS.ahead = function(){
+  setHead('Next 30 / 60 days', 'Cash coming in and going out');
+  var R = ahead(), h = [];
+  function big(lbl, n, sub){ return '<div class="stat" style="cursor:default"><div class="lbl">' + lbl + '</div><div class="val" style="font-size:28px;color:' + (n >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + money0(n) + '</div><div class="small muted">' + sub + '</div></div>'; }
+  h.push('<div class="card"><label class="f" for="ahCash" style="margin-top:0">💰 Cash in the bank today</label><input class="i" id="ahCash" inputmode="decimal" style="font-size:24px;font-weight:800" placeholder="' + CUR + '" value="' + esc(R.cash == null ? '' : R.cash) + '" onchange="BM.aheadCash(this.value)"><p class="hint">What your business account has right now. It stays on this phone.</p></div>');
+  if(R.cash == null) h.push('<div class="banner">Type what’s in the bank today, and I’ll show what should be there in 30 and 60 days.</div>');
+  else h.push('<div class="stats" id="ahBig">' + big('In 30 days', R.at30, 'by ' + fd(R.d30)) + big('In 60 days', R.at60, 'by ' + fd(R.d60)) + '</div>'
+    + (R.at30 < 0 || R.at60 < 0 ? '<div class="banner" style="background:#FBE9E7;border-color:#E8A79A">⚠️ You could run short' + (R.at30 < 0 ? ' within 30 days' : ' in the second month') + '. Chasing what’s owed, or moving a bill’s date, can close the gap.</div>' : ''));
+  function block(title, inSum, outSum, ins, outs){
+    var s = '<h2>' + title + '</h2><div class="card">'
+      + '<div class="tot"><span>Coming in</span><b style="color:var(--good)">+' + money0(inSum) + '</b></div>'
+      + '<div class="tot"><span>Going out</span><b>−' + money0(outSum) + '</b></div>'
+      + '<div class="tot grand"><span>Difference</span><span style="color:' + (inSum - outSum >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + money0(inSum - outSum) + '</span></div></div>';
+    s += ins.map(function(x){ var c = cust(x.v.customerId), late = x.late ? daysBetween(x.due, R.t) : 0;
+      return '<button class="card tap" onclick="BM.go(\'inv/' + x.v.id + '\')"><div class="row"><div class="grow"><b>💵 ' + esc(c.name) + '</b><div class="small muted">Invoice #' + x.v.num + ' · ' + (late ? '<b style="color:var(--bad)">⏰ ' + late + ' day' + (late === 1 ? '' : 's') + ' late</b>' : 'due ' + fd(x.due)) + (x.v.sent ? '' : ' · not sent yet') + '</div></div><b style="color:var(--good)">+' + money0(x.amt) + '</b></div></button>'; }).join('');
+    s += outs.map(function(x){ return '<button class="card tap" onclick="BM.repeatEdit(\'' + x.r.id + '\')"><div class="row"><div class="grow"><b>🔁 ' + esc(x.r.name || 'Repeating cost') + '</b><div class="small muted">' + fd(x.due) + '</div></div><b>−' + money0(x.amt) + '</b></div></button>'; }).join('');
+    if(!ins.length && !outs.length) s += '<p class="muted small" style="margin:0 4px 8px">Nothing due in these days.</p>';
+    return s;
+  }
+  h.push(block('Next 30 days', R.inASum, R.outASum, R.inA, R.outA));
+  if(R.lateSum > 0) h.push('<p class="hint" style="margin:-4px 4px 10px">Late invoices (' + money0(R.lateSum) + ') are counted as if they’re paid in the next 30 days. A reminder helps that come true.</p>');
+  h.push(block('Days 31 to 60', R.inBSum, R.outBSum, R.inB, R.outB));
+  if(R.laterN) h.push('<p class="hint" style="margin:0 4px 10px">Not counted: ' + R.laterN + ' invoice' + (R.laterN > 1 ? 's' : '') + ' (' + money0(R.later) + ') due ' + fd(R.d60) + ' or later.</p>');
+  h.push('<h2>Bills that repeat every month</h2>');
+  h.push(S.repeats.length ? S.repeats.map(function(r){ return '<button class="card tap" onclick="BM.repeatEdit(\'' + r.id + '\')"><div class="row"><div class="grow"><b>🔁 ' + esc(r.name || 'Repeating cost') + '</b><div class="small muted">On the ' + ordinal(r.day) + ' of each month</div></div><b>' + money0(r.amount) + '</b></div></button>'; }).join('')
+    : '<div class="card muted">None yet. Add the ones that come every month — insurance, the ' + L('truck payment', 'vehicle loan') + ', rent, your phone.</div>');
+  h.push('<div class="btns"><button class="btn main" id="ahAdd" onclick="BM.repeatEdit()">➕ Add a monthly bill</button></div>');
+  h.push('<p class="hint" style="margin-top:12px">A rough guide, not a promise: it only knows your invoices and the bills you list here. Everyday costs like fuel and materials aren’t in it.</p>');
+  return h.join('');
+};
+function ordinal(n){ n = Math.round(num(n)) || 1; var s = (n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1:'st', 2:'nd', 3:'rd' })[n % 10] || 'th'; return n + s; }
+function aheadCash(v){ aheadState(); var t = String(v || '').trim(); S.ahead.cash = t === '' ? '' : num(t); save(); render(); }
+function repeatEdit(id){
+  aheadState();
+  var r = id ? S.repeats.filter(function(x){ return x.id === id; })[0] : { name:'', amount:'', day:1 };
+  if(!r) return;
+  var ideas = L(['Insurance', 'Truck payment', 'Phone', 'Rent', 'Software'], ['Insurance', 'Vehicle loan', 'Airtime & internet', 'Rent', 'Software']);
+  sheet('<h3>' + (id ? 'Monthly bill' : 'Add a monthly bill') + '</h3>'
+    + (id ? '' : '<div class="chips">' + ideas.map(function(n){ return '<button class="chip" onclick="document.getElementById(\'rpN\').value=this.textContent">' + n + '</button>'; }).join('') + '</div>')
+    + '<label class="f" for="rpN">What is it?</label><input class="i" id="rpN" value="' + esc(r.name) + '" placeholder="' + L('Truck payment', 'Vehicle loan') + '">'
+    + '<div class="two"><div><label class="f" for="rpA">Amount each month</label><input class="i" id="rpA" inputmode="decimal" value="' + esc(r.amount) + '" placeholder="' + CUR + '"></div>'
+    + '<div><label class="f" for="rpD">Day of the month</label><input class="i" id="rpD" inputmode="numeric" value="' + esc(r.day) + '" placeholder="1 to 31"></div></div>'
+    + '<p class="hint">On a short month, a bill on the 31st counts on the last day.</p>'
+    + '<div class="btns" style="margin-top:14px"><button class="btn main" id="rpSave" onclick="BM.repeatSave(\'' + (id || '') + '\')">Save</button>' + (id ? '<button class="btn danger" onclick="BM.repeatDel(\'' + id + '\')">Delete</button>' : '') + '</div>');
+}
+function repeatSave(id){
+  var a = num($('rpA').value), dy = Math.round(num($('rpD').value)), n = $('rpN').value.trim();
+  if(!n){ alert('What is the bill? For example, insurance.'); return; }
+  if(!a){ alert('How much is it each month?'); return; }
+  if(!(dy >= 1 && dy <= 31)){ alert('Which day of the month? A number from 1 to 31.'); return; }
+  var d = { name:n, amount:r2(a), day:dy };
+  if(id) Object.assign(S.repeats.filter(function(x){ return x.id === id; })[0], d); else { d.id = uid(); S.repeats.push(d); }
+  save(); closeSheet(); render(); toast('Saved');
+}
+function repeatDel(id){ if(!confirm('Delete this monthly bill?')) return; S.repeats = S.repeats.filter(function(x){ return x.id !== id; }); save(); closeSheet(); render(); }
 
 /* ── statement import ── */
 var IMP = null;
@@ -4308,7 +4891,7 @@ function makeDemo(){
   d.customers = C.map(function(c){ return { id:c[0], name:c[1], phone:c[2], email:c[3], address:c[4], created:A(-60) }; });
   var J = function(id, num, cid, title, desc, status, items, extra){ return Object.assign({ id:id, num:num, customerId:cid, title:title, desc:desc, status:status, created:A(-10), items:items.map(function(x){ return { name:x[0], qty:x[1], price:x[2] }; }), times:[], log:[] }, extra || {}); };
   d.jobs = [
-    J('j1', 1001, 'c1', 'Replace water heater', '50 gal gas, 12 yrs old, leaking at base. Haul old one away.', 'scheduled', [['Water heater install, 40–50 gal', 1, 1450], ['Haul-away & disposal', 1, 75]], { date:t, time:'09:00', estSent:A(-6), signed:{ name:'Sarah Johnson', date:A(-4) } }),
+    J('j1', 1001, 'c1', 'Replace water heater', '50 gal gas, 12 yrs old, leaking at base. Haul old one away.', 'scheduled', [['Water heater install, 40–50 gal', 1, 1450], ['Haul-away & disposal', 1, 75]], { date:t, time:'09:00', bring:'the 50-gal gas heater and the hand truck', estSent:A(-6), signed:{ name:'Sarah Johnson', date:A(-4) } }),
     J('j2', 1002, 'c2', 'Kitchen faucet + disposal', 'Customer bought the faucet. Replace disposal (1/2 hp).', 'scheduled', [['Faucet replace (labor)', 1, 225], ['Disposal, 1/2 hp, installed', 1, 340]], { date:A(1), time:'13:30', estSent:A(-5), signed:{ name:'Rita Alvarez', date:A(-3) } }),
     J('j3', 1003, 'c3', 'Fellowship hall restrooms', 'Two toilets running, one urinal flush valve, check water pressure.', 'estimate', [['Service call / trip charge', 1, 95], ['Toilet rebuild', 2, 165], ['Flush valve replace', 1, 285]], { estSent:A(-4), qnote:'Priced from our standard list; we confirm on site before any work starts.', edit:0,
       tiers:[{ name:'Good', items:[] }, { name:'Better', items:[{ name:'Service call / trip charge', qty:1, price:95 }, { name:'Toilet rebuild', qty:2, price:165 }, { name:'Flush valve replace', qty:1, price:285 }, { name:'Upgraded parts & fittings', qty:1, price:95 }] }, { name:'Best', items:[{ name:'Service call / trip charge', qty:1, price:95 }, { name:'Toilet rebuild', qty:2, price:165 }, { name:'Flush valve replace', qty:1, price:285 }, { name:'Upgraded parts & fittings', qty:1, price:95 }, { name:'Premium parts + priority scheduling', qty:1, price:250 }] }] }),
@@ -4870,6 +5453,8 @@ document.getElementById('backBtn').addEventListener('click', back);
 /* everything the buttons call */
 window.BM = {
   go:go, back:back, closeSheet:closeSheet, relist:relist, guessCat:guessCat, _q:'', _cq:'',
+  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkKind:talkKind, talkField:talkField, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
+  briefShow:briefShow, briefRead:briefRead, dayText:dayText, dtMin:dtMin, dtGo:dtGo,
   keepDemo:keepDemo, fresh:fresh, tourShow:tourShow, redoSetup:redoSetup,
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
   saveCust:saveCust, delCust:delCust, message:message, toggleNewCust:toggleNewCust, saveNewJob:saveNewJob, saveEditJob:saveEditJob, delJob:delJob,
@@ -4883,6 +5468,7 @@ window.BM = {
   payMsg:payMsg, _region:function(){ return KE ? 'ke' : 'us'; },
   newInvoice:newInvoice, setInvDates:setInvDates, sendInvoice:sendInvoice, remind:remind, previewInv:previewInv, payment:payment, savePayment:savePayment, delPayment:delPayment, delInvoice:delInvoice,
   addExpense:addExpense, saveExpense:saveExpense, delExpense:delExpense,
+  aheadCash:aheadCash, repeatEdit:repeatEdit, repeatSave:repeatSave, repeatDel:repeatDel, _ahead:ahead,
   readFile:readFile, readPaste:readPaste, aiRead:aiRead, aiSort:aiSort, impOn:impOn, impCat:impCat, flipSign:flipSign, cancelImport:cancelImport, saveImport:saveImport,
   hoursCSV:hoursCSV, exp:exp,
   saveBiz:saveBiz, setFeat:setFeat, savePay:savePay, setPrice:setPrice, delPrice:delPrice, addPrice:addPrice, setCrew:setCrew, delCrew:delCrew, addCrew:addCrew, setChan:setChan, saveMsg:saveMsg,

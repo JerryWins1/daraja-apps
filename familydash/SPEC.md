@@ -242,7 +242,7 @@ Jerry: "I think you should gather all the files then read them so you can have i
 - Everything is read first. Then one screen per kind (bank accounts, cards, payment apps, your own spreadsheets, PDFs with nothing readable) shows what was suggested, for approving or changing. Next comes the summary of accounts, income and yearly bills, then the questions, filled in where the statements answer them.
 - When setup is done, the money map's check opens. It shows the months still missing and a "Not in your map yet" list (investments, education funds, loans, insurance) for the things statements can't show.
 - The "one kind at a time" choice is gone from the first screen; the money map covers one-at-a-time.
-- A credit union's name taken from a file name no longer drags the file name along ("CTCU Statement Oct.pdf Community Trust Credit Union" is now "Community Trust Credit Union"), and "Navy Federal" keeps "Federal".
+- A credit union's name taken from a file name no longer drags the file name along ("XYZ Statement Oct.pdf Example Credit Union" is now "Example Credit Union"), and "Navy Federal" keeps "Federal".
 
 ## Addendum, 15 Nov (v2.4) — checking what was read, as cards
 
@@ -299,3 +299,652 @@ Jerry, going to bed: "run through… don't stop until you have gone through each
   - The last setup button says "Looks right — finish" when statements are already in.
 - **Test script:** six new steps (s23–s28) walk the sample folder through setup, the findings cards, the check and the money map. The videos and store card steps are now s29–s30.
 - **Videos:** all three were rewritten where they described the old setup and re-recorded by name. The train video now walks the folder picture, the download, compressing on an iPhone, "what your folder holds", the findings cards, the remaining questions and the check. Overview line 4 and the first-timer's "How to start" were reworded. The first-timer gained a money map line. `voicemaker --check` reports them current; `checkvideos` reports 3 of 3; every step's pointer was found on phone and laptop. Whether the voice is there and sounds right can only be checked on a real phone.
+
+## Addendum, 16 Nov (v3.2) — setup as a to-do list
+
+Jerry: "make the setup process our checklist, a little to-do list… a little taste of what's next… so they can take it off when they're done." He also asked whether a computer needs the download and the zip. It doesn't: a computer picks the folder itself, and the download is optional everywhere.
+
+- **The list:** setup is a ten-step list on the main screen, called "📝 Getting set up":
+  1. Make the folder
+  2. Put the statements in
+  3. Give the app the folder
+  4. Check what it holds
+  5. Approve what the statements answer
+  6. Check income and bills
+  7. Answer the questions left
+  8. Fill in what's missing
+  9. Getting to know you
+  10. Set the monthly amounts
+- **How it works:**
+  - Each step ticks itself when it's done, and any step can be ticked off or untaken by hand.
+  - The next step is marked "up next" and has its own button. Tapping any step goes to it.
+  - A progress bar shows how many steps are done.
+  - Before setup starts, the welcome screen shows the same list as a preview.
+  - Once everything is done, the list says "All set up ✓" and can be hidden.
+- **The give-the-folder step follows the device:** a computer says "Give the app the folder — pick the Family Money folder itself, no zip needed". A phone or tablet says "Compress the folder and give it to the app".
+- **Test script:** s22 now checks the list and a hand tick.
+
+## Addendum, 16 Nov (v3.3) — every account its own folder, shown
+
+Jerry: "don't you think there could be more bank accounts, more credit cards, more pay apps… have each folder for each one with the name of that credit card." The app already read any number of account folders in a group. The picture showed one example per group, though, so it looked as if only one was allowed. The picture now shows two or three examples per group and a "＋ one more folder for each account" line, and the words say a separate folder for every checking account, card and pay app. The examples use made-up names. The downloaded Read me in each group lists the examples too.
+
+## Addendum, 16 Nov (v3.4) — all together, or by year
+
+Jerry asked for it to be said plainly that statements can sit all together in an account's folder or in year folders. He prefers years. The first setup screen now says so under the folder picture: "keep its statements all together, or in a folder for each year — 2025, 2026 — whichever you like". The downloaded Read me says the same, and warns that folders named old, archive or backup are skipped. Tested with an account's statements split into 2025 and 2026 folders: they're read exactly as if they were loose.
+
+## Addendum, 16 Nov (v3.5) — clearer what to do once the folder is made
+
+Jerry: "you need to be clearer on what you do once you get the folder done." He had read "Download this folder, ready to fill" as the app fetching his folder.
+
+- Step 1 now opens with three numbered boxes: make the folder like the picture, put each account's statements in, then come back and tap My folder is ready. That last box says the app will then ask you to pick the Family Money folder, as a zip on an iPhone.
+- The download button is now "Haven't made the folders yet? Download them empty", marked optional, with "skip this if your folder is already made".
+- From here on, Jerry asked that videos wait until the changes are done: "Let's make the video at the end."
+
+## Addendum, 16 Nov (v3.6) — Jerry's first real folder
+
+Jerry's first run with his own Family Money folder turned up four problems:
+- One bank account showed with 0 lines.
+- His other bank account was missing.
+- A PayPal folder showed "••2026".
+- Nothing on the screen said why.
+
+Fixes:
+- **Hidden files are ignored.** The 0-line account was a folder he had emptied, which still held a Mac's hidden .DS_Store. Hidden and system files (.DS_Store, desktop.ini, Thumbs.db) are now ignored, so an emptied folder no longer becomes an account.
+- **A year is not a last 4.** A folder name ending in a year (2026) no longer gives that year as the last 4.
+- **Each account lists its files.** Under every account, "Here's what your folder holds" now says how many files its folder held, and names any that gave no lines with the likely reason: a PDF that is a scan or an unknown layout, no dates and amounts, or not a statement. A folder with no files says so.
+- **Stray files are shown.** Anything outside the eight group folders is listed by folder name, with the fix: move it into the right group and pick the folder again.
+- **Nothing is skipped by name in a Family Money folder.** "old", "archive" and "backup" folders are no longer skipped there; the folder is deliberate, and duplicate lines are counted once anyway.
+- **Every folder counts.** Several folders are all read; none replaces another.
+
+## Addendum, 16 Nov (v3.7) — reading PDFs with AI, asking first
+
+Jerry's credit union PDFs give no lines on the device: its layout is one the app's reader doesn't know. Asked what customers should get, he chose **"both, asking first"**: the app reads every PDF it can on the device, and for the rest it asks before sending them to an AI.
+
+- In "Here's what your folder holds", an account with unreadable PDFs gets a **✨ Read it/these with AI** button.
+- That opens a screen naming the statements, saying they will leave the device to be read, with **Yes, read them** and **Not now**.
+- Each PDF is handed to `djAI.ask` with the file attached and the same CSV prompt the older PDF route used. The lines come back into that account, the AI's own sign convention is trusted, and its ending balance is taken. Then it moves on to the next PDF, and finally back to the folder screen.
+- Through the Daraja AI door the file goes straight to Claude in one tap. That needs the house layer to pass `file` to the door, and the worker already accepts a PDF. Until then, the family's own AI opens and they attach the PDF there.
+
+## Addendum, 16 Nov (v4.0) — how the family works, asked first
+
+Jerry: "the beginning ought to be a questionnaire about how the user operates, what type of technology they have… If you have to do a little setup first with AI, then let's do that first… if they don't have AI, then tell them… what form they need… more simple and more automatic."
+
+- **"How do you work?"** comes first: three tap questions.
+  - Device: phone, computer or both.
+  - Statements: PDFs, downloads, paper or not sure. "Not sure" is treated as PDF.
+  - AI helper: Claude, ChatGPT, Gemini, Copilot or none.
+  - The AI choice is saved as the house layer's `dj_ai_choice`, so the person is never asked which AI again.
+- **The setup that fits comes next:**
+  - **PDFs or paper with an AI:** "Set up <AI> first". If the Daraja AI connection is on (`control/ai.json` has an endpoint), it says it's ready. Otherwise it says how the AI will be used, a whole account at a time, and offers to open it now.
+  - **PDFs or paper with no AI:** two ways forward. A is to download CSV or Quicken files instead, with the steps. B is to set up Claude free.
+  - **Downloads:** straight on to the folder.
+- **Reading with AI is a whole account at a time.** The folder screen has one "✨ Read them all with AI" button at the top. Each account gets a single ask with all its unreadable PDFs attached (`file` plus `files`), and a single paste brings back that account's lines. In testing, three PDFs in two accounts took two asks.
+- **The checklist** gains "Tell us how you work" and, when it applies, "Set up your AI first".
+- **Test script:** s21, s23 and s24 now walk the questions.
+
+## Addendum, 16 Nov (v4.1) — a passcode, the promise, and one home computer
+
+Jerry wants families to feel safe about their financial data: a password, and a plain statement up front that nothing is shared and the data stays on the computer, not the phone. He chose **one home computer** as where the data lives.
+
+- **"🔒 Your money stays with you"** comes before anything else in setup. It says:
+  - everything is kept on this computer, in this browser; nothing goes to Daraja, and there is no Daraja account or server
+  - there is no bank login, and the app never moves money
+  - a statement goes to an AI only after a yes for that statement
+  - nothing is ever shared, sold or shown
+  - with a passcode, everything kept here is scrambled, and the app locks itself after 15 minutes without use
+- **The passcode** must be at least 6 characters and typed twice. It is never stored. The data is encrypted with AES-GCM, using a key made from the passcode with PBKDF2 (250,000 rounds of SHA-256), before anything is written to the device. On opening, a lock screen asks for it. A wrong passcode is refused. Forgetting it means starting over; the statements in the folder are simply read again. Settings has Lock it now, Take the passcode off, or Lock it with a passcode. The checklist has "Lock it with a passcode".
+- **On a phone,** setup first says "💻 Best kept on your home computer", gives the link to copy for the computer, and explains that the monthly summary can be sent to each phone. "I only have a phone — set up here" is still allowed.
+- **Reading with AI:** the confirm screen now says plainly that a website can't hand files to another website. So, until the Daraja AI connection is on, the person attaches the PDFs themselves, and the screen names the folder for each account.
+- **Test script:** s21 to s23 updated for the promise screen.
+
+## Addendum, 16 Nov (v4.2) — the folder, drawn
+
+Jerry, showing a Cloudflare diagram: "some kind of graphical connection like this with the files for the different folders… so you can kind of see it visually." He approved a mockup first.
+
+- **"Your folder, connected"** replaces the "what your folder holds" list. On a computer it runs left to right: 📁 Family Money, then its group folders, then each account folder and the account it became, joined by curved lines. On a phone it runs top to bottom, with the lines down the left.
+- **Each account box shows its state:**
+  - **Green:** every file was read.
+  - **Amber:** PDFs still need AI. The box carries its own "✨ Read with AI" chip.
+  - **Red:** there's nothing to read.
+- **What each box says:** the account's files, its year folders (2025 · 2026), and its lines or total. Tapping a box opens the account. Insurance policies and other papers show as their own boxes.
+- **Loose folders** (anything outside the eight groups) sit under Family Money with dashed edges and "move it into one".
+- **"Read them all with AI"** stays at the top. **"See the folder map"** opens the map again from the money map, during the same visit.
+- **Train video, step five:** its pointer now lands on the map. The video's words will be updated with the other video changes at the end, as Jerry asked.
+
+## Addendum, 16 Nov (v4.3) — say which folder is which
+
+Jerry, looking at his real folder map: he has two bank account folders, and one wasn't recognised. "let me click each one… so I can actually tell you which ones go where." He also said the lines were "a little bit off".
+
+- **Pick folders for a group.** Every group box on the folder map can be tapped, even an empty one ("— none yet — tap to pick its folders"). It opens "Which folders are your bank accounts?" (or cards, and so on), listing every folder the app found under Family Money, indented as on the computer, with file counts. Ticked folders are that group's accounts: each one, and the year folders inside it, becomes one account. Unticked ones are left out. "Use these — read again" reads the folder again with those choices.
+- **The family's choices win.** They're saved in `db.fmAssign`, keyed by the folder's path inside Family Money, and they take priority over the folder names. Nothing on the computer is moved. Accounts are now keyed by folder path, so two folders with the same name in different places stay separate.
+- **The lines redraw** after the boxes settle (at 30, 300 and 900 ms) and whenever the map changes size.
+
+## Addendum, 16 Nov (v4.4) — the folder is asked for again, not refused
+
+Jerry tapped a group on his folder map after the page had reloaded, and got "Pick the Family Money folder first". The app holds the folder only while the page is open. Now a group tap with no folder in hand says why, offers "Pick the Family Money folder" (re-using the remembered folder on Chrome or Edge), and opens that group's folder list straight after. Re-reading never duplicates lines.
+
+Also in v4.4: accounts made before v4.3 knew only their folder name, so the map showed one of Jerry's as "folder is empty" when it was not. They are now matched by name once and remember their path; no duplicates are made. A folder with no files in it yet does not appear until something is put in it.
+
+## Addendum, 16 Nov (v4.5) — an empty account folder is an account
+
+Jerry made a folder for his new bank account that has no statements yet, and wants it followed from now on. When the Family Money folder is picked on a computer (Chrome or Edge), or as a zip, the app now records folders as well as files. An empty folder inside a group becomes an account straight away, shown as "empty for now — put its statements in". It also appears in that group's folder list as "empty for now". The older folder button used by other browsers still sees only files. A folder he has emptied and no longer wants can be unticked in its group.
+
+## Addendum, 16 Nov (v4.6) — the up-and-down card said plainly
+
+Jerry, on the "These go up and down" card: "I really don't understand what this is… it's hard to tell because I don't know what's in there." He also asked for a way to see what's missing in all his folders.
+
+- **The card is now titled "Spending that changes from month to month".** It explains that each line is a different amount every month, so the app plans for its average and shows the high and low months, and that any line meant to be a set amount should be unticked.
+- **Each line is a tick box** showing:
+  - the category, "about $X a month", and its highest month by name
+  - its lowest month that wasn't zero
+  - "mostly:" with the three places the money went and their totals
+- **The folder map has "🔎 What's missing in my folders?"**, which opens the check. That check has "Back to the folder map" while setup is still underway.
+
+## v4.7 · 16 Nov 2026 · Go through it together
+
+Jerry's other chat spent two days sorting a year of his statements with him. He brought its written process here. The app now follows that process for every family.
+
+- **"🧭 Go through it together"** is on the main screen and in the setup checklist. It has five parts, asked one question at a time:
+  1. **Account by account.** The order is bank, then cards, then payment apps, then insurance, then 529s.
+     - Every account: whose money it is.
+     - A bank account: whether it is joint and whether it pays the bills.
+     - A card: how it gets paid, and whether it is still open.
+     - Insurance: whether it is paid monthly or yearly, and whether it builds a cash value for something.
+     - A 529: who it is for, and how much goes in each month.
+     - Then come the account's own unexplained payments, through Getting to know you.
+  2. **How often.** Each kind of spending shows how many months it was seen in, plus its high and low. The answers are:
+     - monthly
+     - up and down (budgeted at its average)
+     - once or twice a year (Part 2, yearly ÷ 12, with the due months taken from the statements)
+     - one-time
+     - as needed
+
+     One-time and as-needed go to Part 3, are never budgeted monthly, and are kept out of the averages.
+  3. **Subscriptions.** A subscription is a named streaming or app charge, or a "loose" category charged at the same amount for 3 or more months.
+     - The answers are keep, cancel, decide later, or "not a subscription", plus who uses it.
+     - Apple, Google Play and PayPal charges say where to find the real name.
+     - A cancelled one that charges again shows on the open list.
+  4. **Checks.** Every check number is shown in order.
+     - A gap of 20 or fewer gets one question: voided, written but not cashed, or not sure.
+     - A cleared check with no answer goes to Getting to know you.
+  5. **What's still open.** Nothing on this list is guessed. It shows:
+     - what isn't explained yet
+     - what's marked not sure
+     - missing statements
+     - open checks
+     - subscriptions not yet decided
+     - fees and interest, each tied to its bill
+     - yearly bills with no amount
+     - the budget being over income
+     - the 529 and business totals for the CPA, or for the other organization's books
+- A category can now be part 3. Its budget is 0, and it counts as Part 3 spending.
+
+## v4.8 · 17 Nov 2026 · Who are these?
+
+Jerry's PayPal card was listing Hulu, Paramount+, Uber and Walmart as people he helps.
+
+- **Fewer false "people".** A PayPal, Venmo or Zelle payment is no longer offered as help for a person in three cases:
+  - it already sorts into a category
+  - it is a known streaming service or subscription
+  - it is a known shop or ride service (Uber, Walmart, Amazon and so on)
+- **New keywords.** "Paramnt" now sorts as a subscription, and Uber and Lyft sort as car.
+- **The card is now "Who are these?"** Each line has:
+  - A gift, A loan, or Not sure
+  - a drop-down "Something else — pick what it was", listing every category and One-time purchase
+  - an optional box to type what it was
+
+  Picking from the list files every payment to that payee there, notes it in "What you told me", and remembers the payee for next time.
+
+## v4.9 · 17 Nov 2026 · see the payments, make a new category
+
+Jerry's request: *"loving Adidas as a donation that's not on your drop-down list… some of these I don't remember."* (He meant Loving Indeed.)
+
+- **Every payee is listed.** Before this, the card showed only the first six.
+- **The typing box is always there.** It reads "What was it, in your words?" and whatever is typed is kept on each payment.
+- **The drop-down ends in "＋ Not on the list — make a new one…".** It asks for a name, such as Donations, and adds that category under "Other spending" on every line.
+- **"See the N payments" opens each payment**, with its date, amount, the exact words on the statement, and the account. It also points to where to look it up:
+  - PayPal's activity page
+  - Venmo
+  - for Zelle, the bank's app
+  - or searching email by name and date
+
+  Not sure keeps it for later.
+
+## v5.0 · 17 Nov 2026 · Search the web for it
+
+Jerry asked: *"go out to the website that item was for… from the button that's lit up, or give another option."*
+
+- **On the "Who are these?" card, the lit-up name is now a 🔎 button.** It opens a web search for that name in a new tab. "See the payments" has the same link.
+- **On Getting to know you,** each payment now has "🔎 Search the web for …" under the statement words.
+- **What gets searched.** The search uses the payee name cleaned of "PAYPAL *", phone numbers and reference digits. The app itself reads nothing; it only opens the tab.
+- **No search for a person.** Zelle, Venmo and Cash App payments to a person, and checks or cash, get no web search. Searching a private person's name helps nobody.
+
+## v5.1 · 17 Nov 2026 · start date first, no business guessing, sort in a spreadsheet
+
+Jerry, 17 Nov:
+
+> "We don't have a business… what if I think there's transactions back into 2025… 1 out of 4 are wrong, then I don't know how you come back and try to fix it… throw it on a spreadsheet… re-input it and process it until you get it right."
+
+**The start date comes first.**
+- Right after the folder map, the app asks "What date should we start counting from?" The choices are this year, last year too, everything, or a date.
+- Lines older than that date are kept, but they are not counted, not asked about, and not put on the spreadsheet.
+- The findings use only lines from that date on.
+
+**No more "Business costs on a personal card?"**
+- The app no longer guesses business spending from merchant names.
+- Instead, Go through it together asks for each account whose money it is.
+
+**"📊 Sort in a spreadsheet"** is on the main screen and on the Go through it together screen.
+- It writes an .xlsx with two tabs:
+  - **Sort these**, with the columns Row, Date, Account, Statement words, Amount, App's guess or yours, Your category, and What it was.
+  - **Categories**, listing the names to use.
+- "Your category" starts out holding the app's guess. Jerry changes the wrong ones and clears any he isn't sure of.
+- When he gives the sheet back, each row is applied on its own:
+  - A new name makes a new category under "Other spending".
+  - "Help: Name" makes a person.
+  - An empty "Your category" goes to not sure.
+  - Each payee is learned for next time.
+- Then the app offers a fresh sheet of only what's still open, and the rounds repeat until none is left.
+
+## v5.2 · 17 Nov 2026 · the start date is asked on the way in, too
+
+Jerry had finished the folder map before v5.1, so he never came through the new start-date question. Now "Approve what your statements answer" (autoFill) asks for the start date first if it hasn't been answered yet, whichever path leads there.
+
+## v5.3 · 17 Nov 2026 · the year we're working on
+
+Jerry asked for the setup to begin with "the beginning month and beginning year… and ending month and ending year. Anything outside of that window, you disregard." He also said: "consider just doing it for a fiscal year, calendar year."
+
+- **"Which year are we working on?"** comes before the folder, and is also the first step of the checklist. The choices are:
+  - this year, January to December (recommended)
+  - last year
+  - our own 12 months, with a starting and an ending month
+
+  The answer is stored as `db.historyFrom` and `db.historyTo`. `inWin(t)` replaces every old start-date check, so a line outside the window is never counted, asked about, put on the sheet, or used in findings.
+- **Missing months** are judged against the window: every month from its start to the last full month, ending no later than the end of the window.
+- **"📊 This year vs last"** compares each category with the same months a year earlier. Statements from last year are kept for this, and only for this.
+- **When the window ends**, a notice offers "Close the year":
+  - "⬇️ Save the year-end summary" saves an .xlsx with three sheets: Summary, For the CPA (529, business, giving), and Every line.
+  - "Start the new year" moves the window on 12 months. Each Part 2 balance carries over as its opening amount, along with categories and payee rules. The five-part review starts fresh. The closed year's totals are kept in `db.years`.
+- **"📅 Our year"** on the main screen changes the window. The old "pull past spending from" setup question now just shows the window.
+
+## v5.4 · 17 Nov 2026 · one by one, not one big total
+
+Jerry asked: *"I don't know how you know these totals are great if you don't see them one after one… whatever happened to the spreadsheet."*
+
+- **Every findings card that shows example lines** now has "See all N, one by one", listing every line with its date, year, account and amount. It replaces "…and N more".
+- **Every findings card** has "📊 I'd rather check every line in a spreadsheet", which goes straight to the spreadsheet round trip.
+- **The checklist has a step** "📊 Check every line in a spreadsheet" right after the findings. It is done once a filled-in sheet has been given back.
+
+## v6.0–6.1 · 17 Nov 2026 · the simpler way
+
+Jerry described how the work went with his other chat:
+
+> "when I did this with just doing it on my own with Claude… put in the checking account and the credit cards first and then gave me some drop down options in the spreadsheet and we just kept going through it and only took a couple passes… then there was a round of questions."
+
+On month-by-month sorting he added:
+
+> "month by month the list of things you don't know are smaller… on a bank statement all you're gonna see is the payment to the credit card."
+
+**Setup is now:**
+1. how you work
+2. passcode
+3. AI
+4. the year
+5. the folder (three steps)
+6. **sort each account**
+7. **the questions**
+8. **where the money went**
+9. household questions
+10. **the budget**
+
+The findings deck, the separate "Getting to know you" step, the money-map audit step and the five-part "Go through it together" are gone from setup. Their functions are kept, and the main screen still reaches subscriptions, what's still open, and the checks.
+
+**Sort each account** (`sortHub`, `sortMake`, `sortBack`):
+- The order is checking first, then savings, then each card, then the payment apps.
+- **Each pass is one month.**
+- Before each pass, `autoKnown` sorts two kinds of line by itself:
+  - lines whose payee was confirmed before
+  - payments to a credit card, whose detail is on the card's own statement
+- Checks, cash and money sent to people are never sorted automatically.
+- The sheet is made with ExcelJS from jsdelivr, falling back to SheetJS. Its columns are Date, Amount, Statement words, What it was, Your category, App's guess, and Row, matching the Reclassified sheet Jerry kept. "Your category" is yellow and has a real drop-down list taken from the Categories tab.
+- After each sheet comes back, `reguess()` re-guesses every unconfirmed line in every account using what was learned.
+
+**The questions** (`askRound`):
+- Every line left blank on a sheet, plus checks, cash and money sent to people, comes up one at a time.
+- Checks show a checkbook hint. "Ask someone" sends the question as a text.
+
+**Where the money went** (`openFlow`) is an SVG flow:
+- Accounts are on the left and categories on the right, with band width equal to the amount.
+- Each label gets a minimum of 32px of space.
+- Grey (not sorted) is always shown, at the bottom.
+- Tapping a category opens its lines.
+
+**The budget** (`budStart`):
+- It first asks how often each kind of spending comes, then shows the monthly amounts.
+- `budgetXlsx` downloads the budget laid out like Jerry’s own family budget spreadsheet:
+  - THIS MONTH at the top, with formulas
+  - Part 1 by group, with low month, high month and notes
+  - a Variable section
+  - Part 2 with yearly ÷ 12 formulas and due months
+  - a Part 3 log for each person helped, with a running total
+  - a Reclassified tab
+
+## v6.2 · 17 Nov 2026 · the videos follow the new flow
+
+- **All three videos are rewritten for the v6 flow and recorded.** Each step opens its own screen through a new `videoSort(step)` helper, using the example family. The steps are: the year, the folder, the folder map, sort each account, the month's sheet, giving it back, the questions, where the money went, how often, and the budget.
+  - "Explain it to me": 25 lines, about 3½ minutes.
+  - "Train me": 11 steps.
+  - "Watch it work": lines 3–5 changed.
+- **The "spreadsheet is downloading" screen shows the sheet's first four rows**, with the yellow Your category column. A viewer sees what the spreadsheet looks like without opening Excel, and the video has something real to point at.
+
+## v6.3 · 17 Nov 2026 · PDFs read by AI with nothing to attach
+
+Jerry, about 12 PDFs the app couldn't read: *"it gives them the message, but it doesn't give them the documents… Is there anyway you can do that automatically?"*
+
+A website can't attach a file to another website. So when the Daraja AI connection is off, `fmAIgoText` handles it a different way:
+
+- It reads the words off each PDF on this device with pdf.js (`pdfText`), and puts them in the question, under a heading per file. Nothing needs attaching.
+- A PDF with no words in it, which is a scanned picture, is the only kind still attached by hand. The app names those files and the folder to find them in.
+- When the Daraja AI connection is on, the PDFs themselves go, as before.
+
+## v6.4 · 17 Nov 2026 · ask once, then automatic
+
+Jerry asked: *"ask a question up front if the user felt comfortable loading or connecting all the financial folders up to their AI… If that's true, it runs more automatic… if every month… they have to physically attach it to Claude… They're not going to do it."*
+
+- **"How do you work?" has a fourth question:** may statements the app can't read go to Claude to be read? The answers are "Yes, every time", "Ask me each time" and "No, never", stored in `db.prof.send`.
+- **"Yes, every time"** skips the confirmation screen. Reading also starts by itself the first time the folder map shows PDFs it couldn't read.
+- **With the Daraja AI connection on**, every readable PDF's words go in one question per account. Each scanned PDF goes as itself, one per question, because the worker takes one file. The account stays in the loop until all its PDFs are read, and the lines come back with no pasting. The house layer still shows its one confirm screen before anything is sent.
+- **"No, never"** hides the AI button and says to download CSV files for those months, with a "this once" link.
+- **What's still missing:** the connection's endpoint in `control/ai.json` is still empty. Deploying it is the house layer chat's work, with Jerry.
+
+## v7.0 · 17 Nov 2026 · let your AI do it, or do it yourself
+
+Jerry, 17 Nov:
+
+> "I don't like the copy and pasting back and forth between the app and the AI program… give them the option to connect the family finance folder up to Claude in the beginning and let it build the spreadsheet right from the get-go… give them the option to automate it or do it manually."
+
+**Question 4 of "How do you work?"** is now "Who sorts the statements?", with two answers: "Let my AI do it" and "I'll do it myself, here".
+
+**Let my AI do it** (`aiHandoff`, `aiInstr`, `aiRead`):
+- Claude (Cowork, in the Claude desktop app) and the ChatGPT desktop app can both be given a folder on the computer.
+- After the year and the folder, the app shows three steps:
+  1. open your AI's desktop app on the Family Money folder;
+  2. copy and paste ONE instruction;
+  3. give the app "Family Money - sorted.xlsx" when the AI saves it.
+- The instruction is written from the app's own year window and category list. It tells the AI to:
+  - read every statement in the window, listing each transaction once;
+  - use only those category names, or a new short one if none fits;
+  - treat card payments and own-account transfers as moving money;
+  - ask the family about checks, cash, money sent to people, $500+ and unknown payees, one at a time, never twice;
+  - save one Transactions sheet with Date, Account, Amount, Statement words, What it was, Category;
+  - never guess, move files or send anything.
+- `aiRead` makes accounts from the Account column (card, bank or pay app, with the last four digits) and skips lines already in the app. A line with a category counts as answered and teaches its payee. A blank one goes to the question round.
+- **Each month:** "📥 New month from Claude" copies a short instruction for the same chat, which adds only the new dates to the same file.
+- **The checklist** swaps "give the folder / check it / sort each account" for "Let Claude sort the folder" and "Give the app the finished spreadsheet".
+
+**I'll do it myself** is the v6 path, unchanged.
+
+**Videos:** "Explain it to me" gains a line on the two ways, and "Train me" gains a step. Both were re-recorded by name, and checkvideos passes 3 of 3.
+
+## v7.1 · 17 Nov 2026 · the calm home, a new month with nothing to paste, the plain privacy promise
+
+Jerry had three other AIs (Gemini, Copilot, Grok) read OVERVIEW.md. He chose Grok's build order, steps 1 to 3, plus two of Gemini's ideas.
+
+**1. The calm home** (`pulseHTML`)
+- The top of the main screen gives the month's name and one sentence:
+  - "October is $2,453 under income."
+  - or "…over income"
+  - or "…is closed"
+- Under it, up to three short lines:
+  - a Part 2 bill running short ("Travel is short $247"), or one that's on track
+  - statements missing
+  - questions for you
+  - questions saved for your spouse
+  - no backup yet
+- One button: answer the questions, answer the spouse's questions, add income, see the gap, read the note, or "Same as usual".
+- "Same as usual" closes the month and writes the note. It only shows when nothing is asked and nothing is missing.
+- "See the gap" (`openGap`) shows how far over income the month is and the three largest lines with −/＋. Or "cover it from investments this month", which is logged, not advised.
+- Before setup is done, the home shows the next single step, not the list. The full list is folded under "See all the steps".
+- The example family shows the same sentence.
+
+**2. New month, nothing to paste** (`newMonth`)
+- The app reads the linked folder again (the existing ROUTE path).
+- Every payee already known files itself (`autoKnown` on every account, Gemini's "silent filing"), and so do card payments.
+- Only the new ones come to you as questions. On the sample: 36 lines read, 33 filed themselves, 18 questions.
+- Accounts made from an AI's spreadsheet now carry their folder name, so new files find them.
+
+**3. Privacy and backup**
+- The privacy screen now says: "If you let an AI read the folder, those PDFs go to that company's servers. We store only the last 4 digits of an account. The PDF still has the full number."
+- It also says: if the passcode is forgotten, nobody can open what's kept here, not us, not anyone, and backups use the same passcode.
+- "💾 Backup" (`backupOpen`, `backupNow`, `backupRestore`) saves exactly what is stored, which is the scrambled copy when there's a passcode. It can bring a backup back. The home says "No backup saved yet" until one is saved.
+
+**Also**
+- "Ask my spouse" no longer texts anything. The question is saved on this device, and the home says "1 question for Lee" with a button to answer it there.
+- Anything sent to an AI as text has long numbers masked to their last 4 (account and card numbers, Social Security numbers), using Gemini's PII rule (`maskNums`). Dates and amounts are left alone.
+- Videos: one line about the sentence was added to "Explain it to me" and to "Watch it work". Both were re-recorded by name, and checkvideos passes 3 of 3.
+
+## v7.2 · 17 Nov 2026 · the statement squares and the note (Grok's plan, steps 4–6)
+
+- **Step 4 (spouse questions stay on the device)** was already done in v7.1.
+- **Statement squares on the home** (`squaresHTML`, `missingOne`):
+  - A small grid sits under the month's sentence, with one row per bank or card account and one square per month in the year window up to the last full month. Green means the statement is here; red means it's missing.
+  - Tapping a red square says which website, which month, and which folder to put it in, then offers "New month — read my folder".
+  - Payment apps are left out, because a quiet month there isn't a missing statement.
+  - This is the only nag.
+- **The note for both of you** (`openNote`, `noteLines`):
+  - It's eight to twelve plain lines:
+    - the month against income
+    - what was spent against the plan
+    - what was set aside
+    - as-needed spending and what comes from savings
+    - one thing that went well
+    - one thing that changed (up 15% or more on a usual month)
+    - any yearly-bill savings running short
+    - what's coming up (Part 2 bills due, and "Ahead of It" items)
+    - anything still open
+    - the one decision, if the month is over income
+  - "🔊 Read it aloud" uses the computer's own voice, and there's a Print button. It is never sent anywhere.
+  - "Same as usual" and "Read the note" open it. The old report's "Send to my spouse" button now opens the note instead.
+- **Videos:** two lines were added to "Explain it to me" (the squares and the note). It was re-recorded by name, and checkvideos passes 3 of 3.
+
+## v7.3 · 17 Nov 2026 · which AI, said plainly
+
+Jerry asked: *"what if they don't have Claude? What if they have something else?"*
+
+- **On "How do you work?":** choosing "Let my AI do it" together with Gemini, Copilot or None in question 3 now shows a line right there. It says only Claude or ChatGPT, in their apps on a computer, can read a whole folder, and that both need a paid plan; otherwise "myself" does the same job here.
+  - Next won't continue until that's resolved.
+  - The old silent switch to Claude is gone.
+- **On the "Let ___ sort your folder" page:** the top now has two choices, Claude and ChatGPT, with theirs already picked. Switching rewrites the page's steps for that app.
+  - It also says a paid plan is needed, with a "do it yourself here" link.
+
+## v7.4 · 18 Nov 2026 · the Daraja AI connection is live
+
+The house layer chat switched the connection on, in PRs #364 and #396. `control/ai.json` now carries the real endpoint, and Jerry tested it himself.
+
+**Question 4 is now "Who reads the statements?"** There are two answers.
+- **"This app — it reads my folder"** is listed first and recommended.
+  - The family picks the Family Money folder once.
+  - Any PDF the app can't read goes to Claude through the connection, after the house layer's one confirm screen. The lines come back by themselves, with nothing to attach and nothing to paste.
+  - "New month" reads the folder again.
+- **"My own Claude or ChatGPT app"** is the v7 desktop hand-off. It is for people whose app can open a folder: Cowork wasn't showing in Jerry's Claude app on 17 Nov.
+
+**`fmAIgo` checks the connection fresh** (`doorOn`) the first time it runs in a session.
+
+**The connection's limits, which the Worker enforces:**
+- **A question is at most 24,000 characters.** Readable PDFs go in batches of 20,000 characters or less. A single very long statement goes in parts, "Part 1 of 4" and so on, and counts as read only after the last part. A part with no lines in it is fine.
+- **A file is at most 5 MB.** A scanned PDF over 5 MB is said so up front and goes to the family's own AI instead.
+- **There are 40 questions a day per household.** `db.aiDay` counts them. The "Read with AI?" screen says so when a year of statements needs more than are left. At 40, the app switches to the family's own AI for the rest of the day.
+
+**Account and card numbers are masked** to their last 4 in everything that goes.
+
+**Tested:** three PDFs, one of them very long, needed 6 questions, every one under 20,000 characters. All three were marked read, and 34 questions were left that day.
+
+**Videos:** the "two ways" lines in "Explain it to me" and "Train me" now put the app reading the folder first. Both were re-recorded.
+
+## v7.5 · 18 Nov 2026 · reading PDFs can't get stuck
+
+Jerry's screen sat on "Reading the words off 12 PDFs…" and never moved.
+
+- **One PDF at a time,** with "3 of 12: name.pdf", a progress bar, and a Stop button.
+- **Each PDF gets 20 seconds.** One that hangs is skipped, has no words, and so goes to AI as a file, instead of stopping everything.
+- **Each PDF's words are read once a session** (`PTXT`), so the next batch for the same account doesn't read them again.
+
+**Tested:** three PDFs, one of them hanging forever. The other two went as text (one in 4 parts), and the hanging one went as a file after 20 seconds. All three were marked read.
+
+## v7.6 · 18 Nov 2026 · safe to spend, a giving goal, subscription help
+
+These three came in a relay from the Store Manager. Jerry chose them after comparing the apps with an outside "app ideas" plan.
+
+**Safe to spend** (`safeToSpend`, `openSafe`)
+- When the home card shows this month, it has a new row, "Still safe to spend". It is the Part 1 plan, minus what has already been spent on it, minus the regular bills still to come out.
+- Regular bills are payees seen in 3 or more months, in Part 1, not cash. They count when they haven't been charged yet this month and their usual day is still ahead.
+- Tapping it lists each of those bills with its usual day.
+
+**Giving goal** (`givingCats`, `givenThisYear`, `givingHTML`, `openGiveGoal`)
+- The same card shows "🙏 Giving: $X of $Y" with a bar and a percentage, counted over the year window.
+- Giving categories are found by name (giving, donations, church, tithe, charity, mission, offering) or by the give keyword.
+- With no goal yet, it shows "Given this year: $X. Set a giving goal". The suggested goal is this year's pace.
+
+**Subscriptions**
+- `rvSubsList` flags a price that went up, using the same rule as the audit's 📈 Went up: more than $1.99 and more than 5%. A price rise still counts as the same subscription, so it keeps its monthly cycle.
+- "Cancel it" now opens `cancelHelp`, a ready-made cancellation message that gives only the last 4 of the card. It has "📋 Copy the message" and "✨ Have my AI write one". The AI prompt contains no account number.
+- In the summary list, a cancelled subscription can be tapped to bring the message back. Nothing is ever sent by the app.
+
+**Video and tester script**
+- Two lines were added to "Explain it to me", which was re-recorded; checkvideos passes 3 of 3.
+- The tester script gained two steps.
+
+## v7.7 · an account with no lines is not "sorted" (18 Nov)
+
+Jerry: both checking accounts at his bank showed "✓ sorted · 0 lines", though the old checking account holds 2026 statements.
+An account with no lines in the year now shows **no lines yet** in red, with the reason:
+- lines came in but every one is outside the year (with the months, and a link to change the year);
+- PDFs it couldn't read itself (with a button to read them with AI);
+- its files gave no lines for the year; or
+- the app doesn't have the folder's files this session (read the folder again).
+
+## v7.8 · reading with AI asks once, then just reports (18 Nov)
+
+Jerry: "there was like 3 or 4 questions along the way… can you just do that on your own? Or maybe just give a status line."
+- Saying yes to **Read with AI** covers the whole run. Each batch to the Daraja AI connection no longer opens its own "Send it" box.
+- Instead, one status box: "Reading <account> with AI · Statements 3 of 12 · 85 lines in so far. Nothing to tap — it carries on by itself."
+- On a computer, every sheet sits in the middle of the screen instead of at the bottom edge, where it could fall out of view.
+- The confirmations kept are the ones that guard against losing data (erase, remove, restore, start over).
+
+## v7.9 · PDFs go to AI by themselves, and the daily limit is said plainly (18 Nov)
+
+Jerry: "If you know I'm gonna use AI why do you have to ask? Just go do it." Also, the old checking account still showed "12 not read yet" after a run.
+- Unless the family said no to sending statements, PDFs the app can't read go to AI as soon as the folder is read. No button, no question.
+- When the AI connection's 40-a-day household limit is reached, the app now says so and leaves the rest for tomorrow. It used to fall back without a word to a copy-and-paste AI.
+- Any other connection error shows "The AI didn't answer" with **Try again**.
+- Batches are now about 10,000 characters, not 20,000. The connection answers in at most 2,000 tokens, so a bigger batch could come back cut short.
+
+## v8.0 · picture statements go as PDFs, and no pop-up when a read finds nothing (18 Nov)
+
+Jerry's run stopped at "I could not find any lines in that answer". His bank’s PDFs have the header in words and the transactions as a picture. Because they had some words, eleven nearly empty texts went in one batch, and the AI found nothing in them.
+- A statement only counts as text if its words hold at least three amounts. Otherwise the PDF itself goes, one per ask.
+- If a text batch gives no lines, those statements are sent again as PDFs. A PDF that still gives nothing, or is over 5 MB, is set aside with a short notice. No pop-up stops the run.
+
+## v8.1 · the AI connection's daily limit is 200 (18 Nov)
+
+Jerry raised the door's cap from 40 to 200 a day per household (PR #423). The app kept its own count, hardcoded to 40 in four places. That count is now one number, `DOOR_CAP`, set to 200.
+
+## v8.2 · the bottom buttons stay on top (18 Nov)
+
+Jerry: the folder map's boxes slid over the "Looks right — next" bar as he scrolled. The sticky bottom bar on every sheet now sits above the content scrolling behind it.
+
+## v8.3 · sort right here, one payee at a time (18 Nov)
+
+Jerry: "is there a way… AI reads them, and then… would you like to categorize your transactions? And then you go one by one in the app." He chose: build it, and keep the spreadsheet as an option.
+- **👆 Sort it here** on each account (`sortIn`). Lines are grouped by payee, so one answer sorts every line from it. The app's guess is already picked; you can pick another category or name a new one. "Not sure — ask me later" sends the payee to the questions round. Checks, cash and money sent to people come one line at a time, each with a note box.
+- Answers are learned exactly as a returned spreadsheet's are (`sortSet`: rules, reclass, asked). Payees already known, and card payments, sort themselves first (`autoKnown`).
+- The spreadsheet stays as a link under each account's button.
+- The three videos and the tester script describe sorting in the app. All three videos were re-recorded by name.
+
+## v8.4 · the category list puts the ones picked most first (19 Nov)
+
+Jerry: a new category like Donations ends up "all over the place" in the list. The in-app picker now starts with **＋ A new category…**, then up to eight **Picked most** categories (counted from the lines you have sorted), then **All, A to Z**. The spreadsheet's drop-down is A to Z too.
+
+## v8.5 · "Are these yours?" before the first sort (19 Nov)
+
+Jerry: "in the setup, actually go through that list and see which ones are valid and not, and add them before you start."
+- Before the first **Sort it here**, the app shows every category by group (`catReview`). Tap one to strike it out. Add missing ones with a name and a group. **These are ours — start sorting** removes the struck ones (their lines go back to unsorted and are guessed again) and then starts.
+- It shows once (`db.catsChecked`). Settings › Categories still does the rest.
+- Tester script s27 covers it. The videos skip it, since their example family has already checked.
+
+## v8.6 · Jerry's seven ideas, folded into the sorting screen (19 Nov)
+
+Jerry: "if there's things that we're already doing that are similar, don't add one to it. Enhance the one that's there." So nothing gets a new screen except the look-into list, which "Not sure" now feeds.
+1. **A letter jumps through the list.** On a computer the category picker has focus. A letter selects the next category A to Z that starts with it (D, then D again), and Enter saves.
+2. **🔍 Look into later** replaces "Not sure — ask me later" and does the same thing. The set-aside lines are now also a list: **🔍 To look into (N)** on Sort each account and at the end of each account. It is grouped by payee and sorted from there. Anything still on it comes up in the questions at the end.
+3. **✂️ Split it across categories** on a single charge. Each part gets a category and an amount, and the last part takes what's left. The charge becomes one line per part, noted "part 1 of 2 of $120". `db.splitKeys` stops a re-read statement from bringing the whole charge back.
+4. **✎ Rename it** beside the picker renames the chosen category. Every line in it keeps it.
+5. **➕ Added together** on the home screen, shown only when the same category name is in more than one group (two homes' Utilities). Each group card already had its own subtotal.
+6. **Several charges inside one payee.** When one payee has different amounts, the screen says "These look like N different charges" and offers **Sort each one**. A price rise stays with its charge. A repeating charge asks **What is it?** (e.g. Hulu), and the name follows that payee and amount into later months (`db.subRules`). Subscriptions then lists it on its own.
+7. **PayPal and Venmo payments are money moving** once that account's own lines are in for the month, the same way a card payment is. PayPal lines are grouped by payee now; only checks and cash still come one line at a time.
+Videos (firsttime, train) and tester script s27 are updated. Both videos were re-recorded by name.
+
+## v8.7 · the backup can also be a spreadsheet or a printout (19 Nov)
+
+Jerry: "Can you output to a spreadsheet so it's there and we can print it?", kept under the one Backup button, not as a new one. Under **⬇️ Save a backup now** there are two smaller buttons:
+- **📊 Spreadsheet** saves three sheets: Every line, Categories (with the year's totals) and Accounts.
+- **🖨️ Print it** prints the accounts, the categories and every line.
+A line says they aren't scrambled, and that only the backup file brings the app back.
+
+## v8.8 · Ours and Practice, and a full check of every screen (19 Nov)
+
+Jerry: "one that's live and my personal one, and it's separate from all the ones that we use while we test", plus a check of every screen and of security while he was away.
+- **Two households on one device.** **Ours** is the real one and keeps the same storage as before, so nothing moves. **Practice** has its own storage. Switch from Settings (first row), or from the purple **🧪 Practice — not your real money** band shown at the top in Practice. In Practice you can wipe it and start again, or start it as a copy of Ours (a locked copy opens with the same passcode). Backups and spreadsheets made in Practice say PRACTICE in the file name.
+- **Wording that wasn't true any more:** the welcome, the add-statements screen and the privacy promise said nothing goes to Daraja. A PDF the app can't read does pass through Daraja's AI connection to Claude, and isn't kept. All three now say so.
+- **The statement squares on the home screen:** the house layer grows any small button to 44px, so the red "missing" squares came out huge. The whole account row is now the tap, and the squares are plain marks.
+- **Sort each account:** an account with no statements at all says so in grey instead of red. A closed account with nothing in it is left off the list.
+- **"Travel is short ."** now gives the amount ("Travel is $896 short.").
+- **The flow chart** shortens long names with "…" instead of cutting them mid-word, and the full name shows on hover.
+- **Links** in sheets use the app's colour.
+- Checked: harmful text planted in a statement line, a note, a charge name and a category name was opened on 31 screens at phone and computer size, and none of it ran. No screen scrolls sideways.
+- Removed the real bank name, the last 4 digits and the family name from these notes and code comments. They had been written into earlier entries.
+
+## v8.9 · Ask about our money, and Heads up before it's due (20 Nov)
+
+Two ideas from Jerry's AI-helper page (Family Money "idea 1, updated" and "idea 2"), relayed by the Store Manager. The page's other ideas wait.
+
+**💬 Ask about our money**: a box on the main screen, under the month's sentence.
+- `askKind` sorts the question into a big purchase, are we on track, where did it go, what if, or other. Each kind has its own list of things the AI asks about first, one at a time, at most five questions.
+- **With the Daraja AI connection** the talk happens in the app. The AI replies `ASK:`/`OPTIONS:` (shown as tappable answers plus a text box) or `ANSWER:`/`NEXT:`. The first send shows the exact words, and later turns don't ask again. The door can't search the web, so the screen says so, and **Ask my own AI instead** goes round the door (`o.noDoor`) to their own AI, which can search.
+- **With their own AI** they paste once and talk there. It is told to search today's rates and to end with a `FAMILY MONEY ANSWER` block, which they paste back and the app reads. A reply with no block is shown as the answer anyway.
+- **What goes:** `moneyTotals()` only: income, the budget, what's left, last month's spending, each budget line's plan and usual amount, the yearly bills with their set-aside and due month, and balances by kind of account. No statements, account numbers, account names or payee names. The box says so on screen.
+- Every answer says "A helper, not a financial advisor". For a purchase or what-if, or anything over $1,000, it adds "talk it over with" the CPA or advisor named in setup. **Next step** buttons: `PART2` adds a yearly-bill line, and `REMIND` saves a calendar file for the phone.
+- Failure: when the AI doesn't answer, the screen says so and offers **Try again**.
+
+**Heads up before it's due**: the app's own check, with no AI.
+- `headsUps()` finds a yearly bill due this month or next whose set-aside will be short, an insurance or policy line renewing, and a subscription first seen in the last 45 days (yearly fees left out).
+- One card at the top of the main screen, never a pile, with "One more after this" when there is another. **Got it** clears it (`db.huSeen`).
+- Buttons: **✨ Make a plan** (the AI suggests how to close the gap, using lines running under plan), a shop-around script for a renewal, **Keep it** or **Help me cancel** for a new subscription (`cancelHelp`), **Pay the rest from savings**, and **⏰ Remind me** (a calendar file a month before it's due, or tomorrow).
+- A phone reminder is the calendar file. There is no push notification.
+
+The overview and first-time videos each gained two lines, re-recorded by name in Jerry's ElevenLabs voice. Two untrue lines in the first-time video were fixed too: "nothing is sent anywhere", and tapping a red square. Tester script steps s33b and s33c were added. The store card's tag mentions both features.
+
+## v9.0 · ← Back, and Ask during setup (20 Nov)
+
+Jerry: "If you go one screen too far … you can't go back to the previous one."
+- Every screen remembers the one before it. **← Back** at the top, or the browser's own Back button, steps back one screen. On the first screen, browser Back closes it. Passing screens aren't kept: reading, thinking, and the one-payee-at-a-time sort, which has its own Back.
+- **💬 Ask about our money** now shows during setup too, once any statement lines are in, with a note that answers get better once the budget is set. Jerry was at step 8 of 13 and couldn't find it.
+
+## v9.1 · Ask lets you type the amount (20 Nov)
+
+Jerry: "it would be good if you allowed them to input something like the value of a car… You say, do you want to do a down payment, but you don't ask how much."
+- The AI is told to ask for the number itself ("How much would you put down?"), never a yes-or-no about it, and to follow a "yes" with the amount. Its options for an amount are example figures.
+- When the question is about money, the screen shows **Type the amount** first ($, number keypad on a phone, Send), with "Or tap a rough figure:" and the options under it. A bare number like 38000 or 38k is sent as $38,000.
+- The Ask screens are one flow, so the general ← Back doesn't step through them.
+
+## v9.2 · ahead of it: notices more, "If I'm away", and money dates shared (20 Nov)
+
+Jerry: "be very intuitive and forward thinking … head off some issues … this would be really good for my wife when I'm not around … we have an app called Ahead of It. Maybe there's some integration here." He chose all three.
+1. **The heads-up card notices more** (`noticeMore`), still one card at a time:
+   - money that usually comes in that hasn't (a deposit seen 3+ months, past its usual day, with later lines in);
+   - checking holding less than a yearly bill due this month or next;
+   - a regular bill 1.5× its usual amount and at least $40 more, in the last 45 days (**🔍 Look into it** puts it on the look-into list, or **That's right**);
+   - a monthly payment that usually comes out and hasn't.
+2. **🧭 If I'm away** on the main screen's tools, one page kept current, with **🖨️ Print it**. It shows the next two months' yearly bills; up to 12 steady monthly bills (about the same amount each time) with the day and the paying account; what's normal each month; every account with its balance; who to call (CPA and advisor); and how to ask the app.
+3. **Money dates for Ahead of It.** Ours only, never Practice or the example, writes `localStorage['dj_shared_due_familydash']` = `{ app, em, url, updated, items:[{ what, due:'YYYY-MM-DD', kind:'bill'|'heads-up' }] }`. That is the yearly bills due in the next two months plus up to three heads-ups, with no amounts and no account numbers. Same site, same device, so Ahead of It can read it. Ahead of It's side is for its own chat.
+Tester script step s33d added.

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v65">
+<script id="dj-house-v68">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -795,7 +795,7 @@
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ dockSheet(); };
+      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -873,18 +873,26 @@
         var row = document.createElement('button'); row.type = 'button';
         row.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
         row.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + lab[0] + '</span><span style="flex:1">' + lab[1] + '</span>';
-        row.onclick = function(){ w.remove(); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
+        row.onclick = function(){ w.remove(); djBackPush(dockSheet); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
         box.appendChild(row); n++;
       })(c, btn_lab(c, lab));
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    var djProbs = djProblems();
+    if(djProbs.length){
+      var pb = document.createElement('button'); pb.type = 'button';
+      pb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      pb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">⚠️</span><span style="flex:1">Recent problems<br><small style="font-weight:600;color:#55605B">' + djProbs.length + ' message' + (djProbs.length === 1 ? '' : 's') + ' that flashed up · copy them to send on</small></span>';
+      pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
+      box.appendChild(pb);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
       ai.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       var ch = aiChoice(), chn = ASSISTANTS[ch] ? ASSISTANTS[ch].name : (ch === 'none' ? 'none' : 'not chosen yet');
       ai.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🤖</span><span style="flex:1">Which AI do you use?<br><small style="font-weight:600;color:#55605B">now: ' + esc(chn) + '</small></span>';
-      ai.onclick = function(){ w.remove(); pickAssistant(); };
+      ai.onclick = function(){ w.remove(); djBackPush(dockSheet); pickAssistant(); };
       box.appendChild(ai);
     }
     if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
@@ -1198,6 +1206,37 @@
     meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
   };
   function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  /* 20 Nov. Jerry, relayed from the Family Money chat: "If you go one screen too far or something,
+     you can't go back to the previous one." So the house keeps a back-stack for its own screens —
+     the ? menu and everything it opens — and hands the same thing to an app for its own screens:
+         window.djBack.push(function(){ ...reopen the screen I am leaving... });
+         window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
+         window.djBack.go()       -> step back one; false when the stack is empty
+     Screens opened through the house's own sheet() get the chip and the wiring for free. */
+  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
+  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
+  function djBackClear(){ DJ_BACK = []; }
+  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djBackGo(){
+    var f = DJ_BACK.pop(); if(!f) return false;
+    var a = document.getElementById('djAISheet'); if(a) a.remove();
+    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    return true;
+  }
+  window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
+                    depth: function(){ return DJ_BACK.length; } };
+  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
+     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+  window.addEventListener('popstate', function(){
+    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(!open) return;
+    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
+    djBackClear(); open.remove();
+    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(other) other.remove();
+  });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
     var old = document.getElementById('djAISheet'); if(old) old.remove();
@@ -1205,8 +1244,11 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    box.innerHTML = html; w.appendChild(box);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    box.innerHTML = djBackBtn() + html; w.appendChild(box);
+    var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
+    /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
+    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
@@ -1268,9 +1310,23 @@
       var LINK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
       var short = String(o.prompt).replace(/\s+/g, ' ').trim();
       if(short.length > 110) short = short.slice(0, 108) + '\u2026';
+      /* 16 Nov 2026: a sender that attaches a file passes it here, so the sheet can NAME it.
+         The Family Money Dashboard reads a credit union's PDF statement this way, and Jerry
+         chose "both, asking first" when he was asked what a customer should get. A statement
+         is the most private thing any of these apps will ever send, so a preview that showed
+         only the question while a PDF went with it would be worse than no preview: it would
+         be a wrong one. Only the sender that really attaches the file passes opt.file - the
+         external-assistant path cannot attach anything, the person does that themselves at
+         the other end, so it says nothing about a file and that stays true. */
+      var fsz = '';
+      if(opt.file && opt.file.data){
+        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -1293,19 +1349,85 @@
   }
   /* not null: null from viaDaraja means the door failed and the next path should try.
      This means the person read the words and said no, and nothing else should ask again. */
+  /* 18 Nov. Jerry: "There were a bunch of error messages flashing at the bottom. They don't stay.
+     So I can't give them to you. But maybe you can record them somewhere." So they are kept here —
+     the last 25, per app, in this browser — and the ? menu reads them back with a Copy button.
+     Nothing leaves the phone: it is localStorage, and only a tap on Copy puts it anywhere. */
+  var PROB_KEY = 'dj_problems';
+  function djProblems(){ try{ return JSON.parse(localStorage.getItem(PROB_KEY) || '[]') || []; }catch(e){ return []; } }
+  function djNote(msg){
+    try{
+      if(msg === null || msg === undefined || msg === '') return;
+      msg = String(msg).replace(/\s+/g, ' ').trim().slice(0, 300);
+      if(!msg) return;
+      var a = djProblems(), last = a[a.length - 1];
+      if(last && last.m === msg && Date.now() - last.t < 60000){ last.n = (last.n || 1) + 1; last.t = Date.now(); }
+      else { a.push({ t: Date.now(), m: msg, a: slugOf(), n: 1 }); }
+      while(a.length > 25) a.shift();
+      localStorage.setItem(PROB_KEY, JSON.stringify(a));
+    }catch(e){}
+  }
+  window.djNote = djNote;   /* an app can record its own: djNote('could not read the Chase file') */
+  window.addEventListener('error', function(e){ try{ if(e && e.message) djNote(e.message + (e.filename ? ' — ' + String(e.filename).split('/').pop() + ':' + e.lineno : '')); }catch(err){} });
+  window.addEventListener('unhandledrejection', function(e){ try{ var r = e && e.reason; djNote('did not finish: ' + ((r && r.message) || r || 'no reason given')); }catch(err){} });
+  function djProbWhen(t){
+    var d = new Date(t);
+    try{ return d.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }); }
+    catch(e){ return d.toISOString().slice(0, 16).replace('T', ' '); }
+  }
+  function djProbText(){
+    return djProblems().slice().reverse().map(function(p){
+      return djProbWhen(p.t) + ' · ' + (p.a || 'app') + ' · ' + p.m + (p.n > 1 ? ' (' + p.n + ' times)' : '');
+    }).join('\n');
+  }
+  function problemsSheet(){
+    var LNK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
+    var a = djProblems().slice().reverse();
+    var rows = a.map(function(p){
+      return '<li style="list-style:none;margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #E2DCCF">'
+        + '<div style="font-size:12.5px;color:#55605B">' + esc(djProbWhen(p.t)) + ' · ' + esc(p.a || 'app') + (p.n > 1 ? ' · ' + p.n + ' times' : '') + '</div>'
+        + '<div style="font-size:15px">' + esc(p.m) + '</div></li>';
+    }).join('');
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Recent problems</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">The messages that flashed up and went away. They stay on this phone until you clear them.</p>'
+      + (rows ? '<ul style="margin:0 0 10px;padding:0">' + rows + '</ul>' : '<p style="margin:0 0 10px">Nothing has gone wrong in this app.</p>')
+      + '<textarea id="djPbRaw" aria-label="The problems as text" style="display:none;width:100%;min-height:120px;font:inherit;font-size:14px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+      + (rows ? '<button type="button" id="djPbCopy" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Copy them all</button>' : '')
+      + '<div style="display:flex;justify-content:space-between;margin-top:8px">'
+      + (rows ? '<button type="button" id="djPbClear" style="' + LNK + '">clear the list</button>' : '<span></span>')
+      + '<button type="button" id="djPbX" style="' + LNK + '">close</button></div>');
+    var cp = b.querySelector('#djPbCopy');
+    if(cp) cp.onclick = function(){
+      var t = djProbText(), self = this;
+      var shown = function(){ self.textContent = 'Copied ✓'; };
+      var manual = function(){
+        var ta = b.querySelector('#djPbRaw'); ta.value = t; ta.style.display = '';
+        try{ ta.focus(); ta.select(); }catch(e){}
+        self.textContent = 'Press and hold to copy ↑';
+      };
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(shown, manual); }
+        else manual();
+      }catch(e){ manual(); }
+    };
+    var cl = b.querySelector('#djPbClear');
+    if(cl) cl.onclick = function(){ try{ localStorage.removeItem(PROB_KEY); }catch(e){} closeAISheet(); };
+    b.querySelector('#djPbX').onclick = function(){ closeAISheet(); };
+  }
   var AI_CANCELLED = { cancelled: true };
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
-    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false });
+    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
     if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
-      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
       var j = await r.json();
       if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
       closeAISheet(); return j.text;
-    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
+    }catch(e){
+      djNote('AI: ' + (e.message || 'no answer')); var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
   async function builtIn(prompt){
     try{

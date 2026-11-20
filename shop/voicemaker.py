@@ -44,6 +44,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import wave
 
@@ -231,7 +232,70 @@ def model_path():
     return path
 
 
+# 19 Nov 2026: Jerry's own voice. With VOICE=elevenlabs each line is read by his
+# "Jerry W" clone on ElevenLabs instead of piper. The chat's environment holds the
+# key as a network secret for api.elevenlabs.io, so the proxy adds it and this file
+# only ever sends a dummy. Speed 1.15 is what he chose: his voice runs slow and low.
+ENGINE = os.environ.get('VOICE', 'piper')
+EL_VOICE = os.environ.get('EL_VOICE', 'FbDmiCefHcLYTtlx6nyc')
+EL_RATE = 24000
+# 19 Nov, Jerry, after hearing 1.15: "just a tad too fast … one phrase turns into the
+# next". So a touch slower, a short breath between sentences inside a line, and a
+# longer pause between lines, which is where the topic usually turns.
+EL_SPEED = 1.07
+EL_GAP = 0.4
+EL_BREATH = ''   # break tags made it choppy; the model's own sentence pauses are smoother
+
+
+def el_text(text):
+    if not EL_BREATH:
+        return text
+    return re.sub(r'([.!?])\s+(?=\S)', r'\1 ' + EL_BREATH + ' ', text)
+
+
+def say_elevenlabs(text, out_wav, prev='', nxt=''):
+    # previous_text / next_text: each line is still its own clip (the captions need
+    # that), but ElevenLabs hears the lines either side, so a line no longer starts
+    # and ends like a fresh announcement. Jerry, 19 Nov: "choppy … the word starts
+    # off and ends in too many pronunciations". Steadier settings for the same reason.
+    req = {'text': el_text(text), 'model_id': 'eleven_multilingual_v2',
+           'voice_settings': {'speed': 1.0, 'stability': 0.6, 'similarity_boost': 0.6,
+                              'style': 0.0, 'use_speaker_boost': False}}
+    if prev:
+        req['previous_text'] = prev
+    if nxt:
+        req['next_text'] = nxt
+    body = json.dumps(req).encode()
+    url = ('https://api.elevenlabs.io/v1/text-to-speech/%s?output_format=pcm_%d'
+           % (EL_VOICE, EL_RATE))
+    for attempt in range(4):
+        req = urllib.request.Request(url, data=body, method='POST', headers={
+            'xi-api-key': 'dummy', 'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                pcm = r.read()
+            break
+        except Exception as e:
+            if attempt == 3:
+                sys.exit('ElevenLabs failed on: %r\n%s' % (text[:60], e))
+            time.sleep(3 * (attempt + 1))
+    raw = out_wav + '.raw.wav'
+    with wave.open(raw, 'wb') as f:
+        f.setnchannels(1); f.setsampwidth(2); f.setframerate(EL_RATE)
+        f.writeframes(pcm)
+    # Read at his natural speed, then quickened by EL_SPEED. Asking the model itself to
+    # speak faster clipped the ends of words (Jerry, 19 Nov: "word endings").
+    r = subprocess.run(['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-i', raw,
+                        '-af', 'atempo=%.3f' % EL_SPEED, '-ar', str(EL_RATE), '-ac', '1', out_wav],
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    os.remove(raw)
+    if r.returncode:
+        sys.exit('ffmpeg failed:\n' + r.stderr.strip())
+
+
 def say(text, model, out_wav):
+    if ENGINE == 'elevenlabs':
+        return say_elevenlabs(text, out_wav)
     r = subprocess.run(['piper', '-m', model, '-f', out_wav],
                        input=text, capture_output=True, text=True)
     if r.returncode or not os.path.exists(out_wav):
@@ -245,7 +309,12 @@ def build(key, lines, model, work):
     segs = []
     for n, raw in enumerate(lines):
         w = os.path.join(work, '%03d.wav' % n)
-        say(for_piper(raw), model, w)
+        if ENGINE == 'elevenlabs':
+            say_elevenlabs(for_piper(raw), w,
+                           for_piper(lines[n - 1]) if n else '',
+                           for_piper(lines[n + 1]) if n + 1 < len(lines) else '')
+        else:
+            say(for_piper(raw), model, w)
         segs.append(w)
 
     params, frames, cues, at = None, [], [], 0.0
@@ -259,9 +328,9 @@ def build(key, lines, model, work):
         cues.append([round(at, 3), round(at + dur, 3), vkey40(lines[n]), linehash(lines[n])])
         at += dur
         if n < len(segs) - 1:
-            quiet = int(params.framerate * GAP) * params.sampwidth * params.nchannels
+            quiet = int(params.framerate * (EL_GAP if ENGINE == 'elevenlabs' else GAP)) * params.sampwidth * params.nchannels
             frames.append(b'\0' * quiet)
-            at += GAP
+            at += EL_GAP if ENGINE == 'elevenlabs' else GAP
 
     joined = os.path.join(work, 'all.wav')
     with wave.open(joined, 'wb') as f:
@@ -343,7 +412,7 @@ def main():
     p.add_argument('--dry-run', action='store_true', help='say what it would record, record nothing')
     a = p.parse_args()
 
-    for tool, how in (('piper', 'pip install piper-tts'), ('ffmpeg', 'apt-get install -y ffmpeg')):
+    for tool, how in ((('piper', 'pip install piper-tts'),) if ENGINE != 'elevenlabs' else ()) + (('ffmpeg', 'apt-get install -y ffmpeg'),):
         if not shutil.which(tool):
             sys.exit('%s is not on this machine. Install it with: %s' % (tool, how))
 
@@ -405,7 +474,7 @@ def main():
         return
 
     os.makedirs(VOICE_DIR, exist_ok=True)
-    model = model_path()
+    model = model_path() if ENGINE != 'elevenlabs' else None
     done = 0
     for key, appkey, mode in jobs:
         lines = lines_of(apps, appkey, mode)

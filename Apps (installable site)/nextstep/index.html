@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v65">
+<script id="dj-house-v68">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -795,7 +795,7 @@
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ dockSheet(); };
+      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -873,18 +873,26 @@
         var row = document.createElement('button'); row.type = 'button';
         row.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
         row.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + lab[0] + '</span><span style="flex:1">' + lab[1] + '</span>';
-        row.onclick = function(){ w.remove(); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
+        row.onclick = function(){ w.remove(); djBackPush(dockSheet); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
         box.appendChild(row); n++;
       })(c, btn_lab(c, lab));
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    var djProbs = djProblems();
+    if(djProbs.length){
+      var pb = document.createElement('button'); pb.type = 'button';
+      pb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      pb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">⚠️</span><span style="flex:1">Recent problems<br><small style="font-weight:600;color:#55605B">' + djProbs.length + ' message' + (djProbs.length === 1 ? '' : 's') + ' that flashed up · copy them to send on</small></span>';
+      pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
+      box.appendChild(pb);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
       ai.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       var ch = aiChoice(), chn = ASSISTANTS[ch] ? ASSISTANTS[ch].name : (ch === 'none' ? 'none' : 'not chosen yet');
       ai.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🤖</span><span style="flex:1">Which AI do you use?<br><small style="font-weight:600;color:#55605B">now: ' + esc(chn) + '</small></span>';
-      ai.onclick = function(){ w.remove(); pickAssistant(); };
+      ai.onclick = function(){ w.remove(); djBackPush(dockSheet); pickAssistant(); };
       box.appendChild(ai);
     }
     if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
@@ -1198,6 +1206,37 @@
     meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
   };
   function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  /* 20 Nov. Jerry, relayed from the Family Money chat: "If you go one screen too far or something,
+     you can't go back to the previous one." So the house keeps a back-stack for its own screens —
+     the ? menu and everything it opens — and hands the same thing to an app for its own screens:
+         window.djBack.push(function(){ ...reopen the screen I am leaving... });
+         window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
+         window.djBack.go()       -> step back one; false when the stack is empty
+     Screens opened through the house's own sheet() get the chip and the wiring for free. */
+  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
+  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
+  function djBackClear(){ DJ_BACK = []; }
+  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djBackGo(){
+    var f = DJ_BACK.pop(); if(!f) return false;
+    var a = document.getElementById('djAISheet'); if(a) a.remove();
+    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    return true;
+  }
+  window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
+                    depth: function(){ return DJ_BACK.length; } };
+  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
+     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+  window.addEventListener('popstate', function(){
+    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(!open) return;
+    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
+    djBackClear(); open.remove();
+    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(other) other.remove();
+  });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
     var old = document.getElementById('djAISheet'); if(old) old.remove();
@@ -1205,8 +1244,11 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    box.innerHTML = html; w.appendChild(box);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    box.innerHTML = djBackBtn() + html; w.appendChild(box);
+    var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
+    /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
+    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
@@ -1268,9 +1310,23 @@
       var LINK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
       var short = String(o.prompt).replace(/\s+/g, ' ').trim();
       if(short.length > 110) short = short.slice(0, 108) + '\u2026';
+      /* 16 Nov 2026: a sender that attaches a file passes it here, so the sheet can NAME it.
+         The Family Money Dashboard reads a credit union's PDF statement this way, and Jerry
+         chose "both, asking first" when he was asked what a customer should get. A statement
+         is the most private thing any of these apps will ever send, so a preview that showed
+         only the question while a PDF went with it would be worse than no preview: it would
+         be a wrong one. Only the sender that really attaches the file passes opt.file - the
+         external-assistant path cannot attach anything, the person does that themselves at
+         the other end, so it says nothing about a file and that stays true. */
+      var fsz = '';
+      if(opt.file && opt.file.data){
+        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -1293,19 +1349,85 @@
   }
   /* not null: null from viaDaraja means the door failed and the next path should try.
      This means the person read the words and said no, and nothing else should ask again. */
+  /* 18 Nov. Jerry: "There were a bunch of error messages flashing at the bottom. They don't stay.
+     So I can't give them to you. But maybe you can record them somewhere." So they are kept here —
+     the last 25, per app, in this browser — and the ? menu reads them back with a Copy button.
+     Nothing leaves the phone: it is localStorage, and only a tap on Copy puts it anywhere. */
+  var PROB_KEY = 'dj_problems';
+  function djProblems(){ try{ return JSON.parse(localStorage.getItem(PROB_KEY) || '[]') || []; }catch(e){ return []; } }
+  function djNote(msg){
+    try{
+      if(msg === null || msg === undefined || msg === '') return;
+      msg = String(msg).replace(/\s+/g, ' ').trim().slice(0, 300);
+      if(!msg) return;
+      var a = djProblems(), last = a[a.length - 1];
+      if(last && last.m === msg && Date.now() - last.t < 60000){ last.n = (last.n || 1) + 1; last.t = Date.now(); }
+      else { a.push({ t: Date.now(), m: msg, a: slugOf(), n: 1 }); }
+      while(a.length > 25) a.shift();
+      localStorage.setItem(PROB_KEY, JSON.stringify(a));
+    }catch(e){}
+  }
+  window.djNote = djNote;   /* an app can record its own: djNote('could not read the Chase file') */
+  window.addEventListener('error', function(e){ try{ if(e && e.message) djNote(e.message + (e.filename ? ' — ' + String(e.filename).split('/').pop() + ':' + e.lineno : '')); }catch(err){} });
+  window.addEventListener('unhandledrejection', function(e){ try{ var r = e && e.reason; djNote('did not finish: ' + ((r && r.message) || r || 'no reason given')); }catch(err){} });
+  function djProbWhen(t){
+    var d = new Date(t);
+    try{ return d.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }); }
+    catch(e){ return d.toISOString().slice(0, 16).replace('T', ' '); }
+  }
+  function djProbText(){
+    return djProblems().slice().reverse().map(function(p){
+      return djProbWhen(p.t) + ' · ' + (p.a || 'app') + ' · ' + p.m + (p.n > 1 ? ' (' + p.n + ' times)' : '');
+    }).join('\n');
+  }
+  function problemsSheet(){
+    var LNK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
+    var a = djProblems().slice().reverse();
+    var rows = a.map(function(p){
+      return '<li style="list-style:none;margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #E2DCCF">'
+        + '<div style="font-size:12.5px;color:#55605B">' + esc(djProbWhen(p.t)) + ' · ' + esc(p.a || 'app') + (p.n > 1 ? ' · ' + p.n + ' times' : '') + '</div>'
+        + '<div style="font-size:15px">' + esc(p.m) + '</div></li>';
+    }).join('');
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Recent problems</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">The messages that flashed up and went away. They stay on this phone until you clear them.</p>'
+      + (rows ? '<ul style="margin:0 0 10px;padding:0">' + rows + '</ul>' : '<p style="margin:0 0 10px">Nothing has gone wrong in this app.</p>')
+      + '<textarea id="djPbRaw" aria-label="The problems as text" style="display:none;width:100%;min-height:120px;font:inherit;font-size:14px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+      + (rows ? '<button type="button" id="djPbCopy" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Copy them all</button>' : '')
+      + '<div style="display:flex;justify-content:space-between;margin-top:8px">'
+      + (rows ? '<button type="button" id="djPbClear" style="' + LNK + '">clear the list</button>' : '<span></span>')
+      + '<button type="button" id="djPbX" style="' + LNK + '">close</button></div>');
+    var cp = b.querySelector('#djPbCopy');
+    if(cp) cp.onclick = function(){
+      var t = djProbText(), self = this;
+      var shown = function(){ self.textContent = 'Copied ✓'; };
+      var manual = function(){
+        var ta = b.querySelector('#djPbRaw'); ta.value = t; ta.style.display = '';
+        try{ ta.focus(); ta.select(); }catch(e){}
+        self.textContent = 'Press and hold to copy ↑';
+      };
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(shown, manual); }
+        else manual();
+      }catch(e){ manual(); }
+    };
+    var cl = b.querySelector('#djPbClear');
+    if(cl) cl.onclick = function(){ try{ localStorage.removeItem(PROB_KEY); }catch(e){} closeAISheet(); };
+    b.querySelector('#djPbX').onclick = function(){ closeAISheet(); };
+  }
   var AI_CANCELLED = { cancelled: true };
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
-    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false });
+    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
     if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
-      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
       var j = await r.json();
       if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
       closeAISheet(); return j.text;
-    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
+    }catch(e){
+      djNote('AI: ' + (e.message || 'no answer')); var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
   async function builtIn(prompt){
     try{
@@ -2411,6 +2533,9 @@
   .task input[type=checkbox]{ width:28px; height:28px; min-width:28px; padding:0; margin:0; }   /* 7 Oct deep check: was 22px */
   #filters button{ min-width:44px; min-height:44px; }
   #boardName{ display:inline-block; min-height:44px; line-height:44px; }
+  .mnRow{ font:inherit; font-size:13.5px; text-align:left; background:none; border:0; color:var(--brand); text-decoration:underline; cursor:pointer; padding:4px 0; }
+  #mnPrintPage{ display:none; }
+  @media print{ body.mnPrinting > *:not(#mnPrintPage){ display:none !important; } body.mnPrinting #mnPrintPage{ display:block !important; color:#000; } }
 </style>
 
 <style id="daraja-house-css-v2">
@@ -2451,7 +2576,7 @@
 <style id="dj-contrast-v5">.acts{flex-wrap:wrap;} .acts button{white-space:normal;} @media (prefers-color-scheme:light){ .status{ color:#2B3532 !important; font-weight:800; } .card b, .item b, li b{ color:#2B3532 !important; } }</style>
 </head>
 <body>
-<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🗂</div><div style="font-size:28px;font-weight:800">Next Step Board</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.3 · updated Sep 12</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🗂</div><div style="font-size:28px;font-weight:800">Next Step Board</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.11 · 2026-11-18</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
 
 <button id="pwaInstall">⬇ Install app</button>
 <div id="pwaTip"><button onclick="this.parentNode.classList.remove('show');localStorage.setItem('pwaTipSeen','1')" aria-label="Remove" title="Remove">×</button><b>Install on iPhone:</b> tap the Share button <span style="font-size:16px">&#x2B06;&#xFE0E;</span>, then <b>“Add to Home Screen”</b>. It becomes an app icon and works offline.</div>
@@ -2472,10 +2597,11 @@
   <button onclick="addProject()">+ Add project</button>
   <button onclick="askNotify()">🔔 Notifications</button>
   <button onclick="aiFill()" style="font-weight:800">🤖 Let your AI build my board</button>
+  <button onclick="minutesOpen()" style="font-weight:800">📝 Turn meeting notes into minutes</button>
   <button onclick="exportJSON()">Backup</button>
   <label><input type="file" accept="application/json" style="display:none" onchange="importJSON(event)">Restore</label>
   <button onclick="resetSeed()">Reset to examples</button><button onclick="startBlank()">Start blank</button>
-  <span>Stored in this browser · Backup weekly · <b>Next Step Board</b> v1.10 · 2026-10-11 — 🤖 your AI can now build the board for you · <i>daraja</i> studio — every download builds a bridge</span>
+  <span>Stored in this browser · Backup weekly · <b>Next Step Board</b> v1.11 · 2026-11-18 — 📝 meeting notes into minutes · <i>daraja</i> studio — every download builds a bridge</span>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -2530,24 +2656,149 @@ window.aiFill=()=>{
   }
   ov.style.display='flex';
 };
-window.aiImport=()=>{
-  const raw=(document.getElementById('aiPaste').value||'');
-  const m=raw.match(/\{[\s\S]*\}/);
-  if(!m){ toast('No board found in that — paste the whole AI reply'); return; }
-  let d; try{ d=JSON.parse(m[0]); }catch(e){ toast("Couldn't read it — ask the AI for 'valid JSON only' and paste again"); return; }
-  const ps=(d.projects||[]).filter(x=>x&&x.name).map((x,i)=>({
+/* 18 Nov 2026: the reader for an AI's board is one function now, because the meeting-minutes
+   sheet below reads the very same JSON shape. Returns {ps} or {err:'what to tell the person'}. */
+function boardFromAI(raw){
+  const m=String(raw||'').match(/\{[\s\S]*\}/);
+  if(!m) return {err:'No board found in that — paste the whole AI reply'};
+  let d; try{ d=JSON.parse(m[0]); }catch(e){ return {err:"Couldn't read it — ask the AI for 'valid JSON only' and paste again"}; }
+  const ps=((d&&d.projects)||[]).filter(x=>x&&x.name).map((x,i)=>({
     id:'ai'+Date.now()+i, emoji:String(x.emoji||'📌').slice(0,4), name:String(x.name).slice(0,80),
     status:['active','waiting','paused','blocked'].includes(x.status)?x.status:'active',
     one:String(x.one||'').slice(0,300), next:String(x.next||'decide the next step').slice(0,160),
     who:String(x.who||'Me').slice(0,40), link:'', touched:today(),
     tasks:Array.isArray(x.tasks)?x.tasks.slice(0,12).map(t=>[String(t[0]||'').slice(0,120),String(t[1]||'Me').slice(0,20),t[2]?1:0]):[]
   }));
-  if(!ps.length){ toast('The reply had no projects — try again'); return; }
+  if(!ps.length) return {err:'The reply had no projects — try again'};
+  return {ps, json:m[0]};
+}
+window.aiImport=()=>{
+  const r=boardFromAI(document.getElementById('aiPaste').value||'');
+  if(r.err){ toast(r.err); return; }
+  const ps=r.ps;
   const replace=confirm(ps.length+' projects found.\n\nOK = REPLACE the whole board with them\nCancel = ADD them to what you have');
   if(replace) db.projects=ps; else db.projects=db.projects.concat(ps);
   save(); render();
   document.getElementById('aiOv').style.display='none';
   toast('🤖 Board built — '+ps.length+' projects');
+};
+/* ── 📝 Meeting notes into minutes (v1.11 · 18 Nov 2026) ─────────────────────────────
+   Jerry approved it on 18 Nov ("Yes, all of them"), for HOA boards, committees and volunteer
+   groups. Paste the raw notes; the house AI hand-off (djAI.ask, the same door as ✨) asks the
+   person's own AI for tidy minutes AND the action items in the board's own JSON shape, read by
+   boardFromAI() above. No new AI path: whatever djAI.ask does for ✨ (the words shown first,
+   then the Daraja door or the person's own AI with a paste-back sheet) is what happens here.
+   The minutes are kept on the project (p.minutes), so they travel in the Backup file. */
+const MN_DRAFT='nextstep_minutes_draft';
+const mnPrompt=notes=>"Here are my rough notes from a meeting (a board, committee or volunteer group). Turn them into tidy minutes.\n\nReply in exactly two parts.\n\nPART 1 - the minutes as plain text (no tables, no markdown symbols), with these headings in this order:\nMeeting:\nDate:\nAttendees:\nDecisions:\nAction items: (one per line: what - owner - due date)\nOnly use what is in my notes. If something is not there, write \"not recorded\". Do not invent names, dates or decisions.\n\nPART 2 - the action items again, as ONLY a JSON code block, exactly this shape:\n```json\n{\"projects\":[{\"emoji\":\"📝\",\"name\":\"short name of the meeting or group\",\"status\":\"active\",\"one\":\"Action items from the meeting on <date>\",\"next\":\"the most urgent action item\",\"who\":\"its owner\",\"tasks\":[[\"what to do - due <date, or no date>\",\"owner's first name\",0]]}]}\n```\nOne project only. One task per action item, at most 12. The third value is always 0.\n\nMy notes:\n"+notes;
+function mnSplit(raw){
+  raw=String(raw||'');
+  const fence=raw.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+  const jsonPart=fence?fence[1]:((raw.match(/\{[\s\S]*"projects"[\s\S]*\}/)||[''])[0]);
+  const b=jsonPart?boardFromAI(jsonPart):{err:'no json'};
+  let text=jsonPart?raw.replace(fence?fence[0]:jsonPart,''):raw;
+  text=text.replace(/^\s*PART\s*[12][^\n]*\n?/gim,'').replace(/\*\*|__/g,'').replace(/^#{1,6}\s*/gm,'').replace(/```[a-z]*\n?/gi,'').replace(/\n{3,}/g,'\n\n').trim();
+  return {text, p:b.ps?b.ps[0]:null};
+}
+function mnSheet(html){ let ov=document.getElementById('mnOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='mnOv'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-label','Meeting minutes');
+  ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(20,25,23,.88);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  ov.innerHTML='<div style="background:var(--surface);color:var(--ink);border-radius:16px;max-width:560px;width:100%;padding:20px;margin:auto 0">'+html+'</div>';
+  document.body.appendChild(ov); return ov; }
+const MN_BTN='font:inherit;font-weight:800;padding:10px 16px;border-radius:999px;border:none;background:var(--brand);color:#fff;cursor:pointer';
+const MN_GHOST='font:inherit;font-weight:700;padding:9px 14px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--ink);cursor:pointer';
+const MN_BOX='width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)';
+window.minutesOpen=()=>{
+  let draft=''; try{ draft=localStorage.getItem(MN_DRAFT)||''; }catch(e){}
+  const ov=mnSheet(`<h3 style="margin:0 0 4px">📝 Turn meeting notes into minutes</h3>
+    <p style="margin:0 0 12px;font-size:14px;color:var(--soft)">For a board, a committee or a volunteer group. Paste your rough notes (or tap 🎤 and say them). Your own AI writes the minutes and the action items; you check them, then put the action items on the board.</p>
+    <div style="border-left:3px solid var(--brand);padding:8px 12px;margin-bottom:10px"><b>Step 1 — your notes</b>
+      <textarea id="mnNotes" rows="7" placeholder="e.g. Board mtg Tue 11/18. Present: Maria, Tom, Janet. Pool fence quote $4,200 approved. Tom to call 3 paving companies by 12/1…" style="${MN_BOX};margin-top:8px"></textarea>
+      <button type="button" id="mnAsk" style="${MN_BTN};margin-top:8px">✨ Ask my AI to write the minutes</button>
+    </div>
+    <div style="border-left:3px solid var(--brand);padding:8px 12px"><b>Step 2 — paste what your AI said</b>
+      <div style="font-size:13px;color:var(--soft);margin-top:2px">It usually lands here by itself. If you came back another way, paste the whole answer.</div>
+      <textarea id="mnPaste" rows="4" placeholder="paste the whole reply — I will find the minutes and the action items in it" style="${MN_BOX};margin-top:8px"></textarea>
+      <button type="button" id="mnRead" style="${MN_BTN};margin-top:8px">Read the minutes →</button>
+    </div>
+    <div style="text-align:right;margin-top:12px"><button type="button" id="mnX" style="font:inherit;border:none;background:none;color:var(--faint);cursor:pointer;font-weight:700">✕ close</button></div>`);
+  const notes=ov.querySelector('#mnNotes'); notes.value=draft;
+  notes.addEventListener('input',()=>{ try{ localStorage.setItem(MN_DRAFT,notes.value); }catch(e){} });
+  ov.querySelector('#mnX').onclick=()=>ov.remove();
+  ov.querySelector('#mnRead').onclick=()=>{ const t=ov.querySelector('#mnPaste').value.trim(); if(!t){ ov.querySelector('#mnPaste').focus(); return; } minutesReview(t); };
+  ov.querySelector('#mnAsk').onclick=()=>{
+    const n=notes.value.trim(); if(!n){ notes.focus(); toast('Paste or type your notes first'); return; }
+    if(!window.djAI||!djAI.ask){ toast('The AI hand-off is not ready yet — try again in a moment'); return; }
+    /* djAI's own sheets sit above this one; if the person cancels there, this sheet is still here */
+    djAI.ask({ title:'Turn my notes into minutes', want:'text', circle:false, prompt:mnPrompt(n.slice(0,6000)),
+      onResult:(v,raw)=>minutesReview(raw||v) });
+  };
+  setTimeout(()=>{ try{ notes.focus(); }catch(e){} },100);
+};
+let mnCur=null;
+window.minutesReview=raw=>{
+  const r=mnSplit(raw);
+  if(!r.text&&!r.p){ toast('That did not look like minutes — paste the whole AI reply'); return; }
+  const items=r.p?r.p.tasks:[];
+  const guess=r.p?r.p.name:'Meeting';
+  mnCur={text:r.text, items, proj:r.p};
+  const opts=db.projects.map(p=>`<option value="${esc(p.id)}">${esc(p.emoji+' '+p.name)}</option>`).join('');
+  const ov=mnSheet(`<h3 style="margin:0 0 4px">📝 Your minutes</h3>
+    <p style="margin:0 0 8px;font-size:13.5px;color:var(--soft)">Check them — fix anything the AI got wrong right in the box.</p>
+    <textarea id="mnText" rows="12" aria-label="The minutes" style="${MN_BOX};font-size:15px;line-height:1.5"></textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px"><button type="button" id="mnCopy" style="${MN_GHOST}">📋 Copy the minutes</button><button type="button" id="mnPrint" style="${MN_GHOST}">🖨 Print the minutes</button></div>
+    <b>Action items</b>
+    <div id="mnItems" style="margin:6px 0 10px">${items.length?items.map((t,i)=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:15px;cursor:pointer"><input type="checkbox" checked data-i="${i}" style="width:24px;height:24px;flex:none;margin:0;accent-color:var(--brand)"><span>${esc(t[0])} <span style="color:var(--faint);font-size:13px">— ${esc(t[1])}</span></span></label>`).join(''):'<div style="font-size:14px;color:var(--soft)">No action items found. You can still keep the minutes with a project.</div>'}</div>
+    <label for="mnProj" style="display:block;font-weight:700;font-size:14px;margin-bottom:4px">Put them on</label>
+    <select id="mnProj" style="${MN_BOX};min-height:46px"><option value="__new">＋ A new project</option>${opts}</select>
+    <input id="mnName" aria-label="Name of the new project" value="${esc(guess)}" style="${MN_BOX};margin-top:6px" placeholder="Name of the new project">
+    <button type="button" id="mnSave" style="${MN_BTN};width:100%;margin-top:12px;min-height:50px"></button>
+    <div style="text-align:right;margin-top:10px"><button type="button" id="mnX" style="font:inherit;border:none;background:none;color:var(--faint);cursor:pointer;font-weight:700">✕ close without saving</button></div>`);
+  ov.querySelector('#mnText').value=r.text;
+  const sel=ov.querySelector('#mnProj'), nm=ov.querySelector('#mnName'), go=ov.querySelector('#mnSave');
+  const label=()=>{ const n=ov.querySelectorAll('#mnItems input:checked').length; go.textContent=n?`Add ${n} action item${n!==1?'s':''} and keep the minutes`:'Keep the minutes with this project'; nm.style.display=sel.value==='__new'?'':'none'; };
+  ov.querySelectorAll('#mnItems input').forEach(c=>c.addEventListener('change',label)); sel.addEventListener('change',label); label();
+  ov.querySelector('#mnCopy').onclick=function(){ mnCopy(ov.querySelector('#mnText').value,this); };
+  ov.querySelector('#mnPrint').onclick=()=>mnPrint(ov.querySelector('#mnText').value);
+  ov.querySelector('#mnX').onclick=()=>ov.remove();
+  go.onclick=()=>{
+    const text=ov.querySelector('#mnText').value.trim();
+    const pick=[...ov.querySelectorAll('#mnItems input:checked')].map(c=>items[+c.dataset.i]).filter(Boolean).map(t=>[t[0],t[1],0]);
+    let p;
+    if(sel.value==='__new'){ const n=nm.value.trim(); if(!n){ nm.focus(); nm.style.borderColor='#B4432F'; return; }
+      const a=mnCur.proj||{};
+      p={id:'p'+Date.now().toString(36),emoji:'📝',name:n.slice(0,80),status:'active',one:String(a.one||'Action items from a meeting').slice(0,300),
+        next:String(a.next||(pick[0]&&pick[0][0])||'Send the minutes round').slice(0,160),who:String(a.who||(pick[0]&&pick[0][1])||'Me').slice(0,40),link:'',touched:today(),tasks:[]};
+      db.projects.push(p);
+    } else p=db.projects.find(x=>x.id===sel.value);
+    if(!p) return;
+    p.tasks=(p.tasks||[]).concat(pick);
+    if(text){ const head=(text.match(/^\s*Meeting:\s*(.+)$/im)||[])[1]; (p.minutes=p.minutes||[]).push({d:today(),title:String(head||p.name).trim().slice(0,80),text:text.slice(0,20000)}); }
+    p.touched=today(); save(); render(); ov.remove();
+    try{ localStorage.removeItem(MN_DRAFT); }catch(e){}
+    toast(`📝 Minutes kept on ${p.name}`+(pick.length?` · ${pick.length} item${pick.length!==1?'s':''} added`:''));
+  };
+};
+function mnCopy(text,btn){ const ok=()=>{ btn.textContent='Copied ✓'; }, no=()=>{ btn.textContent='Could not copy — select the words instead'; };
+  try{ const c=navigator.clipboard&&navigator.clipboard.writeText(text); if(c&&c.then) c.then(ok,no); else no(); }catch(e){ no(); } }
+function mnPrint(text){
+  let pg=document.getElementById('mnPrintPage'); if(!pg){ pg=document.createElement('div'); pg.id='mnPrintPage'; document.body.appendChild(pg); }
+  pg.innerHTML='<div style="font-weight:800;font-size:13pt;margin-bottom:10pt">📝 Minutes</div><div style="white-space:pre-wrap;font-size:12pt;line-height:1.5"></div><div style="margin-top:18pt;font-size:9pt;color:#555">Written up with Next Step Board · Daraja Studio</div>';
+  pg.lastElementChild.previousElementSibling.textContent=text;
+  document.body.classList.add('mnPrinting');
+  const done=()=>{ document.body.classList.remove('mnPrinting'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done); setTimeout(()=>window.print(),50); setTimeout(done,60000);
+}
+window.minutesView=(id,i)=>{ const p=db.projects.find(x=>x.id===id); const m=p&&p.minutes&&p.minutes[i]; if(!m) return;
+  const ov=mnSheet(`<h3 style="margin:0 0 2px">📝 ${esc(m.title)}</h3><div style="font-size:13px;color:var(--faint);margin-bottom:8px">Kept ${esc(m.d)} on ${esc(p.emoji+' '+p.name)}</div>
+    <div id="mnShow" style="white-space:pre-wrap;font-size:15px;line-height:1.5;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;max-height:55vh;overflow:auto"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" id="mnCopy" style="${MN_GHOST}">📋 Copy</button><button type="button" id="mnPrint" style="${MN_GHOST}">🖨 Print</button><button type="button" id="mnDel" style="${MN_GHOST};color:var(--coral)">Remove these minutes</button></div>
+    <div style="text-align:right;margin-top:10px"><button type="button" id="mnX" style="font:inherit;border:none;background:none;color:var(--faint);cursor:pointer;font-weight:700">✕ close</button></div>`);
+  ov.querySelector('#mnShow').textContent=m.text;
+  ov.querySelector('#mnCopy').onclick=function(){ mnCopy(m.text,this); };
+  ov.querySelector('#mnPrint').onclick=()=>mnPrint(m.text);
+  ov.querySelector('#mnDel').onclick=()=>{ if(!confirm('Remove these minutes from '+p.name+'? The action items stay.')) return; p.minutes.splice(i,1); save(); render(); ov.remove(); toast('Minutes removed'); };
+  ov.querySelector('#mnX').onclick=()=>ov.remove();
 };
 function render(){
   document.getElementById('stamp').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
@@ -2576,6 +2827,7 @@ function render(){
         <div class="tasks">${p.tasks.map((t,i)=>`<div class="task ${t[2]?'done':''}"><label><input type="checkbox" ${t[2]?'checked':''} onchange="toggleTask('${p.id}',${i},this.checked)"><span>${esc(t[0])}<span class="who">— ${esc(t[1])}</span></span></label></div>`).join('')}
         <div class="add"><input placeholder="add an item…" id="add-${p.id}" onkeydown="if(event.key==='Enter')addTask('${p.id}')"><button onclick="addTask('${p.id}')">Add</button></div></div>
       </details>
+      ${(p.minutes&&p.minutes.length)?`<details class="mins"><summary>📝 Minutes (${p.minutes.length}) ▾</summary><div class="tasks">${p.minutes.map((m,i)=>`<div class="task"><button type="button" class="mnRow" onclick="minutesView('${p.id}',${i})">${esc(m.d)} · ${esc(m.title)}</button></div>`).join('')}</div></details>`:''}
     </div>`; }).join('');
   document.getElementById('count').textContent=`${db.projects.length} project${db.projects.length!==1?'s':''}`;
   renderDue();

@@ -82,6 +82,7 @@ Donations are not in the sheet: each donation link carries `client_reference_id=
 The file the 💰 Sales tab in Daraja HQ (`control/index.html`) reads. Added 13 Nov 2026.
 
 ```
+python3 tools/morning-report/stripe_export.py <work>/stripe.json   # paid Checkout Sessions, read-only key via the proxy
 python3 tools/morning-report/make_sales.py <work>/data.json [--stripe <export.json>] [--weekly control/weekly.json] [--out control/sales.json]
 ```
 

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v65">
+<script id="dj-house-v68">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -795,7 +795,7 @@
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ dockSheet(); };
+      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -873,18 +873,26 @@
         var row = document.createElement('button'); row.type = 'button';
         row.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
         row.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + lab[0] + '</span><span style="flex:1">' + lab[1] + '</span>';
-        row.onclick = function(){ w.remove(); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
+        row.onclick = function(){ w.remove(); djBackPush(dockSheet); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
         box.appendChild(row); n++;
       })(c, btn_lab(c, lab));
     }
     if(!n){ var p = document.createElement('div'); p.style.cssText = 'color:#55605B;margin:0 4px 8px'; p.textContent = 'Nothing extra on this screen.'; box.appendChild(p); }
+    var djProbs = djProblems();
+    if(djProbs.length){
+      var pb = document.createElement('button'); pb.type = 'button';
+      pb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      pb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">⚠️</span><span style="flex:1">Recent problems<br><small style="font-weight:600;color:#55605B">' + djProbs.length + ' message' + (djProbs.length === 1 ? '' : 's') + ' that flashed up · copy them to send on</small></span>';
+      pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
+      box.appendChild(pb);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
       ai.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       var ch = aiChoice(), chn = ASSISTANTS[ch] ? ASSISTANTS[ch].name : (ch === 'none' ? 'none' : 'not chosen yet');
       ai.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🤖</span><span style="flex:1">Which AI do you use?<br><small style="font-weight:600;color:#55605B">now: ' + esc(chn) + '</small></span>';
-      ai.onclick = function(){ w.remove(); pickAssistant(); };
+      ai.onclick = function(){ w.remove(); djBackPush(dockSheet); pickAssistant(); };
       box.appendChild(ai);
     }
     if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
@@ -1198,6 +1206,37 @@
     meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
   };
   function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  /* 20 Nov. Jerry, relayed from the Family Money chat: "If you go one screen too far or something,
+     you can't go back to the previous one." So the house keeps a back-stack for its own screens —
+     the ? menu and everything it opens — and hands the same thing to an app for its own screens:
+         window.djBack.push(function(){ ...reopen the screen I am leaving... });
+         window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
+         window.djBack.go()       -> step back one; false when the stack is empty
+     Screens opened through the house's own sheet() get the chip and the wiring for free. */
+  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
+  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
+  function djBackClear(){ DJ_BACK = []; }
+  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djBackGo(){
+    var f = DJ_BACK.pop(); if(!f) return false;
+    var a = document.getElementById('djAISheet'); if(a) a.remove();
+    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    return true;
+  }
+  window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
+                    depth: function(){ return DJ_BACK.length; } };
+  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
+     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+  window.addEventListener('popstate', function(){
+    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(!open) return;
+    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
+    djBackClear(); open.remove();
+    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(other) other.remove();
+  });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
     var old = document.getElementById('djAISheet'); if(old) old.remove();
@@ -1205,8 +1244,11 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    box.innerHTML = html; w.appendChild(box);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    box.innerHTML = djBackBtn() + html; w.appendChild(box);
+    var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
+    /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
+    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
@@ -1268,9 +1310,23 @@
       var LINK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
       var short = String(o.prompt).replace(/\s+/g, ' ').trim();
       if(short.length > 110) short = short.slice(0, 108) + '\u2026';
+      /* 16 Nov 2026: a sender that attaches a file passes it here, so the sheet can NAME it.
+         The Family Money Dashboard reads a credit union's PDF statement this way, and Jerry
+         chose "both, asking first" when he was asked what a customer should get. A statement
+         is the most private thing any of these apps will ever send, so a preview that showed
+         only the question while a PDF went with it would be worse than no preview: it would
+         be a wrong one. Only the sender that really attaches the file passes opt.file - the
+         external-assistant path cannot attach anything, the person does that themselves at
+         the other end, so it says nothing about a file and that stays true. */
+      var fsz = '';
+      if(opt.file && opt.file.data){
+        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -1293,19 +1349,85 @@
   }
   /* not null: null from viaDaraja means the door failed and the next path should try.
      This means the person read the words and said no, and nothing else should ask again. */
+  /* 18 Nov. Jerry: "There were a bunch of error messages flashing at the bottom. They don't stay.
+     So I can't give them to you. But maybe you can record them somewhere." So they are kept here —
+     the last 25, per app, in this browser — and the ? menu reads them back with a Copy button.
+     Nothing leaves the phone: it is localStorage, and only a tap on Copy puts it anywhere. */
+  var PROB_KEY = 'dj_problems';
+  function djProblems(){ try{ return JSON.parse(localStorage.getItem(PROB_KEY) || '[]') || []; }catch(e){ return []; } }
+  function djNote(msg){
+    try{
+      if(msg === null || msg === undefined || msg === '') return;
+      msg = String(msg).replace(/\s+/g, ' ').trim().slice(0, 300);
+      if(!msg) return;
+      var a = djProblems(), last = a[a.length - 1];
+      if(last && last.m === msg && Date.now() - last.t < 60000){ last.n = (last.n || 1) + 1; last.t = Date.now(); }
+      else { a.push({ t: Date.now(), m: msg, a: slugOf(), n: 1 }); }
+      while(a.length > 25) a.shift();
+      localStorage.setItem(PROB_KEY, JSON.stringify(a));
+    }catch(e){}
+  }
+  window.djNote = djNote;   /* an app can record its own: djNote('could not read the Chase file') */
+  window.addEventListener('error', function(e){ try{ if(e && e.message) djNote(e.message + (e.filename ? ' — ' + String(e.filename).split('/').pop() + ':' + e.lineno : '')); }catch(err){} });
+  window.addEventListener('unhandledrejection', function(e){ try{ var r = e && e.reason; djNote('did not finish: ' + ((r && r.message) || r || 'no reason given')); }catch(err){} });
+  function djProbWhen(t){
+    var d = new Date(t);
+    try{ return d.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }); }
+    catch(e){ return d.toISOString().slice(0, 16).replace('T', ' '); }
+  }
+  function djProbText(){
+    return djProblems().slice().reverse().map(function(p){
+      return djProbWhen(p.t) + ' · ' + (p.a || 'app') + ' · ' + p.m + (p.n > 1 ? ' (' + p.n + ' times)' : '');
+    }).join('\n');
+  }
+  function problemsSheet(){
+    var LNK = 'font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline';
+    var a = djProblems().slice().reverse();
+    var rows = a.map(function(p){
+      return '<li style="list-style:none;margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #E2DCCF">'
+        + '<div style="font-size:12.5px;color:#55605B">' + esc(djProbWhen(p.t)) + ' · ' + esc(p.a || 'app') + (p.n > 1 ? ' · ' + p.n + ' times' : '') + '</div>'
+        + '<div style="font-size:15px">' + esc(p.m) + '</div></li>';
+    }).join('');
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Recent problems</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">The messages that flashed up and went away. They stay on this phone until you clear them.</p>'
+      + (rows ? '<ul style="margin:0 0 10px;padding:0">' + rows + '</ul>' : '<p style="margin:0 0 10px">Nothing has gone wrong in this app.</p>')
+      + '<textarea id="djPbRaw" aria-label="The problems as text" style="display:none;width:100%;min-height:120px;font:inherit;font-size:14px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
+      + (rows ? '<button type="button" id="djPbCopy" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Copy them all</button>' : '')
+      + '<div style="display:flex;justify-content:space-between;margin-top:8px">'
+      + (rows ? '<button type="button" id="djPbClear" style="' + LNK + '">clear the list</button>' : '<span></span>')
+      + '<button type="button" id="djPbX" style="' + LNK + '">close</button></div>');
+    var cp = b.querySelector('#djPbCopy');
+    if(cp) cp.onclick = function(){
+      var t = djProbText(), self = this;
+      var shown = function(){ self.textContent = 'Copied ✓'; };
+      var manual = function(){
+        var ta = b.querySelector('#djPbRaw'); ta.value = t; ta.style.display = '';
+        try{ ta.focus(); ta.select(); }catch(e){}
+        self.textContent = 'Press and hold to copy ↑';
+      };
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(shown, manual); }
+        else manual();
+      }catch(e){ manual(); }
+    };
+    var cl = b.querySelector('#djPbClear');
+    if(cl) cl.onclick = function(){ try{ localStorage.removeItem(PROB_KEY); }catch(e){} closeAISheet(); };
+    b.querySelector('#djPbX').onclick = function(){ closeAISheet(); };
+  }
   var AI_CANCELLED = { cancelled: true };
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
-    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false });
+    var ok = await confirmWords(o, { who: 'Daraja\u2019s own AI', go: 'Send it \u2192', circle: false, file: o.file });
     if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
-      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||'') }) });
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
       var j = await r.json();
       if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
       closeAISheet(); return j.text;
-    }catch(e){ var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
+    }catch(e){
+      djNote('AI: ' + (e.message || 'no answer')); var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
   async function builtIn(prompt){
     try{
@@ -2446,6 +2568,7 @@
   <section class="pane on" id="p-recipes">
     <div class="row" style="margin-bottom:10px"><input id="search" placeholder="Find a recipe…" aria-label="Find a recipe" style="flex:1;min-width:160px" oninput="renderRecipes()"><button class="accent" onclick="openEdit()" style="font-size:16px">＋ New recipe</button></div>
     <button type="button" class="ghost" id="impBtn" data-act="import" style="width:100%;margin-bottom:10px;text-align:left">📥 Bring your dinners over — paste from Mealime, a website or notes</button>
+    <button type="button" class="primary" id="tonightBtn" onclick="openTonight()" style="width:100%;margin-bottom:10px;text-align:left">🍳 What can I cook tonight?</button>
     <div class="chips" id="tagChips" style="margin-bottom:10px"></div>
     <div class="card" id="quickAdd" style="display:none;border:1.5px solid var(--gold)">
       <h2>Put your own dinners in</h2>
@@ -2492,7 +2615,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.19 · 2026-11-06 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
+  <p class="foot">Our Table v1.20 · 2026-11-18 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
 </div>
 
 <nav>
@@ -2515,6 +2638,7 @@
   <label for="rSteps">How to make it (optional)</label><textarea id="rSteps" placeholder="Brown the chicken… "></textarea>
   <label for="rTime">Time on the table (optional)</label><input id="rTime" placeholder="45 min">
   <label for="rServes">How many does it feed, as written? (optional)</label><input id="rServes" type="number" inputmode="numeric" min="1" max="60" placeholder="4">
+  <label for="rCost">About how much does it cost to make? (optional)</label><input id="rCost" inputmode="decimal" placeholder="12" autocomplete="off">
   <div class="row" style="margin-top:12px"><button class="ok" style="flex:1" onclick="saveRecipe()">Save</button><button class="ghost" onclick="closeEdit()">Cancel</button><button class="ghost" id="delBtn" style="display:none" onclick="delRecipe()">🗑 Delete</button></div>
 </div></div>
 
@@ -2527,6 +2651,9 @@
   <div class="row" style="margin-top:10px"><button type="button" class="primary" style="flex:1" data-act="imp-read">Read it</button><button type="button" class="ghost" data-act="imp-close">Close</button></div>
   <div id="impPrev" aria-live="polite"></div>
 </div></div>
+
+<!-- 🍳 what can I cook tonight? (v1.20) -->
+<div class="sheet" id="tonightSheet" onclick="if(event.target===this)closeTonight()"><div class="in" id="tonightIn"></div></div>
 
 <!-- who likes it? round -->
 <div class="sheet" id="roundSheet"><div class="in" id="roundIn"></div></div>
@@ -2613,16 +2740,16 @@ function renderRecipes(){
   $('quickAdd').style.display=(!db.qaDone && mine<3) ? '' : 'none';
   $('tagChips').innerHTML=['All',...TAGS].map(t=>`<span class="chip ${(t==='All'?'':t)===tagFilter?'on':''}" onclick="tagFilter='${t==='All'?'':t}';renderRecipes()">${t}</span>`).join('');
   const list=db.recipes.filter(r=>(!q||r.name.toLowerCase().includes(q)||(r.ing||[]).join(' ').toLowerCase().includes(q))&&(!tagFilter||(r.tags||[]).includes(tagFilter)));
-  $('recipeList').innerHTML=list.map(r=>`<div class="recipe" onclick="openView('${r.id}')" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')||'no tags'}${r.time?' · '+esc(r.time):''}${heartBadge(r)}</small></div><div class="made">${r.made||0}<span>made</span></div></div>`).join('')||'<div class="empty">No recipes match. Tap ＋ New to add one.</div>';
+  $('recipeList').innerHTML=list.map(r=>`<div class="recipe" onclick="openView('${r.id}')" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')||'no tags'}${r.time?' · '+esc(r.time):''}${costLine(r)?' · '+esc(costLine(r)):''}${heartBadge(r)}</small></div><div class="made">${r.made||0}<span>made</span></div></div>`).join('')||'<div class="empty">No recipes match. Tap ＋ New to add one.</div>';
 }
 let editId=null, editEm='', editPhoto='', editTags=[];
 function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?(r.em||''):''; editPhoto=r?(r.photo||''):''; editTags=r?[...(r.tags||[])]:[];
-  $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('rServes').value=(r&&+r.serves>0)?r.serves:''; $('delBtn').style.display=r?'':'none';
+  $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('rServes').value=(r&&+r.serves>0)?r.serves:''; $('rCost').value=(r&&costNum(r.cost))?r.cost:''; $('delBtn').style.display=r?'':'none';
   drawEmChips(); drawTagPick(); editAskHide(); $('editSheet').classList.add('on'); closeView(); editStart=editSnap(); setTimeout(()=>$('rName').focus(),100); }
 /* v1.18 (22 Oct, tester audit: a tap on the dim area above the edit sheet closed it and threw the typing away):
    if anything changed, it asks first — Save / Discard / Keep editing. Cancel still closes straight away. */
 let editStart='';
-function editSnap(){ return JSON.stringify([$('rName').value,$('rIng').value,$('rSteps').value,$('rTime').value,$('rServes').value,editEm,editPhoto,editTags]); }
+function editSnap(){ return JSON.stringify([$('rName').value,$('rIng').value,$('rSteps').value,$('rTime').value,$('rServes').value,$('rCost').value,editEm,editPhoto,editTags]); }
 function editOutside(){ if(editSnap()===editStart){ closeEdit(); return; }
   let A=$('editAsk'); if(!A){ A=document.createElement('div'); A.id='editAsk'; A.className='note'; A.setAttribute('role','alertdialog'); A.setAttribute('aria-label','Save your changes?'); A.style.cssText='display:block;margin:0 0 12px'; }
   A.innerHTML='<b style="display:block;margin-bottom:8px">Save your changes?</b><div class="row"><button type="button" class="ok" data-act="edit-ask" data-w="save" style="flex:1">Save</button><button type="button" class="ghost" data-act="edit-ask" data-w="discard">Discard</button><button type="button" class="primary" data-act="edit-ask" data-w="keep">Keep editing</button></div>';
@@ -2663,7 +2790,7 @@ function splitIng(text){ const out=[];
     parts.push(cur); parts.forEach(x=>{ x=x.trim(); if(x) out.push(x); }); });
   return out; }
 function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName').focus(); return; }
-  const rec={ name, em:(editPhoto?'':(editEm||guessEm(name))), photo:editPhoto, tags:editTags, ing:splitIng($('rIng').value), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() }; const sv=parseInt($('rServes').value,10); rec.serves=(sv>0&&sv<=60)?sv:undefined;
+  const rec={ name, em:(editPhoto?'':(editEm||guessEm(name))), photo:editPhoto, tags:editTags, ing:splitIng($('rIng').value), steps:$('rSteps').value.trim(), time:$('rTime').value.trim() }; const sv=parseInt($('rServes').value,10); rec.serves=(sv>0&&sv<=60)?sv:undefined; const cv=costNum($('rCost').value); rec.cost=cv?Math.round(cv*100)/100:undefined;
   if(editId){ Object.assign(db.recipes.find(x=>x.id===editId),rec); } else db.recipes.unshift({id:uid(),made:0,...rec});
   save(); closeEdit(); render(); toast('Saved ✓'); }
 function delRecipe(id){ id=id||editId; const r=db.recipes.find(x=>x.id===id); if(!r) return; if(!confirm('Delete “'+r.name+'”? It also comes off any night it is on.')) return; const u=otSnap();
@@ -2673,7 +2800,7 @@ function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return;
   $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}${r.made>0?` <button type="button" class="ghost" data-act="made-less" data-r="${esc(r.id)}" aria-label="Take one off the made count" style="min-height:44px;min-width:44px;padding:2px 10px;font-size:14px">−1</button>`:''}</p>
     <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
     ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
-    ${r.serves?`<p class="small">Feeds ${esc(r.serves)}, as written.</p>`:''}
+    ${r.serves?`<p class="small">Feeds ${esc(r.serves)}, as written.</p>`:''}${costNum(r.cost)?`<p class="small">💵 About ${esc(costFmt(costNum(r.cost)))} to make${costPer(r)?' — '+esc(costFmt(costPer(r)))+' a serving':''}.</p>`:''}
     <div class="row" style="margin-top:8px">${day?`<button onclick="closeView();openPick('${day}')">🔁 Swap ${day}</button>`:`<button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>`}${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="clearNight('${day}')">Clear ${day}</button><button onclick="madeIt('${r.id}')">✓ Made it tonight</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
     ${day?nightServHTML(r,day):''}${likesHTML(r,false)}`;
   $('viewSheet').classList.add('on'); if(keep) $('viewIn').scrollTop=keep; }
@@ -2694,7 +2821,7 @@ function renderWeek(){ const mon=new Date(db.weekOf+'T12:00:00'); $('weekTitle')
     return `<div class="day"><div class="dn">${d}<small>${dt.getDate()}</small></div><button class="pick ${n?'set':''}" onclick="${n?`openNight('${d}')`:`openPick('${d}')`}">${r?`<span class="em">${pic(r,24)}</span><span>${esc(r.name)}${r.time?`<span class="who">${esc(r.time)}</span>`:''}</span>`:n?`<span class="em">✍️</span><span>${esc(n.txt)}</span>`:'<span class="small">tap to choose…</span>'}</button></div>`; }).join('');
   const withRecipe=DAYS.filter(d=>{ const n=nightOf(d); return n&&n.r; }).length; let lv=1; try{ lv=(JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}')||{}).level||1; }catch(e){}
   let ml=$('otMakeList'); if(!ml){ ml=document.createElement('div'); ml.id='otMakeList'; $('weekList').after(ml); }
-  ml.innerHTML=(withRecipe>=2&&lv<2)?'<button class="primary" style="width:100%;margin-top:12px" onclick="makeMyList()">🧺 Make my shopping list from these dinners</button>':(shopStale()?staleHTML():''); }
+  ml.innerHTML=weekCostHTML()+((withRecipe>=2&&lv<2)?'<button class="primary" style="width:100%;margin-top:12px" onclick="makeMyList()">🧺 Make my shopping list from these dinners</button>':(shopStale()?staleHTML():'')); }
 window.makeMyList=function(){ try{ const f=window.djLevelSet_ourtable; if(f) f(2,true); }catch(e){} buildList(); };
 function openNight(d){ const n=nightOf(d); if(!n) return openPick(d); if(n.r) return openView(n.r.id,d);
   $('viewIn').innerHTML=`<h3>✍️ ${esc(n.txt)}</h3><p class="small">Dinner on ${d} · your own words, no recipe</p>
@@ -2890,6 +3017,74 @@ function atHome(x){ const k=homeKey(x); return !!(k&&pantryHit(k)); }
 function pantryClearHTML(){ const n=Object.keys(db.pantry||{}).length; return n?`<button type="button" class="ghost" data-act="pantry-clear" style="width:100%;margin-top:10px">Clear “already have it” (${n})</button>`:''; }
 function setHome(kind,id,on){ const arr=kind==='s'?db.shop:db.extras; const o=arr.find(x=>x.id===id); if(!o) return; const k=homeKey(o); if(!k) return; db.pantry=db.pantry||{}; if(on){ db.pantry[k]=1; o.done=false; } else { const s=sing(k); Object.keys(db.pantry).forEach(p=>{ if(p===k||sing(p)===s) delete db.pantry[p]; }); } save(); renderShop(); hostLine(); }
 
+/* ══ v1.20 · 18 Nov 2026 (Jerry: "Yes, all of them") ═════════════════════════════════════════════
+   ⑤ 🍳 What can I cook tonight? — the "already have it" ticks (db.pantry) plus anything typed in here, any of them
+   marked ⏰ use soon, go to the person's own AI through the house djAI hand-off, asking for 3 dinners that use them
+   first, from their own saved recipes where one fits. The answer is pasted back, kept (db.tonight.ans), and shown
+   as three cards; one tap puts a card on tonight (a saved recipe if the name matches one, else the night's own words).
+   ⑥ 💵 cost per serving — a recipe can carry r.cost ("about how much it costs to make", a number). With r.serves it
+   shows as a cost a serving on the recipe card; the week shows a rough total for the dinners that have one, scaled
+   to "How many at the table?" when the recipe says how many it feeds. Quiet when empty. */
+function tState(){ const t=db.tonight=(db.tonight&&typeof db.tonight==='object')?db.tonight:{}; if(!Array.isArray(t.extra)) t.extra=[]; if(!t.soon||typeof t.soon!=='object') t.soon={}; if(!t.skip||typeof t.skip!=='object') t.skip={}; if(!Array.isArray(t.ideas)) t.ideas=[]; return t; }
+function tItems(){ const t=tState(), out=[], seen=new Set();
+  Object.keys(db.pantry||{}).filter(k=>db.pantry[k]).forEach(k=>{ const s=sing(k); if(seen.has(s)) return; seen.add(s); out.push({k,t:k,from:'p',soon:!!t.soon[k],off:!!t.skip[k]}); });
+  t.extra.forEach((x,i)=>{ const s=sing(norm(x.t)); if(seen.has(s)) return; seen.add(s); out.push({k:'x'+i,t:x.t,from:'x',i,soon:!!x.soon,off:false}); });
+  return out; }
+function openTonight(){ tState(); drawTonight(); $('tonightSheet').classList.add('on'); }
+function closeTonight(){ $('tonightSheet').classList.remove('on'); }
+function drawTonight(){ const t=tState(), items=tItems(), use=items.filter(x=>!x.off);
+  const row=x=>`<div class="item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)${x.off?';opacity:.5':''}"><span style="flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere">${x.from==='p'?'🏠 ':''}${esc(x.t)}</span>`
+    +`<button type="button" class="${x.soon?'accent':'ghost'}" data-act="tn-soon" data-k="${esc(x.k)}" aria-pressed="${x.soon}" style="min-height:44px;padding:4px 10px;font-size:14px">⏰ ${x.soon?'Use soon':'Use soon?'}</button>`
+    +`<button type="button" class="ghost" data-act="tn-off" data-k="${esc(x.k)}" aria-label="${x.off?'Use':'Leave out'} ${esc(x.t)}" style="min-height:44px;min-width:44px;padding:4px 8px">${x.off?'↩︎':'✕'}</button></div>`;
+  let h=`<h3>🍳 What can I cook tonight?</h3><p class="small" style="font-size:15px;margin-top:0">What’s in the kitchen? Mark anything that needs using up with ⏰, and your AI suggests 3 dinners that use it first — from your own recipes when one fits.</p>`
+    +`<div class="row" style="flex-wrap:nowrap"><input id="tnAdd" placeholder="Something you have — chicken, rice, spinach…" aria-label="Something you have" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')tnAdd()"><button type="button" class="ok" onclick="tnAdd()">Add</button></div>`
+    +`<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="tnSoon" style="width:22px;height:22px"> ⏰ It needs using soon</label>`
+    +`<div id="tnList" style="margin-top:8px">${items.length?items.map(row).join(''):'<p class="small">Nothing yet. Type what you have above. (Things you tick “Already have it” on the shopping list show up here too, with a 🏠.)</p>'}</div>`
+    +`<button type="button" class="primary" id="tnAsk" data-act="tn-ask" style="width:100%;margin-top:12px;min-height:54px;font-size:17px"${use.length?'':' disabled'}>✨ Ask my AI for 3 dinners</button>`;
+  if(t.ideas.length||t.ans){ h+=`<h3 style="margin-top:16px">Ideas${t.at?' <small class="small" style="font-weight:500">from '+esc(t.at)+'</small>':''}</h3>`;
+    h+=t.ideas.length?t.ideas.map((x,i)=>{ const r=tMatch(x.name); return `<div class="card tnIdea" style="margin:0 0 10px;padding:12px"><b style="font-size:17px">${r?pic(r,22)+' ':''}${esc(x.name)}</b>${r?' <span class="small" style="color:var(--ok);font-weight:800">· one of your recipes</span>':''}${x.why?`<p class="small" style="margin:4px 0 8px;font-size:14.5px">${esc(x.why)}</p>`:''}<button type="button" class="ok" data-act="tn-pick" data-i="${i}" style="width:100%">📅 Put it on tonight</button></div>`; }).join('')
+      :'<p class="small">I couldn’t pick out three ideas in that answer, so here it is as it came:</p>';
+    if(t.ans) h+=`<details style="margin-top:4px"><summary class="small" style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:800">The whole answer</summary><div style="white-space:pre-wrap;font-size:15px;line-height:1.45">${esc(t.ans)}</div></details>`; }
+  h+=`<div class="row" style="margin-top:12px"><button type="button" class="ghost" onclick="closeTonight()">Close</button></div>`;
+  $('tonightIn').innerHTML=h; }
+window.tnAdd=function(){ const v=($('tnAdd').value||'').trim(); if(!v){ $('tnAdd').focus(); return; } const t=tState(), soon=$('tnSoon').checked;
+  v.split(/\s*[,;]\s*/).filter(Boolean).forEach(w=>{ if(!t.extra.some(x=>sing(norm(x.t))===sing(norm(w)))) t.extra.push({t:w.slice(0,60),soon}); });
+  save(); drawTonight(); setTimeout(()=>{ try{ $('tnAdd').focus(); }catch(e){} },50); };
+function tnToggle(k,what){ const t=tState(); if(k[0]==='x'&&/^x\d+$/.test(k)){ const i=+k.slice(1), x=t.extra[i]; if(!x) return; if(what==='soon') x.soon=!x.soon; else t.extra.splice(i,1); }
+  else { const box=what==='soon'?t.soon:t.skip; if(box[k]) delete box[k]; else box[k]=1; } save(); drawTonight(); }
+const tClean=s=>String(s||'').replace(/\s*\(example\)\s*$/i,'').trim();
+function tMatch(name){ const n=tClean(name).toLowerCase(); if(!n) return null;
+  return db.recipes.find(r=>tClean(r.name).toLowerCase()===n)||db.recipes.find(r=>{ const m=tClean(r.name).toLowerCase(); return m.length>3&&(n.includes(m)||m.includes(n)); })||null; }
+function tPrompt(){ const use=tItems().filter(x=>!x.off), soon=use.filter(x=>x.soon).map(x=>x.t), rest=use.filter(x=>!x.soon).map(x=>x.t);
+  const mine=db.recipes.map(r=>tClean(r.name)).filter(Boolean).slice(0,60);
+  return 'I need to cook dinner tonight. '
+    +(soon.length?'These need using up soon, so use them first: '+soon.join(', ')+'. ':'')
+    +(rest.length?(soon.length?'I also have: ':'Here is what I already have: ')+rest.join(', ')+'. ':'')
+    +(mine.length?'These are recipes I already make: '+mine.join('; ')+'. If one of them fits, suggest it by that exact name. ':'')
+    +'Suggest exactly 3 dinner ideas that use what I have first. Write each on its own line, like this:\n1. Dinner name — what it uses from my list, anything I would need to buy, and about how long it takes.\nPlain words, short. No other text.'; }
+function tAsk(){ const use=tItems().filter(x=>!x.off); if(!use.length){ toast('Add one thing you have first'); return; }
+  if(!window.djAI||!djAI.ask){ toast('The AI helper didn’t load — try again in a moment'); return; }
+  closeTonight();
+  djAI.ask({ title:'What can I cook tonight?', want:'text', prompt:tPrompt(), onResult:function(v,raw){ tGot(raw||v); } }); }
+function tParse(text){ const out=[]; String(text||'').split(/\r?\n/).forEach(line=>{ const m=line.replace(/\*\*|__/g,'').match(/^\s*(?:#+\s*)?(?:idea\s*)?(\d)\s*[.):-]\s*(.+)$/i); if(!m||out.length>=3) return;
+    let body=m[2].trim(), name=body, why=''; const sp=body.match(/^(.{2,80}?)\s+(?:—|–|-|:)\s+(.+)$/)||body.match(/^(.{2,80}?):\s*(.+)$/); if(sp){ name=sp[1]; why=sp[2]; }
+    name=name.replace(/^["“”']+|["“”'.]+$/g,'').trim(); if(name) out.push({name:name.slice(0,80),why:why.slice(0,300)}); });
+  return out; }
+function tGot(text){ const t=tState(); t.ans=String(text||'').trim().slice(0,4000); t.ideas=tParse(t.ans); t.at=new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); save(); openTonight();
+  setTimeout(()=>{ try{ const c=document.querySelector('#tonightIn .tnIdea')||document.querySelector('#tonightIn details'); if(c) c.scrollIntoView({block:'start',behavior:'smooth'}); }catch(e){} },120); }
+function tPick(i){ const t=tState(), x=t.ideas[i]; if(!x) return; const d=DAYS[(new Date().getDay()+6)%7], cur=nightOf(d);
+  if(cur){ const was=cur.r?cur.r.name:cur.txt; if(!confirm('Tonight ('+d+') already has '+was+'. Put '+x.name+' on tonight instead?')) return; }
+  const u=otSnap(), r=tMatch(x.name); db.week[d]=r?r.id:'txt:'+x.name; save(); closeTonight(); go('week'); render(); otUndoOffer((r?r.em||'🍽️':'✍️')+' '+(r?r.name:x.name)+' is on tonight ('+d+')', u); }
+/* ⑥ cost per serving */
+const COSTSYM=(()=>{ try{ return /Nairobi/.test(Intl.DateTimeFormat().resolvedOptions().timeZone||'')||/-KE$/i.test(navigator.language||'')?'KES ':'$'; }catch(e){ return '$'; } })();
+function costNum(v){ const n=parseFloat(String(v==null?'':v).replace(/[^\d.]/g,'')); return isFinite(n)&&n>0?n:0; }
+function costFmt(n){ return COSTSYM+(COSTSYM==='$'?(Math.round(n*100)/100).toFixed(2):Math.round(n).toLocaleString('en-KE')); }
+function costPer(r){ const c=costNum(r&&r.cost), s=+(r&&r.serves)||0; return c&&s>0?c/s:0; }
+function costLine(r){ const c=costNum(r&&r.cost); if(!c) return ''; const p=costPer(r); return p?costFmt(p)+' a serving':'about '+costFmt(c)+' to make'; }
+function weekCost(){ let sum=0, n=0, of=0; DAYS.forEach(d=>{ const x=nightOf(d); if(!x||!x.r) return; of++; const c=costNum(x.r.cost); if(!c) return; n++;
+    const p=costPer(x.r), ppl=+((db.nightServ||{})[d])||+db.servings||0; sum+=(p&&ppl)?p*ppl:c; }); return {sum,n,of}; }
+function weekCostHTML(){ const w=weekCost(); if(!w.n) return ''; return `<p class="small" id="weekCost" style="margin:10px 2px 0;font-size:15px">💵 Roughly <b>${costFmt(w.sum)}</b> for ${w.n===1?'the one dinner':'the '+w.n+' dinners'} with a cost this week${w.n<w.of?' ('+(w.of-w.n)+' more without one)':''}.</p>`; }
+
 /* ── ⑤ bring your dinners over: read pasted recipes on the phone ── */
 const IMP={ ing:/^(ingredients?|what you.{0,3}ll need|you.{0,3}ll need|shopping list)\b[^a-z0-9]{0,3}(\(.{0,40}\)|for .{0,30}|\d+\s*(servings?|people|portions?))?\s*[:.\-–—]?\s*$/i,
   steps:/^(instructions?|directions?|method|steps|preparation|prep|how to (make|cook)( it)?|cooking instructions|to make it)\s*[:.\-–—]?\s*$/i,
@@ -2998,7 +3193,7 @@ function clearWhat(w){
   if(w==='shop') return clearShop();
   if(w==='examples') return dropExamples();
   if(w==='all'){ if(!confirm('Start over? This clears every recipe (yours too), the week, the shopping list and the family names on this phone.\n\nYou can tap Undo straight after.')) return; const u=otSnap();
-    db.recipes=[]; db.week={}; db.nightServ={}; db.shop=[]; db.extras=[]; db.family=[]; db.pantry={}; delete db.shopSig; delete db.servings; delete db.qaDone; fillMsg='';
+    db.recipes=[]; db.week={}; db.nightServ={}; db.shop=[]; db.extras=[]; db.family=[]; db.pantry={}; delete db.tonight; delete db.shopSig; delete db.servings; delete db.qaDone; fillMsg='';
     try{ localStorage.setItem('dj_ourtable_seen','1'); localStorage.removeItem(OT_PLAN); }catch(e){} save(); render(); go('recipes'); otUndoOffer('Everything is cleared', u); } }
 
 /* ── one listener for every new button ── */
@@ -3023,6 +3218,10 @@ document.addEventListener('click',function(e){ const b=e.target&&e.target.closes
   else if(a==='cook-next'){ const total=stepsOf(cookR||{}).length+((cookR&&(cookR.ing||[]).length)?1:0); if(cookI>=total-1){ closeCook(); toast('Enjoy your dinner'); } else { cookI++; drawCook(); } }
   else if(a==='have') setHome(D('k'),D('id'),true);
   else if(a==='need') setHome(D('k'),D('id'),false);
+  else if(a==='tn-soon'){ tnToggle(D('k'),'soon'); }
+  else if(a==='tn-off'){ tnToggle(D('k'),'off'); }
+  else if(a==='tn-ask'){ tAsk(); }
+  else if(a==='tn-pick'){ tPick(+D('i')); }
   else if(a==='pantry-clear'){ if(!confirm('Clear every “already have it” tick? Those things go back on the list.')) return; const u=otSnap(); db.pantry={}; save(); renderShop(); hostLine(); otUndoOffer('“Already have it” cleared', u); }
   else if(a==='undo') otUndoNow();
   else if(a==='shop-rm') rmItem(D('k'),D('id'));
