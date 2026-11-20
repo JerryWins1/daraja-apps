@@ -2808,6 +2808,10 @@
 
   <div class="card" id="wStep2" hidden>
     <div class="stepdots"><span></span><span class="on"></span><span></span></div>
+    <!-- The house's Back chip, painted by wizBack(). Empty, and so invisible, when there is
+         nothing behind this step. Adding a team is the one place in this app where a screen
+         leads to another screen of its own, so it is the one place that needs it. -->
+    <div id="wBack"></div>
     <h2 class="big-h">Which team is yours?</h2>
     <p id="w2sub"></p>
     <div id="findteams" class="teams"></div>
@@ -2829,7 +2833,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.17 · 2026-11-16</small></div>
+<div class="stamp"><small id="stamp">v4.18 · 2026-11-20</small></div>
 
 <script>
 /* =========================================================================
@@ -4148,11 +4152,27 @@ $("addTeamBtn").addEventListener("click", goWizard);
 $("doneHome").addEventListener("click", goMain);
 
 /* --------------------------- add-a-team wizard --------------------------- */
+// Jerry, 20 Nov: "If you go one screen too far or something, you can't go back to the previous one."
+// Adding a team is the one flow here that goes screen to screen — paste a link, then pick your team
+// out of the list it finds, and sometimes answer a question about a second team in the same league.
+// Until now the only way out of any of those was Cancel, which threw the whole thing away: paste the
+// wrong league's link and you started over. Each step now hands the house a way to reopen the one
+// before it (window.djBack, house block v68), and paints the house's own Back chip while there is
+// somewhere to go. Everywhere else in My Scores a screen already carries its own labelled way back.
+function wizBack(){
+  const slot = $("wBack"); if(!slot) return;
+  slot.innerHTML = (window.djBack && djBack.button()) || "";
+  const b = slot.querySelector(".djBackB");
+  if(b) b.onclick = ()=>{ if(!djBack.go()) wizStep(1); };
+}
 function wizStep(n){
   $("wStep1").hidden = n!==1; $("wYahoo").hidden = n!==1;
   $("wStep2").hidden = n!==2;
   $("wStep3").hidden = n!==3;
-  if(n===1){ $("lurl").value=""; $("findmsg").hidden=true; }
+  // Step one is the start of the flow, so nothing of this app's is behind it. Dropping the trail
+  // here also keeps it from growing every time someone adds another team.
+  if(n===1){ $("lurl").value=""; $("findmsg").hidden=true; if(window.djBack) djBack.clear(); }
+  wizBack();
 }
 // Dedupe on the exact (league, team) pair — NOT on league alone. Someone can legitimately manage
 // two different teams in the same league (a family multi-team setup); keying by league only was
@@ -4163,6 +4183,10 @@ function addPick(entry){
   savePicks(PICKS);
 }
 function enterStep2(platform, leagueId, leagueName, teams){
+  // Back goes to the paste box with the link still in it, so a wrong league can be corrected
+  // rather than retyped from nothing. wizStep(1) clears the box, hence the two lines.
+  const typed = $("lurl").value;
+  if(window.djBack) djBack.push(()=>{ wizStep(1); $("lurl").value = typed; });
   $("w2sub").innerHTML = `<b>${esc(leagueName)}</b> — tap the one that's yours.`;
   const grid = $("findteams");
   grid.innerHTML = teams.map(t=>`<button type="button" data-t="${esc(String(t.id))}">${esc(t.name)}</button>`).join("");
@@ -4171,6 +4195,10 @@ function enterStep2(platform, leagueId, leagueName, teams){
   wizStep(2);
 }
 function enterStep3(teamName, leagueName){
+  // The team is saved by the time this shows, so there is nothing behind it to go back to —
+  // from here it is "+ Add another team" or "I'm done". Drop the trail rather than leave a
+  // stale way back pointing at a step that has already done its job.
+  if(window.djBack) djBack.clear();
   $("w3msg").innerHTML = `Added <b>${esc(teamName)}</b> from <b>${esc(leagueName)}</b>.`;
   wizStep(3);
 }
@@ -4187,6 +4215,9 @@ function proposeAdd(platform, leagueId, teamId, leagueName, teamName){
     pendingPick = {platform, leagueId, teamId, leagueName, teamName};
     pendingReplace = existing[0];
     $("w2cmsg").innerHTML = `You already have <b>${esc(existing[0].teamName)}</b> from this league. Is <b>${esc(teamName)}</b> a second team you manage, or should it replace that pick?`;
+    // The question replaces the team list in place, so Back here puts the list back rather than
+    // walking out of the step — tapping the wrong team was the easiest mistake to make.
+    if(window.djBack) djBack.push(()=>{ $("findteams").hidden = false; $("w2confirm").hidden = true; wizStep(2); });
     $("findteams").hidden = true; $("w2confirm").hidden = false;
     wizStep(2);
     return;
@@ -4275,8 +4306,9 @@ $("find").addEventListener("click", async ()=>{
 });
 
 $("addAnother").addEventListener("click", ()=>wizStep(1));
-$("wizDone").addEventListener("click", goMain);
-$("cancelWizard").addEventListener("click", goHome);
+// Leaving the add-a-team flow altogether drops its trail: Cancel means out, not one step back.
+$("wizDone").addEventListener("click", ()=>{ if(window.djBack) djBack.clear(); goMain(); });
+$("cancelWizard").addEventListener("click", ()=>{ if(window.djBack) djBack.clear(); goHome(); });
 
 /* --------------------------- header + entry points --------------------------- */
 $("teamsBtn").addEventListener("click", ()=> $("main").hidden ? goMain() : goHome());
