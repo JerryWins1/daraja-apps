@@ -56,10 +56,10 @@ TOUR=[
 ]
 PROMO=[
  ("Simple apps for your home, your church, and the people you love.",[STORE],"Simple apps for your home, your church & the people you love",None),
- ("Made by Jerry Winslow and family, and tested for weeks by real people in Kenya. Rated four point seven out of five.",[],"Tested for weeks · Rated 4.7 out of 5",None),
+ ("They're made to help you, and to raise money for orphans and a scholarship program in Kenya. Tested for weeks by real people, and rated four point seven out of five.",[],"Made to help you, and children in Kenya",None),
  ("Plan the week's meals. Never miss a bill. Keep your church volunteers organized. Check in on an aging parent.",["ourtable.jpg","ahead.jpg","church-serve.jpg","everyday.jpg"],"Meals · Bills · Volunteers · Family",None),
  ("No accounts, and no ads. Your information stays on your phone.",[],"No accounts. No ads. Stays on your phone.",None),
- ("Every app is free. If one helps you, a gift supports orphans and students in Kenya.",[],"Free — gifts help students in Kenya",None),
+ ("Every app is free. If one helps you, a small gift goes to that work.",[],"Free — gifts help orphans & students in Kenya",None),
  ("Try one today, at the Daraja store.",[],"jerrywins1.github.io/daraja-apps/shop",None),
 ]
 which=sys.argv[1]
