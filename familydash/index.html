@@ -2560,7 +2560,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v9.6 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v9.7 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3081,12 +3081,26 @@ function takeFile(){
   var seenNow = {};
   CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
-    db.tx.push({ id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }); IMP.added++; });
+    var nt = { id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }; db.tx.push(nt); IMP.added++; (IMP.newIds = IMP.newIds || []).push(nt.id); });
+  try{ FLAGNEW += flagSuspicious(IMP.newIds || []); IMP.newIds = []; }catch(e){}
   if(CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || a.balUnknown || (CUR.asOf || today()) >= a.asOf)){ if(a.balUnknown){ a.hist = []; delete a.balUnknown; } setBal(a, Math.abs(CUR.bal), CUR.asOf || today()); }
   if(CUR.key){ db.src = db.src || {}; db.src[CUR.key] = { a:CUR.a, flip:CUR.flip }; }
   IMP.per = IMP.per || {}; IMP.per[a.name] = (IMP.per[a.name]||0) + (CUR.files||[CUR]).length;
   save(); nextFile();
 }
+/* v9.7 · Jerry, 20 Nov: "two exactly the same charges on the same day … catch these things on the import as they're importing …
+   flag them right away … then at some point there's a review." As each statement is read, a charge that matches another on the
+   same account (same payee, same amount, within three days) is flagged: it goes on the 🔍 To look into list with the reason,
+   the screen that ends the reading says so, and the heads-up card keeps it in front of them until they say which it is. */
+var FLAGNEW = 0;
+function flagSuspicious(ids){ if(!ids.length) return 0; var isNew = {}, n = 0; ids.forEach(function(id){ isNew[id] = 1; }); db.flagged = db.flagged || {};
+  var S = db.tx.filter(function(t){ return t.amt > 0 && !t.splitOf && counts(acct(t.a)) && t.cat !== 'xfer'; }).sort(function(a,b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+  for(var i = 0; i < S.length; i++) for(var j = i + 1; j < S.length; j++){ var a = S[i], b = S[j]; if(daysBetween(a.d, b.d) > 3) break;
+    if(!(isNew[a.id] || isNew[b.id]) || a.a !== b.a || a.amt !== b.amt || (mkey(a.desc) || a.desc) !== (mkey(b.desc) || b.desc)) continue;
+    var k = 'dup:' + a.id + ':' + b.id; if(db.flagged[k]) continue;
+    db.flagged[k] = { ids:[a.id, b.id], why:'dup', at:today() }; b.look = 'Possible double charge — same as ' + shortDate(a.d); if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; n++; }
+  if(n) save(); return n; }
+function flagLine(){ var n = FLAGNEW; if(!n) return ''; FLAGNEW = 0; return '<div class="line warn" style="font-weight:700">👯 ' + n + ' charge' + (n===1?' looks':'s look') + ' doubled — the same payee, amount and day (or close). ' + (n===1?'It’s':'They’re') + ' on your 🔍 To look into list and at the top of the main screen.</div>'; }
 function afterImport(){
   if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
     MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
@@ -3828,6 +3842,7 @@ function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
     + '<div class="meter" style="margin:4px 0 12px"><i style="width:' + Math.round(S.i / S.groups.length * 100) + '%;background:var(--ok)"></i></div>'
     + (g.backTo ? '<div class="line ok" style="font-size:14px;margin:0 0 8px">Back to the other ' + g.length + ' line' + (g.length===1?'':'s') + ' from this payee — tick any more that are different, or sort the rest together.</div>' : '')
     + '<h3 style="font-family:ui-monospace,Menlo,monospace;font-size:18px;word-break:break-word">' + esc(t0.desc) + '</h3>'
+    + (g.some(function(t){ return t.look; }) ? '<div class="line warn" style="font-size:14px;margin:0 0 8px">⚠️ ' + esc(g.filter(function(t){ return t.look; })[0].look) + '</div>' : '')
     + '<p class="sub" style="margin-top:0">' + (one ? shortDate(t0.d) + ' ' + t0.d.slice(0,4) + ' · ' + (t0.amt >= 0 ? 'spent ' + money(t0.amt) : 'came in ' + money(-t0.amt)) : g.length + ' lines · ' + (each ? money(Math.abs(t0.amt)) + ' each, ' : '') + money(Math.abs(tot)) + ' in all · ' + shortDate(g[0].d) + ' to ' + shortDate(g[g.length-1].d)) + '</p>'
     + (one ? '' : '<details style="margin:-4px 0 10px"' + (g.backTo ? ' open' : '') + '><summary style="cursor:pointer;font-weight:800;color:var(--brand);font-size:14px">See each line</summary><p class="sub" style="margin:6px 0 0;font-size:13px">Tick any line that’s different, then sort it on its own.</p><ul class="list">' + g.map(function(t, i){ return '<li style="font-size:14px;display:block"><label style="display:flex;gap:10px;align-items:center;width:100%;margin:0;font-weight:400;cursor:pointer"><input type="checkbox" data-li="' + i + '" onchange="sinTicks()" style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:0;padding:0"><span style="flex:0 0 52px;color:var(--soft)">' + shortDate(t.d) + '</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">' + esc(t.desc) + (t.note ? '<small style="display:block;color:var(--soft)">' + esc(t.note) + '</small>' : '') + '</span><span style="flex:0 0 auto;font-weight:800">' + money(Math.abs(t.amt)) + '</span></label></li>'; }).join('') + '</ul><button class="b small" id="sinOwn" style="display:none" onclick="sinOwn()">Sort these on their own</button></details>')   /* v9.4 · Jerry: "I lost the ability to pick each line and deal with it" */
     + (sets.length > 1 ? '<div class="line warn" style="font-size:14.5px">These look like <b>' + sets.length + ' different charges</b> — ' + sets.slice(0, 4).map(function(T){ return money(Math.abs(T[T.length-1].amt)) + ' ×' + T.length; }).join(', ') + (sets.length > 4 ? '…' : '') + '. <a href="#" onclick="sortInSplitBy();return false" style="font-weight:800">Sort each one</a></div>' : '')
@@ -4104,7 +4119,7 @@ var NEWM = 0;
 function newMonth(){ if(!(FS.h && window.showDirectoryPicker) && !canFolder()){ alert('On a phone or tablet, open each account in the money map and add its new statement there.'); openMap(); return; } NEWM = 1; mapRefresh(); }
 function newMonthDone(added){ NEWM = 0; var n = 0, card = 0; sortAccts().forEach(function(a){ var r = autoKnown(a.id); n += r.n; card += r.card; }); reguess(); save(); render();
   var q = queue().length, bad = db.accts.filter(function(a){ return fmBadPdfs(a).length; }).length;
-  openSheet('<div class="stepno">New month</div><h3>' + added + ' new line' + (added===1?'':'s') + ' read</h3><div class="line ok">' + n + ' filed themselves — payees you already know' + (card ? ' · ' + card + ' card payment' + (card===1?'':'s') : '') + '</div>'
+  openSheet('<div class="stepno">New month</div><h3>' + added + ' new line' + (added===1?'':'s') + ' read</h3>' + flagLine() + '<div class="line ok">' + n + ' filed themselves — payees you already know' + (card ? ' · ' + card + ' card payment' + (card===1?'':'s') : '') + '</div>'
     + (bad ? '<p class="sub">' + bad + ' account' + (bad===1?' has':'s have') + ' a PDF I couldn’t read — the money map shows which.</p>' : '')
     + '<div class="stickfoot">' + (q ? '<button class="b primary full" style="margin-top:0" onclick="askRound()">Answer the ' + q + ' new one' + (q===1?'':'s') + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="closeSheet();render()">Nothing new to ask — done</button>') + '</div>'); }
 
@@ -4494,10 +4509,12 @@ function headsUps(){ var H = [], m = thisMonth(), seen = db.huSeen || {};
   rvSubsList().forEach(function(s){ var T = db.tx.filter(function(t){ return (t.sub ? 'sub:' + t.sub : mkey(t.desc) || t.desc) === s.k; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }); if(!T.length) return;
     var first = T[0].d; if(T.length > 2 || daysBetween(first, today()) > 45 || /annual|yearly|membership fee/i.test(s.desc)) return;   /* a yearly fee is not a trial running out */ H.push({ k:'sub:' + s.k, pri:3, em:'🆕', t:'New: ' + esc(s.desc) + ' · ' + money(s.amt) + (s.cyc === 'month' ? ' a month' : s.cyc === 'year' ? ' a year' : '') + '.', sub:'First seen ' + esc(shortDate(first)) + '. If it began as a free trial, it’s paying now. Keep it?', sub2:s }); });
   try{ H = H.concat(noticeMore()); }catch(e){}
+  Object.keys(db.flagged || {}).forEach(function(k){ var f = db.flagged[k]; if(f.done) return; var a = db.tx.filter(function(t){ return t.id === f.ids[0]; })[0], b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0]; if(!a || !b) return;
+    H.push({ k:'flag:' + k, fk:k, pri:0, em:'👯', t:'Charged twice? ' + esc(b.desc) + ' · ' + money(b.amt) + ' on ' + esc(shortDate(a.d)) + (a.d === b.d ? ', twice' : ' and ' + esc(shortDate(b.d))) + '.', sub:esc(acctLabel(acct(b.a) || {})) + '. If one is a mistake, call the company or the card to have it taken off.' }); });
   return H.filter(function(h){ return !seen[h.k]; }).sort(function(a,b){ return a.pri - b.pri; }); }
 var HU = null;
 function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0]; HU = h;
-  var btns = h.look ? '<button class="b small primary" onclick="huLook()">🔍 Look into it</button><button class="b small" onclick="huSeen()">That’s right</button>' : (h.k || '').match(/^(miss|inc|low):/) ? '' : h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
+  var btns = h.fk ? '<button class="b small primary" onclick="flagDone(\'call\')">It’s a mistake — keep it on my list</button><button class="b small" onclick="flagDone(\'ok\')">Both are right</button>' : h.look ? '<button class="b small primary" onclick="huLook()">🔍 Look into it</button><button class="b small" onclick="huSeen()">That’s right</button>' : (h.k || '').match(/^(miss|inc|low):/) ? '' : h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
   var tm = new Date(Date.now() + 864e5), rd = addMonths(h.dueM || thisMonth(), -1) > thisMonth() ? addMonths(h.dueM, -1) : ymd(tm);   /* a month before it's due, or tomorrow if that's already passed */
   if(h.dueM) btns += '<button class="b small" onclick="remindICS(\'' + rd + '\',' + JSON.stringify(h.c ? h.c.name + ' due ' + monthOnly(h.dueM) : 'Family money').replace(/"/g,'&quot;') + ')">⏰ Remind me</button>';
   return '<div class="card" id="headsUp" style="border:2px solid #E3B04B;background:#FFF8E8;padding:14px 16px"><div class="stepno" style="color:#9a5b00">Heads up' + (h.dueM ? ' · coming in ' + esc(monthOnly(h.dueM)) : '') + '</div>'
@@ -4505,6 +4522,10 @@ function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0
     + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px">' + btns + '<button class="b small ghost" onclick="huSeen()">Got it</button></div>'
     + (H.length > 1 ? '<p class="sub" style="margin:8px 0 0;font-size:13px">One more after this.</p>' : '') + '</div>'; }
 function huLook(){ var t = HU.look; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); delete db.asked[t.id]; huSeen('look'); toast('Added to your 🔍 To look into list.'); }
+function flagDone(how){ var f = db.flagged[HU.fk]; if(!f) return; f.done = how; var b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0];
+  if(b && how === 'ok'){ db.notSure = db.notSure.filter(function(x){ return x !== b.id; }); delete b.look; }
+  if(b && how === 'call'){ b.look = 'Charged twice — call to have it taken off'; }
+  huSeen(how); toast(how === 'ok' ? 'Got it — both stay.' : 'Kept on your 🔍 To look into list.'); }
 function huSeen(note){ if(!HU) return; db.huSeen = db.huSeen || {}; db.huSeen[HU.k] = note || today(); save(); closeSheet(); render(); }
 function huSavings(){ huSeen('savings'); toast('Noted — the rest comes from savings when it’s due.'); }
 function huCancel(){ var s = HU.sub2; db.subRev = db.subRev || {}; db.subRev[s.k] = db.subRev[s.k] || s; huSeen('cancel'); cancelHelp(s.k); }
@@ -5648,7 +5669,7 @@ function fmDone(SK){ if(!FMAUTO && !FAI && aiAuto() && db.accts.some(function(a)
     if(!kids && t[0] === 'other') return ''; var n = (kids.match(/class="fmn acc/g) || []).length; if(!kids) kids = '<div class="fmn acc none" onclick="fmAssign(\'' + t[0] + '\')"><b>— none yet —</b><small>tap to pick its folders</small></div>';
     return '<div class="fmrow"><div class="fmn grp tap" data-fm="g' + t[0] + '" onclick="fmAssign(\'' + t[0] + '\')" title="Say which folders belong here">' + t[1] + ' ' + esc(t[2]) + '<small>✎ ' + n + ' ' + (t[0] === 'ins' ? 'polic' + (n===1?'y':'ies') : t[0] === 'other' ? 'folder' + (n===1?'':'s') : 'account' + (n===1?'':'s')) + '</small></div><div class="fmkids">' + kids + '</div></div>'; }).join('');
   var loose = Object.keys(FML).map(function(f){ return '<div class="fmn loose">📂 ' + esc(f) + '<small>' + FML[f] + ' file' + (FML[f]===1?'':'s') + ' · not in a group — move it into one</small></div>'; }).join('');
-  openSheet('<div class="stepno">Setting up · step 3 of 3</div><h3>Your folder, connected</h3><p class="sub">Each line runs from a folder on your computer to the account it became. <b>Tap a group</b> to say which folders belong in it; tap an account to rename it.</p>'
+  openSheet('<div class="stepno">Setting up · step 3 of 3</div><h3>Your folder, connected</h3>' + flagLine() + '<p class="sub">Each line runs from a folder on your computer to the account it became. <b>Tap a group</b> to say which folders belong in it; tap an account to rename it.</p>'
     + (nBad ? '<div class="line warn" style="font-weight:700;font-size:14.5px">📄 ' + nBad + ' PDF' + (nBad===1?'':'s') + ' I couldn’t read myself. ' + ((db.prof||{}).send === 'no' ? 'You chose not to send statements to AI — download CSV files for ' + (nBad===1?'that month':'those months') + ' from the bank instead, or <a href="#" onclick="db.prof.send=\'ask\';save();fmAIall();return false" style="color:var(--brand);font-weight:800">read ' + (nBad===1?'it':'them') + ' with AI this once</a>.' : '<button class="b primary small" style="margin-left:6px" onclick="fmAIall()">✨ Read ' + (nBad===1?'it':'them all') + ' with AI</button>') + '</div>' : '')
     + '<div class="fmcanvas" id="fmCanvas"><svg id="fmSvg" aria-hidden="true"></svg><div class="fmroot"><div class="fmn root" data-fm="root">📁 Family Money<small>' + nFold + ' folder' + (nFold===1?'':'s') + ' · ' + nFiles + ' file' + (nFiles===1?'':'s') + '</small></div>' + (loose ? '<div class="fmloose">' + loose + '</div>' : '') + '</div><div class="fmgroups">' + groups + '</div></div>'
     + '<div class="fmlegend"><span style="--c:var(--ok)">all read</span><span style="--c:#E3A23B">some PDFs need AI</span><span style="--c:var(--red)">nothing to read</span>' + (loose ? '<span style="--c:#B9B2A6">outside the groups</span>' : '') + '</div>'
