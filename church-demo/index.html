@@ -2760,7 +2760,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--ink-2);margin-bot
       <button id="install-x" aria-label="Dismiss">Got it</button>
     </div>
 
-    <p class="footer">Grace Harbor Church · 1200 Harbor Way, Lakeside<br><a href="tel:5555550137">(555) 555-0137</a> · <a href="#">graceharbor.example</a><br><span style="opacity:.7">Grace Harbor Church App <b>v1.1</b> · 2026-11-15 · Daraja Studio</span></p>
+    <p class="footer">Grace Harbor Church · 1200 Harbor Way, Lakeside<br><a href="tel:5555550137">(555) 555-0137</a> · <a href="#">graceharbor.example</a><br><span style="opacity:.7">Grace Harbor Church App <b>v1.2</b> · 2026-11-20 · Daraja Studio</span></p>
   </main>
 
   <!-- WATCH -->
@@ -2885,7 +2885,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--ink-2);margin-bot
         </div>
       </div>
     </div>
-    <p class="footer">Grace Harbor Church App · v1.1 · 2026-11-15</p>
+    <p class="footer">Grace Harbor Church App · v1.2 · 2026-11-20</p>
   </section>
 
   <nav class="tabbar" aria-label="Main">
@@ -3420,11 +3420,28 @@ ta.addEventListener('input',function(){ try{ localStorage.setItem(NKEY,JSON.stri
   function open(){ W.classList.add('on'); document.body.style.overflow = 'hidden';
     allS().then(function(list){ var mine = (list || []).filter(function(x){ return x.vid === CUR.id; }).sort(function(a,b){ return b.created - a.created; })[0];
       S = mine || newSession(); if(!mine) migrateV1(S); else if(mergeLS(S)) save(); TAB = (S.dur || S.words) && !REC ? 'after' : 'during'; draw(); }).catch(function(){ S = newSession(); draw(); }); }
-  function close(){ if(REC){ if(!confirm('Stop recording and close?')) return; stopRec(); } W.classList.remove('on'); document.body.style.overflow = ''; try{ if(PLAYER) PLAYER.pause(); }catch(e){} }
+  function close(){ if(REC){ if(!confirm('Stop recording and close?')) return; stopRec(); } W.classList.remove('on'); document.body.style.overflow = '';
+    try{ if(PLAYER) PLAYER.pause(); }catch(e){}
+    /* the flow is over, so the trail goes with it — the same thing the house does when one of
+       its own sheets is dismissed. Without this, a Back tapped later would reopen this panel. */
+    try{ if(window.djBack) window.djBack.clear(); }catch(e){} }
+
+  /* 20 Nov. Jerry: "If you go one screen too far or something, you can't go back to the previous
+     one." Inside this panel that was real in one place: the Library lists every sermon you have
+     recorded, and opening one REPLACED the sermon you were looking at. The header offered Library
+     and ✕ and nothing else, so the only way back to where you were was to close the whole panel
+     and start again, losing your place. These remember the screen being left, on the house's own
+     back-stack (house block v68), so one Back is one screen. */
+  function backRemember(){
+    var wasS = S, wasTab = TAB;
+    try{ if(window.djBack) window.djBack.push(function(){ S = wasS; TAB = wasTab; draw(); }); }catch(e){}
+  }
+  function backHere(){ try{ return !!(window.djBack && window.djBack.depth()); }catch(e){ return false; } }
+  function backChip(){ return backHere() ? '<button type="button" data-a="back" aria-label="Back to the screen before">\u2039 Back</button>' : ''; }
   window.openSermonNotes = open;
   var ob = document.getElementById('sermonNotesBtn'); if(ob) ob.onclick = open;
 
-  function header(){ return '<div class="hd"><b>📝 Sermon Notes</b><button type="button" data-a="lib">📚 Library</button><button type="button" data-a="x" aria-label="Close">✕</button></div>'
+  function header(){ return '<div class="hd"><b>📝 Sermon Notes</b>' + backChip() + '<button type="button" data-a="lib">📚 Library</button><button type="button" data-a="x" aria-label="Close">✕</button></div>'
     + '<div class="tabs"><button type="button" data-sntab="during" aria-pressed="' + (TAB === 'during') + '">🎙 During</button><button type="button" data-sntab="after" aria-pressed="' + (TAB === 'after') + '">✨ After</button></div>'; }
   function msgCard(){ var slides = (CUR.outline && CUR.outline.length) ? CUR.outline : (V1_SLIDES[CUR.id] || null), verses = [].concat(CUR.ref ? [CUR.ref] : [], CUR.verses || []);
     return '<div class="card"><div class="eyebrow">' + esc(S.vid === CUR.id ? 'This Sunday' : 'Sermon') + (CUR.series && CUR.series !== 'Standalone' ? ' · ' + esc(CUR.series) : '') + '</div>'
@@ -3499,8 +3516,8 @@ ta.addEventListener('input',function(){ try{ localStorage.setItem(NKEY,JSON.stri
     var el = e.target.closest('button,a'); if(!el || !W.contains(el)) return;
     var a = el.getAttribute('data-a');
     if(a === 'x') return close();
-    if(a === 'lib') return drawLib();
-    if(a === 'back') return draw();
+    if(a === 'lib'){ backRemember(); return drawLib(); }
+    if(a === 'back'){ try{ if(window.djBack && window.djBack.go()) return; }catch(e){} return draw(); }
     if(el.hasAttribute('data-sntab')){ TAB = el.getAttribute('data-sntab'); return draw(); }  /* 7 Oct deep check: own attribute — data-tab blanked the app */
     if(a === 'rec') return startRec();
     if(a === 'stop'){ stopRec(); return; }
@@ -3514,7 +3531,9 @@ ta.addEventListener('input',function(){ try{ localStorage.setItem(NKEY,JSON.stri
     if(el.hasAttribute('data-save')){ var k2 = el.getAttribute('data-save'), ta = W.querySelector('#sn2P_' + k2), v2 = (ta && ta.value || '').trim(); if(!v2){ ta && ta.focus(); return; } if(k2 === 'sum') S.summary = v2; else S.aiq = v2; save(); toast2('Saved'); return draw(); }
     if(el.hasAttribute('data-redo')){ if(el.getAttribute('data-redo') === 'sum') S.summary = ''; else S.aiq = ''; save(); return draw(); }
     if(a === 'share'){ var st = shareText(); if(navigator.share){ navigator.share({ title:S.title, text:st }).catch(function(){}); } else { fallbackCopy(st); toast2('Copied — paste it into a text or email'); } return; }
-    if(el.hasAttribute('data-opens')){ getS(el.getAttribute('data-opens')).then(function(s){ if(s){ S = s; TAB = 'after'; draw(); } }); return; }
+    if(el.hasAttribute('data-opens')){ getS(el.getAttribute('data-opens')).then(function(s){ if(s){
+      try{ if(window.djBack) window.djBack.push(drawLib); }catch(e){}   /* Back from a past sermon returns to the Library */
+      S = s; TAB = 'after'; draw(); } }); return; }
     if(el.hasAttribute('data-dels')){ if(!confirm('Delete this sermon, its recording and notes from your phone?')) return; delS(el.getAttribute('data-dels')).then(drawLib); return; }
   });
   W.addEventListener('input', function(e){ var t = e.target; if(t.hasAttribute && t.hasAttribute('data-ans')){ S.answers = S.answers || {}; S.answers[t.getAttribute('data-ans')] = t.value; clearTimeout(W.__t); W.__t = setTimeout(save, 400); } });
