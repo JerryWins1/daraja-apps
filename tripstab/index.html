@@ -2590,7 +2590,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If <span class="nameHere">Trip Tab</span> helps your group, a gift to Loving InDeed helps orphans and students in Kenya. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot" id="ver">Trip Tab v0.1 · 2026-11-18 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
+  <p class="foot" id="ver">Trip Tab v0.2 · 2026-11-20 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big add" id="addBtn" onclick="openAdd()">＋ Add a cost</button>
@@ -2603,8 +2603,9 @@
 <script>
 /* Trip Tab v0.1 — one phone keeps the tab for a group trip. No server, no account, no shared room.
    Everything lives in localStorage under one key. Money is kept in whole cents so balances always sum to zero.
-   The name lives in APP_NAME (and in manifest.webmanifest) — change it there. */
-var APP_NAME = 'Trip Tab', VERSION = 'v0.1', VDATE = '2026-11-18';
+   The name lives in APP_NAME (and in manifest.webmanifest) — change it there.
+   v0.2 · 20 Nov: ← Back from Start a new trip to All my trips (house v68 djBack). */
+var APP_NAME = 'Trip Tab', VERSION = 'v0.2', VDATE = '2026-11-20';
 var KEY = 'dj_triptab_v1'; window.DJ_OWNS = { k:[KEY], p:['dj_triptab_'] };   /* every name this app writes, so the house Start fresh finds them */
 var TOUR = /[?&]tour=1(&|$)/.test(location.search);   /* the store's camera: an invented example, in memory only */
 var EX = false;   /* true while an example trip is on screen: nothing is saved */
@@ -2725,8 +2726,18 @@ function tripsHTML(onScreen){
 }
 
 /* ── sheets ── */
-function openSheet(html){ document.getElementById('sheetIn').innerHTML = html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
-function closeSheet(){ document.getElementById('sheet').classList.remove('on'); }
+/* v0.2 · 20 Nov: ← Back between sheets (house v68 window.djBack). Jerry: "If you go one screen too far
+   or something, you can't go back to the previous one." A sheet that leads on to another (All my trips)
+   says what it is with `here`; when the next sheet replaces it, it goes on the back-stack, and the Back
+   chip at the top of the next sheet reopens it. Closing the sheet ends the trail. */
+var SHOWING = null, BACKING = 0;
+function openSheet(html, here){ var s = document.getElementById('sheet');
+  if(s.classList.contains('on') && SHOWING && !BACKING && (!here || here.k !== SHOWING.k) && window.djBack) djBack.push(SHOWING.fn);
+  SHOWING = here || null;
+  document.getElementById('sheetIn').innerHTML = (window.djBack ? djBack.button() : '') + html; s.classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
+function closeSheet(){ document.getElementById('sheet').classList.remove('on'); SHOWING = null; if(window.djBack) djBack.clear(); }
+document.addEventListener('click', function(e){ var b = e.target.closest ? e.target.closest('#sheetIn .djBackB') : null; if(!b || !window.djBack) return;
+  BACKING = 1; try{ djBack.go(); }finally{ BACKING = 0; } });
 function toast(s){ var e = document.getElementById('toast'); e.textContent = s; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2600); }
 
 /* ── a trip: name, people, money ── */
@@ -2770,7 +2781,7 @@ function saveTrip(){ var t = trip(), keep = [], stuck = [];
   t.exps.forEach(function(x){ if(x.type === 'some') x.among = x.among.filter(function(id){ return keep.some(function(p){ return p.id === id; }); }); });
   save(); closeSheet(); render(); toast(stuck.length ? listWords(stuck) + ' stayed — they have costs on this trip.' : 'Saved');
 }
-function openTrips(){ openSheet(tripsHTML(false) + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>'); }
+function openTrips(){ openSheet(tripsHTML(false) + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>', { k:'trips', fn:openTrips }); }
 function pickTrip(id){ if(EX && !db.trips.some(function(t){ return t.id === id; })) return; db.open = id; save(); closeSheet(); render(); window.scrollTo(0,0); }
 function finishTrip(){ var t = trip(), left = settle(t).length;
   if(!confirm((left ? 'Not everyone is square yet (' + left + (left === 1 ? ' payment' : ' payments') + ' to go). ' : '') + 'Finish “' + t.name + '” and put it away? You can still open it later.')) return;

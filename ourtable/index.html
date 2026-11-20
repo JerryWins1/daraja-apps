@@ -2653,7 +2653,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.20 · 2026-11-18 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
+  <p class="foot">Our Table v1.21 · 2026-11-20 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
 </div>
 
 <nav>
@@ -2783,7 +2783,7 @@ function renderRecipes(){
 let editId=null, editEm='', editPhoto='', editTags=[];
 function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?(r.em||''):''; editPhoto=r?(r.photo||''):''; editTags=r?[...(r.tags||[])]:[];
   $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('rServes').value=(r&&+r.serves>0)?r.serves:''; $('rCost').value=(r&&costNum(r.cost))?r.cost:''; $('delBtn').style.display=r?'':'none';
-  drawEmChips(); drawTagPick(); editAskHide(); $('editSheet').classList.add('on'); closeView(); editStart=editSnap(); setTimeout(()=>$('rName').focus(),100); }
+  drawEmChips(); drawTagPick(); editAskHide(); otFrom(); otChip($('editSheet').querySelector('.in')); $('editSheet').classList.add('on'); editStart=editSnap(); setTimeout(()=>$('rName').focus(),100); }
 /* v1.18 (22 Oct, tester audit: a tap on the dim area above the edit sheet closed it and threw the typing away):
    if anything changed, it asks first — Save / Discard / Keep editing. Cancel still closes straight away. */
 let editStart='';
@@ -2811,7 +2811,7 @@ window.readPhoto=function(inp){ const f=(inp.files||[])[0]; if(!f) return; const
   fr.readAsDataURL(f); inp.value=''; };
 function drawTagPick(){ $('tagPick').innerHTML=TAGS.map(t=>`<span class="chip ${editTags.includes(t)?'on':''}" onclick="toggleTag('${t}')">${t}</span>`).join(''); }
 function toggleTag(t){ editTags=editTags.includes(t)?editTags.filter(x=>x!==t):[...editTags,t]; drawTagPick(); }
-function closeEdit(){ editAskHide(); $('editSheet').classList.remove('on'); }
+function closeEdit(){ editAskHide(); $('editSheet').classList.remove('on'); otEnd(); }
 /* v1.18 (22 Oct, tester audit: “rice, beef, onions” on one line stayed one ingredient and one shopping line):
    a line is also split at ; and at a comma before a word (or “, 2 …” after a word) — never inside ( ), never in 1,5 kg or 1,000, and not
    before a note like “, chopped” / “, to taste”. */
@@ -2834,15 +2834,28 @@ function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName')
 function delRecipe(id){ id=id||editId; const r=db.recipes.find(x=>x.id===id); if(!r) return; if(!confirm('Delete “'+r.name+'”? It also comes off any night it is on.')) return; const u=otSnap();
   db.recipes=db.recipes.filter(x=>x.id!==id); DAYS.forEach(d=>{ if(db.week[d]===id) delete db.week[d]; }); save(); closeEdit(); closeView(); render(); otUndoOffer('Deleted '+r.name, u); }
 let viewId='', viewDay='';
-function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return; viewId=id; viewDay=day||''; const keep=$('viewSheet').classList.contains('on')?$('viewIn').scrollTop:0;
+function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return; viewId=id; viewDay=day||''; VIEWFN=()=>openView(id,day); const keep=$('viewSheet').classList.contains('on')?$('viewIn').scrollTop:0;
   $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}${r.made>0?` <button type="button" class="ghost" data-act="made-less" data-r="${esc(r.id)}" aria-label="Take one off the made count" style="min-height:44px;min-width:44px;padding:2px 10px;font-size:14px">−1</button>`:''}</p>
     <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
     ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
     ${r.serves?`<p class="small">Feeds ${esc(r.serves)}, as written.</p>`:''}${costNum(r.cost)?`<p class="small">💵 About ${esc(costFmt(costNum(r.cost)))} to make${costPer(r)?' — '+esc(costFmt(costPer(r)))+' a serving':''}.</p>`:''}
-    <div class="row" style="margin-top:8px">${day?`<button onclick="closeView();openPick('${day}')">🔁 Swap ${day}</button>`:`<button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>`}${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="clearNight('${day}')">Clear ${day}</button><button onclick="madeIt('${r.id}')">✓ Made it tonight</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
+    <div class="row" style="margin-top:8px">${day?`<button onclick="openPick('${day}')">🔁 Swap ${day}</button>`:`<button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>`}${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="clearNight('${day}')">Clear ${day}</button><button onclick="madeIt('${r.id}')">✓ Made it tonight</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
     ${day?nightServHTML(r,day):''}${likesHTML(r,false)}`;
-  $('viewSheet').classList.add('on'); if(keep) $('viewIn').scrollTop=keep; }
-function closeView(){ $('viewSheet').classList.remove('on'); }
+  otChip($('viewIn')); $('viewSheet').classList.add('on'); if(keep) $('viewIn').scrollTop=keep; }
+function closeView(){ $('viewSheet').classList.remove('on'); otEnd(); }
+/* v1.21 · 20 Nov: ← Back between screens (house v68 window.djBack). Jerry: "If you go one screen too far or
+   something, you can't go back to the previous one." A recipe or a night leads on to Edit, Swap (the pick
+   list) and Cook; the one being left goes on the back-stack (otFrom), and the Back chip at the top of the next
+   screen hides it and reopens the one before. The 📅 Plan a meal sheets keep their own ‹ buttons; its
+   ＋ A new recipe now leaves a Back to the list it came from. Close, Cancel, Save, Done or the dark area ends the trail. */
+let VIEWFN=null, BACKING=0;
+function otLead(fn){ if(fn&&!BACKING&&window.djBack) djBack.push(fn); }
+function otEnd(){ if(!BACKING&&window.djBack) djBack.clear(); }
+function otFrom(){ if($('viewSheet').classList.contains('on')){ otLead(VIEWFN); $('viewSheet').classList.remove('on'); } }
+function otChip(el){ if(!el) return; el.querySelectorAll(':scope > .djBackB').forEach(b=>b.remove()); const h=window.djBack?djBack.button():''; if(h) el.insertAdjacentHTML('afterbegin',h); }
+document.addEventListener('click',e=>{ const b=e.target.closest?e.target.closest('#viewIn .djBackB, #editSheet .djBackB, #pickSheet .djBackB, #cookOv .djBackB'):null; if(!b||!window.djBack) return;
+  if($('editSheet').classList.contains('on')&&editSnap()!==editStart&&!confirm('Go back without saving your changes?')) return;
+  BACKING=1; try{ ['viewSheet','editSheet','pickSheet'].forEach(id=>$(id).classList.remove('on')); editAskHide(); if(cookR){ $('cookOv').classList.remove('on'); cookR=null; wakeOff(); } djBack.go(); }finally{ BACKING=0; } });
 /* v1.18 (22 Oct, tester audit: “Made it tonight” was the first button on a planned night and could not be taken back):
    it now offers ↩︎ Undo, the count has a small −1, and on a night 🔁 Swap comes first and “Made it” is a plain button. */
 function madeIt(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return; const u=otSnap(); r.made=(r.made||0)+1; r.last=ymd(new Date()); save(); closeView(); render(); otUndoOffer('Nice — '+r.made+(r.made===1?' time':' times')+' now', u); }
@@ -2861,14 +2874,14 @@ function renderWeek(){ const mon=new Date(db.weekOf+'T12:00:00'); $('weekTitle')
   let ml=$('otMakeList'); if(!ml){ ml=document.createElement('div'); ml.id='otMakeList'; $('weekList').after(ml); }
   ml.innerHTML=weekCostHTML()+((withRecipe>=2&&lv<2)?'<button class="primary" style="width:100%;margin-top:12px" onclick="makeMyList()">🧺 Make my shopping list from these dinners</button>':(shopStale()?staleHTML():'')); }
 window.makeMyList=function(){ try{ const f=window.djLevelSet_ourtable; if(f) f(2,true); }catch(e){} buildList(); };
-function openNight(d){ const n=nightOf(d); if(!n) return openPick(d); if(n.r) return openView(n.r.id,d);
+function openNight(d){ const n=nightOf(d); if(!n) return openPick(d); if(n.r) return openView(n.r.id,d); VIEWFN=()=>openNight(d);
   $('viewIn').innerHTML=`<h3>✍️ ${esc(n.txt)}</h3><p class="small">Dinner on ${d} · your own words, no recipe</p>
-    <div class="row" style="margin-top:8px"><button onclick="closeView();openPick('${d}')">🔁 Swap ${d}</button><button onclick="clearNight('${d}')">Clear ${d}</button><button class="ghost" onclick="closeView()">Close</button></div>`;
-  $('viewSheet').classList.add('on'); }
-function openPick(d){ pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=`<div style="border:1.5px dashed rgba(128,128,128,.4);border-radius:14px;padding:10px;margin-bottom:10px"><b>✍️ Something else</b>
+    <div class="row" style="margin-top:8px"><button onclick="openPick('${d}')">🔁 Swap ${d}</button><button onclick="clearNight('${d}')">Clear ${d}</button><button class="ghost" onclick="closeView()">Close</button></div>`;
+  otChip($('viewIn')); $('viewSheet').classList.add('on'); }
+function openPick(d){ otFrom(); otChip($('pickSheet').querySelector('.in')); pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=`<div style="border:1.5px dashed rgba(128,128,128,.4);border-radius:14px;padding:10px;margin-bottom:10px"><b>✍️ Something else</b>
     <div class="row" style="margin-top:6px;flex-wrap:nowrap"><input id="pickTxt" placeholder="Pizza night, leftovers, out with Kara…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')pickText()"><button class="ok" onclick="pickText()">Put it on ${d}</button></div>
     <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="pickSave" style="width:20px;height:20px"> Save it as a recipe too</label></div>`+db.recipes.map(r=>`<div class="recipe" onclick="setDay('${d}','${r.id}');closePick()" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')}${heartBadge(r)}</small></div></div>`).join('')||'<div class="empty">Add a recipe first.</div>'; $('pickSheet').classList.add('on'); }
-function closePick(){ $('pickSheet').classList.remove('on'); }
+function closePick(){ $('pickSheet').classList.remove('on'); otEnd(); }
 window.pickText=function(){ const t=($('pickTxt').value||'').trim(); if(!t){ $('pickTxt').focus(); return; }
   if($('pickSave').checked){ const id=uid(); db.recipes.unshift({id,made:0,name:t,em:guessEm(t),photo:'',tags:[],ing:[],steps:'',time:''}); setDay(pickDay,id); toast('Saved as a recipe and put on '+pickDay+' — add its ingredients any time'); }
   else { setDay(pickDay,'txt:'+t); toast('✍️ '+t+' on '+pickDay); }
@@ -3037,7 +3050,7 @@ let cookR=null, cookI=0, wakeL=null;
 async function wakeOn(){ try{ if(navigator.wakeLock&&navigator.wakeLock.request&&document.visibilityState==='visible'){ wakeL=await navigator.wakeLock.request('screen'); $('cookAwake').textContent='The screen stays on while you cook.'; try{ wakeL.addEventListener('release',()=>{ wakeL=null; }); }catch(e){} } }catch(e){ wakeL=null; } }
 function wakeOff(){ try{ if(wakeL) wakeL.release().catch(()=>{}); }catch(e){} wakeL=null; }
 document.addEventListener('visibilitychange',()=>{ if(cookR&&document.visibilityState==='visible'&&!wakeL) wakeOn(); });
-function openCook(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return; cookR=r; cookI=0; closeView(); $('cookAwake').textContent=''; $('cookTitle').textContent=r.name; drawCook(); $('cookOv').classList.add('on'); wakeOn(); }
+function openCook(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return; cookR=r; cookI=0; otFrom(); otChip(document.querySelector('#cookOv .top')); $('cookAwake').textContent=''; $('cookTitle').textContent=r.name; drawCook(); $('cookOv').classList.add('on'); wakeOn(); }
 function drawCook(){ if(!cookR) return; const steps=stepsOf(cookR), ing=(cookR.ing||[]); const hasIng=ing.length>0; const total=steps.length+(hasIng?1:0);
   cookI=Math.min(Math.max(0,cookI),total-1); const atIng=hasIng&&cookI===0; const si=cookI-(hasIng?1:0);
   $('cookProg').textContent=atIng?'First, get these out':`Step ${si+1} of ${steps.length}`;
@@ -3045,7 +3058,7 @@ function drawCook(){ if(!cookR) return; const steps=stepsOf(cookR), ing=(cookR.i
   $('cookBody').scrollTop=0;
   const back=document.querySelector('#cookOv [data-act="cook-back"]'), nx=document.querySelector('#cookOv [data-act="cook-next"]');
   back.disabled=cookI===0; nx.textContent=cookI>=total-1?'✓ Finished':'Next ›'; }
-function closeCook(){ $('cookOv').classList.remove('on'); cookR=null; wakeOff(); }
+function closeCook(){ $('cookOv').classList.remove('on'); cookR=null; wakeOff(); otEnd(); }
 document.addEventListener('keydown',e=>{ if(!cookR) return; if(e.key==='ArrowRight'){ cookI++; drawCook(); } else if(e.key==='ArrowLeft'){ cookI--; drawCook(); } else if(e.key==='Escape') closeCook(); });
 
 /* ── ④ already have it (kept week to week, by the ingredient's words) ── */
@@ -3421,7 +3434,7 @@ djLevels({ key:'ourtable', data:'dj_ourtable_v1', anchor:'header',
     b.querySelector('#otpBack').onclick = function(){ pickKind(s); };
     b.querySelectorAll('[data-r]').forEach(function(x){ x.onclick = function(){ setPlan(s, x.dataset.r); var r = rec(x.dataset.r); close(); try{ toast((r.em || '🍽️') + ' ' + r.name + ' on ' + nice(s)); }catch(e){} }; });
     var al = b.querySelector('#otpAll'); if(al) al.onclick = function(){ pickMeal(s, 'Anything'); };
-    b.querySelector('#otpNew').onclick = function(){ close(); openEdit(); };
+    b.querySelector('#otpNew').onclick = function(){ close(); if(window.djBack) djBack.push(function(){ pickMeal(s, kind); }); openEdit(); };   /* v1.21: Back from the new recipe returns to this list */
     b.querySelector('#otpAI').onclick = function(){
       close(); if(!window.djAI) return;
       var mine = db.recipes.map(function(r){ return r.name; }).slice(0, 40).join(', ');

@@ -2613,11 +2613,11 @@
 
   <!-- 6 Nov (Jerry): the guest page is the only page an invited person ever sees, and it had no way
        through to the store. One link in the footer that was already here, rather than a second footer. -->
-  <p class="foot">Who’s Coming v1.19 · 2026-11-15 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
+  <p class="foot">Who’s Coming v1.20 · 2026-11-20 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
-<div class="sheet" id="wcSheet" onclick="if(event.target===this)this.classList.remove('on')"><div class="in" id="wcSheetIn"></div></div>
+<div class="sheet" id="wcSheet" onclick="if(event.target===this)closeSheet()"><div class="in" id="wcSheetIn"></div></div>
 <nav>
   <button class="on" data-p="ask" onclick="go('ask')"><span>❓</span>Asks</button>
   <button data-p="people" onclick="go('people')"><span>👥</span>People</button>
@@ -2760,11 +2760,11 @@ function sendSummary(id){
       <button id="sumWa">💬 WhatsApp \u2014 you pick the chat</button>
       <button id="sumLink">🔗 A link they can open instead</button>
       <button class="ghost" onclick="closeSheet()">Cancel</button></div>
-    <p class="small" style="margin-top:10px">Prefer to paste it somewhere yourself? Use \ud83d\udccb Copy the tally instead.</p>`);
+    <p class="small" style="margin-top:10px">Prefer to paste it somewhere yourself? Use \ud83d\udccb Copy the tally instead.</p>`, {k:'sum:'+id, fn:()=>sendSummary(id)});
   $('sumAll').onclick=()=>{ closeSheet(); summaryTo(a, ppl); };
   if(yes.length) $('sumYes').onclick=()=>{ closeSheet(); summaryTo(a, yes); };
   $('sumWa').onclick=()=>{ closeSheet(); waSend(summaryText(a)); };
-  $('sumLink').onclick=()=>{ closeSheet(); shareSheet(a); };
+  $('sumLink').onclick=()=>{ shareSheet(a); };
 }
 function summaryTo(a, ppl){
   const body=summaryText(a);
@@ -2813,7 +2813,7 @@ function shareUrl(a){
 function shareSheet(a){
   const url=shareUrl(a);
   if(url.length>1800){   /* a very big group: some phones cut a long link in half */
-    copyOrShow(summaryText(a), ()=>alert('That group is too big to fit in a link \u2014 the written summary is copied instead. Paste it wherever you like.'),
+    closeSheet(); copyOrShow(summaryText(a), ()=>alert('That group is too big to fit in a link \u2014 the written summary is copied instead. Paste it wherever you like.'),
       'That group is too big to fit in one link.'); return; }
   const msg=(db.me.name?db.me.name+' \u2014 ':'')+'here is who is coming to \u201c'+a.q+'\u201d:\n\n'+url;
   sheet(`<h3>A link they can open</h3><p class="small">Send one link. Anyone who taps it sees the whole list \u2014 who is coming, who cannot, and what each one is bringing. They need no app and no account, and they cannot change anything.</p>
@@ -2888,8 +2888,18 @@ function renderPeople(){
 
 
 /* ── people from the phone: Android picker · iPhone via a saved contact card · or paste ── */
-function sheet(html){ $('wcSheetIn').innerHTML=html; $('wcSheet').classList.add('on'); }
-function closeSheet(){ $('wcSheet').classList.remove('on'); }
+/* v1.20 · 20 Nov: ← Back between sheets (house v68 window.djBack). Jerry: "If you go one screen too far
+   or something, you can't go back to the previous one." A sheet that leads on to another (Send the summary,
+   Pick people) says what it is with `here`; when the next sheet replaces it, the Back chip at the top of the
+   next sheet reopens it. Closing the sheet ends the trail. */
+let SHOWING=null, BACKING=0;
+function sheet(html, here){ const s=$('wcSheet');
+  if(s.classList.contains('on') && SHOWING && !BACKING && (!here || here.k!==SHOWING.k) && window.djBack) djBack.push(SHOWING.fn);
+  SHOWING=here||null;
+  $('wcSheetIn').innerHTML=(window.djBack?djBack.button():'')+html; s.classList.add('on'); }
+function closeSheet(){ $('wcSheet').classList.remove('on'); SHOWING=null; if(window.djBack) djBack.clear(); }
+document.addEventListener('click',e=>{ const b=e.target.closest?e.target.closest('#wcSheetIn .djBackB'):null; if(!b||!window.djBack) return;
+  BACKING=1; try{ djBack.go(); }finally{ BACKING=0; } });
 function addMany(gid, people){ const g=db.groups.find(x=>x.id===gid); if(!g) return 0; let n=0;
   people.forEach(p=>{ const name=String(p.name||'').trim(), phone=String(p.phone||'').trim(); if(!name) return; const key=phone.replace(/\D/g,'');
     if(g.people.some(x=>(key&&x.phone.replace(/\D/g,'')===key)||x.name.toLowerCase()===name.toLowerCase())) return; g.people.push({id:uid(),name,phone}); n++; });
@@ -2996,7 +3006,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
       + '<input id="pkQ" placeholder="Search a name" aria-label="Search a name" style="width:100%;margin-bottom:8px">'
       + '<div id="pkList" style="max-height:46vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:12px"></div>'
       + '<div class="row" style="margin-top:10px;position:sticky;bottom:0;background:var(--surface,#fff);padding:8px 0 2px"><button class="primary" style="flex:1" id="pkAdd">Add 0 people</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>'
-      + '<p class="small" style="margin:6px 0 0"><a href="#" id="pkOther" style="font-weight:700">📂 Use a different contacts file</a></p>');
+      + '<p class="small" style="margin:6px 0 0"><a href="#" id="pkOther" style="font-weight:700">📂 Use a different contacts file</a></p>', { k:'pick:' + gid, fn:function(){ pick(gid, all); } });
     var q = document.getElementById('pkQ'), list = document.getElementById('pkList'), btn = document.getElementById('pkAdd');
     function count(){ var n = Object.keys(chosen).length; btn.textContent = 'Add ' + n + ' ' + (n === 1 ? 'person' : 'people'); btn.disabled = !n; }
     function draw(){
@@ -3005,7 +3015,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
       list.querySelectorAll('input[data-i]').forEach(function(c){ c.onchange = function(){ if(c.checked) chosen[c.dataset.i] = 1; else delete chosen[c.dataset.i]; count(); }; });
     }
     q.oninput = draw; draw(); count();
-    var oth = document.getElementById('pkOther'); if(oth) oth.onclick = function(e){ e.preventDefault(); window.__wcLast = null; closeSheet(); window.__wcOrigFrom(gid); };
+    var oth = document.getElementById('pkOther'); if(oth) oth.onclick = function(e){ e.preventDefault(); window.__wcLast = null; window.__wcOrigFrom(gid); };
     btn.onclick = function(){ var ppl = Object.keys(chosen).map(function(i){ return all[i]; }); closeSheet(); addMany(gid, ppl); };
     setTimeout(function(){ try{ q.focus(); }catch(e){} }, 300);
   }

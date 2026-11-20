@@ -2709,7 +2709,7 @@
   <div class="foot">Made with The Key · a free gift from Daraja Studio · donations help orphans and students in Kenya</div>
 </div>
 
-<div id="ver">The Key v1.16 · 2026-11-18 · free forever · Daraja Studio</div>
+<div id="ver">The Key v1.17 · 2026-11-20 · free forever · Daraja Studio</div>
 
 <script>
 const LS='daraja_thekey_v1';
@@ -3448,7 +3448,9 @@ try{
        forbids passwords and full numbers, and this page enforces it again on the way in: the
        number keeps its last 4 characters only, and any long run of digits is masked. The
        person checks every field, then it saves as an Important papers line, plus the agent
-       or lawyer as a People to call line. */
+       or lawyer as a People to call line.
+   v1.17 (20 Nov): ← Back on "Check the facts" returns to "Pull facts from a policy" with the pasted
+       words still in it (house v68 window.djBack). Cancel or Save ends the trail. */
 (function(){
   var DBN = 'thekey_papers', ST = 'files', CAP = 12 * 1024 * 1024, K2 = 'daraja_thekey_v2', idb = null;
   function open(){ return new Promise(function(ok, no){ if(idb) return ok(idb); var r = indexedDB.open(DBN, 1); r.onupgradeneeded = function(){ r.result.createObjectStore(ST); }; r.onsuccess = function(){ idb = r.result; ok(idb); }; r.onerror = function(){ no(r.error); }; }); }
@@ -3515,17 +3517,24 @@ try{
   function sheet(html){ var old = document.getElementById('pfSheet'); if(old) old.remove();
     var w = document.createElement('div'); w.id = 'pfSheet'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Pull facts from a policy');
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center';   /* under the house AI sheets (2147481500), which open on top of it */
-    w.innerHTML = '<div style="background:var(--paper,#faf6ee);color:var(--ink,#2b2620);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom))">' + html + '</div>';
+    w.innerHTML = '<div style="background:var(--paper,#faf6ee);color:var(--ink,#2b2620);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom))">' + (window.djBack ? djBack.button() : '') + html + '</div>';
+    var bk = w.querySelector('.djBackB'); if(bk) bk.onclick = function(){ djBack.go(); };
     document.body.appendChild(w); return w; }
+  /* v1.17: the trail ends whenever the person closes the flow */
+  function pfEnd(w){ if(window.djBack) djBack.clear(); w.remove(); }
+  var pfKeep = null;   /* the words on step 1, kept so ← Back finds them again */
   var RULE = '<div class="safety" style="margin:8px 0 10px;font-size:15px">🔒 <b>Never paste a password.</b> Your AI is told to give back only the <b>last 4 digits</b> of any policy or account number, and never a password or a full number. This page checks that again before anything is saved.</div>';
-  function pfOpen(){
+  function pfOpen(keep){
     var w = sheet('<h2 style="margin:0 0 6px;font-family:var(--serif);font-size:23px">📄 Pull facts from a policy</h2>'
       + '<p style="font-size:16px;color:var(--soft,#6f6557);margin:0">Paste the words of an insurance policy, a will or a deed. Your own AI picks out the facts your family would need. You check them, then they go into 📄 Important papers.</p>' + RULE
       + '<label style="' + LB + '" for="pfText">Step 1 — the paper’s words</label><textarea id="pfText" rows="7" placeholder="Copy the words from the PDF, the email or the insurer’s website, and paste them here"></textarea>'
       + '<button type="button" class="btn" id="pfAsk" style="width:100%;margin-top:10px;font-size:18px">✨ Ask my AI to pull the facts</button>'
       + '<label style="' + LB + ';margin-top:18px" for="pfPaste">Step 2 — paste what your AI said</label><div style="font-size:14px;color:var(--soft,#6f6557)">It usually comes back by itself. If you came back another way, paste the whole answer here.</div><textarea id="pfPaste" rows="3" style="margin-top:6px"></textarea>'
       + '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="btn ghost" id="pfRead" style="flex:1">Read the facts →</button><button type="button" class="btn ghost" id="pfX">Cancel</button></div>');
-    w.querySelector('#pfX').onclick = function(){ w.remove(); };
+    if(keep){ w.querySelector('#pfText').value = keep.text || ''; w.querySelector('#pfPaste').value = keep.paste || ''; }
+    if(!keep && window.djBack) djBack.clear();   /* a fresh start from the 📄 button: no stale trail */
+    pfKeep = function(){ return { text:w.querySelector('#pfText').value, paste:w.querySelector('#pfPaste').value }; };
+    w.querySelector('#pfX').onclick = function(){ pfEnd(w); };
     w.querySelector('#pfRead').onclick = function(){ var t = w.querySelector('#pfPaste').value.trim(); if(!t){ w.querySelector('#pfPaste').focus(); return; }
       var v = window.djAI && djAI.extractJSON ? djAI.extractJSON(t) : null; if(!v || typeof v !== 'object'){ alert('That did not look like the answer I expected. Ask your AI to answer in JSON only, and paste the whole answer.'); return; } pfReview(v); };
     w.querySelector('#pfAsk').onclick = function(){ var t = w.querySelector('#pfText').value.trim(); if(!t){ w.querySelector('#pfText').focus(); return; }
@@ -3534,6 +3543,7 @@ try{
     setTimeout(function(){ try{ w.querySelector('#pfText').focus(); }catch(e){} }, 200);
   }
   function pfReview(v){
+    if(pfKeep && window.djBack){ var k0 = pfKeep(); djBack.push(function(){ pfOpen(k0); }); pfKeep = null; }
     var kind = KINDS.filter(function(x){ return x.toLowerCase() === str(v.kind).toLowerCase(); })[0] || (/insur|policy/i.test(str(v.kind)) ? 'Insurance policy' : /deed/i.test(str(v.kind)) ? 'House deed' : /will/i.test(str(v.kind)) ? 'Will' : 'Other');
     var a = v.agent && typeof v.agent === 'object' ? v.agent : {}, hasA = !!(str(a.name) || str(a.phone) || str(a.email));
     var role = ROLES.filter(function(x){ return x.toLowerCase() === str(a.role).toLowerCase(); })[0] || (kind === 'Insurance policy' ? 'Insurance agent' : /Will|Trust|deed|attorney/i.test(kind) ? 'Attorney' : 'Other');
@@ -3552,7 +3562,7 @@ try{
         + f('pfAPhone', 'Phone', str(a.phone), '', 'tel') + f('pfAEmail', 'Email', mask(str(a.email)), '') : '')
       + '<div style="display:flex;gap:8px;margin-top:16px"><button type="button" class="btn" id="pfSave" style="flex:1">Save to my Key</button><button type="button" class="btn ghost" id="pfX">Cancel</button></div>');
     w.querySelectorAll('#pfKinds [data-k]').forEach(function(b){ b.onclick = function(){ kind = b.dataset.k; w.querySelectorAll('#pfKinds [data-k]').forEach(function(x){ var on = x === b; x.style.background = on ? '#2b2620' : '#fff'; x.style.color = on ? '#fff' : '#2b2620'; }); }; });
-    w.querySelector('#pfX').onclick = function(){ w.remove(); };
+    w.querySelector('#pfX').onclick = function(){ pfEnd(w); };
     w.querySelector('#pfSave').onclick = function(){
       var g = function(id){ var el = w.querySelector('#' + id); return el ? mask(el.value) : ''; };
       var num = last4(w.querySelector('#pfNum').value), date = w.querySelector('#pfDate').value.trim(), dis = w.querySelector('#pfDateIs').value;
@@ -3563,7 +3573,7 @@ try{
       var on = w.querySelector('#pfAgentOn'), added = '';
       if(on && on.checked && (g('pfAName') || w.querySelector('#pfAPhone').value.trim())){ d.f4.push({ kind:w.querySelector('#pfARole').value, name:g('pfAName'), phone:w.querySelector('#pfAPhone').value.trim(), email:g('pfAEmail'), address:'', note:'' }); added = ' and 🤝 The people who know things'; }
       try{ localStorage.setItem(K2, JSON.stringify(d)); }catch(e){ alert('This phone would not save it.'); return; }
-      w.remove(); if(window.ksPaintAll) ksPaintAll();
+      pfEnd(w); if(window.ksPaintAll) ksPaintAll();
       var c3 = document.getElementById('card_f3'); if(c3){ c3.open = true; c3.scrollIntoView({ block:'start', behavior:'smooth' }); }
       if(added){ var c4 = document.getElementById('card_f4'); if(c4) c4.open = true; }
       var n = document.createElement('div'); n.id = 'pfDone'; n.setAttribute('role', 'status'); n.textContent = '✓ Saved to 📄 Important papers' + added;
@@ -3571,10 +3581,10 @@ try{
       document.body.appendChild(n); setTimeout(function(){ n.remove(); }, 3000);
     };
   }
-  window.tkPolicyPull = pfOpen;
+  window.tkPolicyPull = function(){ pfOpen(); };
   function button(){ var inner = document.querySelector('#card_f3 .inner'); if(!inner || document.getElementById('pfBtn')) return;
     var b = document.createElement('button'); b.type = 'button'; b.id = 'pfBtn'; b.className = 'btn ghost'; b.style.cssText = 'width:100%;margin-top:8px;font-weight:800;color:var(--ink,#2b2620)';
-    b.textContent = '📄 Pull facts from a policy'; b.onclick = pfOpen;
+    b.textContent = '📄 Pull facts from a policy'; b.onclick = function(){ pfOpen(); };
     var box = document.getElementById('ks_f3'); if(box && box.parentNode === inner) inner.insertBefore(b, box.nextSibling); else inner.appendChild(b); }
   button(); setTimeout(button, 600);
 })();
