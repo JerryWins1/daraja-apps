@@ -3008,7 +3008,9 @@ async function adminSet(path, value, label) {
 }
 
 /* ---------- render ---------- */
-function go(t) { tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); if (t === 'draft' && !draftRank) loadDraftRank(seasonYear).then(r => { draftRank = r; if (tab === 'draft') render(); }); if (t === 'live' && (!live.at || Date.now() - live.at > 30000)) fetchLive(); }
+function go(t, keep) { if (!keep) dropBack(); tab = t; document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); render(); window.scrollTo(0, 0); if (t === 'draft' && !draftRank) loadDraftRank(seasonYear).then(r => { draftRank = r; if (tab === 'draft') render(); }); if (t === 'live' && (!live.at || Date.now() - live.at > 30000)) fetchLive(); }
+/* The draft room has no tab button, so remember the screen that sent you. */
+function goDraft() { const from = tab; pushBack(() => go(from, true)); go('draft', true); }
 function render() {
   const s = season();
   $('meName').textContent = me ? pname(me.id) + (isCommish() ? ' · commish' : '') : 'Who are you?';
@@ -3018,15 +3020,16 @@ function render() {
   if (!schedule) { v.innerHTML = demoBanner() + `<div class="card"><h2>Loading the ${seasonYear} calendar…</h2><p class="muted small">Race dates and results come from the free Jolpica F1 data service. If this never finishes, check your connection.</p>${loadError ? `<div class="warn">${esc(loadError)}</div>` : ''}</div>`; return; }
   v.innerHTML = demoBanner() + ({ home: rHome, standings: rStandings, usage: rUsage, races: rRaces, live: rLive, paddock: rPaddock, setup: rSetup, draft: rDraft })[tab]();
   if (tab === 'paddock') { const c = $('chatBox'); if (c) c.scrollTop = c.scrollHeight; }
+  wireBack(v);
 }
 function rHome() {
   const s = season(); const nr = nextRace(); const champ = (state.history || []).slice().sort((a, b) => b.year - a.year)[0];
   let html = '';
   // draft banner: the once-a-year event gets the top of the page while it is on
   const dr = s.draft;
-  if (dr && dr.status === 'open') { const t = E.draftTurn(dr); html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🏁 <b>Draft in progress</b> · round ${t ? t.round : '–'} · <b>${t ? esc(pname(t.player)) : '—'}</b> is on the clock</span><button class="btn sm primary" onclick="go('draft')">Open the draft room</button></div>`; }
-  else if (dr && dr.status === 'setup') html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🎲 <b>Draft day is coming.</b> ${dr.order ? 'The order is drawn.' : 'The commissioner is setting it up.'}</span><button class="btn sm" onclick="go('draft')">Draft room</button></div>`;
-  else if (isCommish() && !Object.values(s.roster || {}).some(r => r && r.length)) html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🏁 <b>No rosters yet for ${seasonYear}.</b> Run the draft to fill them.</span><button class="btn sm primary" onclick="go('draft')">Open the draft room</button></div>`;
+  if (dr && dr.status === 'open') { const t = E.draftTurn(dr); html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🏁 <b>Draft in progress</b> · round ${t ? t.round : '–'} · <b>${t ? esc(pname(t.player)) : '—'}</b> is on the clock</span><button class="btn sm primary" onclick="goDraft()">Open the draft room</button></div>`; }
+  else if (dr && dr.status === 'setup') html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🎲 <b>Draft day is coming.</b> ${dr.order ? 'The order is drawn.' : 'The commissioner is setting it up.'}</span><button class="btn sm" onclick="goDraft()">Draft room</button></div>`;
+  else if (isCommish() && !Object.values(s.roster || {}).some(r => r && r.length)) html += `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>🏁 <b>No rosters yet for ${seasonYear}.</b> Run the draft to fill them.</span><button class="btn sm primary" onclick="goDraft()">Open the draft room</button></div>`;
   // weekend card
   if (nr) {
     const R = computed.rounds[nr.key]; const dl = deadline(nr); const locked = new Date() >= dl; const w = who(); const rem = w ? (computed.usage[w] || {}) : {};
@@ -3519,7 +3522,7 @@ function rSetup() {
   const dr0 = s.draft;
   html += `<details><summary>Draft room</summary><div class="in">
     <p class="small muted">Once a year, before the first race: tick who is in, draw the snake order, and everyone picks in turn until the ${s.driversPer} rounds are done. The finished draft writes the rosters below. ${dr0 ? (dr0.status === 'done' ? 'This season\'s draft is complete.' : dr0.status === 'open' ? 'A draft is in progress.' : 'A draft is being set up.') : 'No draft has been run in the app for ' + seasonYear + '.'}</p>
-    <div class="row"><button class="btn sm primary" onclick="go('draft')">Open the draft room</button><a class="btn sm ghost" href="rules.html" target="_blank" rel="noopener noreferrer">📖 Rulebook</a></div></div></details>`;
+    <div class="row"><button class="btn sm primary" onclick="goDraft()">Open the draft room</button><a class="btn sm ghost" href="rules.html" target="_blank" rel="noopener noreferrer">📖 Rulebook</a></div></div></details>`;
   // roster
   const dopts = Object.values(drivers).sort((a, b) => a.name.localeCompare(b.name));
   html += `<details><summary>Rosters</summary><div class="in">${playersActive().map(p => `<div><div class="lab">${esc(p.name)}</div><div class="grid4">${Array.from({ length: s.driversPer }).map((_, i) => { const cur = (s.roster[p.id] || [])[i] || ''; return `<select ${ro} onchange="setRoster('${p.id}',${i},this.value)"><option value="">—</option>${dopts.map(d => `<option value="${d.id}" ${d.id === cur ? 'selected' : ''}>${esc(d.full)}</option>`).join('')}${cur && !drivers[cur] ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : ''}</select>`; }).join('')}</div></div>`).join('')}
@@ -3708,7 +3711,7 @@ function draftOrderBoard(d, t) {
 }
 function rDraft() {
   const s = season(); const d = s.draft; const c = isCommish(); const names = {}; state.players.forEach(p => names[p.id] = p.name);
-  let html = `<div class="card"><h2>Draft room <span class="sub">${seasonYear} · ${s.driversPer} rounds · snake</span></h2>`;
+  let html = `<div class="card">${backBtn()}<h2>Draft room <span class="sub">${seasonYear} · ${s.driversPer} rounds · snake</span></h2>`;
   if (!d || d.status === 'setup') {
     const chosen = (d && d.players) || playersActive().map(p => p.id);
     html += `<p class="small muted">Once a year, a couple of weeks before the first race. Tick who is in, draw the order, then everyone picks in turn. Round 2 reverses round 1, round 3 repeats it, round 4 reverses again, so nobody gets stuck at the back every time.</p>`;
@@ -3789,9 +3792,30 @@ async function draftReset() {
 
 /* ---------- misc ---------- */
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2200); }
-function modal(html) { $('modalHost').innerHTML = `<div class="modal" onclick="if(event.target===this)closeModal()"><div class="card">${html}</div></div>`; }
-function closeModal() { $('modalHost').innerHTML = ''; }
+/* ---------- Back, for Pit Wall's own screens ----------
+   20 Nov. Jerry, relayed through the Store Manager: "If you go one screen too far or something,
+   you can't go back to the previous one." House block v68 owns the stack and the chip; these four
+   wrap it so Pit Wall's own screens use the same button every other app does.
+   Two of Pit Wall's screens genuinely strand you, and these are what they are for:
+     · the draft room is a tab with no tab button, so whatever sent you there is the only way back
+     · "You're in" leads straight on to "Who are you?", one of our screens opening another
+   A tab tap is not a step back, it is leaving the trail, so go() drops it. No house sheet can be
+   open at that moment (its overlay covers the tab bar), so anything still on the stack is already
+   spent and clearing it is the repair, not a loss. */
+function pushBack(fn) { try { window.djBack.push(fn); } catch (e) { } }
+function backBtn() { try { return window.djBack.depth() ? window.djBack.button() : ''; } catch (e) { return ''; } }
+function wireBack(root) { const b = root && root.querySelector('.djBackB'); if (b) b.onclick = () => { try { window.djBack.go(); } catch (e) { } }; }
+function dropBack() { try { if (window.djBack.depth()) window.djBack.clear(); } catch (e) { } }
+function modal(html) { $('modalHost').innerHTML = `<div class="modal" onclick="if(event.target===this)closeModal()"><div class="card">${backBtn()}${html}</div></div>`; wireBack($('modalHost')); }
+function closeModal() { $('modalHost').innerHTML = ''; dropBack(); }
 function copyText(t) { if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast('Copied. Paste it in the group text.'), () => toast('Could not copy')); else toast('Copy not available here'); }
+
+/* The welcome after an invite link. Named, so Back from "Who are you?" can reopen it. */
+function joinedModal() {
+  modal(`<h2>You're in 🏁 <span class="sub">${esc(state.league.name || 'the league')}</span></h2>
+    <p class="small">This phone now shares the same league as everyone else — same picks, same standings, same deadline. One thing left: tell it which one of you you are, and choose a four digit PIN so nobody else can make your picks.</p>
+    <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal();pushBack(joinedModal);openIdentity()">That's me →</button></div>`);
+}
 
 /* ---------- boot ---------- */
 let loadError = '';
@@ -3833,9 +3857,7 @@ async function refresh() {
   await pullRemote(true);
   await refresh();
   if (invite === 'joined') {
-    modal(`<h2>You're in 🏁 <span class="sub">${esc(state.league.name || 'the league')}</span></h2>
-      <p class="small">This phone now shares the same league as everyone else — same picks, same standings, same deadline. One thing left: tell it which one of you you are, and choose a four digit PIN so nobody else can make your picks.</p>
-      <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn primary" onclick="closeModal();openIdentity()">That's me →</button></div>`);
+    joinedModal();
   } else if (invite === 'bad') {
     modal(`<h2>That invite link didn't work</h2>
       <p class="small">Ask ${esc(pname(state.league.commissioner))} to copy it again — Setup → Mailbox → Copy the invite link — and send it whole. Links sometimes get cut in half by a text. The app still works on this phone in the meantime.</p>
@@ -4262,7 +4284,7 @@ async function refresh() {
     border:1.5px solid var(--line-strong,#555); background:var(--surface-2,rgba(128,128,128,.12)); color:inherit; padding:4px 6px; }
   .u-d .uin:focus{ outline:3px solid var(--acc,#B48CFF); outline-offset:1px; }
 </style>
-<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v2.2 · 2026-10-23 · Daraja Studio</p>
+<p class="small muted" style="text-align:center;margin:18px 0 90px">Pit Wall v2.3 · 2026-11-20 · Daraja Studio</p>
 <script id="dj-usage-v1">
 /* 11 Sep 2026, Jerry: "just do this like a table — the number in a box on the left, change it,
    tab down to the next one, done." The old way was one question box per driver, twenty taps. */
