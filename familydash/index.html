@@ -2560,7 +2560,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v9.7 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v9.8 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3100,7 +3100,7 @@ function flagSuspicious(ids){ if(!ids.length) return 0; var isNew = {}, n = 0; i
     var k = 'dup:' + a.id + ':' + b.id; if(db.flagged[k]) continue;
     db.flagged[k] = { ids:[a.id, b.id], why:'dup', at:today() }; b.look = 'Possible double charge — same as ' + shortDate(a.d); if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; n++; }
   if(n) save(); return n; }
-function flagLine(){ var n = FLAGNEW; if(!n) return ''; FLAGNEW = 0; return '<div class="line warn" style="font-weight:700">👯 ' + n + ' charge' + (n===1?' looks':'s look') + ' doubled — the same payee, amount and day (or close). ' + (n===1?'It’s':'They’re') + ' on your 🔍 To look into list and at the top of the main screen.</div>'; }
+function flagLine(){ var n = FLAGNEW; if(!n) return ''; FLAGNEW = 0; return '<div class="line warn" style="font-weight:700">👯 ' + n + ' charge' + (n===1?' looks':'s look') + ' doubled — the same payee, amount and day (or close). ' + (n===1?'It’s':'They’re') + ' on the 👯 Charged twice? list — check them whenever you like, from the top of the main screen or 📋 Lists.</div>'; }
 function afterImport(){
   if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
     MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
@@ -3733,6 +3733,7 @@ function sortHub(){ var A = sortAccts(), S = A.map(function(a){ return sortState
     + '<div class="stickfoot">' + (next ? '<button class="b primary full" style="margin-top:0" onclick="sortIn(\'' + next.id + '\')">👆 Next: ' + esc(acctLabel(next)) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'sort\');askRound()">All sorted — on to the questions' + (later ? ' (' + later + ')' : '') + '</button>')
     + (next ? '<button class="b full" onclick="sortRestForMe()">✨ Sort the rest for me</button>' : '')
     + (lookList().length ? '<button class="b full" onclick="openLook()">🔍 To look into (' + lookList().length + ')</button>' : '')
+    + (dupList().some(function(x){ return !x.f.done; }) ? '<button class="b full" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ')</button>' : '')
     + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button></div>'); }
 var SORTA = null, SORTM = null;
 /* v6.1 · Jerry, 17 Nov: "you did month one, you categorize everything, then you look at month two, you know… whether utilities
@@ -4249,6 +4250,7 @@ function openLists(){
     + (db.bizCard || biz.length ? '<button class="b full" style="text-align:left" onclick="openList(\'biz\')">🏢 Business or nonprofit<span style="float:right">' + money(biz.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
     + (db.uses529 || e529.length ? '<button class="b full" style="text-align:left" onclick="openList(\'edu529\')">🎓 Paid by the 529<span style="float:right">' + money(e529.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openList(\'onetime\')">🎁 One-time purchases</button>'
+    + (dupList().length ? '<button class="b full" style="text-align:left" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ' to check)</button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openNotSure()">❔ Not sure yet (' + db.notSure.length + ')</button>'
     + '<button class="b full" style="text-align:left" onclick="openReclass()">🗂️ What you told me (' + db.reclass.length + ')</button>'
     + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
@@ -4509,12 +4511,11 @@ function headsUps(){ var H = [], m = thisMonth(), seen = db.huSeen || {};
   rvSubsList().forEach(function(s){ var T = db.tx.filter(function(t){ return (t.sub ? 'sub:' + t.sub : mkey(t.desc) || t.desc) === s.k; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }); if(!T.length) return;
     var first = T[0].d; if(T.length > 2 || daysBetween(first, today()) > 45 || /annual|yearly|membership fee/i.test(s.desc)) return;   /* a yearly fee is not a trial running out */ H.push({ k:'sub:' + s.k, pri:3, em:'🆕', t:'New: ' + esc(s.desc) + ' · ' + money(s.amt) + (s.cyc === 'month' ? ' a month' : s.cyc === 'year' ? ' a year' : '') + '.', sub:'First seen ' + esc(shortDate(first)) + '. If it began as a free trial, it’s paying now. Keep it?', sub2:s }); });
   try{ H = H.concat(noticeMore()); }catch(e){}
-  Object.keys(db.flagged || {}).forEach(function(k){ var f = db.flagged[k]; if(f.done) return; var a = db.tx.filter(function(t){ return t.id === f.ids[0]; })[0], b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0]; if(!a || !b) return;
-    H.push({ k:'flag:' + k, fk:k, pri:0, em:'👯', t:'Charged twice? ' + esc(b.desc) + ' · ' + money(b.amt) + ' on ' + esc(shortDate(a.d)) + (a.d === b.d ? ', twice' : ' and ' + esc(shortDate(b.d))) + '.', sub:esc(acctLabel(acct(b.a) || {})) + '. If one is a mistake, call the company or the card to have it taken off.' }); });
+  var DL = dupList().filter(function(x){ return !x.f.done; }); if(DL.length) H.push({ k:'flags:' + DL.map(function(x){ return x.k; }).join(','), dups:1, pri:0, em:'👯', t:DL.length === 1 ? 'Charged twice? ' + esc(DL[0].b.desc) + ' · ' + money(DL[0].b.amt) + '.' : DL.length + ' charges may have gone through twice.', sub:'They’re all on one list — check them whenever you have a minute.' });
   return H.filter(function(h){ return !seen[h.k]; }).sort(function(a,b){ return a.pri - b.pri; }); }
 var HU = null;
 function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0]; HU = h;
-  var btns = h.fk ? '<button class="b small primary" onclick="flagDone(\'call\')">It’s a mistake — keep it on my list</button><button class="b small" onclick="flagDone(\'ok\')">Both are right</button>' : h.look ? '<button class="b small primary" onclick="huLook()">🔍 Look into it</button><button class="b small" onclick="huSeen()">That’s right</button>' : (h.k || '').match(/^(miss|inc|low):/) ? '' : h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
+  var btns = h.dups ? '<button class="b small primary" onclick="openDups()">👯 See the list</button>' : h.look ? '<button class="b small primary" onclick="huLook()">🔍 Look into it</button><button class="b small" onclick="huSeen()">That’s right</button>' : (h.k || '').match(/^(miss|inc|low):/) ? '' : h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
   var tm = new Date(Date.now() + 864e5), rd = addMonths(h.dueM || thisMonth(), -1) > thisMonth() ? addMonths(h.dueM, -1) : ymd(tm);   /* a month before it's due, or tomorrow if that's already passed */
   if(h.dueM) btns += '<button class="b small" onclick="remindICS(\'' + rd + '\',' + JSON.stringify(h.c ? h.c.name + ' due ' + monthOnly(h.dueM) : 'Family money').replace(/"/g,'&quot;') + ')">⏰ Remind me</button>';
   return '<div class="card" id="headsUp" style="border:2px solid #E3B04B;background:#FFF8E8;padding:14px 16px"><div class="stepno" style="color:#9a5b00">Heads up' + (h.dueM ? ' · coming in ' + esc(monthOnly(h.dueM)) : '') + '</div>'
@@ -4522,10 +4523,21 @@ function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0
     + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px">' + btns + '<button class="b small ghost" onclick="huSeen()">Got it</button></div>'
     + (H.length > 1 ? '<p class="sub" style="margin:8px 0 0;font-size:13px">One more after this.</p>' : '') + '</div>'; }
 function huLook(){ var t = HU.look; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); delete db.asked[t.id]; huSeen('look'); toast('Added to your 🔍 To look into list.'); }
-function flagDone(how){ var f = db.flagged[HU.fk]; if(!f) return; f.done = how; var b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0];
-  if(b && how === 'ok'){ db.notSure = db.notSure.filter(function(x){ return x !== b.id; }); delete b.look; }
-  if(b && how === 'call'){ b.look = 'Charged twice — call to have it taken off'; }
-  huSeen(how); toast(how === 'ok' ? 'Got it — both stay.' : 'Kept on your 🔍 To look into list.'); }
+/* v9.8 · Jerry, 20 Nov: "add the charge choice thing to a list … it's hard to do that from the middle of an import". Every
+   possible double charge sits on one list, answered whenever he likes; the top card only points to it. */
+function dupList(){ return Object.keys(db.flagged || {}).map(function(k){ var f = db.flagged[k], a = db.tx.filter(function(t){ return t.id === f.ids[0]; })[0], b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0]; return a && b ? { k:k, f:f, a:a, b:b } : null; }).filter(Boolean).sort(function(x,y){ return (x.f.done ? 1 : 0) - (y.f.done ? 1 : 0) || (x.b.d < y.b.d ? 1 : -1); }); }
+function openDups(){ var L = dupList(), open = L.filter(function(x){ return !x.f.done; }).length;
+  openSheet('<h3>👯 Charged twice?</h3><p class="sub">' + (open ? open + ' to check. ' : 'All checked. ') + 'Same payee, same amount, a day or two apart. If one is a mistake, call the company or the card to have it taken off.</p>'
+    + (L.map(function(x){ var i = esc(x.k);
+      return '<div class="card" style="padding:12px 14px;margin:8px 0' + (x.f.done ? ';opacity:.75' : ';border:2px solid #E3B04B') + '"><div style="font-weight:800">' + esc(x.b.desc) + ' · ' + money(x.b.amt) + '</div><div class="sub" style="margin:2px 0 0">' + esc(shortDate(x.a.d)) + (x.a.d === x.b.d ? ', twice' : ' and ' + esc(shortDate(x.b.d))) + ' · ' + esc(acctLabel(acct(x.b.a) || {})) + '</div>'
+        + (x.f.done ? '<div class="row" style="gap:6px;margin-top:8px;align-items:center"><span style="flex:1;font-weight:700">' + (x.f.done === 'ok' ? '✓ Both are right' : '📞 A mistake — to call about') + '</span><button class="b small ghost" onclick="dupSet(\'' + i + '\',\'\')">Change</button></div>'
+          : '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="b small primary" onclick="dupSet(\'' + i + '\',\'call\')">It’s a mistake</button><button class="b small" onclick="dupSet(\'' + i + '\',\'ok\')">Both are right</button></div>') + '</div>'; }).join('') || '<p class="sub">Nothing found yet. New statements are checked as they’re read.</p>')
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button>'); }
+function dupSet(k, how){ var f = (db.flagged || {})[k]; if(!f) return; var b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0];
+  if(how){ f.done = how; } else { delete f.done; }
+  if(b){ if(how === 'ok'){ db.notSure = db.notSure.filter(function(x){ return x !== b.id; }); delete b.look; }
+    else { b.look = how === 'call' ? 'Charged twice — call to have it taken off' : 'Possible double charge'; if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; } }
+  save(); var el = document.getElementById('sheetIn'), sc = el.scrollTop; SHBACK = 1; openDups(); el.scrollTop = sc; }   /* redraw in place: no Back step, no jump to the top */
 function huSeen(note){ if(!HU) return; db.huSeen = db.huSeen || {}; db.huSeen[HU.k] = note || today(); save(); closeSheet(); render(); }
 function huSavings(){ huSeen('savings'); toast('Noted — the rest comes from savings when it’s due.'); }
 function huCancel(){ var s = HU.sub2; db.subRev = db.subRev || {}; db.subRev[s.k] = db.subRev[s.k] || s; huSeen('cancel'); cancelHelp(s.k); }
