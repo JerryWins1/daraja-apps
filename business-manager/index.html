@@ -2664,7 +2664,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.9.3 · 2026-11-20';
+var VER = 'v1.9.4 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -3181,22 +3181,33 @@ var MIC = null;
 function micStop(){ if(MIC){ var r = MIC; MIC = null; try{ r.stop(); }catch(e){} } }
 function micLabel(on){ var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
 function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(--bad)' : ''; m.textContent = t; } }
+/* v1.9.4 (20 Nov, Jerry on his iPhone): the 🎤 in the box worked once and then never added anything. iPhones are known
+   to refuse a second listening session from a NEW recognizer, so one recognizer is made per page and reused. If the
+   phone still won't start it, or hears nothing, the line under the box says so, names the phone's own reason, and
+   points to the 🎤 on the iPhone keyboard, which always types into the box. */
+var SRI = null, SRLAST = '';
 function talkMic(){
   if(MIC){ micStop(); return; }
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition, box = $('tkIn'); if(!box) return;
-  if(!SR){ micSay('This phone can’t listen here. Type it in the box instead.', true); try{ box.focus(); }catch(e){} return; }
-  var rec; try{ rec = new SR(); }catch(e){ micSay('This phone can’t listen here. Type it in the box instead.', true); return; }
-  var base = box.value.trim(), heard = '', failed = '';
+  var KB = ' Or tap in the box and use the 🎤 on your keyboard.';
+  if(!SR){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); try{ box.focus(); }catch(e){} return; }
+  try{ if(!SRI) SRI = new SR(); }catch(e){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); return; }
+  var rec = SRI, base = box.value.trim(), heard = '', failed = '', prev = SRLAST;
   rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = true;
-  rec.onresult = function(ev){ if(!$('tkIn')){ micStop(); return; } heard = ''; for(var i = 0; i < ev.results.length; i++) heard += ev.results[i][0].transcript;
-    var b = $('tkIn'); b.value = base ? base.replace(/[.,]?$/, ', ') + heard.trim() : heard.trim(); b.dispatchEvent(new Event('input', { bubbles:true })); };
-  rec.onerror = function(ev){ failed = (ev && ev.error) || 'x'; };
-  rec.onend = function(){ if(MIC === rec) MIC = null; micLabel(false); if(!$('tkIn')) return;
-    if(failed === 'not-allowed' || failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Type it in the box, or allow the microphone and tap 🎤 again.', true);
-    else if(!heard.trim()) micSay('I didn’t hear anything. Tap 🎤 Tap and talk and try again, or type it.', true);
+  rec.onresult = function(ev){ if(!$('tkIn')){ micStop(); return; } var t = ''; for(var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; t = t.trim();
+    if(prev && t.indexOf(prev) === 0 && t.length > prev.length) t = t.slice(prev.length).trim();   /* some phones hand back the last session's words first */
+    heard = t; var b = $('tkIn'); b.value = base ? base.replace(/[.,]?$/, ', ') + heard : heard; b.dispatchEvent(new Event('input', { bubbles:true })); };
+  rec.onerror = function(ev){ failed = (ev && ev.error) || 'unknown'; };
+  rec.onend = function(){ if(MIC === rec) MIC = null; micLabel(false); if(heard) SRLAST = heard; if(!$('tkIn')) return;
+    if(failed === 'not-allowed' || failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Allow it and tap 🎤 again.' + KB, true);
+    else if(!heard) micSay('I didn’t catch anything' + (failed && failed !== 'no-speech' ? ' (the phone said “' + failed + '”)' : '') + '. Tap 🎤 Tap and talk and try again.' + KB, true);
     else talkDraw(); };
-  MIC = rec;
-  try{ rec.start(); micLabel(true); micSay('Listening. Say it, then tap the button again.'); }catch(e){ MIC = null; micLabel(false); micSay('The microphone didn’t start. Tap 🎤 again, or type it.', true); }
+  function go(again){
+    try{ rec.start(); MIC = rec; micLabel(true); micSay('Listening. Say it, then tap the button again.'); }
+    catch(e){ if(!again){ try{ rec.abort(); }catch(x){} setTimeout(function(){ go(true); }, 300); return; }
+      MIC = null; micLabel(false); micSay('The microphone didn’t start (' + (e && e.name || 'error') + ').' + KB, true); }
+  }
+  go(false);
 }
 function talkStart(){ talkOpen(''); talkMic(); }
 function talkOpen(said, plan, note){
