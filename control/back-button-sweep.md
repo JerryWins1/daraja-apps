@@ -33,7 +33,7 @@ their own, plus the Store Manager's. Merged in #464 and #471.
 | FlipKit | one scrolling page |
 | Message Assistant | one scrolling page |
 
-## Still open (house layer, not the apps)
-In v68 the phone's own Back button and edge swipe step back through the house's screens only, not
-an app's own. Reported to the house layer chat on 20 Nov. The apps above only call
-`djBack.push / button / go / clear`, so when the house handles it, they all get it with no change.
+## Phone Back — fixed in the house, 20 Nov
+House v70 (#481) makes the phone's own Back button and edge swipe step back through an app's own
+screens too, for every app that calls `djBack.push`. No app change was needed. Checked in Jar by
+Jar: two screens in, the phone's Back lands on the jar, then the chip and Close still work.
