@@ -2618,7 +2618,7 @@ try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
   <div class="row" style="justify-content:center">
     <button class="link" id="eraseBtn" onclick="eraseAll()">Erase My Circle from this phone</button>
   </div>
-  <p class="foot">My Circle v1.3 · 2026-11-08 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
+  <p class="foot">My Circle v1.4 · 2026-11-20 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
 </div>
 <div class="saved" id="saved">Saved ✓</div>
 
@@ -2700,6 +2700,23 @@ function summaryHere(){
   if(sh.work!==false){ var w=c.work; var wl=[w.name,w.what,w.goal?'Goal this season: '+w.goal:''].filter(Boolean); if(wl.length) L.push('My work: '+wl.join('. ')); }
   return L.length?'About me and my people (I chose to share this):\n'+L.join('\n'):'';
 }
+/* ══ Back out of the add-or-edit screen ══ 20 Nov 2026, Jerry: "If you go one screen too far
+   or something, you can't go back to the previous one."
+   House block v68 gives every sheet it opens a ← Back chip and makes the phone's Back button step
+   through them. This screen is NOT one of those: it is My Circle's own div, so the house popstate
+   handler ignores it (it only acts while #djAISheet or #djDockSheet is open) and the phone's Back
+   button left the whole app instead of closing the form. It gets its own history entry here, and
+   every way out of it — Save, Cancel, Remove, tapping the dark edge, and now the phone's Back
+   button — goes through closePerson() so the entry is never left behind. */
+var personOpen = null;
+function closePerson(fromPhoneBack){
+  var w = personOpen; if(!w) return;
+  personOpen = null;
+  try{ w.remove(); }catch(e){}
+  /* going back IS the pop, so only unwind the entry when something else closed the screen */
+  if(!fromPhoneBack){ try{ history.back(); }catch(e){} }
+}
+window.addEventListener('popstate', function(){ if(personOpen) closePerson(true); });
 function editPerson(i){
   var p = i==null ? {id:'p'+Date.now().toString(36), rel:''} : JSON.parse(JSON.stringify(C.people[i]));
   var w=document.createElement('div'); w.className='sheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label', i==null?'Add a person':'Edit '+p.name);
@@ -2715,17 +2732,18 @@ function editPerson(i){
     +'<div class="row" style="margin-top:8px"><button class="primary" id="pSave" style="flex:1">Save</button><button id="pCancel">Cancel</button></div>'
     +(i!=null?'<div class="row" style="justify-content:center"><button class="link" id="pDel">Remove '+esc(p.name)+'</button></div>':'')+'</div>';
   document.body.appendChild(w);
+  personOpen = w; try{ history.pushState({ djCirclePerson: 1 }, ''); }catch(e){}
   w.querySelectorAll('#pRel button').forEach(function(b){ b.onclick=function(){ w.querySelectorAll('#pRel button').forEach(function(x){x.setAttribute('aria-pressed','false');}); b.setAttribute('aria-pressed','true'); p.rel=b.textContent; }; });
-  w.querySelector('#pCancel').onclick=function(){ w.remove(); };
-  w.addEventListener('click',function(e){ if(e.target===w) w.remove(); });
-  if(i!=null) w.querySelector('#pDel').onclick=function(){ if(confirm('Remove '+p.name+' from My Circle?')){ C.people.splice(i,1); w.remove(); save(); } };
+  w.querySelector('#pCancel').onclick=function(){ closePerson(); };
+  w.addEventListener('click',function(e){ if(e.target===w) closePerson(); });
+  if(i!=null) w.querySelector('#pDel').onclick=function(){ if(confirm('Remove '+p.name+' from My Circle?')){ C.people.splice(i,1); closePerson(); save(); } };
   w.querySelector('#pSave').onclick=function(){
     var n=w.querySelector('#pName').value.trim(); if(!n){ w.querySelector('#pName').focus(); return; }
     p.name=n; p.bd=+w.querySelector('#pBd').value||null; p.bm=+w.querySelector('#pBm').value||null;
     var y=+w.querySelector('#pBy').value; p.by=(y>1900&&y<=new Date().getFullYear())?y:null;
     p.likes=w.querySelector('#pLikes').value.trim(); p.notes=w.querySelector('#pNotes').value.trim(); p.private=w.querySelector('#pPriv').checked;
     if(i==null) C.people.push(p); else C.people[i]=p;
-    w.remove(); save();
+    closePerson(); save();
   };
   setTimeout(function(){ try{ w.querySelector('#pName').focus(); }catch(e){} },250);
 }
