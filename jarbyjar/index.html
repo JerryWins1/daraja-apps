@@ -2582,7 +2582,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If Jar by Jar helps your family, a gift to Loving InDeed helps orphans and students in Kenya. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Jar by Jar v1.1 · 2026-11-13 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone.</p>
+  <p class="foot">Jar by Jar v1.2 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big spend" id="spendBtn" onclick="openSpend()">− I spent money</button>
@@ -2683,8 +2683,18 @@ function welcomeHTML(){
 }
 
 /* ── sheets ── */
-function openSheet(html){ document.getElementById('sheetIn').innerHTML = html; document.getElementById('sheet').classList.add('on'); }
-function closeSheet(){ document.getElementById('sheet').classList.remove('on'); }
+/* v1.2 · 20 Nov: ← Back between sheets (house v68 window.djBack). Jerry: "If you go one screen too far
+   or something, you can't go back to the previous one." A sheet that leads on to another (a jar's own
+   sheet, the over-budget sheet) says what it is with `here`; when the next sheet replaces it, it goes on
+   the back-stack, and the Back chip at the top of the next sheet reopens it. Closing the sheet ends the trail. */
+var SHOWING = null, BACKING = 0;
+function openSheet(html, here){ var s = document.getElementById('sheet');
+  if(s.classList.contains('on') && SHOWING && !BACKING && (!here || here.k !== SHOWING.k) && window.djBack) djBack.push(SHOWING.fn);
+  SHOWING = here || null;
+  document.getElementById('sheetIn').innerHTML = (window.djBack ? djBack.button() : '') + html; s.classList.add('on'); }
+function closeSheet(){ document.getElementById('sheet').classList.remove('on'); SHOWING = null; if(window.djBack) djBack.clear(); }
+document.addEventListener('click', function(e){ var b = e.target.closest ? e.target.closest('#sheetIn .djBackB') : null; if(!b || !window.djBack) return;
+  BACKING = 1; try{ djBack.go(); }finally{ BACKING = 0; } });
 function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2600); }
 function flashJar(id){ var e = document.querySelector('.jar[data-jar="' + id + '"]'); if(e){ e.classList.remove('flash'); void e.offsetWidth; e.classList.add('flash'); e.scrollIntoView({ block:'nearest', behavior:'smooth' }); } }
 
@@ -2722,7 +2732,7 @@ function overSheet(id){
   var best = ok.filter(function(x){ return /pocket|fun|spend|extra/i.test(x.name); })[0] || ok.sort(function(a,b){ return leftIn(b.id) - leftIn(a.id); })[0];
   openSheet('<h3>' + esc(j.em + ' ' + j.name) + ' is over by ' + money(need) + '</h3><p class="sub">That’s all right — it happens. Cover it from a jar that has room, so the month still adds up.</p>'
     + (best ? '<button class="b primary" style="width:100%;min-height:58px" id="coverBtn" onclick="doMove(\'' + best.id + '\',\'' + id + '\',' + need + ')">Cover it from ' + esc(best.em + ' ' + best.name) + ' (' + money(leftIn(best.id)) + ' left)</button>' : '')
-    + '<div class="row" style="margin-top:10px"><button class="b" onclick="openMove(null,\'' + id + '\',' + need + ')">Pick another jar</button><button class="b ghost" onclick="closeSheet()">Leave it for now</button></div>');
+    + '<div class="row" style="margin-top:10px"><button class="b" onclick="openMove(null,\'' + id + '\',' + need + ')">Pick another jar</button><button class="b ghost" onclick="closeSheet()">Leave it for now</button></div>', { k:'over:' + id, fn:function(){ overSheet(id); } });
 }
 
 function openIn(){ pad = '';
@@ -2744,7 +2754,7 @@ function openJar(id){
     + '<div class="row" style="margin:10px 0"><button class="b warm" onclick="openSpend(\'' + id + '\')">Spend from it</button><button class="b" onclick="openMove(null,\'' + id + '\')">Move money in</button></div>'
     + '<ul class="list">' + (list.length ? list.map(function(o){ return '<li><span class="d">' + shortDate(o.d) + '</span><span>' + esc(o.note || 'Spent') + '</span><span class="amt">' + money(o.amt) + '</span><button aria-label="Remove" onclick="delOut(\'' + o.id + '\',\'' + id + '\')">✕</button></li>'; }).join('') : '<li style="color:var(--soft)">Nothing spent from this jar yet this month.</li>')
     + mv.map(function(m){ var o = m.to === id; return '<li><span class="d">' + shortDate(m.d) + '</span><span>🔁 ' + (o ? 'From ' + esc(jar(m.from).name) : 'To ' + esc(jar(m.to).name)) + '</span><span class="amt">' + (o ? '+' : '−') + money(m.amt) + '</span><span style="width:40px"></span></li>'; }).join('') + '</ul>'
-    + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>');
+    + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>', { k:'jar:' + id, fn:function(){ openJar(id); } });
 }
 function delOut(oid, jid){ if(!confirm('Take this out of the list? The money goes back in the jar.')) return; db.outs = db.outs.filter(function(o){ return o.id !== oid; }); save(); render(); openJar(jid); }
 
