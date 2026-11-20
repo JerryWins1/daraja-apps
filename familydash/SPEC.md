@@ -960,3 +960,7 @@ Jerry: "we're going to have to merge categories at some point … It would be ni
 Jerry: "I added [a category] and I came back and then I couldn't put in the … comment" and "when I go to one that has multiple lines and I see each line, I lost the ability to pick each line and deal with it."
 - **＋ A new category…** now shows a name box with **＋ Add**. Enter or the main button does the same. Adding it keeps you on the same line, with the new category chosen and the note box (and anything already typed in it) kept. The next tap saves (`sinNewAdd`).
 - **See each line** has a tick box on every line. Tick the different ones and tap **Sort these N lines on their own**: they come up next as their own step, with its own category, note or split. The rest stay together (`sinOwn`).
+
+## v9.5 · the ticked lines first, then back to the rest (20 Nov)
+
+Jerry: "You need to manage one at a time. And you need to stay on that page so they're all done." After **Sort these on their own**, the ticked lines come up straight away. The step after is the rest of the same payee, headed "Back to the other N lines from this payee", with **See each line** already open, so more can be ticked before the rest are sorted together.
