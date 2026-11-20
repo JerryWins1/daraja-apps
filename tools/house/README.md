@@ -14,15 +14,15 @@ can re-run is a check that only happened once.
 
 ## Three traps that made earlier runs lie
 
-Both are guarded against in the file, and both are worth knowing before you add
-a check of your own:
+All three are guarded against in the file, and all three are worth knowing
+before you add a check of your own. Each one fails silently, which is what makes
+them worth writing down: two hide a broken fix, the third hides a working one.
 
 - **A service worker's own `fetch()` is not intercepted by Playwright routes.**
   Any reload then grades the deployed site instead of your working copy, and
   everything passes. Every context here sets `serviceWorkers: 'block'`.
 - **`file://` is not what a phone loads.** Some apps boot differently there.
   Everything here is served over http from the repo root.
-
 - **`addInitScript` runs again on every navigation, including the reload a page
   does to itself.** `startFresh` ends with `location.replace`, so a seeding
   script that puts test data in localStorage writes all of it straight back
