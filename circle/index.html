@@ -7,7 +7,7 @@
    guestVisit() sees it. See the ?tour=1 block further down for what the tour actually does. */
 try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
 </script>
-<script id="dj-house-v67">
+<script id="dj-house-v68">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -801,7 +801,7 @@ try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ dockSheet(); };
+      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -879,7 +879,7 @@ try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
         var row = document.createElement('button'); row.type = 'button';
         row.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
         row.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + lab[0] + '</span><span style="flex:1">' + lab[1] + '</span>';
-        row.onclick = function(){ w.remove(); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
+        row.onclick = function(){ w.remove(); djBackPush(dockSheet); if(btn.id === 'djHelp'){ helpSheet(btn); return; } try{ btn.click(); }catch(e){} };
         box.appendChild(row); n++;
       })(c, btn_lab(c, lab));
     }
@@ -889,7 +889,7 @@ try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
       var pb = document.createElement('button'); pb.type = 'button';
       pb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       pb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">⚠️</span><span style="flex:1">Recent problems<br><small style="font-weight:600;color:#55605B">' + djProbs.length + ' message' + (djProbs.length === 1 ? '' : 's') + ' that flashed up · copy them to send on</small></span>';
-      pb.onclick = function(){ w.remove(); problemsSheet(); };
+      pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
       box.appendChild(pb);
     }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
@@ -898,7 +898,7 @@ try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
       ai.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       var ch = aiChoice(), chn = ASSISTANTS[ch] ? ASSISTANTS[ch].name : (ch === 'none' ? 'none' : 'not chosen yet');
       ai.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🤖</span><span style="flex:1">Which AI do you use?<br><small style="font-weight:600;color:#55605B">now: ' + esc(chn) + '</small></span>';
-      ai.onclick = function(){ w.remove(); pickAssistant(); };
+      ai.onclick = function(){ w.remove(); djBackPush(dockSheet); pickAssistant(); };
       box.appendChild(ai);
     }
     if(!window.__djSandbox && !crisisPage() && !/\/(control|shop|home|founding|testers|help|welcome|whats-new|testday|inspect)\//.test(location.pathname)){
@@ -1212,6 +1212,37 @@ try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
     meta:    { name:'Meta AI',  url:function(){ return 'https://www.meta.ai/'; } }
   };
   function aiChoice(){ try{ return localStorage.getItem(AI_KEY) || ''; }catch(e){ return ''; } }
+  /* 20 Nov. Jerry, relayed from the Family Money chat: "If you go one screen too far or something,
+     you can't go back to the previous one." So the house keeps a back-stack for its own screens —
+     the ? menu and everything it opens — and hands the same thing to an app for its own screens:
+         window.djBack.push(function(){ ...reopen the screen I am leaving... });
+         window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
+         window.djBack.go()       -> step back one; false when the stack is empty
+     Screens opened through the house's own sheet() get the chip and the wiring for free. */
+  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
+  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
+  function djBackClear(){ DJ_BACK = []; }
+  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djBackGo(){
+    var f = DJ_BACK.pop(); if(!f) return false;
+    var a = document.getElementById('djAISheet'); if(a) a.remove();
+    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    return true;
+  }
+  window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
+                    depth: function(){ return DJ_BACK.length; } };
+  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
+     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+  window.addEventListener('popstate', function(){
+    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(!open) return;
+    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
+    djBackClear(); open.remove();
+    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
+    if(other) other.remove();
+  });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
     var old = document.getElementById('djAISheet'); if(old) old.remove();
@@ -1219,8 +1250,11 @@ try{ if(/[?&]tour=1/.test(location.search)) window.DJ_GUEST = true; }catch(e){}
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    box.innerHTML = html; w.appendChild(box);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    box.innerHTML = djBackBtn() + html; w.appendChild(box);
+    var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
+    /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
+    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
