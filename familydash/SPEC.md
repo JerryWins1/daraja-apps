@@ -964,3 +964,9 @@ Jerry: "I added [a category] and I came back and then I couldn't put in the … 
 ## v9.5 · the ticked lines first, then back to the rest (20 Nov)
 
 Jerry: "You need to manage one at a time. And you need to stay on that page so they're all done." After **Sort these on their own**, the ticked lines come up straight away. The step after is the rest of the same payee, headed "Back to the other N lines from this payee", with **See each line** already open, so more can be ticked before the rest are sorted together.
+
+## v9.6 · Sort the rest for me, and Show me the dashboard now (20 Nov)
+
+Jerry: "I don't know if I want to go through each credit card one. Maybe you do your best to sort it out … give me a button to the dashboard."
+- **✨ Sort the rest for me** on Sort each account (`sortRestForMe`). It runs the known-payee and card-payment sorting, re-guesses, then accepts the app's guess for every line not yet done (marked `autoAcc`). Lines it can't guess stay "Not sorted yet". Any line can be changed later.
+- **📊 Show me the dashboard now** on the setup screen, once there are lines (`db.peek`). It opens the main dashboard before setup is finished. The checklist of steps still to do is on it, so nothing is skipped: the household questions, including the CPA and advisor, and the budget are still there to do.
