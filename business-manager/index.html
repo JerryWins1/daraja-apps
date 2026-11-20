@@ -2450,6 +2450,10 @@
   .muted{ color:var(--soft); font-size:15px; }
   .small{ font-size:13.5px; }
   .big{ font-size:30px; font-weight:850; letter-spacing:-.01em; line-height:1.1; }
+  .brief p{ margin:0 0 6px; font-size:16.5px; line-height:1.45; } .brief .chip{ min-height:36px; padding:4px 12px; }
+  .daytexts{ margin:0 0 10px; } .daytexts .btn{ flex:1 1 30%; padding:8px 6px; font-size:15px; }
+  .live{ display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; margin:0 -2px 10px; padding:0 2px 4px; scrollbar-width:none; } .live::-webkit-scrollbar{ display:none; }
+  .live .live1{ flex:0 0 88%; scroll-snap-align:start; text-align:left; margin:0; cursor:pointer; font:inherit; color:inherit; }
   .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px; }
   .stat{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px; cursor:pointer; text-align:left; }
   .stat .lbl{ font-size:14px; color:var(--soft); font-weight:700; }
@@ -2587,7 +2591,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.7 · 2026-11-18';
+var VER = 'v1.8 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -2813,11 +2817,9 @@ VIEWS.home = function(){
   if(S.setup.demo) h.push('<div class="banner demo"><b>This is an example business.</b> Play with anything. <div class="btns" style="margin-top:8px"><button class="btn sm main" onclick="BM.fresh()">Start my own business</button></div></div>');
   if(S.clock){ var cj = job(S.clock.jobId), cw = S.crew.filter(function(c){ return c.id === S.clock.who; })[0];
     h.push('<div class="clockbar"><div class="grow"><b>⏱ On the clock</b><div class="small">' + esc(cj ? cj.title : '') + (cw ? ' · ' + esc(cw.name) : '') + ' · since ' + new Date(S.clock.start).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + '</div></div><button class="btn sm" onclick="BM.clockOut()">Clock out</button></div>'); }
-  h.push('<div class="muted" style="margin:2px 2px 10px">' + (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (S.biz.owner ? ', ' + esc(first(S.biz.owner)) : '') + '.</div>');
-  var ow = owed(), owT = ow.reduce(function(a, v){ return a + invBal(v); }, 0), od = ow.filter(invOverdue).length;
-  var m0 = t.slice(0, 7), paidM = 0; S.invoices.forEach(function(v){ (v.payments || []).forEach(function(p){ if((p.date || '').slice(0, 7) === m0) paidM += num(p.amount); }); });
-  h.push('<div class="stats"><button class="stat owe" onclick="BM.go(\'money\')"><div class="lbl">Owed to me</div><div class="val">' + money0(owT) + '</div><div class="small muted">' + ow.length + ' unpaid' + (od ? ' · <b style="color:var(--bad)">' + od + ' late</b>' : '') + '</div></button>'
-    + '<button class="stat paid" onclick="BM.go(\'money\')"><div class="lbl">Paid this month</div><div class="val">' + money0(paidM) + '</div><div class="small muted">' + MON[new Date().getMonth()] + ' so far</div></button></div>');
+  h.push(briefCard());
+  h.push(textRow());
+  h.push(liveCards());
   if(F('schedule')){
     var tj = S.jobs.filter(function(j){ return j.date === t && j.status !== 'lost' && j.status !== 'closed'; }).sort(byTime);
     h.push('<h2>Today</h2>');
@@ -2853,6 +2855,179 @@ function needs(){
 function jobCard(j){
   var c = cust(j.customerId), late = jobInvoices(j).some(invOverdue);
   return '<button class="card tap" onclick="BM.go(\'job/' + j.id + '\')"><div class="row"><div class="grow"><b>' + esc(j.title || 'Job') + '</b><div class="small muted">' + esc(c.name) + (j.date ? ' · ' + fd(j.date) + (j.time ? ' ' + ft(j.time) : '') : '') + '</div></div><div style="text-align:right"><div style="font-weight:800">' + money0(jobTotal(j)) + '</div>' + (late ? pill('overdue', 'Late') : pill(j.status)) + '</div></div></button>';
+}
+
+/* ── 🚚 The truck-cab day, part 1 (v1.8 · 20 Nov 2026) ──────────────────────────────────────────
+   Jerry kept idea 4 from the AI-helper review ("the big one"). Part 1 is the Today screen itself, built only from
+   what this book already holds: a morning brief (today's stops in order, what to bring, what is owed, what is due,
+   the next open time this week) that can be read aloud; three one-tap texts — Running late, On my way, Done, bill it —
+   each shown in the usual message box before anything is sent; an evening wrap-up; and the live business view
+   (today / week / month / year) one swipe across. Parts 2 (hold-to-talk) and 3 (alerts) come later.
+   LOCATION: asked for only when Running late or On my way is tapped, read once, used on this phone to guess the drive,
+   and never stored or sent. To know where the customer is, their saved address is looked up once on OpenStreetMap
+   (the address only, never the phone's position) and the answer is kept on the customer. No permission, no address,
+   or no answer: the person picks the minutes instead. */
+var DOWL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function liveJob(j){ return j.status !== 'lost' && j.status !== 'closed'; }
+function todayJobs(){ var t = today(); return S.jobs.filter(function(j){ return j.date === t && liveJob(j); }).sort(byTime); }
+function nowHM(){ var d = new Date(), h = d.getHours(), m = d.getMinutes(); return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; }
+/* the next stop: the first of today's jobs not started yet */
+function nextStop(){ return todayJobs().filter(function(j){ return j.status !== 'working' && j.status !== 'done'; })[0] || null; }
+/* the job being worked on now: one on the clock or marked Working, else the latest of today's whose time has come */
+function currentStop(){
+  var tj = todayJobs().filter(function(j){ return j.status !== 'done'; }); if(!tj.length) return null;
+  if(S.clock){ var cj = job(S.clock.jobId); if(cj && tj.indexOf(cj) >= 0) return cj; }
+  var w = tj.filter(function(j){ return j.status === 'working'; })[0]; if(w) return w;
+  var n = nowHM(), past = tj.filter(function(j){ return j.time && j.time <= n; });
+  return past.length ? past[past.length - 1] : tj[0];
+}
+function stopLine(j){ var c = cust(j.customerId); return (j.time ? ft(j.time) + ' · ' : '') + j.title + ' for ' + c.name + (c.address ? ', ' + c.address : ''); }
+/* the next open time in the coming week (Sunday is left alone) */
+function nextGap(){
+  var t = today();
+  for(var i = 1; i <= 7; i++){
+    var d = addDays(t, i), wd = parseD(d).getDay(); if(wd === 0) continue;
+    var js = S.jobs.filter(function(j){ return j.date === d && j.status !== 'lost'; });
+    var name = i === 1 ? 'Tomorrow' : DOWL[wd];
+    if(!js.length) return name + ' is open';
+    if(js.some(function(j){ return !j.time; })) continue;
+    if(js.every(function(j){ return j.time < '12:00'; })) return name + ' afternoon is open';
+    if(js.every(function(j){ return j.time >= '12:00'; })) return name + ' morning is open';
+  }
+  return '';
+}
+function waitingEstimates(){ return F('estimates') ? S.jobs.filter(function(j){ return j.status === 'estimate' && j.estSent; }) : []; }
+function dueToday(){
+  var t = today(), out = [];
+  S.invoices.forEach(function(v){ if(v.sent && v.due === t && invBal(v) > 0.004) out.push(cust(v.customerId).name + '’s invoice #' + v.num + ' (' + money0(invBal(v)) + ')'); });
+  if(F('todos')) soonTodos(0).forEach(function(td){ out.push(td.text + (effDue(td) < t ? ' (late)' : '')); });
+  if(F('estimates')) S.jobs.forEach(function(j){ if(j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) === 3) out.push('a follow-up to ' + cust(j.customerId).name + ' about the estimate'); });
+  return out;
+}
+/* the brief as plain sentences: shown on the card and read aloud word for word */
+function morningBrief(){
+  var tj = todayJobs().filter(function(j){ return j.status !== 'done'; }), out = [];
+  var hi = (new Date().getHours() < 12 ? 'Good morning' : 'Hello') + (S.biz.owner ? ', ' + first(S.biz.owner) : '') + '.';
+  if(F('schedule')){
+    if(!tj.length) out.push({ k:'jobs', t:hi + ' Nothing on the schedule today.' });
+    else {
+      out.push({ k:'jobs', t:hi + ' ' + tj.length + ' job' + (tj.length > 1 ? 's' : '') + ' today. First: ' + stopLine(tj[0]) + '.' });
+      tj.slice(1).forEach(function(j, i){ out.push({ k:'stop', t:(i === 0 ? 'Then ' : 'After that, ') + stopLine(j) + '.' }); });
+      tj.forEach(function(j){ if(j.bring) out.push({ k:'bring', t:'Bring for ' + cust(j.customerId).name + ': ' + j.bring + '.' }); });
+    }
+  } else out.push({ k:'jobs', t:hi });
+  var ow = owed(), owT = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0)), late = ow.filter(invOverdue).sort(function(a, b){ return a.due.localeCompare(b.due); });
+  if(!ow.length) out.push({ k:'owed', t:'Nobody owes you money right now.' });
+  else out.push({ k:'owed', t:'Owed to you: ' + money0(owT) + (late.length ? '. ' + cust(late[0].customerId).name + '’s invoice is ' + daysBetween(late[0].due, today()) + ' days late' + (late.length > 1 ? ', and ' + (late.length - 1) + ' more' + (late.length > 2 ? ' are' : ' is') + ' late too' : '') : '') + '.' });
+  var due = dueToday();
+  out.push({ k:'due', t:due.length ? 'Due today: ' + due.join('; ') + '.' : 'Nothing else is due today.' });
+  if(F('schedule')){ var g = nextGap(), we = waitingEstimates();
+    if(g) out.push({ k:'gap', t:g + '.' + (we.length ? ' ' + we.length + ' estimate' + (we.length > 1 ? 's are' : ' is') + ' waiting on a reply.' : '') }); }
+  return out;
+}
+function eveningWrap(){
+  var t = today(), R = pl(t, t), out = [], acts = [];
+  out.push({ k:'profit', t:F('expenses') ? 'Today: ' + money0(R.income) + ' came in and ' + money0(R.out) + ' went out, so ' + (R.profit >= 0 ? 'you made ' + money0(R.profit) : 'you are down ' + money0(-R.profit)) + '.' : 'Today: ' + money0(R.income) + ' came in.' });
+  var unb = S.jobs.filter(function(j){ return j.status === 'done' && jobTotal(j) - jobBilled(j) > 0.004; });
+  if(unb.length){ out.push({ k:'unbilled', t:'Done but not billed: ' + unb.map(function(j){ return cust(j.customerId).name + ' (' + money0(jobTotal(j) - jobBilled(j)) + ')'; }).join(', ') + '.' });
+    unb.slice(0, 3).forEach(function(j){ acts.push('<button class="btn sm" onclick="BM.go(\'job/' + j.id + '\')">💵 Bill ' + esc(first(cust(j.customerId).name)) + '? ' + money0(jobTotal(j) - jobBilled(j)) + '</button>'); }); }
+  else out.push({ k:'unbilled', t:'Every finished job has been billed.' });
+  if(F('expenses')){ var loose = S.expenses.filter(function(e){ return e.date === t && !e.jobId && e.cat === CATS[0]; });
+    if(loose.length){ out.push({ k:'loose', t:loose.length + ' receipt' + (loose.length > 1 ? 's' : '') + ' from today ' + (loose.length > 1 ? 'have' : 'has') + ' no job: ' + loose.map(function(e){ return (e.vendor || 'no name') + ' ' + money0(e.amount); }).join(', ') + '.' });
+      loose.slice(0, 3).forEach(function(e){ acts.push('<button class="btn sm" onclick="BM.addExpense(\'' + e.id + '\')">🧾 Pick a job: ' + esc(e.vendor || 'receipt') + '</button>'); }); } }
+  if(F('schedule')){ var tm = S.jobs.filter(function(j){ return j.date === addDays(t, 1) && liveJob(j); }).sort(byTime)[0];
+    out.push({ k:'tomorrow', t:tm ? 'Tomorrow’s first stop: ' + stopLine(tm) + '.' : 'Nothing booked for tomorrow yet.' }); }
+  return { lines:out, acts:acts };
+}
+function briefCard(){
+  var eve = BM._brief ? BM._brief === 'eve' : new Date().getHours() >= 15;
+  var lines = eve ? eveningWrap() : { lines:morningBrief(), acts:[] };
+  var acts = lines.acts.slice();
+  if(!eve){ var we = waitingEstimates(); if(F('schedule') && nextGap() && we.length) acts.push('<button class="btn sm" onclick="BM.go(\'jobs/estimate\')">📨 Nudge them</button>'); }
+  return '<div class="card brief" id="tdBrief"><div class="row" style="align-items:center;margin-bottom:6px"><b class="grow">' + (eve ? '🌙 Evening wrap-up' : '☀️ Your day') + '</b>'
+    + '<button class="chip' + (eve ? '' : ' on') + '" onclick="BM.briefShow(\'am\')">Morning</button><button class="chip' + (eve ? ' on' : '') + '" onclick="BM.briefShow(\'eve\')">Evening</button></div>'
+    + lines.lines.map(function(x){ return '<p data-k="' + x.k + '">' + esc(x.t) + '</p>'; }).join('')
+    + '<div class="btns" style="margin-top:8px"><button class="btn sm" id="tdRead" onclick="BM.briefRead()" aria-label="Read it to me">🔊 Read it to me</button>' + acts.join('') + '</div></div>';
+}
+function briefShow(w){ BM._brief = w; render(); }
+function briefRead(){
+  var p = document.querySelectorAll('#tdBrief p'), t = Array.prototype.map.call(p, function(x){ return x.textContent; }).join(' ');
+  if(!window.speechSynthesis || !window.SpeechSynthesisUtterance){ toast('This phone can’t read aloud here. The words are all on the card.'); return; }
+  try{ if(window.djSayNow) djSayNow(); speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t.replace(/\$/g, ' dollars ').replace(/(\d) dollars ([\d,]+)/g, '$1$2 dollars')); u.rate = 0.95;
+    var vs = speechSynthesis.getVoices().filter(function(v){ return /^en/i.test(v.lang); }); var pick = vs.filter(function(v){ return /Samantha|Karen|Moira|Serena|Google US English/i.test(v.name); })[0] || vs[0]; if(pick) u.voice = pick;
+    speechSynthesis.speak(u); }catch(e){ toast('This phone can’t read aloud here. The words are all on the card.'); }
+}
+/* the three one-tap texts */
+function textRow(){
+  if(!F('schedule')) return '';
+  return '<div class="btns daytexts" id="tdTexts"><button class="btn" onclick="BM.dayText(\'late\')">⏱ Running late</button><button class="btn" onclick="BM.dayText(\'onway\')">🚚 On my way</button><button class="btn" onclick="BM.dayText(\'done\')">✅ Done, bill it</button></div>';
+}
+function hmPlus(min){ var d = new Date(Date.now() + min * 6e4); return ft((d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes()); }
+function roundUp5(m){ return Math.max(5, Math.ceil(m / 5) * 5); }
+function km(a, b){ var R = 6371, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLo = (b.lon - a.lon) * r; var x = Math.sin(dLa / 2) * Math.sin(dLa / 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLo / 2) * Math.sin(dLo / 2); return 2 * R * Math.asin(Math.sqrt(x)); }
+function hereNow(){ return new Promise(function(res){ if(!navigator.geolocation) return res(null); var done = false; setTimeout(function(){ if(!done){ done = true; res(null); } }, 9000);
+  try{ navigator.geolocation.getCurrentPosition(function(p){ if(done) return; done = true; res({ lat:p.coords.latitude, lon:p.coords.longitude }); }, function(){ if(done) return; done = true; res(null); }, { enableHighAccuracy:false, timeout:8000, maximumAge:120000 }); }catch(e){ done = true; res(null); } }); }
+async function custPlace(c){
+  if(c.geo && c.geo.a === c.address) return c.geo;
+  if(!c.address || preview) return null;
+  try{ var q = c.address + (S.biz.address && !/\d{5}|,.*,/.test(c.address) ? ', ' + S.biz.address.split(',').slice(-1)[0].trim() : '');
+    var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q)); var a = await r.json();
+    if(a && a[0]){ c.geo = { lat:+a[0].lat, lon:+a[0].lon, a:c.address }; save(); return c.geo; } }catch(e){}
+  return null;
+}
+/* drive minutes from here to the customer, or null: straight line × 1.3 for roads, at about 40 km/h */
+async function driveMin(c){ var here = await hereNow(); if(!here) return { min:null, why:'loc' }; var there = await custPlace(c); if(!there) return { min:null, why:'addr' };
+  return { min:roundUp5(km(here, there) * 1.3 / 40 * 60), why:'' }; }
+function dayTextWords(kind, j, min){
+  var c = cust(j.customerId), n = first(c.name), b = S.biz, at = hmPlus(min);
+  var sig = b.owner ? '\n— ' + first(b.owner) + (b.name ? ', ' + b.name : '') : (b.name ? '\n— ' + b.name : '');
+  if(kind === 'onway') return 'Hi ' + n + ', this is ' + (b.owner ? first(b.owner) : L('your contractor', 'your fundi')) + (b.name ? ' with ' + b.name : '') + '. I’m on my way and should be there around ' + at + '.';
+  var behind = 0; if(j.time){ var d = new Date(), p = j.time.split(':'); d.setHours(+p[0], +p[1] || 0, 0, 0); behind = roundUp5((Date.now() + min * 6e4 - d.getTime()) / 6e4); if(Date.now() + min * 6e4 <= d.getTime()) behind = 0; }
+  if(behind > 120) behind = -1;   /* hours past the booked time: say so plainly, not "300 minutes" */
+  return 'Hi ' + n + ', I’m running ' + (behind > 0 ? 'about ' + behind + ' minutes behind' : behind < 0 ? 'well behind today' : 'a little behind') + '. Sorry about that. See you around ' + at + '.' + sig;
+}
+async function dayText(kind){
+  if(kind === 'done'){ var cj = currentStop(); if(!cj){ toast('No job left on today’s schedule to finish.'); return; }
+    var c0 = cust(cj.customerId), sig = S.biz.owner ? '\n— ' + first(S.biz.owner) + (S.biz.name ? ', ' + S.biz.name : '') : '';
+    compose({ c:c0, jobId:cj.id, kind:'finished', label:'Done, bill it', redo:{ f:'dayText', a:['done'] },
+      text:'Hi ' + first(c0.name) + ', all done at your place today. Thanks for having me! Your invoice is on its way.' + sig,
+      onSent:function(){ if(cj.status !== 'done' && cj.status !== 'closed') cj.status = 'done'; setTimeout(function(){ go('job/' + cj.id); }, 350); } });
+    return; }
+  var j = nextStop(); if(!j){ toast('No more stops on today’s schedule.'); return; }
+  var c = cust(j.customerId);
+  sheet('<h3>' + (kind === 'late' ? '⏱ Running late' : '🚚 On my way') + ' · ' + esc(c.name) + '</h3><p class="muted small" id="dtWhy" style="margin:0 0 8px">Working out how far away you are…</p><div id="dtBody"></div>'
+    + '<p class="hint">Your location is only read now, on this phone, to guess the drive. It’s never saved or sent.</p>');
+  var r = await driveMin(c), w = $('dtWhy'), body = $('dtBody'); if(!w || !body) return;
+  BM._dt = { kind:kind, jid:j.id, min:r.min == null ? 20 : r.min };
+  w.textContent = r.min != null ? 'About ' + r.min + ' minutes from ' + c.name.split(' ')[0] + '’s, so around ' + hmPlus(r.min) + '.' : r.why === 'loc' ? 'Location is off, so pick how long you’ll be.' : 'I couldn’t find ' + (c.address ? 'that address' : 'an address for ' + c.name) + ' on the map, so pick how long you’ll be.';
+  dtDraw();
+}
+function dtDraw(){
+  var o = BM._dt, j = job(o.jid), body = $('dtBody'); if(!o || !j || !body) return;
+  body.innerHTML = '<div class="chips">' + [10, 20, 30, 45, 60].concat([10, 20, 30, 45, 60].indexOf(o.min) < 0 ? [o.min] : []).sort(function(a, b){ return a - b; }).map(function(m){ return '<button class="chip' + (m === o.min ? ' on' : '') + '" onclick="BM.dtMin(' + m + ')">' + m + ' min</button>'; }).join('') + '</div>'
+    + '<div class="card small" id="dtWords" style="white-space:pre-wrap;background:#F7F4EC">' + esc(dayTextWords(o.kind, j, o.min)) + '</div>'
+    + '<button class="btn main full" id="dtGo" onclick="BM.dtGo()">Next: check it and send →</button>';
+}
+function dtMin(m){ BM._dt.min = m; dtDraw(); }
+function dtGo(){ var o = BM._dt, j = job(o.jid), c = cust(j.customerId);
+  compose({ c:c, jobId:j.id, kind:o.kind, label:o.kind === 'late' ? 'Running late' : 'On my way', redo:{ f:'dayText', a:[o.kind] }, text:dayTextWords(o.kind, j, o.min),
+    onSent:function(){ if(o.kind === 'onway' && (j.status === 'scheduled' || j.status === 'approved')) j.status = 'working'; } }); }
+/* the live business view: four cards side by side, one swipe apart */
+function billsDue(from, to){ aheadState(); var n = 0;
+  S.repeats.forEach(function(r){ var a = num(r.amount); if(!a) return; var d = parseD(from), end = parseD(to), day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
+    for(var y = d.getFullYear(), m = d.getMonth(); new Date(y, m, 1) <= end; m++){ var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last)); if(when >= d && when <= end) n += a; } });
+  return r2(n); }
+function liveCards(){
+  var t = today(), d = parseD(t), y = d.getFullYear(), mo = d.getMonth(), wd = (d.getDay() + 6) % 7, wk0 = addDays(t, -wd);
+  var ow = owed(), owT = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0)), od = ow.filter(invOverdue).length;
+  var P = [['Today', t, t], ['This week', wk0, addDays(wk0, 6)], [MON[mo] + ' so far', ymd(new Date(y, mo, 1)), ymd(new Date(y, mo + 1, 0))], [y + ' so far', y + '-01-01', y + '-12-31']];
+  return '<div class="live" id="tdLive" aria-label="The business: today, this week, this month, this year">' + P.map(function(p, i){ var R = pl(p[1], p[2]), by = billsDue(t, p[2]);
+    return '<button class="card live1" data-p="' + i + '" onclick="BM.go(\'money/' + (i === 3 ? 'ty' : 'tm') + '\')"><div class="row"><b class="grow">' + esc(p[0]) + '</b><span class="small muted">' + (i < 3 ? 'swipe ›' : '‹') + '</span></div>'
+      + '<div class="tot"><span>Money in</span><b style="color:var(--good)">' + money0(R.income) + '</b></div>'
+      + (F('expenses') ? '<div class="tot"><span>Money out</span><b>' + (R.out ? '−' : '') + money0(R.out) + '</b></div><div class="tot"><span>Profit</span><b style="color:' + (R.profit >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + money0(R.profit) + '</b></div>' : '')
+      + '<div class="tot"><span>Owed to me</span><b style="color:var(--bad)">' + money0(owT) + (od ? ' <span class="small">· ' + od + ' late</span>' : '') + '</b></div>'
+      + '<div class="tot"><span>Bills still to pay</span><b>' + money0(by) + '</b></div></button>'; }).join('') + '</div>'
+    + '<p class="hint" style="margin:-4px 4px 10px">Bills still to pay are the monthly bills you listed in Money → Next 30 / 60 days.</p>';
 }
 
 /* ── jobs list / customers / schedule ── */
@@ -2946,6 +3121,7 @@ VIEWS.newjob = function(){
   var h = '<div class="card"><label class="f" for="jc" style="margin-top:0">Customer</label><select class="i" id="jc" onchange="BM.toggleNewCust()">' + opts + '</select><div id="ncBox"' + (pre ? ' hidden' : '') + '>' + custForm({}, 'n') + '</div></div>';
   h += '<div class="card"><label class="f" for="jt" style="margin-top:0">What’s the job?</label><input class="i" id="jt" placeholder="' + esc(sampleTitle()) + '">'
     + '<label class="f" for="jd">Details <span class="muted small">(' + (F('estimates') && F('lineItems') ? 'the more you say, the better the price draft' : 'optional') + ' — tap the 🎤 on your keyboard to talk)</span></label><textarea class="i" id="jd" placeholder="What the customer wants, what you saw, sizes, how many hours — anything to remember"></textarea>';
+  if(F('schedule')) h += '<label class="f" for="jb">What to bring <span class="muted small">(optional — it’s in the morning brief)</span></label><input class="i" id="jb" placeholder="' + L('e.g. 40-gal water heater, the long ladder', 'e.g. 5,000 L tank, the long ladder') + '">';
   if(!F('lineItems')) h += '<label class="f" for="jp">Price</label><input class="i" id="jp" inputmode="decimal" placeholder="' + L('$0.00', 'KES') + '">';
   if(F('schedule')) h += '<div class="two"><div><label class="f" for="jdt">Day</label><input class="i" id="jdt" type="date"></div><div><label class="f" for="jtm">Time</label><input class="i" id="jtm" type="time"></div></div>';
   h += '</div><button class="btn main full" onclick="BM.saveNewJob()">Save job →</button>';
@@ -2960,6 +3136,7 @@ function saveNewJob(){
   if(!cid){ var c = readCust('n'); if(!c.name){ alert('Who is the job for? Pick a customer or type a name.'); return; } c.id = uid(); c.created = today(); S.customers.push(c); cid = c.id; }
   var title = $('jt').value.trim(); if(!title){ alert('Give the job a short name, like “' + sampleTitle() + '”.'); return; }
   var j = { id:uid(), num:S.seq.job++, customerId:cid, title:title, desc:$('jd').value.trim(), status:'new', created:today(), items:[], times:[], log:[] };
+  if($('jb') && $('jb').value.trim()) j.bring = $('jb').value.trim();
   if($('jp')) j.price = num($('jp').value);
   if($('jdt') && $('jdt').value){ j.date = $('jdt').value; j.time = $('jtm').value; if(!F('estimates')) j.status = 'scheduled'; }
   S.jobs.push(j); save(); go('job/' + j.id);
@@ -2971,6 +3148,7 @@ VIEWS.editjob = function(){
   var h = '<div class="card"><label class="f" for="jc" style="margin-top:0">Customer</label><select class="i" id="jc">' + opts + '</select>'
     + '<label class="f" for="jt">What’s the job?</label><input class="i" id="jt" value="' + esc(j.title) + '">'
     + '<label class="f" for="jd">Details</label><textarea class="i" id="jd">' + esc(j.desc || '') + '</textarea>';
+  if(F('schedule')) h += '<label class="f" for="jb">What to bring</label><input class="i" id="jb" value="' + esc(j.bring || '') + '" placeholder="' + L('e.g. 40-gal water heater, the long ladder', 'e.g. 5,000 L tank, the long ladder') + '">';
   if(!F('lineItems')) h += '<label class="f" for="jp">Price</label><input class="i" id="jp" inputmode="decimal" value="' + (j.price || '') + '">';
   if(F('schedule')) h += '<div class="two"><div><label class="f" for="jdt">Day</label><input class="i" id="jdt" type="date" value="' + esc(j.date || '') + '"></div><div><label class="f" for="jtm">Time</label><input class="i" id="jtm" type="time" value="' + esc(j.time || '') + '"></div></div>';
   h += '<label class="f" for="js">Where it stands</label><select class="i" id="js">' + stages().concat(['lost']).map(function(s){ return '<option value="' + s + '"' + (s === j.status ? ' selected' : '') + '>' + STAGE[s] + '</option>'; }).join('') + '</select></div>';
@@ -2979,6 +3157,7 @@ VIEWS.editjob = function(){
 };
 function saveEditJob(id){
   var j = job(id); j.customerId = $('jc').value; j.title = $('jt').value.trim() || j.title; j.desc = $('jd').value.trim();
+  if($('jb')) j.bring = $('jb').value.trim();
   if($('jp')) j.price = num($('jp').value);
   if($('jdt')){ j.date = $('jdt').value; j.time = $('jtm').value; }
   j.status = $('js').value; save(); go('job/' + id);
@@ -4490,7 +4669,7 @@ function makeDemo(){
   d.customers = C.map(function(c){ return { id:c[0], name:c[1], phone:c[2], email:c[3], address:c[4], created:A(-60) }; });
   var J = function(id, num, cid, title, desc, status, items, extra){ return Object.assign({ id:id, num:num, customerId:cid, title:title, desc:desc, status:status, created:A(-10), items:items.map(function(x){ return { name:x[0], qty:x[1], price:x[2] }; }), times:[], log:[] }, extra || {}); };
   d.jobs = [
-    J('j1', 1001, 'c1', 'Replace water heater', '50 gal gas, 12 yrs old, leaking at base. Haul old one away.', 'scheduled', [['Water heater install, 40–50 gal', 1, 1450], ['Haul-away & disposal', 1, 75]], { date:t, time:'09:00', estSent:A(-6), signed:{ name:'Sarah Johnson', date:A(-4) } }),
+    J('j1', 1001, 'c1', 'Replace water heater', '50 gal gas, 12 yrs old, leaking at base. Haul old one away.', 'scheduled', [['Water heater install, 40–50 gal', 1, 1450], ['Haul-away & disposal', 1, 75]], { date:t, time:'09:00', bring:'the 50-gal gas heater and the hand truck', estSent:A(-6), signed:{ name:'Sarah Johnson', date:A(-4) } }),
     J('j2', 1002, 'c2', 'Kitchen faucet + disposal', 'Customer bought the faucet. Replace disposal (1/2 hp).', 'scheduled', [['Faucet replace (labor)', 1, 225], ['Disposal, 1/2 hp, installed', 1, 340]], { date:A(1), time:'13:30', estSent:A(-5), signed:{ name:'Rita Alvarez', date:A(-3) } }),
     J('j3', 1003, 'c3', 'Fellowship hall restrooms', 'Two toilets running, one urinal flush valve, check water pressure.', 'estimate', [['Service call / trip charge', 1, 95], ['Toilet rebuild', 2, 165], ['Flush valve replace', 1, 285]], { estSent:A(-4), qnote:'Priced from our standard list; we confirm on site before any work starts.', edit:0,
       tiers:[{ name:'Good', items:[] }, { name:'Better', items:[{ name:'Service call / trip charge', qty:1, price:95 }, { name:'Toilet rebuild', qty:2, price:165 }, { name:'Flush valve replace', qty:1, price:285 }, { name:'Upgraded parts & fittings', qty:1, price:95 }] }, { name:'Best', items:[{ name:'Service call / trip charge', qty:1, price:95 }, { name:'Toilet rebuild', qty:2, price:165 }, { name:'Flush valve replace', qty:1, price:285 }, { name:'Upgraded parts & fittings', qty:1, price:95 }, { name:'Premium parts + priority scheduling', qty:1, price:250 }] }] }),
@@ -5052,6 +5231,7 @@ document.getElementById('backBtn').addEventListener('click', back);
 /* everything the buttons call */
 window.BM = {
   go:go, back:back, closeSheet:closeSheet, relist:relist, guessCat:guessCat, _q:'', _cq:'',
+  briefShow:briefShow, briefRead:briefRead, dayText:dayText, dtMin:dtMin, dtGo:dtGo,
   keepDemo:keepDemo, fresh:fresh, tourShow:tourShow, redoSetup:redoSetup,
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
   saveCust:saveCust, delCust:delCust, message:message, toggleNewCust:toggleNewCust, saveNewJob:saveNewJob, saveEditJob:saveEditJob, delJob:delJob,
