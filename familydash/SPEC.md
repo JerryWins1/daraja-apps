@@ -923,3 +923,9 @@ Two ideas from Jerry's AI-helper page (Family Money "idea 1, updated" and "idea 
 - A phone reminder is the calendar file. There is no push notification.
 
 The overview and first-time videos each gained two lines, re-recorded by name in Jerry's ElevenLabs voice. Two untrue lines in the first-time video were fixed too: "nothing is sent anywhere", and tapping a red square. Tester script steps s33b and s33c were added. The store card's tag mentions both features.
+
+## v9.0 · ← Back, and Ask during setup (20 Nov)
+
+Jerry: "If you go one screen too far … you can't go back to the previous one."
+- Every screen remembers the one before it. **← Back** at the top, or the browser's own Back button, steps back one screen. On the first screen, browser Back closes it. Passing screens aren't kept: reading, thinking, and the one-payee-at-a-time sort, which has its own Back.
+- **💬 Ask about our money** now shows during setup too, once any statement lines are in, with a note that answers get better once the budget is set. Jerry was at step 8 of 13 and couldn't find it.
