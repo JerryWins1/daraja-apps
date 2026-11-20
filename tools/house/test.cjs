@@ -1,0 +1,193 @@
+#!/usr/bin/env node
+/* Checks on the shared house block (the <script id="dj-house-vNN"> every app carries).
+ *
+ *   node tools/house/test.cjs            all of it
+ *   node tools/house/test.cjs back       one group: back, mic, tell, same
+ *
+ * Why this file exists. On 20 November the back-stack, the microphone and the tell
+ * box were each fixed and each verified by a throwaway script in a container that
+ * then went away, and the Ahead of It chat lost its Start fresh harness the same
+ * way. A check nobody can re-run is a check that only happened once.
+ *
+ * Two traps that made earlier runs lie, both still guarded against below:
+ *   · a service worker's own fetch is NOT intercepted by Playwright routes, so a
+ *     reload silently grades the deployed site. serviceWorkers: 'block'.
+ *   · file:// is not what a phone loads. Everything here is served over http.
+ */
+const { chromium } = require('playwright');
+const http = require('http'), fs = require('fs'), path = require('path');
+
+const ROOT = path.resolve(__dirname, '..', '..');
+const TYPES = { '.html':'text/html', '.js':'text/javascript', '.json':'application/json',
+                '.css':'text/css', '.png':'image/png', '.svg':'image/svg+xml',
+                '.m4a':'audio/mp4', '.webmanifest':'application/manifest+json' };
+
+function serve(){
+  return new Promise(res => {
+    const s = http.createServer((q, r) => {
+      let p = path.join(ROOT, decodeURIComponent(q.url.split('?')[0]));
+      if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
+      if (!p.startsWith(ROOT) || !fs.existsSync(p)) { r.writeHead(404); return r.end('no'); }
+      r.writeHead(200, { 'Content-Type': TYPES[path.extname(p)] || 'application/octet-stream' });
+      fs.createReadStream(p).pipe(r);
+    }).listen(0, () => res({ port: s.address().port, stop: () => s.close() }));
+  });
+}
+
+const ok = [], bad = [];
+const ck = (n, pass, detail) => {
+  (pass ? ok : bad).push(n);
+  console.log((pass ? '  ok   ' : '  FAIL ') + n + (pass || detail === undefined ? '' : '  <-- ' + JSON.stringify(detail)));
+};
+
+/* a page with the tour cleared, which otherwise swallows the first tap */
+async function open(ctx, port, app){
+  const p = await ctx.newPage();
+  p.on('pageerror', e => ck('no page error: ' + e.message, false));
+  await p.goto(`http://localhost:${port}/${app}/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(1400);
+  await p.evaluate(() => { for (const id of ['djTour','djBanner']) { const t = document.getElementById(id); if (t) t.remove(); } });
+  return p;
+}
+
+async function back(b, port){
+  console.log('\nThe back-stack — djBack, the ? menu, and the phone\'s own Back');
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  const p = await open(ctx, port, 'advent');
+  /* a stand-in app that opens its own screens, the way a real app's would */
+  await p.evaluate(() => {
+    window.appOpen = function(name){
+      const prev = document.getElementById('appPanel');
+      if (prev) { const was = prev.dataset.n; window.djBack.push(function(){ window.appOpen(was); }); }
+      let el = prev || Object.assign(document.createElement('div'), { id: 'appPanel' });
+      if (!prev) document.body.appendChild(el);
+      el.dataset.n = name;
+    };
+  });
+  const screen = () => p.evaluate(() => document.getElementById('appPanel').dataset.n);
+  const depth  = () => p.evaluate(() => window.djBack.depth());
+
+  await p.evaluate(() => { appOpen('Home'); appOpen('Library'); appOpen('Sermon'); });
+  ck('an app trail two deep', await depth() === 2, await depth());
+  await p.goBack(); await p.waitForTimeout(250);
+  ck("the phone's Back steps back one, not out", await screen() === 'Library' && p.url().includes('/advent/'));
+  await p.goBack(); await p.waitForTimeout(250);
+  ck('and again, to the first screen', await screen() === 'Home' && await depth() === 0 && p.url().includes('/advent/'));
+
+  await p.evaluate(() => appOpen('Library'));
+  await p.evaluate(() => document.getElementById('djDockToggle').click()); await p.waitForTimeout(300);
+  ck('the ? menu opens over an app trail', await p.isVisible('#djDockSheet'));
+  ck('  and keeps the trail (it used to wipe it)', await depth() === 1, await depth());
+  ck('  with no Back chip of its own', await p.$('#djDockSheet .djBackB') === null);
+  await p.click('text=Which AI do you use?'); await p.waitForTimeout(350);
+  ck('a house screen one deeper shows the chip', await p.isVisible('#djAISheet .djBackB'));
+  await p.click('#djAISheet .djBackB'); await p.waitForTimeout(300);
+  ck('  the chip returns to the ? menu', await p.isVisible('#djDockSheet'));
+  await p.evaluate(() => document.querySelector('#djDockSheet button:last-of-type').click()); await p.waitForTimeout(300);
+  ck('closing the menu leaves the app trail alone', await p.$('#djDockSheet') === null && await depth() === 1, await depth());
+  await p.goBack(); await p.waitForTimeout(250);
+  ck("the phone's Back then steps the app back", await screen() === 'Home' && p.url().includes('/advent/'));
+  await ctx.close();
+}
+
+async function mic(b, port){
+  console.log('\nDictation — it must not stop at the first pause');
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => {           /* a recogniser we can drive; Chromium has none */
+    window.__SRS = [];
+    window.SpeechRecognition = function(){
+      this.continuous = false; this.interimResults = false; this.lang = '';
+      this.start = function(){ window.__SRS.push(this); };
+      this.stop  = function(){ if (this.onend) this.onend(); };
+      this.abort = function(){ if (this.onend) this.onend(); };
+    };
+  });
+  const p = await open(ctx, port, 'advent');
+  const r = await p.evaluate(async () => {
+    const out = {};
+    const inp = document.createElement('input'); inp.type = 'text';
+    document.body.appendChild(inp); inp.focus();
+    await new Promise(r => setTimeout(r, 600));
+    const m = document.getElementById('djMic'); if (!m) return out;
+    m.click(); await new Promise(r => setTimeout(r, 100));
+    const a = window.__SRS[window.__SRS.length - 1];
+    out.continuous = a.continuous;                       /* false on a one-line box was the bug */
+    a.onresult({ results: [[{ transcript: 'buy milk' }]] });
+    a.onend();                                           /* Chrome closing the session itself */
+    await new Promise(r => setTimeout(r, 100));
+    out.restarted = window.__SRS.length === 2;
+    window.__SRS[1].onresult({ results: [[{ transcript: 'and bread' }]] });
+    out.text = inp.value;
+    m.click(); await new Promise(r => setTimeout(r, 100));
+    out.stopStays = window.__SRS.length === 2;
+    return out;
+  });
+  ck('a one-line box keeps listening', r.continuous === true, r.continuous);
+  ck('a session the browser closes is started again', r.restarted === true);
+  ck('  and the words already said survive it', r.text === 'buy milk and bread', r.text);
+  ck('tapping stop does not start it again', r.stopStays === true);
+  await ctx.close();
+}
+
+async function tell(b, port){
+  console.log('\nThe tell box — a date must reach the app that owns it');
+  for (const [label, seed, expect] of [
+    ['the merged app is installed', () => localStorage.setItem('aheadofit_v1', JSON.stringify({ items: [{ n: 'mine' }] })), 'aheadofit_v1'],
+    ['only an old install',         () => localStorage.setItem('ahead_v1',     JSON.stringify({ items: [{ n: 'old'  }] })), 'ahead_v1'],
+  ]) {
+    const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+    await ctx.addInitScript(seed);
+    const p = await open(ctx, port, 'academy');
+    await p.evaluate(() => document.getElementById('djDockToggle').click()); await p.waitForTimeout(300);
+    await p.click('text=Tell it'); await p.waitForTimeout(400);
+    await p.fill('#djTellIn', 'car registration due 1 March'); await p.waitForTimeout(400);
+    const said = await p.innerText('#djAISheet');
+    ck(`${label}: it offers Ahead of It`, /to Ahead of It/.test(said) && !/isn.t set up/.test(said), said.slice(0, 120));
+    await p.click('text=Yes, add it'); await p.waitForTimeout(500);
+    const where = await p.evaluate(() => {
+      const n = k => { try { return (JSON.parse(localStorage.getItem(k) || '{}').items || []).length; } catch(e){ return 0; } };
+      return n('aheadofit_v1') === 2 ? 'aheadofit_v1' : (n('ahead_v1') === 2 ? 'ahead_v1' : 'nowhere');
+    });
+    ck(`  and the date lands in ${expect}`, where === expect, where);
+    await ctx.close();
+  }
+}
+
+async function same(){
+  console.log('\nThe block itself');
+  const crypto = require('crypto');
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => {
+    const f = path.join(d, e.name);
+    if (e.isDirectory()) return e.name === '.git' || e.name === 'node_modules' ? [] : walk(f);
+    return e.name === 'index.html' ? [f] : [];
+  });
+  const files = walk(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')));
+  const seen = {};
+  for (const f of files) {
+    const s = fs.readFileSync(f, 'utf8');
+    const i = s.indexOf('<script id="dj-house-v'), j = s.indexOf('</script>', i);
+    (seen[crypto.createHash('sha1').update(s.slice(i, j)).digest('hex').slice(0, 10)] ||= []).push(path.relative(ROOT, f));
+  }
+  const groups = Object.values(seen).sort((a, b) => b.length - a.length);
+  ck(`${files.length} apps carry the house block`, files.length >= 50, files.length);
+  /* Four copies differ on purpose; any more is drift somebody should know about. */
+  const odd = groups.slice(1).flat();
+  ck('at most four apps differ from the rest, each for a reason its own chat owns',
+     odd.length <= 4, odd);
+  const vers = new Set(files.map(f => (fs.readFileSync(f, 'utf8').match(/dj-house-v(\d+)/) || [])[1]));
+  ck('every app is on the same house version', vers.size === 1, [...vers]);
+}
+
+(async () => {
+  const only = process.argv[2];
+  const s = await serve();
+  const b = await chromium.launch();
+  try {
+    if (!only || only === 'back') await back(b, s.port);
+    if (!only || only === 'mic')  await mic(b, s.port);
+    if (!only || only === 'tell') await tell(b, s.port);
+    if (!only || only === 'same') await same();
+  } finally { await b.close(); s.stop(); }
+  console.log(`\n${ok.length} passed, ${bad.length} failed`);
+  process.exit(bad.length ? 1 : 0);
+})().catch(e => { console.error('the run itself failed:', e); process.exit(1); });
