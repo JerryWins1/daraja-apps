@@ -2588,11 +2588,11 @@
   <div class="score"><div><b id="sToday">0/6</b><span id="sTodayL">today</span></div><div><b id="sBest">0</b><span>best run</span></div><div><b id="sWeek">0</b><span>perfect this week</span></div></div>
   <div class="weekrow" id="weekrow"></div>
   <div class="hand" id="hand"></div>
-  <p class="foot">Every Day v1.15 · 2026-11-15 · Daraja Studio · Free. Unlimited pills. No account. Everything stays on this phone. · a missed day just means start again tomorrow · donations help orphans and students in Kenya</p>
+  <p class="foot">Every Day v1.16 · 2026-11-20 · Daraja Studio · Free. Unlimited pills. No account. Everything stays on this phone. · a missed day just means start again tomorrow · donations help orphans and students in Kenya</p>
 </div>
 
 <div class="sheet" id="editSheet" onclick="if(event.target===this)closeEdit()"><div class="in">
-  <h3 id="editTitle">A new card</h3>
+  <div id="editBack"></div><h3 id="editTitle">A new card</h3>
   <label for="hName">What is it? (a few words)</label><input id="hName" placeholder="Walk to the corner · Call someone · Read a chapter">
   <label>Picture</label><div class="chips" id="emChips"></div>
   <label>How often?</label><div class="chips" id="freqChips"></div><div id="dayBox" style="margin-top:8px"><div class="chips" id="dayChips"></div></div><div id="perBox" style="display:none;margin-top:8px"><div class="chips" id="perChips"></div><p class="small" id="perSay"></p></div><label>More than once a day? (pills)</label><p class="small" style="margin:0 0 6px">Add a line for each time, like “Morning: blood pressure” and “Evening: water pill”. Each one gets its own tick, and the card is done when all are ticked. Add as many as you need.</p><div id="doseList"></div><p class="small" id="doseNote" style="display:none">Add one more time (two or more), or take this one away for a single tick.</p><button type="button" class="b" id="addDose">＋ Yes — add times of day</button>
@@ -2761,8 +2761,17 @@ function toggle(id){ const t=today(); const h=db.habits.find(x=>x.id===id); db.l
   save(); render(); if(perfect(t)) celebrate(); }
 
 /* view / history */
+/* v1.16 · 20 Nov: ← Back between sheets (house v68 window.djBack). Jerry: "If you go one screen too far
+   or something, you can't go back to the previous one." The card list and a card's history say what they
+   are with viewHere(); when they lead on (list → history, either → Change it), the Back chip at the top of
+   the next sheet reopens them. Settings keeps its own Back/Cancel. Closing a sheet ends the trail. */
+let VSHOW=null, BACKING=0;
+function viewHere(here){ if($('viewSheet').classList.contains('on') && VSHOW && !BACKING && (!here || here.k!==VSHOW.k) && window.djBack) djBack.push(VSHOW.fn);
+  VSHOW=here||null; return window.djBack?djBack.button():''; }
+document.addEventListener('click',e=>{ const b=e.target.closest?e.target.closest('#viewIn .djBackB, #editBack .djBackB'):null; if(!b||!window.djBack) return;
+  $('editSheet').classList.remove('on'); BACKING=1; try{ djBack.go(); }finally{ BACKING=0; } });
 /* every card in a list, each with its own Change button — a long-press is invisible to most people */
-window.editList=function(){ $('viewIn').innerHTML='<h3>Change or remove a card</h3><p class="small">Tap one to change its name, its picture, how often, or its times of day. 📅 shows its history.</p>'
+window.editList=function(){ $('viewIn').innerHTML=viewHere({k:'list',fn:editList})+'<h3>Change or remove a card</h3><p class="small">Tap one to change its name, its picture, how often, or its times of day. 📅 shows its history.</p>'
   + db.habits.map(h=>`<div style="display:flex;gap:8px;margin-bottom:8px"><button class="b" data-ch="${esc(h.id)}" style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;text-align:left"><span style="font-size:24px">${h.em}</span><span style="flex:1;min-width:0;overflow-wrap:break-word">${esc(h.name)}</span><span style="opacity:.6">change ›</span></button><button class="b ghost" data-hi="${esc(h.id)}" aria-label="History of ${esc(h.name)}" title="History" style="flex:none;padding:6px 8px;min-width:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.1"><span style="font-size:20px">📅</span>history</button></div>`).join('')
   + '<div class="row" style="margin-top:8px"><button class="b ghost" onclick="closeView()">Close</button></div>';
   $('viewIn').querySelectorAll('[data-ch]').forEach(b=>{ b.onclick=()=>openEdit(b.dataset.ch); });
@@ -2771,15 +2780,17 @@ window.editList=function(){ $('viewIn').innerHTML='<h3>Change or remove a card</
 function openView(id){ const h=db.habits.find(x=>x.id===id); if(!h) return; const t=today(); const cells=[]; for(let i=27;i>=0;i--){ const d=addDays(t,-i); cells.push(`<i class="${doneOn(h,d)?'y':''} ${d===t?'t':''}" title="${d}"></i>`); }
   const s=streak(h), b=bestStreak(h); const how=isWeekly(h)?timesWord(+h.per):(h.days||[]).length===7?'every day':(h.days||[]).map(i=>DN[i]).join(' ');
   const ds=dosesOf(h);
-  $('viewIn').innerHTML=`<h3>${h.em} ${esc(h.name)}</h3><p class="small">Run: ${s} ${runWord(h,s)} · best ever: ${b} · ${how}</p>${ds?`<p class="small">Times of day: ${ds.map(x=>esc(x.label)).join(' · ')}</p>`:''}<div class="small">Last 4 weeks</div><div class="strip">${cells.join('')}</div>
+  $('viewIn').innerHTML=viewHere({k:'hist:'+id,fn:()=>openView(id)})+`<h3>${h.em} ${esc(h.name)}</h3><p class="small">Run: ${s} ${runWord(h,s)} · best ever: ${b} · ${how}</p>${ds?`<p class="small">Times of day: ${ds.map(x=>esc(x.label)).join(' · ')}</p>`:''}<div class="small">Last 4 weeks</div><div class="strip">${cells.join('')}</div>
     <div class="row" style="margin-top:12px"><button class="b" data-ed="1">✏️ Change it</button><button class="b ghost" onclick="closeView()">Close</button></div>`;
   $('viewIn').querySelector('[data-ed]').onclick=()=>openEdit(h.id); $('viewSheet').classList.add('on'); }
-function closeView(){ $('viewSheet').classList.remove('on'); }
+function closeView(){ $('viewSheet').classList.remove('on'); VSHOW=null; if(window.djBack) djBack.clear(); }
 
 /* edit */
 let editId=null, editEm='🚶', editDays=[0,1,2,3,4,5,6], editPer=0, editDoses=[];
 function openEdit(id,em){ editId=id||null; const h=id?db.habits.find(x=>x.id===id):null; editEm=h?h.em:(em||'🚶'); editDays=h?[...(h.days||ALL)]:[...ALL]; editPer=h&&isWeekly(h)?+h.per:0; editDoses=h&&dosesOf(h)?h.doses.map(x=>({id:x.id,label:x.label})):[];
-  $('editTitle').textContent=h?'Change this card':'A new card'; $('hName').value=h?h.name:''; $('delBtn').style.display=h?'':'none'; drawEm(); drawDays(); drawDoses(); closeView(); $('editSheet').classList.add('on'); setTimeout(()=>$('hName').focus(),100); }
+  $('editTitle').textContent=h?'Change this card':'A new card'; $('hName').value=h?h.name:''; $('delBtn').style.display=h?'':'none'; drawEm(); drawDays(); drawDoses();
+  if($('viewSheet').classList.contains('on')){ viewHere(null); $('viewSheet').classList.remove('on'); } else if(window.djBack) djBack.clear();
+  $('editBack').innerHTML=window.djBack?djBack.button():''; $('editSheet').classList.add('on'); setTimeout(()=>$('hName').focus(),100); }
 function drawEm(){ $('emChips').innerHTML=EMS.map(e=>`<button type="button" class="chip ${e===editEm?'on':''}" aria-pressed="${e===editEm}" style="font-size:22px;font-family:inherit" onclick="editEm='${e}';drawEm()">${e}</button>`).join(''); }
 function drawDays(){
   $('freqChips').innerHTML=`<button type="button" class="chip ${editPer?'':'on'}" aria-pressed="${!editPer}" data-fq="days" style="font-family:inherit;font-size:inherit">On set days</button><button type="button" class="chip ${editPer?'on':''}" aria-pressed="${!!editPer}" data-fq="week" style="font-family:inherit;font-size:inherit">Some times a week</button>`;
@@ -2795,7 +2806,7 @@ function drawDoses(){ $('doseList').innerHTML=editDoses.map((x,i)=>`<div class="
 $('doseList').addEventListener('input',e=>{ const i=e.target.dataset.di; if(i!=null&&editDoses[+i]) editDoses[+i].label=e.target.value; });
 $('doseList').addEventListener('click',e=>{ const b=e.target.closest('[data-dx]'); if(!b) return; editDoses.splice(+b.dataset.dx,1); drawDoses(); });
 $('addDose').addEventListener('click',()=>{ if(!editDoses.length) editDoses=[{id:uid(),label:'Morning'},{id:uid(),label:'Evening'}]; else editDoses.push({id:uid(),label:''}); drawDoses(); const ins=$('doseList').querySelectorAll('input'); if(ins.length) ins[ins.length-1].focus(); });
-function closeEdit(){ $('editSheet').classList.remove('on'); }
+function closeEdit(){ $('editSheet').classList.remove('on'); if(window.djBack) djBack.clear(); }
 function saveHabit(){ const name=$('hName').value.trim(); if(!name){ $('hName').focus(); return; }
   if(!editId && editEm!=='💊' && nonPill()>=8){ alert('Eight cards is the most — remove one first. Pill cards (💊) don’t count, so add as many of those as you need.'); return; }
   const doses=editDoses.length>=2?editDoses.map((x,i)=>({id:x.id||uid(),label:String(x.label||'').trim()||('Time '+(i+1))})):null;
@@ -2806,7 +2817,7 @@ function saveHabit(){ const name=$('hName').value.trim(); if(!name){ $('hName').
 function delHabit(){ if(!confirm('Remove this card? Its history goes too.')) return; db.habits=db.habits.filter(x=>x.id!==editId); Object.values(db.log).forEach(d=>delete d[editId]); Object.values(db.dose).forEach(d=>delete d[editId]); save(); closeEdit(); render(); }
 
 /* settings: I'm OK text · day off · about */
-window.openSettings=function(){ const ppl=okPeople(); const t=today();
+window.openSettings=function(){ const ppl=okPeople(); const t=today(); VSHOW=null;
   $('viewIn').innerHTML=`<h3>⚙️ Settings</h3>
     <button class="b setrow" data-go="ok"><span class="si">🤝</span><span class="st"><b>Let someone know I’m OK</b><span class="small">${ppl.length?'On — '+esc(joinNames(ppl.map(p=>p.name))):'Off — a ready-made text to one or two people'}</span></span><span>›</span></button>
     <button class="b setrow" data-go="off"><span class="si">🤒</span><span class="st"><b>Sick day / day off</b><span class="small">${isOff(t)?'Today is a day off':'Keeps your runs going — once every 7 days'}</span></span><span>›</span></button>
