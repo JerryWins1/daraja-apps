@@ -2703,7 +2703,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.9.6 · 2026-11-20';
+var VER = 'v1.9.7 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -3181,7 +3181,7 @@ function talkCust(t){
 function custJob(c){ if(!c) return null; var js = S.jobs.filter(function(j){ return j.customerId === c.id && j.status !== 'lost'; });
   var open = js.filter(function(j){ return j.status !== 'closed'; }); var pick = (open.length ? open : js).slice().sort(function(a, b){ return (a.date === today() ? -1 : 0) - (b.date === today() ? -1 : 0) || (b.date || b.created || '').localeCompare(a.date || a.created || ''); });
   return pick[0] || null; }
-function talkStore(t){ var w = talkWords(t), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
+function talkStore(t){ var w = talkWords(t).replace(/[.,]/g, ' ').replace(/\s+/g, ' '), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
   var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
 function talkPlan(said, force){
   var t = wordsToDigits(String(said || '').trim()), w = talkWords(t); if(!t) return { kind:force || '' };
@@ -3217,7 +3217,7 @@ function talkButton(){
    into the box as they are heard. The Today button opens the box already listening. It never ends silently: if
    nothing was heard, or the microphone was refused, the line under the box says so and what to do. */
 var MIC = null, SRI = null;
-function micStop(){ if(MIC){ var r = MIC; MIC = null; try{ r.stop(); }catch(e){} micLabel(false); } }
+function micStop(){ if(MIC){ var r = MIC; MIC = null; SRI = null; try{ r.stop(); }catch(e){} micLabel(false); setTimeout(function(){ try{ r.abort(); }catch(e){} }, 1500); } }
 function micLabel(on){ var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
 function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(--bad)' : ''; m.textContent = t; } }
 /* v1.9.6 (20 Nov, Jerry on his iPhone, third try): words ran together with no spaces, and after a couple of rounds a
@@ -3240,11 +3240,17 @@ function talkMic(){
   SRI = rec; MIC = rec;
   rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
   function mine(){ return seq === MICSEQ; }
-  rec.onstart = function(){ if(!mine()) return; began = true; micLabel(true); micSay('Listening. Say it, then pause or tap the button.'); };
+  rec.onstart = function(){ if(!mine()) return; began = true; micLabel(true); micSay('Listening. Say it — it stops by itself when you pause.'); };
+  var quiet = 0;
+  /* v1.9.7: some iPhones finish listening and never say so, which left the app thinking it was still listening —
+     the next tap only stopped it, and looked like nothing happened. So 2.5 seconds after the last words, the app
+     ends the round itself; the button is then always ready for the next tap. */
+  function finish(){ if(!mine() || MIC !== rec) return; try{ rec.onend = null; rec.abort(); }catch(e){} MIC = null; SRI = null; micLabel(false); if($('tkIn')) talkDraw(); }
   rec.onresult = function(ev){ if(!mine()) return; began = true; var b = $('tkIn'); if(!b){ micStop(); return; } heard = micJoin(ev);
-    b.value = base ? base.replace(/[.,]?\s*$/, ', ') + heard : heard; b.dispatchEvent(new Event('input', { bubbles:true })); };
+    b.value = base ? base.replace(/[.,]?\s*$/, ', ') + heard : heard; b.dispatchEvent(new Event('input', { bubbles:true }));
+    clearTimeout(quiet); quiet = setTimeout(finish, 2500); };
   rec.onerror = function(ev){ if(!mine()) return; failed = (ev && ev.error) || 'unknown'; };
-  rec.onend = function(){ if(!mine()) return; if(MIC === rec) MIC = null; SRI = null; micLabel(false); if(!$('tkIn')) return;
+  rec.onend = function(){ clearTimeout(quiet); if(!mine()) return; if(MIC === rec) MIC = null; SRI = null; micLabel(false); if(!$('tkIn')) return;
     if(failed === 'not-allowed' || failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Allow it and tap 🎤 again.' + KB, true);
     else if(!heard) micSay('I didn’t catch anything' + (failed && failed !== 'no-speech' && failed !== 'aborted' ? ' (the phone said “' + failed + '”)' : '') + '. Tap 🎤 and try again.' + KB, true);
     else talkDraw(); };
