@@ -2664,7 +2664,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.9.2 · 2026-11-20';
+var VER = 'v1.9.3 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -2894,7 +2894,6 @@ VIEWS.home = function(){
   h.push(textRow());
   h.push(talkButton());
   h.push(liveCards());
-  after = talkWire;
   if(F('schedule')){
     var tj = S.jobs.filter(function(j){ return j.date === t && j.status !== 'lost' && j.status !== 'closed'; }).sort(byTime);
     h.push('<h2>Today</h2>');
@@ -3171,56 +3170,49 @@ function talkMissing(p){
 function talkOK(p){ return !talkMissing(p); }
 function talkButton(){
   var r = F('expenses') || F('materials'), q = F('estimates'); if(!r && !q) return '';
-  return '<button class="btn main full talkbtn" id="tdTalk" aria-label="Hold to talk">🎤 Hold to talk</button><p class="hint" style="margin:-4px 4px 10px;text-align:center">' + (r && q ? 'Say “Receipt, 84 dollars Home Depot, Johnson job” or “Quote the Patels: replace disposal, 2 hours”.' : r ? 'Say “Receipt, 84 dollars Home Depot, Johnson job”.' : 'Say “Quote the Patels: replace disposal, 2 hours”.') + '</p>';
+  return '<button class="btn main full talkbtn" id="tdTalk" onclick="BM.talkStart()">🎤 Tap and talk</button><p class="hint" style="margin:-4px 4px 10px;text-align:center">' + (r && q ? 'Say “Receipt, 84 dollars Home Depot, Johnson job” or “Quote the Patels: replace disposal, 2 hours”.' : r ? 'Say “Receipt, 84 dollars Home Depot, Johnson job”.' : 'Say “Quote the Patels: replace disposal, 2 hours”.') + '</p>';
 }
-/* hold = listen; let go = stop and show what it heard. A quick tap, or a phone without speech typing, opens the box to type in. */
-/* hold = listen; let go = stop. done(said, how): how is 'tap' (a quick tap, not a hold), 'none' (no speech typing
-   on this phone), 'denied' (microphone refused) or '' (it listened). Used by Today's big button and, so a person can
-   keep talking instead of typing, by the 🎤 inside the box (Jerry, 20 Nov: "I don't have any way to do a voice command"). */
-function holdMic(b, idle, done){
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, said = '', down = 0, live = false;
-  b.addEventListener('contextmenu', function(e){ e.preventDefault(); });
-  b.addEventListener('pointerdown', function(e){
-    e.preventDefault(); down = Date.now(); said = ''; if(!SR) return;
-    try{ rec = new SR(); }catch(err){ rec = null; return; }
-    rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = true;
-    rec.onresult = function(ev){ said = ''; for(var i = 0; i < ev.results.length; i++) said += ev.results[i][0].transcript; b.textContent = '● ' + said; };
-    rec.onerror = function(ev){ live = false; rec = null; b.textContent = idle; if(ev && ev.error === 'not-allowed'){ toast('Microphone not allowed — type it instead'); done('', 'denied'); } };
-    rec.onend = function(){ var was = live; live = false; rec = null; b.textContent = idle; if(was || said) done(said, ''); };
-    try{ rec.start(); live = true; b.textContent = '● Listening… let go when done'; }catch(err){ rec = null; }
-  });
-  function up(){ if(!down) return; var held = Date.now() - down; down = 0;
-    if(!SR || !rec){ done('', SR ? 'tap' : 'none'); return; }
-    if(held < 350){ live = false; var r0 = rec; rec = null; r0.onresult = r0.onend = r0.onerror = null; try{ r0.abort ? r0.abort() : r0.stop(); }catch(e){} b.textContent = idle; done('', 'tap'); return; }   /* a tap, not a hold */
-    try{ rec.stop(); }catch(e){} }
-  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', function(){ if(down && rec) up(); });
-  b.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); done('', 'tap'); } });
+/* v1.9.3 (20 Nov, Jerry on his iPhone): holding didn't work. The phone's "use the microphone?" question popped up
+   under his finger, he let go to answer it, and the listening was gone; and inside the box "Hold to add more" sat
+   there doing nothing. So no holding: one tap starts listening, a second tap stops it, and the words go straight
+   into the box as they are heard. The Today button opens the box already listening. It never ends silently: if
+   nothing was heard, or the microphone was refused, the line under the box says so and what to do. */
+var MIC = null;
+function micStop(){ if(MIC){ var r = MIC; MIC = null; try{ r.stop(); }catch(e){} } }
+function micLabel(on){ var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
+function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(--bad)' : ''; m.textContent = t; } }
+function talkMic(){
+  if(MIC){ micStop(); return; }
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition, box = $('tkIn'); if(!box) return;
+  if(!SR){ micSay('This phone can’t listen here. Type it in the box instead.', true); try{ box.focus(); }catch(e){} return; }
+  var rec; try{ rec = new SR(); }catch(e){ micSay('This phone can’t listen here. Type it in the box instead.', true); return; }
+  var base = box.value.trim(), heard = '', failed = '';
+  rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = true;
+  rec.onresult = function(ev){ if(!$('tkIn')){ micStop(); return; } heard = ''; for(var i = 0; i < ev.results.length; i++) heard += ev.results[i][0].transcript;
+    var b = $('tkIn'); b.value = base ? base.replace(/[.,]?$/, ', ') + heard.trim() : heard.trim(); b.dispatchEvent(new Event('input', { bubbles:true })); };
+  rec.onerror = function(ev){ failed = (ev && ev.error) || 'x'; };
+  rec.onend = function(){ if(MIC === rec) MIC = null; micLabel(false); if(!$('tkIn')) return;
+    if(failed === 'not-allowed' || failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Type it in the box, or allow the microphone and tap 🎤 again.', true);
+    else if(!heard.trim()) micSay('I didn’t hear anything. Tap 🎤 Tap and talk and try again, or type it.', true);
+    else talkDraw(); };
+  MIC = rec;
+  try{ rec.start(); micLabel(true); micSay('Listening. Say it, then tap the button again.'); }catch(e){ MIC = null; micLabel(false); micSay('The microphone didn’t start. Tap 🎤 again, or type it.', true); }
 }
-function talkWire(){ var b = $('tdTalk'); if(b) holdMic(b, '🎤 Hold to talk', function(said){ talkOpen(said); }); }
-function talkMore(){
-  var b = $('tkMic'), box = $('tkIn'); if(!b || !box) return;
-  if(!(window.SpeechRecognition || window.webkitSpeechRecognition)){ b.hidden = true; return; }
-  holdMic(b, '🎤 Hold to add more', function(said, how){
-    if(how === 'tap'){ toast('Hold the 🎤 down while you talk, then let go'); return; }
-    said = String(said || '').trim(); if(!said) return;
-    var cur = box.value.trim(); box.value = cur ? cur.replace(/[.,]?$/, ', ') + said : said;
-    box.dispatchEvent(new Event('input', { bubbles:true }));
-  });
-}
+function talkStart(){ talkOpen(''); talkMic(); }
 function talkOpen(said, plan, note){
   var old = TALK && TALK.plan && TALK.plan.photo;
   TALK = { said:String(said || '').trim(), plan:null, picked:'' };
-  sheet('<h3>🎤 Say it, or type it</h3><label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="Receipt, 84 dollars Home Depot, Johnson job">' + esc(TALK.said) + '</textarea>'
-    + '<button class="btn full talkbtn" id="tkMic" type="button" aria-label="Hold to add more" style="margin:8px 0 0;min-height:50px;font-size:16px">🎤 Hold to add more</button>'
+  sheet('<h3>🎤 Say it, or type it</h3><label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
+    + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">🎤 Tap and talk</button>'
     + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
     + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p>'
     + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
     + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
     + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
-      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); talkMore(); });
+      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); if(!(window.SpeechRecognition || window.webkitSpeechRecognition)) w.querySelector('#tkMic').hidden = true; });
   TALK.plan = plan || talkPlan(TALK.said); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
   talkDraw(note);
-  if(!TALK.said) setTimeout(function(){ try{ $('tkIn').focus(); }catch(e){} }, 250);
+  if(!TALK.said && !(window.SpeechRecognition || window.webkitSpeechRecognition)) setTimeout(function(){ try{ $('tkIn').focus(); }catch(e){} }, 250);
 }
 function talkDraw(note){
   var p = TALK && TALK.plan, more = $('tkMore'), kind = $('tkKind'), msg = $('tkPlan'); if(!more || !p) return;
@@ -3230,15 +3222,15 @@ function talkDraw(note){
   if(p.kind === 'receipt'){
     var js = S.jobs.filter(function(j){ return j.status !== 'lost' && (j.status !== 'closed' || j.id === p.jobId); }).sort(function(a, b){ return b.num - a.num; }).slice(0, 40);
     more.innerHTML = '<div class="two"><div><label class="f" for="tkA" style="margin-top:0">Amount</label><input class="i" id="tkA" data-nomic inputmode="decimal" placeholder="' + CUR + '" value="' + (p.amount > 0 ? p.amount : '') + '" oninput="BM.talkField(\'amount\',this.value)"></div>'
-      + '<div><label class="f" for="tkS" style="margin-top:0">Store</label><input class="i" id="tkS" data-nomic value="' + esc(p.store || '') + '" placeholder="' + esc(STORES[0]) + '" oninput="BM.talkField(\'store\',this.value)"></div></div>'
+      + '<div><label class="f" for="tkS" style="margin-top:0">Store</label><input class="i" id="tkS" data-nomic value="' + esc(p.store || '') + '" placeholder="" oninput="BM.talkField(\'store\',this.value)"></div></div>'
       + '<label class="f" for="tkJ">For which job?</label><select class="i" id="tkJ" onchange="BM.talkJob(this.value)"><option value="">— Not for one job —</option>' + js.map(function(j){ return '<option value="' + j.id + '"' + (j.id === p.jobId ? ' selected' : '') + '>' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('') + '</select>'
       + '<label class="btn full" style="margin-top:8px">📸 ' + (p.photo ? 'Photo added ✓ — change it' : 'Add the photo') + '<input type="file" accept="image/*" capture="environment" hidden onchange="BM.talkPhoto(this)"></label>';
   } else if(p.kind === 'quote'){
-    more.innerHTML = '<label class="f" for="tkC" style="margin-top:0">Customer</label><input class="i" id="tkC" data-nomic list="tkCL" value="' + esc(p.name || '') + '" placeholder="Their name" oninput="BM.talkField(\'name\',this.value)">'
+    more.innerHTML = '<label class="f" for="tkC" style="margin-top:0">Customer</label><input class="i" id="tkC" data-nomic list="tkCL" value="' + esc(p.name || '') + '" placeholder="" oninput="BM.talkField(\'name\',this.value)">'
       + '<datalist id="tkCL">' + S.customers.map(function(c){ return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist>'
-      + '<label class="f" for="tkW">The work</label><textarea class="i" id="tkW" data-nomic style="min-height:60px" placeholder="Replace disposal, 2 hours" oninput="BM.talkField(\'work\',this.value)">' + esc(p.work || '') + '</textarea>';
+      + '<label class="f" for="tkW">The work</label><textarea class="i" id="tkW" data-nomic style="min-height:60px" placeholder="" oninput="BM.talkField(\'work\',this.value)">' + esc(p.work || '') + '</textarea>';
   } else more.innerHTML = '';
-  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : ''));
+  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.' : ''));
 }
 function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(TALK.said, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
 function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
@@ -3252,6 +3244,7 @@ async function talkPhoto(inp){ var f = inp.files && inp.files[0]; if(!f || !TALK
   talkDraw(); }
 /* the box stays open underneath while the AI is asked, so cancelling, or an answer that doesn't fit, never loses the words */
 function talkAI(){
+  micStop();
   var said = (($('tkIn') || {}).value || '').trim(), msg = $('tkPlan');
   if(!said){ if(msg){ msg.style.color = 'var(--bad)'; msg.textContent = 'Say or type something first, then ask.'; } return; }
   djAI.ask({ title:'Sort this for me', want:'text', circle:false,
@@ -3550,7 +3543,7 @@ function sheet(html, onOpen){
   document.body.appendChild(w); if(onOpen) onOpen(w);
   return w;
 }
-function closeSheet(quiet){ var s = $('bmSheet'); if(!s) return; if(!quiet && s.getAttribute('data-compose')) clearPending(); s.remove(); }
+function closeSheet(quiet){ var s = $('bmSheet'); if(!s) return; if(s.querySelector('#tkMic')) micStop(); if(!quiet && s.getAttribute('data-compose')) clearPending(); s.remove(); }
 function addItem(jid){
   var h = '<h3>Add to the price</h3><p class="muted" style="margin:0 0 10px">Tap one from your price list, or make your own.</p>';
   h += '<button class="opt" onclick="BM.editItem(\'' + jid + '\',-1)"><span class="e">✍️</span><span>Type my own item</span></button>';
@@ -5491,7 +5484,7 @@ document.getElementById('backBtn').addEventListener('click', back);
 /* everything the buttons call */
 window.BM = {
   go:go, back:back, closeSheet:closeSheet, relist:relist, guessCat:guessCat, _q:'', _cq:'',
-  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkKind:talkKind, talkField:talkField, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
+  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkKind:talkKind, talkField:talkField, talkMic:talkMic, talkStart:talkStart, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
   briefShow:briefShow, briefRead:briefRead, dayText:dayText, dtMin:dtMin, dtGo:dtGo,
   keepDemo:keepDemo, fresh:fresh, tourShow:tourShow, redoSetup:redoSetup,
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
