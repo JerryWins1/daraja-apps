@@ -2449,7 +2449,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.9 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v9.0 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2496,8 +2496,18 @@ function monthName(m, short){ var p = m.split('-'); return new Date(+p[0], +p[1]
 function monthOnly(m){ var p = m.split('-'); return new Date(+p[0], +p[1]-1, 1).toLocaleDateString('en-US',{ month:'long' }); }
 function shortDate(d){ var p = d.split('-'); return new Date(+p[0], +p[1]-1, +p[2]).toLocaleDateString('en-US',{ month:'short', day:'numeric' }); }
 function daysBetween(a, b){ return Math.round((Date.parse(b) - Date.parse(a)) / 864e5); }
-function openSheet(html){ document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
-function closeSheet(){ document.getElementById('sheet').classList.remove('on'); }
+/* v9.0 · Jerry, 20 Nov: "If you go one screen too far … you can't go back to the previous one." Each screen remembers the
+   one before it: ← Back at the top, and the browser's own Back button, step back one screen. Passing screens (reading,
+   thinking, one payee at a time — which has its own Back) aren't kept. */
+var SHST = [], SHCUR = null, SHBACK = 0;
+function shKeep(h){ return h && !/Reading the words|Thinking it over|Asking…|class="stepno">Sort · |<!--t-->/.test(h); }
+function openSheet(html){ var on = document.getElementById('sheet').classList.contains('on');
+  if(!SHBACK){ if(on && shKeep(SHCUR) && SHCUR !== html){ SHST.push(SHCUR); if(SHST.length > 20) SHST.shift(); } if(!on){ SHST = []; try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } }
+  SHBACK = 0; SHCUR = html;
+  document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0 0 6px;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
+function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK = 1; openSheet(p); }
+function closeSheet(){ document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
+window.addEventListener('popstate', function(){ var on = document.getElementById('sheet').classList.contains('on'); if(!on) return; if(SHST.length){ sheetBack(); try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } else closeSheet(); });
 function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2800); }
 function ask(o){ if(window.djAI && djAI.ask) djAI.ask(o); else alert('The AI helper has not loaded yet. Check the internet and try again.'); }
 
@@ -4135,7 +4145,7 @@ function render(){
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
   if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
-  if(!db.setup){ bar.style.display = 'none'; main.innerHTML = nextStepHTML() + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
+  if(!db.setup){ bar.style.display = 'none'; main.innerHTML = nextStepHTML() + (db.tx.length ? askHTML().replace('</h2>', '</h2><p class="sub" style="margin:-4px 0 8px;font-size:13px">Answers get better once the budget is set — that’s near the end of setup.</p>') : '') + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
   bar.style.display = '';
   var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
   var h = '', q = queue().length;
