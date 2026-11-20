@@ -2451,6 +2451,7 @@
   .small{ font-size:13.5px; }
   .big{ font-size:30px; font-weight:850; letter-spacing:-.01em; line-height:1.1; }
   .brief p{ margin:0 0 6px; font-size:16.5px; line-height:1.45; } .brief .chip{ min-height:36px; padding:4px 12px; }
+  .talkbtn{ min-height:60px; font-size:18px; margin-bottom:10px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   .daytexts{ margin:0 0 10px; } .daytexts .btn{ flex:1 1 30%; padding:8px 6px; font-size:15px; }
   .live{ display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; margin:0 -2px 10px; padding:0 2px 4px; scrollbar-width:none; } .live::-webkit-scrollbar{ display:none; }
   .live .live1{ flex:0 0 88%; scroll-snap-align:start; text-align:left; margin:0; cursor:pointer; font:inherit; color:inherit; }
@@ -2591,7 +2592,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.8 · 2026-11-20';
+var VER = 'v1.9 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -2819,7 +2820,9 @@ VIEWS.home = function(){
     h.push('<div class="clockbar"><div class="grow"><b>⏱ On the clock</b><div class="small">' + esc(cj ? cj.title : '') + (cw ? ' · ' + esc(cw.name) : '') + ' · since ' + new Date(S.clock.start).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + '</div></div><button class="btn sm" onclick="BM.clockOut()">Clock out</button></div>'); }
   h.push(briefCard());
   h.push(textRow());
+  h.push(talkButton());
   h.push(liveCards());
+  after = talkWire;
   if(F('schedule')){
     var tj = S.jobs.filter(function(j){ return j.date === t && j.status !== 'lost' && j.status !== 'closed'; }).sort(byTime);
     h.push('<h2>Today</h2>');
@@ -2846,7 +2849,7 @@ function needs(){
     var c = cust(j.customerId);
     if(!QM() && j.status === 'done' && jobBilled(j) < jobTotal(j) - 0.004) out.push({ em:'💵', t:'Bill ' + c.name, s:j.title + ' is done · ' + money(jobTotal(j) - jobBilled(j)) + ' not billed yet', a:'Bill it', go:"BM.go('job/" + j.id + "')", k:1 });
     if(F('estimates') && j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) >= 3) out.push({ em:'📨', t:'Follow up with ' + c.name, s:'Estimate sent ' + fd(j.estSent) + ' · ' + money(jobTotal(j)), a:'Check in', go:"BM.followUp('" + j.id + "')", k:2 });
-    if(F('estimates') && j.status === 'new' && daysBetween(j.created, t) >= 1) out.push({ em:'📝', t:'Send ' + c.name + ' a price', s:j.title, a:'Estimate', go:"BM.go('job/" + j.id + "')", k:3 });
+    if(F('estimates') && j.status === 'new' && (daysBetween(j.created, t) >= 1 || j.said)) out.push({ em:'📝', t:(j.said && j.items && j.items.length ? 'Draft estimate ready for ' : 'Send ') + c.name + (j.said && j.items && j.items.length ? '' : ' a price'), s:j.title + (j.said ? ' · you said it' : ''), a:'Estimate', go:"BM.go('job/" + j.id + "')", k:3 });
     if(F('schedule') && j.status === 'approved' && !j.date) out.push({ em:'📅', t:'Put ' + c.name + ' on the schedule', s:j.title + ' was approved', a:'Schedule', go:"BM.go('job/" + j.id + "')", k:3 });
   });
   if(F('todos')) soonTodos(7).forEach(function(td){ var late = effDue(td) < t; out.push({ em:TCAT[td.cat] || '📌', t:td.text, s:dueText(td) + (td.repeat && td.repeat !== 'none' ? ' · repeats' : ''), a:late ? 'Late' : 'Due', go:"BM.go('todo')", k:late ? 0 : 2 }); });
@@ -3028,6 +3031,138 @@ function liveCards(){
       + '<div class="tot"><span>Owed to me</span><b style="color:var(--bad)">' + money0(owT) + (od ? ' <span class="small">· ' + od + ' late</span>' : '') + '</b></div>'
       + '<div class="tot"><span>Bills still to pay</span><b>' + money0(by) + '</b></div></button>'; }).join('') + '</div>'
     + '<p class="hint" style="margin:-4px 4px 10px">Bills still to pay are the monthly bills you listed in Money → Next 30 / 60 days.</p>';
+}
+
+/* ── 🎤 The truck-cab day, part 2: hold to talk (v1.9 · 20 Nov 2026) ─────────────────────────────
+   Jerry: "Build part 2 now." Hold the button on Today and say one thing — "Receipt, 84 dollars Home Depot,
+   Johnson job" or "Quote the Patels: replace disposal, 2 hours, Badger 5". It is read on this phone first
+   (amount, store, customer, the work); nothing is saved until the person taps Save on what it heard. If the
+   phone can't make sense of it, "Ask my AI to sort it" sends the sentence through djAI.ask and comes back to
+   the same check. A receipt becomes a one-line receipt (with a photo if they add one) and its expense, filed
+   to the job; a quote becomes a new job priced from the price list, waiting under Needs you. Talking uses
+   the phone's own speech typing, the same as the house 🎤; with none, the person types the same sentence. */
+var TALK = null;   /* { said, plan } while the check is open */
+function talkWords(t){ return String(t || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9$.,& -]/g, ' '); }
+function talkAmount(t){ var m = String(t).replace(/(\d),(\d{3})/g, '$1$2').match(/(?:\$|kes\s*|ksh\s*)?(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars?|bucks|shillings?|bob))?(?:\s*(?:and\s*)?(\d{1,2})\s*cents?)?/i);
+  return m ? r2(+m[1] + (m[2] ? +m[2] / 100 : 0)) : 0; }
+/* a customer named in the sentence: "Johnson job", "the Patels", "for Sarah" */
+function talkCust(t){
+  var w = ' ' + talkWords(t).replace(/[.,]/g, ' ') + ' ', best = null, score = 0;
+  S.customers.forEach(function(c){ talkWords(c.name).split(/[\s&]+/).forEach(function(p, i){ if(p.length < 3 || /^(the|and|mrs?|ms|dr)$/.test(p)) return;
+    if(new RegExp(' ' + p + '(s|es|s)? ').test(w)){ var sc = p.length + (i ? 2 : 0); if(sc > score){ score = sc; best = c; } } }); });
+  return best;
+}
+function custJob(c){ if(!c) return null; var js = S.jobs.filter(function(j){ return j.customerId === c.id && j.status !== 'lost'; });
+  var open = js.filter(function(j){ return j.status !== 'closed'; }); var pick = (open.length ? open : js).slice().sort(function(a, b){ return (a.date === today() ? -1 : 0) - (b.date === today() ? -1 : 0) || (b.date || b.created || '').localeCompare(a.date || a.created || ''); });
+  return pick[0] || null; }
+function talkStore(t){ var w = talkWords(t), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
+  var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
+function talkPlan(said){
+  var t = String(said || '').trim(), w = talkWords(t); if(!t) return null;
+  if(/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\breceipt\b/.test(w)){
+    var c = talkCust(t), j = custJob(c), amt = talkAmount(t.replace(/^\D*?(?=\$|\d)/, ''));
+    return { kind:'receipt', amount:amt, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
+  }
+  if(/^\s*(quote|estimate|price|bid)\b/.test(w)){
+    var c2 = talkCust(t), rest = t.replace(/^\s*(quote|estimate|price|bid)\s*(for|up)?\s*/i, ''), name = '', work = rest;
+    var m = rest.match(/^([^:,.]{2,40})[:,.]\s*(.+)$/);
+    if(m){ name = m[1].replace(/^the\s+/i, '').trim(); work = m[2].trim(); }
+    if(c2){ name = c2.name; }
+    else if(name) name = name.replace(/\b\w/g, function(x){ return x.toUpperCase(); }).replace(/^(\w+?)s$/, '$1');
+    return { kind:'quote', custId:c2 ? c2.id : '', name:name, work:work };
+  }
+  return { kind:'?' };
+}
+function talkOK(p){ return p && ((p.kind === 'receipt' && p.amount > 0) || (p.kind === 'quote' && p.name && p.work)); }
+function talkSay(p){
+  if(!p || p.kind === '?') return 'I couldn’t tell if that was a receipt or a quote. Start with “Receipt…” or “Quote…”.';
+  if(p.kind === 'receipt'){ var j = p.jobId ? job(p.jobId) : null;
+    return p.amount > 0 ? '🧾 Receipt: <b>' + money(p.amount) + '</b>' + (p.store ? ' at <b>' + esc(p.store) + '</b>' : '') + ' → ' + (j ? '<b>' + esc(j.title) + '</b> (' + esc(cust(j.customerId).name) + ')' : '<b>no job</b>' + (p.who ? ' (' + esc(p.who) + ' has no open job)' : '')) : '🧾 A receipt, but I didn’t catch how much. Say the amount, like “84 dollars”.'; }
+  return p.name && p.work ? '📝 A quote for <b>' + esc(p.name) + '</b>' + (p.custId ? '' : ' (new customer)') + ': ' + esc(p.work) : '📝 A quote, but I need who it’s for and the work, like “Quote the Patels: replace disposal”.';
+}
+function talkButton(){
+  var r = F('expenses') || F('materials'), q = F('estimates'); if(!r && !q) return '';
+  return '<button class="btn main full talkbtn" id="tdTalk" aria-label="Hold to talk">🎤 Hold to talk</button><p class="hint" style="margin:-4px 4px 10px;text-align:center">' + (r && q ? 'Say “Receipt, 84 dollars Home Depot, Johnson job” or “Quote the Patels: replace disposal, 2 hours”.' : r ? 'Say “Receipt, 84 dollars Home Depot, Johnson job”.' : 'Say “Quote the Patels: replace disposal, 2 hours”.') + '</p>';
+}
+/* hold = listen; let go = stop and show what it heard. A quick tap, or a phone without speech typing, opens the box to type in. */
+function talkWire(){
+  var b = $('tdTalk'); if(!b) return;
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, said = '', down = 0, live = false;
+  function stop(){ if(rec){ try{ rec.stop(); }catch(e){} } }
+  b.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  b.addEventListener('pointerdown', function(e){
+    e.preventDefault(); down = Date.now(); said = ''; if(!SR) return;
+    try{ rec = new SR(); }catch(err){ rec = null; return; }
+    rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = true;
+    rec.onresult = function(ev){ said = ''; for(var i = 0; i < ev.results.length; i++) said += ev.results[i][0].transcript; b.textContent = '● ' + said; };
+    rec.onerror = function(ev){ live = false; rec = null; b.textContent = '🎤 Hold to talk'; if(ev && ev.error === 'not-allowed'){ toast('Microphone not allowed — type it instead'); talkOpen(''); } };
+    rec.onend = function(){ var was = live; live = false; rec = null; b.textContent = '🎤 Hold to talk'; if(was || said) talkOpen(said); };
+    try{ rec.start(); live = true; b.textContent = '● Listening… let go when done'; }catch(err){ rec = null; }
+  });
+  function up(){ if(!down) return; var held = Date.now() - down; down = 0;
+    if(!SR || !rec){ talkOpen(''); return; }
+    if(held < 350){ live = false; var r0 = rec; rec = null; r0.onresult = r0.onend = r0.onerror = null; try{ r0.abort ? r0.abort() : r0.stop(); }catch(e){} b.textContent = '🎤 Hold to talk'; talkOpen(''); return; }   /* a tap, not a hold */
+    stop(); }
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', function(){ if(down && rec) up(); });
+  b.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); talkOpen(''); } });
+}
+function talkOpen(said){
+  TALK = { said:String(said || '').trim(), plan:null };
+  sheet('<h3>🎤 Say it, or type it</h3><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="Receipt, 84 dollars Home Depot, Johnson job">' + esc(TALK.said) + '</textarea>'
+    + '<div class="card small" id="tkPlan" style="margin:10px 0;background:#F7F4EC"></div><div id="tkMore"></div>'
+    + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
+    + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not right? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
+    + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn'); i.addEventListener('input', function(){ TALK.said = i.value; TALK.plan = talkPlan(i.value); talkDraw(); }); });
+  TALK.plan = talkPlan(TALK.said); talkDraw();
+  if(!TALK.said) setTimeout(function(){ try{ $('tkIn').focus(); }catch(e){} }, 250);
+}
+function talkDraw(){
+  var p = TALK && TALK.plan, out = $('tkPlan'), more = $('tkMore'), go = $('tkGo'); if(!out) return;
+  out.innerHTML = TALK.said ? talkSay(p) : 'Start with “Receipt…” or “Quote…”.';
+  go.disabled = !talkOK(p);
+  if(p && p.kind === 'receipt'){
+    var js = S.jobs.filter(function(j){ return j.status !== 'lost' && (j.status !== 'closed' || j.id === p.jobId); }).sort(function(a, b){ return b.num - a.num; }).slice(0, 40);
+    more.innerHTML = '<label class="f" for="tkJ" style="margin-top:0">For which job?</label><select class="i" id="tkJ" onchange="BM.talkJob(this.value)"><option value="">— Not for one job —</option>' + js.map(function(j){ return '<option value="' + j.id + '"' + (j.id === p.jobId ? ' selected' : '') + '>' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('') + '</select>'
+      + '<label class="btn full" style="margin-top:8px">📸 ' + (p.photo ? 'Photo added ✓ — change it' : 'Add the photo') + '<input type="file" accept="image/*" capture="environment" hidden onchange="BM.talkPhoto(this)"></label>';
+  } else more.innerHTML = '';
+}
+function talkJob(v){ if(TALK && TALK.plan) TALK.plan.jobId = v; talkDraw(); }
+async function talkPhoto(inp){ var f = inp.files && inp.files[0]; if(!f || !TALK || !TALK.plan) return;
+  try{ var blob = await shrink(f), id = 'rc_' + uid(); await putFile(id, blob); if(TALK.plan.photo) delFile(TALK.plan.photo); TALK.plan.photo = id; toast('Photo added'); }catch(e){ alert('That photo wouldn’t save on this phone.'); }
+  talkDraw(); }
+function talkAI(){
+  var said = (($('tkIn') || {}).value || '').trim(); if(!said){ toast('Say or type it first'); return; }
+  closeSheet(true);
+  djAI.ask({ title:'Sort this for me', want:'json', circle:false,
+    prompt:'A ' + (TRADES[S.biz.trade] || TRADES.other).name.toLowerCase() + ' business owner said this into their phone. Is it a store receipt to file, or a quote to write? Answer with JSON only, like {"kind":"receipt","amount":84.12,"store":"Home Depot","customer":"Johnson"} or {"kind":"quote","customer":"Patel","work":"Replace garbage disposal, 2 hours, Badger 5"}. customer is the customer’s name as said, or empty.\n\nWhat they said: ' + said,
+    onResult:function(v){
+      if(!v || (v.kind !== 'receipt' && v.kind !== 'quote')){ alert('That answer didn’t fit. Try saying it another way.'); return; }
+      var c = v.customer ? talkCust(String(v.customer)) : null;
+      talkOpen(said);
+      TALK.plan = v.kind === 'receipt' ? { kind:'receipt', amount:num(v.amount), store:String(v.store || ''), jobId:(custJob(c) || {}).id || '', who:c ? c.name : '' }
+        : { kind:'quote', custId:c ? c.id : '', name:c ? c.name : String(v.customer || '').trim(), work:String(v.work || '').trim() };
+      talkDraw(); } });
+}
+function talkSave(){
+  var p = TALK && TALK.plan; if(!talkOK(p)) return;
+  if(p.kind === 'receipt'){
+    var to = p.jobId ? 'job:' + p.jobId : 'supplies', vendor = p.store || 'Receipt', rid = uid(), eid = uid();
+    var cat = p.jobId ? 'Materials & supplies' : guessCat(vendor); if(cat === 'Other business') cat = 'Materials & supplies';
+    var rec = { id:rid, date:today(), vendor:vendor, how:'voice', photo:p.photo || '', items:p.amount, tax:0, total:p.amount, lines:[{ name:TALK.said.slice(0, 120), amount:p.amount, to:to }], most:to, created:today(), expenses:[eid] };
+    S.expenses.push({ id:eid, date:rec.date, vendor:vendor, amount:p.amount, cat:cat, jobId:p.jobId, note:'Said: ' + TALK.said.slice(0, 200), source:'voice', receiptId:rid });
+    (S.receipts = S.receipts || []).push(rec);
+    if(p.jobId && job(p.jobId)) logJob(job(p.jobId), 'Receipt (said): ' + vendor + ' ' + money(p.amount));
+    TALK = null; save(); closeSheet(true); render(); toast('Saved ' + money(rec.total) + ' → ' + destName(to));
+    return;
+  }
+  var c = p.custId ? cust(p.custId) : null;
+  if(!c){ c = { id:uid(), name:p.name, phone:'', email:'', address:'', created:today() }; S.customers.push(c); }
+  var title = p.work.split(/[,.;]/)[0].trim(); title = title.charAt(0).toUpperCase() + title.slice(1); if(title.length > 48) title = title.slice(0, 45).trim() + '…';
+  var j = { id:uid(), num:S.seq.job++, customerId:c.id, title:title, desc:p.work, status:'new', created:today(), items:[], times:[], log:[{ d:today(), t:'Said into the phone: ' + TALK.said.slice(0, 200) }], said:true };
+  S.jobs.push(j);
+  if(F('lineItems')){ j.items = draftItems(j.title + '. ' + j.desc); j.via = 'list'; }
+  TALK = null; save(); closeSheet(true); render();
+  toast('Draft estimate for ' + c.name + ' is waiting in Needs you' + (j.items.length ? '' : ' — add the prices'));
 }
 
 /* ── jobs list / customers / schedule ── */
@@ -5231,6 +5366,7 @@ document.getElementById('backBtn').addEventListener('click', back);
 /* everything the buttons call */
 window.BM = {
   go:go, back:back, closeSheet:closeSheet, relist:relist, guessCat:guessCat, _q:'', _cq:'',
+  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
   briefShow:briefShow, briefRead:briefRead, dayText:dayText, dtMin:dtMin, dtGo:dtGo,
   keepDemo:keepDemo, fresh:fresh, tourShow:tourShow, redoSetup:redoSetup,
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
