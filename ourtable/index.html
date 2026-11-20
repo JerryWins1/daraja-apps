@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v68">
+<script id="dj-house-v70">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -317,7 +317,7 @@
      Rafiki and Feedback Studio had this; twenty-one apps did not. The button
      only appears once you tap into a box, so no screen changes until you want it. */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var rec = null, micBtn = null, curBox = null;
+  var rec = null, micBtn = null, curBox = null, recStop = 0, recHush = null;
 
   function eligible(el){
     if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
@@ -375,32 +375,53 @@
   }
   function hide(){ if(micBtn){ micBtn.hidden = true; micBtn.style.setProperty('display','none','important'); } }
 
+  /* 20 Nov. Jerry, testing on his Mac in Chrome: "I hit the microphone, and the microphone
+     would shut off after every word." Chrome ends a recognition session at the first pause
+     unless continuous is on — and it was on only for a <textarea>, so every one-line box
+     stopped after a word. It is on for every box now. Two things come with that: a session
+     Chrome ends on its own is started again, so a long sentence survives it, and four seconds
+     of silence is what finishes the dictation, since nothing else would. */
   function talk(){
     var box = curBox; if(!box) return;
-    if(rec){ try{ rec.stop(); }catch(e){} return; }
-    rec = new SR();
-    rec.lang = navigator.language || 'en-US';
-    rec.interimResults = true;
-    rec.continuous = (box.tagName.toLowerCase() === 'textarea');
+    if(rec){ recStop = 1; try{ rec.stop(); }catch(e){} return; }
+    recStop = 0;
     var base = (box.value || '').trim();
     micBtn.textContent = '⏹';
     micBtn.style.background = '#D96C4F';
     micBtn.setAttribute('aria-label','Stop listening');
-    rec.onresult = function(e){
-      var t = '';
-      for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
-      box.value = (base ? base + ' ' : '') + t;
-      box.dispatchEvent(new Event('input', {bubbles:true}));
-    };
+    function hush(){
+      if(recHush) clearTimeout(recHush);
+      recHush = setTimeout(function(){ recStop = 1; if(rec){ try{ rec.stop(); }catch(e){} } }, 4000);
+    }
     function done(){
-      rec = null;
+      if(recHush){ clearTimeout(recHush); recHush = null; }
+      rec = null; recStop = 0;
       if(micBtn){ micBtn.textContent = '\u{1F3A4}'; micBtn.style.background = '#fff';
                   micBtn.setAttribute('aria-label','Say it instead of typing'); }
       box.dispatchEvent(new Event('change', {bubbles:true}));
     }
-    rec.onend = done;
-    rec.onerror = done;
-    try{ rec.start(); }catch(e){ done(); }
+    function go(){
+      rec = new SR();
+      rec.lang = navigator.language || 'en-US';
+      rec.interimResults = true;
+      rec.continuous = true;
+      rec.onresult = function(e){
+        var t = '';
+        for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
+        box.value = (base ? base + ' ' : '') + t;
+        box.dispatchEvent(new Event('input', {bubbles:true}));
+        hush();
+      };
+      /* no-speech and aborted are how Chrome closes a quiet session; onend decides what next */
+      rec.onerror = function(e){ var k = e && e.error; if(k !== 'no-speech' && k !== 'aborted') recStop = 1; };
+      rec.onend = function(){
+        if(recStop){ done(); return; }
+        base = (box.value || '').trim();   /* a fresh session restarts e.results from empty */
+        try{ go(); }catch(err){ done(); }
+      };
+      try{ rec.start(); }catch(e){ done(); }
+    }
+    hush(); go();
   }
 
 
@@ -795,7 +816,7 @@
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
+      toggleBtn.onclick = function(){ dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -847,12 +868,14 @@
     if(window.djStartFresh) row('🧹', 'Start fresh — erase this app’s data', 'asks twice before anything is erased', function(){ window.djStartFresh(); });
     var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Close';
     x.style.cssText = 'display:block;width:100%;font:inherit;font-weight:800;min-height:48px;border-radius:14px;border:0;background:#23504F;color:#fff;cursor:pointer;margin-top:2px';
-    x.onclick = function(){ w.remove(); }; box.appendChild(x);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    x.onclick = function(){ djHouseClose(); }; box.appendChild(x);
+    w.addEventListener('click', function(e){ if(e.target === w) djHouseClose(); });
     w.appendChild(box); document.body.appendChild(w);
   }
   function dockSheet(){
-    var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
+    var old = document.getElementById('djDockSheet'); if(old){ djHouseClose(); return; }
+    if(DJ_MARK < 0) DJ_MARK = DJ_BACK.length;   /* everything from here up is the house's own */
+    djHistOn();
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
     if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
@@ -899,14 +922,14 @@
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
-      nu.onclick = function(){ w.remove(); var u = location.href.split('#')[0]; u = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'dj_sandbox=1'; var t = null; try{ t = window.open(u, '_blank'); }catch(e){} if(!t) location.href = u; };
+      nu.onclick = function(){ djHouseClose(); var u = location.href.split('#')[0]; u = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'dj_sandbox=1'; var t = null; try{ t = window.open(u, '_blank'); }catch(e){} if(!t) location.href = u; };
       box.appendChild(nu);
     }
     if(window.__djSandbox){   /* v64: Leave is always here too — the pill steps out of sight when a screen has no free spot */
       var lv = document.createElement('button'); lv.type = 'button';
       lv.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #5B3FA0;background:#fff;color:#1F2622;cursor:pointer';
       lv.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">Leave the test copy<br><small style="font-weight:600;color:#55605B">back to your real information</small></span>';
-      lv.onclick = function(){ w.remove(); try{ window.djSandboxLeave(); }catch(e){} };
+      lv.onclick = function(){ djHouseClose(); try{ window.djSandboxLeave(); }catch(e){} };
       box.appendChild(lv);
     }
     /* v64: apps without the older welcome-card "?" (Advent, Every Day, Who's Coming, Our Table…) had no Start fresh at all */
@@ -914,21 +937,21 @@
       var sf = document.createElement('button'); sf.type = 'button';
       sf.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       sf.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧹</span><span style="flex:1">Start fresh — erase this app’s data<br><small style="font-weight:600;color:#55605B">asks twice before anything is erased</small></span>';
-      sf.onclick = function(){ w.remove(); window.djStartFresh(); };
+      sf.onclick = function(){ djHouseClose(); window.djStartFresh(); };
       box.appendChild(sf);
     }
     if(window.DJ_MENU){
       var mr = document.createElement('button'); mr.type = 'button';
       mr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       mr.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🏠</span><span style="flex:1">Start menu: what would you like to do?</span>';
-      mr.onclick = function(){ w.remove(); djMenu.open(); };
+      mr.onclick = function(){ djHouseClose(); djMenu.open(); };
       box.appendChild(mr);
     }
     if(window.DJ_TOUR){
       var tr = document.createElement('button'); tr.type = 'button';
       tr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       tr.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🎬</span><span style="flex:1">Take the tour again</span>';
-      tr.onclick = function(){ w.remove(); djTour.start(); };
+      tr.onclick = function(){ djHouseClose(); djTour.start(); };
       box.appendChild(tr);
     }
     if(location.pathname.indexOf('/circle/') < 0 && !kidsPage()){
@@ -940,8 +963,8 @@
     }
     var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Close';
     x.style.cssText = 'display:block;width:100%;font:inherit;font-weight:800;min-height:48px;border-radius:14px;border:0;background:#23504F;color:#fff;cursor:pointer;margin-top:2px';
-    x.onclick = function(){ w.remove(); }; box.appendChild(x);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    x.onclick = function(){ djHouseClose(); }; box.appendChild(x);
+    w.addEventListener('click', function(e){ if(e.target === w) djHouseClose(); });
     w.appendChild(box); document.body.appendChild(w);
   }
 
@@ -1213,29 +1236,51 @@
          window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
          window.djBack.go()       -> step back one; false when the stack is empty
      Screens opened through the house's own sheet() get the chip and the wiring for free. */
-  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK = [], DJ_BACK_NAV = 0, DJ_HIST = 0, DJ_EAT = 0, DJ_MARK = -1;
   var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
-  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
-  function djBackClear(){ DJ_BACK = []; }
-  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djHouseSheet(){ return document.getElementById('djAISheet') || document.getElementById('djDockSheet'); }
+  /* v70: one history entry covers the whole trail, whoever started it — an app's push or a house
+     sheet. Without this, djBack.push bought an app the chip but never the phone's Back button,
+     because nothing had been pushed for Back to consume. Reported the same day, with the same
+     reading of the code, by The Church App, Pit Wall, Compass, On Guard and the sweep chat. */
+  function djHistOn(){ if(DJ_HIST) return; DJ_HIST = 1; try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+  function djHistOff(){ if(!DJ_HIST) return; DJ_HIST = 0; DJ_EAT = 1; try{ history.back(); }catch(e){ DJ_EAT = 0; } }
+  function djBackPush(fn){
+    if(DJ_BACK_NAV) return;                       /* a screen reopening BECAUSE of Back must not re-push */
+    if(typeof fn !== 'function') return;
+    DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift();
+    djHistOn();
+  }
+  function djBackClear(){ DJ_BACK = []; DJ_MARK = -1; djHistOff(); }
+  /* How deep the trail was when the first house sheet opened. Below that line the entries belong to
+     the app, and closing a house sheet must not take them: On Guard found that opening ? Help over
+     Mail and tapping outside it lost the way back to Home. */
+  function djBackFloor(){ return DJ_MARK >= 0 ? DJ_MARK : 0; }
+  function djBackOwn(){ return DJ_BACK.length - djBackFloor(); }
+  function djBackBtn(){ return djBackOwn() > 0 ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djHouseClose(){
+    var s; while((s = djHouseSheet())) s.remove();
+    if(DJ_MARK >= 0){ if(DJ_BACK.length > DJ_MARK) DJ_BACK.length = DJ_MARK; DJ_MARK = -1; }
+    if(!DJ_BACK.length) djHistOff();
+  }
   function djBackGo(){
     var f = DJ_BACK.pop(); if(!f) return false;
-    var a = document.getElementById('djAISheet'); if(a) a.remove();
-    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    var s; while((s = djHouseSheet())) s.remove();
+    if(DJ_MARK > DJ_BACK.length) DJ_MARK = -1;   /* stepped out from under the house's own screens */
     DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    if(!DJ_BACK.length && !djHouseSheet()) djHistOff();
     return true;
   }
   window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
-                    depth: function(){ return DJ_BACK.length; } };
-  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
-     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+                    depth: function(){ return DJ_BACK.length; },
+                    navigating: function(){ return !!DJ_BACK_NAV; } };
+  /* The phone's own Back and the edge swipe follow the same trail the chip does — house screens
+     and an app's own alike — and only leave the app once there is nothing left to go back to. */
   window.addEventListener('popstate', function(){
-    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
-    if(!open) return;
-    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
-    djBackClear(); open.remove();
-    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
-    if(other) other.remove();
+    if(DJ_EAT){ DJ_EAT = 0; return; }
+    DJ_HIST = 0;                                  /* the entry has been used up */
+    if(DJ_BACK.length){ djBackGo(); if(DJ_BACK.length || djHouseSheet()) djHistOn(); return; }
+    if(djHouseSheet()) djHouseClose();
   });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
@@ -1244,11 +1289,12 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    if(!old && !document.getElementById('djDockSheet')){ if(DJ_MARK < 0) DJ_MARK = DJ_BACK.length; }
+    djHistOn();
     box.innerHTML = djBackBtn() + html; w.appendChild(box);
     var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
     /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
-    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
+    w.addEventListener('click', function(e){ if(e.target === w) djHouseClose(); });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
@@ -2127,15 +2173,32 @@
     inp.addEventListener('input', update);
     inp.addEventListener('keydown', function(e){ if(e.key === 'Enter' && !go.disabled) go.click(); });
     if(SR){
-      var mic = b.querySelector('#djTellMic'), rec = null;
+      /* 20 Nov: the same fault as talk() above, and worse here — continuous was never set at
+         all, so Chrome stopped this one at the first pause too. Same three parts: continuous on,
+         a session Chrome ends started again, and four seconds of silence to finish. */
+      var mic = b.querySelector('#djTellMic'), rec = null, mStop = 0, mHush = null, mBase = '';
       mic.onclick = function(){
-        if(rec){ try{ rec.stop(); }catch(e){} return; }
-        try{ rec = new SR(); }catch(e){ mic.textContent = 'Talking is not available here. Type instead.'; return; }
-        rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1;
-        rec.onresult = function(ev){ var t = ''; for(var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; inp.value = t; update(); };
-        rec.onerror = function(ev){ mic.textContent = (ev && ev.error === 'not-allowed') ? 'Microphone not allowed. Type instead.' : '🎤 Tap and talk'; rec = null; };
-        rec.onend = function(){ rec = null; if(/Listening/.test(mic.textContent)) mic.textContent = '🎤 Tap and talk again'; };
-        mic.textContent = '● Listening… tap to stop'; try{ rec.start(); }catch(e){ rec = null; mic.textContent = '🎤 Tap and talk'; }
+        if(rec){ mStop = 1; try{ rec.stop(); }catch(e){} return; }
+        mStop = 0; mBase = '';
+        function hush(){
+          if(mHush) clearTimeout(mHush);
+          mHush = setTimeout(function(){ mStop = 1; if(rec){ try{ rec.stop(); }catch(e){} } }, 4000);
+        }
+        function over(){
+          if(mHush){ clearTimeout(mHush); mHush = null; }
+          rec = null; mStop = 0;
+          if(/Listening/.test(mic.textContent)) mic.textContent = '🎤 Tap and talk again';
+        }
+        function go(){
+          try{ rec = new SR(); }catch(e){ mic.textContent = 'Talking is not available here. Type instead.'; return false; }
+          rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = true;
+          rec.onresult = function(ev){ var t = ''; for(var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; inp.value = (mBase ? mBase + ' ' : '') + t; update(); hush(); };
+          rec.onerror = function(ev){ var k = ev && ev.error; if(k === 'no-speech' || k === 'aborted') return; mStop = 1; if(k === 'not-allowed') mic.textContent = 'Microphone not allowed. Type instead.'; };
+          rec.onend = function(){ if(!mStop){ mBase = (inp.value || '').trim(); if(go() !== false) return; } over(); };
+          try{ rec.start(); }catch(e){ rec = null; mic.textContent = '🎤 Tap and talk'; return false; }
+          return true;
+        }
+        mic.textContent = '● Listening… tap to stop'; hush(); go();
       };
     } else setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 300);
     go.onclick = function(){
@@ -2615,7 +2678,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.20 · 2026-11-18 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
+  <p class="foot">Our Table v1.21 · 2026-11-20 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
 </div>
 
 <nav>
@@ -2745,7 +2808,7 @@ function renderRecipes(){
 let editId=null, editEm='', editPhoto='', editTags=[];
 function openEdit(id){ editId=id||null; const r=id?db.recipes.find(x=>x.id===id):null; editEm=r?(r.em||''):''; editPhoto=r?(r.photo||''):''; editTags=r?[...(r.tags||[])]:[];
   $('editTitle').textContent=r?'Edit recipe':'New recipe'; $('rName').value=r?r.name:''; $('rIng').value=r?(r.ing||[]).join('\n'):''; $('rSteps').value=r?r.steps||'':''; $('rTime').value=r?r.time||'':''; $('rServes').value=(r&&+r.serves>0)?r.serves:''; $('rCost').value=(r&&costNum(r.cost))?r.cost:''; $('delBtn').style.display=r?'':'none';
-  drawEmChips(); drawTagPick(); editAskHide(); $('editSheet').classList.add('on'); closeView(); editStart=editSnap(); setTimeout(()=>$('rName').focus(),100); }
+  drawEmChips(); drawTagPick(); editAskHide(); otFrom(); otChip($('editSheet').querySelector('.in')); $('editSheet').classList.add('on'); editStart=editSnap(); setTimeout(()=>$('rName').focus(),100); }
 /* v1.18 (22 Oct, tester audit: a tap on the dim area above the edit sheet closed it and threw the typing away):
    if anything changed, it asks first — Save / Discard / Keep editing. Cancel still closes straight away. */
 let editStart='';
@@ -2773,7 +2836,7 @@ window.readPhoto=function(inp){ const f=(inp.files||[])[0]; if(!f) return; const
   fr.readAsDataURL(f); inp.value=''; };
 function drawTagPick(){ $('tagPick').innerHTML=TAGS.map(t=>`<span class="chip ${editTags.includes(t)?'on':''}" onclick="toggleTag('${t}')">${t}</span>`).join(''); }
 function toggleTag(t){ editTags=editTags.includes(t)?editTags.filter(x=>x!==t):[...editTags,t]; drawTagPick(); }
-function closeEdit(){ editAskHide(); $('editSheet').classList.remove('on'); }
+function closeEdit(){ editAskHide(); $('editSheet').classList.remove('on'); otEnd(); }
 /* v1.18 (22 Oct, tester audit: “rice, beef, onions” on one line stayed one ingredient and one shopping line):
    a line is also split at ; and at a comma before a word (or “, 2 …” after a word) — never inside ( ), never in 1,5 kg or 1,000, and not
    before a note like “, chopped” / “, to taste”. */
@@ -2796,15 +2859,28 @@ function saveRecipe(){ const name=$('rName').value.trim(); if(!name){ $('rName')
 function delRecipe(id){ id=id||editId; const r=db.recipes.find(x=>x.id===id); if(!r) return; if(!confirm('Delete “'+r.name+'”? It also comes off any night it is on.')) return; const u=otSnap();
   db.recipes=db.recipes.filter(x=>x.id!==id); DAYS.forEach(d=>{ if(db.week[d]===id) delete db.week[d]; }); save(); closeEdit(); closeView(); render(); otUndoOffer('Deleted '+r.name, u); }
 let viewId='', viewDay='';
-function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return; viewId=id; viewDay=day||''; const keep=$('viewSheet').classList.contains('on')?$('viewIn').scrollTop:0;
+function openView(id,day){ const r=db.recipes.find(x=>x.id===id); if(!r) return; viewId=id; viewDay=day||''; VIEWFN=()=>openView(id,day); const keep=$('viewSheet').classList.contains('on')?$('viewIn').scrollTop:0;
   $('viewIn').innerHTML=`<h3>${pic(r,26)} ${esc(r.name)}</h3><p class="small">${(r.tags||[]).join(' · ')}${r.time?' · '+esc(r.time):''} · made ${r.made||0} ${r.made===1?'time':'times'}${r.made>0?` <button type="button" class="ghost" data-act="made-less" data-r="${esc(r.id)}" aria-label="Take one off the made count" style="min-height:44px;min-width:44px;padding:2px 10px;font-size:14px">−1</button>`:''}</p>
     <b>Ingredients</b><ul>${(r.ing||[]).map(i=>`<li>${esc(i)}</li>`).join('')||'<li class="small">none written down yet</li>'}</ul>
     ${r.steps?`<b>How</b><p style="white-space:pre-wrap">${esc(r.steps)}</p>`:''}
     ${r.serves?`<p class="small">Feeds ${esc(r.serves)}, as written.</p>`:''}${costNum(r.cost)?`<p class="small">💵 About ${esc(costFmt(costNum(r.cost)))} to make${costPer(r)?' — '+esc(costFmt(costPer(r)))+' a serving':''}.</p>`:''}
-    <div class="row" style="margin-top:8px">${day?`<button onclick="closeView();openPick('${day}')">🔁 Swap ${day}</button>`:`<button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>`}${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="clearNight('${day}')">Clear ${day}</button><button onclick="madeIt('${r.id}')">✓ Made it tonight</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
+    <div class="row" style="margin-top:8px">${day?`<button onclick="openPick('${day}')">🔁 Swap ${day}</button>`:`<button class="ok" onclick="madeIt('${r.id}')">✓ Made it tonight</button>`}${cookable(r)?`<button type="button" class="accent" data-act="cook" data-r="${esc(r.id)}">👩‍🍳 Cook</button>`:''}${day?`<button onclick="clearNight('${day}')">Clear ${day}</button><button onclick="madeIt('${r.id}')">✓ Made it tonight</button>`:`<button onclick="pickNightFor('${r.id}')">📅 Put it on a night</button>`}<button onclick="openEdit('${r.id}')">✏️ Edit</button><button type="button" class="ghost" data-act="rec-del" data-r="${esc(r.id)}">🗑 Delete</button><button class="ghost" onclick="closeView()">Close</button></div>
     ${day?nightServHTML(r,day):''}${likesHTML(r,false)}`;
-  $('viewSheet').classList.add('on'); if(keep) $('viewIn').scrollTop=keep; }
-function closeView(){ $('viewSheet').classList.remove('on'); }
+  otChip($('viewIn')); $('viewSheet').classList.add('on'); if(keep) $('viewIn').scrollTop=keep; }
+function closeView(){ $('viewSheet').classList.remove('on'); otEnd(); }
+/* v1.21 · 20 Nov: ← Back between screens (house v68 window.djBack). Jerry: "If you go one screen too far or
+   something, you can't go back to the previous one." A recipe or a night leads on to Edit, Swap (the pick
+   list) and Cook; the one being left goes on the back-stack (otFrom), and the Back chip at the top of the next
+   screen hides it and reopens the one before. The 📅 Plan a meal sheets keep their own ‹ buttons; its
+   ＋ A new recipe now leaves a Back to the list it came from. Close, Cancel, Save, Done or the dark area ends the trail. */
+let VIEWFN=null, BACKING=0;
+function otLead(fn){ if(fn&&!BACKING&&window.djBack) djBack.push(fn); }
+function otEnd(){ if(!BACKING&&window.djBack) djBack.clear(); }
+function otFrom(){ if($('viewSheet').classList.contains('on')){ otLead(VIEWFN); $('viewSheet').classList.remove('on'); } }
+function otChip(el){ if(!el) return; el.querySelectorAll(':scope > .djBackB').forEach(b=>b.remove()); const h=window.djBack?djBack.button():''; if(h) el.insertAdjacentHTML('afterbegin',h); }
+document.addEventListener('click',e=>{ const b=e.target.closest?e.target.closest('#viewIn .djBackB, #editSheet .djBackB, #pickSheet .djBackB, #cookOv .djBackB'):null; if(!b||!window.djBack) return;
+  if($('editSheet').classList.contains('on')&&editSnap()!==editStart&&!confirm('Go back without saving your changes?')) return;
+  BACKING=1; try{ ['viewSheet','editSheet','pickSheet'].forEach(id=>$(id).classList.remove('on')); editAskHide(); if(cookR){ $('cookOv').classList.remove('on'); cookR=null; wakeOff(); } djBack.go(); }finally{ BACKING=0; } });
 /* v1.18 (22 Oct, tester audit: “Made it tonight” was the first button on a planned night and could not be taken back):
    it now offers ↩︎ Undo, the count has a small −1, and on a night 🔁 Swap comes first and “Made it” is a plain button. */
 function madeIt(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return; const u=otSnap(); r.made=(r.made||0)+1; r.last=ymd(new Date()); save(); closeView(); render(); otUndoOffer('Nice — '+r.made+(r.made===1?' time':' times')+' now', u); }
@@ -2823,14 +2899,14 @@ function renderWeek(){ const mon=new Date(db.weekOf+'T12:00:00'); $('weekTitle')
   let ml=$('otMakeList'); if(!ml){ ml=document.createElement('div'); ml.id='otMakeList'; $('weekList').after(ml); }
   ml.innerHTML=weekCostHTML()+((withRecipe>=2&&lv<2)?'<button class="primary" style="width:100%;margin-top:12px" onclick="makeMyList()">🧺 Make my shopping list from these dinners</button>':(shopStale()?staleHTML():'')); }
 window.makeMyList=function(){ try{ const f=window.djLevelSet_ourtable; if(f) f(2,true); }catch(e){} buildList(); };
-function openNight(d){ const n=nightOf(d); if(!n) return openPick(d); if(n.r) return openView(n.r.id,d);
+function openNight(d){ const n=nightOf(d); if(!n) return openPick(d); if(n.r) return openView(n.r.id,d); VIEWFN=()=>openNight(d);
   $('viewIn').innerHTML=`<h3>✍️ ${esc(n.txt)}</h3><p class="small">Dinner on ${d} · your own words, no recipe</p>
-    <div class="row" style="margin-top:8px"><button onclick="closeView();openPick('${d}')">🔁 Swap ${d}</button><button onclick="clearNight('${d}')">Clear ${d}</button><button class="ghost" onclick="closeView()">Close</button></div>`;
-  $('viewSheet').classList.add('on'); }
-function openPick(d){ pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=`<div style="border:1.5px dashed rgba(128,128,128,.4);border-radius:14px;padding:10px;margin-bottom:10px"><b>✍️ Something else</b>
+    <div class="row" style="margin-top:8px"><button onclick="openPick('${d}')">🔁 Swap ${d}</button><button onclick="clearNight('${d}')">Clear ${d}</button><button class="ghost" onclick="closeView()">Close</button></div>`;
+  otChip($('viewIn')); $('viewSheet').classList.add('on'); }
+function openPick(d){ otFrom(); otChip($('pickSheet').querySelector('.in')); pickDay=d; $('pickTitle').textContent='Dinner on '+d; $('pickList').innerHTML=`<div style="border:1.5px dashed rgba(128,128,128,.4);border-radius:14px;padding:10px;margin-bottom:10px"><b>✍️ Something else</b>
     <div class="row" style="margin-top:6px;flex-wrap:nowrap"><input id="pickTxt" placeholder="Pizza night, leftovers, out with Kara…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')pickText()"><button class="ok" onclick="pickText()">Put it on ${d}</button></div>
     <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="pickSave" style="width:20px;height:20px"> Save it as a recipe too</label></div>`+db.recipes.map(r=>`<div class="recipe" onclick="setDay('${d}','${r.id}');closePick()" role="button" tabindex="0"><div class="em">${pic(r)}</div><div class="t"><b>${esc(r.name)}</b><small>${(r.tags||[]).join(' · ')}${heartBadge(r)}</small></div></div>`).join('')||'<div class="empty">Add a recipe first.</div>'; $('pickSheet').classList.add('on'); }
-function closePick(){ $('pickSheet').classList.remove('on'); }
+function closePick(){ $('pickSheet').classList.remove('on'); otEnd(); }
 window.pickText=function(){ const t=($('pickTxt').value||'').trim(); if(!t){ $('pickTxt').focus(); return; }
   if($('pickSave').checked){ const id=uid(); db.recipes.unshift({id,made:0,name:t,em:guessEm(t),photo:'',tags:[],ing:[],steps:'',time:''}); setDay(pickDay,id); toast('Saved as a recipe and put on '+pickDay+' — add its ingredients any time'); }
   else { setDay(pickDay,'txt:'+t); toast('✍️ '+t+' on '+pickDay); }
@@ -2999,7 +3075,7 @@ let cookR=null, cookI=0, wakeL=null;
 async function wakeOn(){ try{ if(navigator.wakeLock&&navigator.wakeLock.request&&document.visibilityState==='visible'){ wakeL=await navigator.wakeLock.request('screen'); $('cookAwake').textContent='The screen stays on while you cook.'; try{ wakeL.addEventListener('release',()=>{ wakeL=null; }); }catch(e){} } }catch(e){ wakeL=null; } }
 function wakeOff(){ try{ if(wakeL) wakeL.release().catch(()=>{}); }catch(e){} wakeL=null; }
 document.addEventListener('visibilitychange',()=>{ if(cookR&&document.visibilityState==='visible'&&!wakeL) wakeOn(); });
-function openCook(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return; cookR=r; cookI=0; closeView(); $('cookAwake').textContent=''; $('cookTitle').textContent=r.name; drawCook(); $('cookOv').classList.add('on'); wakeOn(); }
+function openCook(id){ const r=db.recipes.find(x=>x.id===id); if(!r) return; cookR=r; cookI=0; otFrom(); otChip(document.querySelector('#cookOv .top')); $('cookAwake').textContent=''; $('cookTitle').textContent=r.name; drawCook(); $('cookOv').classList.add('on'); wakeOn(); }
 function drawCook(){ if(!cookR) return; const steps=stepsOf(cookR), ing=(cookR.ing||[]); const hasIng=ing.length>0; const total=steps.length+(hasIng?1:0);
   cookI=Math.min(Math.max(0,cookI),total-1); const atIng=hasIng&&cookI===0; const si=cookI-(hasIng?1:0);
   $('cookProg').textContent=atIng?'First, get these out':`Step ${si+1} of ${steps.length}`;
@@ -3007,7 +3083,7 @@ function drawCook(){ if(!cookR) return; const steps=stepsOf(cookR), ing=(cookR.i
   $('cookBody').scrollTop=0;
   const back=document.querySelector('#cookOv [data-act="cook-back"]'), nx=document.querySelector('#cookOv [data-act="cook-next"]');
   back.disabled=cookI===0; nx.textContent=cookI>=total-1?'✓ Finished':'Next ›'; }
-function closeCook(){ $('cookOv').classList.remove('on'); cookR=null; wakeOff(); }
+function closeCook(){ $('cookOv').classList.remove('on'); cookR=null; wakeOff(); otEnd(); }
 document.addEventListener('keydown',e=>{ if(!cookR) return; if(e.key==='ArrowRight'){ cookI++; drawCook(); } else if(e.key==='ArrowLeft'){ cookI--; drawCook(); } else if(e.key==='Escape') closeCook(); });
 
 /* ── ④ already have it (kept week to week, by the ingredient's words) ── */
@@ -3383,7 +3459,7 @@ djLevels({ key:'ourtable', data:'dj_ourtable_v1', anchor:'header',
     b.querySelector('#otpBack').onclick = function(){ pickKind(s); };
     b.querySelectorAll('[data-r]').forEach(function(x){ x.onclick = function(){ setPlan(s, x.dataset.r); var r = rec(x.dataset.r); close(); try{ toast((r.em || '🍽️') + ' ' + r.name + ' on ' + nice(s)); }catch(e){} }; });
     var al = b.querySelector('#otpAll'); if(al) al.onclick = function(){ pickMeal(s, 'Anything'); };
-    b.querySelector('#otpNew').onclick = function(){ close(); openEdit(); };
+    b.querySelector('#otpNew').onclick = function(){ close(); if(window.djBack) djBack.push(function(){ pickMeal(s, kind); }); openEdit(); };   /* v1.21: Back from the new recipe returns to this list */
     b.querySelector('#otpAI').onclick = function(){
       close(); if(!window.djAI) return;
       var mine = db.recipes.map(function(r){ return r.name; }).slice(0, 40).join(', ');

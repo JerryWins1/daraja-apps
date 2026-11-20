@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v68">
+<script id="dj-house-v70">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -317,7 +317,7 @@
      Rafiki and Feedback Studio had this; twenty-one apps did not. The button
      only appears once you tap into a box, so no screen changes until you want it. */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var rec = null, micBtn = null, curBox = null;
+  var rec = null, micBtn = null, curBox = null, recStop = 0, recHush = null;
 
   function eligible(el){
     if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
@@ -375,32 +375,53 @@
   }
   function hide(){ if(micBtn){ micBtn.hidden = true; micBtn.style.setProperty('display','none','important'); } }
 
+  /* 20 Nov. Jerry, testing on his Mac in Chrome: "I hit the microphone, and the microphone
+     would shut off after every word." Chrome ends a recognition session at the first pause
+     unless continuous is on — and it was on only for a <textarea>, so every one-line box
+     stopped after a word. It is on for every box now. Two things come with that: a session
+     Chrome ends on its own is started again, so a long sentence survives it, and four seconds
+     of silence is what finishes the dictation, since nothing else would. */
   function talk(){
     var box = curBox; if(!box) return;
-    if(rec){ try{ rec.stop(); }catch(e){} return; }
-    rec = new SR();
-    rec.lang = navigator.language || 'en-US';
-    rec.interimResults = true;
-    rec.continuous = (box.tagName.toLowerCase() === 'textarea');
+    if(rec){ recStop = 1; try{ rec.stop(); }catch(e){} return; }
+    recStop = 0;
     var base = (box.value || '').trim();
     micBtn.textContent = '⏹';
     micBtn.style.background = '#D96C4F';
     micBtn.setAttribute('aria-label','Stop listening');
-    rec.onresult = function(e){
-      var t = '';
-      for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
-      box.value = (base ? base + ' ' : '') + t;
-      box.dispatchEvent(new Event('input', {bubbles:true}));
-    };
+    function hush(){
+      if(recHush) clearTimeout(recHush);
+      recHush = setTimeout(function(){ recStop = 1; if(rec){ try{ rec.stop(); }catch(e){} } }, 4000);
+    }
     function done(){
-      rec = null;
+      if(recHush){ clearTimeout(recHush); recHush = null; }
+      rec = null; recStop = 0;
       if(micBtn){ micBtn.textContent = '\u{1F3A4}'; micBtn.style.background = '#fff';
                   micBtn.setAttribute('aria-label','Say it instead of typing'); }
       box.dispatchEvent(new Event('change', {bubbles:true}));
     }
-    rec.onend = done;
-    rec.onerror = done;
-    try{ rec.start(); }catch(e){ done(); }
+    function go(){
+      rec = new SR();
+      rec.lang = navigator.language || 'en-US';
+      rec.interimResults = true;
+      rec.continuous = true;
+      rec.onresult = function(e){
+        var t = '';
+        for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
+        box.value = (base ? base + ' ' : '') + t;
+        box.dispatchEvent(new Event('input', {bubbles:true}));
+        hush();
+      };
+      /* no-speech and aborted are how Chrome closes a quiet session; onend decides what next */
+      rec.onerror = function(e){ var k = e && e.error; if(k !== 'no-speech' && k !== 'aborted') recStop = 1; };
+      rec.onend = function(){
+        if(recStop){ done(); return; }
+        base = (box.value || '').trim();   /* a fresh session restarts e.results from empty */
+        try{ go(); }catch(err){ done(); }
+      };
+      try{ rec.start(); }catch(e){ done(); }
+    }
+    hush(); go();
   }
 
 
@@ -795,7 +816,7 @@
       /* On a phone the helpers used to unfold into a column of four little circles that sat
          on top of the page (Jerry, 21 Sep: "the three little options in the corner are
          overlaying each other"). Now the ? opens one plain sheet with words. */
-      toggleBtn.onclick = function(){ djBackClear(); dockSheet(); };
+      toggleBtn.onclick = function(){ dockSheet(); };
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
@@ -847,12 +868,14 @@
     if(window.djStartFresh) row('🧹', 'Start fresh — erase this app’s data', 'asks twice before anything is erased', function(){ window.djStartFresh(); });
     var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Close';
     x.style.cssText = 'display:block;width:100%;font:inherit;font-weight:800;min-height:48px;border-radius:14px;border:0;background:#23504F;color:#fff;cursor:pointer;margin-top:2px';
-    x.onclick = function(){ w.remove(); }; box.appendChild(x);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    x.onclick = function(){ djHouseClose(); }; box.appendChild(x);
+    w.addEventListener('click', function(e){ if(e.target === w) djHouseClose(); });
     w.appendChild(box); document.body.appendChild(w);
   }
   function dockSheet(){
-    var old = document.getElementById('djDockSheet'); if(old){ old.remove(); return; }
+    var old = document.getElementById('djDockSheet'); if(old){ djHouseClose(); return; }
+    if(DJ_MARK < 0) DJ_MARK = DJ_BACK.length;   /* everything from here up is the house's own */
+    djHistOn();
     var w = document.createElement('div'); w.id = 'djDockSheet'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Help and settings');
     if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
@@ -899,14 +922,14 @@
       var nu = document.createElement('button'); nu.type = 'button';
       nu.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       nu.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">See it as a new user<br><small style="font-weight:600;color:#55605B">a fresh test copy in a new tab · your data stays safe</small></span>';
-      nu.onclick = function(){ w.remove(); var u = location.href.split('#')[0]; u = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'dj_sandbox=1'; var t = null; try{ t = window.open(u, '_blank'); }catch(e){} if(!t) location.href = u; };
+      nu.onclick = function(){ djHouseClose(); var u = location.href.split('#')[0]; u = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'dj_sandbox=1'; var t = null; try{ t = window.open(u, '_blank'); }catch(e){} if(!t) location.href = u; };
       box.appendChild(nu);
     }
     if(window.__djSandbox){   /* v64: Leave is always here too — the pill steps out of sight when a screen has no free spot */
       var lv = document.createElement('button'); lv.type = 'button';
       lv.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #5B3FA0;background:#fff;color:#1F2622;cursor:pointer';
       lv.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧪</span><span style="flex:1">Leave the test copy<br><small style="font-weight:600;color:#55605B">back to your real information</small></span>';
-      lv.onclick = function(){ w.remove(); try{ window.djSandboxLeave(); }catch(e){} };
+      lv.onclick = function(){ djHouseClose(); try{ window.djSandboxLeave(); }catch(e){} };
       box.appendChild(lv);
     }
     /* v64: apps without the older welcome-card "?" (Advent, Every Day, Who's Coming, Our Table…) had no Start fresh at all */
@@ -914,21 +937,21 @@
       var sf = document.createElement('button'); sf.type = 'button';
       sf.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       sf.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🧹</span><span style="flex:1">Start fresh — erase this app’s data<br><small style="font-weight:600;color:#55605B">asks twice before anything is erased</small></span>';
-      sf.onclick = function(){ w.remove(); window.djStartFresh(); };
+      sf.onclick = function(){ djHouseClose(); window.djStartFresh(); };
       box.appendChild(sf);
     }
     if(window.DJ_MENU){
       var mr = document.createElement('button'); mr.type = 'button';
       mr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       mr.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🏠</span><span style="flex:1">Start menu: what would you like to do?</span>';
-      mr.onclick = function(){ w.remove(); djMenu.open(); };
+      mr.onclick = function(){ djHouseClose(); djMenu.open(); };
       box.appendChild(mr);
     }
     if(window.DJ_TOUR){
       var tr = document.createElement('button'); tr.type = 'button';
       tr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
       tr.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">🎬</span><span style="flex:1">Take the tour again</span>';
-      tr.onclick = function(){ w.remove(); djTour.start(); };
+      tr.onclick = function(){ djHouseClose(); djTour.start(); };
       box.appendChild(tr);
     }
     if(location.pathname.indexOf('/circle/') < 0 && !kidsPage()){
@@ -940,8 +963,8 @@
     }
     var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Close';
     x.style.cssText = 'display:block;width:100%;font:inherit;font-weight:800;min-height:48px;border-radius:14px;border:0;background:#23504F;color:#fff;cursor:pointer;margin-top:2px';
-    x.onclick = function(){ w.remove(); }; box.appendChild(x);
-    w.addEventListener('click', function(e){ if(e.target === w) w.remove(); });
+    x.onclick = function(){ djHouseClose(); }; box.appendChild(x);
+    w.addEventListener('click', function(e){ if(e.target === w) djHouseClose(); });
     w.appendChild(box); document.body.appendChild(w);
   }
 
@@ -1213,29 +1236,51 @@
          window.djBack.button()   -> the HTML for a Back chip, or '' when there is nowhere to go
          window.djBack.go()       -> step back one; false when the stack is empty
      Screens opened through the house's own sheet() get the chip and the wiring for free. */
-  var DJ_BACK = [], DJ_BACK_NAV = 0;
+  var DJ_BACK = [], DJ_BACK_NAV = 0, DJ_HIST = 0, DJ_EAT = 0, DJ_MARK = -1;
   var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
-  function djBackPush(fn){ if(typeof fn === 'function'){ DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift(); } }
-  function djBackClear(){ DJ_BACK = []; }
-  function djBackBtn(){ return DJ_BACK.length ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djHouseSheet(){ return document.getElementById('djAISheet') || document.getElementById('djDockSheet'); }
+  /* v70: one history entry covers the whole trail, whoever started it — an app's push or a house
+     sheet. Without this, djBack.push bought an app the chip but never the phone's Back button,
+     because nothing had been pushed for Back to consume. Reported the same day, with the same
+     reading of the code, by The Church App, Pit Wall, Compass, On Guard and the sweep chat. */
+  function djHistOn(){ if(DJ_HIST) return; DJ_HIST = 1; try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+  function djHistOff(){ if(!DJ_HIST) return; DJ_HIST = 0; DJ_EAT = 1; try{ history.back(); }catch(e){ DJ_EAT = 0; } }
+  function djBackPush(fn){
+    if(DJ_BACK_NAV) return;                       /* a screen reopening BECAUSE of Back must not re-push */
+    if(typeof fn !== 'function') return;
+    DJ_BACK.push(fn); if(DJ_BACK.length > 20) DJ_BACK.shift();
+    djHistOn();
+  }
+  function djBackClear(){ DJ_BACK = []; DJ_MARK = -1; djHistOff(); }
+  /* How deep the trail was when the first house sheet opened. Below that line the entries belong to
+     the app, and closing a house sheet must not take them: On Guard found that opening ? Help over
+     Mail and tapping outside it lost the way back to Home. */
+  function djBackFloor(){ return DJ_MARK >= 0 ? DJ_MARK : 0; }
+  function djBackOwn(){ return DJ_BACK.length - djBackFloor(); }
+  function djBackBtn(){ return djBackOwn() > 0 ? '<button type="button" class="djBackB" aria-label="Back to the screen before" style="' + DJ_BACK_CSS + '">← Back</button>' : ''; }
+  function djHouseClose(){
+    var s; while((s = djHouseSheet())) s.remove();
+    if(DJ_MARK >= 0){ if(DJ_BACK.length > DJ_MARK) DJ_BACK.length = DJ_MARK; DJ_MARK = -1; }
+    if(!DJ_BACK.length) djHistOff();
+  }
   function djBackGo(){
     var f = DJ_BACK.pop(); if(!f) return false;
-    var a = document.getElementById('djAISheet'); if(a) a.remove();
-    var d = document.getElementById('djDockSheet'); if(d) d.remove();
+    var s; while((s = djHouseSheet())) s.remove();
+    if(DJ_MARK > DJ_BACK.length) DJ_MARK = -1;   /* stepped out from under the house's own screens */
     DJ_BACK_NAV = 1; try{ f(); }catch(e){} DJ_BACK_NAV = 0;
+    if(!DJ_BACK.length && !djHouseSheet()) djHistOff();
     return true;
   }
   window.djBack = { push: djBackPush, go: djBackGo, clear: djBackClear, button: djBackBtn,
-                    depth: function(){ return DJ_BACK.length; } };
-  /* The phone's own Back, and the edge swipe, should step back through these screens rather than
-     leaving the app. A state is pushed when the first sheet opens, so there is one to come back to. */
+                    depth: function(){ return DJ_BACK.length; },
+                    navigating: function(){ return !!DJ_BACK_NAV; } };
+  /* The phone's own Back and the edge swipe follow the same trail the chip does — house screens
+     and an app's own alike — and only leave the app once there is nothing left to go back to. */
   window.addEventListener('popstate', function(){
-    var open = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
-    if(!open) return;
-    if(DJ_BACK.length){ djBackGo(); try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} return; }
-    djBackClear(); open.remove();
-    var other = document.getElementById('djAISheet') || document.getElementById('djDockSheet');
-    if(other) other.remove();
+    if(DJ_EAT){ DJ_EAT = 0; return; }
+    DJ_HIST = 0;                                  /* the entry has been used up */
+    if(DJ_BACK.length){ djBackGo(); if(DJ_BACK.length || djHouseSheet()) djHistOn(); return; }
+    if(djHouseSheet()) djHouseClose();
   });
   function closeAISheet(){ var s = document.getElementById('djAISheet'); if(s) s.remove(); }
   function sheet(html){
@@ -1244,11 +1289,12 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:2147481500;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px';
     var box = document.createElement('div');
     box.style.cssText = 'background:#FFFDF8;color:#1F2622;width:100%;max-width:560px;max-height:62vh;overflow:auto;border-radius:20px 20px 16px 16px;padding:16px 16px calc(14px + env(safe-area-inset-bottom));font:16px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 -10px 40px rgba(0,0,0,.35)';
-    if(!old && !document.getElementById('djDockSheet')){ try{ history.pushState({ djSheet: 1 }, ''); }catch(e){} }
+    if(!old && !document.getElementById('djDockSheet')){ if(DJ_MARK < 0) DJ_MARK = DJ_BACK.length; }
+    djHistOn();
     box.innerHTML = djBackBtn() + html; w.appendChild(box);
     var djbb = box.querySelector('.djBackB'); if(djbb) djbb.onclick = function(){ djBackGo(); };
     /* dismissed by tapping the dark part: the flow is over, so the trail goes with it */
-    w.addEventListener('click', function(e){ if(e.target === w){ djBackClear(); w.remove(); } });
+    w.addEventListener('click', function(e){ if(e.target === w) djHouseClose(); });
     document.body.appendChild(w); return box;
   }
   var BTN = 'font:inherit;font-weight:800;min-height:46px;padding:8px 14px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
@@ -2127,15 +2173,32 @@
     inp.addEventListener('input', update);
     inp.addEventListener('keydown', function(e){ if(e.key === 'Enter' && !go.disabled) go.click(); });
     if(SR){
-      var mic = b.querySelector('#djTellMic'), rec = null;
+      /* 20 Nov: the same fault as talk() above, and worse here — continuous was never set at
+         all, so Chrome stopped this one at the first pause too. Same three parts: continuous on,
+         a session Chrome ends started again, and four seconds of silence to finish. */
+      var mic = b.querySelector('#djTellMic'), rec = null, mStop = 0, mHush = null, mBase = '';
       mic.onclick = function(){
-        if(rec){ try{ rec.stop(); }catch(e){} return; }
-        try{ rec = new SR(); }catch(e){ mic.textContent = 'Talking is not available here. Type instead.'; return; }
-        rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1;
-        rec.onresult = function(ev){ var t = ''; for(var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; inp.value = t; update(); };
-        rec.onerror = function(ev){ mic.textContent = (ev && ev.error === 'not-allowed') ? 'Microphone not allowed. Type instead.' : '🎤 Tap and talk'; rec = null; };
-        rec.onend = function(){ rec = null; if(/Listening/.test(mic.textContent)) mic.textContent = '🎤 Tap and talk again'; };
-        mic.textContent = '● Listening… tap to stop'; try{ rec.start(); }catch(e){ rec = null; mic.textContent = '🎤 Tap and talk'; }
+        if(rec){ mStop = 1; try{ rec.stop(); }catch(e){} return; }
+        mStop = 0; mBase = '';
+        function hush(){
+          if(mHush) clearTimeout(mHush);
+          mHush = setTimeout(function(){ mStop = 1; if(rec){ try{ rec.stop(); }catch(e){} } }, 4000);
+        }
+        function over(){
+          if(mHush){ clearTimeout(mHush); mHush = null; }
+          rec = null; mStop = 0;
+          if(/Listening/.test(mic.textContent)) mic.textContent = '🎤 Tap and talk again';
+        }
+        function go(){
+          try{ rec = new SR(); }catch(e){ mic.textContent = 'Talking is not available here. Type instead.'; return false; }
+          rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = true;
+          rec.onresult = function(ev){ var t = ''; for(var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; inp.value = (mBase ? mBase + ' ' : '') + t; update(); hush(); };
+          rec.onerror = function(ev){ var k = ev && ev.error; if(k === 'no-speech' || k === 'aborted') return; mStop = 1; if(k === 'not-allowed') mic.textContent = 'Microphone not allowed. Type instead.'; };
+          rec.onend = function(){ if(!mStop){ mBase = (inp.value || '').trim(); if(go() !== false) return; } over(); };
+          try{ rec.start(); }catch(e){ rec = null; mic.textContent = '🎤 Tap and talk'; return false; }
+          return true;
+        }
+        mic.textContent = '● Listening… tap to stop'; hush(); go();
       };
     } else setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 300);
     go.onclick = function(){
@@ -2552,7 +2615,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If <span class="nameHere">Trip Tab</span> helps your group, a gift to Loving InDeed helps orphans and students in Kenya. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot" id="ver">Trip Tab v0.1 · 2026-11-18 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
+  <p class="foot" id="ver">Trip Tab v0.2 · 2026-11-20 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big add" id="addBtn" onclick="openAdd()">＋ Add a cost</button>
@@ -2565,8 +2628,9 @@
 <script>
 /* Trip Tab v0.1 — one phone keeps the tab for a group trip. No server, no account, no shared room.
    Everything lives in localStorage under one key. Money is kept in whole cents so balances always sum to zero.
-   The name lives in APP_NAME (and in manifest.webmanifest) — change it there. */
-var APP_NAME = 'Trip Tab', VERSION = 'v0.1', VDATE = '2026-11-18';
+   The name lives in APP_NAME (and in manifest.webmanifest) — change it there.
+   v0.2 · 20 Nov: ← Back from Start a new trip to All my trips (house v68 djBack). */
+var APP_NAME = 'Trip Tab', VERSION = 'v0.2', VDATE = '2026-11-20';
 var KEY = 'dj_triptab_v1'; window.DJ_OWNS = { k:[KEY], p:['dj_triptab_'] };   /* every name this app writes, so the house Start fresh finds them */
 var TOUR = /[?&]tour=1(&|$)/.test(location.search);   /* the store's camera: an invented example, in memory only */
 var EX = false;   /* true while an example trip is on screen: nothing is saved */
@@ -2687,8 +2751,18 @@ function tripsHTML(onScreen){
 }
 
 /* ── sheets ── */
-function openSheet(html){ document.getElementById('sheetIn').innerHTML = html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
-function closeSheet(){ document.getElementById('sheet').classList.remove('on'); }
+/* v0.2 · 20 Nov: ← Back between sheets (house v68 window.djBack). Jerry: "If you go one screen too far
+   or something, you can't go back to the previous one." A sheet that leads on to another (All my trips)
+   says what it is with `here`; when the next sheet replaces it, it goes on the back-stack, and the Back
+   chip at the top of the next sheet reopens it. Closing the sheet ends the trail. */
+var SHOWING = null, BACKING = 0;
+function openSheet(html, here){ var s = document.getElementById('sheet');
+  if(s.classList.contains('on') && SHOWING && !BACKING && (!here || here.k !== SHOWING.k) && window.djBack) djBack.push(SHOWING.fn);
+  SHOWING = here || null;
+  document.getElementById('sheetIn').innerHTML = (window.djBack ? djBack.button() : '') + html; s.classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
+function closeSheet(){ document.getElementById('sheet').classList.remove('on'); SHOWING = null; if(window.djBack) djBack.clear(); }
+document.addEventListener('click', function(e){ var b = e.target.closest ? e.target.closest('#sheetIn .djBackB') : null; if(!b || !window.djBack) return;
+  BACKING = 1; try{ djBack.go(); }finally{ BACKING = 0; } });
 function toast(s){ var e = document.getElementById('toast'); e.textContent = s; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2600); }
 
 /* ── a trip: name, people, money ── */
@@ -2732,7 +2806,7 @@ function saveTrip(){ var t = trip(), keep = [], stuck = [];
   t.exps.forEach(function(x){ if(x.type === 'some') x.among = x.among.filter(function(id){ return keep.some(function(p){ return p.id === id; }); }); });
   save(); closeSheet(); render(); toast(stuck.length ? listWords(stuck) + ' stayed — they have costs on this trip.' : 'Saved');
 }
-function openTrips(){ openSheet(tripsHTML(false) + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>'); }
+function openTrips(){ openSheet(tripsHTML(false) + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>', { k:'trips', fn:openTrips }); }
 function pickTrip(id){ if(EX && !db.trips.some(function(t){ return t.id === id; })) return; db.open = id; save(); closeSheet(); render(); window.scrollTo(0,0); }
 function finishTrip(){ var t = trip(), left = settle(t).length;
   if(!confirm((left ? 'Not everyone is square yet (' + left + (left === 1 ? ' payment' : ' payments') + ' to go). ' : '') + 'Finish “' + t.name + '” and put it away? You can still open it later.')) return;
