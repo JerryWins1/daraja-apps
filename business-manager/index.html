@@ -2626,7 +2626,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.9.1 · 2026-11-20';
+var VER = 'v1.9.2 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -3077,6 +3077,22 @@ function liveCards(){
    the phone's own speech typing, the same as the house 🎤; with none, the person types the same sentence. */
 var TALK = null;   /* { said, plan } while the check is open */
 function talkWords(t){ return String(t || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9$.,& -]/g, ' '); }
+/* numbers said as words ("eighty four", "one hundred twenty") become digits before anything else reads the sentence */
+var NUMW = { zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16, seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40, fifty:50, sixty:60, seventy:70, eighty:80, ninety:90 };
+function wordsToDigits(t){
+  var toks = String(t || '').replace(/(\w)-(\w)/g, '$1 $2').split(/\s+/), out = [], total = 0, cur = 0, on = false;
+  function flush(){ if(on){ out.push(String(total + cur)); total = 0; cur = 0; on = false; } }
+  toks.forEach(function(tok, i){
+    var m = tok.match(/^([A-Za-z]+)([,.;:!?]*)$/), w = m ? m[1].toLowerCase() : '', p = m ? m[2] : '';
+    if(w && NUMW.hasOwnProperty(w)){ var v = NUMW[w]; if(on && ((v >= 10 && cur % 100 !== 0) || (v < 10 && cur % 10 !== 0))) flush(); cur += v; on = true; }   /* “eighty four fifty” is 84 then 50, not 134 */
+    else if(w === 'hundred' && on){ cur = (cur || 1) * 100; }
+    else if(w === 'thousand' && on){ total += (cur || 1) * 1000; cur = 0; }
+    else if(w === 'and' && on && cur % 100 === 0 && toks[i + 1] && NUMW.hasOwnProperty(toks[i + 1].toLowerCase().replace(/[^a-z]/g, '')) && !/^cents?\b/i.test(toks[i + 2] || '') && !/^cents?\b/i.test(toks[i + 3] || '')){ return; }   /* “one hundred and twenty”, not “twenty and fifty cents” */
+    else { flush(); out.push(tok); return; }
+    if(p){ out.push(String(total + cur) + p); total = 0; cur = 0; on = false; }
+  });
+  flush(); return out.join(' ');
+}
 function talkAmount(t){ var m = String(t).replace(/(\d),(\d{3})/g, '$1$2').match(/(?:\$|kes\s*|ksh\s*)?(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars?|bucks|shillings?|bob))?(?:\s*(?:and\s*)?(\d{1,2})\s*cents?)?/i);
   return m ? r2(+m[1] + (m[2] ? +m[2] / 100 : 0)) : 0; }
 /* a customer named in the sentence: "Johnson job", "the Patels", "for Sarah" */
@@ -3091,29 +3107,30 @@ function custJob(c){ if(!c) return null; var js = S.jobs.filter(function(j){ ret
   return pick[0] || null; }
 function talkStore(t){ var w = talkWords(t), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
   var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
-function talkPlan(said){
-  var t = String(said || '').trim(), w = talkWords(t); if(!t) return null;
-  if(/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\breceipt\b/.test(w)){
+function talkPlan(said, force){
+  var t = wordsToDigits(String(said || '').trim()), w = talkWords(t); if(!t) return { kind:force || '' };
+  var kind = force || ((/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\breceipt\b/.test(w)) ? 'receipt' : /^\s*(quote|estimate|price|bid)\b/.test(w) ? 'quote' : '');
+  if(kind === 'receipt'){
     var c = talkCust(t), j = custJob(c), amt = talkAmount(t.replace(/^\D*?(?=\$|\d)/, ''));
     return { kind:'receipt', amount:amt, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
   }
-  if(/^\s*(quote|estimate|price|bid)\b/.test(w)){
+  if(kind === 'quote'){
     var c2 = talkCust(t), rest = t.replace(/^\s*(quote|estimate|price|bid)\s*(for|up)?\s*/i, ''), name = '', work = rest;
     var m = rest.match(/^([^:,.]{2,40})[:,.]\s*(.+)$/);
     if(m){ name = m[1].replace(/^the\s+/i, '').trim(); work = m[2].trim(); }
-    if(c2){ name = c2.name; }
+    if(c2) name = c2.name;
     else if(name) name = name.replace(/\b\w/g, function(x){ return x.toUpperCase(); }).replace(/^(\w+?)s$/, '$1');
     return { kind:'quote', custId:c2 ? c2.id : '', name:name, work:work };
   }
-  return { kind:'?' };
+  return { kind:'' };
 }
-function talkOK(p){ return p && ((p.kind === 'receipt' && p.amount > 0) || (p.kind === 'quote' && p.name && p.work)); }
-function talkSay(p){
-  if(!p || p.kind === '?') return 'I couldn’t tell if that was a receipt or a quote. Start with “Receipt…” or “Quote…”.';
-  if(p.kind === 'receipt'){ var j = p.jobId ? job(p.jobId) : null;
-    return p.amount > 0 ? '🧾 Receipt: <b>' + money(p.amount) + '</b>' + (p.store ? ' at <b>' + esc(p.store) + '</b>' : '') + ' → ' + (j ? '<b>' + esc(j.title) + '</b> (' + esc(cust(j.customerId).name) + ')' : '<b>no job</b>' + (p.who ? ' (' + esc(p.who) + ' has no open job)' : '')) : '🧾 A receipt, but I didn’t catch how much. Say the amount, like “84 dollars”.'; }
-  return p.name && p.work ? '📝 A quote for <b>' + esc(p.name) + '</b>' + (p.custId ? '' : ' (new customer)') + ': ' + esc(p.work) : '📝 A quote, but I need who it’s for and the work, like “Quote the Patels: replace disposal”.';
+/* what is still missing, in plain words, or '' when it can be saved */
+function talkMissing(p){
+  if(!p || !p.kind) return 'Tap 🧾 Receipt or 📝 Quote, so I know which it is.';
+  if(p.kind === 'receipt') return p.amount > 0 ? '' : 'How much was it? Type the amount in the box above.';
+  return !p.name ? 'Who is the quote for? Type their name above.' : !p.work ? 'What’s the work? Type it above.' : '';
 }
+function talkOK(p){ return !talkMissing(p); }
 function talkButton(){
   var r = F('expenses') || F('materials'), q = F('estimates'); if(!r && !q) return '';
   return '<button class="btn main full talkbtn" id="tdTalk" aria-label="Hold to talk">🎤 Hold to talk</button><p class="hint" style="margin:-4px 4px 10px;text-align:center">' + (r && q ? 'Say “Receipt, 84 dollars Home Depot, Johnson job” or “Quote the Patels: replace disposal, 2 hours”.' : r ? 'Say “Receipt, 84 dollars Home Depot, Johnson job”.' : 'Say “Quote the Patels: replace disposal, 2 hours”.') + '</p>';
@@ -3152,46 +3169,69 @@ function talkMore(){
     box.dispatchEvent(new Event('input', { bubbles:true }));
   });
 }
-function talkOpen(said){
-  TALK = { said:String(said || '').trim(), plan:null };
-  sheet('<h3>🎤 Say it, or type it</h3><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="Receipt, 84 dollars Home Depot, Johnson job">' + esc(TALK.said) + '</textarea>'
+function talkOpen(said, plan, note){
+  var old = TALK && TALK.plan && TALK.plan.photo;
+  TALK = { said:String(said || '').trim(), plan:null, picked:'' };
+  sheet('<h3>🎤 Say it, or type it</h3><label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="Receipt, 84 dollars Home Depot, Johnson job">' + esc(TALK.said) + '</textarea>'
     + '<button class="btn full talkbtn" id="tkMic" type="button" aria-label="Hold to add more" style="margin:8px 0 0;min-height:50px;font-size:16px">🎤 Hold to add more</button>'
-    + '<div class="card small" id="tkPlan" style="margin:10px 0;background:#F7F4EC"></div><div id="tkMore"></div>'
+    + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
+    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p>'
     + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
-    + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not right? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
-    + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn'); i.addEventListener('input', function(){ TALK.said = i.value; TALK.plan = talkPlan(i.value); talkDraw(); }); talkMore(); });
-  TALK.plan = talkPlan(TALK.said); talkDraw();
+    + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
+    + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
+      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); talkMore(); });
+  TALK.plan = plan || talkPlan(TALK.said); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
+  talkDraw(note);
   if(!TALK.said) setTimeout(function(){ try{ $('tkIn').focus(); }catch(e){} }, 250);
 }
-function talkDraw(){
-  var p = TALK && TALK.plan, out = $('tkPlan'), more = $('tkMore'), go = $('tkGo'); if(!out) return;
-  out.innerHTML = TALK.said ? talkSay(p) : 'Start with “Receipt…” or “Quote…”.';
-  go.disabled = !talkOK(p);
-  if(p && p.kind === 'receipt'){
+function talkDraw(note){
+  var p = TALK && TALK.plan, more = $('tkMore'), kind = $('tkKind'), msg = $('tkPlan'); if(!more || !p) return;
+  var r = F('expenses') || F('materials'), q = F('estimates');
+  kind.innerHTML = (r ? '<button type="button" class="chip' + (p.kind === 'receipt' ? ' on' : '') + '" onclick="BM.talkKind(\'receipt\')">🧾 Receipt</button>' : '')
+    + (q ? '<button type="button" class="chip' + (p.kind === 'quote' ? ' on' : '') + '" onclick="BM.talkKind(\'quote\')">📝 Quote</button>' : '');
+  if(p.kind === 'receipt'){
     var js = S.jobs.filter(function(j){ return j.status !== 'lost' && (j.status !== 'closed' || j.id === p.jobId); }).sort(function(a, b){ return b.num - a.num; }).slice(0, 40);
-    more.innerHTML = '<label class="f" for="tkJ" style="margin-top:0">For which job?</label><select class="i" id="tkJ" onchange="BM.talkJob(this.value)"><option value="">— Not for one job —</option>' + js.map(function(j){ return '<option value="' + j.id + '"' + (j.id === p.jobId ? ' selected' : '') + '>' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('') + '</select>'
+    more.innerHTML = '<div class="two"><div><label class="f" for="tkA" style="margin-top:0">Amount</label><input class="i" id="tkA" data-nomic inputmode="decimal" placeholder="' + CUR + '" value="' + (p.amount > 0 ? p.amount : '') + '" oninput="BM.talkField(\'amount\',this.value)"></div>'
+      + '<div><label class="f" for="tkS" style="margin-top:0">Store</label><input class="i" id="tkS" data-nomic value="' + esc(p.store || '') + '" placeholder="' + esc(STORES[0]) + '" oninput="BM.talkField(\'store\',this.value)"></div></div>'
+      + '<label class="f" for="tkJ">For which job?</label><select class="i" id="tkJ" onchange="BM.talkJob(this.value)"><option value="">— Not for one job —</option>' + js.map(function(j){ return '<option value="' + j.id + '"' + (j.id === p.jobId ? ' selected' : '') + '>' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('') + '</select>'
       + '<label class="btn full" style="margin-top:8px">📸 ' + (p.photo ? 'Photo added ✓ — change it' : 'Add the photo') + '<input type="file" accept="image/*" capture="environment" hidden onchange="BM.talkPhoto(this)"></label>';
+  } else if(p.kind === 'quote'){
+    more.innerHTML = '<label class="f" for="tkC" style="margin-top:0">Customer</label><input class="i" id="tkC" data-nomic list="tkCL" value="' + esc(p.name || '') + '" placeholder="Their name" oninput="BM.talkField(\'name\',this.value)">'
+      + '<datalist id="tkCL">' + S.customers.map(function(c){ return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist>'
+      + '<label class="f" for="tkW">The work</label><textarea class="i" id="tkW" data-nomic style="min-height:60px" placeholder="Replace disposal, 2 hours" oninput="BM.talkField(\'work\',this.value)">' + esc(p.work || '') + '</textarea>';
   } else more.innerHTML = '';
+  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : ''));
 }
-function talkJob(v){ if(TALK && TALK.plan) TALK.plan.jobId = v; talkDraw(); }
+function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(TALK.said, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
+function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
+  if(k === 'amount') p.amount = num(v);
+  else if(k === 'name'){ p.name = String(v).trim(); var c = S.customers.filter(function(x){ return x.name.toLowerCase() === p.name.toLowerCase(); })[0]; p.custId = c ? c.id : ''; }
+  else p[k] = String(v).trim();
+  var msg = $('tkPlan'); if(msg){ msg.style.color = ''; msg.textContent = talkMissing(p); } }
+function talkJob(v){ if(TALK && TALK.plan) TALK.plan.jobId = v; }
 async function talkPhoto(inp){ var f = inp.files && inp.files[0]; if(!f || !TALK || !TALK.plan) return;
   try{ var blob = await shrink(f), id = 'rc_' + uid(); await putFile(id, blob); if(TALK.plan.photo) delFile(TALK.plan.photo); TALK.plan.photo = id; toast('Photo added'); }catch(e){ alert('That photo wouldn’t save on this phone.'); }
   talkDraw(); }
+/* the box stays open underneath while the AI is asked, so cancelling, or an answer that doesn't fit, never loses the words */
 function talkAI(){
-  var said = (($('tkIn') || {}).value || '').trim(); if(!said){ toast('Say or type it first'); return; }
-  closeSheet(true);
-  djAI.ask({ title:'Sort this for me', want:'json', circle:false,
-    prompt:'A ' + (TRADES[S.biz.trade] || TRADES.other).name.toLowerCase() + ' business owner said this into their phone. Is it a store receipt to file, or a quote to write? Answer with JSON only, like {"kind":"receipt","amount":84.12,"store":"Home Depot","customer":"Johnson"} or {"kind":"quote","customer":"Patel","work":"Replace garbage disposal, 2 hours, Badger 5"}. customer is the customer’s name as said, or empty.\n\nWhat they said: ' + said,
-    onResult:function(v){
-      if(!v || (v.kind !== 'receipt' && v.kind !== 'quote')){ alert('That answer didn’t fit. Try saying it another way.'); return; }
-      var c = v.customer ? talkCust(String(v.customer)) : null;
-      talkOpen(said);
-      TALK.plan = v.kind === 'receipt' ? { kind:'receipt', amount:num(v.amount), store:String(v.store || ''), jobId:(custJob(c) || {}).id || '', who:c ? c.name : '' }
-        : { kind:'quote', custId:c ? c.id : '', name:c ? c.name : String(v.customer || '').trim(), work:String(v.work || '').trim() };
-      talkDraw(); } });
+  var said = (($('tkIn') || {}).value || '').trim(), msg = $('tkPlan');
+  if(!said){ if(msg){ msg.style.color = 'var(--bad)'; msg.textContent = 'Say or type something first, then ask.'; } return; }
+  djAI.ask({ title:'Sort this for me', want:'text', circle:false,
+    prompt:'A ' + (TRADES[S.biz.trade] || TRADES.other).name.toLowerCase() + ' business owner said this into their phone. Is it a store receipt to file, or a quote to write? Answer with JSON only, like {"kind":"receipt","amount":84.12,"store":"Home Depot","customer":"Johnson"} or {"kind":"quote","customer":"Patel","work":"Replace garbage disposal, 2 hours"}. If it is neither, answer {"kind":"neither"}. customer is the customer’s name as said, or empty.\n\nWhat they said: ' + said,
+    onResult:function(v, raw){
+      var j = null; try{ j = djAI.extractJSON(raw || v); }catch(e){} if(!j && v && typeof v === 'object') j = v;
+      var k = j && (j.kind === 'receipt' || j.kind === 'quote') ? j.kind : '';
+      var who = aiLabel() === 'my AI' ? 'The AI' : aiLabel();
+      if(!k){ talkOpen(said, { kind:'' }, (j && j.kind === 'neither' ? who + ' says that isn’t a receipt or a quote.' : who + ' couldn’t tell either.') + ' Tap 🧾 Receipt or 📝 Quote, then fill in the boxes.'); return; }
+      var c = j.customer ? talkCust(String(j.customer)) : null;
+      talkOpen(said, k === 'receipt' ? { kind:'receipt', amount:num(j.amount), store:String(j.store || ''), jobId:(custJob(c) || {}).id || '', who:c ? c.name : '' }
+        : { kind:'quote', custId:c ? c.id : '', name:c ? c.name : String(j.customer || '').trim(), work:String(j.work || '').trim() }, '✨ Sorted by ' + (aiLabel() === 'my AI' ? 'the AI' : aiLabel()) + ' — check it, then Save it.');
+    } });
 }
 function talkSave(){
-  var p = TALK && TALK.plan; if(!talkOK(p)) return;
+  var p = TALK && TALK.plan, miss = talkMissing(p);
+  if(miss){ var msg = $('tkPlan'); if(msg){ msg.style.color = 'var(--bad)'; msg.textContent = miss; } var f = !p || !p.kind ? null : p.kind === 'receipt' ? $('tkA') : !p.name ? $('tkC') : $('tkW'); if(f) try{ f.focus(); }catch(e){} return; }
+  var sv = TALK.said || (p.kind === 'receipt' ? 'Receipt ' + money(p.amount) + (p.store ? ' ' + p.store : '') : 'Quote ' + p.name + ': ' + p.work); TALK.said = sv;
   if(p.kind === 'receipt'){
     var to = p.jobId ? 'job:' + p.jobId : 'supplies', vendor = p.store || 'Receipt', rid = uid(), eid = uid();
     var cat = p.jobId ? 'Materials & supplies' : guessCat(vendor); if(cat === 'Other business') cat = 'Materials & supplies';
@@ -5413,7 +5453,7 @@ document.getElementById('backBtn').addEventListener('click', back);
 /* everything the buttons call */
 window.BM = {
   go:go, back:back, closeSheet:closeSheet, relist:relist, guessCat:guessCat, _q:'', _cq:'',
-  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
+  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkKind:talkKind, talkField:talkField, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
   briefShow:briefShow, briefRead:briefRead, dayText:dayText, dtMin:dtMin, dtGo:dtGo,
   keepDemo:keepDemo, fresh:fresh, tourShow:tourShow, redoSetup:redoSetup,
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
