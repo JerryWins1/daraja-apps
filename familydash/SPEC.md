@@ -954,3 +954,9 @@ Tester script step s33d added.
 Jerry: "we're going to have to merge categories at some point … It would be nice to put a note in for a transaction … not a long one, but a short one."
 - **Merging uses rename** (`catRenameTo`). Renaming a category, with **✎ Rename it** on the sort screen or in Settings › Categories, to a name that already exists asks "Merge X into Y?". Yes moves every line, remembered payee and re-sort record into the one kept, and adds the budgets together when both are in the same part. The other category goes away.
 - **A one-line note** (60 characters at most) on every sort screen, "Note (optional) — e.g. for the golf trip". It's kept on each line it was saved with, and shows in the spreadsheets and the backup. Checks, cash and Venmo/PayPal/Zelle also say "only you know what it was for".
+
+## v9.4 · a new category keeps you on the line; tick lines to sort on their own (20 Nov)
+
+Jerry: "I added [a category] and I came back and then I couldn't put in the … comment" and "when I go to one that has multiple lines and I see each line, I lost the ability to pick each line and deal with it."
+- **＋ A new category…** now shows a name box with **＋ Add**. Enter or the main button does the same. Adding it keeps you on the same line, with the new category chosen and the note box (and anything already typed in it) kept. The next tap saves (`sinNewAdd`).
+- **See each line** has a tick box on every line. Tick the different ones and tap **Sort these N lines on their own**: they come up next as their own step, with its own category, note or split. The rest stay together (`sinOwn`).
