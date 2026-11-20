@@ -2483,7 +2483,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v9.1 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v9.2 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4175,7 +4175,7 @@ function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonth
 
 /* ── the main screen ── */
 function render(){
-  var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
+  var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
   if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
@@ -4243,6 +4243,7 @@ function render(){
     + '<button class="tool" onclick="openLists()">📋 Lists<small>help, business, 529, not sure</small></button>'
     + '<button class="tool" id="pfBtn" onclick="openPaidFrom()">🔗 What\u2019s paid from where<small>if an account ever closes</small></button>'
     + '<button class="tool" onclick="openAccounts()">🏦 Our accounts<small>' + db.accts.filter(function(a){ return !a.closed; }).length + ' open</small></button>'
+    + '<button class="tool" onclick="openAway()">🧭 If I’m away<small>what’s due, and who to call</small></button>'
     + '<button class="tool" onclick="backupOpen()">💾 Backup<small>' + (db.backupAt ? 'saved ' + shortDate(db.backupAt) : 'not saved yet') + '</small></button>'
     + '<button class="tool" onclick="openSettings()">⚙️ Settings<small>every setup answer</small></button>'
     + '<button class="tool" onclick="openAdvisors()">🧑‍💼 Our advisors<small>' + esc(db.cpa || db.advisor ? [db.cpa, db.advisor].filter(Boolean).join(' · ') : 'CPA and advisor') + '</small></button></div>';
@@ -4383,16 +4384,18 @@ function headsUps(){ var H = [], m = thisMonth(), seen = db.huSeen || {};
     else if(ins) H.push({ k:k, pri:2, c:c, em:'🛡️', t:esc(c.name) + ' renews in ' + esc(monthOnly(st.dueM)) + ' · ' + money(st.each,1) + ' last time.', sub:'A good moment to shop it around.', ins:1, dueM:st.dueM }); });
   rvSubsList().forEach(function(s){ var T = db.tx.filter(function(t){ return (t.sub ? 'sub:' + t.sub : mkey(t.desc) || t.desc) === s.k; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }); if(!T.length) return;
     var first = T[0].d; if(T.length > 2 || daysBetween(first, today()) > 45 || /annual|yearly|membership fee/i.test(s.desc)) return;   /* a yearly fee is not a trial running out */ H.push({ k:'sub:' + s.k, pri:3, em:'🆕', t:'New: ' + esc(s.desc) + ' · ' + money(s.amt) + (s.cyc === 'month' ? ' a month' : s.cyc === 'year' ? ' a year' : '') + '.', sub:'First seen ' + esc(shortDate(first)) + '. If it began as a free trial, it’s paying now. Keep it?', sub2:s }); });
+  try{ H = H.concat(noticeMore()); }catch(e){}
   return H.filter(function(h){ return !seen[h.k]; }).sort(function(a,b){ return a.pri - b.pri; }); }
 var HU = null;
 function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0]; HU = h;
-  var btns = h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
+  var btns = h.look ? '<button class="b small primary" onclick="huLook()">🔍 Look into it</button><button class="b small" onclick="huSeen()">That’s right</button>' : (h.k || '').match(/^(miss|inc|low):/) ? '' : h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
   var tm = new Date(Date.now() + 864e5), rd = addMonths(h.dueM || thisMonth(), -1) > thisMonth() ? addMonths(h.dueM, -1) : ymd(tm);   /* a month before it's due, or tomorrow if that's already passed */
   if(h.dueM) btns += '<button class="b small" onclick="remindICS(\'' + rd + '\',' + JSON.stringify(h.c ? h.c.name + ' due ' + monthOnly(h.dueM) : 'Family money').replace(/"/g,'&quot;') + ')">⏰ Remind me</button>';
   return '<div class="card" id="headsUp" style="border:2px solid #E3B04B;background:#FFF8E8;padding:14px 16px"><div class="stepno" style="color:#9a5b00">Heads up' + (h.dueM ? ' · coming in ' + esc(monthOnly(h.dueM)) : '') + '</div>'
     + '<p style="margin:4px 0 2px;font-weight:800;font-size:17px">' + h.em + ' ' + h.t + '</p><p class="sub" style="margin:0">' + h.sub + '</p>'
     + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px">' + btns + '<button class="b small ghost" onclick="huSeen()">Got it</button></div>'
     + (H.length > 1 ? '<p class="sub" style="margin:8px 0 0;font-size:13px">One more after this.</p>' : '') + '</div>'; }
+function huLook(){ var t = HU.look; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); delete db.asked[t.id]; huSeen('look'); toast('Added to your 🔍 To look into list.'); }
 function huSeen(note){ if(!HU) return; db.huSeen = db.huSeen || {}; db.huSeen[HU.k] = note || today(); save(); closeSheet(); render(); }
 function huSavings(){ huSeen('savings'); toast('Noted — the rest comes from savings when it’s due.'); }
 function huCancel(){ var s = HU.sub2; db.subRev = db.subRev || {}; db.subRev[s.k] = db.subRev[s.k] || s; huSeen('cancel'); cancelHelp(s.k); }
@@ -4403,6 +4406,55 @@ function huPlan(){ var h = HU, room = p1Cats().map(function(c){ var b = mBud(c, 
     onResult:function(v, raw){ var t = String(raw || v || '').trim(); if(!t) return;
       openSheet('<div class="stepno">' + (h.ins ? 'Shop-around script' : 'The plan') + ' · ' + esc(h.c.name) + '</div><div class="card" style="padding:12px 14px;background:#EEF1FB"><p style="margin:0;white-space:pre-wrap">' + esc(t) + '</p></div><p class="sub" style="font-size:13px">A helper, not a financial advisor.</p>'
         + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="huSeen(\'plan\')">✅ ' + (h.ins ? 'Got it' : 'Do this') + '</button><button class="b full" onclick="huPlan()">Another way</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); } }); }
+
+/* ── v9.2 · Jerry, 20 Nov: "be very intuitive and forward thinking … head off some issues … as you know when things are due
+   … this would be really good for my wife when I'm not around." He chose all three:
+   1. the heads-up card notices more on its own (still one card at a time);
+   2. "If I'm away", one page the app keeps current, to read on screen or print;
+   3. the money dates go into a small list on this device that Ahead of It can show in its household list. ── */
+function nth(n){ n = +n; return n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th','st','nd','rd','th','th','th','th','th','th'][n % 10]); }
+/* a real bill: about the same amount every time */
+function steady(g){ var T = db.tx.filter(function(t){ return (mkey(t.desc) || t.desc) === g.k && t.amt > 0; }); return T.length >= 3 && T.every(function(t){ return Math.abs(t.amt - g.avg) <= Math.max(3, g.avg * .15); }); }
+function lastSeen(a){ var d = ''; db.tx.forEach(function(t){ if(t.a === a && t.d > d) d = t.d; }); return d; }
+function noticeMore(){ var H = [], m = thisMonth(), td = today(), day = +td.slice(8,10);
+  var R = regulars();
+  /* a regular bill much bigger than usual, in the last 45 days */
+  R.forEach(function(g){ var T = db.tx.filter(function(t){ return (mkey(t.desc) || t.desc) === g.k && t.amt > 0 && counts(acct(t.a)); }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }); if(T.length < 4) return;
+    var last = T[T.length-1], prev = T.slice(0, -1).map(function(t){ return t.amt; }).sort(function(a,b){ return a - b; }), med = prev[Math.floor(prev.length / 2)];
+    if(daysBetween(last.d, td) <= 45 && last.amt > med * 1.5 && last.amt - med > 40) H.push({ k:'big:' + last.id, pri:2, em:'📈', t:esc(g.desc) + ' was ' + money(last.amt) + ' on ' + esc(shortDate(last.d)) + '.', sub:'It’s usually about ' + money(med) + '. Worth a look — a price rise, a one-off, or a mistake?', look:last }); });
+  /* a payment that normally comes out every month and hasn't this month, though later lines are in */
+  R.forEach(function(g){ var dd = +g.last.d.slice(8,10), seen = db.tx.some(function(t){ return t.d.slice(0,7) === m && (mkey(t.desc) || t.desc) === g.k; }); var ls = lastSeen(g.last.a);
+    if(!seen && g.last.d.slice(0,7) === addMonths(m, -1) && day > dd + 5 && ls.slice(0,7) === m && +ls.slice(8,10) > dd + 3) H.push({ k:'miss:' + g.k + ':' + m, pri:2, em:'❓', t:'Usually paid by now: ' + esc(g.desc) + ' (' + money(g.avg) + ', around the ' + nth(dd) + ').', sub:'It hasn’t come out this month. Missed, moved to another account, or finished?' }); });
+  /* income that normally arrives every month and hasn't */
+  var IN = {}; db.tx.forEach(function(t){ if(t.amt >= 0 || t.cat === 'xfer' || !counts(acct(t.a)) || !inWin(t)) return; var k = mkey(t.desc) || t.desc; (IN[k] = IN[k] || { k:k, desc:t.desc, ms:{}, last:t, amt:t.amt }).ms[t.d.slice(0,7)] = 1; if(t.d >= IN[k].last.d){ IN[k].last = t; IN[k].amt = t.amt; } });
+  Object.keys(IN).forEach(function(k){ var g = IN[k], dd = +g.last.d.slice(8,10), ls = lastSeen(g.last.a); if(Object.keys(g.ms).length < 3 || g.ms[m] || g.last.d.slice(0,7) !== addMonths(m, -1)) return;
+    if(day > dd + 5 && ls.slice(0,7) === m && +ls.slice(8,10) > dd + 3) H.push({ k:'inc:' + k + ':' + m, pri:1, em:'💵', t:'Money that usually comes in hasn’t: ' + esc(g.desc) + ' (' + money(-g.amt) + ', around the ' + nth(dd) + ').', sub:'Worth a call to the payer if it doesn’t show in a day or two.' }); });
+  /* checking running low before a big yearly bill */
+  var chk = db.accts.filter(function(a){ return a.type === 'checking' && counts(a) && !a.closed && !a.balUnknown; }), cb = chk.reduce(function(s,a){ return s + (a.bal||0); }, 0);
+  if(chk.length) p2Cats().forEach(function(c){ var st = p2State(c); if(st.unknown || !st.dueM || st.each == null) return; var ah = monthsFrom(m, st.dueM); if(ah < 0 || ah > 1 || st.each <= cb) return;
+    H.push({ k:'low:' + c.id + ':' + st.dueM, pri:1, em:'🏦', t:'Checking has ' + money(cb,1) + '; ' + esc(c.name) + ' (' + money(st.each,1) + ') is due in ' + esc(monthOnly(st.dueM)) + '.', sub:'Move money in from savings before it comes out.', dueM:st.dueM, c:c }); });
+  return H; }
+/* 2 · If I'm away */
+function awayData(){ var m = thisMonth(), end = addMonths(m, 2), due = [];
+  p2Cats().forEach(function(c){ var st = p2State(c); if(!st.unknown && st.dueM && st.dueM <= end) due.push({ when:st.dueM + '-01', what:c.name, amt:st.each, how:'set aside so far ' + money(st.bal,1) }); });
+  regulars().filter(steady).sort(function(a,b){ return b.avg - a.avg; }).slice(0, 12).forEach(function(g){ var c = cat(g.last.cat); if(!c || part(c) !== 1 || channel(g.last)) return; var dd = pad2(Math.min(28, +g.last.d.slice(8,10))); due.push({ when:m + '-' + dd, what:g.desc, amt:g.avg, how:'from ' + acctLabel(acct(g.last.a) || {}), monthly:1 }); });
+  return due.sort(function(a,b){ return a.when < b.when ? -1 : 1; }); }
+function awayHTML(){ var D = awayData(), x = three(thisMonth()), A = db.accts.filter(function(a){ return counts(a) && !a.closed; });
+  var adv = [db.cpa ? 'CPA: ' + db.cpa : '', db.advisor ? 'Financial advisor: ' + db.advisor : ''].filter(Boolean);
+  return '<h3>If I’m away</h3><p class="sub">Kept up to date by the app. Everything here stays on this device.</p>'
+    + '<h4>Coming up in the next two months</h4>' + (D.length ? '<ul class="list">' + D.map(function(d){ return '<li style="font-size:14.5px"><span class="d">' + (d.monthly ? 'monthly, ~' + nth(+d.when.slice(8,10)) : 'due ' + esc(monthName(d.when.slice(0,7), true).split(' ')[0])) + '</span><span class="ds">' + esc(d.what) + '<small>' + esc(d.how) + '</small></span><span class="amt">' + money(d.amt,1) + '</span></li>'; }).join('') + '</ul>' : '<p class="sub">Nothing known yet — it fills in as statements are sorted.</p>')
+    + '<h4>What’s normal</h4><ul class="list" style="font-size:14.5px"><li><span class="ds">Money in each month</span><span class="amt">' + (x.inc ? money(x.inc,1) : '—') + '</span></li><li><span class="ds">The monthly budget</span><span class="amt">' + money(x.P1,1) + '</span></li>' + (db.threePart && x.P2 ? '<li><span class="ds">Set aside each month for yearly bills</span><span class="amt">' + money(x.P2,1) + '</span></li>' : '') + '</ul>'
+    + '<p class="sub" style="font-size:14px">A bill much bigger than usual, or money that doesn’t arrive, shows as a yellow Heads up card at the top of the app.</p>'
+    + '<h4>Where the money is</h4><ul class="list">' + A.map(function(a){ return '<li style="font-size:14.5px"><span class="ds">' + esc(acctLabel(a)) + '<small>' + esc((TYPES[a.type]||{}).t || '') + (a.asOf ? ' · as of ' + esc(shortDate(a.asOf)) : '') + '</small></span><span class="amt">' + (a.balUnknown ? '—' : money(a.bal||0,1)) + '</span></li>'; }).join('') + '</ul>'
+    + '<h4>Who to call</h4>' + (adv.length ? '<ul class="list" style="font-size:14.5px">' + adv.map(function(a){ return '<li><span class="ds">' + esc(a) + '</span></li>'; }).join('') + '</ul>' : '<p class="sub">No CPA or advisor named yet. <a href="#" onclick="openAdvisors();return false">Add them</a>.</p>')
+    + '<h4>Not sure about something?</h4><p class="sub" style="font-size:14px">Type it into <b>💬 Ask about our money</b> on the main screen, in plain words.</p>'; }
+function openAway(){ openSheet(awayHTML() + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="document.getElementById(\'printable\').innerHTML=awayHTML();window.print()">🖨️ Print it</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); }
+/* 3 · money dates for Ahead of It (and any Daraja app) — on this device only, no amounts, only from Ours */
+function shareDue(){ if(SPACE !== 'ours' || !db || db.ex) return; try{
+  var I = awayData().filter(function(d){ return !d.monthly; }).map(function(d){ return { what:d.what, due:d.when, kind:'bill' }; });
+  headsUps().slice(0, 3).forEach(function(h){ if(h.dueM && h.c) return; I.push({ what:String(h.t).replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').slice(0, 90), due:today(), kind:'heads-up' }); });
+  localStorage.setItem('dj_shared_due_familydash', JSON.stringify({ app:'Family Money', em:'💰', url:'https://jerrywins1.github.io/daraja-apps/familydash/', updated:today(), items:I }));
+}catch(e){} }
 
 function openAdvisors(){ openSheet('<h3>Our advisors</h3><p class="sub">The app points out tax and investment questions and leaves the answers to them.</p><label for="avC">CPA</label><input id="avC" value="' + esc(db.cpa) + '" placeholder="Name, and how to reach them"><label for="avA">Financial advisor</label><input id="avA" value="' + esc(db.advisor) + '" placeholder="Name, and how to reach them">'
   + '<button class="b primary full" onclick="db.cpa=document.getElementById(\'avC\').value.trim();db.advisor=document.getElementById(\'avA\').value.trim();save();render();closeSheet();toast(\'Saved.\')">Save</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
