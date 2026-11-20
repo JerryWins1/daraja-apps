@@ -903,3 +903,23 @@ Jerry: "one that's live and my personal one, and it's separate from all the ones
 - **Links** in sheets use the app's colour.
 - Checked: harmful text planted in a statement line, a note, a charge name and a category name was opened on 31 screens at phone and computer size, and none of it ran. No screen scrolls sideways.
 - Removed the real bank name, the last 4 digits and the family name from these notes and code comments. They had been written into earlier entries.
+
+## v8.9 · Ask about our money, and Heads up before it's due (20 Nov)
+
+Two ideas from Jerry's AI-helper page (Family Money "idea 1, updated" and "idea 2"), relayed by the Store Manager. The page's other ideas wait.
+
+**💬 Ask about our money**: a box on the main screen, under the month's sentence.
+- `askKind` sorts the question into a big purchase, are we on track, where did it go, what if, or other. Each kind has its own list of things the AI asks about first, one at a time, at most five questions.
+- **With the Daraja AI connection** the talk happens in the app. The AI replies `ASK:`/`OPTIONS:` (shown as tappable answers plus a text box) or `ANSWER:`/`NEXT:`. The first send shows the exact words, and later turns don't ask again. The door can't search the web, so the screen says so, and **Ask my own AI instead** goes round the door (`o.noDoor`) to their own AI, which can search.
+- **With their own AI** they paste once and talk there. It is told to search today's rates and to end with a `FAMILY MONEY ANSWER` block, which they paste back and the app reads. A reply with no block is shown as the answer anyway.
+- **What goes:** `moneyTotals()` only: income, the budget, what's left, last month's spending, each budget line's plan and usual amount, the yearly bills with their set-aside and due month, and balances by kind of account. No statements, account numbers, account names or payee names. The box says so on screen.
+- Every answer says "A helper, not a financial advisor". For a purchase or what-if, or anything over $1,000, it adds "talk it over with" the CPA or advisor named in setup. **Next step** buttons: `PART2` adds a yearly-bill line, and `REMIND` saves a calendar file for the phone.
+- Failure: when the AI doesn't answer, the screen says so and offers **Try again**.
+
+**Heads up before it's due**: the app's own check, with no AI.
+- `headsUps()` finds a yearly bill due this month or next whose set-aside will be short, an insurance or policy line renewing, and a subscription first seen in the last 45 days (yearly fees left out).
+- One card at the top of the main screen, never a pile, with "One more after this" when there is another. **Got it** clears it (`db.huSeen`).
+- Buttons: **✨ Make a plan** (the AI suggests how to close the gap, using lines running under plan), a shop-around script for a renewal, **Keep it** or **Help me cancel** for a new subscription (`cancelHelp`), **Pay the rest from savings**, and **⏰ Remind me** (a calendar file a month before it's due, or tomorrow).
+- A phone reminder is the calendar file. There is no push notification.
+
+The overview and first-time videos each gained two lines, re-recorded by name in Jerry's ElevenLabs voice. Two untrue lines in the first-time video were fixed too: "nothing is sent anywhere", and tapping a red square. Tester script steps s33b and s33c were added. The store card's tag mentions both features.
