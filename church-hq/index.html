@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v71">
+<script id="dj-house-v72">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -465,7 +465,14 @@
     serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
     clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
     gameday:      {k:[], p:['gameday_','church_gameday_']},
-    aheadofit: {k:['aheadofit_v1'], p:['aheadofit_']},
+    /* 20 Nov: the merge that made Ahead of It out of three apps kept only the new key, so Start fresh
+       erased aheadofit_v1 and left ahead_v1, steward_v1 and goodstanding_v1 on the phone — which the
+       app then migrated straight back in on the next open, so the person's own list went and three old
+       ones arrived. The papers pocket went the same way: ahead_papers was on the old entry and was
+       dropped. The three old addresses are redirect pages carrying no house block (checked), so naming
+       their keys here cannot reach a living app; their prefixes are deliberately NOT listed, because
+       steward_ would be another app's if Church Steward ever came back. */
+    aheadofit: {k:['aheadofit_v1','ahead_v1','steward_v1','goodstanding_v1'], p:['aheadofit_'], idb:['ahead_papers']},
     receipts:     {k:['receiptmaker_org_v1','receipts_v1'], p:['receiptmaker_','receipts_']},
     /* v64 (10 Oct): the newer apps keep their data under dj_ names, which the old erase skipped outright.
        Read out of each app's own source; each app ALSO declares window.DJ_OWNS, and that wins when present. */
@@ -2116,17 +2123,24 @@
   function lsPut(k, v){ localStorage.setItem(k, JSON.stringify(v)); return localStorage.getItem(k) === JSON.stringify(v); }
   function tid(){ return 'tell' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
   function nnKeyOf(){ var P = lsJ('now_next_profiles_v1'); if(P && P.cur) return 'now_next_v1_' + P.cur; return 'now_next_v1'; }
-  function aheadReady(){ var h = lsJ('ahead_v1'); return !!(h && Array.isArray(h.items)); }
+  /* 20 Nov: every house-side link to Ahead of It still pointed at ahead_v1, the key its predecessor used.
+     On a phone with only the merged app the tell box said "Ahead of It isn't set up on this phone yet"
+     and filed the date in One Thing; on a phone that had the old app it wrote into ahead_v1, which the
+     merged app reads only on its first run, so the date never appeared. Driven in Chromium both ways.
+     Write where the app is actually keeping its list: the new key once it exists, the old one before
+     the person has opened the merged app for the first time, where it is migrated in. */
+  function aheadKey(){ var n = lsJ('aheadofit_v1'); return (n && Array.isArray(n.items)) ? 'aheadofit_v1' : 'ahead_v1'; }
+  function aheadReady(){ var h = lsJ('aheadofit_v1') || lsJ('ahead_v1'); return !!(h && Array.isArray(h.items)); }
   function tellDo(p){
     if(p.kind === 'shop'){
       var o = lsJ('dj_ourtable_v1') || {}; o.extras = Array.isArray(o.extras) ? o.extras : [];
       o.extras.push({ id:tid(), text:p.text, aisle:'Other', done:false }); return lsPut('dj_ourtable_v1', o);
     }
     if(p.kind === 'ahead'){
-      var h = lsJ('ahead_v1');
+      var ak = aheadKey(), h = lsJ(ak);
       if(!h || !Array.isArray(h.items)){ p.kind = 'todo'; p.text = p.text + (p.amt ? ' ($' + p.amt + ')' : '') + ' is due'; return tellDo(p); }
       h.items.push({ id:tid(), n:p.text, cat:'Mine', due:p.date, rep:p.rep, sev:'m', bite:'', lad:[[30,'Gather what you need'],[7,'Do it'],[1,'Confirm it went through']], who:h.tell || '', amt:p.amt || '', where:'', stepsDone:[], hist:[], said:true });
-      return lsPut('ahead_v1', h);
+      return lsPut(ak, h);
     }
     if(p.kind === 'bday'){
       var c = djCircle.get() || { me:{}, people:[], home:{}, work:{}, share:{me:true,people:true,home:true,work:true} };
