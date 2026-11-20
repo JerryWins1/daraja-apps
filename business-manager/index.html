@@ -2703,7 +2703,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.9.7 · 2026-11-20';
+var VER = 'v1.9.8 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -3112,7 +3112,7 @@ async function dayText(kind){
     + '<p class="hint">Your location is only read now, on this phone, to guess the drive. It’s never saved or sent.</p>');
   var r = await driveMin(c), w = $('dtWhy'), body = $('dtBody'); if(!w || !body) return;
   BM._dt = { kind:kind, jid:j.id, min:r.min == null ? 20 : r.min };
-  w.textContent = r.min != null ? 'About ' + r.min + ' minutes from ' + c.name.split(' ')[0] + '’s, so around ' + hmPlus(r.min) + '.' : r.why === 'loc' ? 'Location is off, so pick how long you’ll be.' : 'I couldn’t find ' + (c.address ? 'that address' : 'an address for ' + c.name) + ' on the map, so pick how long you’ll be.';
+  w.textContent = BM._dt.why = r.min != null ? 'About ' + r.min + ' minutes from ' + c.name.split(' ')[0] + '’s, so around ' + hmPlus(r.min) + '.' : r.why === 'loc' ? 'Location is off, so pick how long you’ll be.' : 'I couldn’t find ' + (c.address ? 'that address' : 'an address for ' + c.name) + ' on the map, so pick how long you’ll be.';
   dtDraw();
 }
 function dtDraw(){
@@ -3122,7 +3122,10 @@ function dtDraw(){
     + '<button class="btn main full" id="dtGo" onclick="BM.dtGo()">Next: check it and send →</button>';
 }
 function dtMin(m){ BM._dt.min = m; dtDraw(); }
+function dtReopen(){ var o = BM._dt, j = o && job(o.jid); if(!j) return; var c = cust(j.customerId);
+  sheet('<h3>' + (o.kind === 'late' ? '⏱ Running late' : '🚚 On my way') + ' · ' + esc(c.name) + '</h3><p class="muted small" id="dtWhy" style="margin:0 0 8px">' + esc(o.why || '') + '</p><div id="dtBody"></div><p class="hint">Your location is only read now, on this phone, to guess the drive. It’s never saved or sent.</p>'); dtDraw(); }
 function dtGo(){ var o = BM._dt, j = job(o.jid), c = cust(j.customerId);
+  sheetBack(dtReopen);
   compose({ c:c, jobId:j.id, kind:o.kind, label:o.kind === 'late' ? 'Running late' : 'On my way', redo:{ f:'dayText', a:[o.kind] }, text:dayTextWords(o.kind, j, o.min),
     onSent:function(){ if(o.kind === 'onway' && (j.status === 'scheduled' || j.status === 'approved')) j.status = 'working'; } }); }
 /* the live business view: four cards side by side, one swipe apart */
@@ -3596,15 +3599,27 @@ function totals(sub, tax, credits, paid){
 }
 
 /* ── line items ── */
+/* v1.9.8 (20 Nov, Jerry: "If you go one screen too far … you can't go back"). Business Manager's screens are hash
+   routes, so the phone's Back already walks them. The boxes that slide up were the gap: with one open, the phone's
+   Back left the app and the box stayed. Now each box joins the house's back trail (djBack, house v68+): the phone's
+   Back or edge swipe closes it, and a box opened from another box (Running late → the message) gets a ← Back chip and
+   a Back that returns to the box before. Closing a box any other way (✕, Save, Send) takes its steps off the trail. */
+var SHB = 0, SHB_UNWIND = 0;
+function sheetBack(fn){ if(!window.djBack || djBack.navigating()) return; SHB++; djBack.push(function(){ SHB = Math.max(0, SHB - 1); if(SHB_UNWIND) return; fn(); }); }
+function sheetGone(){ var s = $('bmSheet'); if(!s) return; if(s.querySelector('#tkMic')) micStop(); s.remove(); }
 function sheet(html, onOpen){
-  closeSheet(true);
+  var had = !!$('bmSheet'); sheetGone();
+  if(!had) sheetBack(sheetGone);
   var w = document.createElement('div'); w.className = 'shade'; w.id = 'bmSheet'; w.setAttribute('role', 'dialog');
-  w.innerHTML = '<div class="sheet"><button class="x" onclick="BM.closeSheet()" aria-label="Close">✕</button>' + html + '</div>';
+  var chip = (SHB > 1 && window.djBack) ? djBack.button() : '';
+  w.innerHTML = '<div class="sheet"><button class="x" onclick="BM.closeSheet()" aria-label="Close">✕</button>' + chip + html + '</div>';
+  var cb = w.querySelector('.djBackB'); if(cb) cb.onclick = function(){ djBack.go(); };
   w.addEventListener('click', function(e){ if(e.target === w && !w.getAttribute('data-hold')) closeSheet(); });
   document.body.appendChild(w); if(onOpen) onOpen(w);
   return w;
 }
-function closeSheet(quiet){ var s = $('bmSheet'); if(!s) return; if(s.querySelector('#tkMic')) micStop(); if(!quiet && s.getAttribute('data-compose')) clearPending(); s.remove(); }
+function closeSheet(quiet){ var s = $('bmSheet'); if(!s) return; if(!quiet && s.getAttribute('data-compose')) clearPending(); sheetGone();
+  if(SHB && window.djBack && !djBack.navigating()){ SHB_UNWIND = 1; var n = SHB; while(n-- > 0 && djBack.depth()) djBack.go(); SHB_UNWIND = 0; SHB = 0; } }
 function addItem(jid){
   var h = '<h3>Add to the price</h3><p class="muted" style="margin:0 0 10px">Tap one from your price list, or make your own.</p>';
   h += '<button class="opt" onclick="BM.editItem(\'' + jid + '\',-1)"><span class="e">✍️</span><span>Type my own item</span></button>';
