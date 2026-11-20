@@ -2764,7 +2764,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.29 · 2026-11-20</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.30 · 2026-11-20</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -2916,7 +2916,7 @@ input, textarea, select{ background:var(--surface-2); }
       <input type="tel" id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)" autocomplete="tel">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">One Thing v7.29 River · 2026-11-20 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">One Thing v7.30 River · 2026-11-20 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -3672,10 +3672,28 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
       document.body.appendChild(w);
     }
     w.style.display = 'flex';
-    var box = document.getElementById('nnHelpBox'); box.innerHTML = html; box.scrollTop = 0; return box;
+    var bk = window.djBack ? djBack.button() : '';
+    var box = document.getElementById('nnHelpBox'); box.innerHTML = bk + html; box.scrollTop = 0;
+    var bb = box.querySelector('.djBackB'); if(bb) bb.onclick = function(){ djBack.go(); };
+    if(aiOut) setTimeout(function(){ aiOut = false; }, 0);
+    return box;
   }
+  /* 20 Nov (v7.30): Back. Every screen that leads to another pushes a way to reopen itself onto the house
+     back-stack (djBack, house v68), so the ← Back chip and the phone's own Back step through these screens. */
+  function fwd(reopen){ if(window.djBack) djBack.push(reopen); }
+  /* aiOut: one of these screens handed over to the house's AI sheet. The phone's Back then belongs to the
+     house, whose listener runs first and reopens our screen; ours must not step back a second time. */
+  var aiOut = false;
+  function toAI(){ aiOut = true; hide(); }
+  function fresh(){ aiOut = false; if(window.djBack) djBack.clear(); try{ history.pushState({ nnHelp:1 }, ''); }catch(e){} }
+  window.addEventListener('popstate', function(){
+    if(aiOut || document.getElementById('djAISheet') || document.getElementById('djDockSheet')) return;   /* the house handles its own sheets */
+    var w = document.getElementById('nnHelp'); if(!w || w.style.display === 'none') return;
+    if(window.djBack && djBack.depth()){ djBack.go(); try{ history.pushState({ nnHelp:1 }, ''); }catch(e){} }
+    else { close(); try{ render(); }catch(e){} }
+  });
   function hide(){ var w = document.getElementById('nnHelp'); if(w) w.style.display = 'none'; }
-  function close(){ var w = document.getElementById('nnHelp'); if(w) w.remove(); }
+  function close(){ var w = document.getElementById('nnHelp'); if(w) w.remove(); if(window.djBack) djBack.clear(); }
   function head(t, sub){ return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="font-weight:900;font-size:20px">' + t + '</div><button type="button" data-x aria-label="Close" style="' + LINK + ';text-decoration:none;font-size:22px">✕</button></div>' + (sub ? '<p style="margin:2px 0 12px;color:var(--soft);font-size:14.5px">' + sub + '</p>' : ''); }
   function wireX(box, fn){ box.querySelectorAll('[data-x]').forEach(function(x){ x.onclick = fn || close; }); }
   function shopAdd(text){
@@ -3731,11 +3749,11 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
       if(t.length < 8){ say.textContent = 'That is very short. Paste the whole message.'; return; }
       if(t.length > MAX){ t = t.slice(0, MAX); }
       if(!window.djAI){ say.textContent = 'The AI helper did not load. Refresh the page and try again.'; return; }
-      hide();
+      fwd(function(){ msgOpen(); }); toAI();
       djAI.ask({ title:'Find the tasks in this message', want:'json', circle:false, prompt:msgPrompt(t),
         onResult:function(v){
           var items = tidyItems(v);
-          if(!items){ msgOpen(); var s = document.getElementById('nnMsgSay'); if(s) s.textContent = 'That answer did not fit, so nothing was added. Try “Find the tasks” again.'; return; }
+          if(!items){ if(!(window.djBack && djBack.go())) msgOpen(); var s = document.getElementById('nnMsgSay'); if(s) s.textContent = 'That answer did not fit, so nothing was added. Try “Find the tasks” again.'; return; }
           found = items; msgReview();
         } });
     };
@@ -3747,7 +3765,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
       var b0 = panel(head('📨 Nothing to do in that one') + '<p style="margin:0 0 14px">Your AI read it and found no tasks, dates or things to buy. Nothing was added.</p>'
         + '<button type="button" id="nnMsgBack" style="' + BSOFT + 'width:100%">Try another message</button>');
       wireX(b0, function(){ msgText = ''; close(); });
-      b0.querySelector('#nnMsgBack').onclick = function(){ msgText = ''; msgOpen(''); };
+      b0.querySelector('#nnMsgBack').onclick = function(){ msgText = ''; if(window.djBack) djBack.clear(); msgOpen(''); };
       return;
     }
     var rows = items.map(function(x, i){
@@ -3769,7 +3787,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
     box.querySelectorAll('[data-t]').forEach(function(c){ c.oninput = function(){ items[+c.dataset.t].text = c.value; }; });
     box.querySelectorAll('[data-d]').forEach(function(c){ c.onchange = function(){ items[+c.dataset.d].date = c.value || ''; msgReview(); }; });
     box.querySelectorAll('[data-k]').forEach(function(c){ c.onclick = function(){ var x = items[+c.dataset.k]; x.kind = x.kind === 'shop' ? 'todo' : 'shop'; if(x.kind === 'shop') x.date = ''; msgReview(); }; });
-    box.querySelector('#nnMsgAgain').onclick = function(){ found = null; msgText = ''; msgOpen(''); };
+    box.querySelector('#nnMsgAgain').onclick = function(){ found = null; msgText = ''; if(window.djBack) djBack.clear(); msgOpen(''); };
     count();
     box.querySelector('#nnMsgAdd').onclick = function(){
       var n = { today:0, up:0, shop:0 }, bad = 0;
@@ -3784,7 +3802,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
       toast(said ? 'Added: ' + said + '.' : (bad ? 'This phone would not save the shopping list.' : 'Nothing was added.'), 4500);
     };
   }
-  window.nnMsg = { open:msgOpen, _tidy:tidyItems, _prompt:msgPrompt };
+  window.nnMsg = { open:function(pre){ fresh(); msgOpen(pre); }, _tidy:tidyItems, _prompt:msgPrompt };
 
   /* Share → One Thing (Android, once it is installed): the manifest sends ?text=…; open the sheet with it */
   function fromShare(){
@@ -3793,7 +3811,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
       if(!t || !(q.has('text') || q.has('title'))) return;   /* Share sends ?title=&text=&url= (manifest share_target) */
       q.delete('title'); q.delete('text'); q.delete('url');
       history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
-      setTimeout(function(){ msgOpen(t); }, 900);
+      setTimeout(function(){ fresh(); msgOpen(t); }, 900);
     }catch(e){}
   }
 
@@ -3830,6 +3848,8 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
     return n;
   }
   var T = null;   /* the talk in progress: kept in memory so closing and reopening carries on */
+  function here(){ var sn = { stage:T.stage, li:T.li }; return function(){ if(!T) return; T.stage = sn.stage; T.li = sn.li; talk(); }; }
+  function toStage(st){ fwd(here()); T.stage = st; talk(); }
   function startTalk(){
     T = { stage:'back', left:db.tasks.filter(function(t){ return !t.done && !t.reg; }).map(function(t){ return t.id; }), li:0, aiDrop:{}, aiWhy:'', added:[], pick:'' };
     talk();
@@ -3847,7 +3867,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
         : 'This week was a quiet one on the list, and that is all right. Some weeks are like that. A fresh week starts now.';
       box = panel(top + head('🌤 This week') + '<div style="background:var(--win-soft);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:17px">' + line + '</div>'
         + '<button type="button" id="nnSunNext" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px">Next →</button>');
-      box.querySelector('#nnSunNext').onclick = function(){ T.stage = 'left'; talk(); };
+      box.querySelector('#nnSunNext').onclick = function(){ toStage('left'); };
     }
     else if(st === 'left'){
       var ids = T.left.filter(function(id){ return db.tasks.some(function(t){ return t.id === id && !t.done; }); });
@@ -3855,7 +3875,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
       if(T.li >= ids.length){
         box = panel(top + head('🧹 Left over') + '<p style="margin:0 0 14px;font-size:17px">' + (ids.length ? 'All sorted. Your list is lighter.' : 'Nothing left over. A clean slate.') + '</p>'
           + '<button type="button" id="nnSunNext" style="' + BMAIN + 'width:100%;min-height:52px;font-size:17px">Next →</button>');
-        box.querySelector('#nnSunNext').onclick = function(){ T.stage = 'ahead'; talk(); };
+        box.querySelector('#nnSunNext').onclick = function(){ toStage('ahead'); };
       } else {
         var t = db.tasks.find(function(x){ return x.id === ids[T.li]; });
         var ai = T.aiDrop[t.id] ? '<div style="margin-top:8px;font-size:14.5px;color:var(--next)">✨ Your AI suggests letting this one go' + (T.aiWhy ? ': ' + esc(T.aiWhy) : '.') + '</div>' : '';
@@ -3868,21 +3888,21 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
           var a = b.dataset.a;
           if(a === 'next'){ db.tasks = db.tasks.filter(function(x){ return x.id !== t.id; }); (db.upcoming = db.upcoming || []).push({ id:uid(), text:t.text, mins:t.mins || 10, date:ymd(addDays(8)), notes:t.notes || [], att:t.att || null }); T.left = T.left.filter(function(id){ return id !== t.id; }); }
           else if(a === 'drop'){ db.tasks = db.tasks.filter(function(x){ return x.id !== t.id; }); T.left = T.left.filter(function(id){ return id !== t.id; }); }
-          else T.li++;
+          else { fwd(here()); T.li++; }
           save(); render(); talk();
         }; });
         var aib = box.querySelector('#nnSunAI');
         if(aib) aib.onclick = function(){
           var list = ids.map(function(id, i){ var x = db.tasks.find(function(y){ return y.id === id; }); return (i+1) + '. ' + (x ? x.text : ''); }).join('\n');
-          T.asked = true; hide();
+          T.asked = true; fwd(here()); toAI();
           djAI.ask({ title:'Which could I drop?', want:'json', circle:false,
             prompt:'These things are still on my to-do list from last week. Gently suggest which ones, if any, I could drop this week because they no longer matter or are not realistic. Most should stay. Answer with JSON only, like {"drop":[2],"why":"one short kind sentence"}. Use the numbers below; an empty list is fine.\n\n' + list,
             onResult:function(v){
               var nums = (v && Array.isArray(v.drop)) ? v.drop : null;
-              if(!nums){ talk(); var s = document.getElementById('nnSunSay'); if(s) s.textContent = 'That answer did not fit, so nothing is marked. Decide as you like.'; return; }
+              if(!nums){ if(!(window.djBack && djBack.go())) talk(); var s = document.getElementById('nnSunSay'); if(s) s.textContent = 'That answer did not fit, so nothing is marked. Decide as you like.'; return; }
               T.aiDrop = {}; nums.forEach(function(k){ k = parseInt(k, 10); if(k >= 1 && k <= ids.length) T.aiDrop[ids[k-1]] = 1; });
               T.aiWhy = String(v.why || '').slice(0, 160);
-              talk(); var s2 = document.getElementById('nnSunSay');
+              if(!(window.djBack && djBack.go())) talk(); var s2 = document.getElementById('nnSunSay');
               if(s2 && !Object.keys(T.aiDrop).length) s2.textContent = 'Your AI thinks they are all worth keeping.';
             } });
         };
@@ -3919,7 +3939,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
         setTimeout(function(){ var s = document.getElementById('nnSunSay'); if(s) s.textContent = '✓ Added. Anything else?'; }, 0);
       };
       box.querySelector('#nnSunAdd').onkeydown = function(e){ if(e.key === 'Enter') box.querySelector('#nnSunPut').click(); };
-      box.querySelector('#nnSunNext').onclick = function(){ T.stage = 'one'; talk(); };
+      box.querySelector('#nnSunNext').onclick = function(){ toStage('one'); };
     }
     else if(st === 'one'){
       var seen = {}, opts = [];
@@ -3940,9 +3960,9 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
       one.oninput = function(){ T.pick = one.value; };
       box.querySelector('#nnSunPin').onclick = function(){
         var t = one.value.trim(); if(!t){ box.querySelector('#nnSunSay').textContent = 'Tap one, or type it.'; return; }
-        S().pin = { text:t.slice(0, 140), at:today(), done:false }; save(); render(); T.stage = 'end'; talk();
+        S().pin = { text:t.slice(0, 140), at:today(), done:false }; save(); render(); toStage('end');
       };
-      box.querySelector('#nnSunSkip').onclick = function(){ T.stage = 'end'; talk(); };
+      box.querySelector('#nnSunSkip').onclick = function(){ toStage('end'); };
     }
     else {
       var s = S(); s.done = ymd(slot()); s.last = today(); save(); render();
@@ -3983,7 +4003,7 @@ window.__fsState=()=>({profiles:profiles().list.length, doneOne:db.tasks.some(t=
   function linkRender(){ var l = document.getElementById('sunLink'); if(!l) return;
     l.innerHTML = grown() ? '<button type="button" onclick="nnSun.open()" style="' + LINK + '">🗓 Sunday look-back — start it now</button>' : ''; }
   window.nnSun = {
-    open:function(){ if(T && T.stage !== 'end') talk(); else startTalk(); },
+    open:function(){ fresh(); if(T && T.stage !== 'end') talk(); else startTalk(); },
     due:due, slot:slot,
     skip:function(){ S().done = ymd(slot()); save(); render(); toast('All right. See you next week.'); },
     now:function(){ var p = S().pin; if(!p) return; var t = db.tasks.find(function(x){ return !x.done && x.text.trim().toLowerCase() === p.text.trim().toLowerCase(); });
