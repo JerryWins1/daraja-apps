@@ -1,7 +1,7 @@
 # Checks on the shared house block
 
     node tools/house/test.cjs            all of it
-    node tools/house/test.cjs back       one group: back, mic, tell, same
+    node tools/house/test.cjs back       one group: back, mic, tell, fresh, same
 
 Needs Playwright, which a cloud container already has.
 
@@ -28,13 +28,35 @@ A third, from the Ahead of It chat: the house claims `window.djStartFresh` at
 of the page assigns after it. Call it earlier than that and you drive the old
 layer, whose key names are guesses.
 
+## Start fresh
+
+The `fresh` group drives it in Ahead of It, which is the hardest case in the
+house — four storage keys, three of them from apps the merge replaced, plus a
+papers pocket in IndexedDB. Seven checks: the list of names it says it would
+erase, that it names nothing belonging to another app, that no saved list
+survives, that the three old lists really went so the next open cannot migrate
+them back, that the page comes back to a true first open, that the two other
+apps seeded alongside are untouched, and that the scanned papers went too.
+
+Two things that make it work, both worth copying if you add a check here. The
+first is the third trap above: wait past 1500 ms before calling
+`window.djStartFresh`, or you drive the old erase layer, whose key names for
+Ahead of It do not include the merged one — nothing is erased and the run looks
+like a pass of the wrong thing. The second is simply to accept the dialogs; it
+asks twice on purpose. `p.on('dialog', d => d.accept())`.
+
+And one thing not to mistake for a failure: after Start fresh the saved list is
+`null`, not `[]`. Ahead of It's merge deliberately writes nothing on a cold open
+with nothing to bring over, because an empty record made the house read the app
+as one the person had already used. Absent is the strongest pass there is.
+
+Checked against the fault it was written for: with Ahead of It's registry entry
+put back to its v71 form, five of the seven fail, naming the three old keys left
+behind and the paper still in the pocket. A check that cannot fail is not a
+check.
+
 ## Not covered yet
 
-**Start fresh.** It belongs here and it is the one thing in this file's reach
-that is not in it. The Ahead of It chat has a harness that drives it properly —
-the list of keys it would erase, the reopen afterwards, and whether the papers
-pocket went — and is welcome to land it alongside these.
-
-Note for an assertion on that: after Start fresh the saved list is `null`, not
-`[]`. Ahead of It's merge deliberately writes nothing on a cold open with
-nothing to bring over. Absent is the strongest pass, not a failure.
+Nothing in this file's reach. The gaps left are the ones a container cannot
+reach at all: whether a recorded voice actually plays (no AAC and no speech
+voice here), and anything behind a blocked host.

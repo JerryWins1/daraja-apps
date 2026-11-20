@@ -2,7 +2,7 @@
 /* Checks on the shared house block (the <script id="dj-house-vNN"> every app carries).
  *
  *   node tools/house/test.cjs            all of it
- *   node tools/house/test.cjs back       one group: back, mic, tell, same
+ *   node tools/house/test.cjs back       one group: back, mic, tell, fresh, same
  *
  * Why this file exists. On 20 November the back-stack, the microphone and the tell
  * box were each fixed and each verified by a throwaway script in a container that
@@ -153,6 +153,84 @@ async function tell(b, port){
   }
 }
 
+async function fresh(b, port){
+  console.log('\nStart fresh — it must erase everything this app owns, and nothing that belongs to another');
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  const p = await open(ctx, port, 'ahead-of-it');
+  p.on('dialog', d => d.accept());          /* it asks twice before anything is erased */
+
+  /* a phone that had all three of the old apps before the merge, plus this one, plus a
+     scanned paper in the pocket, plus two other apps' data that must come out untouched */
+  await p.evaluate(async () => {
+    const one = n => JSON.stringify({ items: [{ id: n, n, cat: 'Mine', due: '2027-01-01', rep: 365,
+      sev: 'm', bite: '', lad: [[7, 'Do it']], who: '', amt: '', where: '', stepsDone: [], hist: [] }], owner: '', tell: '' });
+    localStorage.setItem('ahead_v1',        one('an old household date'));
+    localStorage.setItem('steward_v1',      one('an old church date'));
+    localStorage.setItem('goodstanding_v1', one('an old nonprofit date'));
+    localStorage.setItem('aheadofit_v1', JSON.stringify({ items: [{ id: 'mine', n: 'my own date',
+      cat: 'Mine', due: '2026-12-05', rep: 365, sev: 'm', bite: '', lad: [[7, 'Do it']], who: '',
+      amt: '', where: '', stepsDone: [], hist: [] }], owner: 'Smith home', tell: 'Spouse', modes: ['h'], migrated: 1 }));
+    localStorage.setItem('daraja_intro_aheadofit', '1');
+    localStorage.setItem('drumbeat_v1', '{"keep":"another app"}');
+    localStorage.setItem('now_next_v1', '{"keep":"the shared shoebox"}');
+    await new Promise(res => {
+      const r = indexedDB.open('ahead_papers', 1);
+      r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('files')) r.result.createObjectStore('files'); };
+      r.onsuccess = () => { const t = r.result.transaction('files', 'readwrite');
+        t.objectStore('files').put(new Blob(['a scanned policy']), 'paper1'); t.oncomplete = res; t.onerror = res; };
+      r.onerror = res;
+    });
+  });
+
+  /* reopen so the app reads the seeded data, and wait past 1500 ms: an older erase layer
+     at the end of the page assigns window.djStartFresh after the house does, so the house
+     claims the name again at 0, 300 and 1500 ms. Call it sooner and you drive the old one. */
+  await p.goto(`http://localhost:${port}/ahead-of-it/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2200);
+  await p.evaluate(() => { for (const id of ['djTour','djBanner','introOv','fsIntro']) { const t = document.getElementById(id); if (t && t.parentNode) t.parentNode.removeChild(t); } });
+
+  const keys = await p.evaluate(() => (window.djOwnedKeys ? window.djOwnedKeys() : []).slice().sort());
+  ck('the erase list names this app and all three the merge replaced',
+     ['ahead_v1', 'aheadofit_v1', 'goodstanding_v1', 'steward_v1'].every(k => keys.includes(k)), keys);
+  ck('  and names nothing belonging to another app',
+     !keys.includes('drumbeat_v1') && !keys.includes('now_next_v1'), keys);
+
+  await p.evaluate(() => window.djStartFresh());
+  await p.waitForTimeout(3500);
+  await p.waitForLoadState('load').catch(() => {});
+  await p.waitForTimeout(2600);              /* the papers pocket is finished on this next open */
+
+  const after = await p.evaluate(() => {
+    const saved = localStorage.getItem('aheadofit_v1');
+    let list = null; try { const d = JSON.parse(saved || 'null'); list = d && d.items ? d.items.map(i => i.n) : null; } catch(e){}
+    return {
+      saved, list,
+      oldLeft: ['ahead_v1', 'steward_v1', 'goodstanding_v1'].filter(k => !!localStorage.getItem(k)),
+      others:  ['drumbeat_v1', 'now_next_v1'].filter(k => !!localStorage.getItem(k)),
+      rows:    document.querySelectorAll('#v-next .item').length,
+      welcome: !!(document.getElementById('welcome') && getComputedStyle(document.getElementById('welcome')).display !== 'none')
+    };
+  });
+  /* null, not []: the merge deliberately writes nothing on a cold open with nothing to bring
+     over, because an empty record made the house read the app as one the person had used. */
+  ck('no saved list survives it', after.saved === null || (Array.isArray(after.list) && after.list.length === 0), after.list);
+  ck('the three old lists are gone, so the next open cannot migrate them back', after.oldLeft.length === 0, after.oldLeft);
+  ck('nothing is left on the page', after.rows === 0 && after.welcome === true,
+     { rows: after.rows, welcomeCard: after.welcome, list: after.list });
+  ck('the other apps on the phone are untouched', after.others.length === 2, after.others);
+
+  const papers = await p.evaluate(() => new Promise(res => {
+    const r = indexedDB.open('ahead_papers');
+    r.onsuccess = () => { const db = r.result;
+      if (!db.objectStoreNames.contains('files')) return res('store gone');
+      const q = db.transaction('files', 'readonly').objectStore('files').getAllKeys();
+      q.onsuccess = () => res(q.result); q.onerror = () => res('could not read it'); };
+    r.onerror = () => res('db gone');
+  }));
+  ck('the scanned papers went with it', papers === 'db gone' || papers === 'store gone' || (Array.isArray(papers) && !papers.length), papers);
+  await ctx.close();
+}
+
 async function same(){
   console.log('\nThe block itself');
   const crypto = require('crypto');
@@ -186,6 +264,7 @@ async function same(){
     if (!only || only === 'back') await back(b, s.port);
     if (!only || only === 'mic')  await mic(b, s.port);
     if (!only || only === 'tell') await tell(b, s.port);
+    if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }
   console.log(`\n${ok.length} passed, ${bad.length} failed`);
