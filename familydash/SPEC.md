@@ -936,3 +936,15 @@ Jerry: "it would be good if you allowed them to input something like the value o
 - The AI is told to ask for the number itself ("How much would you put down?"), never a yes-or-no about it, and to follow a "yes" with the amount. Its options for an amount are example figures.
 - When the question is about money, the screen shows **Type the amount** first ($, number keypad on a phone, Send), with "Or tap a rough figure:" and the options under it. A bare number like 38000 or 38k is sent as $38,000.
 - The Ask screens are one flow, so the general ← Back doesn't step through them.
+
+## v9.2 · ahead of it: notices more, "If I'm away", and money dates shared (20 Nov)
+
+Jerry: "be very intuitive and forward thinking … head off some issues … this would be really good for my wife when I'm not around … we have an app called Ahead of It. Maybe there's some integration here." He chose all three.
+1. **The heads-up card notices more** (`noticeMore`), still one card at a time:
+   - money that usually comes in that hasn't (a deposit seen 3+ months, past its usual day, with later lines in);
+   - checking holding less than a yearly bill due this month or next;
+   - a regular bill 1.5× its usual amount and at least $40 more, in the last 45 days (**🔍 Look into it** puts it on the look-into list, or **That's right**);
+   - a monthly payment that usually comes out and hasn't.
+2. **🧭 If I'm away** on the main screen's tools, one page kept current, with **🖨️ Print it**. It shows the next two months' yearly bills; up to 12 steady monthly bills (about the same amount each time) with the day and the paying account; what's normal each month; every account with its balance; who to call (CPA and advisor); and how to ask the app.
+3. **Money dates for Ahead of It.** Ours only, never Practice or the example, writes `localStorage['dj_shared_due_familydash']` = `{ app, em, url, updated, items:[{ what, due:'YYYY-MM-DD', kind:'bill'|'heads-up' }] }`. That is the yearly bills due in the next two months plus up to three heads-ups, with no amounts and no account numbers. Same site, same device, so Ahead of It can read it. Ahead of It's side is for its own chat.
+Tester script step s33d added.
