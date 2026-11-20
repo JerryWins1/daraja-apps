@@ -2440,6 +2440,7 @@
   .give{ text-align:center; font-size:14.5px; color:var(--soft); margin-top:18px; }
   .foot{ color:var(--soft); font-size:13px; text-align:center; margin-top:14px; }
   /* sheets */
+  .shtop{ position:sticky; top:-1px; z-index:5; display:flex; align-items:center; gap:8px; min-height:44px; margin:-6px 0 4px; background:inherit; } .shx{ margin-left:auto; width:44px; height:44px; border-radius:22px; border:1px solid #ccc; background:#fff; color:#333; font-size:20px; font-weight:700; line-height:1; cursor:pointer; flex:none; }
   .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:2147481500; } .sheet.on{ display:flex; } @media (min-width:700px){ .sheet{ align-items:center; } }
   #sheetIn a, #main a{ color:var(--brand); font-weight:700; }
   .stickfoot{ position:sticky; z-index:5; bottom:calc(-18px - env(safe-area-inset-bottom)); background:var(--paper); padding:10px 0 8px; margin-top:10px; box-shadow:0 -10px 14px var(--paper); }
@@ -2560,7 +2561,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v9.8 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v9.9 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2615,8 +2616,11 @@ function shKeep(h){ return h && !/Reading the words|Thinking it over|Asking…|c
 function openSheet(html){ var on = document.getElementById('sheet').classList.contains('on');
   if(!SHBACK){ if(on && shKeep(SHCUR) && SHCUR !== html){ SHST.push(SHCUR); if(SHST.length > 20) SHST.shift(); } if(!on){ SHST = []; try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } }
   SHBACK = 0; SHCUR = html;
-  document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0 0 6px;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
+  document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = '<div class="shtop">' + (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + '<button class="shx" id="sheetX" aria-label="Close this screen" title="Close" onclick="sheetX()">✕</button></div>' + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
 function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK = 1; openSheet(p); }
+/* v9.9 · Jerry, 20 Nov: "every screen you get in, you need to be able to get out of … just put an X on top." Every screen has
+   an ✕ at the top right. Anything already answered is saved as it goes, so nothing is lost; a walk-through picks up where it was. */
+function sheetX(){ closeSheet(); try{ render(); }catch(e){} }
 function closeSheet(){ document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
 window.addEventListener('popstate', function(){ var on = document.getElementById('sheet').classList.contains('on'); if(!on) return; if(SHST.length){ sheetBack(); try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } else closeSheet(); });
 function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2800); }
@@ -3471,14 +3475,25 @@ function rvTimeStart(){ RV = { st:'time', L:rvTimeCats(), i:0 }; rvTime(); }
 var RV_T = { month:['Every month, about the same','mortgage, utilities, phone, groceries, dues'], var:['Most months, but it goes up and down','gas, healthcare, golf, repairs — planned at its average'],
   year:['Once or twice a year','property tax, insurance paid yearly, pool, annual fees — saved for monthly'], once:['One-time — it won’t repeat on a schedule','a car, a cruise, a family event — kept out of the averages'],
   need:['As needed — help or gifts when they come up','never budgeted monthly; paid from savings'] };
-function budStart(){ RV = { st:'time', L:rvTimeCats(), i:0, bud:1 }; if(!RV.L.length){ RV = null; openFirstLoad(); return; } rvTime(); }
-function rvTime(){ var R = RV, x = R.L[R.i]; if(!x){ if(R.bud){ rvMark('time'); RV = null; openFirstLoad(); return; } rvNextPart('time'); return; }
+function budStart(top){ var L = rvTimeCats(), i = !top && db.budI && db.budI < L.length ? db.budI : 0; RV = { st:'time', L:L, i:i, bud:1, back:i }; if(!L.length){ RV = null; openFirstLoad(); return; } rvTime(); }
+function rvTime(){ var R = RV, x = R.L[R.i]; if(R.bud) db.budI = R.i; if(!x){ if(R.bud){ db.budI = 0; rvMark('time'); RV = null; openFirstLoad(); return; } rvNextPart('time'); return; }
   var one = x.n === 1 ? '<div class="line warn">Only one payment seen. If it has a partner at another time of year — a pool opening and its closing — the yearly amount should include both; you can change it in Our budget.</div>' : '';
   openSheet('<div class="stepno">' + (R.bud ? 'The budget · ' : 'Part 2 · ') + 'kind ' + (R.i + 1) + ' of ' + R.L.length + '</div><h3>' + esc(catLabel(x.c)) + '</h3>'
     + '<div class="card" style="margin:6px 0 10px;padding:10px 14px">Seen in <b>' + x.seen + ' of ' + x.of + '</b> month' + (x.of===1?'':'s') + ', ' + x.n + ' payment' + (x.n===1?'':'s') + ', ' + money(x.tot,1) + ' in all.'
-      + (x.seen > 1 ? '<br>Highest ' + money(x.m[x.hi],1) + ' in ' + monthName(x.hi, true) + ' · lowest ' + money(x.m[x.lo],1) + ' in ' + monthName(x.lo, true) + '.' : '<br>' + monthName(x.hi, true) + '.') + '</div>' + one
+      + (x.seen > 1 ? '<br>Highest ' + money(x.m[x.hi],1) + ' in ' + monthName(x.hi, true) + ' · lowest ' + money(x.m[x.lo],1) + ' in ' + monthName(x.lo, true) + '.' : '<br>' + monthName(x.hi, true) + '.')
+      + '<button class="b small" style="display:block;margin-top:10px" onclick="budWhat(\'' + x.c.id + '\')">🔎 What makes up ' + money(x.tot,1) + '?</button></div>' + one
+      + (R.bud && R.back && R.i === R.back ? '<p class="sub" style="font-size:13px">Picking up where you left off. <a href="#" onclick="budStart(1);return false">Start from the top</a></p>' : '')
     + '<h3 style="font-size:18px">How often does this come?</h3>' + taps('rv', Object.keys(RV_T).map(function(k){ return [k, RV_T[k][0] + (k === x.sug ? ' ✓' : ''), RV_T[k][1]]; }), x.sug)
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvTimeSave()">Next</button><button class="b ghost" style="width:100%" onclick="RV.i++;rvTime()">Skip this one</button></div>'); }
+/* Jerry, 20 Nov: "It has healthcare 72,000. I'd like to know what that is." Every payee in a kind, biggest first, then each line.
+   Tap a line to move it if it's in the wrong place. */
+function budWhat(cid){ var c = cat(cid); if(!c) return; var T = db.tx.filter(function(t){ return t.cat === cid && counts(acct(t.a)) && t.amt > 0 && inWin(t); }), by = {}, tot = 0;
+  T.forEach(function(t){ var k = mkey(t.desc) || t.desc, b = by[k] = by[k] || { n:0, s:0, d:t.desc }; b.n++; b.s += t.amt; tot += t.amt; });
+  var P = Object.keys(by).map(function(k){ return by[k]; }).sort(function(a,b){ return b.s - a.s; });
+  openSheet('<h3>What makes up ' + esc(catLabel(c)) + '</h3><p class="sub">' + money(r2(tot),1) + ' from ' + T.length + ' payment' + (T.length===1?'':'s') + '. Biggest first. Tap a line if it belongs somewhere else.</p>'
+    + '<div class="card" style="padding:8px 14px">' + P.slice(0, 12).map(function(b){ return '<div class="trow"><span>' + esc(b.d) + '<small style="display:block;color:var(--soft)">' + b.n + (b.n===1?' payment':' payments') + '</small></span><b>' + money(r2(b.s),1) + '</b></div>'; }).join('') + (P.length > 12 ? '<div class="sub" style="margin:4px 0 0">and ' + (P.length - 12) + ' more</div>' : '') + '</div>'
+    + '<ul class="list">' + T.slice().sort(function(a,b){ return b.amt - a.amt; }).map(txRow).join('') + '</ul>'
+    + '<button class="b primary full" onclick="sheetBack()">Back</button>'); }
 function rvTimeSave(){ var R = RV, x = R.L[R.i], c = x.c, v = tapVal('rv'); if(!v){ alert('Tap one of the answers first.'); return; }
   db.threePart = true; c.timing = v; c.asNeeded = v === 'need';
   if(v === 'month' || v === 'var'){ c.part = 1; c.variable = v === 'var'; if(v === 'month' && !c.budget) c.budget = niceRound(x.tot / Math.max(1, x.seen)); }
@@ -4747,7 +4762,7 @@ function openFirstLoad(again){
     + '<div class="stick" id="adjTot"></div>'
     + db.groups.map(function(g){ var cs = catsIn(g.id).filter(function(c){ return part(c) === 1; }); if(!cs.length) return ''; return '<h4>' + g.em + ' ' + esc(g.name) + '</h4>' + cs.map(function(c){
         if(c.variable) return '<div class="adj" style="grid-template-columns:minmax(0,1fr) auto"><span class="nm">' + esc(c.name) + '<small>goes up and down — uses its 3-month average</small></span><b style="text-align:right">' + money(mBud(c),1) + '</b></div>';
-        return '<div class="adj"><span class="nm">' + esc(c.name) + '<small>spent about ' + money(Math.max(0, A.avg[c.id]||0),1) + ' a month</small></span><button aria-label="Less for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',-1)">−</button><input id="adj_' + c.id + '" inputmode="decimal" value="' + ADJ[c.id] + '" oninput="ADJ[\'' + c.id + '\']=Math.max(0,num(this.value));adjTot()"><button aria-label="More for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',1)">＋</button></div>'; }).join(''); }).join('')
+        return '<div class="adj"><span class="nm">' + esc(c.name) + '<small>spent about ' + money(Math.max(0, A.avg[c.id]||0),1) + ' a month · <a href="#" onclick="budWhat(\'' + c.id + '\');return false">what’s in it</a></small></span><button aria-label="Less for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',-1)">−</button><input id="adj_' + c.id + '" inputmode="decimal" value="' + ADJ[c.id] + '" oninput="ADJ[\'' + c.id + '\']=Math.max(0,num(this.value));adjTot()"><button aria-label="More for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',1)">＋</button></div>'; }).join(''); }).join('')
     + (db.threePart && p2Cats().length ? '<h4>📅 Bills once or twice a year</h4>' + p2Cats().map(function(c){ return '<div class="adj" style="grid-template-columns:minmax(0,1fr) auto"><span class="nm">' + esc(c.name) + '<small>' + (c.yearly == null ? 'unknown yet' : money(c.yearly,1) + ' a year ÷ 12') + '</small></span><b style="text-align:right">' + (c.yearly == null ? 'unknown' : money(c.yearly/12,1)) + '</b></div>'; }).join('') + '<button class="b small" style="margin-top:6px" onclick="openPart2()">Change the yearly bills</button>' : '')
     + (unc > 0 ? '<p class="sub" style="margin-top:12px">❓ About ' + money(unc,1) + ' a month isn’t sorted yet. <a href="#" onclick="openGTKY();return false" style="color:var(--brand);font-weight:800">Answer those first</a> for a truer picture.</p>' : '')
     + '<button class="b primary full" onclick="saveBudget()">' + (db.budgetSet ? 'Save the budget' : 'Make this our budget') + '</button>' + (db.budgetSet ? '<button class="b full" onclick="budgetXlsx()">⬇️ Our budget as a spreadsheet</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Not now</button>');

@@ -985,3 +985,10 @@ Jerry: "add the charge choice thing to a list … it's hard to do that from the 
 - `openDups` puts every possible double charge on one list. Each shows the payee, amount, both dates and the account, with **It's a mistake** / **Both are right** buttons; once answered, **Change** brings them back. The list redraws in place.
 - The heads-up card no longer asks the question. It is one card, "N charges may have gone through twice", with **👯 See the list**.
 - The list opens from 📋 Lists and from the Sort each account screen. The banner at the end of a reading points to it.
+
+## v9.9 · a way out of every screen, and what a number is made of (20 Nov)
+
+Jerry: "every screen you get in, you need to be able to get out of … just put an X on top" and "It has healthcare 72,000. I'd like to know what that is."
+- Every screen now has a round ✕ at the top right that stays put while you scroll and goes straight to the main screen (`sheetX`). Answers are saved as you go.
+- The budget questions remember where you stopped (`db.budI`). Starting again picks up there, with a "Start from the top" link.
+- Each budget question has **🔎 What makes up $X?** (`budWhat`), and each line of the summary has *what's in it*. It shows every payee in that kind, biggest first, then each payment. Tap a payment to move it.
