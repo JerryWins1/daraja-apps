@@ -2494,7 +2494,8 @@
 <meta name="description" content="Run a phone and electronics shop from your phone: sales, stock, cash count, M-Pesa, bills, customers and offers. Works with no signal. Daraja Studio.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<!-- Duka · Electronics Shop · v1.1 · 2026-11-15 — while you type in Sell's search, the quick buttons step aside so only the results show.
+<!-- Duka · Electronics Shop · v1.2 · 2026-11-20 — ← Back between windows (item → Restock, customer → receipt), and the phone's Back closes a window instead of changing tab.
+     v1.1 · 2026-11-15 — while you type in Sell's search, the quick buttons step aside so only the results show.
      v1.0 · 2026-10-16 — Daraja Studio
      The cash-management and marketing parts of Zuri (Cash today, Count the cash, Money out / in with the M-Pesa paste,
      Bills, the Friday report, ready-written WhatsApp / SMS messages), rebuilt for one retail shop that sells phones and
@@ -2654,7 +2655,7 @@
 
 <script>
 'use strict';
-const VERSION = 'v1.1 · 2026-11-15';
+const VERSION = 'v1.2 · 2026-11-20';
 const KEY = 'dj_duka_v1';
 window.DJ_OWNS = { k:['dj_duka_v1'], p:['dj_duka_'] };
 
@@ -2843,8 +2844,34 @@ function head() {
 function subtabs(list, cur, tab) { return `<div class="subtabs">${list.map(([k, t]) => `<button class="${k === cur ? 'on' : ''}" onclick="go('${tab}','${k}')">${t}</button>`).join('')}</div>`; }
 
 /* ---------- sheets (the small window that slides up) ---------- */
-function openSheet(html) { $('sheetHost').innerHTML = `<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true"><button class="x" aria-label="Close" onclick="closeSheet()">×</button>${html}</div></div>`; $('sheetBg').onclick = (e) => { if (e.target.id === 'sheetBg') closeSheet(); }; }
-function closeSheet(quiet) { $('sheetHost').innerHTML = ''; }
+/* v1.2 · 20 Nov (Jerry: "If you go one screen too far … you can't go back to the previous one"). A window opened from
+   another window — an item → 📥 Restock, a customer → one of their receipts — puts the one it replaced on the house's
+   back-stack (window.djBack, house block v68), shows the ← Back chip, and the phone's own Back steps back through them
+   instead of jumping to another tab. Tabs and sub-tabs are already in the address bar, so the phone's Back walks those. */
+let SHEET_HTML = '', BACKING = false;
+function openSheet(html) {
+  const had = $('sheetBg');
+  if (had && SHEET_HTML && !BACKING && window.djBack) { const prev = SHEET_HTML; djBack.push(() => openSheet(prev)); }
+  if (!had && !BACKING) { try { history.pushState({ dkSheet: 1 }, ''); } catch (e) {} }
+  SHEET_HTML = html;
+  const back = window.djBack ? djBack.button() : '';
+  $('sheetHost').innerHTML = `<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true"><button class="x" aria-label="Close" onclick="closeSheet()">×</button>${back}${html}</div></div>`;
+  const bb = $('sheetHost').querySelector('.djBackB'); if (bb) bb.onclick = sheetBack;
+  $('sheetBg').onclick = (e) => { if (e.target.id === 'sheetBg') closeSheet(); };
+}
+function sheetBack() { BACKING = true; try { if (!(window.djBack && djBack.go())) hideSheet(); } finally { BACKING = false; } }
+function hideSheet() { const open = $('sheetBg'); $('sheetHost').innerHTML = ''; SHEET_HTML = ''; if (open && window.djBack) djBack.clear(); }
+/* × or tapping outside: the window's history entry is marked spent, so the phone's Back skips it later */
+function closeSheet(quiet) { const open = $('sheetBg'); hideSheet(); if (open && !quiet) { try { if (history.state && history.state.dkSheet) history.replaceState({ dkDead: 1 }, ''); } catch (e) {} } }
+window.addEventListener('popstate', (e) => {
+  const st = e.state || {};
+  if ($('sheetBg')) {
+    if (window.djBack && djBack.depth()) { sheetBack(); try { history.pushState({ dkSheet: 1 }, ''); } catch (x) {} }
+    else hideSheet();
+    return;
+  }
+  if ((st.dkSheet || st.dkDead) && !document.getElementById('djAISheet') && !document.getElementById('djDockSheet')) { try { history.back(); } catch (x) {} }
+});
 
 /* =====================================================================================
    WELCOME — first time on this phone
