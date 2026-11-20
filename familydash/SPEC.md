@@ -948,3 +948,9 @@ Jerry: "be very intuitive and forward thinking … head off some issues … this
 2. **🧭 If I'm away** on the main screen's tools, one page kept current, with **🖨️ Print it**. It shows the next two months' yearly bills; up to 12 steady monthly bills (about the same amount each time) with the day and the paying account; what's normal each month; every account with its balance; who to call (CPA and advisor); and how to ask the app.
 3. **Money dates for Ahead of It.** Ours only, never Practice or the example, writes `localStorage['dj_shared_due_familydash']` = `{ app, em, url, updated, items:[{ what, due:'YYYY-MM-DD', kind:'bill'|'heads-up' }] }`. That is the yearly bills due in the next two months plus up to three heads-ups, with no amounts and no account numbers. Same site, same device, so Ahead of It can read it. Ahead of It's side is for its own chat.
 Tester script step s33d added.
+
+## v9.3 · merge categories, and a short note on any line (20 Nov)
+
+Jerry: "we're going to have to merge categories at some point … It would be nice to put a note in for a transaction … not a long one, but a short one."
+- **Merging uses rename** (`catRenameTo`). Renaming a category, with **✎ Rename it** on the sort screen or in Settings › Categories, to a name that already exists asks "Merge X into Y?". Yes moves every line, remembered payee and re-sort record into the one kept, and adds the budgets together when both are in the same part. The other category goes away.
+- **A one-line note** (60 characters at most) on every sort screen, "Note (optional) — e.g. for the golf trip". It's kept on each line it was saved with, and shows in the spreadsheets and the backup. Checks, cash and Venmo/PayPal/Zelle also say "only you know what it was for".
