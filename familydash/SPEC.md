@@ -978,3 +978,10 @@ Jerry: "two exactly the same charges on the same day … catch these things on t
 - The screens that end a reading (the folder map and New month) say how many were found (`flagLine`).
 - Review: a heads-up card at the top of the main screen, ahead of everything else, until answered. **It's a mistake — keep it on my list** (the reason becomes "Charged twice — call to have it taken off") or **Both are right** (taken off the list).
 - The sort screen shows the warning on a flagged line. The existing "Worth a look" double-charge notice stays.
+
+## v9.8 · the Charged twice? list (20 Nov)
+
+Jerry: "add the charge choice thing to a list … it's hard to do that from the middle of an import."
+- `openDups` puts every possible double charge on one list. Each shows the payee, amount, both dates and the account, with **It's a mistake** / **Both are right** buttons; once answered, **Change** brings them back. The list redraws in place.
+- The heads-up card no longer asks the question. It is one card, "N charges may have gone through twice", with **👯 See the list**.
+- The list opens from 📋 Lists and from the Sort each account screen. The banner at the end of a reading points to it.
