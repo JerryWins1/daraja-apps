@@ -1476,7 +1476,7 @@
       o = o || {}; if(!o.prompt) return;
       var local = await builtIn(withCircle(o, o.prompt));
       if(local){ deliver(o, local); return; }
-      var viaD = await viaDaraja(o);
+      var viaD = o.noDoor ? null : await viaDaraja(o);   /* familydash: "Ask my own AI instead" skips the door on purpose */
       if(viaD === AI_CANCELLED) return;   /* they read the words and backed out. Cancel means cancel — falling through to the
                                              next sender would put the same words back on screen under a different
                                              name, which reads as nagging and is a second chance to send by accident.
@@ -2449,7 +2449,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v8.8 · 2026-11-19 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v8.9 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4139,8 +4139,8 @@ function render(){
   bar.style.display = '';
   var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
   var h = '', q = queue().length;
-  if(!db.ex){ h += pulseHTML() + squaresHTML(); h += ckHTML(); }   /* v7.1 · the month in one sentence comes first */
-  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>' + pulseHTML() + squaresHTML();
+  if(!db.ex){ h += headsUpHTML() + pulseHTML() + askHTML() + squaresHTML(); h += ckHTML(); }   /* v7.1 · the month in one sentence comes first */
+  if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>' + headsUpHTML() + pulseHTML() + askHTML() + squaresHTML();
   if(!db.tx.length) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Bring in your statements</h2><p style="margin:0 0 4px">From ' + (db.historyFrom ? shortDate(db.historyFrom) : 'a few months back') + ' to now. The app sorts what it can, then asks you about the rest, one at a time.</p><button class="b primary" onclick="openImport()">＋ Add statements</button></div>';
   else if(db.ex && q && (!db.budgetSet || q >= 5)) h += '<div class="card callout"><div class="stepno">Getting to know you</div><h2 style="margin-top:4px">' + q + ' payment' + (q===1?'':'s') + ' I’m not sure about</h2><p style="margin:0 0 4px">One question at a time. Each answer is remembered.</p><button class="b primary" id="gkBtn" onclick="openGTKY()">Start</button></div>';
   else if(!db.budgetSet) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Set the monthly amounts</h2><p style="margin:0 0 4px">See each line’s normal month and move it up or down.</p><button class="b primary" onclick="openFirstLoad()">Make our budget</button></div>';
@@ -4250,6 +4250,115 @@ function openWhy(k){
   else h = '<h3>From savings this month: ' + money(x.take,1) + '</h3><p class="sub">Income ' + money(x.inc,1) + ' − regular budget ' + money(x.reg,1) + ' = left over ' + money(x.left,1) + '. As-needed payments this month: ' + money(x.P3,1) + '. Whatever the as-needed payments are beyond what’s left over comes from savings or investments.</p><ul class="list">' + txIn(view).filter(function(t){ return isP3(t.cat); }).map(txRow).join('') + '</ul>';
   openSheet(h + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
 }
+/* ── v8.9 · Jerry's AI-helper page, 20 Nov: two of the Family Money ideas he kept.
+   1. ASK ABOUT OUR MONEY, as a conversation. The app works out the kind of question; the AI asks what it needs first, one
+      question at a time, then answers from the family's real totals and ends with a next step. What goes to the AI is
+      TOTALS ONLY (moneyTotals below) and the screen says so: never statements, account numbers or payee names.
+      With the Daraja AI connection, the talk happens right here. With their own AI, they paste once, talk there (it can
+      search today's rates), and paste its final answer back, which the app reads.
+   2. HEADS UP BEFORE IT'S DUE. The app's own date and balance check, no AI: a yearly bill landing short within six weeks,
+      a policy renewing, a new subscription. ONE card at the top of the main screen, never a pile. "Make a plan" or a
+      shop-around script is the only part the AI writes. ── */
+function moneyTotals(){ var m = thisMonth(), x = three(m), L = [];
+  L.push('Monthly income: ' + (x.inc ? money(x.inc,1) : 'not entered'));
+  L.push('Monthly budget for regular bills and everyday spending: ' + money(x.P1,1) + (db.threePart && x.P2 ? '; set aside each month for yearly bills: ' + money(x.P2,1) : ''));
+  L.push('Left over each month after the budget: ' + (x.inc ? money(x.left,1) : 'unknown'));
+  var lm = addMonths(m, -1), l3 = three(lm); if(l3.p1s) L.push('Spent last month (' + monthName(lm) + ') on the regular budget: ' + money(l3.p1s,1));
+  var cats = p1Cats().filter(function(c){ return !/^help:/.test(c.id); }).map(function(c){ var b = mBud(c, m), a = avgFor(c.id, m, 3); return b || a ? catLabel(c) + ' ' + money(b,1) + ' planned' + (a != null ? ', ' + money(a,1) + ' usual' : '') : ''; }).filter(Boolean);
+  if(cats.length) L.push('Budget lines, per month: ' + cats.join('; '));
+  var p2 = p2Cats().map(function(c){ var st = p2State(c); return st.unknown ? '' : c.name + ': ' + money(c.yearly,1) + ' a year, ' + money(st.bal,1) + ' set aside now' + (st.dueM ? ', next due ' + monthName(st.dueM) : ''); }).filter(Boolean);
+  if(p2.length) L.push('Yearly bills and their set-aside: ' + p2.join('; '));
+  var by = {}; db.accts.forEach(function(a){ if(!counts(a) || a.balUnknown || a.closed || !TYPES[a.type]) return; var k = TYPES[a.type].t; by[k] = (by[k]||0) + (a.bal||0); });   /* by kind only, never a name or number */
+  var ks = Object.keys(by); if(ks.length) L.push('Balances by kind: ' + ks.map(function(k){ return k + ' ' + money(by[k],1); }).join('; '));
+  return L; }
+var ASKK = {
+  purchase:{ re:/afford|buy|car|truck|roof|trip|vacation|cruise|kitchen|remodel|boat|purchase|replace|new (?:car|roof|furnace|hvac)/i, t:'A big purchase', ask:'about how much it costs; how much they would put down; any trade-in or sale of the old one; how many years to pay, or cash; new or used, if that applies' },
+  track:{ re:/on track|enough|emergency|retire|christmas|save enough|behind|ahead/i, t:'Are we on track', ask:'what they are aiming for and by when; what they already have toward it' },
+  where:{ re:/where did|went|spent on|cost us|how much did/i, t:'Where did it go', ask:'which months or which part of the budget they mean, if it is not clear' },
+  whatif:{ re:/what if|if we|suppose|instead of|cut|stop paying|more a month/i, t:'What if', ask:'the exact change they have in mind and from when' } };
+function askKind(q){ for(var k in ASKK) if(ASKK[k].re.test(q)) return k; return 'other'; }
+var MCV = null;
+function askHTML(){ return '<div class="card" id="askCard"><h2 style="margin:0 0 8px">💬 Ask about our money</h2>'
+    + '<div class="row" style="gap:8px"><input id="askQ" placeholder="e.g. Can we afford a new car next year?" style="flex:1" onkeydown="if(event.key===\'Enter\')askMoney()"><button class="b primary" style="margin:0;flex:0 0 auto;padding:0 18px" onclick="askMoney()">Ask</button></div>'
+    + '<div style="display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px;-webkit-overflow-scrolling:touch">' + ['Can we afford a new car?','Are we on track this year?','Where did last month go?','What if we gave $200 more a month?'].map(function(s){ return '<button class="b small" style="margin:0;flex:0 0 auto;white-space:nowrap;font-size:14px" onclick="document.getElementById(\'askQ\').value=this.textContent;askMoney()">' + esc(s) + '</button>'; }).join('') + '</div>'
+    + '<p class="sub" style="margin:8px 0 0;font-size:13px">🔒 What goes to the AI: totals only — budget, set-aside balances, monthly income, savings. Never statements, account numbers or payee names.</p></div>'; }
+function askRules(own){ return 'You are a careful, friendly family money helper — a helper, not a financial advisor. Use only the family’s totals below.\n'
+  + 'Before answering, ask what you need, ONE short question at a time' + (MCV.kind !== 'other' ? ' (for this kind of question: ' + ASKK[MCV.kind].ask + ')' : '') + '. No more than five questions. '
+  + 'Raise options they may not have thought of (for a purchase: used or certified, leasing, waiting a few months, paying cash from the set-aside). '
+  + (own ? 'Where a rate or price matters, search the web for today’s figure and say where it came from. ' : 'You cannot search the web: where a rate or price matters, give a typical current range and say it should be checked. ')
+  + 'Answer from their real numbers, in plain words, in 3 to 6 short sentences. For a decision this big, suggest they talk it over with their CPA or advisor.\n'
+  + (own ? 'When you have your final answer, end that message with this block exactly, so they can paste it back into their app:\nFAMILY MONEY ANSWER\nANSWER: <your answer>\nNEXT: <one of: PART2 | <short name> | <amount a year> — or REMIND | <YYYY-MM> | <what to remember> — or NONE>\n'
+    : 'Reply in exactly one of two forms, nothing else.\nTo ask:\nASK: <one short question>\nOPTIONS: <2 to 4 short answers separated by |>\nTo answer:\nANSWER: <your answer>\nNEXT: <one of: PART2 | <short name> | <amount a year> — or REMIND | <YYYY-MM> | <what to remember> — or NONE>\n')
+  + '\nTheir totals:\n- ' + moneyTotals().join('\n- ') + '\n\nTheir question: ' + MCV.q; }
+function askMoney(own){ var el = document.getElementById('askQ'), q = el ? el.value.trim() : (MCV && MCV.q) || ''; if(!q){ if(el) el.focus(); return; }
+  MCV = { q:q, kind:askKind(q), turns:[], own:!!own || !(db.prof && db.prof.door) || (db.prof.door && doorLeft() <= 0) };
+  if(MCV.own) return askOwn(); askTurn(); }
+function askTurn(){ var C = MCV, first = !C.turns.length;
+  var o = { title:'Ask about our money', want:'text', circle:false, agreed:first ? 0 : 1, wait:'Thinking about it…',
+    prompt:askRules(false) + (C.turns.length ? '\n\nSo far:\n' + C.turns.map(function(t){ return 'You asked: ' + t.a + '\nThey said: ' + t.r; }).join('\n') + '\n' + (C.turns.length >= 5 ? '\nThat is five questions: answer now.' : '') : ''),
+    onResult:function(v, raw){ askGot(String(raw || v || '')); },
+    onFail:function(msg){ askShow(null, msg); } };
+  doorUse(); ask(o); }
+function askGot(t){ t = t.replace(/\r/g,''); var a = /ASK:\s*([^\n]+)/i.exec(t), an = /ANSWER:\s*([\s\S]*?)(?:\nNEXT:|$)/i.exec(t), nx = /NEXT:\s*([^\n]+)/i.exec(t);
+  if(a && !an && !MCV.own){ var op = /OPTIONS:\s*([^\n]+)/i.exec(t); MCV.cur = { a:a[1].trim(), opts:op ? op[1].split('|').map(function(s){ return s.trim(); }).filter(Boolean).slice(0,4) : [] }; return askShow(); }
+  var ans = (an ? an[1] : t.replace(/FAMILY MONEY ANSWER/i,'')).trim(); if(!ans) return askShow(null, 'the answer came back empty');
+  MCV.answer = ans; MCV.next = nx ? nx[1].trim() : 'NONE'; MCV.cur = null; db.asks = (db.asks || []).slice(-19).concat([{ q:MCV.q, a:ans, d:today() }]); save(); askShow(); }
+function askBig(){ return MCV.kind === 'purchase' || MCV.kind === 'whatif' || /\$\s?\d{1,3}(,\d{3})+|\d{4,}/.test(MCV.q + ' ' + (MCV.answer||'')); }
+function askShow(_, err){ var C = MCV, chat = C.turns.map(function(t){ return '<div class="line" style="background:var(--paper);margin:6px 0"><b>✨</b> ' + esc(t.a) + '</div><div class="line ok" style="margin:6px 0 6px 24px">' + esc(t.r) + '</div>'; }).join('');
+  var adv = [db.cpa, db.advisor].filter(Boolean)[0], nx = (C.next || '').split('|').map(function(s){ return s.trim(); }), btn = '';
+  if(/^PART2/i.test(nx[0]) && nx[1]) btn = '<button class="b primary full" style="margin-top:0" onclick="askPart2()">➕ Add “' + esc(nx[1]) + '” to the yearly bills' + (num(nx[2]) ? ' · ' + money(num(nx[2]),1) + ' a year' : '') + '</button>';
+  else if(/^REMIND/i.test(nx[0]) && /^\d{4}-\d{2}$/.test(nx[1] || '')) btn = '<button class="b primary full" style="margin-top:0" onclick="remindICS(\'' + nx[1] + '\',' + JSON.stringify(nx[2] || C.q).replace(/"/g,'&quot;') + ')">⏰ Remind me in ' + esc(monthName(nx[1])) + '</button>';
+  openSheet('<div class="stepno">Ask about our money · ' + esc(C.kind === 'other' ? 'a question' : ASKK[C.kind].t.toLowerCase()) + '</div><h3>' + esc(C.q) + '</h3>' + chat
+    + (err ? '<div class="line warn">The AI didn’t answer (' + esc(err) + '). Nothing was lost.</div>' : '')
+    + (C.cur ? '<div class="line" style="background:var(--paper);margin:6px 0"><b>✨</b> ' + esc(C.cur.a) + '</div>'
+        + (C.cur.opts.length ? '<div class="row" style="gap:6px;flex-wrap:wrap">' + C.cur.opts.map(function(s){ return '<button class="b small" style="margin:0" onclick="askReply(this.textContent)">' + esc(s) + '</button>'; }).join('') + '</div>' : '')
+        + '<div class="row" style="gap:8px;margin-top:8px"><input id="askR" placeholder="Or type your answer" style="flex:1" onkeydown="if(event.key===\'Enter\')askReply(this.value)"><button class="b" style="margin:0" onclick="askReply(document.getElementById(\'askR\').value)">Send</button></div>' : '')
+    + (C.answer ? '<div class="card" id="askAns" style="padding:12px 14px;background:#EEF1FB"><div class="stepno" style="color:#3b4fb8">✨ The answer</div><p style="margin:4px 0 0;white-space:pre-wrap">' + esc(C.answer) + '</p></div>'
+        + '<p class="sub" style="font-size:13px">A helper, not a financial advisor.' + (askBig() ? (adv ? ' For a decision this size, talk it over with ' + esc(adv) + '.' : ' For a decision this size, talk it over with your CPA or financial advisor.') : '') + '</p>' : '')
+    + (!C.own && !C.answer ? '<p class="sub" style="font-size:13px">Today’s rates and prices: the Daraja AI connection can’t search the web, so it gives a typical range. <a href="#" onclick="askOwn();return false">Ask my own AI instead</a> — it can search.</p>' : '')
+    + '<div class="stickfoot">' + btn + (err ? '<button class="b primary full" style="margin-top:0" onclick="' + (C.own ? 'askOwn()' : 'askTurn()') + '">Try again</button>' : '')
+    + (C.answer ? '<button class="b full" onclick="closeSheet();render();setTimeout(function(){ var e = document.getElementById(\'askQ\'); if(e){ e.value=\'\'; e.focus(); } }, 50)">Ask something else</button>' : '')
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>');
+  var r = document.getElementById('askR'); if(r && innerWidth >= 700) r.focus(); }
+function askReply(v){ v = String(v || '').trim(); if(!v || !MCV.cur) return; MCV.turns.push({ a:MCV.cur.a, r:v }); MCV.cur = null; openSheet('<h3>Thinking it over…</h3><p class="sub">' + esc(v) + '</p>'); askTurn(); }
+/* their own AI: paste once, talk there, paste the final answer back */
+function askOwn(){ var C = MCV; C.own = true; C.turns = []; C.cur = null;
+  ask({ title:'Ask about our money', want:'text', circle:false, noDoor:1, prompt:askRules(true), onResult:function(v, raw){ askGot(String(raw || v || '')); } }); }
+function askPart2(){ var nx = MCV.next.split('|').map(function(s){ return s.trim(); }), y = num(nx[2]) || null; ensureYearlyGroup(); db.threePart = true;
+  db.cats.push({ id:uid(), g:'g_yearly', name:nx[1], part:2, yearly:y, due:[], budget:0, kw:'' }); save(); render(); toast('Added “' + nx[1] + '” to the yearly bills. Set its month there.'); openPart2(); }
+function remindICS(m, what){ var p = m.split('-'), d = p[0] + p[1] + (p[2] || '01'), n = new Date(), url = location.href.split('#')[0].split('?')[0];
+  var ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Daraja//Family Money Dashboard//EN','BEGIN:VEVENT','UID:familydash-' + uid() + '@daraja','DTSTAMP:' + n.toISOString().replace(/[-:]/g,'').slice(0,15) + 'Z','DTSTART;VALUE=DATE:' + d,'SUMMARY:Family money: ' + String(what).replace(/[\r\n,;]/g,' ').slice(0,80),'DESCRIPTION:Open the Family Money Dashboard: ' + url,'BEGIN:VALARM','TRIGGER:PT9H','ACTION:DISPLAY','DESCRIPTION:Family money reminder','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type:'text/calendar' })); a.download = 'family-money-reminder.ics'; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); }, 2000); toast('Open the file to add it to your phone’s calendar.'); }
+
+/* HEADS UP: the app's own check, newest-first priority, one card */
+function headsUps(){ var H = [], m = thisMonth(), seen = db.huSeen || {};
+  p2Cats().forEach(function(c){ var st = p2State(c); if(st.unknown || !st.dueM || st.each == null) return; var ahead = monthsFrom(m, st.dueM); if(ahead < 0 || ahead > 1) return;   /* due this month or next: four to six weeks out */
+    var by = r2(st.bal + Math.max(0, ahead) * st.per), short = r2(st.each - by), ins = /insur|policy|premium/i.test(c.name), k = 'p2:' + c.id + ':' + st.dueM;
+    if(short > 0.5) H.push({ k:k, pri:1, c:c, em:'📅', t:esc(c.name) + ' · ' + money(st.each,1) + ' due in ' + esc(monthOnly(st.dueM)) + '.', sub:'Set aside so far: ' + money(st.bal,1) + '. Short by <b>' + money(short,1) + '</b>.', short:short, dueM:st.dueM });
+    else if(ins) H.push({ k:k, pri:2, c:c, em:'🛡️', t:esc(c.name) + ' renews in ' + esc(monthOnly(st.dueM)) + ' · ' + money(st.each,1) + ' last time.', sub:'A good moment to shop it around.', ins:1, dueM:st.dueM }); });
+  rvSubsList().forEach(function(s){ var T = db.tx.filter(function(t){ return (t.sub ? 'sub:' + t.sub : mkey(t.desc) || t.desc) === s.k; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }); if(!T.length) return;
+    var first = T[0].d; if(T.length > 2 || daysBetween(first, today()) > 45 || /annual|yearly|membership fee/i.test(s.desc)) return;   /* a yearly fee is not a trial running out */ H.push({ k:'sub:' + s.k, pri:3, em:'🆕', t:'New: ' + esc(s.desc) + ' · ' + money(s.amt) + (s.cyc === 'month' ? ' a month' : s.cyc === 'year' ? ' a year' : '') + '.', sub:'First seen ' + esc(shortDate(first)) + '. If it began as a free trial, it’s paying now. Keep it?', sub2:s }); });
+  return H.filter(function(h){ return !seen[h.k]; }).sort(function(a,b){ return a.pri - b.pri; }); }
+var HU = null;
+function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0]; HU = h;
+  var btns = h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
+  var tm = new Date(Date.now() + 864e5), rd = addMonths(h.dueM || thisMonth(), -1) > thisMonth() ? addMonths(h.dueM, -1) : ymd(tm);   /* a month before it's due, or tomorrow if that's already passed */
+  if(h.dueM) btns += '<button class="b small" onclick="remindICS(\'' + rd + '\',' + JSON.stringify(h.c ? h.c.name + ' due ' + monthOnly(h.dueM) : 'Family money').replace(/"/g,'&quot;') + ')">⏰ Remind me</button>';
+  return '<div class="card" id="headsUp" style="border:2px solid #E3B04B;background:#FFF8E8;padding:14px 16px"><div class="stepno" style="color:#9a5b00">Heads up' + (h.dueM ? ' · coming in ' + esc(monthOnly(h.dueM)) : '') + '</div>'
+    + '<p style="margin:4px 0 2px;font-weight:800;font-size:17px">' + h.em + ' ' + h.t + '</p><p class="sub" style="margin:0">' + h.sub + '</p>'
+    + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px">' + btns + '<button class="b small ghost" onclick="huSeen()">Got it</button></div>'
+    + (H.length > 1 ? '<p class="sub" style="margin:8px 0 0;font-size:13px">One more after this.</p>' : '') + '</div>'; }
+function huSeen(note){ if(!HU) return; db.huSeen = db.huSeen || {}; db.huSeen[HU.k] = note || today(); save(); closeSheet(); render(); }
+function huSavings(){ huSeen('savings'); toast('Noted — the rest comes from savings when it’s due.'); }
+function huCancel(){ var s = HU.sub2; db.subRev = db.subRev || {}; db.subRev[s.k] = db.subRev[s.k] || s; huSeen('cancel'); cancelHelp(s.k); }
+function huPlan(){ var h = HU, room = p1Cats().map(function(c){ var b = mBud(c, thisMonth()), a = avgFor(c.id, thisMonth(), 3); return b && a != null && b - a > 20 ? c.name + ' (' + money(b - a,1) + ' a month under plan)' : ''; }).filter(Boolean).slice(0, 6);
+  var p = h.ins ? 'You are a careful family money helper, not an advisor. Write a short shop-around script for calling about our ' + h.c.name + ', which renews in ' + monthName(h.dueM) + ' and cost ' + money(h.each || h.c.yearly,1) + ' last time. Give: what to say first, 5 questions to ask (coverage, deductible, discounts, bundling, claims), and what a fair price looks like for a family like ours. Under 180 words. Plain words.'
+    : 'You are a careful family money helper, not an advisor. Our ' + h.c.name + ' bill is due in ' + monthName(h.dueM) + ' and the money set aside for it is ' + money(h.short,1) + ' short. Propose ONE simple plan to close the gap before then — for example moving money from a budget line that is running under plan, or splitting it across the paychecks left. Under 90 words, with the amounts. Lines running under plan: ' + (room.join('; ') || 'none') + '.\nOur totals:\n- ' + moneyTotals().join('\n- ');
+  ask({ title:h.ins ? 'A shop-around script' : 'A plan for ' + h.c.name, want:'text', circle:false, prompt:p, onFail:function(msg){ openSheet('<h3>The AI didn’t answer</h3><p class="sub">' + esc(msg) + '. Nothing was lost.</p><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="huPlan()">Try again</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); },
+    onResult:function(v, raw){ var t = String(raw || v || '').trim(); if(!t) return;
+      openSheet('<div class="stepno">' + (h.ins ? 'Shop-around script' : 'The plan') + ' · ' + esc(h.c.name) + '</div><div class="card" style="padding:12px 14px;background:#EEF1FB"><p style="margin:0;white-space:pre-wrap">' + esc(t) + '</p></div><p class="sub" style="font-size:13px">A helper, not a financial advisor.</p>'
+        + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="huSeen(\'plan\')">✅ ' + (h.ins ? 'Got it' : 'Do this') + '</button><button class="b full" onclick="huPlan()">Another way</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button></div>'); } }); }
+
 function openAdvisors(){ openSheet('<h3>Our advisors</h3><p class="sub">The app points out tax and investment questions and leaves the answers to them.</p><label for="avC">CPA</label><input id="avC" value="' + esc(db.cpa) + '" placeholder="Name, and how to reach them"><label for="avA">Financial advisor</label><input id="avA" value="' + esc(db.advisor) + '" placeholder="Name, and how to reach them">'
   + '<button class="b primary full" onclick="db.cpa=document.getElementById(\'avC\').value.trim();db.advisor=document.getElementById(\'avA\').value.trim();save();render();closeSheet();toast(\'Saved.\')">Save</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
 function welcomeHTML(){
