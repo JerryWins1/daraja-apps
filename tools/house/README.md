@@ -12,7 +12,7 @@ and each verified by a throwaway script in a container that then went away, and
 the Ahead of It chat lost its Start fresh harness the same way. A check nobody
 can re-run is a check that only happened once.
 
-## Two traps that made earlier runs lie
+## Three traps that made earlier runs lie
 
 Both are guarded against in the file, and both are worth knowing before you add
 a check of your own:
@@ -23,10 +23,21 @@ a check of your own:
 - **`file://` is not what a phone loads.** Some apps boot differently there.
   Everything here is served over http from the repo root.
 
-A third, from the Ahead of It chat: the house claims `window.djStartFresh` at
-0 ms, then again at 300 ms and 1500 ms, because an older erase layer at the end
-of the page assigns after it. Call it earlier than that and you drive the old
-layer, whose key names are guesses.
+- **`addInitScript` runs again on every navigation, including the reload a page
+  does to itself.** `startFresh` ends with `location.replace`, so a seeding
+  script that puts test data in localStorage writes all of it straight back
+  afterwards — the erase worked, and the run reads as though nothing happened.
+  Measured on 20 November: remove a key, reload, and it is there again. This is
+  what made the house-layer chat report Start fresh as not erasing anything when
+  it was erasing correctly. Seed by hand on the page instead, or re-read through
+  a context whose init script has been cleared.
+
+A note, not a trap: the house claims `window.djStartFresh` at 0 ms, then again
+at 300 ms and 1500 ms, because an older erase layer at the end of the page
+assigns after it. Measured on `ahead-of-it` at 0, 200, 400, 1000, 1400, 1500,
+1600 and 2200 ms, the house owns the name at every one of them, so there is no
+window there to lose on this app. Waiting is still the safe default on an app
+nobody has measured.
 
 ## Start fresh
 
@@ -39,11 +50,10 @@ them back, that the page comes back to a true first open, that the two other
 apps seeded alongside are untouched, and that the scanned papers went too.
 
 Two things that make it work, both worth copying if you add a check here. The
-first is the third trap above: wait past 1500 ms before calling
-`window.djStartFresh`, or you drive the old erase layer, whose key names for
-Ahead of It do not include the merged one — nothing is erased and the run looks
-like a pass of the wrong thing. The second is simply to accept the dialogs; it
-asks twice on purpose. `p.on('dialog', d => d.accept())`.
+first is the third trap above: do not let a seeding init script survive the
+reload, or it will refill everything the erase just removed. The second is
+simply to accept the dialogs; it asks twice on purpose.
+`p.on('dialog', d => d.accept())`.
 
 And one thing not to mistake for a failure: after Start fresh the saved list is
 `null`, not `[]`. Ahead of It's merge deliberately writes nothing on a cold open
