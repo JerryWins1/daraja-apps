@@ -970,3 +970,11 @@ Jerry: "You need to manage one at a time. And you need to stay on that page so t
 Jerry: "I don't know if I want to go through each credit card one. Maybe you do your best to sort it out … give me a button to the dashboard."
 - **✨ Sort the rest for me** on Sort each account (`sortRestForMe`). It runs the known-payee and card-payment sorting, re-guesses, then accepts the app's guess for every line not yet done (marked `autoAcc`). Lines it can't guess stay "Not sorted yet". Any line can be changed later.
 - **📊 Show me the dashboard now** on the setup screen, once there are lines (`db.peek`). It opens the main dashboard before setup is finished. The checklist of steps still to do is on it, so nothing is skipped: the household questions, including the CPA and advisor, and the budget are still there to do.
+
+## v9.7 · double charges caught as statements are read (20 Nov)
+
+Jerry: "two exactly the same charges on the same day … catch these things on the import as they're importing … flag them right away … then at some point there's a review."
+- `flagSuspicious` runs after each statement file is read. Two charges on the same account, from the same payee, for the same amount, within three days, are flagged, provided at least one is newly read. The later charge goes on the 🔍 To look into list with "Possible double charge — same as Oct 20".
+- The screens that end a reading (the folder map and New month) say how many were found (`flagLine`).
+- Review: a heads-up card at the top of the main screen, ahead of everything else, until answered. **It's a mistake — keep it on my list** (the reason becomes "Charged twice — call to have it taken off") or **Both are right** (taken off the list).
+- The sort screen shows the warning on a flagged line. The existing "Worth a look" double-charge notice stays.
