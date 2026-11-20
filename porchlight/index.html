@@ -2569,6 +2569,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .btn { min-height: 3.4rem; padding: .55rem 1.3rem; border-radius: .8rem; border: 2px solid transparent; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; text-align: center; text-decoration: none; line-height: 1.2; }
 .btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-quiet { background: var(--card); color: var(--ink); border-color: var(--line); }
+.backchip { min-height: 44px; padding: 6px 16px; margin: 0 0 12px; font-weight: 800; }
 .btn-danger { background: var(--reply); color: var(--card); }
 .btn-big { min-height: 4.2rem; font-size: 1.15rem; width: 100%; }
 .btn:disabled { opacity: .55; cursor: wait; }
@@ -2946,6 +2947,7 @@ function render() {
   app.replaceChildren();
   const wrap = h("div", { class: "wrap" });
   wrap.append(topBar());
+  const back = backChip(); if (back) wrap.append(back);
   const views = { setup: viewSetup, home: viewHome, mail: viewMail, todo: viewTodo, messages: viewMessages, settings: viewSettings };
   wrap.append(...[].concat(views[ui.view]()).filter((x) => x != null));   /* v1.2: empty parts no longer print “null” */
   app.append(wrap);
@@ -2956,7 +2958,32 @@ function topBar() {
     h("div", { class: "brand" }, h("span", { class: "lampdot", "aria-hidden": "true" }), "On Guard"),
     h("button", { class: "helpbtn", type: "button", onclick: openHelp, html: ICON.help + "<span>Help</span>" }));
 }
-function go(view) { ui.view = view; window.scrollTo(0, 0); render(); if (view === "home" && has("calendar") && cal.status === "idle") loadCalendar(); }
+/* v1.5 (20 Nov, Jerry: "If you go one screen too far or something, you can't go back to the previous one"):
+   every move to another screen leaves a way back on the house's back-stack (djBack, house v68), used by the
+   ← Back chip at the top and by the phone's own Back. A way back that is already undone (the pop-up was closed
+   with its own button, the question was left with its own Back) is skipped. Nothing is kept while a store video
+   plays its example person, so the videos look the same. */
+let backing = false;
+function leaveBack(undo, undone) {
+  if (backing || !window.djBack || (window.porchTour && window.porchTour.loaded)) return;
+  window.djBack.push(() => { if (undone && undone()) { window.djBack.go(); return; } backing = true; try { undo(); } finally { backing = false; } });
+  try { history.pushState({ onGuard: 1 }, ""); } catch {}
+}
+function forgetBack() { if (window.djBack) window.djBack.clear(); }
+/* Capture, so this runs before the house's own listener: while a house screen is open, the house steps back. */
+window.addEventListener("popstate", () => {
+  if (document.getElementById("djAISheet") || document.getElementById("djDockSheet")) return;
+  if (window.djBack) window.djBack.go();
+}, true);
+function backChip() {
+  if (!window.djBack || !window.djBack.depth() || ui.view === "setup") return null;
+  return h("button", { class: "btn btn-quiet backchip", type: "button", "aria-label": "Back to the screen before", onclick: () => history.back() }, "← Back");
+}
+function go(view) {
+  const from = ui.view, step = ui.step;
+  if (from !== view) leaveBack(() => { ui.step = step; go(from); }, () => ui.view !== view);
+  ui.view = view; window.scrollTo(0, 0); render(); if (view === "home" && has("calendar") && cal.status === "idle") loadCalendar();
+}
 function renderNav() {
   const nav = $("#nav");
   if (ui.view === "setup") { nav.hidden = true; return; }
@@ -3022,7 +3049,7 @@ function navRow(opts) {
   row.append(h("button", { class: "btn btn-primary btn-big", type: "button", disabled: o.nextDisabled, onclick: () => { if (o.onNext && o.onNext() === false) return; nextStep(); } }, o.nextLabel));
   return row;
 }
-function nextStep() { save(); const n = liveSteps().length; ui.step = Math.min(n - 1, ui.step + 1); window.scrollTo(0, 0); render(); }
+function nextStep() { save(); const n = liveSteps().length, was = ui.step; ui.step = Math.min(n - 1, ui.step + 1); if (ui.step !== was) leaveBack(() => { ui.step = was; window.scrollTo(0, 0); render(); }, () => ui.view !== "setup" || ui.step <= was); window.scrollTo(0, 0); render(); }
 
 function viewSetup() {
   const steps = liveSteps();
@@ -3256,7 +3283,7 @@ const SETUP = {
     return [
       h("div", { class: "hello" }, h("h1", null, `All set, ${P().name}!`)),
       helperSays(`${line} Your Home page is ready. If you ever get stuck, tap Help at the top, or tap Talk at the bottom and just ask me.`),
-      h("button", { class: "btn btn-primary btn-big", type: "button", onclick: () => { P().setupDone = true; P().order = tileOrder(); go("home"); save(); } }, "Take me to my Home page"),
+      h("button", { class: "btn btn-primary btn-big", type: "button", onclick: () => { P().setupDone = true; P().order = tileOrder(); go("home"); forgetBack(); render(); save(); } }, "Take me to my Home page"),
       h("div", { class: "row" }, h("button", { class: "btn btn-quiet", type: "button", onclick: () => { ui.step = Math.max(0, ui.step - 1); render(); } }, "Back")),
     ];
   },
@@ -3486,6 +3513,7 @@ function openSheet(nodes) {
   /* 11 Oct (pass B): an optional part that isn't there (the scam warning on an ordinary email, the
      "Ask a question" button on some Help pages) is null — replaceChildren printed it as the word "null". */
   inner.replaceChildren(...nodes.flat().filter((n) => n != null && n !== false));
+  if (s.hidden) leaveBack(closeSheet, () => s.hidden);
   s.hidden = false;
   inner.scrollTop = 0;
   const first = inner.querySelector("button"); if (first) first.focus();
@@ -3790,7 +3818,7 @@ function viewSettings() {
             h("button", { class: "btn btn-danger", type: "button", onclick: eraseAll }, "Yes, erase everything"),
             h("button", { class: "btn btn-quiet", type: "button", onclick: () => { confirmErase = false; render(); } }, "No, keep it"))
         : h("button", { class: "btn btn-quiet", type: "button", onclick: () => { confirmErase = true; render(); } }, "Erase my information")),
-    h("p", { class: "muted small", id: "plVer", style: "text-align:center" }, "On Guard v1.4 · 2026-11-15 · Daraja Studio"),
+    h("p", { class: "muted small", id: "plVer", style: "text-align:center" }, "On Guard v1.5 · 2026-11-20 · Daraja Studio"),
   ];
   return out;
 }
@@ -3808,7 +3836,7 @@ async function eraseAll() {
   try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_KEY + ".chat"); localStorage.removeItem(LS_KEY + ".at"); } catch {}
   if (docRef) { const ref = docRef; writeChain = writeChain.then(() => ref.delete()).catch(() => {}); }
   mail.status = "idle"; mail.items = []; cal.status = "idle";
-  applyTextSize(); ui.step = 0; go("setup");
+  applyTextSize(); ui.step = 0; go("setup"); forgetBack();
 }
 
 /* ================================================================
