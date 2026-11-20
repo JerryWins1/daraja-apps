@@ -9,10 +9,12 @@
  * then went away, and the Ahead of It chat lost its Start fresh harness the same
  * way. A check nobody can re-run is a check that only happened once.
  *
- * Two traps that made earlier runs lie, both still guarded against below:
- *   · a service worker's own fetch is NOT intercepted by Playwright routes, so a
- *     reload silently grades the deployed site. serviceWorkers: 'block'.
- *   · file:// is not what a phone loads. Everything here is served over http.
+ * Three traps make a run here lie, each of them silently, and each is guarded
+ * against below: serviceWorkers: 'block', http rather than file://, and no
+ * seeding init script left alive across a reload. README.md in this folder says
+ * what each one does and what it costs — read it there rather than here, so
+ * there is one copy to correct when one of them turns out to be wrong. One
+ * already did.
  */
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -182,9 +184,14 @@ async function fresh(b, port){
     });
   });
 
-  /* reopen so the app reads the seeded data, and wait past 1500 ms: an older erase layer
-     at the end of the page assigns window.djStartFresh after the house does, so the house
-     claims the name again at 0, 300 and 1500 ms. Call it sooner and you drive the old one. */
+  /* Reopen so the app reads the seeded data. The seeding above is done on the page, not in an
+     init script, because startFresh ends in location.replace and an init script would write it
+     all back — the third trap in the README.
+     The wait is longer than it looks like it needs to be. The house claims window.djStartFresh
+     at 0, 300 and 1500 ms, over an older erase layer at the end of the page whose key names are
+     guesses. On this app the house was measured to own the name at every moment sampled from
+     0 ms on, so there is no window here to lose; the wait is kept as the safe default for an app
+     nobody has measured, not as a fix for anything seen on this one. */
   await p.goto(`http://localhost:${port}/ahead-of-it/`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(2200);
   await p.evaluate(() => { for (const id of ['djTour','djBanner','introOv','fsIntro']) { const t = document.getElementById(id); if (t && t.parentNode) t.parentNode.removeChild(t); } });
