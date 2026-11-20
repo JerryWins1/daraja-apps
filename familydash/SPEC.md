@@ -929,3 +929,10 @@ The overview and first-time videos each gained two lines, re-recorded by name in
 Jerry: "If you go one screen too far … you can't go back to the previous one."
 - Every screen remembers the one before it. **← Back** at the top, or the browser's own Back button, steps back one screen. On the first screen, browser Back closes it. Passing screens aren't kept: reading, thinking, and the one-payee-at-a-time sort, which has its own Back.
 - **💬 Ask about our money** now shows during setup too, once any statement lines are in, with a note that answers get better once the budget is set. Jerry was at step 8 of 13 and couldn't find it.
+
+## v9.1 · Ask lets you type the amount (20 Nov)
+
+Jerry: "it would be good if you allowed them to input something like the value of a car… You say, do you want to do a down payment, but you don't ask how much."
+- The AI is told to ask for the number itself ("How much would you put down?"), never a yes-or-no about it, and to follow a "yes" with the amount. Its options for an amount are example figures.
+- When the question is about money, the screen shows **Type the amount** first ($, number keypad on a phone, Send), with "Or tap a rough figure:" and the options under it. A bare number like 38000 or 38k is sent as $38,000.
+- The Ask screens are one flow, so the general ← Back doesn't step through them.
