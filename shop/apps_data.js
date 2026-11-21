@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v3.4 · 2026-11-06 (the Daraja HQ videos show the page instead of its password box — control/?tour=1; the video rules written out below instead of buried in this line)
+/* Daraja Store — one shared catalog. v3.5 · 2026-11-21 (Jerry: every video says the app is AI-powered — one line added to 103 videos, tied to what that app's ✨ button really does; not on My Safety Plan, The Clubhouse or Daraja HQ, where the house hides the AI. Spliced in his voice: shop/voicemaker.py --splice)
+   v3.4 · 2026-11-06 (the Daraja HQ videos show the page instead of its password box — control/?tour=1; the video rules written out below instead of buried in this line)
    v3.3 · 2026-11-06 (every video recorded — 54 of them, incl. the 👋 Karibuni greeting for the testers; voicemaker --check says when one goes stale)
    v3.2 · 2026-11-06 (the three Daraja HQ videos are recorded now, not read aloud by the browser — shop/voicemaker.py)
    v3.1 · 2026-11-06 (the rules video gains rule five, every link every time)
@@ -74,7 +75,7 @@ function djDonateHref(key){
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
-const STORE_V = 'v3.4 · 2026-11-06';
+const STORE_V = 'v3.5 · 2026-11-21';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
@@ -505,6 +506,7 @@ const APPS = {
     {"t": "At the bottom is Settings. Bigger type makes the words larger. Preview mode, for pastors and teachers, opens every door now so you can read ahead. Stars still only come on the real day.", "point": "#settings", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{var s=document.getElementById('settings');s.open=true;s.scrollIntoView({block:'center'});}catch(e){}"},
     {"t": "How to start: try the Day 1 sample, type your family's names, and if you lead a church, open the church kit. Then come back on the first of December.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"},
     {"t": "Everything stays on this phone. There is no account, and nothing to sign up for. Advent Together is free, and a donation is optional.", "point": ".foot", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,99999);"},
+    "Advent Together is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and what to do next, so getting ready for Christmas fits your family's day.",
     {"t": "And when you open the app itself, the question mark button in the bottom corner has the tour and help any time.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} "}]} },
   train:[
    {"t": "Getting Advent Together ready takes a few minutes, and you can do it any time before December.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"},
@@ -516,6 +518,7 @@ const APPS = {
    {"t": "Step five: at the bottom, open Settings. Turn on Bigger type if the words are small. Pastors and teachers can turn on Preview mode, to read every door ahead of time.", "point": "#settings", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{var s=document.getElementById('settings');s.open=true;s.scrollIntoView({block:'center'});}catch(e){}"},
    {"t": "Step six: from the first of December, open today's door each day. The Today button jumps straight to it.", "point": "#todayBtn", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{document.getElementById('doors').scrollIntoView({block:'center'});}catch(e){}"},
    {"t": "Step seven: read it together, pray, do the one small thing, then tap We did it to earn that day's star. Stars can only be earned on the day itself.", "point": "#didBtn", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{openDay(1,'sample');}catch(e){} try{document.getElementById('didBtn').scrollIntoView({block:'center'});}catch(e){}"},
+   "Advent Together is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and what to do next, so getting ready for Christmas fits your family's day.",
    {"t": "You'll know you're ready when your family's names are under Our family, and the top card is counting down to Advent.", "point": "#familyCard .tally", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{document.getElementById('familyCard').scrollIntoView({block:'center'});}catch(e){}"}],
   lines:[
    {"t": "This is Advent Together. Twenty-four days to Christmas, one door a day.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"},
@@ -530,6 +533,7 @@ const APPS = {
    {"t": "For churches, the church kit prints a one-page bulletin insert with all twenty-four days, and gives you a Sunday announcement to read out.", "point": "#insertPreview", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{openChurch();}catch(e){}"},
    {"t": "Pastors and teachers can turn on Preview mode in Settings, to read every door ahead of time.", "point": "#settings", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} try{var s=document.getElementById('settings');s.open=true;s.scrollIntoView({block:'center'});}catch(e){}"},
    {"t": "Everything stays on this phone. No account, nothing to sign up for. The verses are from the King James Bible.", "point": ".foot", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,99999);"},
+   "Advent Together is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and what to do next, so getting ready for Christmas fits your family's day.",
    {"t": "Advent Together is free, for every family and every church. Try the Day 1 sample below. If it helps you, you can give a suggested donation of seven dollars to Loving Indeed, a charity. It is optional.", "point": "#hero", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeDay();}catch(e){} try{document.getElementById('churchSheet').classList.remove('on');}catch(e){} try{document.getElementById('settings').open=false;}catch(e){} try{document.getElementById('first').style.display='none';}catch(e){} window.scrollTo(0,0);"}],
   name:'Advent Together', em:'🕯️', sub:'24 days to Christmas: one prayer, one reading, one small thing to do together', fresh:true, cat:'church', price:'$7 a family · $49 a whole church', testing:true,
   tag:'24 days to Christmas: one prayer, one reading, one small thing to do together',
@@ -549,6 +553,7 @@ const APPS = {
     {t:"Add photos to the quote, so there is no argument later about what the job was.", js:"try{BM.tourShow('jobs')}catch(e){}"},
     {t:"The customer signs on your phone, standing in their own kitchen. That is the moment most jobs are won or lost.", js:"try{BM.tourShow('jobs')}catch(e){}"},
     {t:"It works with no signal. In a basement, in a crawlspace, out on a site with one bar \u2014 the quote still goes out.", js:"try{BM.tourShow('home')}catch(e){}"},
+    "Quick Quote is AI-powered: when you ask, its AI can suggest a price for the job, so the quote goes out sooner and more of your day goes on the work itself.",
     {t:"And if you later want invoices, receipts and profit, turning on the full office keeps every quote, price and signature. Nothing is retyped. Go and try it \u2014 you cannot break the example.", js:"try{BM.tourShow('home')}catch(e){}"}
   ]} },
   name:'Quick Quote', em:'🧾', sub:'a priced estimate in a minute, from your own price list', fresh:true, cat:'work', price:'$49 a year', testing:true,
@@ -561,6 +566,7 @@ const APPS = {
    {t:'Set your trip charge and your hourly labour rate, so the short awkward jobs price themselves properly instead of being guessed at.', js:"try{BM.tourShow('prices');}catch(e){}"},
    {t:'Add a deposit rule if you take one \u2014 a percentage or a flat amount, shown on the quote so it is agreed before you start.', js:"try{BM.tourShow('more');}catch(e){}"},
    {t:'Decide whether add-ons are included in a price or charged separately. Get this right once and every later quote is right.', js:"try{BM.tourShow('more');}catch(e){}"},
+   "Quick Quote is AI-powered: when you ask, its AI can suggest a price for the job, so the quote goes out sooner and more of your day goes on the work itself.",
    {t:'That is setup. Quote your first job. If you ever want invoices, receipts and profit as well, turning on the full office keeps every quote you have written.', js:"try{BM.tourShow('home');}catch(e){}"}
   ],
   lines:[
@@ -573,6 +579,7 @@ const APPS = {
    {t:'Add photos to the quote, so there is no argument later about what the job was.', js:"try{BM.tourShow('job/j3');}catch(e){}"},
    {t:'The customer signs on your phone, standing in their own kitchen.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:".steps"},
    {t:'It works with no signal \u2014 a basement, a crawlspace, a site with one bar. The quote still goes out.', js:"try{BM.tourShow('home');}catch(e){}"},
+   "Quick Quote is AI-powered: when you ask, its AI can suggest a price for the job, so the quote goes out sooner and more of your day goes on the work itself.",
    {t:'It is the quotes-only edition of Business Manager. Turn on the full office any time and every quote comes with you.', js:"try{BM.tourShow('more');}catch(e){}"}
   ]
  },
@@ -597,6 +604,7 @@ const APPS = {
     {t:"To-dos hold the dates that cost you money when they slip: the truck registration, the insurance renewal, the quarterly estimated taxes.", js:"try{BM.tourShow('todo')}catch(e){}"},
     {t:"It opens in your phone's browser. Nothing to install, no account to make, and what you type stays on your phone.", js:"try{BM.tourShow('home')}catch(e){}"},
    "New in November: every message to a customer can go by WhatsApp as well as by text or email. On the Kenya edition it opens that customer's own WhatsApp; elsewhere it asks you which chat.",
+    "Business Manager is AI-powered: when you ask, its AI can price a job, read a receipt or a statement, and polish a message to a customer, so less paperwork gets between you and your work.",
     {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{BM.tourShow('home')}catch(e){}"}
   ]} },
   name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', price:'$149 a year', testing:true,
@@ -610,6 +618,7 @@ const APPS = {
    {t:'Next, how you get paid: card, PayPal, Venmo, Cash App, Zelle or a cheque. Whatever you fill in is what shows on the invoice, so leave blank anything you do not use.', js:"try{BM.tourShow('more');}catch(e){}"},
    {t:'If you work with crew, add them with their hourly rate. Then hours logged against a job turn into real labour cost, and the profit figure tells the truth.', js:"try{BM.tourShow('more');}catch(e){}"},
    {t:'If you only want quotes, choose quotes-only mode. Invoices, expenses, profit, schedule, crew and to-dos stay hidden \u2014 hidden, never deleted. Turn them on any time and every quote and price comes with you.', js:"try{BM.tourShow('more');}catch(e){}"},
+   "Business Manager is AI-powered: when you ask, its AI can price a job, read a receipt or a statement, and polish a message to a customer, so less paperwork gets between you and your work.",
    {t:'That is setup done. Add your first customer, then your first job, and the app follows the work from there.', js:"try{BM.tourShow('home');}catch(e){}"}
   ],
   lines:[
@@ -629,6 +638,7 @@ const APPS = {
    {t:'Which gives you the number most trades never see: what each job actually made, after materials and hours.', js:"try{BM.tourShow('pl');}catch(e){}"},
    {t:'To-dos carry the dates that cost you money if you miss them \u2014 truck registration, insurance renewal, the quarterly estimated taxes.', js:"try{BM.tourShow('todo');}catch(e){}"},
    {t:"New in November: the send row has a WhatsApp button next to Text it, and the invoice page your customer opens has one too — so they can send their M-Pesa code straight back.", js:"try{BM.tourShow('job/j3');}catch(e){}"},
+   "Business Manager is AI-powered: when you ask, its AI can price a job, read a receipt or a statement, and polish a message to a customer, so less paperwork gets between you and your work.",
    {t:'It opens in your phone browser. Nothing to install, no account, and what you type stays on your phone.', js:"try{BM.tourShow('home');}catch(e){}"}
   ]
  },
@@ -705,6 +715,7 @@ const APPS = {
       {
         "t": "Every app that gets good enough to sell helps a student in Kenya stay in school. That is what the testing is for. Not for us — for them."
       },
+      "And Daraja apps are AI-powered: nearly every one has a sparkle button in the corner that asks an AI about the screen, to help people manage their day and do their work better.",
       {
         "t": "That is all. Thank you for October. We will see what you find this time."
       }
@@ -748,6 +759,7 @@ const APPS = {
    {t:'Two links sit at the bottom: the store, for anything you have not got yet, and what’s new, for what has changed lately.', js:"try{window.scrollTo(0,document.body.scrollHeight);}catch(e){}", point:".foot"},
    {t:'Daraja itself is free, and always will be. Right now every app in it is free too.', point:".foot"},
    {t:'If an app helps you, you can give a suggested donation to Loving Indeed, a charity. It is optional, and nothing is locked if you do not.', point:".foot"},
+   "Daraja is AI-powered too: when you are not sure, tap the sparkle button in the corner, and an AI tells you which app to open, so your day starts in the right place.",
    {t:'That is the front door. Add it to your home screen, and everything else is one tap away.', js:"try{showShelf('home');window.scrollTo(0,0);}catch(e){}", point:"h2.shelf"}
   ]} },
   name:'Daraja', em:'🌉', sub:'your family of apps, one front door', fresh:true, cat:'free', price:'Free', testing:true,
@@ -760,6 +772,7 @@ const APPS = {
    {t:'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.', js:"try{showShelf('home');}catch(e){}", point:"h2.shelf"},
    {t:'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.', point:"#shelfView .grid"},
    {t:'If an app is one you use all day, open it on its own and give that its own home screen icon too. The two live happily side by side.', js:"try{openApp('everyday');}catch(e){}", point:"#frameOut"},
+   "Daraja is AI-powered too: when you are not sure, tap the sparkle button in the corner, and an AI tells you which app to open, so your day starts in the right place.",
    {t:'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.', js:"try{closeApp();showShelf('home');}catch(e){}", point:"#nav"}
   ],
   lines:[
@@ -772,6 +785,7 @@ const APPS = {
    {t:'New apps appear here by themselves. Nothing to update, nothing to reinstall.', js:"try{closeApp();showShelf('home');}catch(e){}", point:"#shelfView .grid"},
    {t:'It works with no signal, and nothing is sent anywhere — no account, no password, no ads.', point:"#nav"},
    {t:'Daraja is free and always will be, and right now so is every app in it.', js:"try{window.scrollTo(0,document.body.scrollHeight);}catch(e){}", point:".foot"},
+   "Daraja is AI-powered too: when you are not sure, tap the sparkle button in the corner, and an AI tells you which app to open, so your day starts in the right place.",
    {t:'If an app helps you, you can give a suggested donation to Loving Indeed, a charity. It is optional, and the app is yours either way.', point:".foot"}
   ]
  },
@@ -804,6 +818,7 @@ const APPS = {
     {"t": "Then tap one card you have already done today, and change one example into something you really do.", "point": "#hand .cardh:not(.addcard)"},
     {"t": "Everything stays on this phone. There is no account and nothing to sign up for. Every Day is free, with as many pill cards as you need.", "point": ".foot", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,99999);"},
    "New in November: when the app offers to tell someone you are OK, there are now two buttons — a text message, or WhatsApp. The tick beside their name only comes from the button with their name on it, because WhatsApp cannot tell the app which chat you picked.",
+    "Every Day is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests a new card for your list, so your day keeps its good habits.",
     {"t": "And when you open the app itself, the question mark button in the bottom corner has the tour and help any time.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} "}]} },
   train:[
    {"t": "Setting up Every Day takes about five minutes. Here is how, one step at a time.", "point": "#hand", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
@@ -816,6 +831,7 @@ const APPS = {
    {"t": "Step six: each day, tap a card as soon as it is done. When the last one is done, the I'm OK text is ready. Tap it, your messages open, and you press Send.", "point": "#hand .cardh:not(.addcard)", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
    {"t": "Step seven: on a day you feel unwell, open Settings, tap Sick day, day off, then Take today off. Your runs stay safe.", "point": "#viewIn [data-go=off]", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeEdit();openSettings();}catch(e){}"},
    {"t": "To see how a card has gone, open Change or remove a card and tap history next to it. You see the last four weeks, one square a day.", "point": "#viewIn p.small", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeEdit();editList();if(db.habits.length)openView(db.habits[0].id);}catch(e){}"},
+   "Every Day is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests a new card for your list, so your day keeps its good habits.",
    {"t": "You'll know you're set when your own cards are on the screen, and the top line tells you what is left today.", "point": "#host", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"}],
   lines:[
    {"t": "This is Every Day. Six small things worth doing, laid out on one screen like a hand of cards.", "point": "#hand", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
@@ -829,6 +845,7 @@ const APPS = {
    {"t": "Feeling poorly? Take a sick day, and your runs stay safe. You can do that once every seven days.", "point": "#viewIn [data-go=off]"},
    {"t": "Everything stays on this phone. There is no account, and nothing to sign up for.", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"},
    "New in November: under the button that tells Susan you are OK there is a WhatsApp one, so you can say it in the chat you already use.",
+   "Every Day is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests a new card for your list, so your day keeps its good habits.",
    {"t": "Every Day is free. Try it below: tap one card you have already done today, and see how it feels. And any donation goes to Loving InDeed, which helps orphans and students in Kenya.", "point": "#hand", "js": "try{['djTour','djHello','djA2HS','djMenu'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});document.body.style.overflow='';}catch(e){} try{closeView();closeEdit();}catch(e){} window.scrollTo(0,0);"}],
   name:'Every Day', em:'🌱', sub:'six small habits, one tap each', fresh:true, cat:'later', price:'Free', testing:true,
   tag:'A walk, your pills, a call, some water: tap each one when it’s done and watch the streak grow. Change the six to suit you.',
@@ -865,6 +882,7 @@ const APPS = {
     "Everything stays on this phone. There is no account and nothing to sign up for. Our Table is free.",
     {"t": "The question mark button in the corner has the tour and help, any time."},
    "New in November: the week of dinners and the shopping list can both go out on WhatsApp as well as by text. WhatsApp is the one that can reach a family group chat.",
+    "Our Table is AI-powered: when you want help, tap the sparkle button in the corner, and an AI brings in a recipe for you, so your family's dinners take less planning.",
     "And any donation helps orphans and students in Kenya, through Loving InDeed. Enjoy your dinners."]} },
   train:[
    {"t": "Setting up Our Table takes about ten minutes, once. Here is how, screen by screen.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}');s.level=3;s.auto=false;s.nudge=false;s.intro=1;parent.tourSet&&parent.tourSet('dj_level_ourtable',JSON.stringify(s));}catch(e){}"},
@@ -876,6 +894,7 @@ const APPS = {
    {"t": "Step six: tap Build the shopping list. Our Table adds up the ingredients for the whole week and sorts them by aisle.", "point": "#p-week button[onclick=\"buildList()\"]"},
    {"t": "Step seven: on the Shopping tab, type anything extra in the Add box. Tap Have it for things already in the cupboard. Tick each item as it goes in the cart.", "point": "#extraItem", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet','djLevelSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{closeView();}catch(e){} try{closePick();}catch(e){} try{closeEdit();}catch(e){} try{go('shop');window.scrollTo(0,0);}catch(e){}"},
    {"t": "Step eight: tap Text the list to send it to whoever is shopping, or Print it for the fridge.", "point": "#p-shop button[onclick=\"shareList('sms')\"]"},
+   "Our Table is AI-powered: when you want help, tap the sparkle button in the corner, and an AI brings in a recipe for you, so your family's dinners take less planning.",
    {"t": "You'll know you are set when the week has your own dinners on it and the shopping list fills itself from them. The question mark button has the tour again, any time.", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet','djLevelSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{closeView();}catch(e){} try{closePick();}catch(e){} try{closeEdit();}catch(e){} try{go('recipes');window.scrollTo(0,0);}catch(e){}"}],
   lines:[
    {"t": "This is Our Table. Your family's recipes, a week of dinners, and one shopping list, all on your phone.", "js": "try{var s=JSON.parse(localStorage.getItem('dj_level_ourtable')||'{}');s.level=3;s.auto=false;s.nudge=false;s.intro=1;parent.tourSet&&parent.tourSet('dj_level_ourtable',JSON.stringify(s));}catch(e){}"},
@@ -889,6 +908,7 @@ const APPS = {
    {"t": "The Level line at the top keeps it simple to start. Level one is recipes and the week. Level two adds the shopping list. Level three adds sharing. Change it any time.", "point": "#djLevelPill", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet','djLevelSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{closeView();}catch(e){} try{closePick();}catch(e){} try{closeEdit();}catch(e){} try{go('recipes');window.scrollTo(0,0);}catch(e){}"},
    "There is no account and nothing to sign up for. Your recipes stay on your phone, so nobody can shut it down.",
    "New in November: next to Text it there is a WhatsApp button — for the week of dinners and for the shopping list. Pick the family chat and press send.",
+   "Our Table is AI-powered: when you want help, tap the sparkle button in the corner, and an AI brings in a recipe for you, so your family's dinners take less planning.",
    "Our Table is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it below: put in three dinners your family really eats, and plan this week."],
   name:'Our Table', em:'🍽', sub:'dinner, decided', fresh:true, cat:'home', price:'Free', testing:true,
   tag:'Keep the recipes you actually cook, fill the week in one tap, and get one shopping list for all of it. Stuck tonight? Your own AI suggests dinners from what is already in the kitchen. Your recipes stay on your phone — nobody can shut it down.',
@@ -927,6 +947,7 @@ const APPS = {
     {"t": "How to start: open it, and tap Start my own month. Type what comes in, then give each jar its amount until the line turns green.", "point": "#startOwn", "js": "try{videoReady();}catch(e){} try{db=null;render();window.scrollTo(0,0);}catch(e){}"},
     {"t": "Everything stays on this phone. There is no account, no bank login, and nothing to sign up for.", "js": "try{videoReady();}catch(e){}"},
     {"t": "The question mark button in the corner has the tour and help, any time."},
+    "Jar by Jar is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your jars in plain words and the next thing to do, so your family's month stays on plan.",
     {"t": "Jar by Jar is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Enjoy your month."}]} },
   train:[
    {"t": "Setting up Jar by Jar takes about ten minutes, once, at the kitchen table. Step one: open it and tap Start my own month.", "point": "#startOwn", "js": "try{videoReady();}catch(e){} try{db=null;render();window.scrollTo(0,0);}catch(e){}"},
@@ -939,6 +960,7 @@ const APPS = {
    {"t": "Step eight: if a jar runs over, tap Cover it, and a jar with room makes up the difference.", "point": "#coverBtn", "js": "try{videoReady();}catch(e){} try{if(db&&db.ex&&jar('j8')&&!window.__jbjPizza){window.__jbjPizza=1;db.outs.push({id:uid(),d:today(),amt:40,jar:'j8',note:'Pizza after the game'});save();render();}if(db&&db.ex&&jar('j8')&&leftIn('j8')<0)overSheet('j8');}catch(e){}"},
    {"t": "Step nine: once a week, tap Talk it over and send it to your husband or wife.", "point": "#talkNote", "js": "try{videoReady();}catch(e){} try{openTalk();}catch(e){}"},
    {"t": "Step ten: on the first of the month, tap Start next month. Your plan carries over.", "point": "#sheetIn .b.primary", "js": "try{videoReady();}catch(e){} try{openNewMonth();}catch(e){}"},
+   "Jar by Jar is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your jars in plain words and the next thing to do, so your family's month stays on plan.",
    {"t": "You will know you are set when the line is green and every jar shows what is left. The question mark button has the tour again, any time.", "point": "#placeLine", "js": "try{videoReady();}catch(e){}"}],
   lines:[
    {"t": "This is Jar by Jar. A family budget in jars, on your phone.", "js": "try{videoReady();}catch(e){}"},
@@ -953,6 +975,7 @@ const APPS = {
    {"t": "Talk it over makes a plain summary to send to your husband or wife, or print for the fridge. Nothing is sent unless you send it.", "point": "#talkNote", "js": "try{videoReady();}catch(e){} try{openTalk();}catch(e){}"},
    {"t": "Giving this year adds up everything from the Give jar, month by month. Handy at tax time.", "point": "#sheetIn .display", "js": "try{videoReady();}catch(e){} try{openGiving();}catch(e){}"},
    {"t": "It works in dollars, shillings, pounds or euros. There is no account and no bank login. Everything stays on this phone.", "point": "#curSel", "js": "try{videoReady();}catch(e){} try{openSettings();}catch(e){}"},
+   "Jar by Jar is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your jars in plain words and the next thing to do, so your family's month stays on plan.",
    {"t": "Jar by Jar is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it: look around the example family, then start your own month.", "point": "#ownBtn", "js": "try{videoReady();}catch(e){}"}],
   name:'Jar by Jar', em:'🫙', sub:'give first, every dollar a jar', fresh:true, cat:'home', price:'$19', testing:true,
   tag:'Plan the month at the kitchen table: give first, then put every dollar in a jar. Tap a jar when you spend and you always know what’s left. No bank login — it all stays on your phone.',
@@ -989,6 +1012,7 @@ const APPS = {
     {"t": "How to start: tap Start my own trip. Give the trip a name, write who is coming, pick the money, and tap Start the trip.", "point": "#ntName", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{EX=true;db=blank();render();openNewTrip();}catch(e){}"},
     {"t": "Everything stays on this phone. There is no account, and nothing to sign up for.", "point": "#ver", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
     {"t": "Save a copy keeps a backup of your trips, and the question mark button in the corner has help any time.", "point": "#djBackup"},
+    "Trip Tab is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen in plain words, so your group's trip stays about the trip, not the money.",
     {"t": "Trip Tab is free. If it helps your group, a gift to Loving InDeed helps orphans and students in Kenya. Enjoy the trip.", "point": ".give"}]} },
   train:[
    {"t": "Setting up Trip Tab takes about two minutes, before the trip. Step one: open it, tap Start my own trip, and give the trip a name.", "point": "#ntName", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{EX=true;db=blank();render();openNewTrip();}catch(e){}"},
@@ -1001,6 +1025,7 @@ const APPS = {
    {"t": "Step eight: at the end of the trip, tap Settle up.", "point": "#pays", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openSettle();}catch(e){}"},
    {"t": "Step nine: send it to the group, and tap Paid as each payment is made.", "point": "[data-paid=\"0\"]"},
    {"t": "Step ten: when everyone is square, tap Finish this trip. It is kept with your finished trips.", "point": ".tools button[onclick=\"finishTrip()\"]", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   "Trip Tab is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen in plain words, so your group's trip stays about the trip, not the money.",
    {"t": "You will know you are done when every name says all square, and nobody owes anything.", "point": ".square", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{var t=trip();settle(t).forEach(function(p){t.paid.push({id:uid(),from:p.from,to:p.to,amt:p.amt,d:today()});});render();}catch(e){}"}],
   lines:[
    {"t": "This is Trip Tab. One phone keeps the tab for a trip with friends or family.", "point": "#tripName", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
@@ -1014,6 +1039,7 @@ const APPS = {
    {"t": "Then send the settle-up to the group, by text or on WhatsApp.", "point": "#waBtn"},
    {"t": "It works in dollars, Kenya shillings, pounds or euros.", "point": "#tpCur", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){} try{openTrip();}catch(e){}"},
    {"t": "There is no account, and nobody else has to download anything. Everything stays on this phone.", "point": "#ver", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"},
+   "Trip Tab is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen in plain words, so your group's trip stays about the trip, not the money.",
    {"t": "Trip Tab is free, and a gift to Loving InDeed helps orphans and students in Kenya. Try it: look around the example trip, then start your own.", "point": "#ownBtn", "js": "try{if(!EX||!trip()){EX=true;db=exampleDB();}closeSheet();render();window.scrollTo(0,0);}catch(e){}"}],
   name:'Trip Tab', em:'🧾', sub:'who paid what, who owes who', fresh:true, cat:'home', price:'', testing:true,
   tag:'One phone keeps the tab for a trip, a reunion or a group outing. Write down who paid for what, and at the end it gives the fewest payments that square everyone. Nobody else downloads anything — it all stays on your phone.',
@@ -1064,6 +1090,7 @@ const APPS = {
     "And every send now offers a text message or WhatsApp. Pick whichever the people you are asking actually use.",
     "The question mark button in the corner has the tour and help, any time.",
    "Also new: Send the summary can hand you a link instead. Anyone who taps it sees the whole list — who is coming, who cannot, and what each one is bringing — with nothing to tap and nothing to join. It is a photograph of the answers, not a live window, and the page says so, so nobody is misled.",
+    "Who's Coming is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI writes your question nicely for the group, so planning your family's day takes one message, not twenty.",
     "And any donation helps orphans and students in Kenya, through Loving InDeed. Happy asking."]} },
   train:[
    "Setting up Who's Coming takes about five minutes. Here is how.",
@@ -1075,6 +1102,7 @@ const APPS = {
    {"t": "Step six: tap Save and send. Your messages app opens with one group text. Check it and press Send. If nobody in the group has a number, the message is copied so you can paste it anywhere.", "point": "#newAsk button.primary"},
    {"t": "Step seven: when someone answers, by text, by phone or in person, tap their answer on the question card. The tally counts itself.", "point": "#askList", "js": "try{['djMenu','djHello','djDockSheet','djMoreSheet'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});}catch(e){} try{toggleNew(false);}catch(e){} try{go('ask');window.scrollTo(0,0);}catch(e){}"},
    "Step eight: tap Nudge the quiet ones to remind only the people who haven't answered. When you have your answers, tap Copy the tally to share it, then Close.",
+   "Who's Coming is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI writes your question nicely for the group, so planning your family's day takes one message, not twenty.",
    "You'll know you are set when your question card shows every name with an answer next to it. The question mark button has the tour again, any time."],
   lines:[
    "This is Who's Coming. Ask a group one question, and see everyone's answer on one screen.",
@@ -1092,6 +1120,7 @@ const APPS = {
    "Every send has two buttons now: a text message, or WhatsApp. The app writes the words either way, and you press send.",
    "It works for a family Sunday lunch, a church work day, a team choosing a practice night, or anyone who organizes people.",
    "Or tap A link they can open. One link shows the whole list to anybody, read only, with no app and no account — and it carries a way through to the rest of the Daraja apps.",
+   "Who's Coming is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI writes your question nicely for the group, so planning your family's day takes one message, not twenty.",
    "No ads, no account, and everything stays on your phone. Who's Coming is free, and any donation helps orphans and students in Kenya, through Loving InDeed. Try it below: make a group and ask your first question."],
   name:'Who’s Coming', em:'🙋', sub:'one question, everyone’s answer', fresh:true, cat:'home', also:['church'],  price:'Free', testing:true,
   tag:'Ask the family or the group one question (“Sunday lunch at 1?”) and see who said yes, no and maybe on one screen. It goes from your own phone. No ads, and nobody has to sign up to answer.',
@@ -1126,6 +1155,7 @@ const APPS = {
     {"t": "To start: add yourself, load one routine, and add one small thing. Then tap Start on the Now card, and finish it. That is your first two minutes.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#nowCard"},
     "Everything stays on this phone. No account, no ads, and it works with no signal.",
     "One Thing is free. If it helps you, you can give a suggested donation of four ninety-nine to Loving Indeed, a charity. It is optional.",
+    "One Thing is AI-powered: when you ask, its AI can break your one thing into three small pieces, or pull the tasks out of a message, so your day gets started instead of stuck.",
     {"t": "The round question mark button in the corner has the tour, help and settings, any time.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Let's set up One Thing. Five minutes, then it runs your mornings.", "keep": ".modewrap.show"},
@@ -1138,6 +1168,7 @@ const APPS = {
    {"t": "Step seven: make it yours. My photo puts a picture you love behind your whole day. Look changes the outfit: River, Warm Paper, or Quest H U D game mode. Aa Size makes the words bigger.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#r7Pills"},
    {"t": "Don't worry about learning it all. The first time you open a new part, a little card explains it, and Read it to me says it out loud. Tap Got it and it never bothers you again.", "keep": "#r7Tip.show", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){};try{var t=document.getElementById('r7Tip');if(t&&t.innerHTML)t.classList.add('show');}catch(e){}"},
    {"t": "Last: peek at Wins now and then. Stars, streaks, coins and the family race live there.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('wins');window.scrollTo(0,0)}catch(e){}", "point": "#v-wins .wins"},
+   "One Thing is AI-powered: when you ask, its AI can break your one thing into three small pieces, or pull the tasks out of a message, so your day gets started instead of stuck.",
    {"t": "You'll know it's set up right when the Now card shows one thing with a timer, and somebody taps Done and gets the party.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#nowCard"}],
   lines:[
    {"t": "This is One Thing. It is for anyone whose brain runs faster than their day — a child, a grown-up, either.", "js": "try{var s=JSON.parse(localStorage.getItem('nn_level_v1')||'{}');s.level=3;s.auto=false;s.intro=1;s.nudge=false;parent.tourSet&&parent.tourSet('nn_level_v1',JSON.stringify(s));}catch(e){} try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}"},
@@ -1153,6 +1184,7 @@ const APPS = {
    {"t": "You can make it yours: your own family photo as the background, and three different looks — including a points-and-levels one that teenagers actually like.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}", "point": "#r7Pills"},
    {"t": "Once a week it can also go looking for gentle things to do near you — the open gym, the beginner chess night. It uses a grown-up's A.I. to find them. No feed, no pressure.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('wins');window.scrollTo(0,0)}catch(e){};setTimeout(function(){try{var h=document.getElementById('hzCard');if(h)h.scrollIntoView({block:'center'})}catch(e){}},300)", "point": "#hzCard"},
    {"t": "Every new part of it explains itself the first time you touch it, in plain words, out loud if you like.", "js": "try{var o=document.getElementById('wkOv');if(o)o.style.display='none';var n=document.querySelector('nav');if(n)n.style.transform='';}catch(e){} try{go('today');window.scrollTo(0,0)}catch(e){}"},
+   "One Thing is AI-powered: when you ask, its AI can break your one thing into three small pieces, or pull the tasks out of a message, so your day gets started instead of stuck.",
    "It is free. No account, no ads, it works with no signal, and your list stays on your phone. Get the whole thing right now with the button below."],
   name:'One Thing', em:'🧭', sub:'what to do right now', fresh:true, cat:'ownday', price:'$4.99', testing:true,
   tag:'Your whole list is in there — it just shows one step at a time, so the day stops looking like a pile. For kids and grown-ups whose brains run fast.',
@@ -1185,6 +1217,7 @@ const APPS = {
     {"t": "Here is how to start. Tap Quick setup, tick three real things that are actually yours, and save. Then look at the Next page. That is your first two minutes.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
     "Everything stays on this phone. There is no account and no bank login, and nothing is sent anywhere.",
     "Ahead of It is free, and nothing renews. If it helps you, you can give a suggested donation of nineteen dollars to Loving Indeed, a charity. It is optional.",
+    "Ahead of It is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the one thing to do next, so nothing in your day sneaks up on you.",
     {"t": "The round question mark button in the corner has the tour, help and settings, any time.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Setting up Ahead of It takes about five minutes, once. Then nothing catches you off guard again.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
@@ -1198,6 +1231,7 @@ const APPS = {
    {"t": "Step eight: put amounts on your bills, and the money strip at the top adds up what is due this month and what is paid.", "point": "#ahMoney"},
    {"t": "Step nine: on the Year tab, print the year map, or tap Add all to my calendar.", "point": "nav button[data-v='year']", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('year');window.scrollTo(0,0)}catch(e){}"},
    {"t": "Step ten: fill in the Hand-off. Copy it into a note or an email for the person who would take over, or print it. And save a backup file now and then.", "point": "#v-more .card", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('more');window.scrollTo(0,0)}catch(e){}"},
+   "Ahead of It is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the one thing to do next, so nothing in your day sneaks up on you.",
    {"t": "You'll know you're set when the Next page shows your real dates, in order, and nothing on it surprises you.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"}],
   lines:[
    {"t": "This is Ahead of It — for whoever carries the household, the church building, or the small nonprofit.", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
@@ -1210,6 +1244,7 @@ const APPS = {
    "And it can add every date to your phone's calendar in one go, so they sit right beside the rest of your week.",
    {"t": "And there is a hand-off list, so nothing lives in only one person's head any more — print it when a trustee or a treasurer hands over.", "point": "#v-more .card", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('more');window.scrollTo(0,0)}catch(e){}"},
    {"t": "Nothing catches you off guard. No late fees, no lapsed insurance, no failed inspection, no 'I thought you renewed it.'", "js": "try{var o=document.getElementById('qsOv');if(o&&o.offsetWidth){var b=[].find.call(o.querySelectorAll('button'),function(x){return /Close/.test(x.textContent)});if(b)b.click();else o.style.display='none';}}catch(e){} try{go('next');window.scrollTo(0,0)}catch(e){}"},
+   "Ahead of It is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the one thing to do next, so nothing in your day sneaks up on you.",
    "It is free. No account, no cloud, no bank login, ever. Get it below — put three real dates of your own in and see how it feels."],
   name:'Ahead of It', em:'🧾', sub:'never miss a deadline', fresh:true, cat:'home', price:'$19', testing:true,
   tag:'Taxes, renewals, inspections, filings: every date that costs money if you miss it, on one calm page, with the next 30 days always in view. One app for a household, a church, a nonprofit or an HOA — with a common-fund ledger for shared money. No bank login, ever.',
@@ -1255,6 +1290,7 @@ const APPS = {
    {t:"Step three: set priorities and due dates so the important things float to the top.", point:"#filters"},
    {t:"Step four: every morning, open the board and just go down the list. Add anything new in one tap.", point:"#grid"},
    {t:"Step five: when a step gets done, write the next one right away. Projects never stall when the next step is always written. That's the whole secret.", point:"#grid"},
+   "Next Step Board is AI-powered: when you want help, tap the sparkle button in the corner, and an AI finds your most stuck project and writes its real next step, so your work keeps moving.",
    {t:"You'll know it's working when every project on the board has a next step written. No blanks — blanks are where projects go to sleep.", point:"#count"}],
   lines:[
    {t:"This is Next Step Board — for anyone juggling more than three projects.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#boardName"},
@@ -1265,6 +1301,7 @@ const APPS = {
    {t:"Sit down with your coffee, open the board, and go down the list — business person or household manager, it's the same relief.", point:"#grid"},
    {t:"The benefit: nothing stalls, nothing gets forgotten, and you always know what to do next.", point:"#count"},
    "It is free. No account, and it works offline.",
+   "Next Step Board is AI-powered: when you want help, tap the sparkle button in the corner, and an AI finds your most stuck project and writes its real next step, so your work keeps moving.",
    {t:"Try it below — put your three real projects in and watch your morning get simpler.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#grid"}]},
  breakeven: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1294,6 +1331,7 @@ const APPS = {
     "Then try a slightly higher price in the table and see what it does. That is how you pick a price on purpose instead of by guess.",
     {"t": "Your numbers stay only on this phone. There is no account, and nothing is sent anywhere. To clear them, tap Start fresh at the very bottom. It asks you twice first."},
     "Break-Even is free.",
+    "Break-Even is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your numbers in plain words, so you can price your work with confidence.",
     {"t": "And the question mark button in the corner has the tour and help any time you need them.", "point": "#djDockToggle", "js": "try{ window.scrollTo(0,0); }catch(e){}"}]} },
   name:'Break-Even', em:'🧮', sub:'know your numbers', cat:'free', price:'Free', testing:false,
   tag:'Price your product — see exactly when you start making money',
@@ -1304,6 +1342,7 @@ const APPS = {
    {t:"Step two: what does each one cost you — supplies, fees, shipping? Then your monthly fixed costs: rent, table fees, software.", point:"#c"},
    {t:"Step three: read the answer. It shows the exact sale where you cross into profit.", point:"#units"},
    {t:"Step four: change the price and look at the table — it shows what ten or twenty percent either way does to the sales you need. That's how you pick a price on purpose instead of by guess.", point:"#tbl"},
+   "Break-Even is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your numbers in plain words, so you can price your work with confidence.",
    {t:"You'll know it worked when you can say out loud: 'I make money on number twelve.' That sentence is the whole product.", point:"#units"}],
   lines:[
    {t:"This is Break-Even — free, for anyone selling anything.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#p"},
@@ -1312,6 +1351,7 @@ const APPS = {
    {t:"Change the price, and the table shows what ten or twenty percent either way would do. Suddenly pricing isn't a guess.", point:"#tbl"},
    {t:"The benefit: you stop selling at a loss without knowing it. Every craft-fair table and side hustle needs this once.", point:"#units"},
    "It's completely free — our gift, and a taste of how we build.",
+   "Break-Even is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your numbers in plain words, so you can price your work with confidence.",
    {t:"Try it below with your real numbers. It takes two minutes to know the truth.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#p"}]},
  safety: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1481,6 +1521,7 @@ const APPS = {
    {"t": "And at the back: The Key, one page that tells the family where the pictures and accounts live, never the passwords. So nothing is lost.", "point": "#keyText"},
    {"t": "It all becomes a real book you can print at home. Cover, chapters, photos, their exact words.", "point": "#bookPage .cover", "js": "try{ CUR=null; openBook(); window.scrollTo(0,0); }catch(e){}"},
    {"t": "The app is free. Print the book at home, or save it as a P D F to share. A bound copy you can order is on its way. Either way, it's the gift nobody ever forgets getting.", "point": "#bookBar button[onclick=\"window.print()\"]"},
+   "In My Own Words is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests the next question to ask, so each visit with your family brings a story worth keeping.",
    {"t": "Try it below. Ask someone you love one question tonight.", "js": "try{ CUR=null; goHome(); window.scrollTo(0,0); }catch(e){}"}],
   name:'In My Own Words', em:'📖', sub:'your life, in a book', cat:'later', price:'Free', testing:true,
   tag:'Their voice, in a book — life stories, photos, and The Key. Print the book at home or save it as a PDF; a bound copy you can order is coming.',
@@ -1540,6 +1581,7 @@ const APPS = {
    {"t": "Five more lessons follow: Spot the fake, where you practice telling scam messages from real ones. Then Ask it better, Trust but check, Let it write with you, and A I in your pocket.", "point": "#fakeBox", "js": "try{ if(!window.__acSave){ window.__acSave=save; save=function(){}; } try{ voiceOn=false; }catch(e){} if(window.speechSynthesis) speechSynthesis.cancel(); lesson=2; go(3); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Finish all six and you get a diploma with your name on it, ready to print. Send a picture to the grandkids. Frame it.", "point": ".lcard.grad", "js": "try{ if(!window.__acSave){ window.__acSave=save; save=function(){}; } try{ voiceOn=false; }catch(e){} if(window.speechSynthesis) speechSynthesis.cancel(); home(); window.scrollTo(0,0); }catch(e){}"},
    "The whole course is free, all six lessons, and it's a beautiful gift for a parent or grandparent.",
+   "Daraja Academy is AI-powered too: when you are ready, tap the sparkle button in the corner and ask a real AI your own question, so you learn by doing, a little each day.",
    "Try lesson one below. It only takes ten minutes to feel ten years younger."],
   name:'Daraja Academy', em:'🎓', sub:'six lessons · AI for Grandparents', cat:'later', price:'Lesson 1 free · course $19', testing:true,
   tag:'AI for Grandparents — learn to use AI, the patient way. Why not just open ChatGPT? Because nobody shows you how. This does: big print, one step at a time, out loud.',
@@ -1571,6 +1613,7 @@ const APPS = {
     "When life changes, open it again, change a line, and print a fresh copy. The new date shows which page is the latest.",
     "Everything stays on this device. There is no account, and nothing is sent anywhere.",
     "The Key is free, forever.",
+    "The Key is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests what you may have forgotten to write down, so your family will have everything they need.",
     {"t": "The round question mark button in the corner has the tour, help and settings, any time.", "js": "try{window.scrollTo({top:0,behavior:'smooth'})}catch(e){}", "point": "#djDockToggle"}]} },
   train:[
    {"t": "Filling out The Key takes about five minutes. It is one page, in five sections. Tap a section's title to open it.", "js": "try{window.scrollTo({top:0,behavior:'smooth'})}catch(e){}", "point": "#card_f1 summary"},
@@ -1580,6 +1623,7 @@ const APPS = {
    {"t": "Section four: the people who know things. The lawyer, the accountant, the grandson who does computers. Add a name and a phone number.", "js": "try{var c=document.getElementById('card_f4');if(c){c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}}catch(e){}", "point": "#ksAdd_f4"},
    {"t": "Section five: anything else they should know. A wish, an instruction, a kindness, in your own words. Every box saves as you type.", "js": "try{var c=document.getElementById('card_f5');if(c){c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}}catch(e){}", "point": "#f5"},
    {"t": "Then tap Print my Key, and print two: one for the drawer, one for the person you trust most. The date prints on the page, so update it when life changes.", "js": "try{var e=document.querySelector('.btn.wide');if(e)e.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}", "point": ".btn.wide"},
+   "The Key is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests what you may have forgotten to write down, so your family will have everything they need.",
    {"t": "You'll know it's done when the printed page is in the drawer and the person you trust has their copy. That's the whole job.", "js": "try{window.scrollTo({top:0,behavior:'smooth'})}catch(e){}", "point": "#djKeyMeter"}],
   lines:[
    {"t": "This is The Key — free, forever. The most loving page you'll ever print.", "js": "try{window.scrollTo({top:0,behavior:'smooth'})}catch(e){}", "point": "#top"},
@@ -1591,6 +1635,7 @@ const APPS = {
    {"t": "Never the passwords themselves — just where they're kept. And nothing is sent anywhere; it stays on your device.", "js": "try{var e=document.querySelector('.safety');if(e)e.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}", "point": ".safety"},
    {"t": "When life changes, change a line and print a fresh copy. The date on the page shows which one is newest."},
    {"t": "When the day comes, your family won't have to be detectives. They'll have The Key.", "js": "try{window.scrollTo({top:0,behavior:'smooth'})}catch(e){}", "point": "#djKeyMeter"},
+   "The Key is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests what you may have forgotten to write down, so your family will have everything they need.",
    "It's free. Fill yours out tonight — and send this to your parents while you're at it."],
   name:'The Key', em:'🔑', sub:'where everything is', cat:'home', price:'Free forever', testing:false,
   try:BASE+'thekey/', video:true,
@@ -1607,6 +1652,7 @@ const APPS = {
    {t:"Step two: mark what goes in EVERY box — soap, toothbrush, washcloth — with the 'every box' toggle.", point:"#listBox"},
    {t:"Step three: read the dashboard: READY TO BUILD tells you how many complete boxes you can make, and what you're short on.", point:"#canN"},
    {t:"Step four: as you pack, count down. When it says you're short on washcloths — that's your shopping list.", point:"#listFill"},
+   "OCC Box Counter is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your counts and the next thing to do, so your ministry packs more boxes with less guessing.",
    {t:"You'll know it's working when the dashboard says READY TO BUILD and a number. That number is the whole answer.", point:"#canN"}],
   lines:[
    {t:"This is the Box Counter — free, for shoebox-packing teams.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#canN"},
@@ -1614,6 +1660,7 @@ const APPS = {
    {t:"How it works: count your items with big plus and minus buttons. Mark what goes in every box.", point:"#listBox"},
    {t:"The dashboard answers the only question that matters: 'READY TO BUILD: this many boxes' — and exactly what you're short on.", point:"#canN"},
    {t:"Made for shoebox packing parties, church tables, and garage inventories.", point:"#listFill"},
+   "OCC Box Counter is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains your counts and the next thing to do, so your ministry packs more boxes with less guessing.",
    {t:"It's free. Try it below — your next packing day will thank you.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#canN"}]},
  zuri: {
   name:'Zuri Ops', em:'📡', sub:'run the field team', cat:'off', off:'private — the tool for running the ISP in Maai Mahiu, not for sale', price:'Ask us', testing:false,
@@ -1624,6 +1671,7 @@ const APPS = {
    {t:"Morning: open the app, confirm your float — the cash you're starting with.", js:"try{go('today');}catch(e){}", point:"#kBank"},
    {t:"During the day: log each expense and payment as it happens. It works with no signal; everything waits.", js:"try{go('bills');}catch(e){}"},
    {t:"It learns your habits and warns you before the float runs out.", js:"try{go('today');}catch(e){}", point:"#alerts"},
+   "Zuri Ops is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so your field team gets more done at work.",
    {t:"Friday: the Friday Report builds itself — and when the phone finds internet, everything syncs to the HQ dashboard on its own.", js:"try{go('report');}catch(e){}"}],
   lines:[
    {t:"This is Zuri Ops — built for a real internet company in Maai Mahiu, Kenya.", js:"try{go('today');}catch(e){}"},
@@ -1631,6 +1679,7 @@ const APPS = {
    {t:"It learns your habits, forecasts when the float runs out, and syncs to a headquarters dashboard whenever it finds internet.", js:"try{go('report');}catch(e){}"},
    {t:"Built for teams that work where the signal doesn't — everything works offline first.", js:"try{go('bills');}catch(e){}"},
    "If you run a small field team anywhere in the world, this pattern fits you too. Ask us.",
+   "Zuri Ops is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so your field team gets more done at work.",
    {t:"Try the demo below and see a day in the field.", js:"try{go('today');}catch(e){}"}]},
  compass: {
   extra:{ firsttime:{title:"Explain it to me", sub:"About four minutes, for a first-timer: what it is for, who it helps, and every main screen. Sound on.", lines:[
@@ -1663,6 +1712,7 @@ const APPS = {
     {"t": "The printer button at the top prints the screen you are on, handy for your five-year picture or your path.", "point": "header button", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
     {"t": "Everything saves on this phone as you go. There is no account, and nothing is sent anywhere.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
     {"t": "Daraja Compass is free.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+    "Daraja Compass is AI-powered too: only if you ask, the sparkle button in the corner lets an AI explain the screen and your next step in plain words, so your plan fits your real day.",
     {"t": "And the question mark button in the corner has the tour and help any time you need them.", "point": "#djDockToggle", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}]} },
   train:[
    {"t": "Using Daraja Compass. Give it a quiet ten minutes.", "point": "#main .go", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='hello'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
@@ -1674,6 +1724,7 @@ const APPS = {
    {"t": "Step five: on each line of your path, write what has to be true by then. The last line, This month, is one small step with a date.", "point": "#main .card", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='goals'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Step six: tap Save my path, my Compass. Your Compass home shows Goals met, and your steps for this month.", "point": "#main .card .big", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djTip,#djStart{display:none!important}'; document.head.appendChild(s); } if(!window.__cv) window.__cv={v:db.view,qi:db.qi}; }catch(e){} try{ db.view='home'; render(); setTimeout(function(){ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); },150); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Step seven: when you do a step, tap its box. It turns green and adds a star. Every twenty-eight days, do the monthly check-in.", "point": "#main .card:nth-of-type(2)", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   "Daraja Compass is AI-powered too: only if you ask, the sparkle button in the corner lets an AI explain the screen and your next step in plain words, so your plan fits your real day.",
    {"t": "You will know it worked when you can say out loud the one thing you are doing this month. Come back in a season and see what moved.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
   lines:[
    {"t": "This is Daraja Compass. It is free, and it is for a young person starting out, or anyone starting again.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
@@ -1687,6 +1738,7 @@ const APPS = {
    {"t": "There is money math too: what your picture needs each month. And the printer button prints your picture or your path, to keep on the wall.", "point": "header button", js:"try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
    {"t": "A Bible verse at the start keeps it grounded.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
    {"t": "It takes about ten minutes. Everything stays on your phone. No account, and nothing is sent anywhere.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){}"},
+   "Daraja Compass is AI-powered too: only if you ask, the sparkle button in the corner lets an AI explain the screen and your next step in plain words, so your plan fits your real day.",
    {"t": "It is free. Give it a quiet ten minutes, and see your next five years on one page.", "js": "try{if(typeof place==='function'&&!place())setPlace('ke');}catch(e){} try{ if(window.__cv){ db.view=window.__cv.v; db.qi=window.__cv.qi; render(); window.scrollTo(0,0); } }catch(e){}"}],
   name:'Daraja Compass', em:'🗺️', sub:'your next five years, on one page', fresh:true, cat:'free', also:['kenya'],  price:'Free', testing:true,
   tag:'For a young person starting out: plain questions about school, work, family and money, and your next five years on one page. Written with Kenyan students in mind.',
@@ -1811,6 +1863,7 @@ const APPS = {
    {"t": "Step five: the mailbox. Open Mailbox in Setup and follow its five short steps, or the mailbox setup page that walks you through them. Paste the link and tap Connect. That one link is what you text the group. Their phones connect on their own.", "js": "try{ go('setup'); }catch(e){}"},
    {"t": "Step six: race weekend. On Home, each player taps two drivers before the deadline, or plays a wild card. Anyone late gets auto-drafted. Results arrive by themselves after the race.", "js": "try{go('home')}catch(e){}", "point": "nav.tabs button[data-tab='home']"},
    {"t": "Step seven: if something needs fixing, the commissioner can enter picks for anyone from Home, add a missed weekend under Backfill picks in Setup, or adjust a score from that race's breakdown in Standings. Every change shows its work.", "point": "nav.tabs button[data-tab='standings']", "js": "try{ go('standings'); }catch(e){}"},
+   "Pit Wall is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI looks at the drives you have left and suggests who to pick, so race weekend takes less homework.",
    "You'll know it's set up right when Home shows the next race, your drivers, and the deadline, and the Standings match the last post your commissioner made by hand."],
   lines:[
    {"t": "This is Pit Wall, for the friend group that has run its own fantasy racing league by group text for years.", "js": "try{ go('home'); }catch(e){}"},
@@ -1826,6 +1879,7 @@ const APPS = {
    {"t": "And it bends to your rules. The commissioner sets the players, drivers, drives, wild cards, deadline and every point value, and can fix picks or points for anyone.", "point": "nav.tabs button[data-tab='setup']", "js": "try{ go('setup'); }catch(e){}"},
    {"t": "Once a year there is a draft room: draw the snake order, and everyone picks a driver in turn until the teams are full. The finished draft becomes the season's rosters.", "point": "#view .card h2", "js": "try{ go('draft'); }catch(e){}"},
    {"t": "No accounts, no ads. One shared mailbox your league owns, and the same link on every phone. This preview is a test drive, so you can act as any of the five players.", "js": "try{ go('home'); }catch(e){}"},
+   "Pit Wall is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI looks at the drives you have left and suggests who to pick, so race weekend takes less homework.",
    "Pit Wall is free for your league. Try it below, and tell us honestly whether your league would use it."],
   name:'Pit Wall', em:'🏁', sub:'your racing league, run for you', cat:'off', off:'personal — Jerry’s own racing league, not for sale', price:'$9 per season you play — nothing renews', testing:true, video:true,
   tag:'Picks, deadlines, scoring and standings for your friends’ fantasy racing league, done the same way every race. The commissioner finally gets to watch. Pay only for the seasons you play; nothing renews by itself.',
@@ -1868,6 +1922,7 @@ const APPS = {
     "Your first few minutes: act as one player, read the weekend card, then tap Start my own league in Setup when ready.",
     "Privacy: no account and no ads. Your league lives on this device until your group connects its own free Google mailbox, so the data stays with your league.",
     "Pit Wall is free. Nothing renews.",
+    "Pit Wall is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI looks at the drives you have left and suggests who to pick, so race weekend takes less homework.",
     {"t": "And the question mark button in the corner has the tour, bigger text and help, any time.", "point": "#djDockToggle", "js": "try{ go('home'); }catch(e){}"}]},
    join:{ title:'You got the link — how to join (2 minutes)', sub:'For the rest of the group: what the text does, and the one thing you have to do. Sound on.',
     lines:[
@@ -1884,6 +1939,7 @@ const APPS = {
      {t:"On race day the Live tab is a running scoreboard: where everyone's drivers are right now, and what the league table would look like if the race stopped this second.", js:"try{go('live')}catch(e){}", point:"nav.tabs button[data-tab='live']"},
      {t:"And the trash talk gets its own room, because it was always the best part.", js:"try{go('paddock')}catch(e){}", point:"nav.tabs button[data-tab='paddock']"},
      {t:"Last thing, and it is worth doing now: add it to your home screen so it opens like a normal app. On an iPhone, tap the share button at the bottom of the browser, scroll down, and tap Add to Home Screen. On Android it is the three dots, then Install or Add to Home screen.", js:"try{go('home')}catch(e){}"},
+     "Pit Wall is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI looks at the drives you have left and suggests who to pick, so race weekend takes less homework.",
      "That is everything. Tap your name, set a PIN, pick two drivers before Friday night. If you want the full rules written out, there is a rulebook link under the video."
     ]},
    draft:{ title:'How the draft works (90 seconds)', sub:'The once-a-year event, start to finish. Sound on.',
@@ -1898,6 +1954,7 @@ const APPS = {
      "If someone is stuck on a golf course, the commissioner can pick for them, and can undo the last pick if a finger slipped.",
      "After the twentieth pick, the draft closes itself and writes everyone's four drivers into the rosters, each with a full allowance of drives.",
      "One tap copies the finished driver list for the group text, like hamilton twelve of twelve, and the season is ready to run.",
+     "Pit Wall is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI looks at the drives you have left and suggests who to pick, so race weekend takes less homework.",
      "That is the whole draft. Fifteen minutes by text used to be an hour. Now it is a board everyone can see."
     ]}
   },
@@ -1932,6 +1989,7 @@ const APPS = {
     "Your first two minutes: open your team on ESPN or Sleeper, copy the link, paste it here, tap Find my league, and tap your team. Done.",
     "Privacy: no account and no sign-up. Your teams are kept on this phone, and scores come straight from ESPN or Sleeper. Kickoff alerts, if you turn them on, go through a small Daraja relay.",
     "My Scores is free.",
+    "My Scores is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so the whole family keeps up without the fuss.",
     {"t": "And the question mark button in the corner has the tour, bigger text and help, any time."}]} },
   train:[
    {"t": "Let's get My Scores loaded. Two minutes, then it's yours for the season.", "point": "#wStep1", "js": "try{ show('wizard'); window.scrollTo(0,0); }catch(e){}"},
@@ -1947,6 +2005,7 @@ const APPS = {
    {"t": "Check available players finds the best free agents for anyone hurt or on a bye, ranked by how widely they're owned.", "point": "#cards .slides > .slide:nth-child(2) .waiverToggle"},
    {"t": "Or type a plain question in the Ask box, like better defense, and it finds real available options.", "point": "#cards .slides > .slide:nth-child(2) .askRow"},
    {"t": "For ESPN teams, kickoff alerts tell your phone when a starter is out and his game is about to start. On iPhone, add My Scores to your Home Screen first.", "point": "#cards .slides > .slide:nth-child(2) .pushBox"},
+   "My Scores is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so the whole family keeps up without the fuss.",
    {"t": "That's the whole thing: one button to update, a swipe to browse, and Assistant Manager for everything else. Enjoy the season.", "point": "#update", "js": "try{ if(!window.__ffEx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__ffEx')>=0){ eval(d.go); return true; } return false; }); } else { __ffEx(); __ffAt(1); window.scrollTo(0,0); }  }catch(e){}"}],
   lines:[
    {"t": "This is My Scores: one screen for every fantasy football team you follow, however many you've got.", "js": "try{ if(!window.__ffEx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__ffEx')>=0){ eval(d.go); return true; } return false; }); } else { __ffEx(); __ffAt(1); window.scrollTo(0,0); }  }catch(e){}"},
@@ -1961,6 +2020,7 @@ const APPS = {
    {"t": "You can even type a plain question, like 'suggest a defensive replacement', and it goes and finds one.", "point": "#cards .slides > .slide:nth-child(2) .askRow"},
    {"t": "Run the league? League manager tools keep track of who has paid, everyone's phone and email, one-tap group messages, and a weekly recap.", "point": "#mgrBtn", "js": "try{ if(!window.__ffEx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__ffEx')>=0){ eval(d.go); return true; } return false; }); } else { __ffEx(); __ffAt(1); window.scrollTo(0,0); }  }catch(e){}"},
    {"t": "And when you just want the real games, See real NFL scores shows every game this week.", "point": "#nflBtn"},
+   "My Scores is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so the whole family keeps up without the fuss.",
    {"t": "It's free, it's yours, and it works for however many teams your whole family plays. Try it below."}],
   name:'My Scores', em:'🏈', sub:'every team\u2019s score, one button', fresh:true, cat:'off', off:'personal — Jerry’s own fantasy scoreboard, not for sale', price:'Free', testing:false, video:true,
   tag:'Every fantasy football team you follow, yours and your opponent\u2019s, on one screen with one Update button. Works with ESPN and Sleeper.',
@@ -1980,6 +2040,7 @@ const APPS = {
    {t:"You do not need a website. Plenty of churches have none, and this works exactly the same. Church HQ is where your information lives.", js:"try{go('home');}catch(e){}"},
    {t:"It publishes through a free mailbox on your own Google account — a five minute setup, once, that belongs to you. No account with us, and the mailbox stays yours.", js:"try{go('publish');}catch(e){}"},
    {t:"And if the person who set it up ever leaves, the passphrase hands the whole thing to the next person in about a minute.", js:"try{go('publish');}catch(e){}"},
+   "Church HQ is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so your ministry spends less time on the phone.",
    {t:"It is free, for the church that would rather not phone anybody. Try it below.", js:"try{go('home');}catch(e){}"}]},
  /* ── CHURCH & NONPROFIT SHELF (renders as its own shelf on the store, and on the dedicated church page) ── */
  church: {
@@ -2081,6 +2142,7 @@ const APPS = {
     "Privacy: everything stays on this phone. There is no account, and nothing is sent unless you send the message yourself.",
     "Serve Board is free. A donation is optional.",
    "New in November: once somebody is in, there is a WhatsApp button beside the text one — and it is there even for a person with no phone number saved, because no number goes into the link.",
+    "Serve Board is AI-powered: when you want help, tap the sparkle button in the corner, and an AI suggests a fair rotation for the next four Sundays, so your ministry shares the load.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "This is the training for Serve Board: how to set it up and fill your first month.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "header"},
@@ -2096,6 +2158,7 @@ const APPS = {
    {"t": "Step six: tap Add a Sunday for more weeks. Sundays that have passed fold away by themselves.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "button[onclick=\"addWeek()\"]"},
    {"t": "Step seven: tap Print for a clean paper copy for the bulletin board, without the buttons.", "point": "button[onclick=\"window.print()\"]"},
    {"t": "Start fresh clears every name off the board, after asking first. Your people and jobs are kept.", "point": "button[onclick=\"resetAll()\"]"},
+   "Serve Board is AI-powered: when you want help, tap the sparkle button in the corner, and an AI suggests a fair rotation for the next four Sundays, so your ministry shares the load.",
    {"t": "And the question mark button has help, a backup copy, and the tour, any time.", "point": "#djDockToggle"}],
   lines:[
    {"t": "This is Serve Board, the end of the Sunday-morning scramble.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "header"},
@@ -2109,6 +2172,7 @@ const APPS = {
    {"t": "And when it is set, print it for the bulletin board, because some of your best volunteers do not do phones, and that is fine.", "js": "try{ var o=document.getElementById('svOv'); if(o) o.remove(); window.scrollTo(0,0); }catch(e){}", "point": "button[onclick=\"window.print()\"]"},
    "It lives on your phone, and keeps working without a signal. No account, nothing for your volunteers to sign up for, and no ads.",
    "New in November: the is-in box offers WhatsApp as well as a text message, so you can send somebody their Sunday in the chat they already use.",
+   "Serve Board is AI-powered: when you want help, tap the sparkle button in the corner, and an AI suggests a fair rotation for the next four Sundays, so your ministry shares the load.",
    "It is free, for every ministry team you have. Get it below."],
   name:'Serve Board', em:'🙋', sub:'volunteers on one page', cat:'church', also:['work'],  price:'$19 one-time', testing:true, video:true,
   tag:'The month of volunteers on one page. No ads to your volunteers.',
@@ -2141,6 +2205,7 @@ const APPS = {
     "Privacy: your counts stay on this phone. There is no account, and nothing is sent anywhere unless you send the message yourself.",
     "The Shoebox Counter is free. A donation is optional.",
    "New in November: the still-needed message can go out on WhatsApp as well as by text or email — and WhatsApp is the only one of the three that reaches the whole church group at once.",
+    "Shoebox Counter is AI-powered: when you want help, tap the sparkle button in the corner, and an AI looks at what you are short of and suggests what to buy first, so your ministry stretches every dollar.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "This is the training for the Shoebox Counter: how to set up a drive and count what comes in.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
@@ -2155,6 +2220,7 @@ const APPS = {
    {"t": "Step seven: before Sunday, tap Send the group what we still need. The message is written for you. Change any words, then tap Text it, Email it, or Copy.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ window.scrollTo(0,0); }catch(e){}", "point": "#occShareBtn"},
    {"t": "Tap What is not allowed any more to check the banned list before you ask. Soap and toothpaste are on it now.", "point": ".occNo"},
    {"t": "Next year, tap start a new drive at the bottom. Every count goes back to zero, and your item list stays.", "point": ".foot button"},
+   "Shoebox Counter is AI-powered: when you want help, tap the sparkle button in the corner, and an AI looks at what you are short of and suggests what to buy first, so your ministry stretches every dollar.",
    {"t": "And the question mark button has help, a backup copy, and the tour, any time.", "point": "#djDockToggle"}],
   lines:[
    {"t": "This is the Shoebox Counter, built for shoebox season, and just as good for a food drive or a coat drive.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ qaClose(); }catch(e){} try{ if(document.getElementById('sheet').classList.contains('show')) closeSheet(); }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); window.scrollTo(0,0); }catch(e){}", "point": "header h1"},
@@ -2169,6 +2235,7 @@ const APPS = {
    {"t": "It even adds up the shipping donation for your goal, and counts the days to drop-off week.", "js": "try{ if(!document.getElementById('vidNoTip')){ var st=document.createElement('style'); st.id='vidNoTip'; st.textContent='#djTip{display:none !important}'; document.head.appendChild(st); } }catch(e){} try{ var p=document.getElementById('occPreview'); if(p) p.classList.remove('show'); }catch(e){}", "point": ".occFactRow"},
    "Your counts stay on this phone. No account, nothing to sign up for, and it keeps working without a signal in the church basement.",
    "New in November: the row under the message reads Text it, WhatsApp, Email it, Copy. Tap WhatsApp and pick the group.",
+   "Shoebox Counter is AI-powered: when you want help, tap the sparkle button in the corner, and an AI looks at what you are short of and suggests what to buy first, so your ministry stretches every dollar.",
    "It is free, for every drive you will ever run. Get it below."],
   name:'Shoebox Counter', em:'📦', sub:'how many full boxes can we pack?', cat:'church', showName:'Shoebox Counter', price:'$19 one-time', testing:true, video:true,
   tag:'Count what’s been donated and it tells you how many complete boxes or kits you can make right now, and what to ask for on Sunday. Works for food and coat drives too.',
@@ -2252,6 +2319,7 @@ const APPS = {
     "For the league director: you fill in the teams, games, practices, and gym once, in one short block of the app's file. After each game day, you update the wins and losses.",
     "Nothing is collected from families. There are no accounts, no group texts, and no ads to your parents. The schedule still reads without a connection.",
     "GameDay is free, for every season of your league.",
+    "GameDay is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen in plain words, so busy families find answers fast and your ministry fields fewer calls.",
     {"t": "And the round question mark button has text size, the tour, and help, any time.", "point": "#djDockToggle"}]} },
   train:[
    "Here is how families and the league director use GameDay, one step at a time.",
@@ -2263,6 +2331,7 @@ const APPS = {
    {"t": "Step six: the gym card has the address, which door to use, and what to bring.", "point": "#main h2:nth-of-type(4) + .card"},
    {"t": "Need bigger words? Tap the round question mark button, then Text size.", "point": "#djDockToggle"},
    "For the league director: fill in the teams, games, practices, and gym once, in one short block of the app's file. After each game day, update the wins and losses.",
+   "GameDay is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen in plain words, so busy families find answers fast and your ministry fields fewer calls.",
    "To cancel games, type one line in the alert spot of that block. Once the page is updated, the red banner appears for every family who opens it. Clear the line, and the banner is gone."],
   lines:[
    "This is GameDay, for the church basketball league, and every gym ministry like it.",
@@ -2276,6 +2345,7 @@ const APPS = {
    "Open it before you drive. If there is no red banner, you are playing. That one banner replaces the whole phone tree, forty calls nobody has to make.",
    "The league director sets it up once at the start of the season, and updates the scores after each game day.",
    {"t": "Families never sign up and never type anything. No accounts, no group texts, and no ads to your parents.", "js": "try{ var b=document.getElementById('banner'); if(b && b.getAttribute('data-djx')){ b.textContent=''; b.classList.remove('show'); b.removeAttribute('data-djx'); } }catch(e){}"},
+   "GameDay is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen in plain words, so busy families find answers fast and your ministry fields fewer calls.",
    "It is free, for every season. Get it below."],
   name:'GameDay', em:'🏀', sub:'the league, organized', cat:'church', price:'$29 one-time', video:true,
   tag:'The league schedule that replaces the 40-family phone tree. No ads to your parents.',
@@ -2306,6 +2376,7 @@ const APPS = {
     "When you change something, like a new plumber or a new alarm company, open the app, fix the line, and print it again.",
     "Privacy: everything stays only on this phone. There is no account, and nothing is sent to anyone.",
     "The Key, church edition is free. A donation is optional.",
+    "The Key is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests what churches often forget to write down, without ever seeing your notes, so your ministry never hangs on one memory.",
     {"t": "And the question mark button in the corner has the tour and help, any time you need them.", "point": "#djDockToggle"}]} },
   train:[
    {"t": "This is the training for The Key, church edition: how to fill it in, print it, and keep it current.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "#top"},
@@ -2319,6 +2390,7 @@ const APPS = {
    {"t": "Step eight: watch the bar at the top. It counts the sections you have started, and a gold started mark appears beside each one. There is no Save button. It saves as you type.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "#djKeyMeter"},
    {"t": "Step nine: tap Print my Key. Your phone's print screen opens. Pick a printer, or save it as a PDF. Print two copies.", "point": "button[onclick=\"printKey()\"]"},
    {"t": "Start over empties all five boxes, after asking first. Only tap it if you really mean it.", "point": "button[onclick=\"clearAll()\"]"},
+   "The Key is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests what churches often forget to write down, without ever seeing your notes, so your ministry never hangs on one memory.",
    {"t": "Step ten: once a year, open the app, change what has changed, and print it again. The question mark button has help, a backup copy, and the tour, any time.", "point": "#djDockToggle"}],
   lines:[
    {"t": "This is The Key, church edition: the page you hope you never need, and one day really will.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "#top"},
@@ -2332,6 +2404,7 @@ const APPS = {
    {"t": "There is no Save button. Every word saves on this phone as you type, and this bar fills up as you go.", "js": "try{ window.scrollTo(0,0); }catch(e){}", "point": "#djKeyMeter"},
    {"t": "Then tap Print my Key. One clean page with today's date. Print two: one for the office cabinet, and one for the person you trust most.", "point": "button[onclick=\"printKey()\"]"},
    {"t": "It lives only on your own phone. Nothing is sent anywhere, there is no account to make, and it keeps working without a signal.", "point": ".safety"},
+   "The Key is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI suggests what churches often forget to write down, without ever seeing your notes, so your ministry never hangs on one memory.",
    "It is free, and the building stops depending on any one memory. Get it below."],
   name:'The Key · Church Edition', em:'🔑', sub:'the building’s memory, on paper', cat:'church', price:'$19 one-time', video:true,
   tag:'The water shutoff, the alarm, who has keys, which plumber knows the pipes, all on one printed page, so the next trustee isn’t starting from zero.',
@@ -2364,6 +2437,7 @@ const APPS = {
     "No account is needed, and donor names stay on your own device. It works without a connection, too.",
     "One honest note, printed right in the app: this is not tax advice. When in doubt, ask your accountant.",
     "Receipt Maker is free. A donation is optional.",
+    "Receipt Maker is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI writes a warm thank-you note for the gift on screen, so your ministry thanks every giver well.",
     {"t": "And the round question mark button has the tour and help, any time.", "point": "#djDockToggle"}]} },
   train:[
    "Here is how to set up Receipt Maker and make your first letters. Everything happens on one page, from top to bottom.",
@@ -2375,6 +2449,7 @@ const APPS = {
    {"t": "Step four: check the two tick boxes. Leave No goods or services ticked unless donors got something back, like a dinner. Tick We are a church if you are one.", "point": "#noGoods", "js": "try{ if(document.getElementById('pasteWrap').style.display!=='none') togglePaste(); }catch(e){}"},
    {"t": "Step five: tap Make the letters. You get one letter for each gift, and a note naming any row it skipped, and why.", "point": "button[onclick=\"makeLetters()\"]"},
    "Step six: tap any letter to add a personal line. Then tap Print them all, and each letter prints on its own page, ready to sign.",
+   "Receipt Maker is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI writes a warm thank-you note for the gift on screen, so your ministry thanks every giver well.",
    {"t": "Your organization and gift rows stay saved on this device, and the letters are made fresh with one tap. To clear everything, use Start fresh at the very bottom.", "point": "footer"}],
   name:'Receipt Maker', em:'💌', sub:'donor letters, done', cat:'church', also:['work'],  price:'$19 one-time', testing:true, video:true,
   tag:'January\'s donor letters in ten minutes',
@@ -2384,6 +2459,7 @@ const APPS = {
    {t:"Donors need proper acknowledgment letters, with the exact IRS language, or their deduction is at risk — and your credibility with it.", point:"#noGoods"},
    {t:"Paste your donor list. Receipt Maker builds a proper letter for each one — right language, right layout, one page each.", point:"#pasteBtn"},
    {t:"Print the whole stack, sign, stamp, done. January in ten minutes instead of a lost weekend.", point:"#giftRows"},
+   "Receipt Maker is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI writes a warm thank-you note for the gift on screen, so your ministry thanks every giver well.",
    {t:"It is free. Your treasurer will hug you. Get it below.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#orgName"}]},
  circle: {
   name:'My Circle', em:'👪', sub:'what your AI knows about you', cat:'home', price:'$9', testing:true, fresh:true, video:true,
@@ -2501,6 +2577,7 @@ const APPS = {
     "Your first two minutes: tap Say hello, give it a name, pick a voice, and tell it your name. You can stop there; it keeps everything.",
     {"t": "Privacy: everything you tell Rafiki stays on this phone. No account, no password, and nothing you tell it is sent anywhere. Only the weather uses the internet, and only if you say yes.", "point": "#hello .v", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
     "Rafiki is free. A donation is optional.",
+    "Rafiki is AI-powered: when you want more than a chat, tap the sparkle button in the corner to ask Rafiki something bigger, and a real AI answers like a kind friend, so your day feels less alone.",
     {"t": "And the question mark button in the corner has the tour, bigger text and help, any time.", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('menu'); window.scrollTo(0,0); }catch(e){}"}]} },
   train:[
    {"t": "Here is how to get started with Rafiki. It takes about five minutes, and you can stop whenever you like.", "point": "#hello button[onclick=\"begin()\"]", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
@@ -2515,6 +2592,7 @@ const APPS = {
    {"t": "Tap Read me my list to hear what is waiting. Each thing has a done button. Tap it when you have finished.", "point": "#rfxList", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('list'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "To add something, tap Put something on my list, or just say it in your own words, like remind me to call Aaron on Sunday.", "point": "#rfxGot", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('remember'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Along the top: voice changes the voice, the speaker turns talking off and on, Aa makes the words bigger, and the brush starts over. It always asks first.", "point": "header .pills", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('menu'); window.scrollTo(0,0); }catch(e){}"},
+   "Rafiki is AI-powered: when you want more than a chat, tap the sparkle button in the corner to ask Rafiki something bigger, and a real AI answers like a kind friend, so your day feels less alone.",
    {"t": "You will know it is working when you come back tomorrow and it greets you by name. The question mark button has the tour and help any time.", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('menu'); window.scrollTo(0,0); }catch(e){}"}],
   lines:[
    {"t": "This is Rafiki, and it is not a to-do list. It is company.", "point": "#hello button[onclick=\"begin()\"]", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
@@ -2527,6 +2605,7 @@ const APPS = {
    {"t": "Ask for a joke and you get a good clean one. Tell it you feel low, and it stays with you, and offers a real person to talk to.", "point": "#rfxJoke", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('joke'); window.scrollTo(0,0); }catch(e){}"},
    {"t": "Everything you tell it stays on your own phone. No account, nothing you tell it sent anywhere, nobody reading it. That is not a footnote. For a lot of people it is the whole reason they will answer honestly.", "point": "#hello .v", "js": "try{ if(!window.__rfx){ (window.DJ_TOUR&&DJ_TOUR.demo||[]).some(function(d){ if(d.go && d.go.indexOf('window.__rfx = function')===0){ eval(d.go); return true; } return false; }); } window.__rfx && __rfx('hello'); window.scrollTo(0,0); }catch(e){}"},
    "It is free, which is rather less than one afternoon of company usually costs.",
+   "Rafiki is AI-powered: when you want more than a chat, tap the sparkle button in the corner to ask Rafiki something bigger, and a real AI answers like a kind friend, so your day feels less alone.",
    "If you know somebody who lives alone, this is the one to show them. Try it below."],
   name:'Rafiki', em:'💛', sub:'a friend who knows your family', cat:'later', price:'$19 one-time', testing:true, fresh:true, video:true,
   tag:'For anybody who lives alone — a friend that learns your family, remembers what you tell it, and speaks first. Why not just ChatGPT? Rafiki says good morning by name, and nothing you tell it leaves your phone.',
@@ -2623,6 +2702,7 @@ const APPS = {
     {"t": "Money out: rent, KPLC tokens, transport. Paste the M-Pesa message and it fills in by itself.", "js": "try{closeSheet();}catch(e){} try{go('money','out');window.scrollTo(0,0);}catch(e){}", "point": "#oMsg"},
     {"t": "Bills: rent, wages and internet each month. Paying a bill also records it as money out.", "js": "try{closeSheet();}catch(e){} try{go('money','bills');window.scrollTo(0,0);}catch(e){}", "point": "#billList"},
     {"t": "The report writes itself: sales, profit, money out, the cash count, deni, low stock and offers. Copy it to WhatsApp.", "js": "try{closeSheet();}catch(e){} try{go('money','report');window.scrollTo(0,0);}catch(e){}", "point": "#repText"},
+    "Duka is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so less time goes on the books and more on your work.",
     {"t": "That is Duka: sell, keep stock, count the cash, remember who owes, and bring customers back. Asante for watching.", "js": "try{closeSheet();}catch(e){} try{go('today');window.scrollTo(0,0);}catch(e){}"}
   ]} },
   name:'Duka', em:'📱', sub:'run a phone & electronics shop from your phone', fresh:true, cat:'work', also:['kenya'], price:'', testing:true,
@@ -2641,6 +2721,7 @@ const APPS = {
     {"t": "Offers: write one message, and send it to the right customers, with their name in it. Only people who said yes get offers.", "js": "try{closeSheet();}catch(e){} try{go('offers');window.scrollTo(0,0);}catch(e){}", "point": "#offerNew"},
     {"t": "Every evening, count the cash. Duka tells you if the drawer is short.", "js": "try{closeSheet();}catch(e){} try{go('money','cash');window.scrollTo(0,0);}catch(e){}", "point": "#countCard"},
     {"t": "Money out, bills and the M-Pesa paste keep every shilling recorded.", "js": "try{closeSheet();}catch(e){} try{go('money','out');window.scrollTo(0,0);}catch(e){}", "point": "#oMsg"},
+    "Duka is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so less time goes on the books and more on your work.",
     {"t": "And the weekly report writes itself. Copy it to WhatsApp. That's Duka.", "js": "try{closeSheet();}catch(e){} try{go('money','report');window.scrollTo(0,0);}catch(e){}", "point": "#repText"}
   ],
   train:[
@@ -2665,6 +2746,7 @@ const APPS = {
     {"t": "Every evening: Money, Cash, count the cash. If it is short, check today's sales and money out.", "js": "try{closeSheet();}catch(e){} try{go('money','cash');window.scrollTo(0,0);}catch(e){}", "point": "#cSaveBtn"},
     {"t": "Every Friday: Money, Report, Copy for WhatsApp.", "js": "try{closeSheet();}catch(e){} try{go('money','report');window.scrollTo(0,0);}catch(e){}", "point": "#repCopy"},
     {"t": "Once a week: Money, Settings, Download backup, and send it to yourself. Everything lives on this phone.", "js": "try{closeSheet();}catch(e){} try{go('money','settings');window.scrollTo(0,0);}catch(e){}", "point": "#bkDown"},
+    "Duka is AI-powered too: when you want help, tap the sparkle button in the corner, and an AI explains the screen and the next thing to do, so less time goes on the books and more on your work.",
     {"t": "That is the whole routine. Karibu to Duka.", "js": "try{closeSheet();}catch(e){} try{go('today');window.scrollTo(0,0);}catch(e){}"}
   ]
  },
