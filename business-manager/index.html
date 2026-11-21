@@ -2563,7 +2563,8 @@
   .big{ font-size:30px; font-weight:850; letter-spacing:-.01em; line-height:1.1; }
   .brief p{ margin:0 0 6px; font-size:16.5px; line-height:1.45; } .brief .chip{ min-height:36px; padding:4px 12px; }
   .talkbtn{ min-height:60px; font-size:18px; margin-bottom:10px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
-  .daytexts{ margin:0 0 10px; } .daytexts .btn{ flex:1 1 30%; padding:8px 6px; font-size:15px; }
+  .daytexts{ margin:0 0 10px; }
+  .alerts{ background:#FFF6E5; border-color:#E8C987; } .alerts .alert1{ border-top:1px solid #EBD9B0; padding-top:8px; margin-top:8px; } .alerts .alert1 p{ margin:0 0 6px; font-size:16px; line-height:1.4; } .alerts .btns .btn{ min-height:42px; } .daytexts .btn{ flex:1 1 30%; padding:8px 6px; font-size:15px; }
   .live{ display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; margin:0 -2px 10px; padding:0 2px 4px; scrollbar-width:none; } .live::-webkit-scrollbar{ display:none; }
   .live .live1{ flex:0 0 88%; scroll-snap-align:start; text-align:left; margin:0; cursor:pointer; font:inherit; color:inherit; }
   .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px; }
@@ -2703,7 +2704,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.9.8 · 2026-11-20';
+var VER = 'v2.0 · 2026-11-20';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -2931,6 +2932,7 @@ VIEWS.home = function(){
     h.push('<div class="clockbar"><div class="grow"><b>⏱ On the clock</b><div class="small">' + esc(cj ? cj.title : '') + (cw ? ' · ' + esc(cw.name) : '') + ' · since ' + new Date(S.clock.start).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + '</div></div><button class="btn sm" onclick="BM.clockOut()">Clock out</button></div>'); }
   h.push(briefCard());
   h.push(textRow());
+  h.push(alertsCard());
   h.push(talkButton());
   h.push(liveCards());
   if(F('schedule')){
@@ -3071,6 +3073,36 @@ function briefRead(){
     speechSynthesis.speak(u); }catch(e){ toast('This phone can’t read aloud here. The words are all on the card.'); }
 }
 /* the three one-tap texts */
+/* ── ⚠️ Worth knowing: the truck-cab day, part 3 (v2.0 · 20 Nov 2026) ─────────────────────────────────────
+   Jerry: "Build part three now." Alerts only when they matter, on Today, at most three at a time: a big bill coming due
+   (the ⚠️ bills in Money → Next 30 / 60 days: the truck loan, insurance), a tax date from the to-dos, work done but not
+   billed, an estimate going cold, and an open slot in the week while estimates wait. Each has one button that does the
+   thing, and "Got it" puts that alert away until something about it changes (a new due date, a new follow-up).
+   Everything is worked out on this phone from what the book already holds; nothing is sent anywhere. */
+function alertsList(){
+  var t = today(), out = [];
+  if(F('expenses')){ aheadState(); S.repeats.forEach(function(r){ if(!repWarn(r) || !num(r.amount)) return;
+    var win = repEvery(r) === 1 ? 7 : 14, d = repeatDates(r, t, addDays(t, win))[0]; if(!d) return; var n = daysBetween(t, d);
+    out.push({ key:'bill:' + r.id + ':' + d, k:n, em:'💳', t:(r.name || 'A bill') + ' ' + money0(r.amount) + ' is due ' + (n === 0 ? 'today' : n === 1 ? 'tomorrow' : fd(d) + ' (in ' + n + ' days)') + '.', b:'See bills', go:"BM.go('ahead')" }); }); }
+  if(F('todos')) soonTodos(14).forEach(function(td){ if(td.cat !== 'tax') return; var d = effDue(td), n = daysBetween(t, d);
+    out.push({ key:'tax:' + td.id + ':' + d, k:n, em:'🏛️', t:td.text + (n < 0 ? ' was due ' + fd(d) + '.' : ' is due ' + (n === 0 ? 'today' : fd(d) + ' (in ' + n + ' days)') + '.'), b:'Open it', go:"BM.go('todo')" }); });
+  S.jobs.forEach(function(j){ var c = cust(j.customerId);
+    if(j.status === 'done' && jobTotal(j) - jobBilled(j) > 0.004 && (!j.date || j.date < t)){ var dd = j.date ? daysBetween(j.date, t) : 0;
+      out.push({ key:'unbilled:' + j.id + ':' + r2(jobBilled(j)), k:20, em:'💵', t:'Bill ' + c.name + '? ' + money0(jobTotal(j) - jobBilled(j)) + ' not billed' + (dd ? ', done ' + dd + ' day' + (dd > 1 ? 's' : '') + ' ago' : ' yet') + '.', b:'Bill it', go:"BM.go('job/" + j.id + "')" }); }
+    if(F('estimates') && j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) >= 7){ var w = daysBetween(j.estSent, t);
+      out.push({ key:'cold:' + j.id + ':' + j.estSent, k:30, em:'🧊', t:c.name + '’s estimate (' + money0(jobTotal(j)) + ') has waited ' + w + ' days without a yes.', b:'Follow up', go:"BM.followUp('" + j.id + "')" }); }
+  });
+  if(F('schedule')){ var g = nextGap(), we = waitingEstimates(); if(g && we.length) out.push({ key:'gap:' + t + ':' + g, k:40, em:'📅', t:g + '. ' + we.length + ' estimate' + (we.length > 1 ? 's are' : ' is') + ' waiting on a reply.', b:'Nudge them', go:"BM.go('jobs/estimate')" }); }
+  var seen = S.alertsSeen || {};
+  return out.filter(function(a){ return !seen[a.key]; }).sort(function(a, b){ return a.k - b.k; });
+}
+function alertsCard(){
+  var a = alertsList(); if(!a.length) return '';
+  return '<div class="card alerts" id="tdAlerts"><b>⚠️ Worth knowing</b>' + a.slice(0, 3).map(function(x){
+    return '<div class="alert1"><p>' + x.em + ' ' + esc(x.t) + '</p><div class="btns"><button class="btn sm main" onclick="' + x.go + '">' + esc(x.b) + '</button><button class="btn sm" onclick="BM.alertSeen(\'' + esc(x.key) + '\')">Got it</button></div></div>'; }).join('')
+    + (a.length > 3 ? '<p class="small muted" style="margin:6px 0 0">' + (a.length - 3) + ' more after these.</p>' : '') + '</div>';
+}
+function alertSeen(k){ var o = S.alertsSeen = S.alertsSeen || {}, cut = addDays(today(), -90); o[k] = today(); Object.keys(o).forEach(function(x){ if(o[x] < cut) delete o[x]; }); save(); render(); }
 function textRow(){
   if(!F('schedule')) return '';
   return '<div class="btns daytexts" id="tdTexts"><button class="btn" onclick="BM.dayText(\'late\')">⏱ Running late</button><button class="btn" onclick="BM.dayText(\'onway\')">🚚 On my way</button><button class="btn" onclick="BM.dayText(\'done\')">✅ Done, bill it</button></div>';
@@ -3129,10 +3161,7 @@ function dtGo(){ var o = BM._dt, j = job(o.jid), c = cust(j.customerId);
   compose({ c:c, jobId:j.id, kind:o.kind, label:o.kind === 'late' ? 'Running late' : 'On my way', redo:{ f:'dayText', a:[o.kind] }, text:dayTextWords(o.kind, j, o.min),
     onSent:function(){ if(o.kind === 'onway' && (j.status === 'scheduled' || j.status === 'approved')) j.status = 'working'; } }); }
 /* the live business view: four cards side by side, one swipe apart */
-function billsDue(from, to){ aheadState(); var n = 0;
-  S.repeats.forEach(function(r){ var a = num(r.amount); if(!a) return; var d = parseD(from), end = parseD(to), day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
-    for(var y = d.getFullYear(), m = d.getMonth(); new Date(y, m, 1) <= end; m++){ var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last)); if(when >= d && when <= end) n += a; } });
-  return r2(n); }
+function billsDue(from, to){ aheadState(); var n = 0; S.repeats.forEach(function(r){ var a = num(r.amount); if(a) n += a * repeatDates(r, from, to).length; }); return r2(n); }
 function liveCards(){
   var t = today(), d = parseD(t), y = d.getFullYear(), mo = d.getMonth(), wd = (d.getDay() + 6) % 7, wk0 = addDays(t, -wd);
   var ow = owed(), owT = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0)), od = ow.filter(invOverdue).length;
@@ -4033,14 +4062,25 @@ function delExpense(id){ if(!confirm('Delete this expense?')) return; S.expenses
    Start from "cash in the bank today" (S.ahead.cash) and the two big numbers are what should be there at day 30 and day 60.
    Windows: day 0 is today; "next 30 days" is day 0 to day 29, "days 31 to 60" is day 30 to day 59, so nothing counts twice. */
 function aheadState(){ if(!S.ahead || typeof S.ahead !== 'object') S.ahead = { cash:'' }; if(!Array.isArray(S.repeats)) S.repeats = []; return S.ahead; }
-function repeatDates(r, from, to){   /* every day-of-month date for this cost between from and to (inclusive) */
-  var out = [], d = parseD(from), end = parseD(to), day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
-  for(var y = d.getFullYear(), m = d.getMonth(), g = 0; g < 4; g++, m++){
-    var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last));
-    if(when >= d && when <= end) out.push(ymd(when));
-  }
+/* v2.0 (20 Nov, truck-cab day part 3): a bill can repeat every month (on a day of the month), every 3 months or once
+   a year (from its next due date, r.next). r.warn: show it under ⚠️ Worth knowing on Today before it is due. */
+var BIG = L(500, 20000);
+function repEvery(r){ var e = Math.round(num(r.every)); return e === 3 || e === 12 ? e : 1; }
+function repWarn(r){ return r.warn != null ? !!r.warn : (repEvery(r) > 1 || num(r.amount) >= BIG); }
+function repeatDates(r, from, to){   /* every date this bill falls on between from and to (inclusive) */
+  var out = [], d = parseD(from), end = parseD(to), ev = repEvery(r);
+  if(ev === 1){ var day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
+    for(var y = d.getFullYear(), m = d.getMonth(), g = 0; g < 40 && new Date(y, m, 1) <= end; g++, m++){
+      var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last));
+      if(when >= d && when <= end) out.push(ymd(when)); }
+    return out; }
+  if(!r.next) return out;
+  var a = parseD(r.next), ad = a.getDate();
+  for(var k = 0; k < 80; k++){ var y2 = a.getFullYear(), m2 = a.getMonth() + k * ev, last2 = new Date(y2, m2 + 1, 0).getDate(), w = new Date(y2, m2, Math.min(ad, last2));
+    if(w > end) break; if(w >= d) out.push(ymd(w)); }
   return out;
 }
+function repWhen(r){ var ev = repEvery(r); if(ev === 1) return 'On the ' + ordinal(r.day) + ' of each month'; var nx = repeatDates(r, today(), addDays(today(), 400))[0]; return (ev === 3 ? 'Every 3 months' : 'Once a year') + (nx ? ' · next ' + fd(nx) : ''); }
 function ahead(){
   aheadState();
   var t = today(), d30 = addDays(t, 30), d60 = addDays(t, 60), R = { t:t, d30:d30, d60:d60, inA:[], inB:[], outA:[], outB:[], later:0, laterN:0 };
@@ -4086,10 +4126,10 @@ VIEWS.ahead = function(){
   if(R.lateSum > 0) h.push('<p class="hint" style="margin:-4px 4px 10px">Late invoices (' + money0(R.lateSum) + ') are counted as if they’re paid in the next 30 days. A reminder helps that come true.</p>');
   h.push(block('Days 31 to 60', R.inBSum, R.outBSum, R.inB, R.outB));
   if(R.laterN) h.push('<p class="hint" style="margin:0 4px 10px">Not counted: ' + R.laterN + ' invoice' + (R.laterN > 1 ? 's' : '') + ' (' + money0(R.later) + ') due ' + fd(R.d60) + ' or later.</p>');
-  h.push('<h2>Bills that repeat every month</h2>');
-  h.push(S.repeats.length ? S.repeats.map(function(r){ return '<button class="card tap" onclick="BM.repeatEdit(\'' + r.id + '\')"><div class="row"><div class="grow"><b>🔁 ' + esc(r.name || 'Repeating cost') + '</b><div class="small muted">On the ' + ordinal(r.day) + ' of each month</div></div><b>' + money0(r.amount) + '</b></div></button>'; }).join('')
-    : '<div class="card muted">None yet. Add the ones that come every month — insurance, the ' + L('truck payment', 'vehicle loan') + ', rent, your phone.</div>');
-  h.push('<div class="btns"><button class="btn main" id="ahAdd" onclick="BM.repeatEdit()">➕ Add a monthly bill</button></div>');
+  h.push('<h2>Bills that repeat</h2>');
+  h.push(S.repeats.length ? S.repeats.map(function(r){ return '<button class="card tap" onclick="BM.repeatEdit(\'' + r.id + '\')"><div class="row"><div class="grow"><b>🔁 ' + esc(r.name || 'Repeating cost') + (repWarn(r) ? ' ⚠️' : '') + '</b><div class="small muted">' + esc(repWhen(r)) + '</div></div><b>' + money0(r.amount) + '</b></div></button>'; }).join('')
+    : '<div class="card muted">None yet. Add the ones that keep coming — the ' + L('truck payment', 'vehicle loan') + ', insurance, rent, your phone. ⚠️ marks the ones you’re warned about on Today.</div>');
+  h.push('<div class="btns"><button class="btn main" id="ahAdd" onclick="BM.repeatEdit()">➕ Add a bill</button></div>');
   h.push('<p class="hint" style="margin-top:12px">A rough guide, not a promise: it only knows your invoices and the bills you list here. Everyday costs like fuel and materials aren’t in it.</p>');
   return h.join('');
 };
@@ -4097,27 +4137,34 @@ function ordinal(n){ n = Math.round(num(n)) || 1; var s = (n % 100 >= 11 && n % 
 function aheadCash(v){ aheadState(); var t = String(v || '').trim(); S.ahead.cash = t === '' ? '' : num(t); save(); render(); }
 function repeatEdit(id){
   aheadState();
-  var r = id ? S.repeats.filter(function(x){ return x.id === id; })[0] : { name:'', amount:'', day:1 };
+  var r = id ? S.repeats.filter(function(x){ return x.id === id; })[0] : { name:'', amount:'', day:1, every:1 };
   if(!r) return;
-  var ideas = L(['Insurance', 'Truck payment', 'Phone', 'Rent', 'Software'], ['Insurance', 'Vehicle loan', 'Airtime & internet', 'Rent', 'Software']);
-  sheet('<h3>' + (id ? 'Monthly bill' : 'Add a monthly bill') + '</h3>'
+  var ev = repEvery(r), ideas = L(['Truck payment', 'Truck insurance', 'Liability insurance', 'Rent', 'Phone'], ['Vehicle loan', 'Vehicle insurance', 'WIBA insurance', 'Rent', 'Airtime & internet']);
+  sheet('<h3>' + (id ? 'Bill' : 'Add a bill') + '</h3>'
     + (id ? '' : '<div class="chips">' + ideas.map(function(n){ return '<button class="chip" onclick="document.getElementById(\'rpN\').value=this.textContent">' + n + '</button>'; }).join('') + '</div>')
     + '<label class="f" for="rpN">What is it?</label><input class="i" id="rpN" value="' + esc(r.name) + '" placeholder="' + L('Truck payment', 'Vehicle loan') + '">'
-    + '<div class="two"><div><label class="f" for="rpA">Amount each month</label><input class="i" id="rpA" inputmode="decimal" value="' + esc(r.amount) + '" placeholder="' + CUR + '"></div>'
-    + '<div><label class="f" for="rpD">Day of the month</label><input class="i" id="rpD" inputmode="numeric" value="' + esc(r.day) + '" placeholder="1 to 31"></div></div>'
+    + '<label class="f" for="rpE">How often?</label><select class="i" id="rpE" onchange="BM.repeatOften()">' + [[1, 'Every month'], [3, 'Every 3 months'], [12, 'Once a year']].map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === ev ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'
+    + '<div class="two"><div><label class="f" for="rpA">Amount each time</label><input class="i" id="rpA" inputmode="decimal" value="' + esc(r.amount) + '" placeholder="' + CUR + '" oninput="BM.repeatOften()"></div>'
+    + '<div id="rpDayBox"' + (ev === 1 ? '' : ' hidden') + '><label class="f" for="rpD">Day of the month</label><input class="i" id="rpD" inputmode="numeric" value="' + esc(r.day || 1) + '" placeholder="1 to 31"></div>'
+    + '<div id="rpNextBox"' + (ev === 1 ? ' hidden' : '') + '><label class="f" for="rpX">Next due</label><input class="i" id="rpX" type="date" value="' + esc(r.next || '') + '"></div></div>'
+    + '<label class="row" style="margin:12px 0 4px"><input type="checkbox" id="rpW" style="width:24px;height:24px;flex:none"' + (repWarn(r) ? ' checked' : '') + (id || r.warn != null ? ' data-set="1"' : '') + ' onchange="this.setAttribute(\'data-set\',\'1\')"><span>⚠️ Warn me on Today before it’s due</span></label>'
     + '<p class="hint">On a short month, a bill on the 31st counts on the last day.</p>'
     + '<div class="btns" style="margin-top:14px"><button class="btn main" id="rpSave" onclick="BM.repeatSave(\'' + (id || '') + '\')">Save</button>' + (id ? '<button class="btn danger" onclick="BM.repeatDel(\'' + id + '\')">Delete</button>' : '') + '</div>');
 }
+/* the form follows the choice: a day of the month, or a next due date; big or rare bills are warned about by default */
+function repeatOften(){ var ev = +$('rpE').value; $('rpDayBox').hidden = ev !== 1; $('rpNextBox').hidden = ev === 1;
+  var w = $('rpW'); if(w && !w.getAttribute('data-set')) w.checked = ev > 1 || num($('rpA').value) >= BIG; }
 function repeatSave(id){
-  var a = num($('rpA').value), dy = Math.round(num($('rpD').value)), n = $('rpN').value.trim();
+  var a = num($('rpA').value), ev = +$('rpE').value || 1, n = $('rpN').value.trim(), dy = Math.round(num($('rpD').value)), nx = $('rpX').value;
   if(!n){ alert('What is the bill? For example, insurance.'); return; }
-  if(!a){ alert('How much is it each month?'); return; }
-  if(!(dy >= 1 && dy <= 31)){ alert('Which day of the month? A number from 1 to 31.'); return; }
-  var d = { name:n, amount:r2(a), day:dy };
+  if(!a){ alert('How much is it each time?'); return; }
+  if(ev === 1 && !(dy >= 1 && dy <= 31)){ alert('Which day of the month? A number from 1 to 31.'); return; }
+  if(ev > 1 && !/^\d{4}-\d\d-\d\d$/.test(nx)){ alert('When is it next due? Pick the date.'); return; }
+  var d = { name:n, amount:r2(a), every:ev, day:ev === 1 ? dy : parseD(nx).getDate(), next:ev === 1 ? '' : nx, warn:!!$('rpW').checked };
   if(id) Object.assign(S.repeats.filter(function(x){ return x.id === id; })[0], d); else { d.id = uid(); S.repeats.push(d); }
   save(); closeSheet(); render(); toast('Saved');
 }
-function repeatDel(id){ if(!confirm('Delete this monthly bill?')) return; S.repeats = S.repeats.filter(function(x){ return x.id !== id; }); save(); closeSheet(); render(); }
+function repeatDel(id){ if(!confirm('Delete this bill?')) return; S.repeats = S.repeats.filter(function(x){ return x.id !== id; }); save(); closeSheet(); render(); }
 
 /* ── statement import ── */
 var IMP = null;
@@ -5037,6 +5084,7 @@ function makeDemo(){
     { id:'t5', text:'Order more 1/2" PEX fittings', due:'', repeat:'none', cat:'other', notes:'', done:false },
     { id:'t6', text:'Truck service / oil change', due:A(-2), repeat:'quarterly', cat:'vehicle', notes:'', done:false }
   ];
+  d.repeats = [{ id:'r1', name:'Truck payment', amount:612, every:1, day:parseD(A(4)).getDate(), next:'', warn:true }, { id:'r2', name:'Truck insurance', amount:1140, every:12, day:parseD(A(11)).getDate(), next:A(11), warn:true }];
   d.seq = { job:1010, inv:2007 };
   return d;
 }
@@ -5092,6 +5140,7 @@ function makeDemoKE(){
     { id:'t5', text:'Order more gypsum screws and cornice', due:'', repeat:'none', cat:'other', notes:'', done:false },
     { id:'t6', text:'Pick-up service', due:A(-2), repeat:'quarterly', cat:'vehicle', notes:'', done:false }
   ];
+  d.repeats = [{ id:'r1', name:'Vehicle loan', amount:28000, every:1, day:parseD(A(4)).getDate(), next:'', warn:true }, { id:'r2', name:'Vehicle insurance', amount:46000, every:12, day:parseD(A(11)).getDate(), next:A(11), warn:true }];
   d.seq = { job:1010, inv:2007 };
   return d;
 }
@@ -5575,7 +5624,7 @@ window.BM = {
   payMsg:payMsg, _region:function(){ return KE ? 'ke' : 'us'; },
   newInvoice:newInvoice, setInvDates:setInvDates, sendInvoice:sendInvoice, remind:remind, previewInv:previewInv, payment:payment, savePayment:savePayment, delPayment:delPayment, delInvoice:delInvoice,
   addExpense:addExpense, saveExpense:saveExpense, delExpense:delExpense,
-  aheadCash:aheadCash, repeatEdit:repeatEdit, repeatSave:repeatSave, repeatDel:repeatDel, _ahead:ahead,
+  aheadCash:aheadCash, repeatEdit:repeatEdit, repeatSave:repeatSave, repeatOften:repeatOften, alertSeen:alertSeen, repeatDel:repeatDel, _ahead:ahead,
   readFile:readFile, readPaste:readPaste, aiRead:aiRead, aiSort:aiSort, impOn:impOn, impCat:impCat, flipSign:flipSign, cancelImport:cancelImport, saveImport:saveImport,
   hoursCSV:hoursCSV, exp:exp,
   saveBiz:saveBiz, setFeat:setFeat, savePay:savePay, setPrice:setPrice, delPrice:delPrice, addPrice:addPrice, setCrew:setCrew, delCrew:delCrew, addCrew:addCrew, setChan:setChan, saveMsg:saveMsg,

@@ -600,7 +600,7 @@ const APPS = {
     {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{BM.tourShow('home')}catch(e){}"}
   ]} },
   name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', price:'$149 a year', testing:true,
-  tag:'A Today screen that briefs your day, texts “running late” in one tap and takes receipts and quotes by voice, quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, the cash you can expect in 30 and 60 days, to-dos and tax dates. Includes Next Step Board, Message Assistant and Feedback Studio.',
+  tag:'A Today screen that briefs your day, texts “running late” in one tap, takes receipts and quotes by voice and warns you before big bills, quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, the cash you can expect in 30 and 60 days, to-dos and tax dates. Includes Next Step Board, Message Assistant and Feedback Studio.',
   try:BASE+'business-manager/?mode=full',
   train:[
    {t:'Business Manager setup \u2014 about five minutes, and you only do it once.', js:"try{BM.tourShow('setup');}catch(e){}"},
@@ -619,6 +619,7 @@ const APPS = {
    {t:'Each morning it gives you the day in a minute: your stops in order, what to bring, and who owes you. It will read it out loud, and one tap texts the next customer that you are running late.', js:"try{BM.tourShow('home');}catch(e){}", point:"#tdTexts"},
    {t:'Swipe the money card across for today, this week, this month and this year: what came in, what went out, and what you kept.', js:"try{BM.tourShow('home');}catch(e){}", point:"#tdLive"},
    {t:'Hands dirty? Tap the microphone and say it. Receipt, eighty-four dollars, Home Depot, Johnson job, and it is filed against that job, photo and all. Or, quote the Patels, replace the disposal, two hours, and the draft estimate is waiting for you at lunch.', js:"try{BM.tourShow('home');}catch(e){}", point:"#tdTalk"},
+   {t:'And it speaks up only when it matters. The truck payment is due in four days, the insurance in eleven, and a drain job is done but not billed. One button does the thing, and Got it puts it away.', js:"try{BM.tourShow('home');}catch(e){}", point:"#tdAlerts"},
    {t:'A job holds what you agreed: the work, the line items, the price. Fifteen hundred and twenty-five dollars, heater replaced and the old one taken away.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:"table.lines"},
    {t:'For the church restrooms Dan offered three choices \u2014 Good, Better and Best. People pick a middle option far more often than they pick nothing.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:".tiers"},
    {t:'The customer signs on your phone, right there at the kitchen table.', js:"try{BM.tourShow('job/j3');}catch(e){}", point:".steps"},
