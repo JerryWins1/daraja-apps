@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#23504F">
+<title>Sunday Scorecard</title>
+<!-- Launch idea 8 (control/launch-plan.md). Reads control/sales.json (the nightly job writes it:
+     opens, gifts, sign-ups, customer-message counts) and control/launch.json (the launch board).
+     Counts only — what people wrote stays in the private morning report. -->
+<style>
+:root{--bg:#F4F4F1;--card:#fff;--ink:#1B2421;--soft:#50605C;--line:#DADDD6;--brand:#23504F;--gold:#C9982A}
+@media (prefers-color-scheme:dark){:root{--bg:#11171A;--card:#1A2226;--ink:#E7ECEA;--soft:#A9B6B2;--line:#2A3539;--brand:#7FB3B1;color-scheme:dark}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif}
+header{background:#23504F;color:#fff;padding:16px}
+.wrap{max-width:900px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left))}
+h1{margin:0;font-size:22px}.sub{opacity:.85;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.tile .n{font-size:30px;font-weight:900;line-height:1.1}.tile .l{font-size:13.5px;color:var(--soft)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:12px 0}
+.card h2{font-size:16px;margin:0 0 8px}
+.row{display:flex;align-items:center;gap:8px;font-size:14.5px;margin:4px 0}.row span:first-child{flex:0 0 42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row i{display:block;height:12px;border-radius:6px;background:var(--brand);min-width:2px}.row b{font-size:13px;color:var(--soft);font-weight:700}
+a{color:var(--brand)}.notes{font-size:13px;color:var(--soft)}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>📊 Sunday Scorecard</h1><div class="sub" id="made">Loading…</div></div></header>
+<main class="wrap">
+<div class="grid" id="tiles"></div>
+<div class="card"><h2>Most opened this week</h2><div id="opens"></div></div>
+<div class="card"><h2>Messages from people using the apps</h2><div id="msgs"></div></div>
+<div class="card"><h2>Week by week</h2><div id="weeks"></div></div>
+<p class="notes">One open = one phone opening one app on one day. Updated each morning by the nightly job. What people wrote is in the morning report, not here. <a href="launch.html">Launch Board</a></p>
+</main>
+<script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function bars(el,rows){var m=Math.max.apply(null,rows.map(function(r){return r[1]}).concat([1]));
+  el.innerHTML=rows.length?rows.map(function(r){return '<div class="row"><span>'+esc(r[0])+'</span><i style="width:'+Math.round(50*r[1]/m)+'%"></i><b>'+r[1]+'</b></div>'}).join(''):'<div class="notes">Nothing yet.</div>'}
+function tile(n,l){return '<div class="tile"><div class="n">'+esc(n)+'</div><div class="l">'+esc(l)+'</div></div>'}
+Promise.all([fetch('sales.json?t='+Date.now()).then(function(r){return r.json()}),
+             fetch('launch.json?t='+Date.now()).then(function(r){return r.json()}).catch(function(){return null})]).then(function(x){
+  var s=x[0],L=x[1],d=s.donations||{},m=s.messages||{},k7=m.by_kind_7d||{};
+  var msg7=Object.keys(k7).reduce(function(a,k){return a+k7[k]},0);
+  document.getElementById('made').textContent='Week to '+s.updated;
+  document.getElementById('tiles').innerHTML=tile((s.opens||{}).total_7d||0,'app opens this week')
+    +tile(msg7,'messages this week')+tile(d.count_7d||0,'gifts this week')
+    +tile(L?L.ready+' / '+L.total:'—','apps ready to launch');
+  bars(document.getElementById('opens'),((s.opens||{}).by_app||[]).slice().sort(function(a,b){return b.opens_7d-a.opens_7d}).slice(0,8).map(function(r){return [r.name,r.opens_7d]}));
+  var names={problem:'🐞 Problems',idea:'💡 Ideas',question:'❓ Questions'};
+  bars(document.getElementById('msgs'),Object.keys(names).map(function(k){return [names[k],k7[k]||0]}));
+  bars(document.getElementById('weeks'),(s.weeks||[]).slice(-8).map(function(w){return [w.week+' opens',w.opens_7d]}));
+}).catch(function(){document.getElementById('made').textContent='Could not load the numbers. Try again in a minute.'});
+</script>
+</body>
+</html>
