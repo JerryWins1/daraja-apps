@@ -1,7 +1,8 @@
 # Checks on the shared house block
 
     node tools/house/test.cjs            all of it
-    node tools/house/test.cjs back       one group: back, mic, tell, fresh, same
+    node tools/house/test.cjs back       one group, named:
+                                         back, mic, tell, beta, hello, filekind, fresh, same
 
 Needs Playwright, which a cloud container already has.
 
