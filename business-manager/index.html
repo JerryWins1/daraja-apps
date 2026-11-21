@@ -2704,7 +2704,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0.1 · 2026-11-21';
+var VER = 'v2.0.2 · 2026-11-21';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -3258,7 +3258,7 @@ function micStop(){ if(MICST === 'starting' || MICST === 'on'){ MICST = 'ending'
   var r = MICROUND; setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; if(r && r.done) r.done(); micNext(); } }, 1500); } }
 /* the phone never said it finished: carry on anyway, and start the round that was asked for in the meantime */
 function micNext(){ if(MICWANT){ MICWANT = false; setTimeout(function(){ if($('tkIn')){ micRec(); micBegin(); } }, 250); } }
-function micLabel(on){ var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
+function micLabel(on){ if(KBMIC) return; var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
 function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(--bad)' : ''; m.textContent = t; } }
 /* v1.9.6 (20 Nov, Jerry on his iPhone, third try): words ran together with no spaces, and after a couple of rounds a
    tap did nothing at all. iPhones hand back each phrase as its own result with no leading space, so results are joined
@@ -3283,6 +3283,7 @@ function micRec(){
   return SRI;
 }
 function talkMic(){
+  if(KBMIC){ kbTalk(); return; }
   var KB = ' Or tap in the box and use the 🎤 on your keyboard.';
   if(MICST === 'starting' || MICST === 'on'){ micStop(); return; }
   if(!$('tkIn')) return;
@@ -3307,21 +3308,35 @@ function micBegin(tries){
     micSay('The phone didn’t start listening. Tap 🎤 again.' + KB, true);
     setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; SRI = null; micNext(); } }, 1500); } }, 5000);   /* still nothing after that: the next tap gets a new listener */
 }
-function talkStart(){ talkOpen(''); talkMic(); }
+/* v2.0.2 (21 Nov, Jerry: "Doesn't work at all — rethink how you're doing the microphone on the iPhone, and the phones
+   are the same"). The browser's own listening (webkitSpeechRecognition) works on a computer but is unreliable on an iPhone,
+   and missing altogether in an app saved to the Home Screen; five rounds of fixes here could not make it dependable. Every
+   phone, iPhone and Android alike, has something that always works: the 🎤 on its own keyboard, which types whatever is
+   said into the box. So on a phone, "Tap and talk" opens the box with the keyboard already up (focus has to happen inside
+   the tap, or an iPhone won't raise the keyboard) and says to tap the keyboard's 🎤; "Talk some more" brings the keyboard
+   back with the cursor at the end. A computer keeps the browser's listening, which works there. */
+var KBMIC = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1) || !(window.SpeechRecognition || window.webkitSpeechRecognition);
+var KBTIP = /Android/i.test(navigator.userAgent || '') ? 'Tap the 🎤 on your keyboard and talk. Tap ✓ or the down arrow when you’re done.' : 'Tap the 🎤 at the bottom of your keyboard and talk. Tap Done when you’re finished.';
+function kbTalk(){
+  var b = $('tkIn'); if(!b) return;
+  var v = b.value.replace(/\s+$/, ''); if(v && !/[,.]$/.test(v)) v += ','; if(v) v += ' '; b.value = v;
+  try{ b.focus(); b.setSelectionRange(v.length, v.length); }catch(e){}
+
+}
+function talkStart(){ talkOpen(''); if(KBMIC) kbTalk(); else talkMic(); }
 function talkOpen(said, plan, note){
   var old = TALK && TALK.plan && TALK.plan.photo;
   TALK = { said:String(said || '').trim(), plan:null, picked:'' };
-  sheet('<h3>🎤 Say it, or type it</h3><label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
-    + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">🎤 Tap and talk</button>'
+  sheet('<h3>🎤 Say it, or type it</h3>' + (KBMIC ? '<p class="banner small" id="tkTip" style="margin:0 0 8px">' + esc(KBTIP) + '<br><span class="muted">No 🎤 on your keyboard? ' + (/Android/i.test(navigator.userAgent || '') ? 'Turn on voice typing in your keyboard settings.' : 'Settings → General → Keyboard → Enable Dictation.') + '</span></p>' : '') + '<label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
+    + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">' + (KBMIC ? '🎤 Talk some more' : '🎤 Tap and talk') + '</button>'
     + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
     + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p>'
     + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
     + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
     + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
-      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); if(!(window.SpeechRecognition || window.webkitSpeechRecognition)) w.querySelector('#tkMic').hidden = true; });
+      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); });
   TALK.plan = plan || talkPlan(TALK.said); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
   talkDraw(note);
-  if(!TALK.said && !(window.SpeechRecognition || window.webkitSpeechRecognition)) setTimeout(function(){ try{ $('tkIn').focus(); }catch(e){} }, 250);
 }
 function talkDraw(note){
   var p = TALK && TALK.plan, more = $('tkMore'), kind = $('tkKind'), msg = $('tkPlan'); if(!more || !p) return;
@@ -3339,7 +3354,7 @@ function talkDraw(note){
       + '<datalist id="tkCL">' + S.customers.map(function(c){ return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist>'
       + '<label class="f" for="tkW">The work</label><textarea class="i" id="tkW" data-nomic style="min-height:60px" placeholder="" oninput="BM.talkField(\'work\',this.value)">' + esc(p.work || '') + '</textarea>';
   } else more.innerHTML = '';
-  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.' : ''));
+  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? (KBMIC ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.') : ''));
 }
 function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(TALK.said, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
 function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
