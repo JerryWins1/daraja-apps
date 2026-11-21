@@ -2870,7 +2870,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0.5 · 2026-11-21';
+var VER = 'v2.0.6 · 2026-11-21';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4611,11 +4611,20 @@ function parseRows(text){
 }
 function parseReceipt(text){
   var a = parseReceiptLines(text), b = parseRows(text);
-  if(!b.items.length) return a;
   function miss(r, tot){ var s = r.items.reduce(function(x, y){ return x + y.amount; }, 0); return tot ? Math.abs(r2(tot - (r.tax || 0) - s)) : 1e9; }
   var tot = b.total || a.total, tax = b.tax || a.tax;
-  var useB = !a.items.length || miss({ items:b.items, tax:tax }, tot) <= miss({ items:a.items, tax:tax }, tot) || b.items.length > a.items.length;
-  var items = (useB ? b.items : a.items).slice(), gap = tot ? r2(tot - tax - items.reduce(function(x, y){ return x + y.amount; }, 0)) : 0;
+  var useB = b.items.length && (!a.items.length || miss({ items:b.items, tax:tax }, tot) <= miss({ items:a.items, tax:tax }, tot) || b.items.length > a.items.length);
+  var items = (useB ? b.items : a.items).slice();
+  /* v2.0.6 (21 Nov): the phone read "TOTAL SALE" as "[OTAL SALE" and "TAX" as "Sm (4X", so totals came in as items.
+     The numbers give them away even when the words don't: look for three amounts where one plus another makes the
+     third (160.73 + 13.66 = 174.39). The biggest is the total, the smaller of the other two the tax, the rest the
+     before-tax total — and none of the three is an item. */
+  var vals = []; String(text || '').replace(/(\d{1,5}(?:,\d{3})*\.\d{2})/g, function(m){ var v = num(m); if(v > 0 && vals.indexOf(v) < 0) vals.push(v); return m; });
+  vals.sort(function(x, y){ return y - x; });
+  for(var A = 0; A < vals.length && !(tot && tax); A++) for(var B = A + 1; B < vals.length; B++) for(var C = B + 1; C < vals.length; C++){
+    if(Math.abs(r2(vals[B] + vals[C]) - vals[A]) < 0.011 && vals[C] < vals[B] * 0.2){ if(!tot || tot === vals[B]) tot = vals[A]; if(!tax) tax = vals[C]; A = vals.length; break; } }
+  if(tot) items = items.filter(function(x){ var sub = r2(tot - tax); return !(Math.abs(x.amount - tot) < 0.011 || Math.abs(x.amount - tax) < 0.011 && tax || Math.abs(x.amount - sub) < 0.011 && items.length > 1); });
+  var gap = tot ? r2(tot - tax - items.reduce(function(x, y){ return x + y.amount; }, 0)) : 0;
   /* still short of what the slip says was paid: show the difference as its own line to fix, rather than a wrong total */
   if(gap > 0.009 && items.length) items.push({ name:'❓ A line I couldn’t read — check the receipt', amount:gap });
   return { vendor:a.vendor, date:a.date, tax:tax, total:tot, items:items };
