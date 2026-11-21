@@ -2870,7 +2870,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0.4 · 2026-11-21';
+var VER = 'v2.0.5 · 2026-11-21';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4593,7 +4593,7 @@ function parseRows(text){
     if(/\b(visa|master ?card|amex|discover|debit|credit|cash|change|tender|auth|contactless|arqc|aid|number of items)\b/i.test(lab)){ name = ''; continue; }
     /* the item-number row: a 6–8 character code (allowing for misread digits), maybe "qty @ price", maybe the line total */
     var row = l.match(/^([A-Za-z0-9]{6,9})\b\s*(.*)$/);
-    if(name && row && (ocrDigits(row[1]).match(/\d/g) || []).length >= 5){
+    if(name && row && (ocrDigits(row[1]).match(/\d/g) || []).length >= 4){
       var rest = row[2], qty = 1, unit = 0, tot = null, q;
       if((q = rest.match(/(\S+)\s*@\s*\$?\s?(\S+?)(?=\s|$)/))){ qty = parseInt(ocrDigits(q[1]), 10) || 1; unit = num(ocrDigits(q[2].replace(/^[^\d]+/, ''))); rest = rest.replace(q[0], ' '); }
       var tm = rest.match(/(\d{1,5}(?:,\d{3})*\.\d{2})\s*[A-Z]{0,2}\s*$/); if(tm) tot = num(tm[1]);
@@ -4602,6 +4602,7 @@ function parseRows(text){
       if(tot != null && tot > 0) out.items.push({ name:(name + (qty > 1 ? ' (' + qty + ' @ ' + cur(unit.toFixed(2)) + ')' : '')).slice(0, 60), amount:tot });
       name = ''; continue;
     }
+    if(name && bare(l) != null){ out.items.push({ name:name.slice(0, 60), amount:bare(l) }); name = ''; continue; }   /* the item number was lost: the price alone follows the name */
     /* a name line: words, no price */
     if(/[A-Za-z]{2}/.test(l) && !MONEY.test(l)) name = l.replace(/\s{2,}/g, ' '); else name = '';
   }
@@ -4614,7 +4615,10 @@ function parseReceipt(text){
   function miss(r, tot){ var s = r.items.reduce(function(x, y){ return x + y.amount; }, 0); return tot ? Math.abs(r2(tot - (r.tax || 0) - s)) : 1e9; }
   var tot = b.total || a.total, tax = b.tax || a.tax;
   var useB = !a.items.length || miss({ items:b.items, tax:tax }, tot) <= miss({ items:a.items, tax:tax }, tot) || b.items.length > a.items.length;
-  return { vendor:a.vendor, date:a.date, tax:tax, total:tot, items:useB ? b.items : a.items };
+  var items = (useB ? b.items : a.items).slice(), gap = tot ? r2(tot - tax - items.reduce(function(x, y){ return x + y.amount; }, 0)) : 0;
+  /* still short of what the slip says was paid: show the difference as its own line to fix, rather than a wrong total */
+  if(gap > 0.009 && items.length) items.push({ name:'❓ A line I couldn’t read — check the receipt', amount:gap });
+  return { vendor:a.vendor, date:a.date, tax:tax, total:tot, items:items };
 }
 function parseReceiptLines(text){
   var out = { vendor:'', date:'', tax:0, total:0, items:[] }, t = String(text || '');
