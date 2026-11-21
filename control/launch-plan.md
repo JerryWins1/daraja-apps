@@ -79,3 +79,11 @@ beta, drive it, confirm the 24-hour refusal and clean up after themselves.
   passed and whose app has no new `FEEDBACK|kind:problem` since the beta started
   — which is exactly what idea 2 already reads each night.
 - **Deciding what counts as "a new problem".** A judgement, not code.
+
+## Idea 9, the nightly half (Store Manager, 21 Nov)
+
+`python3 -I tools/launch/rollout_check.py <HQ export>` prints PROMOTE / HOLD / WAIT for each beta.
+The line: **any** "Send us a message" problem for that app since its beta started holds it. Claude
+does not judge whether a problem counts; the nightly job relays it to the app's chat, which reads it
+and runs `node tools/rollout.js promote <app> --now` if it is unrelated. PROMOTE lines are promoted by
+the nightly job in a pull request it merges.
