@@ -2652,7 +2652,7 @@
 
   <!-- 6 Nov (Jerry): the guest page is the only page an invited person ever sees, and it had no way
        through to the store. One link in the footer that was already here, rather than a second footer. -->
-  <p class="foot">Who’s Coming v1.20 · 2026-11-20 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
+  <p class="foot">Who’s Coming v1.21 · 2026-11-21 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -2947,19 +2947,59 @@ async function fromContacts(gid){
   if(navigator.contacts && navigator.contacts.select){
     try{ const cs=await navigator.contacts.select(['name','tel'],{multiple:true}); addMany(gid, cs.map(c=>({name:(c.name||[])[0]||'', phone:(c.tel||[])[0]||''}))); }catch(e){}
     return; }
-  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent), mac=/Macintosh/.test(navigator.userAgent)&&!ios;
-  const how = ios ? `<p>An iPhone won’t let an app open Contacts directly (Apple’s rule, not ours). The two-step that works:</p>
-    <p><b>1. Save all your contacts once:</b> open <b>Contacts</b> → tap <b>Lists</b> (top left) → press and hold <b>All Contacts</b> → <b>Export</b> → <b>Save to Files</b>. One file, everyone in it.</p>
-    <p><b>2.</b> Come back here, tap the button below and pick that file. You’ll get a list with a search box: tick just the people you want.</p>`
-  : mac ? `<p>On a Mac, a web page can’t open Contacts directly. The two-step that works:</p>
-    <p><b>1.</b> Open <b>Contacts</b> on the Mac, select the people (hold ⌘ to pick several), then <b>File → Export → Export vCard…</b> and save the file to your Desktop.</p>
-    <p><b>2.</b> Tap the button below and choose that file. You’ll get a list with a search box: tick just the people you want.</p>`
-  : `<p>This device won’t let a web page open Contacts directly. The two-step that works:</p>
-    <p><b>1.</b> In your Contacts app, share or export the people you want as a contact file (a .vcf).</p>
-    <p><b>2.</b> Tap the button below and choose that file — everyone in it comes in at once.</p>`;
-  sheet(`<h3>📇 From your contacts</h3>${how}
-    <div class="row"><button class="primary" style="flex:1" onclick="closeSheet();const f=document.getElementById('vcf');f.dataset.gid='${gid}';f.value='';f.click()">Pick the contacts file</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>
-    <p class="small" style="margin-top:10px">Quicker for a whole group: tap <b>📋 Paste a list</b> instead and type names and numbers, one per line.</p>`);
+  contactSources(gid);
+}
+/* v1.21 · 21 Nov: "Have them select the type of phone and app the contacts are on and you give them
+   instructions." So 📇 From contacts first asks where your contacts are, then shows the exact steps for
+   that one place to make a contacts file (.vcf), with the Pick button underneath. */
+const WC_SRC={
+  iphone:{t:'iPhone', s:'the Contacts app', steps:[
+    'Open the <b>Contacts</b> app. Tap <b>Lists</b> at the top left.',
+    'Press and hold <b>All Contacts</b>, then tap <b>Export</b>.',
+    'If a list of details appears, tap <b>Done</b>.',
+    'Tap <b>Save to Files</b>, then <b>On My iPhone</b>, then <b>Save</b>.',
+    'Come back here and tap <b>Pick the contacts file</b> below. Tap <b>Browse</b>, then <b>On My iPhone</b>, then the file ending in <b>.vcf</b>.']},
+  android:{t:'Android', s:'Google Contacts app', steps:[
+    'Open the <b>Contacts</b> app (the blue one by Google).',
+    'Tap <b>Fix &amp; manage</b> at the bottom.',
+    'Tap <b>Export to file</b>.',
+    'Choose your account, then tap <b>Export to .vcf file</b>, then <b>Save</b>.',
+    'Come back here and tap <b>Pick the contacts file</b> below. It is in <b>Downloads</b>, ending in <b>.vcf</b>.']},
+  samsung:{t:'Samsung', s:'Samsung Contacts app', steps:[
+    'Open the <b>Contacts</b> app.',
+    'Tap the <b>☰</b> menu (three lines) at the top left.',
+    'Tap <b>Manage contacts</b>, then <b>Import or export contacts</b>.',
+    'Tap <b>Export</b>, choose <b>Internal storage</b>, then tap <b>Export</b>.',
+    'Come back here and tap <b>Pick the contacts file</b> below. Choose the file ending in <b>.vcf</b>.']},
+  mac:{t:'Mac', s:'the Contacts app', steps:[
+    'Open <b>Contacts</b> on the Mac. Click any name, then press <b>⌘A</b> to select everyone.',
+    'In the menu bar, click <b>File</b>, then <b>Export</b>, then <b>Export vCard…</b>',
+    'Choose <b>Desktop</b> and click <b>Save</b>.',
+    'Come back here and click <b>Pick the contacts file</b> below. Choose the file on your Desktop ending in <b>.vcf</b>.']},
+  google:{t:'Gmail on a computer', s:'contacts.google.com', steps:[
+    'On the computer, go to <b>contacts.google.com</b> and sign in.',
+    'Click <b>Export</b> at the top of the list (a box with an arrow).',
+    'Choose <b>vCard (for iOS Contacts)</b>, then click <b>Export</b>.',
+    'Come back here on the same computer and click <b>Pick the contacts file</b> below. It is in <b>Downloads</b>, named <b>contacts.vcf</b>.']},
+  other:{t:'Something else', s:'any other contacts app', steps:[
+    'In your contacts app, look for <b>Export</b> or <b>Share</b>.',
+    'Choose the kind of file called <b>vCard</b> or <b>.vcf</b> and save it.',
+    'Come back here and tap <b>Pick the contacts file</b> below, then choose that file.']}
+};
+function contactSources(gid){
+  const ua=navigator.userAgent, ios=/iPhone|iPad|iPod/.test(ua), mac=/Macintosh/.test(ua)&&!ios&&!(navigator.maxTouchPoints>1), sam=/SamsungBrowser|SM-/.test(ua), and=/Android/.test(ua);
+  const here = ios?'iphone':mac?'mac':sam?'samsung':and?'android':'';
+  const order=['iphone','android','samsung','mac','google','other'].sort((x,y)=>(y===here)-(x===here));
+  sheet(`<h3>📇 From your contacts</h3><p>Where are your contacts? Tap one and you’ll get the exact steps to make a contacts file.</p>
+    <div style="display:grid;gap:8px">${order.map(k=>`<button class="${k===here?'primary':''}" style="text-align:left" onclick="contactSteps('${gid}','${k}')">${esc(WC_SRC[k].t)} <span style="font-weight:600;opacity:.8">· ${esc(WC_SRC[k].s)}${k===here?' · this device':''}</span></button>`).join('')}</div>
+    <p class="small" style="margin-top:10px">Quicker for a few people: tap <b>📋 Paste a list</b> instead and type names and numbers, one per line.</p>`,
+    {k:'src:'+gid, fn:()=>contactSources(gid)});
+}
+function contactSteps(gid,k){ const c=WC_SRC[k]; if(!c) return;
+  sheet(`<h3>📇 ${esc(c.t)}</h3><p class="small">Make the file once. After that, pick it here whenever you build a group.</p>
+    <ol style="padding-left:22px;margin:8px 0 12px">${c.steps.map(x=>`<li style="margin-bottom:8px">${x}</li>`).join('')}</ol>
+    <div class="row"><button class="primary" style="flex:1" onclick="closeSheet();const f=document.getElementById('vcf');f.dataset.gid='${gid}';f.value='';f.click()">Pick the contacts file</button><button class="ghost" onclick="closeSheet()">Cancel</button></div>`,
+    {k:'steps:'+gid+':'+k, fn:()=>contactSteps(gid,k)});
 }
 function parseVcf(text){ const out=[]; text.split(/BEGIN:VCARD/i).slice(1).forEach(card=>{ const fn=(card.match(/^FN[^:]*:(.+)$/im)||[])[1]||''; const n=(card.match(/^N[^:]*:([^;]*);([^;]*)/im)||[]); const name=(fn||((n[2]||'')+' '+(n[1]||''))).replace(/\\,/g,',').trim(); const tel=(card.match(/^TEL[^:]*:(.+)$/im)||[])[1]||''; if(name) out.push({name, phone:tel.replace(/[^\d+]/g,'')}); }); return out; }
 function readVcf(inp){ const gid=inp.dataset.gid; const files=[...(inp.files||[])]; if(!files.length) return; let all=[]; let left=files.length;
