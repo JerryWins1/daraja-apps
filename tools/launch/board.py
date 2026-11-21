@@ -18,6 +18,9 @@ import voicemaker as vm  # noqa: E402
 AI = re.compile(r'\bAI\b|ChatGPT|Claude|Gemini')
 SITE = 'https://jerrywins1.github.io/daraja-apps/'
 NOT_FOR_SALE = {'hq', 'tester', 'hello'}          # Daraja HQ, the tester kickoff and greeting: not store apps
+# The house hides the AI buttons on these on purpose (crisisPage, kidsPage), so their videos
+# must NOT claim AI — control/overnight-2026-11-21-videos.md. The check does not apply to them.
+NO_AI = {'safety', 'churchclubhouse'}
 SCRIPT_OF = {'businessmanager': 'bizmgr', 'quickquote': 'bizmgr'}   # store key -> testers/scripts name
 
 
@@ -77,7 +80,8 @@ def main():
         noai = [key for key, mode in vlist
                 if not AI.search(' '.join(vm.lines_of(apps, k, mode) or []))]
         checks['videos current'] = bool(vlist) and not vbad
-        checks['videos say AI'] = bool(vlist) and not noai
+        if k not in NO_AI:
+            checks['videos say AI'] = bool(vlist) and not noai
         checks['test script'] = os.path.exists(os.path.join(ROOT, 'testers', 'scripts', SCRIPT_OF.get(k, k) + '.json'))
         card = cards.get(url.rstrip('/'), {})
         rows.append({'key': k, 'name': a.get('name', k), 'em': a.get('em', ''), 'url': url,
