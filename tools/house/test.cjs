@@ -2,7 +2,7 @@
 /* Checks on the shared house block (the <script id="dj-house-vNN"> every app carries).
  *
  *   node tools/house/test.cjs            all of it
- *   node tools/house/test.cjs back       one group: back, mic, tell, fresh, same
+ *   node tools/house/test.cjs back       one group: back, mic, tell, fresh, beta, same
  *
  * Why this file exists. On 20 November the back-stack, the microphone and the tell
  * box were each fixed and each verified by a throwaway script in a container that
@@ -238,6 +238,45 @@ async function fresh(b, port){
   await ctx.close();
 }
 
+async function beta(b, port){
+  console.log("\nA beta copy — it must be the same app, and must say it is not the released one");
+  const { execFileSync } = require('child_process');
+  const run = a => execFileSync(process.execPath, [path.join(ROOT, 'tools', 'rollout.js'), ...a], { cwd: ROOT, encoding: 'utf8' });
+  let made = false;
+  try {
+    run(['start', 'advent']); made = true;
+    const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+    let p = await open(ctx, port, 'advent');
+    await p.evaluate(() => { try{ localStorage.setItem('dj_a2hs_advent', 'done'); }catch(e){} });
+    await p.evaluate(() => document.getElementById('djDockToggle').click()); await p.waitForTimeout(300);
+    const stampOf = t => (t.replace(/\s+/g, ' ').match(/You are on (.+?)(?:  |$)/) || [])[1];
+    const liveStamp = stampOf(await p.innerText('#djDockSheet'));
+    ck('the released app shows no band', await p.$('#djBeta') === null);
+
+    p = await open(ctx, port, 'advent/beta');
+    ck('the beta says it is the next version, not released', /Next version[\s\S]*not released yet/.test(await p.innerText('#djBeta').catch(() => '')));
+    ck('  with a way back to the released one', (await p.getAttribute('#djBeta a', 'href').catch(() => null)) === '../');
+    await p.evaluate(() => document.getElementById('djDockToggle').click()); await p.waitForTimeout(300);
+    const betaStamp = stampOf(await p.innerText('#djDockSheet'));
+    ck('  it is the same app version', !!betaStamp && betaStamp === liveStamp, [betaStamp, liveStamp]);
+    ck('  it shares the released app’s records, not a set of its own',
+       await p.evaluate(() => localStorage.getItem('dj_a2hs_advent') === 'done' && !localStorage.getItem('dj_a2hs_beta')));
+    ck('  and the ? button sits clear of the band', await p.evaluate(() => {
+      const bb = document.getElementById('djBeta'), d = document.getElementById('djDock') || document.getElementById('djDockToggle');
+      if (!bb || !d) return false;
+      return d.getBoundingClientRect().bottom <= bb.getBoundingClientRect().top + 1;
+    }));
+    await ctx.close();
+    /* the hold is what stops a bad version reaching everyone an hour later */
+    let refused = '';
+    try { run(['promote', 'advent']); } catch (e) { refused = String(e.stderr || e.message || ''); }
+    ck('promoting before the 24 hours are up is refused', /hours left/.test(refused), refused.slice(0, 90));
+  } finally {
+    if (made) { try { run(['drop', 'advent']); } catch (e) {} }
+    ck('the trial beta cleaned up after itself', !fs.existsSync(path.join(ROOT, 'advent', 'beta')));
+  }
+}
+
 async function same(){
   console.log('\nThe block itself');
   const crypto = require('crypto');
@@ -271,6 +310,7 @@ async function same(){
     if (!only || only === 'back') await back(b, s.port);
     if (!only || only === 'mic')  await mic(b, s.port);
     if (!only || only === 'tell') await tell(b, s.port);
+    if (!only || only === 'beta') await beta(b, s.port);
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }
