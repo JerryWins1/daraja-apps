@@ -2879,7 +2879,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0.8 · 2026-11-21';
+var VER = 'v2.0.9 · 2026-11-21';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4536,7 +4536,10 @@ async function rcPhoto(inp){
   }catch(e){
     msg.innerHTML = 'I couldn’t read the photo here (' + esc(e.message || 'no connection') + '). The photo is saved — type the items in below, or paste the receipt text.';
   }
-  startReceipt(text, pid, 'photo');
+  var img = '';
+  try{ img = await new Promise(function(res){ var fr = new FileReader(); fr.onload = function(){ res(String(fr.result).split(',')[1] || ''); }; fr.onerror = function(){ res(''); }; fr.readAsDataURL(blob); }); }catch(e){}
+  if(blob && blob.type !== 'image/jpeg') img = '';   /* the AI door takes JPEG, PNG or WebP — never an iPhone's HEIC straight from the camera */
+  startReceipt(text, pid, 'photo'); if(RC){ RC.img = img; render(); }
 }
 /* v2.0.4 (21 Nov, Jerry's Menards receipt read as one wrong line and a total of -$174.39). The reader was given the
    photo already shrunk for saving, so small receipt print was a few pixels high. It now reads the full photo, cleaned
@@ -4674,6 +4677,11 @@ function receiptReview(){
   h += '<div class="card"><div class="two"><div><label class="f" for="rcV" style="margin-top:0">Store</label><input class="i" id="rcV" value="' + esc(RC.vendor) + '" onchange="BM.rcSet(\'vendor\',this.value)" placeholder="' + L('Home Depot', 'e.g. Nakuru Hardware') + '"></div><div><label class="f" for="rcD" style="margin-top:0">Date</label><input class="i" type="date" id="rcD" value="' + esc(RC.date) + '" onchange="BM.rcSet(\'date\',this.value)"></div></div>'
     + (RC.photo ? '<button class="btn sm" style="margin-top:8px" onclick="BM.showPhoto(\'' + RC.photo + '\')">📸 See the photo</button>' : '') + '</div>';
   h += '<div class="card"><label class="f" for="rcM" style="margin-top:0">Most of this is for</label><select class="i" id="rcM" onchange="BM.rcMost(this.value)">' + destOptions(RC.most, false) + '</select><p class="hint">Then change just the items that go somewhere else — a tool for the shop, a snack that’s personal, or a split between two jobs.</p></div>';
+  /* v2.0.9 (21 Nov): the phone's own reader garbles a photographed store slip. When the reading doesn't add up, the
+     first thing on the screen is the way to a proper one: the AI reads the photo itself (the house AI door takes photos
+     from house v77). With the door off, the same button asks the person's own AI with the phone's reading instead. */
+  var shaky = RC.img && hasAI() && (RC.lines.some(function(l){ return /^❓/.test(l.name || ''); }) || !RC.lines.length || (RC.total && Math.abs(RC.total - s.total) > 0.02));
+  if(shaky) h += '<div class="banner" id="rcAIbar" style="margin:0 0 10px">The phone couldn’t read all of this receipt.<button class="btn main full" style="margin-top:8px" onclick="BM.rcAI()">✨ Have AI read the photo</button></div>';
   h += '<h2>Items (' + RC.lines.length + ')</h2>';
   h += RC.lines.map(function(l, i){
     var sel = l.to || RC.most;
@@ -4681,7 +4689,7 @@ function receiptReview(){
       + '<select class="i" style="min-height:44px;margin-top:6px;font-size:15px' + (l.to && l.to !== RC.most ? ';border-color:var(--amber);background:var(--amberSoft)' : '') + '" onchange="BM.rcTo(' + i + ',this.value)" aria-label="Where it goes">' + destOptions(sel, true) + '</select>'
       + (l.to === 'split' ? '<div class="small muted" style="margin-top:4px">' + l.split.map(function(p){ return money(p.amt) + ' → ' + esc(destName(p.to)); }).join(' · ') + ' <a href="javascript:void 0" onclick="BM.rcSplit(' + i + ')">change</a></div>' : '') + '</div>';
   }).join('');
-  h += '<div class="btns"><button class="btn sm" onclick="BM.rcAdd()">➕ Add an item</button>' + (hasAI() && RC.text ? '<button class="btn sm" onclick="BM.rcAI()">✨ Have AI read it</button>' : '') + '</div>';
+  h += '<div class="btns"><button class="btn sm" onclick="BM.rcAdd()">➕ Add an item</button>' + (hasAI() && (RC.text || RC.img) ? '<button class="btn sm" onclick="BM.rcAI()">✨ Have AI read ' + (RC.img ? 'the photo' : 'it') + '</button>' : '') + '</div>';
   h += '<div class="card" style="margin-top:10px"><div class="tot"><span>Items</span><span>' + money(s.items) + '</span></div><div class="tot"><span>Tax</span><span><input class="i" style="width:110px;min-height:40px;text-align:right" inputmode="decimal" value="' + (s.tax ? s.tax.toFixed(2) : '') + '" placeholder="0.00" onchange="BM.rcSet(\'tax\',this.value)" aria-label="Tax"></span></div><div class="tot grand"><span>Total</span><span>' + money(s.total) + '</span></div>'
     + (RC.total && Math.abs(RC.total - s.total) > 0.02 ? '<div class="banner small" style="margin:8px 0 0">The receipt says <b>' + money(RC.total) + '</b> but these add up to <b>' + money(s.total) + '</b>. Check for a missed or misread line.</div>' : '') + '</div>';
   var jobsHere = {}; RC.lines.forEach(function(l){ (l.to === 'split' ? l.split : [{ to:l.to || RC.most }]).forEach(function(p){ if(p.to && p.to.indexOf('job:') === 0) jobsHere[p.to.slice(4)] = 1; }); });
@@ -4740,8 +4748,10 @@ function rcSave(){
   toast('Saved ' + money(rec.total) + ' → ' + where); go('rcpt/' + rec.id);
 }
 function rcAI(){
+  var photo = !!RC.img;
   djAI.ask({ title:'Read this receipt', want:'text', circle:false,
-    prompt:'This is the text of a store receipt (it may be messy — it was read from a photo or copied from an email). Pull out what was bought. Write exactly this, with nothing else:\nStore: name of the store\nDate: YYYY-MM-DD\nItem name | price\nItem name | price\nTax: 0.00\nTotal: 0.00\n\nUse the price actually charged for each line (after any discount). Leave out payment, card and change lines.\n\n' + String(RC.text).slice(0, 8000),
+    file:photo ? { name:'receipt.jpg', media_type:'image/jpeg', data:RC.img } : undefined,
+    prompt:(photo ? 'This is a photo of a store receipt. Read it carefully, line by line. If you cannot see a photo, use the text further down instead, which the phone read from it (it may be garbled). ' : 'This is the text of a store receipt (it may be messy — it was read from a photo or copied from an email). ') + 'Pull out what was bought. Write exactly this, with nothing else:\nStore: name of the store\nDate: YYYY-MM-DD\nItem name | price\nItem name | price\nTax: 0.00\nTotal: 0.00\n\nUse the price actually charged for each line (after any discount). Leave out payment, card and change lines.\n\n' + String(RC.text).slice(0, 8000),
     onResult:function(v, raw){
       var n = 0, lines = [];
       bulletless(raw).forEach(function(l){ var m;
