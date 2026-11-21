@@ -2870,7 +2870,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0.2 · 2026-11-21';
+var VER = 'v2.0.4 · 2026-11-21';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4197,6 +4197,9 @@ function pl(from, to){
 VIEWS.money = function(){
   setHead('Money');
   var p = route[1] || 'tm', P = period(p), R = pl(P[0], P[1]), h = [];
+  /* v2.0.3 (21 Nov, Jerry: "it would be good if the operating buttons are on top and the reporting things down below,
+     because they're gonna be really long"). The things you DO with money come first; the figures and lists follow. */
+  if(F('expenses')) h.push('<div class="btns" id="moneyActs" style="margin-bottom:10px"><button class="btn main" onclick="BM.newReceipt()">📸 Receipt</button><button class="btn" onclick="BM.addExpense()">➕ Expense</button><button class="btn" onclick="BM.go(\'import\')">📄 Import statement</button><button class="btn" onclick="BM.go(\'expenses/' + p + '\')">📋 All expenses</button>' + ((S.receipts || []).length ? '<button class="btn" onclick="BM.go(\'receipts\')">🗂️ Receipts</button>' : '') + '</div>');
   h.push('<div class="chips">' + [['tm', 'This month'], ['lm', 'Last month'], ['ty', 'This year'], ['ly', 'Last year'], ['all', 'All']].map(function(x){ return '<button class="chip' + (x[0] === p ? ' on' : '') + '" onclick="BM.go(\'money/' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>');
   h.push('<div class="card"><div class="muted small" style="font-weight:800">' + esc(P[2].toUpperCase()) + '</div>'
     + '<div class="tot"><span>Money in (paid to you)</span><b style="color:var(--good)">' + money(R.income) + '</b></div>'
@@ -4213,7 +4216,6 @@ VIEWS.money = function(){
     var cats = Object.keys(R.exp).sort(function(a, b){ return R.exp[b] - R.exp[a]; }), mx = cats.length ? R.exp[cats[0]] : 1;
     h.push('<h2>Where the money went</h2><div class="card">' + (cats.length ? cats.map(function(k){ return '<div style="margin:6px 0"><div class="row small"><span class="grow">' + esc(k) + '</span><b>' + money(R.exp[k]) + '</b></div><div class="bar"><i style="width:' + Math.max(2, R.exp[k] / mx * 100) + '%"></i></div></div>'; }).join('') : '<p class="muted" style="margin:0">No expenses in this period.</p>')
       + (R.personal ? '<p class="hint">Not counted: ' + money(R.personal) + ' marked personal.</p>' : '') + '</div>');
-    h.push('<div class="btns"><button class="btn" onclick="BM.newReceipt()">📸 Receipt</button><button class="btn" onclick="BM.addExpense()">➕ Expense</button><button class="btn" onclick="BM.go(\'import\')">📄 Import statement</button><button class="btn" onclick="BM.go(\'expenses/' + p + '\')">📋 All expenses</button>' + ((S.receipts || []).length ? '<button class="btn" onclick="BM.go(\'receipts\')">🗂️ Receipts</button>' : '') + '</div>');
   }
   /* jobs that brought money in this period */
   var jm = {}; R.inc.forEach(function(x){ if(x.v.jobId) jm[x.v.jobId] = 1; });
@@ -4532,11 +4534,31 @@ async function rcPhoto(inp){
     msg.textContent = 'Getting the receipt reader ready (first time takes a moment)…';
     await loadScript(OCR_JS);
     var w = await Tesseract.createWorker('eng', 1, Object.assign({ logger:function(m){ if(m.status === 'recognizing text') msg.textContent = 'Reading the receipt… ' + Math.round(m.progress * 100) + '%'; } }, OCR_OPT));
-    var out = await w.recognize(blob); text = out.data.text || ''; await w.terminate();
+    try{ await w.setParameters({ tessedit_pageseg_mode:'6', preserve_interword_spaces:'1' }); }catch(e){}   /* a receipt is one block of rows */
+    var out = await w.recognize(await ocrPrep(f).catch(function(){ return blob; })); text = out.data.text || ''; await w.terminate();
   }catch(e){
     msg.innerHTML = 'I couldn’t read the photo here (' + esc(e.message || 'no connection') + '). The photo is saved — type the items in below, or paste the receipt text.';
   }
   startReceipt(text, pid, 'photo');
+}
+/* v2.0.4 (21 Nov, Jerry's Menards receipt read as one wrong line and a total of -$174.39). The reader was given the
+   photo already shrunk for saving, so small receipt print was a few pixels high. It now reads the full photo, cleaned
+   up: grey, contrast stretched so faint thermal print goes dark, and sized to about 2,000 px across. */
+async function ocrPrep(file){
+  var url = URL.createObjectURL(file);
+  try{
+    var img = await new Promise(function(res, rej){ var i = new Image(); i.onload = function(){ res(i); }; i.onerror = rej; i.src = url; });
+    var W = img.naturalWidth, H = img.naturalHeight, k = Math.min(2.5, 2000 / Math.min(W, H) > 1 ? Math.min(2000 / Math.min(W, H), 2.5) : 2400 / Math.max(W, H) < 1 ? 2400 / Math.max(W, H) : 1);
+    var c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+    var g = c.getContext('2d'); g.drawImage(img, 0, 0, c.width, c.height);
+    var d = g.getImageData(0, 0, c.width, c.height), p = d.data, hist = new Uint32Array(256), n = p.length / 4;
+    for(var i = 0; i < p.length; i += 4){ var y = (p[i] * 299 + p[i + 1] * 587 + p[i + 2] * 114) / 1000 | 0; p[i] = y; hist[y]++; }
+    var lo = 0, hi = 255, acc = 0; for(; lo < 255; lo++){ acc += hist[lo]; if(acc > n * 0.02) break; } acc = 0; for(; hi > 0; hi--){ acc += hist[hi]; if(acc > n * 0.02) break; }
+    var span = Math.max(1, hi - lo);
+    for(var j = 0; j < p.length; j += 4){ var v = Math.max(0, Math.min(255, (p[j] - lo) * 255 / span)); p[j] = p[j + 1] = p[j + 2] = v; }
+    g.putImageData(d, 0, 0);
+    return await new Promise(function(res){ c.toBlob(res, 'image/png'); });
+  } finally { URL.revokeObjectURL(url); }
 }
 function rcText(){ var t = $('rcT').value.trim(); if(!t){ alert('Paste the receipt first.'); return; } startReceipt(t, '', 'email'); }
 function rcManual(){ startReceipt('', '', 'typed'); if(!RC.lines.length) RC.lines.push({ name:'', amount:0, to:'' }); render(); }
@@ -4549,7 +4571,52 @@ function startReceipt(text, pid, how){
 }
 
 /* reading receipt text: works on Home Depot / Lowe's style receipts and pasted eReceipts */
+/* v2.0.4 (21 Nov, Jerry's Menards receipt). Store slips like Menards put the item name on one line and, under it, the
+   item number with "qty @ price" and the line total (sometimes the total drops to a line of its own). Their plain
+   "TOTAL" is before tax and "TOTAL SALE" is what was paid. And the phone's reader garbles some characters on thermal
+   paper ("J614066 b @7.97" for "3614066 6 @7.97"). This reads that layout, works out a line from qty × price when
+   its total is missing or unreadable, and takes the paid total over the before-tax one. parseReceipt then keeps
+   whichever reading of the slip adds up best. */
+function ocrDigits(t){ return String(t).replace(/[OoQD]/g, '0').replace(/[Il|]/g, '1').replace(/[J]/g, '3').replace(/[Ss]/g, '5').replace(/[b]/g, '6').replace(/[B]/g, '8').replace(/[Z]/g, '2'); }
+function parseRows(text){
+  var MONEY = /(-?\$?\s?\d{1,5}(?:,\d{3})*\.\d{2})/, out = { items:[], tax:0, total:0, sub:0 };
+  var lines = String(text || '').split(/\r?\n/).map(function(l){ return l.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+  var bare = function(l){ var m = l && l.match(/^-?\$?\s?(\d{1,5}(?:,\d{3})*\.\d{2})\s*[A-Z]{0,2}$/); return m ? num(m[1]) : null; };
+  var name = '';
+  for(var i = 0; i < lines.length; i++){
+    var l = lines[i], m, nx = lines[i + 1];
+    /* totals and tax: the amount on the same line, or alone on the next */
+    var lab = l.replace(MONEY, '').trim(), amt = (l.match(MONEY) || [])[1], val = amt != null ? Math.abs(num(amt)) : (bare(nx) != null ? bare(nx) : null);
+    if(/^(total\s+sale|grand\s+total|amount\s+due|balance\s+due|total\s+due)\b/i.test(lab)){ if(val != null){ out.total = val; if(amt == null) i++; } name = ''; continue; }
+    if(/^(sub-?\s?total|total)\b/i.test(lab) && !/number|items|saved|savings/i.test(lab)){ if(val != null){ out.sub = out.sub || val; if(amt == null) i++; } name = ''; continue; }
+    if(/^(sales\s+)?(tax|vat)\b/i.test(lab)){ if(val != null){ out.tax = out.tax || val; if(amt == null) i++; } name = ''; continue; }
+    if(/\b(visa|master ?card|amex|discover|debit|credit|cash|change|tender|auth|contactless|arqc|aid|number of items)\b/i.test(lab)){ name = ''; continue; }
+    /* the item-number row: a 6–8 character code (allowing for misread digits), maybe "qty @ price", maybe the line total */
+    var row = l.match(/^([A-Za-z0-9]{6,9})\b\s*(.*)$/);
+    if(name && row && (ocrDigits(row[1]).match(/\d/g) || []).length >= 5){
+      var rest = row[2], qty = 1, unit = 0, tot = null, q;
+      if((q = rest.match(/(\S+)\s*@\s*\$?\s?(\S+?)(?=\s|$)/))){ qty = parseInt(ocrDigits(q[1]), 10) || 1; unit = num(ocrDigits(q[2].replace(/^[^\d]+/, ''))); rest = rest.replace(q[0], ' '); }
+      var tm = rest.match(/(\d{1,5}(?:,\d{3})*\.\d{2})\s*[A-Z]{0,2}\s*$/); if(tm) tot = num(tm[1]);
+      if(tot == null && bare(nx) != null){ tot = bare(nx); i++; }
+      if(unit && qty > 1 && (tot == null || Math.abs(r2(qty * unit) - tot) > 0.015)){ var calc = r2(qty * unit); if(tot == null || !(tot > 0)) tot = calc; else if(Math.abs(calc - tot) > 0.015) tot = tot; }
+      if(tot != null && tot > 0) out.items.push({ name:(name + (qty > 1 ? ' (' + qty + ' @ ' + cur(unit.toFixed(2)) + ')' : '')).slice(0, 60), amount:tot });
+      name = ''; continue;
+    }
+    /* a name line: words, no price */
+    if(/[A-Za-z]{2}/.test(l) && !MONEY.test(l)) name = l.replace(/\s{2,}/g, ' '); else name = '';
+  }
+  if(!out.total && out.sub) out.total = r2(out.sub + out.tax);
+  return out;
+}
 function parseReceipt(text){
+  var a = parseReceiptLines(text), b = parseRows(text);
+  if(!b.items.length) return a;
+  function miss(r, tot){ var s = r.items.reduce(function(x, y){ return x + y.amount; }, 0); return tot ? Math.abs(r2(tot - (r.tax || 0) - s)) : 1e9; }
+  var tot = b.total || a.total, tax = b.tax || a.tax;
+  var useB = !a.items.length || miss({ items:b.items, tax:tax }, tot) <= miss({ items:a.items, tax:tax }, tot) || b.items.length > a.items.length;
+  return { vendor:a.vendor, date:a.date, tax:tax, total:tot, items:useB ? b.items : a.items };
+}
+function parseReceiptLines(text){
   var out = { vendor:'', date:'', tax:0, total:0, items:[] }, t = String(text || '');
   for(var i = 0; i < STORES.length; i++){ var re = new RegExp(STORES[i].replace(/[’']/g, '[’\']?').replace(/[&]/g, '&').replace(/ /g, '\\s*'), 'i'); if(re.test(t)){ out.vendor = STORES[i]; break; } }
   var dm = t.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/) || t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
@@ -4578,6 +4645,7 @@ function parseReceipt(text){
     if(name.length < 2 || /^(qty|price|amount|item|description)$/i.test(name)) return;
     out.items.push({ name:name.slice(0, 60), amount:num(m[2]) });
   });
+  if(out.total < 0) out.total = 0;   /* a refund or rebate line misread as the total */
   if(!out.tax && out.total){ var s = out.items.reduce(function(a, x){ return a + x.amount; }, 0), d = r2(out.total - s); if(d > 0 && d < s * 0.15) out.tax = d; }
   return out;
 }
