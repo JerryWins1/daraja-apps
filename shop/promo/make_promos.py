@@ -62,7 +62,19 @@ PROMO=[
  ("Every app is free. If one helps you, a small gift goes to that work.",[],"Free — gifts help orphans & students in Kenya",None),
  ("Try one today, at the Daraja store.",[],"jerrywins1.github.io/daraja-apps/shop",None),
 ]
+PROMO2=[
+ ("Most apps wait for you to remember. Daraja apps think ahead for you.",[STORE],"Apps that think ahead for you",None),
+ ("Each one works with the AI you already use: ChatGPT, Claude, or Gemini. The free versions work too.",[],"Works with the AI you already use",None),
+ ("Family Money spots a big bill coming, weeks before it lands, and helps you plan for it while there's still time.",[],"Sees the big bills coming, weeks ahead","Family Money"),
+ ("Ask it a real question, like, can we afford a new car? It asks what it needs to know, checks today's rates, and answers from your own budget.",[],"“Can we afford a new car?” — answered from your own budget","Family Money"),
+ ("One Thing pulls the tasks out of a long email, and every Sunday helps you look back on your week, and ahead to the next one.",["nownext.jpg"],"Turns emails into tasks · Plans your week","One Thing"),
+ ("Business Manager starts your day with a one minute brief, and writes the running late text for you.",["business-manager.jpg"],"A one-minute morning brief","Business Manager"),
+ ("Your information stays on your phone. The AI only sees what you choose to share.",[],"Your information stays on your phone",None),
+ ("They're free, and made to help you, and to raise money for orphans and a scholarship program in Kenya.",[],"Free · Made to help you, and children in Kenya",None),
+ ("Try one today, at the Daraja store.",[],"jerrywins1.github.io/daraja-apps/shop",None),
+]
 which=sys.argv[1]
 if which=='tour': build('tour',TOUR,1080,1920,'Why Daraja - store tour draft 2.mp4')
+elif which=='promo2': build('promo2',PROMO2,1080,1080,'Daraja - AI promo draft 2.mp4')
 else: build('promo',PROMO,1080,1080,'Daraja - Facebook promo draft 1.mp4')
 print('ok')
