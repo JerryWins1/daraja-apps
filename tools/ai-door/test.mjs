@@ -38,6 +38,8 @@ const call = async (body, e = env(), o = ORIGIN, m = 'POST') => {
   return { status: r.status, j, cors: r.headers.get('Access-Control-Allow-Origin') };
 };
 const PDF = Buffer.from('%PDF-1.4\n' + 'A'.repeat(1000)).toString('base64');
+/* a photographed receipt: the bytes are never looked at, only the media_type */
+const JPG = Buffer.from('\xff\xd8\xff\xe0' + 'A'.repeat(1000), 'binary').toString('base64');
 
 console.log('\n=== the bug that was reported ===');
 stubAnthropic(() => ({ status: 200, json: { stop_reason: 'max_tokens', content: [] } }));
@@ -62,8 +64,31 @@ stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{
   ck('no budget_tokens (removed on Haiku 5.5)', !('budget_tokens' in (lastBody.thinking||{})), JSON.stringify(lastBody.thinking));
 }
 
+console.log('\n=== a photographed receipt (21 Nov) ===');
+stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Menards, $41.37.' }] } }));
+for (const mt of ['image/jpeg', 'image/png', 'image/webp']) {
+  const r = await call({ prompt: 'Read this receipt', file: { media_type: mt, data: JPG } });
+  ck(mt + ' gets an answer', r.status === 200 && r.j.text === 'Menards, $41.37.', r.status + ' ' + JSON.stringify(r.j));
+  const c = lastBody.messages[0].content;
+  ck(mt + ' is sent as an image block', Array.isArray(c) && c[0].type === 'image', JSON.stringify((c || []).map ? c.map(x => x.type) : c));
+  ck(mt + " keeps its own media_type", c[0].source.media_type === mt, JSON.stringify(c[0].source.media_type));
+  ck(mt + ' goes base64, picture first then the question', c[0].source.type === 'base64' && c[1].type === 'text', JSON.stringify(c.map(x => x.type)));
+}
+{
+  /* the size check sits BEFORE the daily count, so a photo that is too big must not burn a slot */
+  const e = env();
+  let r = await call({ prompt: 'hi', file: { media_type: 'image/jpeg', data: 'A'.repeat(8 * 1024 * 1024) } }, e);
+  ck('a photo over 5 MB is refused', r.status === 413, String(r.status));
+  ck('and it did not cost a slot', (await e.DOOR_COUNT.get('d:' + new Date().toISOString().slice(0, 10) + ':unknown')) === null, 'a slot was spent');
+
+  r = await call({ prompt: 'Read this receipt', file: { media_type: 'image/jpeg', data: JPG } }, e);
+  ck('a photo that is read does cost a slot', (await e.DOOR_COUNT.get('d:' + new Date().toISOString().slice(0, 10) + ':unknown')) === '1', 'no slot was spent');
+}
+
 console.log('\n=== everything that must not break ===');
 {
+  /* re-stub: the photo group above left its own answer in place */
+  stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Three rows.' }] } }));
   let r = await call({ prompt: 'hello' });
   ck('a plain ask still works', r.status === 200 && r.j.text === 'Three rows.', JSON.stringify(r.j));
   ck('the prompt goes as a bare string when there is no file', typeof lastBody.messages[0].content === 'string', typeof lastBody.messages[0].content);
@@ -83,8 +108,11 @@ console.log('\n=== everything that must not break ===');
   r = await call({ prompt: 'x'.repeat(24001) });
   ck('an over-long question is refused', r.status === 413, String(r.status));
 
-  r = await call({ prompt: 'hi', file: { media_type: 'image/png', data: PDF } });
-  ck('only a PDF is accepted', r.status === 415, String(r.status));
+  r = await call({ prompt: 'hi', file: { media_type: 'text/csv', data: PDF } });
+  ck('a file that is neither PDF nor photo is refused', r.status === 415, String(r.status));
+
+  r = await call({ prompt: 'hi', file: { media_type: 'image/heic', data: JPG } });
+  ck('an iPhone HEIC is refused with its own wording', r.status === 415 && /JPEG, PNG or WebP/.test(r.j.error || ''), JSON.stringify(r.j));
 
   r = await call({ prompt: 'hi', file: { media_type: 'application/pdf', data: '' } });
   ck('an empty file is refused', r.status === 400, String(r.status));

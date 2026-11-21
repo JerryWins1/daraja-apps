@@ -306,6 +306,58 @@ async function hello(b, port){
   await ctx.close();
 }
 
+/* 21 Nov 2026. The AI door now reads a photographed receipt as well as a PDF, so the sheet
+   that shows the person what is about to leave the phone has to name which it is. A sheet
+   that says "the file receipt.jpg (PDF, 380 KB)" over a photograph is a wrong preview, and
+   a wrong preview is worse than none — that was the reasoning when the sheet first learned
+   to name a file, and it is the reasoning here. */
+async function filekind(b, port){
+  console.log('\nThe confirm sheet — it must name what it is about to send');
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  /* the door's real address is in control/ai.json; stand in for both it and the door */
+  await ctx.route('**/control/ai.json*', r => r.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ endpoint: 'https://door.test/ask' }) }));
+  let sent = null;
+  await ctx.route('https://door.test/ask', r => {
+    try { sent = JSON.parse(r.request().postData() || '{}'); } catch (e) { sent = 'unparseable'; }
+    return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ text: 'Menards, $41.37.' }) });
+  });
+  const p = await open(ctx, port, 'advent');
+
+  const data = 'A'.repeat(4 * 1024);                 /* base64 for 3 KB */
+  const ask = async (file) => {
+    await p.evaluate(f => { window.djAI.ask({ title: 'Read it', prompt: 'Read this', file: f }); }, file);
+    await p.waitForTimeout(700);
+    return await p.evaluate(() => {
+      const s = document.getElementById('djAISheet');
+      return s ? s.innerText.replace(/\s+/g, ' ') : null;
+    });
+  };
+  const cancel = async () => {
+    await p.evaluate(() => { const x = document.getElementById('djAIX'); if (x) x.click(); });
+    await p.waitForTimeout(300);
+  };
+
+  let t = await ask({ media_type: 'application/pdf', name: 'statement.pdf', data });
+  ck('a PDF is still called a PDF', /statement\.pdf/.test(t || '') && /\(PDF, 3 KB\)/.test(t || ''), t);
+  await cancel();
+
+  t = await ask({ media_type: 'image/jpeg', name: 'receipt.jpg', data });
+  ck('a photo is called a photo, not a PDF', /receipt\.jpg/.test(t || '') && /\(photo, 3 KB\)/.test(t || '') && !/PDF/.test(t || ''), t);
+  await cancel();
+
+  t = await ask({ media_type: 'image/png', data });
+  ck('a photo with no name still says photo', /a photo/.test(t || '') && !/PDF/.test(t || ''), t);
+
+  /* and it really goes to the door, with the type the app chose */
+  await p.evaluate(() => { const g = document.getElementById('djAIGo'); if (g) g.click(); });
+  await p.waitForTimeout(1200);
+  ck('the photo reaches the door with its own media_type',
+     !!sent && sent.file && sent.file.media_type === 'image/png' && sent.file.data === 'A'.repeat(4 * 1024),
+     sent && sent.file ? sent.file.media_type : sent);
+  await ctx.close();
+}
+
 async function same(){
   console.log('\nThe block itself');
   const crypto = require('crypto');
@@ -350,6 +402,7 @@ async function same(){
     if (!only || only === 'tell') await tell(b, s.port);
     if (!only || only === 'beta') await beta(b, s.port);
     if (!only || only === 'hello') await hello(b, s.port);
+    if (!only || only === 'filekind') await filekind(b, s.port);
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }
