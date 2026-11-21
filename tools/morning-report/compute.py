@@ -102,8 +102,15 @@ def sales_of(M, today=None):
         if kv.get('kenya','').lower()=='yes': kenya+=1
         if day==last: new+=1
     tot={k:sum(o[k] for o in opens.values()) for k in ('last_day','last_7_days','all_time')}
+    # 21 Nov 2026: "Send us a message" (house v73) — FEEDBACK|kind:problem|idea|question. Counts only;
+    # the words stay in the private digest, never in the public repo.
+    fb={'last_7_days':collections.Counter(),'all_time':collections.Counter()}; fbapp=collections.Counter()
+    for kv,day in tagged('FEEDBACK'):
+        k=kv.get('kind') or 'other'; fb['all_time'][k]+=1; fbapp[kv.get('app') or '?']+=1
+        if week<=day<=last: fb['last_7_days'][k]+=1
     return {'last_day':last,'week_from':week,
             'opens':{k:opens[k] for k in sorted(opens,key=lambda k:(-opens[k]['last_7_days'],-opens[k]['all_time'],k))},'opens_total':tot,
+            'messages':{'last_7_days':dict(fb['last_7_days']),'all_time':dict(fb['all_time']),'by_app':dict(fbapp.most_common())},
             'interest':{'total':n,'last_day':new,'kenya_yes':kenya,'by_shelf':dict(shelf.most_common()),'by_app':dict(app.most_common())}}
 out={'updated':datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),'apps':apps,'phones':{**{'Veronicah':['iPhone · 428px (earlier report)']},**{k:sorted(v) for k,v in sorted(dev.items())}},
      'counts':{s:sum(1 for a in apps if a['status']==s) for s in order},

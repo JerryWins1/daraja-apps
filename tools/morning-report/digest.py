@@ -93,4 +93,17 @@ if DATA:
         P(f"- Keep me posted sign-ups: {it['total']} all time ({it['last_day']} new) · {it['kenya_yes']} want Kenya news")
         if it['by_shelf']: P('- By shelf: ' + ', '.join(f'{k} {v}' for k, v in it['by_shelf'].items()))
         if it['by_app']: P('- By app: ' + ', '.join(f'{k} {v}' for k, v in it['by_app'].items()))
+# 6. Customer messages — "Send us a message" in every app's ? menu (house v73, 21 Nov 2026).
+#    Launch idea 2: the nightly job relays each problem to the chat that owns the app (control/apps.json)
+#    and drafts a reply to each question for Jerry to approve. Nothing is ever sent to a customer by Claude.
+FB = [d for d in M if (d.get('H', '') or '').startswith('FEEDBACK|')]
+if FB:
+    P(f'\n## Customer messages ({len(FB)})')
+    for kind, label in (('problem', 'Problems — relay to the app\'s chat'), ('question', 'Questions — draft a reply for Jerry'), ('idea', 'Ideas — add to the idea board')):
+        rows_k = [d for d in FB if ('kind:' + kind) in d['H'].split('\n')[0]]
+        if not rows_k: continue
+        P(f'### {label} ({len(rows_k)})')
+        for d in rows_k:
+            head, _, body = d['H'].partition('\n'); app = re.search(r'app:([^|]+)', head)
+            P(f"- {d.get('B','')[:16]} **{app.group(1) if app else '?'}** · {d.get('D','?')}: {body.strip()[:400]}")
 print('\n'.join(out))
