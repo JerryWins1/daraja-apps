@@ -35,7 +35,7 @@ def page_of(app):
 def head_checks(html):
     return {
         'phone fit': 'viewport-fit=cover' in html,
-        'home icon': 'apple-touch-icon' in html,
+        'home icon': bool(re.search(r'rel="apple-touch-icon"[^>]*href="(?![^"]*\.svg")[^"]+"', html)),   # iOS ignores an SVG touch icon (Pit Wall chat, 21 Nov)
         'theme colour': 'theme-color' in html,
         'installable': 'rel="manifest"' in html or "rel='manifest'" in html,
         'version stamp': bool(re.search(r'v\d+\.\d+[^\n<]{0,40}?20\d\d-\d\d-\d\d', html)),
