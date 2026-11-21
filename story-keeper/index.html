@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v72">
+<script id="dj-house-v73">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -915,6 +915,16 @@
       pb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">⚠️</span><span style="flex:1">Recent problems<br><small style="font-weight:600;color:#55605B">' + djProbs.length + ' message' + (djProbs.length === 1 ? '' : 's') + ' that flashed up · copy them to send on</small></span>';
       pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
       box.appendChild(pb);
+    }
+    /* The ? menu itself, not the Help sheet under it: only 18 of the 54 apps have a #djHelp
+       button, so a row in there would be missing from two thirds of them, and Jerry asked for
+       every app. */
+    if(!djFeedbackOff()){
+      var fb = document.createElement('button'); fb.type = 'button';
+      fb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      fb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">✉️</span><span style="flex:1">Send us a message<br><small style="font-weight:600;color:#55605B">a problem, an idea, or a question</small></span>';
+      fb.onclick = function(){ w.remove(); djBackPush(dockSheet); djFeedback(); };
+      box.appendChild(fb);
     }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
@@ -1900,6 +1910,82 @@
     return a;
   }
   window.djAudience = audience;
+  /* 21 Nov. Jerry, relayed through the front door: "would like to be able to have a messaging
+     system from the user of an app to send a message back to the control center if they have a
+     problem, we can notify to fix it or if they wanna feature request or if they wanna report a
+     problem or something." One row in the ? menu, three kinds, and the same mailbox as Keep me
+     posted and the testers' reports — action 'report' with a tagged first line, so it lands in
+     the HQ sheet's messages tab where tools/morning-report/digest.py counts it.
+     Skipped exactly where Keep me posted is: a children's page, My Safety Plan (a plan's names and
+     numbers never leave the phone), a test copy, and a guest's visit. */
+  var DJ_FB = [
+    ['problem',  '\u{1F6A9}', 'Report a problem', 'What went wrong? What were you doing when it happened?'],
+    ['idea',     '\u{1F4A1}', 'Suggest an idea',  'What would make this app better for you?'],
+    ['question', '❓',    'Ask a question',   'What would you like to know?']
+  ];
+  /* Family Money's copy of the block carries none of the mailbox code (no djSend, no djRefKey,
+     no djSandbox), so the row must not appear there at all rather than appear and fail. The same
+     guard covers any app whose copy drifts the same way. */
+  function djFeedbackOff(){
+    if(typeof djSend !== 'function') return true;
+    try{ return kidsPage() || crisisPage() || djSandbox() || guestVisit(); }catch(e){ return true; }
+  }
+  function djFeedback(kind){
+    var k = kind || 'problem', probs = djProblems(), app = djRefKey(slugOf());
+    var of = function(x){ for(var i = 0; i < DJ_FB.length; i++) if(DJ_FB[i][0] === x) return DJ_FB[i]; return DJ_FB[0]; };
+    var fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;min-height:46px;padding:10px 12px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-top:8px';
+    var kindBtn = function(x){
+      return '<button type="button" class="djFbK" data-k="' + x[0] + '" aria-pressed="false" style="flex:1;font:inherit;font-weight:800;font-size:13px;line-height:1.2;min-height:62px;padding:8px 4px;border-radius:12px;cursor:pointer;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622">'
+        + '<span style="font-size:18px;display:block;margin-bottom:2px">' + x[1] + '</span>' + esc(x[2]) + '</button>';
+    };
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Send us a message</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">It comes straight to the people who look after these apps. Nothing is sent until you tap Send it.</p>'
+      + '<div style="display:flex;gap:6px">' + DJ_FB.map(kindBtn).join('') + '</div>'
+      + '<textarea id="djFbText" aria-label="Your message" style="' + fld + ';min-height:112px"></textarea>'
+      + '<input id="djFbName" type="text" autocomplete="name" maxlength="40" placeholder="Your name — not needed" aria-label="Your name" value="' + esc(djName()) + '" style="' + fld + '">'
+      + '<input id="djFbContact" type="text" autocomplete="email" maxlength="80" placeholder="Email or phone, if you would like an answer" aria-label="Email or phone" style="' + fld + '">'
+      + (probs.length ? '<label id="djFbProbWrap" style="display:flex;gap:10px;align-items:flex-start;font-size:14.5px;margin:10px 0 0;cursor:pointer"><input id="djFbProb" type="checkbox" checked style="width:22px;height:22px;min-height:22px;flex:none;accent-color:#23504F"><span>Send the ' + probs.length + ' recent problem message' + (probs.length === 1 ? '' : 's') + ' as well<br><small style="color:#55605B">the ones this app wrote down for you — they help us find the fault</small></span></label>' : '')
+      + '<button type="button" id="djFbGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Send it</button>'
+      + '<div id="djFbNote" role="status" style="font-size:14.5px;margin-top:8px"></div>');
+    var ta = b.querySelector('#djFbText'), note = b.querySelector('#djFbNote'), wrap = b.querySelector('#djFbProbWrap');
+    /* switching kind must not throw away what has been typed, so nothing is rebuilt */
+    function paint(){
+      ta.placeholder = of(k)[3];
+      if(wrap) wrap.style.display = (k === 'problem') ? 'flex' : 'none';
+      var bs = b.querySelectorAll('.djFbK');
+      for(var i = 0; i < bs.length; i++){
+        var on = bs[i].getAttribute('data-k') === k;
+        bs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+        bs[i].style.borderColor = on ? '#23504F' : '#C9C1AE';
+        bs[i].style.background  = on ? '#23504F' : '#fff';
+        bs[i].style.color       = on ? '#fff' : '#1F2622';
+      }
+    }
+    var bs = b.querySelectorAll('.djFbK');
+    for(var i = 0; i < bs.length; i++) bs[i].onclick = function(){ k = this.getAttribute('data-k'); paint(); };
+    paint();
+    b.querySelector('#djFbGo').onclick = function(){
+      var one = function(id, n){ return String((b.querySelector(id) || {}).value || '').replace(/[|\r\n<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+      var msg = String(ta.value || '').replace(/[|<>]/g, ' ').replace(/[ \t]+/g, ' ').trim().slice(0, 2000);
+      if(msg.length < 2){ note.textContent = 'Write a line or two first, then tap Send it.'; try{ ta.focus(); }catch(e){} return; }
+      var name = one('#djFbName', 40), contact = one('#djFbContact', 80), go = this;
+      go.disabled = true; go.textContent = 'Sending…'; note.textContent = '';
+      var pb = b.querySelector('#djFbProb');
+      var text = 'FEEDBACK|kind:' + k + '|app:' + app + '|day:' + djYMD()
+        + '\n' + msg
+        + '\n— ' + (name || '(no name)') + ' · ' + (contact || '(no reply asked for)')
+        + '\nversion: ' + (appStamp() || 'not shown');
+      if(k === 'problem' && pb && pb.checked && probs.length) text += '\n\nWhat the app wrote down:\n' + djProbText();
+      djSend({ action:'report', who:'', name: name || 'A message', app: app, contact: contact, text: text }, function(ok){
+        if(!ok){ go.disabled = false; go.textContent = 'Send it'; note.textContent = 'That did not send. Check your connection and try again — nothing you typed is lost.'; return; }
+        try{ if(name && !djName()) localStorage.setItem('dj_name', name); }catch(e){}
+        b.innerHTML = '<div style="font-weight:900;font-size:19px;margin-bottom:6px">Thank you</div>'
+          + '<p style="margin:0 0 12px;font-size:15px">We have your message' + (contact ? ', and we will come back to you.' : '. ') + (contact ? '' : 'If you would like an answer, send another with an email or a phone number.') + '</p>'
+          + '<button type="button" id="djFbDone" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Close</button>';
+        b.querySelector('#djFbDone').onclick = function(){ djBackClear(); closeAISheet(); };
+      });
+    };
+  }
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
