@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v70">
+<script id="dj-house-v75">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -465,7 +465,14 @@
     serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
     clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
     gameday:      {k:[], p:['gameday_','church_gameday_']},
-    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    /* 20 Nov: the merge that made Ahead of It out of three apps kept only the new key, so Start fresh
+       erased aheadofit_v1 and left ahead_v1, steward_v1 and goodstanding_v1 on the phone — which the
+       app then migrated straight back in on the next open, so the person's own list went and three old
+       ones arrived. The papers pocket went the same way: ahead_papers was on the old entry and was
+       dropped. The three old addresses are redirect pages carrying no house block (checked), so naming
+       their keys here cannot reach a living app; their prefixes are deliberately NOT listed, because
+       steward_ would be another app's if Church Steward ever came back. */
+    aheadofit: {k:['aheadofit_v1','ahead_v1','steward_v1','goodstanding_v1'], p:['aheadofit_'], idb:['ahead_papers']},
     receipts:     {k:['receiptmaker_org_v1','receipts_v1'], p:['receiptmaker_','receipts_']},
     /* v64 (10 Oct): the newer apps keep their data under dj_ names, which the old erase skipped outright.
        Read out of each app's own source; each app ALSO declares window.DJ_OWNS, and that wins when present. */
@@ -501,13 +508,18 @@
     return o;
   }
 
+  /* 21 Nov: a copy of an app at <app>/beta/ is the SAME app, waiting its turn. Everything keyed on
+     the slug — its saved work, its backup entry, its tour, its Home Screen record — has to agree, or
+     a tester trying the next version would find an empty app called "beta". */
+  function djBetaPath(){ try{ return /\/beta\/?$/.test(location.pathname.replace(/\/index\.html$/,'')); }catch(e){ return false; } }
   function slugOf(){
-    var s = (window.DJ_START && window.DJ_START.slug) ||
-            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    var p = location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean);
+    if(p[p.length - 1] === 'beta') p.pop();
+    var s = (window.DJ_START && window.DJ_START.slug) || (p.pop() || '');
     s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
     var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
                  churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
-                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 churchgameday:'gameday', ahead:'aheadofit', npreceipts:'receipts',
                  f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper', bizmgr:'businessmanager'};
     return alias[s] || s;
   }
@@ -909,6 +921,23 @@
       pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
       box.appendChild(pb);
     }
+    /* The ? menu itself, not the Help sheet under it: only 18 of the 54 apps have a #djHelp
+       button, so a row in there would be missing from two thirds of them, and Jerry asked for
+       every app. */
+    if(!djFeedbackOff()){
+      var fb = document.createElement('button'); fb.type = 'button';
+      fb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      fb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">✉️</span><span style="flex:1">Send us a message<br><small style="font-weight:600;color:#55605B">a problem, an idea, or a question</small></span>';
+      fb.onclick = function(){ w.remove(); djBackPush(dockSheet); djFeedback(); };
+      box.appendChild(fb);
+    }
+    if(!djHomeScreenOff()){
+      var hs = document.createElement('button'); hs.type = 'button';
+      hs.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      hs.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">\u{1F4F2}</span><span style="flex:1">Put this app on your Home Screen<br><small style="font-weight:600;color:#55605B">it opens full screen, like any other app</small></span>';
+      hs.onclick = function(){ w.remove(); djBackClear(); homeScreenGuide(true); };
+      box.appendChild(hs);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
@@ -1141,35 +1170,64 @@
      Home Screen on their own, and most never do. So on the second visit in Safari
      — not the first, not while installed, not inside Feedback Studio — one card
      shows the three taps, with a real arrow to where the Share button lives. */
-  function homeScreenGuide(){
+  /* v66: Chrome on Android offers its install prompt once it decides the page can be installed; keep it for our own button. */
+  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
+  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + slugOf(), 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); }catch(err){} });
+  /* 21 Nov, Jerry through the front door: "We also need a way to show them how to put the app on
+     the shortcut… for the app." The card above still appears on its own, once, on a second visit;
+     this is the way to ask for it deliberately, any time. Not offered where there is nothing to
+     add it to: already installed, inside a frame, or a browser with no Home Screen at all. */
+  function djHomeScreenOff(){
+    try{
+      if(embedded) return true;
+      if(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) return true;
+      var ua = navigator.userAgent || '';
+      var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      return !(ios || /Android/.test(ua));
+    }catch(e){ return true; }
+  }
+  function homeScreenGuide(force){
+    if(document.getElementById('djA2HS')) return;
     try{
       var ua = navigator.userAgent || '';
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-      var force = /[?&]dj_a2hs=1/.test(location.search);
-      if(embedded || (!force && (!ios || navigator.standalone))) return;
+      force = force === true || /[?&]dj_a2hs=1/.test(location.search);
+      /* v66 (15 Oct, Jerry: "there should be a way to load it on their Home Screen easier"): Android too. Chrome hands us
+         its install prompt, so there it is ONE tap (Install); without it, the card shows Chrome's own two taps. */
+      var android = /Android/.test(ua), bip = window.__djBIP || null;
+      var installed = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      if(embedded || installed || (!ios && !android) || (!force && !ios && !bip)) return;
       if(!force && guestVisit()) return;
       if(!force && /\/(welcome|watch\.html|feedback-studio|testers|help|testday|control|safety)(\/|$)/.test(location.pathname)) return;   /* v47: tester and helper pages are visited, not kept */
       var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
       if(st === 'done' || st === 'no') return;
       var visits = parseInt(st || '0', 10) || 0;
-      if(!force && visits < 1){ localStorage.setItem(key, String(visits + 1)); return; }   /* first visit: just count */
-      if(!force && cardOpen()){ setTimeout(homeScreenGuide, 4000); return; }   /* v47: wait until the welcome card is closed */
+      if(!force && visits < 1){ if(!window.__djA2C){ window.__djA2C = 1; localStorage.setItem(key, String(visits + 1)); } return; }   /* first visit: just count (once, even if Chrome's prompt calls again) */
+      if(!force && cardOpen()){ setTimeout(function(){ homeScreenGuide(force); }, 4000); return; }   /* v47: wait until the welcome card is closed */
       var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
       var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
       var w = document.createElement('div'); w.id = 'djA2HS'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Put this app on your Home Screen');
       w.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
         + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
         + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+      var btn = 'font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer';
       w.innerHTML = '<div style="font-weight:800;font-size:17px;margin-bottom:6px">Keep ' + name.replace(/[<>&]/g,'') + ' on your Home Screen</div>'
-        + '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+        + (!ios ? (bip ? '<p style="margin:0 0 10px">One tap puts it next to your other apps. It opens full screen, and every Daraja app is inside.</p>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="install" style="' + btn + '">📲 Install ' + name.replace(/[<>&]/g,'') + '</button>'
+          : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>⋮</b> menu at the top right of Chrome</li><li>Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li><li>Tap <b>Install</b>. It opens like any other app, full screen.</li></ol>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="' + btn + '">I did it</button>')
+          + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
+          + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>' : '')
+        + (!ios ? '' : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
         + '<li>Scroll the list and tap <b>Add to Home Screen</b></li><li>Tap <b>Add</b>. It opens like any other app, full screen.</li></ol>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer">I did it</button>'
         + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
-        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>'
-        + (shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
+        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>')
+        + (ios && shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
       w.addEventListener('click', function(e){
         var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
         var a = b.getAttribute('data-a');
+        if(a === 'install' && bip){ bip.prompt(); bip.userChoice.then(function(c){ localStorage.setItem(key, c && c.outcome === 'accepted' ? 'done' : '0'); }).catch(function(){}); window.__djBIP = null; w.remove(); return; }
         if(a === 'done' || a === 'no') localStorage.setItem(key, a); else localStorage.setItem(key, '0');   /* later: ask again in two visits */
         w.remove();
       });
@@ -1792,7 +1850,7 @@
   };
   var AUDIENCE_OF = { advent:'church', steward:'church', serve:'church', drive:'church', occ:'church', churchkey:'church', church:'church', churchhq:'church', receipts:'church',
                       clubhouse:'kids', gameday:'kids',
-                      businessmanager:'business', quickquote:'business', nextstep:'business', drumbeat:'business', goodstanding:'business', zuri:'business', flipkit:'business', breakeven:'business',
+                      businessmanager:'business', quickquote:'business', nextstep:'business', drumbeat:'business', aheadofit:'business', zuri:'business', flipkit:'business', breakeven:'business',
                       everyday:'later', storykeeper:'later', academy:'later', rafiki:'later', keepsake:'later', porchlight:'later' };
   function audience(){
     var a = ''; try{ a = String(window.DJ_AUDIENCE || ((document.querySelector('meta[name="dj-audience"]') || {}).content) || '').toLowerCase(); }catch(e){}
@@ -1800,6 +1858,105 @@
     return a;
   }
   window.djAudience = audience;
+  /* 21 Nov. Jerry, relayed through the front door: "would like to be able to have a messaging
+     system from the user of an app to send a message back to the control center if they have a
+     problem, we can notify to fix it or if they wanna feature request or if they wanna report a
+     problem or something." One row in the ? menu, three kinds, and the same mailbox as Keep me
+     posted and the testers' reports — action 'report' with a tagged first line, so it lands in
+     the HQ sheet's messages tab where tools/morning-report/digest.py counts it.
+     Skipped exactly where Keep me posted is: a children's page, My Safety Plan (a plan's names and
+     numbers never leave the phone), a test copy, and a guest's visit. */
+  var DJ_FB = [
+    ['problem',  '\u{1F6A9}', 'Report a problem', 'What went wrong? What were you doing when it happened?'],
+    ['idea',     '\u{1F4A1}', 'Suggest an idea',  'What would make this app better for you?'],
+    ['question', '❓',    'Ask a question',   'What would you like to know?']
+  ];
+  /* Family Money's copy of the block carries none of the mailbox code (no djSend, no djRefKey,
+     no djSandbox), so the row must not appear there at all rather than appear and fail. The same
+     guard covers any app whose copy drifts the same way. */
+  function djFeedbackOff(){
+    if(typeof djSend !== 'function') return true;
+    try{ return kidsPage() || crisisPage() || djSandbox() || guestVisit(); }catch(e){ return true; }
+  }
+  function djFeedback(kind){
+    var k = kind || 'problem', probs = djProblems(), app = djRefKey(slugOf());
+    var of = function(x){ for(var i = 0; i < DJ_FB.length; i++) if(DJ_FB[i][0] === x) return DJ_FB[i]; return DJ_FB[0]; };
+    var fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;min-height:46px;padding:10px 12px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-top:8px';
+    var kindBtn = function(x){
+      return '<button type="button" class="djFbK" data-k="' + x[0] + '" aria-pressed="false" style="flex:1;font:inherit;font-weight:800;font-size:13px;line-height:1.2;min-height:62px;padding:8px 4px;border-radius:12px;cursor:pointer;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622">'
+        + '<span style="font-size:18px;display:block;margin-bottom:2px">' + x[1] + '</span>' + esc(x[2]) + '</button>';
+    };
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Send us a message</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">It comes straight to the people who look after these apps. Nothing is sent until you tap Send it.</p>'
+      + '<div style="display:flex;gap:6px">' + DJ_FB.map(kindBtn).join('') + '</div>'
+      + '<textarea id="djFbText" aria-label="Your message" style="' + fld + ';min-height:112px"></textarea>'
+      + '<input id="djFbName" type="text" autocomplete="name" maxlength="40" placeholder="Your name — not needed" aria-label="Your name" value="' + esc(djName()) + '" style="' + fld + '">'
+      + '<input id="djFbContact" type="text" autocomplete="email" maxlength="80" placeholder="Email or phone, if you would like an answer" aria-label="Email or phone" style="' + fld + '">'
+      + (probs.length ? '<label id="djFbProbWrap" style="display:flex;gap:10px;align-items:flex-start;font-size:14.5px;margin:10px 0 0;cursor:pointer"><input id="djFbProb" type="checkbox" checked style="width:22px;height:22px;min-height:22px;flex:none;accent-color:#23504F"><span>Send the ' + probs.length + ' recent problem message' + (probs.length === 1 ? '' : 's') + ' as well<br><small style="color:#55605B">the ones this app wrote down for you — they help us find the fault</small></span></label>' : '')
+      + '<button type="button" id="djFbGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Send it</button>'
+      + '<div id="djFbNote" role="status" style="font-size:14.5px;margin-top:8px"></div>');
+    var ta = b.querySelector('#djFbText'), note = b.querySelector('#djFbNote'), wrap = b.querySelector('#djFbProbWrap');
+    /* switching kind must not throw away what has been typed, so nothing is rebuilt */
+    function paint(){
+      ta.placeholder = of(k)[3];
+      if(wrap) wrap.style.display = (k === 'problem') ? 'flex' : 'none';
+      var bs = b.querySelectorAll('.djFbK');
+      for(var i = 0; i < bs.length; i++){
+        var on = bs[i].getAttribute('data-k') === k;
+        bs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+        bs[i].style.borderColor = on ? '#23504F' : '#C9C1AE';
+        bs[i].style.background  = on ? '#23504F' : '#fff';
+        bs[i].style.color       = on ? '#fff' : '#1F2622';
+      }
+    }
+    var bs = b.querySelectorAll('.djFbK');
+    for(var i = 0; i < bs.length; i++) bs[i].onclick = function(){ k = this.getAttribute('data-k'); paint(); };
+    paint();
+    b.querySelector('#djFbGo').onclick = function(){
+      var one = function(id, n){ return String((b.querySelector(id) || {}).value || '').replace(/[|\r\n<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+      var msg = String(ta.value || '').replace(/[|<>]/g, ' ').replace(/[ \t]+/g, ' ').trim().slice(0, 2000);
+      if(msg.length < 2){ note.textContent = 'Write a line or two first, then tap Send it.'; try{ ta.focus(); }catch(e){} return; }
+      var name = one('#djFbName', 40), contact = one('#djFbContact', 80), go = this;
+      go.disabled = true; go.textContent = 'Sending…'; note.textContent = '';
+      var pb = b.querySelector('#djFbProb');
+      var text = 'FEEDBACK|kind:' + k + '|app:' + app + '|day:' + djYMD()
+        + '\n' + msg
+        + '\n— ' + (name || '(no name)') + ' · ' + (contact || '(no reply asked for)')
+        + '\nversion: ' + (appStamp() || 'not shown');
+      if(k === 'problem' && pb && pb.checked && probs.length) text += '\n\nWhat the app wrote down:\n' + djProbText();
+      djSend({ action:'report', who:'', name: name || 'A message', app: app, contact: contact, text: text }, function(ok){
+        if(!ok){ go.disabled = false; go.textContent = 'Send it'; note.textContent = 'That did not send. Check your connection and try again — nothing you typed is lost.'; return; }
+        try{ if(name && !djName()) localStorage.setItem('dj_name', name); }catch(e){}
+        b.innerHTML = '<div style="font-weight:900;font-size:19px;margin-bottom:6px">Thank you</div>'
+          + '<p style="margin:0 0 12px;font-size:15px">We have your message' + (contact ? ', and we will come back to you.' : '. ') + (contact ? '' : 'If you would like an answer, send another with an email or a phone number.') + '</p>'
+          + '<button type="button" id="djFbDone" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Close</button>';
+        b.querySelector('#djFbDone').onclick = function(){ djBackClear(); closeAISheet(); };
+      });
+    };
+  }
+  /* 21 Nov, Jerry's idea 9: "a new app version goes to the test copy first; after 24 hours with no
+     new problems it goes to everyone." Nothing can be held back from one person and not another on
+     GitHub Pages — one copy is served to everybody — so the next version lives at <app>/beta/ and
+     only the people given that link are on it. This band is what stops someone mistaking it for the
+     released app and reporting its faults as the real one's. */
+  function djBetaBand(){
+    if(!djBetaPath() || embedded || document.getElementById('djBeta')) return;
+    var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim().replace(/[<>&]/g, '');
+    var w = document.createElement('div'); w.id = 'djBeta'; w.setAttribute('role', 'note');
+    /* along the bottom, not the top: the hello card floats over the top on purpose (v62), and the
+       dock already lifts itself above whatever bottom bar an app has, so it will clear this. */
+    w.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147481600;background:#5B3FA0;color:#fff;'
+      + 'padding:7px 12px calc(7px + env(safe-area-inset-bottom));font:13.5px/1.35 -apple-system,system-ui,sans-serif;'
+      + 'display:flex;align-items:center;gap:10px;box-shadow:0 -2px 10px rgba(0,0,0,.25)';
+    w.innerHTML = '<span style="flex:1"><b>Next version of ' + name + '</b> — not released yet. '
+      + 'Your saved work is the same as in the released one.</span>'
+      + '<a href="../" style="font:inherit;font-weight:800;color:#5B3FA0;background:#fff;border-radius:999px;'
+      + 'padding:7px 12px;min-height:38px;display:inline-flex;align-items:center;text-decoration:none;flex:none">Released one</a>';
+    document.body.appendChild(w);
+    try{ document.body.style.paddingBottom = (w.offsetHeight + 8 + (parseInt(getComputedStyle(document.body).paddingBottom, 10) || 0)) + 'px'; }catch(e){}
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', djBetaBand);
+  else setTimeout(djBetaBand, 0);
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
@@ -1976,17 +2133,24 @@
   function lsPut(k, v){ localStorage.setItem(k, JSON.stringify(v)); return localStorage.getItem(k) === JSON.stringify(v); }
   function tid(){ return 'tell' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
   function nnKeyOf(){ var P = lsJ('now_next_profiles_v1'); if(P && P.cur) return 'now_next_v1_' + P.cur; return 'now_next_v1'; }
-  function aheadReady(){ var h = lsJ('ahead_v1'); return !!(h && Array.isArray(h.items)); }
+  /* 20 Nov: every house-side link to Ahead of It still pointed at ahead_v1, the key its predecessor used.
+     On a phone with only the merged app the tell box said "Ahead of It isn't set up on this phone yet"
+     and filed the date in One Thing; on a phone that had the old app it wrote into ahead_v1, which the
+     merged app reads only on its first run, so the date never appeared. Driven in Chromium both ways.
+     Write where the app is actually keeping its list: the new key once it exists, the old one before
+     the person has opened the merged app for the first time, where it is migrated in. */
+  function aheadKey(){ var n = lsJ('aheadofit_v1'); return (n && Array.isArray(n.items)) ? 'aheadofit_v1' : 'ahead_v1'; }
+  function aheadReady(){ var h = lsJ('aheadofit_v1') || lsJ('ahead_v1'); return !!(h && Array.isArray(h.items)); }
   function tellDo(p){
     if(p.kind === 'shop'){
       var o = lsJ('dj_ourtable_v1') || {}; o.extras = Array.isArray(o.extras) ? o.extras : [];
       o.extras.push({ id:tid(), text:p.text, aisle:'Other', done:false }); return lsPut('dj_ourtable_v1', o);
     }
     if(p.kind === 'ahead'){
-      var h = lsJ('ahead_v1');
+      var ak = aheadKey(), h = lsJ(ak);
       if(!h || !Array.isArray(h.items)){ p.kind = 'todo'; p.text = p.text + (p.amt ? ' ($' + p.amt + ')' : '') + ' is due'; return tellDo(p); }
       h.items.push({ id:tid(), n:p.text, cat:'Mine', due:p.date, rep:p.rep, sev:'m', bite:'', lad:[[30,'Gather what you need'],[7,'Do it'],[1,'Confirm it went through']], who:h.tell || '', amt:p.amt || '', where:'', stepsDone:[], hist:[], said:true });
-      return lsPut('ahead_v1', h);
+      return lsPut(ak, h);
     }
     if(p.kind === 'bday'){
       var c = djCircle.get() || { me:{}, people:[], home:{}, work:{}, share:{me:true,people:true,home:true,work:true} };
@@ -2426,6 +2590,7 @@
   .give{ text-align:center; font-size:14.5px; color:var(--soft); margin-top:18px; }
   .foot{ color:var(--soft); font-size:13px; text-align:center; margin-top:14px; }
   /* sheets */
+  .shtop{ position:sticky; top:-1px; z-index:5; display:flex; align-items:center; gap:8px; min-height:44px; margin:-6px 0 4px; background:inherit; } .shx{ margin-left:auto; width:44px; height:44px; border-radius:22px; border:1px solid #ccc; background:#fff; color:#333; font-size:20px; font-weight:700; line-height:1; cursor:pointer; flex:none; }
   .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:2147481500; } .sheet.on{ display:flex; } @media (min-width:700px){ .sheet{ align-items:center; } }
   #sheetIn a, #main a{ color:var(--brand); font-weight:700; }
   .stickfoot{ position:sticky; z-index:5; bottom:calc(-18px - env(safe-area-inset-bottom)); background:var(--paper); padding:10px 0 8px; margin-top:10px; box-shadow:0 -10px 14px var(--paper); }
@@ -2546,7 +2711,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v9.2 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v9.9 · 2026-11-20 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2601,8 +2766,11 @@ function shKeep(h){ return h && !/Reading the words|Thinking it over|Asking…|c
 function openSheet(html){ var on = document.getElementById('sheet').classList.contains('on');
   if(!SHBACK){ if(on && shKeep(SHCUR) && SHCUR !== html){ SHST.push(SHCUR); if(SHST.length > 20) SHST.shift(); } if(!on){ SHST = []; try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } }
   SHBACK = 0; SHCUR = html;
-  document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0 0 6px;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
+  document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = '<div class="shtop">' + (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + '<button class="shx" id="sheetX" aria-label="Close this screen" title="Close" onclick="sheetX()">✕</button></div>' + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
 function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK = 1; openSheet(p); }
+/* v9.9 · Jerry, 20 Nov: "every screen you get in, you need to be able to get out of … just put an X on top." Every screen has
+   an ✕ at the top right. Anything already answered is saved as it goes, so nothing is lost; a walk-through picks up where it was. */
+function sheetX(){ closeSheet(); try{ render(); }catch(e){} }
 function closeSheet(){ document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
 window.addEventListener('popstate', function(){ var on = document.getElementById('sheet').classList.contains('on'); if(!on) return; if(SHST.length){ sheetBack(); try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } else closeSheet(); });
 function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2800); }
@@ -3067,12 +3235,26 @@ function takeFile(){
   var seenNow = {};
   CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
-    db.tx.push({ id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }); IMP.added++; });
+    var nt = { id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }; db.tx.push(nt); IMP.added++; (IMP.newIds = IMP.newIds || []).push(nt.id); });
+  try{ FLAGNEW += flagSuspicious(IMP.newIds || []); IMP.newIds = []; }catch(e){}
   if(CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || a.balUnknown || (CUR.asOf || today()) >= a.asOf)){ if(a.balUnknown){ a.hist = []; delete a.balUnknown; } setBal(a, Math.abs(CUR.bal), CUR.asOf || today()); }
   if(CUR.key){ db.src = db.src || {}; db.src[CUR.key] = { a:CUR.a, flip:CUR.flip }; }
   IMP.per = IMP.per || {}; IMP.per[a.name] = (IMP.per[a.name]||0) + (CUR.files||[CUR]).length;
   save(); nextFile();
 }
+/* v9.7 · Jerry, 20 Nov: "two exactly the same charges on the same day … catch these things on the import as they're importing …
+   flag them right away … then at some point there's a review." As each statement is read, a charge that matches another on the
+   same account (same payee, same amount, within three days) is flagged: it goes on the 🔍 To look into list with the reason,
+   the screen that ends the reading says so, and the heads-up card keeps it in front of them until they say which it is. */
+var FLAGNEW = 0;
+function flagSuspicious(ids){ if(!ids.length) return 0; var isNew = {}, n = 0; ids.forEach(function(id){ isNew[id] = 1; }); db.flagged = db.flagged || {};
+  var S = db.tx.filter(function(t){ return t.amt > 0 && !t.splitOf && counts(acct(t.a)) && t.cat !== 'xfer'; }).sort(function(a,b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+  for(var i = 0; i < S.length; i++) for(var j = i + 1; j < S.length; j++){ var a = S[i], b = S[j]; if(daysBetween(a.d, b.d) > 3) break;
+    if(!(isNew[a.id] || isNew[b.id]) || a.a !== b.a || a.amt !== b.amt || (mkey(a.desc) || a.desc) !== (mkey(b.desc) || b.desc)) continue;
+    var k = 'dup:' + a.id + ':' + b.id; if(db.flagged[k]) continue;
+    db.flagged[k] = { ids:[a.id, b.id], why:'dup', at:today() }; b.look = 'Possible double charge — same as ' + shortDate(a.d); if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; n++; }
+  if(n) save(); return n; }
+function flagLine(){ var n = FLAGNEW; if(!n) return ''; FLAGNEW = 0; return '<div class="line warn" style="font-weight:700">👯 ' + n + ' charge' + (n===1?' looks':'s look') + ' doubled — the same payee, amount and day (or close). ' + (n===1?'It’s':'They’re') + ' on the 👯 Charged twice? list — check them whenever you like, from the top of the main screen or 📋 Lists.</div>'; }
 function afterImport(){
   if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
     MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
@@ -3443,14 +3625,25 @@ function rvTimeStart(){ RV = { st:'time', L:rvTimeCats(), i:0 }; rvTime(); }
 var RV_T = { month:['Every month, about the same','mortgage, utilities, phone, groceries, dues'], var:['Most months, but it goes up and down','gas, healthcare, golf, repairs — planned at its average'],
   year:['Once or twice a year','property tax, insurance paid yearly, pool, annual fees — saved for monthly'], once:['One-time — it won’t repeat on a schedule','a car, a cruise, a family event — kept out of the averages'],
   need:['As needed — help or gifts when they come up','never budgeted monthly; paid from savings'] };
-function budStart(){ RV = { st:'time', L:rvTimeCats(), i:0, bud:1 }; if(!RV.L.length){ RV = null; openFirstLoad(); return; } rvTime(); }
-function rvTime(){ var R = RV, x = R.L[R.i]; if(!x){ if(R.bud){ rvMark('time'); RV = null; openFirstLoad(); return; } rvNextPart('time'); return; }
+function budStart(top){ var L = rvTimeCats(), i = !top && db.budI && db.budI < L.length ? db.budI : 0; RV = { st:'time', L:L, i:i, bud:1, back:i }; if(!L.length){ RV = null; openFirstLoad(); return; } rvTime(); }
+function rvTime(){ var R = RV, x = R.L[R.i]; if(R.bud) db.budI = R.i; if(!x){ if(R.bud){ db.budI = 0; rvMark('time'); RV = null; openFirstLoad(); return; } rvNextPart('time'); return; }
   var one = x.n === 1 ? '<div class="line warn">Only one payment seen. If it has a partner at another time of year — a pool opening and its closing — the yearly amount should include both; you can change it in Our budget.</div>' : '';
   openSheet('<div class="stepno">' + (R.bud ? 'The budget · ' : 'Part 2 · ') + 'kind ' + (R.i + 1) + ' of ' + R.L.length + '</div><h3>' + esc(catLabel(x.c)) + '</h3>'
     + '<div class="card" style="margin:6px 0 10px;padding:10px 14px">Seen in <b>' + x.seen + ' of ' + x.of + '</b> month' + (x.of===1?'':'s') + ', ' + x.n + ' payment' + (x.n===1?'':'s') + ', ' + money(x.tot,1) + ' in all.'
-      + (x.seen > 1 ? '<br>Highest ' + money(x.m[x.hi],1) + ' in ' + monthName(x.hi, true) + ' · lowest ' + money(x.m[x.lo],1) + ' in ' + monthName(x.lo, true) + '.' : '<br>' + monthName(x.hi, true) + '.') + '</div>' + one
+      + (x.seen > 1 ? '<br>Highest ' + money(x.m[x.hi],1) + ' in ' + monthName(x.hi, true) + ' · lowest ' + money(x.m[x.lo],1) + ' in ' + monthName(x.lo, true) + '.' : '<br>' + monthName(x.hi, true) + '.')
+      + '<button class="b small" style="display:block;margin-top:10px" onclick="budWhat(\'' + x.c.id + '\')">🔎 What makes up ' + money(x.tot,1) + '?</button></div>' + one
+      + (R.bud && R.back && R.i === R.back ? '<p class="sub" style="font-size:13px">Picking up where you left off. <a href="#" onclick="budStart(1);return false">Start from the top</a></p>' : '')
     + '<h3 style="font-size:18px">How often does this come?</h3>' + taps('rv', Object.keys(RV_T).map(function(k){ return [k, RV_T[k][0] + (k === x.sug ? ' ✓' : ''), RV_T[k][1]]; }), x.sug)
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvTimeSave()">Next</button><button class="b ghost" style="width:100%" onclick="RV.i++;rvTime()">Skip this one</button></div>'); }
+/* Jerry, 20 Nov: "It has healthcare 72,000. I'd like to know what that is." Every payee in a kind, biggest first, then each line.
+   Tap a line to move it if it's in the wrong place. */
+function budWhat(cid){ var c = cat(cid); if(!c) return; var T = db.tx.filter(function(t){ return t.cat === cid && counts(acct(t.a)) && t.amt > 0 && inWin(t); }), by = {}, tot = 0;
+  T.forEach(function(t){ var k = mkey(t.desc) || t.desc, b = by[k] = by[k] || { n:0, s:0, d:t.desc }; b.n++; b.s += t.amt; tot += t.amt; });
+  var P = Object.keys(by).map(function(k){ return by[k]; }).sort(function(a,b){ return b.s - a.s; });
+  openSheet('<h3>What makes up ' + esc(catLabel(c)) + '</h3><p class="sub">' + money(r2(tot),1) + ' from ' + T.length + ' payment' + (T.length===1?'':'s') + '. Biggest first. Tap a line if it belongs somewhere else.</p>'
+    + '<div class="card" style="padding:8px 14px">' + P.slice(0, 12).map(function(b){ return '<div class="trow"><span>' + esc(b.d) + '<small style="display:block;color:var(--soft)">' + b.n + (b.n===1?' payment':' payments') + '</small></span><b>' + money(r2(b.s),1) + '</b></div>'; }).join('') + (P.length > 12 ? '<div class="sub" style="margin:4px 0 0">and ' + (P.length - 12) + ' more</div>' : '') + '</div>'
+    + '<ul class="list">' + T.slice().sort(function(a,b){ return b.amt - a.amt; }).map(txRow).join('') + '</ul>'
+    + '<button class="b primary full" onclick="sheetBack()">Back</button>'); }
 function rvTimeSave(){ var R = RV, x = R.L[R.i], c = x.c, v = tapVal('rv'); if(!v){ alert('Tap one of the answers first.'); return; }
   db.threePart = true; c.timing = v; c.asNeeded = v === 'need';
   if(v === 'month' || v === 'var'){ c.part = 1; c.variable = v === 'var'; if(v === 'month' && !c.budget) c.budget = niceRound(x.tot / Math.max(1, x.seen)); }
@@ -3703,7 +3896,9 @@ function sortHub(){ var A = sortAccts(), S = A.map(function(a){ return sortState
         + (ok ? '' : '<div class="row" style="gap:8px;margin-top:8px"><button class="b small primary" style="flex:1" onclick="sortIn(\'' + a.id + '\')">👆 Sort it here</button></div><div class="sub" style="margin:6px 0 0;font-size:13px">or <a href="#" onclick="sortMake(\'' + a.id + '\');return false">a spreadsheet</a> · <a href="#" onclick="SORTA=\'' + a.id + '\';document.getElementById(\'shIn\').click();return false">give one back</a></div>') + '</div>'; }).join('')
     + '<input type="file" id="shIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="shRead(this.files[0]);this.value=\'\'">'
     + '<div class="stickfoot">' + (next ? '<button class="b primary full" style="margin-top:0" onclick="sortIn(\'' + next.id + '\')">👆 Next: ' + esc(acctLabel(next)) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'sort\');askRound()">All sorted — on to the questions' + (later ? ' (' + later + ')' : '') + '</button>')
+    + (next ? '<button class="b full" onclick="sortRestForMe()">✨ Sort the rest for me</button>' : '')
     + (lookList().length ? '<button class="b full" onclick="openLook()">🔍 To look into (' + lookList().length + ')</button>' : '')
+    + (dupList().some(function(x){ return !x.f.done; }) ? '<button class="b full" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ')</button>' : '')
     + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button></div>'); }
 var SORTA = null, SORTM = null;
 /* v6.1 · Jerry, 17 Nov: "you did month one, you categorize everything, then you look at month two, you know… whether utilities
@@ -3811,36 +4006,48 @@ function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
   var askName = t0.subAsk || (each && g.length >= 3);
   openSheet('<div class="stepno">Sort · ' + esc(acctLabel(a)) + ' · ' + (S.i + 1) + ' of ' + S.groups.length + '</div>'
     + '<div class="meter" style="margin:4px 0 12px"><i style="width:' + Math.round(S.i / S.groups.length * 100) + '%;background:var(--ok)"></i></div>'
+    + (g.backTo ? '<div class="line ok" style="font-size:14px;margin:0 0 8px">Back to the other ' + g.length + ' line' + (g.length===1?'':'s') + ' from this payee — tick any more that are different, or sort the rest together.</div>' : '')
     + '<h3 style="font-family:ui-monospace,Menlo,monospace;font-size:18px;word-break:break-word">' + esc(t0.desc) + '</h3>'
+    + (g.some(function(t){ return t.look; }) ? '<div class="line warn" style="font-size:14px;margin:0 0 8px">⚠️ ' + esc(g.filter(function(t){ return t.look; })[0].look) + '</div>' : '')
     + '<p class="sub" style="margin-top:0">' + (one ? shortDate(t0.d) + ' ' + t0.d.slice(0,4) + ' · ' + (t0.amt >= 0 ? 'spent ' + money(t0.amt) : 'came in ' + money(-t0.amt)) : g.length + ' lines · ' + (each ? money(Math.abs(t0.amt)) + ' each, ' : '') + money(Math.abs(tot)) + ' in all · ' + shortDate(g[0].d) + ' to ' + shortDate(g[g.length-1].d)) + '</p>'
-    + (one ? '' : '<details style="margin:-4px 0 10px"><summary style="cursor:pointer;font-weight:800;color:var(--brand);font-size:14px">See each line</summary><ul class="list">' + g.map(function(t){ return '<li style="font-size:14px"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '</span><span class="amt">' + money(Math.abs(t.amt)) + '</span></li>'; }).join('') + '</ul></details>')
+    + (one ? '' : '<details style="margin:-4px 0 10px"' + (g.backTo ? ' open' : '') + '><summary style="cursor:pointer;font-weight:800;color:var(--brand);font-size:14px">See each line</summary><p class="sub" style="margin:6px 0 0;font-size:13px">Tick any line that’s different, then sort it on its own.</p><ul class="list">' + g.map(function(t, i){ return '<li style="font-size:14px;display:block"><label style="display:flex;gap:10px;align-items:center;width:100%;margin:0;font-weight:400;cursor:pointer"><input type="checkbox" data-li="' + i + '" onchange="sinTicks()" style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:0;padding:0"><span style="flex:0 0 52px;color:var(--soft)">' + shortDate(t.d) + '</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">' + esc(t.desc) + (t.note ? '<small style="display:block;color:var(--soft)">' + esc(t.note) + '</small>' : '') + '</span><span style="flex:0 0 auto;font-weight:800">' + money(Math.abs(t.amt)) + '</span></label></li>'; }).join('') + '</ul><button class="b small" id="sinOwn" style="display:none" onclick="sinOwn()">Sort these on their own</button></details>')   /* v9.4 · Jerry: "I lost the ability to pick each line and deal with it" */
     + (sets.length > 1 ? '<div class="line warn" style="font-size:14.5px">These look like <b>' + sets.length + ' different charges</b> — ' + sets.slice(0, 4).map(function(T){ return money(Math.abs(T[T.length-1].amt)) + ' ×' + T.length; }).join(', ') + (sets.length > 4 ? '…' : '') + '. <a href="#" onclick="sortInSplitBy();return false" style="font-weight:800">Sort each one</a></div>' : '')
-    + (channel(t0) && !askName ? '<p class="sub" style="font-size:14px">A ' + esc(channel(t0)) + ' — only you know what it was for. Add a note if it helps.</p><input id="sinNote" placeholder="What it was (optional)" value="' + esc(t0.note || '') + '">' : '')
+    + (channel(t0) && !askName ? '<p class="sub" style="font-size:14px">' + esc(({ check:'A check', cash:'Cash' })[channel(t0)] || ('A ' + channel(t0).replace(/^\w/, function(x){ return x.toUpperCase(); }) + ' payment')) + ' — only you know what it was for.</p>' : '')
     + (askName ? '<label style="margin-top:8px">What is it? <small style="font-weight:600;color:var(--soft)">(optional — e.g. Hulu)</small></label><input id="sinSub" placeholder="Name this charge" value="' + esc(t0.sub || '') + '">' : '')
     + '<div id="sinCatBox"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:12px"><label style="margin:0">Category</label><a href="#" id="sinRen" onclick="sortInRename();return false" style="font-size:14px;font-weight:800">✎ Rename it</a></div>'
-    + '<select id="sinCat" style="width:100%;font-size:17px;padding:10px;border-radius:12px;margin-top:6px" onchange="document.getElementById(\'sinNew\').style.display=this.value===\'__new\'?\'\':\'none\'">'
+    + '<select id="sinCat" style="width:100%;font-size:17px;padding:10px;border-radius:12px;margin-top:6px" onchange="document.getElementById(\'sinNewRow\').style.display=this.value===\'__new\'?\'flex\':\'none\';if(this.value===\'__new\')document.getElementById(\'sinNew\').focus()">'
     + (nm ? '' : '<option value="">— pick one —</option>') + '<option value="__new">＋ A new category…</option>'
     + (top.length ? '<optgroup label="Picked most">' + top.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) >= 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup><optgroup label="All, A to Z">' + az.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) < 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup>' : az.map(opt).join('')) + '</select>'
-    + '<input id="sinNew" placeholder="Name the new category" style="display:none;margin-top:8px">'
+    + '<div id="sinNewRow" class="row" style="gap:8px;margin-top:8px;display:none"><input id="sinNew" placeholder="Name the new category" style="flex:1" onkeydown="if(event.key===\'Enter\'){ event.preventDefault(); sinNewAdd(); }"><button class="b" style="margin:0;flex:0 0 auto" onclick="sinNewAdd()">＋ Add</button></div>'
+    + '<input id="sinNote" maxlength="60" placeholder="Note (optional) — e.g. for the golf trip" value="' + esc(one && !/^part \d/.test(t0.note || '') ? t0.note || '' : '') + '" style="margin-top:8px">'   /* v9.3 · Jerry: "add a field to put a comment in, not a long one" */
     + (innerWidth >= 700 ? '<p class="sub" style="margin:6px 0 0;font-size:13px">Tip: type a letter to jump to it — D, then D again for the next one. Enter saves.</p>' : '')
     + (one && t0.amt > 0 ? '<p style="margin:8px 0 0"><a href="#" onclick="sortInSplit();return false" style="font-size:14px;font-weight:800">✂️ Split it across categories</a></p>' : '') + '</div><div id="sinSplit"></div>'
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sortInSave()">' + (nm ? '✓ ' + esc(nm) + (one ? '' : ' — all ' + g.length) : 'Save') + '</button>'
     + '<div class="row" style="gap:8px"><button class="b" style="flex:1" onclick="sortInLater()">🔍 Look into later</button>' + (S.i ? '<button class="b" style="flex:0 0 auto" onclick="SIN.i--;sortInStep()">← Back</button>' : '') + '</div>'
     + '<button class="b ghost" style="width:100%" onclick="sortHub()">Done for now</button></div>');
   var sel = document.getElementById('sinCat'); if(!sel) return;
-  var lab = function(){ var b = document.querySelector('#sheetIn .stickfoot button.primary'); if(b && !SPLIT) b.textContent = sel.value === '__new' || !sel.value ? 'Save' : '✓ ' + sel.value + (one ? '' : ' — all ' + g.length); var r = document.getElementById('sinRen'); if(r) r.style.visibility = catByName(sel.value) ? '' : 'hidden'; };
+  var lab = function(){ var b = document.querySelector('#sheetIn .stickfoot button.primary'); if(b && !SPLIT) b.textContent = sel.value === '__new' ? '＋ Add the new category' : !sel.value ? 'Save' : '✓ ' + sel.value + (one ? '' : ' — all ' + g.length); var r = document.getElementById('sinRen'); if(r) r.style.visibility = catByName(sel.value) ? '' : 'hidden'; };
   sel.addEventListener('change', lab); lab(); SPLIT = null;
   /* a letter jumps to the next category starting with it, A to Z, without opening the list (Jerry: "hit D, it goes to the first one. Hit D again, it goes to the second one") */
   sel.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); sortInSave(); return; } if(e.key.length !== 1 || !/[a-z0-9]/i.test(e.key) || e.metaKey || e.ctrlKey) return; e.preventDefault();
     var L = az.filter(function(n){ return n.charAt(0).toLowerCase() === e.key.toLowerCase(); }); if(!L.length) return; var i = L.indexOf(sel.value), nx = L[(i + 1) % L.length];
     for(var k = sel.options.length - 1; k >= 0; k--) if(sel.options[k].text === nx && (!sel.options[k].parentNode.label || sel.options[k].parentNode.label === 'All, A to Z' || L.length === 1)){ sel.selectedIndex = k; break; }
-    sel.value = nx; lab(); document.getElementById('sinNew').style.display = 'none'; });
+    sel.value = nx; lab(); document.getElementById('sinNewRow').style.display = 'none'; });
   if(innerWidth >= 700) setTimeout(function(){ try{ sel.focus(); }catch(e){} }, 50); }
 var SPLIT = null;
 function catByName(n){ return db.cats.filter(function(c){ return catLabel(c) === n || c.name === n; })[0] || null; }
 /* rename the chosen category; every line already in it keeps it, under the new name */
-function sortInRename(){ var sel = document.getElementById('sinCat'), c = catByName(sel.value); if(!c) return; var n = prompt('Rename “' + c.name + '” to:', c.name); if(!n || !n.trim() || n.trim() === c.name) return;
-  c.name = n.trim(); save(); render(); sortInStep(); var s2 = document.getElementById('sinCat'); if(s2){ s2.value = catLabel(c); s2.dispatchEvent(new Event('change')); } }
+/* v9.3 · Jerry, 20 Nov: "we're going to have to merge categories at some point." Renaming a category to a name that already
+   exists merges the two: every line, budget and remembered payee moves into the one kept. Same in Settings › Categories. */
+function catRenameTo(id, n){ var c = cat(id); n = String(n || '').trim(); if(!c || !n || n === c.name) return c;
+  var into = db.cats.filter(function(x){ return x.id !== id && x.name.toLowerCase() === n.toLowerCase(); })[0];
+  if(!into){ c.name = n; save(); render(); return c; }
+  if(!confirm('“' + into.name + '” already exists. Merge “' + c.name + '” into it? Every line in “' + c.name + '” moves to “' + into.name + '”, and “' + c.name + '” goes away.')) return c;
+  db.tx.forEach(function(t){ if(t.cat === id) t.cat = into.id; }); db.rules.forEach(function(r){ if(r.cat === id) r.cat = into.id; }); (db.reclass||[]).forEach(function(r){ if(r.cat === id) r.cat = into.id; });
+  if(part(c) === part(into)){ into.budget = r2((num(into.budget)||0) + (num(c.budget)||0)); if(c.yearly != null) into.yearly = r2((num(into.yearly)||0) + (num(c.yearly)||0)); }
+  db.cats = db.cats.filter(function(x){ return x.id !== id; }); save(); render(); toast('Merged into “' + into.name + '”.'); return into; }
+function sortInRename(){ var sel = document.getElementById('sinCat'), c = catByName(sel.value); if(!c) return; var n = prompt('Rename “' + c.name + '” to (type an existing name to merge them):', c.name); if(!n || !n.trim() || n.trim() === c.name) return;
+  var k = catRenameTo(c.id, n); sortInStep(); var s2 = document.getElementById('sinCat'); if(s2 && k){ s2.value = catLabel(k); s2.dispatchEvent(new Event('change')); } }
 /* split one charge: rows of category + amount; the last row takes what's left */
 function sortInSplit(){ var g = SIN.groups[SIN.i], t = g[0], names = Array.prototype.map.call(document.querySelectorAll('#sinCat option'), function(o){ return o.text; }).filter(function(n, i, A){ return n !== '＋ A new category…' && n !== '— pick one —' && A.indexOf(n) === i; });
   var first = document.getElementById('sinCat').value; SPLIT = { t:t, names:names, rows:[{ c:first && first !== '__new' ? first : '', v:'' }, { c:'', v:'' }] }; document.getElementById('sinCatBox').style.display = 'none'; splitDraw(); }
@@ -3861,12 +4068,32 @@ function splitSave(){ var S = SPLIT, t = S.t, used = 0, parts = [];
 function sortInSave(){ var S = SIN, g = S.groups[S.i];
   if(SPLIT){ if(!splitSave()) return; S.done++; S.i++; save(); sortInStep(); return; }
   var v = document.getElementById('sinCat').value, nt = document.getElementById('sinNote'), sb = document.getElementById('sinSub');
-  if(v === '__new'){ v = (document.getElementById('sinNew').value || '').trim(); if(!v){ document.getElementById('sinNew').focus(); return; } }
+  if(v === '__new'){ sinNewAdd(); return; }
   if(!v){ document.getElementById('sinCat').focus(); return; }
-  SHNEW = []; var id = shFind(v); if(!id) return; if(nt && nt.value.trim()) g[0].note = nt.value.trim();
+  SHNEW = []; var id = shFind(v); if(!id) return; var ntv = nt ? nt.value.trim().slice(0, 60) : ''; if(ntv) g.forEach(function(t){ t.note = ntv; });
   var nmS = sb ? sb.value.trim() : ''; if(nmS){ var k = mkey(g[0].desc); g.forEach(function(t){ t.sub = nmS; t.note = t.note || nmS; }); if(k){ db.subRules = (db.subRules || []).filter(function(x){ return !(x.k === k && x.name === nmS); }); db.subRules.push({ k:k, amt:Math.abs(g[g.length-1].amt), name:nmS }); } }
   g.forEach(function(t){ delete t.subAsk; sortSet(t, id); }); S.done++; S.i++;
   save(); sortInStep(); }
+/* v9.4 · Jerry, 20 Nov: he made a new category mid-transaction and the screen moved on before he could write the note.
+   Adding a category now stays on the same line, with the new one chosen and whatever was typed in the note kept. */
+/* v9.6 · Jerry, 20 Nov: "I don't know if I want to go through each credit card one. Maybe you do your best to sort it out …
+   give me a button to the dashboard." Every line not yet done takes the app's best guess; a line it can't guess stays
+   "Not sorted yet". Each can still be changed later. */
+function sortRestForMe(){ var n = 0, left = 0; reguess(); sortAccts().forEach(function(a){ autoKnown(a.id);
+    acctLines(a.id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0) return; if(t.cat && t.cat !== 'uncat'){ db.asked[t.id] = 1; t.autoAcc = 1; n++; } else left++; }); });
+  save(); render(); toast(n + ' line' + (n===1?'':'s') + ' sorted by the app’s best guess' + (left ? '; ' + left + ' it couldn’t guess stay “not sorted yet”' : '') + '.'); sortHub(); }
+function sinTicks(){ var n = document.querySelectorAll('#sheetIn [data-li]:checked').length, b = document.getElementById('sinOwn'); if(b){ b.style.display = n ? '' : 'none'; b.textContent = 'Sort ' + (n === 1 ? 'this line' : 'these ' + n + ' lines') + ' on their own'; } }
+function sinOwn(){ var S = SIN, g = S.groups[S.i], pick = Array.prototype.map.call(document.querySelectorAll('#sheetIn [data-li]:checked'), function(x){ return +x.getAttribute('data-li'); });
+  if(!pick.length || pick.length === g.length) return; var own = g.filter(function(t, i){ return pick.indexOf(i) >= 0; }), rest = g.filter(function(t, i){ return pick.indexOf(i) < 0; });
+  /* v9.5 · Jerry: "you need to stay on that page so they're all done." The ticked lines come first; then back to the rest of
+     this payee, with its lines open, before moving on. */
+  rest.backTo = 1; S.groups.splice(S.i, 1, own, rest); toast((own.length === 1 ? 'Sort that line' : 'Sort those ' + own.length + ' lines') + ' — then back to the other ' + rest.length + '.'); sortInStep(); }
+function sinNewAdd(){ var n = (document.getElementById('sinNew').value || '').trim(); if(!n){ document.getElementById('sinNew').focus(); return; }
+  var keep = { note:(document.getElementById('sinNote') || {}).value || '', sub:(document.getElementById('sinSub') || {}).value || '' };
+  SHNEW = []; var id = shFind(n); if(!id) return; var c = cat(id), label = c ? catLabel(c) : shName(id);
+  sortInStep(); var sel = document.getElementById('sinCat'); if(sel){ for(var k = sel.options.length - 1; k >= 0; k--) if(sel.options[k].text === label){ sel.selectedIndex = k; break; } sel.dispatchEvent(new Event('change')); }
+  var nt = document.getElementById('sinNote'); if(nt){ nt.value = keep.note; nt.focus(); } var sb = document.getElementById('sinSub'); if(sb && keep.sub) sb.value = keep.sub;
+  toast('Added “' + label + '”. Add a note if you like, then save.'); }
 function sortInLater(){ var S = SIN, g = S.groups[S.i]; g.forEach(function(t){ delete t.subAsk; delete db.asked[t.id]; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); }); S.i++; save(); sortInStep(); }
 
 /* after a sheet is given back (shRead calls this when it came from Sort each account) */
@@ -4058,7 +4285,7 @@ var NEWM = 0;
 function newMonth(){ if(!(FS.h && window.showDirectoryPicker) && !canFolder()){ alert('On a phone or tablet, open each account in the money map and add its new statement there.'); openMap(); return; } NEWM = 1; mapRefresh(); }
 function newMonthDone(added){ NEWM = 0; var n = 0, card = 0; sortAccts().forEach(function(a){ var r = autoKnown(a.id); n += r.n; card += r.card; }); reguess(); save(); render();
   var q = queue().length, bad = db.accts.filter(function(a){ return fmBadPdfs(a).length; }).length;
-  openSheet('<div class="stepno">New month</div><h3>' + added + ' new line' + (added===1?'':'s') + ' read</h3><div class="line ok">' + n + ' filed themselves — payees you already know' + (card ? ' · ' + card + ' card payment' + (card===1?'':'s') : '') + '</div>'
+  openSheet('<div class="stepno">New month</div><h3>' + added + ' new line' + (added===1?'':'s') + ' read</h3>' + flagLine() + '<div class="line ok">' + n + ' filed themselves — payees you already know' + (card ? ' · ' + card + ' card payment' + (card===1?'':'s') : '') + '</div>'
     + (bad ? '<p class="sub">' + bad + ' account' + (bad===1?' has':'s have') + ' a PDF I couldn’t read — the money map shows which.</p>' : '')
     + '<div class="stickfoot">' + (q ? '<button class="b primary full" style="margin-top:0" onclick="askRound()">Answer the ' + q + ' new one' + (q===1?'':'s') + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="closeSheet();render()">Nothing new to ask — done</button>') + '</div>'); }
 
@@ -4188,6 +4415,7 @@ function openLists(){
     + (db.bizCard || biz.length ? '<button class="b full" style="text-align:left" onclick="openList(\'biz\')">🏢 Business or nonprofit<span style="float:right">' + money(biz.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
     + (db.uses529 || e529.length ? '<button class="b full" style="text-align:left" onclick="openList(\'edu529\')">🎓 Paid by the 529<span style="float:right">' + money(e529.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openList(\'onetime\')">🎁 One-time purchases</button>'
+    + (dupList().length ? '<button class="b full" style="text-align:left" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ' to check)</button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openNotSure()">❔ Not sure yet (' + db.notSure.length + ')</button>'
     + '<button class="b full" style="text-align:left" onclick="openReclass()">🗂️ What you told me (' + db.reclass.length + ')</button>'
     + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
@@ -4242,7 +4470,7 @@ function render(){
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
   if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
-  if(!db.setup){ bar.style.display = 'none'; main.innerHTML = nextStepHTML() + (db.tx.length ? askHTML().replace('</h2>', '</h2><p class="sub" style="margin:-4px 0 8px;font-size:13px">Answers get better once the budget is set — that’s near the end of setup.</p>') : '') + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
+  if(!db.setup && !db.peek){ bar.style.display = 'none'; main.innerHTML = nextStepHTML() + (db.tx.length ? '<div class="card" style="text-align:center"><button class="b primary full" style="margin:0" onclick="db.peek=1;save();view=null;render();window.scrollTo(0,0)">📊 Show me the dashboard now</button><p class="sub" style="margin:6px 0 0;font-size:13px">The steps still to do stay on it, so you can come back to them.</p></div>' : '') + (db.tx.length ? askHTML().replace('</h2>', '</h2><p class="sub" style="margin:-4px 0 8px;font-size:13px">Answers get better once the budget is set — that’s near the end of setup.</p>') : '') + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
   bar.style.display = '';
   var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
   var h = '', q = queue().length;
@@ -4448,10 +4676,11 @@ function headsUps(){ var H = [], m = thisMonth(), seen = db.huSeen || {};
   rvSubsList().forEach(function(s){ var T = db.tx.filter(function(t){ return (t.sub ? 'sub:' + t.sub : mkey(t.desc) || t.desc) === s.k; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }); if(!T.length) return;
     var first = T[0].d; if(T.length > 2 || daysBetween(first, today()) > 45 || /annual|yearly|membership fee/i.test(s.desc)) return;   /* a yearly fee is not a trial running out */ H.push({ k:'sub:' + s.k, pri:3, em:'🆕', t:'New: ' + esc(s.desc) + ' · ' + money(s.amt) + (s.cyc === 'month' ? ' a month' : s.cyc === 'year' ? ' a year' : '') + '.', sub:'First seen ' + esc(shortDate(first)) + '. If it began as a free trial, it’s paying now. Keep it?', sub2:s }); });
   try{ H = H.concat(noticeMore()); }catch(e){}
+  var DL = dupList().filter(function(x){ return !x.f.done; }); if(DL.length) H.push({ k:'flags:' + DL.map(function(x){ return x.k; }).join(','), dups:1, pri:0, em:'👯', t:DL.length === 1 ? 'Charged twice? ' + esc(DL[0].b.desc) + ' · ' + money(DL[0].b.amt) + '.' : DL.length + ' charges may have gone through twice.', sub:'They’re all on one list — check them whenever you have a minute.' });
   return H.filter(function(h){ return !seen[h.k]; }).sort(function(a,b){ return a.pri - b.pri; }); }
 var HU = null;
 function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0]; HU = h;
-  var btns = h.look ? '<button class="b small primary" onclick="huLook()">🔍 Look into it</button><button class="b small" onclick="huSeen()">That’s right</button>' : (h.k || '').match(/^(miss|inc|low):/) ? '' : h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
+  var btns = h.dups ? '<button class="b small primary" onclick="openDups()">👯 See the list</button>' : h.look ? '<button class="b small primary" onclick="huLook()">🔍 Look into it</button><button class="b small" onclick="huSeen()">That’s right</button>' : (h.k || '').match(/^(miss|inc|low):/) ? '' : h.ins ? '<button class="b small primary" onclick="huPlan()">📝 Get a shop-around script</button>' : h.sub2 ? '<button class="b small primary" onclick="huSeen()">Keep it</button><button class="b small" onclick="huCancel()">Help me cancel</button>' : '<button class="b small primary" onclick="huPlan()">✨ Make a plan</button><button class="b small" onclick="huSavings()">Pay the rest from savings</button>';
   var tm = new Date(Date.now() + 864e5), rd = addMonths(h.dueM || thisMonth(), -1) > thisMonth() ? addMonths(h.dueM, -1) : ymd(tm);   /* a month before it's due, or tomorrow if that's already passed */
   if(h.dueM) btns += '<button class="b small" onclick="remindICS(\'' + rd + '\',' + JSON.stringify(h.c ? h.c.name + ' due ' + monthOnly(h.dueM) : 'Family money').replace(/"/g,'&quot;') + ')">⏰ Remind me</button>';
   return '<div class="card" id="headsUp" style="border:2px solid #E3B04B;background:#FFF8E8;padding:14px 16px"><div class="stepno" style="color:#9a5b00">Heads up' + (h.dueM ? ' · coming in ' + esc(monthOnly(h.dueM)) : '') + '</div>'
@@ -4459,6 +4688,21 @@ function headsUpHTML(){ var H = headsUps(); if(!H.length) return ''; var h = H[0
     + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px">' + btns + '<button class="b small ghost" onclick="huSeen()">Got it</button></div>'
     + (H.length > 1 ? '<p class="sub" style="margin:8px 0 0;font-size:13px">One more after this.</p>' : '') + '</div>'; }
 function huLook(){ var t = HU.look; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); delete db.asked[t.id]; huSeen('look'); toast('Added to your 🔍 To look into list.'); }
+/* v9.8 · Jerry, 20 Nov: "add the charge choice thing to a list … it's hard to do that from the middle of an import". Every
+   possible double charge sits on one list, answered whenever he likes; the top card only points to it. */
+function dupList(){ return Object.keys(db.flagged || {}).map(function(k){ var f = db.flagged[k], a = db.tx.filter(function(t){ return t.id === f.ids[0]; })[0], b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0]; return a && b ? { k:k, f:f, a:a, b:b } : null; }).filter(Boolean).sort(function(x,y){ return (x.f.done ? 1 : 0) - (y.f.done ? 1 : 0) || (x.b.d < y.b.d ? 1 : -1); }); }
+function openDups(){ var L = dupList(), open = L.filter(function(x){ return !x.f.done; }).length;
+  openSheet('<h3>👯 Charged twice?</h3><p class="sub">' + (open ? open + ' to check. ' : 'All checked. ') + 'Same payee, same amount, a day or two apart. If one is a mistake, call the company or the card to have it taken off.</p>'
+    + (L.map(function(x){ var i = esc(x.k);
+      return '<div class="card" style="padding:12px 14px;margin:8px 0' + (x.f.done ? ';opacity:.75' : ';border:2px solid #E3B04B') + '"><div style="font-weight:800">' + esc(x.b.desc) + ' · ' + money(x.b.amt) + '</div><div class="sub" style="margin:2px 0 0">' + esc(shortDate(x.a.d)) + (x.a.d === x.b.d ? ', twice' : ' and ' + esc(shortDate(x.b.d))) + ' · ' + esc(acctLabel(acct(x.b.a) || {})) + '</div>'
+        + (x.f.done ? '<div class="row" style="gap:6px;margin-top:8px;align-items:center"><span style="flex:1;font-weight:700">' + (x.f.done === 'ok' ? '✓ Both are right' : '📞 A mistake — to call about') + '</span><button class="b small ghost" onclick="dupSet(\'' + i + '\',\'\')">Change</button></div>'
+          : '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="b small primary" onclick="dupSet(\'' + i + '\',\'call\')">It’s a mistake</button><button class="b small" onclick="dupSet(\'' + i + '\',\'ok\')">Both are right</button></div>') + '</div>'; }).join('') || '<p class="sub">Nothing found yet. New statements are checked as they’re read.</p>')
+    + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button>'); }
+function dupSet(k, how){ var f = (db.flagged || {})[k]; if(!f) return; var b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0];
+  if(how){ f.done = how; } else { delete f.done; }
+  if(b){ if(how === 'ok'){ db.notSure = db.notSure.filter(function(x){ return x !== b.id; }); delete b.look; }
+    else { b.look = how === 'call' ? 'Charged twice — call to have it taken off' : 'Possible double charge'; if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; } }
+  save(); var el = document.getElementById('sheetIn'), sc = el.scrollTop; SHBACK = 1; openDups(); el.scrollTop = sc; }   /* redraw in place: no Back step, no jump to the top */
 function huSeen(note){ if(!HU) return; db.huSeen = db.huSeen || {}; db.huSeen[HU.k] = note || today(); save(); closeSheet(); render(); }
 function huSavings(){ huSeen('savings'); toast('Noted — the rest comes from savings when it’s due.'); }
 function huCancel(){ var s = HU.sub2; db.subRev = db.subRev || {}; db.subRev[s.k] = db.subRev[s.k] || s; huSeen('cancel'); cancelHelp(s.k); }
@@ -4668,7 +4912,7 @@ function openFirstLoad(again){
     + '<div class="stick" id="adjTot"></div>'
     + db.groups.map(function(g){ var cs = catsIn(g.id).filter(function(c){ return part(c) === 1; }); if(!cs.length) return ''; return '<h4>' + g.em + ' ' + esc(g.name) + '</h4>' + cs.map(function(c){
         if(c.variable) return '<div class="adj" style="grid-template-columns:minmax(0,1fr) auto"><span class="nm">' + esc(c.name) + '<small>goes up and down — uses its 3-month average</small></span><b style="text-align:right">' + money(mBud(c),1) + '</b></div>';
-        return '<div class="adj"><span class="nm">' + esc(c.name) + '<small>spent about ' + money(Math.max(0, A.avg[c.id]||0),1) + ' a month</small></span><button aria-label="Less for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',-1)">−</button><input id="adj_' + c.id + '" inputmode="decimal" value="' + ADJ[c.id] + '" oninput="ADJ[\'' + c.id + '\']=Math.max(0,num(this.value));adjTot()"><button aria-label="More for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',1)">＋</button></div>'; }).join(''); }).join('')
+        return '<div class="adj"><span class="nm">' + esc(c.name) + '<small>spent about ' + money(Math.max(0, A.avg[c.id]||0),1) + ' a month · <a href="#" onclick="budWhat(\'' + c.id + '\');return false">what’s in it</a></small></span><button aria-label="Less for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',-1)">−</button><input id="adj_' + c.id + '" inputmode="decimal" value="' + ADJ[c.id] + '" oninput="ADJ[\'' + c.id + '\']=Math.max(0,num(this.value));adjTot()"><button aria-label="More for ' + esc(c.name) + '" onclick="adj(\'' + c.id + '\',1)">＋</button></div>'; }).join(''); }).join('')
     + (db.threePart && p2Cats().length ? '<h4>📅 Bills once or twice a year</h4>' + p2Cats().map(function(c){ return '<div class="adj" style="grid-template-columns:minmax(0,1fr) auto"><span class="nm">' + esc(c.name) + '<small>' + (c.yearly == null ? 'unknown yet' : money(c.yearly,1) + ' a year ÷ 12') + '</small></span><b style="text-align:right">' + (c.yearly == null ? 'unknown' : money(c.yearly/12,1)) + '</b></div>'; }).join('') + '<button class="b small" style="margin-top:6px" onclick="openPart2()">Change the yearly bills</button>' : '')
     + (unc > 0 ? '<p class="sub" style="margin-top:12px">❓ About ' + money(unc,1) + ' a month isn’t sorted yet. <a href="#" onclick="openGTKY();return false" style="color:var(--brand);font-weight:800">Answer those first</a> for a truer picture.</p>' : '')
     + '<button class="b primary full" onclick="saveBudget()">' + (db.budgetSet ? 'Save the budget' : 'Make this our budget') + '</button>' + (db.budgetSet ? '<button class="b full" onclick="budgetXlsx()">⬇️ Our budget as a spreadsheet</button>' : '') + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Not now</button>');
@@ -4683,7 +4927,7 @@ function saveBudget(){ p1Cats().forEach(function(c){ if(!c.variable) c.budget = 
 function openCats(){
   openSheet('<h3>Categories</h3><p class="sub">Tap a name to rename it. “Average” lines use their 3-month average. Spending in a removed category goes back to “not sorted”.</p>'
     + db.groups.map(function(g){ return '<h4><input value="' + esc(g.name) + '" aria-label="Group name" onchange="group(\'' + g.id + '\').name=this.value.trim()||\'Group\';save();render()" style="font-weight:800"></h4>'
-      + catsIn(g.id).map(function(c){ return '<div class="row" style="margin:6px 0;align-items:center"><input value="' + esc(c.name) + '" aria-label="Category name" style="flex:1" onchange="cat(\'' + c.id + '\').name=this.value.trim()||\'Category\';save();render()">' + (c.part === 1 ? '<button class="b small' + (c.variable ? ' primary' : '') + '" onclick="cat(\'' + c.id + '\').variable=!cat(\'' + c.id + '\').variable;save();render();openCats()">' + (c.variable ? 'average ✓' : 'fixed') + '</button>' : '<span class="pill">yearly</span>') + '<button class="b small" aria-label="Remove ' + esc(c.name) + '" onclick="delCat(\'' + c.id + '\')">✕</button></div>'; }).join('')
+      + catsIn(g.id).map(function(c){ return '<div class="row" style="margin:6px 0;align-items:center"><input value="' + esc(c.name) + '" aria-label="Category name" style="flex:1" onchange="if(this.value.trim()){ catRenameTo(\'' + c.id + '\', this.value); openCats(); } else this.value=cat(\'' + c.id + '\').name">' + (c.part === 1 ? '<button class="b small' + (c.variable ? ' primary' : '') + '" onclick="cat(\'' + c.id + '\').variable=!cat(\'' + c.id + '\').variable;save();render();openCats()">' + (c.variable ? 'average ✓' : 'fixed') + '</button>' : '<span class="pill">yearly</span>') + '<button class="b small" aria-label="Remove ' + esc(c.name) + '" onclick="delCat(\'' + c.id + '\')">✕</button></div>'; }).join('')
       + (g.id === 'g_yearly' ? '<button class="b small" onclick="addYearly()">＋ Add a yearly bill</button>' : '<button class="b small" onclick="addCat(\'' + g.id + '\')">＋ Add a category here</button>'); }).join('')
     + '<button class="b warm full" onclick="addGroup()">＋ Add a group</button><button class="b primary full" onclick="closeSheet()">Done</button>');
 }
@@ -5602,7 +5846,7 @@ function fmDone(SK){ if(!FMAUTO && !FAI && aiAuto() && db.accts.some(function(a)
     if(!kids && t[0] === 'other') return ''; var n = (kids.match(/class="fmn acc/g) || []).length; if(!kids) kids = '<div class="fmn acc none" onclick="fmAssign(\'' + t[0] + '\')"><b>— none yet —</b><small>tap to pick its folders</small></div>';
     return '<div class="fmrow"><div class="fmn grp tap" data-fm="g' + t[0] + '" onclick="fmAssign(\'' + t[0] + '\')" title="Say which folders belong here">' + t[1] + ' ' + esc(t[2]) + '<small>✎ ' + n + ' ' + (t[0] === 'ins' ? 'polic' + (n===1?'y':'ies') : t[0] === 'other' ? 'folder' + (n===1?'':'s') : 'account' + (n===1?'':'s')) + '</small></div><div class="fmkids">' + kids + '</div></div>'; }).join('');
   var loose = Object.keys(FML).map(function(f){ return '<div class="fmn loose">📂 ' + esc(f) + '<small>' + FML[f] + ' file' + (FML[f]===1?'':'s') + ' · not in a group — move it into one</small></div>'; }).join('');
-  openSheet('<div class="stepno">Setting up · step 3 of 3</div><h3>Your folder, connected</h3><p class="sub">Each line runs from a folder on your computer to the account it became. <b>Tap a group</b> to say which folders belong in it; tap an account to rename it.</p>'
+  openSheet('<div class="stepno">Setting up · step 3 of 3</div><h3>Your folder, connected</h3>' + flagLine() + '<p class="sub">Each line runs from a folder on your computer to the account it became. <b>Tap a group</b> to say which folders belong in it; tap an account to rename it.</p>'
     + (nBad ? '<div class="line warn" style="font-weight:700;font-size:14.5px">📄 ' + nBad + ' PDF' + (nBad===1?'':'s') + ' I couldn’t read myself. ' + ((db.prof||{}).send === 'no' ? 'You chose not to send statements to AI — download CSV files for ' + (nBad===1?'that month':'those months') + ' from the bank instead, or <a href="#" onclick="db.prof.send=\'ask\';save();fmAIall();return false" style="color:var(--brand);font-weight:800">read ' + (nBad===1?'it':'them') + ' with AI this once</a>.' : '<button class="b primary small" style="margin-left:6px" onclick="fmAIall()">✨ Read ' + (nBad===1?'it':'them all') + ' with AI</button>') + '</div>' : '')
     + '<div class="fmcanvas" id="fmCanvas"><svg id="fmSvg" aria-hidden="true"></svg><div class="fmroot"><div class="fmn root" data-fm="root">📁 Family Money<small>' + nFold + ' folder' + (nFold===1?'':'s') + ' · ' + nFiles + ' file' + (nFiles===1?'':'s') + '</small></div>' + (loose ? '<div class="fmloose">' + loose + '</div>' : '') + '</div><div class="fmgroups">' + groups + '</div></div>'
     + '<div class="fmlegend"><span style="--c:var(--ok)">all read</span><span style="--c:#E3A23B">some PDFs need AI</span><span style="--c:var(--red)">nothing to read</span>' + (loose ? '<span style="--c:#B9B2A6">outside the groups</span>' : '') + '</div>'

@@ -948,3 +948,47 @@ Jerry: "be very intuitive and forward thinking … head off some issues … this
 2. **🧭 If I'm away** on the main screen's tools, one page kept current, with **🖨️ Print it**. It shows the next two months' yearly bills; up to 12 steady monthly bills (about the same amount each time) with the day and the paying account; what's normal each month; every account with its balance; who to call (CPA and advisor); and how to ask the app.
 3. **Money dates for Ahead of It.** Ours only, never Practice or the example, writes `localStorage['dj_shared_due_familydash']` = `{ app, em, url, updated, items:[{ what, due:'YYYY-MM-DD', kind:'bill'|'heads-up' }] }`. That is the yearly bills due in the next two months plus up to three heads-ups, with no amounts and no account numbers. Same site, same device, so Ahead of It can read it. Ahead of It's side is for its own chat.
 Tester script step s33d added.
+
+## v9.3 · merge categories, and a short note on any line (20 Nov)
+
+Jerry: "we're going to have to merge categories at some point … It would be nice to put a note in for a transaction … not a long one, but a short one."
+- **Merging uses rename** (`catRenameTo`). Renaming a category, with **✎ Rename it** on the sort screen or in Settings › Categories, to a name that already exists asks "Merge X into Y?". Yes moves every line, remembered payee and re-sort record into the one kept, and adds the budgets together when both are in the same part. The other category goes away.
+- **A one-line note** (60 characters at most) on every sort screen, "Note (optional) — e.g. for the golf trip". It's kept on each line it was saved with, and shows in the spreadsheets and the backup. Checks, cash and Venmo/PayPal/Zelle also say "only you know what it was for".
+
+## v9.4 · a new category keeps you on the line; tick lines to sort on their own (20 Nov)
+
+Jerry: "I added [a category] and I came back and then I couldn't put in the … comment" and "when I go to one that has multiple lines and I see each line, I lost the ability to pick each line and deal with it."
+- **＋ A new category…** now shows a name box with **＋ Add**. Enter or the main button does the same. Adding it keeps you on the same line, with the new category chosen and the note box (and anything already typed in it) kept. The next tap saves (`sinNewAdd`).
+- **See each line** has a tick box on every line. Tick the different ones and tap **Sort these N lines on their own**: they come up next as their own step, with its own category, note or split. The rest stay together (`sinOwn`).
+
+## v9.5 · the ticked lines first, then back to the rest (20 Nov)
+
+Jerry: "You need to manage one at a time. And you need to stay on that page so they're all done." After **Sort these on their own**, the ticked lines come up straight away. The step after is the rest of the same payee, headed "Back to the other N lines from this payee", with **See each line** already open, so more can be ticked before the rest are sorted together.
+
+## v9.6 · Sort the rest for me, and Show me the dashboard now (20 Nov)
+
+Jerry: "I don't know if I want to go through each credit card one. Maybe you do your best to sort it out … give me a button to the dashboard."
+- **✨ Sort the rest for me** on Sort each account (`sortRestForMe`). It runs the known-payee and card-payment sorting, re-guesses, then accepts the app's guess for every line not yet done (marked `autoAcc`). Lines it can't guess stay "Not sorted yet". Any line can be changed later.
+- **📊 Show me the dashboard now** on the setup screen, once there are lines (`db.peek`). It opens the main dashboard before setup is finished. The checklist of steps still to do is on it, so nothing is skipped: the household questions, including the CPA and advisor, and the budget are still there to do.
+
+## v9.7 · double charges caught as statements are read (20 Nov)
+
+Jerry: "two exactly the same charges on the same day … catch these things on the import as they're importing … flag them right away … then at some point there's a review."
+- `flagSuspicious` runs after each statement file is read. Two charges on the same account, from the same payee, for the same amount, within three days, are flagged, provided at least one is newly read. The later charge goes on the 🔍 To look into list with "Possible double charge — same as Oct 20".
+- The screens that end a reading (the folder map and New month) say how many were found (`flagLine`).
+- Review: a heads-up card at the top of the main screen, ahead of everything else, until answered. **It's a mistake — keep it on my list** (the reason becomes "Charged twice — call to have it taken off") or **Both are right** (taken off the list).
+- The sort screen shows the warning on a flagged line. The existing "Worth a look" double-charge notice stays.
+
+## v9.8 · the Charged twice? list (20 Nov)
+
+Jerry: "add the charge choice thing to a list … it's hard to do that from the middle of an import."
+- `openDups` puts every possible double charge on one list. Each shows the payee, amount, both dates and the account, with **It's a mistake** / **Both are right** buttons; once answered, **Change** brings them back. The list redraws in place.
+- The heads-up card no longer asks the question. It is one card, "N charges may have gone through twice", with **👯 See the list**.
+- The list opens from 📋 Lists and from the Sort each account screen. The banner at the end of a reading points to it.
+
+## v9.9 · a way out of every screen, and what a number is made of (20 Nov)
+
+Jerry: "every screen you get in, you need to be able to get out of … just put an X on top" and "It has healthcare 72,000. I'd like to know what that is."
+- Every screen now has a round ✕ at the top right that stays put while you scroll and goes straight to the main screen (`sheetX`). Answers are saved as you go.
+- The budget questions remember where you stopped (`db.budI`). Starting again picks up there, with a "Start from the top" link.
+- Each budget question has **🔎 What makes up $X?** (`budWhat`), and each line of the summary has *what's in it*. It shows every payee in that kind, biggest first, then each payment. Tap a payment to move it.

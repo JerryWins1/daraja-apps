@@ -117,6 +117,11 @@ def main():
                        for k, v in (interest.get('by_app') or {}).items()],
             'kenya_news_yes': interest.get('kenya_yes', 0),
         },
+        'messages': {   # counts only — the words are in the private digest
+            'by_kind_7d': (S.get('messages') or {}).get('last_7_days', {}),
+            'by_kind_all': (S.get('messages') or {}).get('all_time', {}),
+            'by_app': [{'app': k, 'name': names.get(k, k), 'count': v} for k, v in ((S.get('messages') or {}).get('by_app') or {}).items()],
+        },
         'weekly_note': {k: wk.get(k, '') for k in ('id', 'app', 'from', 'to')},
         'notes': prev.get('notes') or ['Live counting started 13 Nov 2026.'],
     }
@@ -124,7 +129,7 @@ def main():
     iso = today.isocalendar()
     week = '%d-W%02d' % (iso[0], iso[1])
     row = {'week': week, 'opens_7d': out['opens']['total_7d'], 'signups': out['signups']['total'],
-           'donations_7d': donations.get('count_7d', 0), 'amount_7d': donations.get('amount_7d', 0)}
+           'donations_7d': donations.get('count_7d', 0), 'messages_7d': sum(((S.get('messages') or {}).get('last_7_days') or {}).values()), 'amount_7d': donations.get('amount_7d', 0)}
     weeks = [w for w in (prev.get('weeks') or []) if w.get('week') != week] + [row]
     out['weeks'] = sorted(weeks, key=lambda w: w['week'])[-26:]
 

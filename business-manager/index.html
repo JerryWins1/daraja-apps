@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v70">
+<script id="dj-house-v75">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -465,7 +465,14 @@
     serve:        {k:['serveboard_v1'], p:['serveboard_','serve_']},
     clubhouse:    {k:['clubhouse_stars'], p:['clubhouse_']},
     gameday:      {k:[], p:['gameday_','church_gameday_']},
-    goodstanding: {k:['goodstanding_v1'], p:['goodstanding_']},
+    /* 20 Nov: the merge that made Ahead of It out of three apps kept only the new key, so Start fresh
+       erased aheadofit_v1 and left ahead_v1, steward_v1 and goodstanding_v1 on the phone — which the
+       app then migrated straight back in on the next open, so the person's own list went and three old
+       ones arrived. The papers pocket went the same way: ahead_papers was on the old entry and was
+       dropped. The three old addresses are redirect pages carrying no house block (checked), so naming
+       their keys here cannot reach a living app; their prefixes are deliberately NOT listed, because
+       steward_ would be another app's if Church Steward ever came back. */
+    aheadofit: {k:['aheadofit_v1','ahead_v1','steward_v1','goodstanding_v1'], p:['aheadofit_'], idb:['ahead_papers']},
     receipts:     {k:['receiptmaker_org_v1','receipts_v1'], p:['receiptmaker_','receipts_']},
     /* v64 (10 Oct): the newer apps keep their data under dj_ names, which the old erase skipped outright.
        Read out of each app's own source; each app ALSO declares window.DJ_OWNS, and that wins when present. */
@@ -501,13 +508,18 @@
     return o;
   }
 
+  /* 21 Nov: a copy of an app at <app>/beta/ is the SAME app, waiting its turn. Everything keyed on
+     the slug — its saved work, its backup entry, its tour, its Home Screen record — has to agree, or
+     a tester trying the next version would find an empty app called "beta". */
+  function djBetaPath(){ try{ return /\/beta\/?$/.test(location.pathname.replace(/\/index\.html$/,'')); }catch(e){ return false; } }
   function slugOf(){
-    var s = (window.DJ_START && window.DJ_START.slug) ||
-            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    var p = location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean);
+    if(p[p.length - 1] === 'beta') p.pop();
+    var s = (window.DJ_START && window.DJ_START.slug) || (p.pop() || '');
     s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
     var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
                  churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
-                 churchgameday:'gameday', npgoodstanding:'goodstanding', npreceipts:'receipts',
+                 churchgameday:'gameday', ahead:'aheadofit', npreceipts:'receipts',
                  f1:'pitwall', feedbackstudio:'feedback', storykeeper:'storykeeper', bizmgr:'businessmanager'};
     return alias[s] || s;
   }
@@ -909,6 +921,23 @@
       pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
       box.appendChild(pb);
     }
+    /* The ? menu itself, not the Help sheet under it: only 18 of the 54 apps have a #djHelp
+       button, so a row in there would be missing from two thirds of them, and Jerry asked for
+       every app. */
+    if(!djFeedbackOff()){
+      var fb = document.createElement('button'); fb.type = 'button';
+      fb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      fb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">✉️</span><span style="flex:1">Send us a message<br><small style="font-weight:600;color:#55605B">a problem, an idea, or a question</small></span>';
+      fb.onclick = function(){ w.remove(); djBackPush(dockSheet); djFeedback(); };
+      box.appendChild(fb);
+    }
+    if(!djHomeScreenOff()){
+      var hs = document.createElement('button'); hs.type = 'button';
+      hs.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      hs.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">\u{1F4F2}</span><span style="flex:1">Put this app on your Home Screen<br><small style="font-weight:600;color:#55605B">it opens full screen, like any other app</small></span>';
+      hs.onclick = function(){ w.remove(); djBackClear(); homeScreenGuide(true); };
+      box.appendChild(hs);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
@@ -1141,35 +1170,64 @@
      Home Screen on their own, and most never do. So on the second visit in Safari
      — not the first, not while installed, not inside Feedback Studio — one card
      shows the three taps, with a real arrow to where the Share button lives. */
-  function homeScreenGuide(){
+  /* v66: Chrome on Android offers its install prompt once it decides the page can be installed; keep it for our own button. */
+  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
+  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + slugOf(), 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); }catch(err){} });
+  /* 21 Nov, Jerry through the front door: "We also need a way to show them how to put the app on
+     the shortcut… for the app." The card above still appears on its own, once, on a second visit;
+     this is the way to ask for it deliberately, any time. Not offered where there is nothing to
+     add it to: already installed, inside a frame, or a browser with no Home Screen at all. */
+  function djHomeScreenOff(){
+    try{
+      if(embedded) return true;
+      if(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) return true;
+      var ua = navigator.userAgent || '';
+      var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      return !(ios || /Android/.test(ua));
+    }catch(e){ return true; }
+  }
+  function homeScreenGuide(force){
+    if(document.getElementById('djA2HS')) return;
     try{
       var ua = navigator.userAgent || '';
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-      var force = /[?&]dj_a2hs=1/.test(location.search);
-      if(embedded || (!force && (!ios || navigator.standalone))) return;
+      force = force === true || /[?&]dj_a2hs=1/.test(location.search);
+      /* v66 (15 Oct, Jerry: "there should be a way to load it on their Home Screen easier"): Android too. Chrome hands us
+         its install prompt, so there it is ONE tap (Install); without it, the card shows Chrome's own two taps. */
+      var android = /Android/.test(ua), bip = window.__djBIP || null;
+      var installed = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      if(embedded || installed || (!ios && !android) || (!force && !ios && !bip)) return;
       if(!force && guestVisit()) return;
       if(!force && /\/(welcome|watch\.html|feedback-studio|testers|help|testday|control|safety)(\/|$)/.test(location.pathname)) return;   /* v47: tester and helper pages are visited, not kept */
       var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
       if(st === 'done' || st === 'no') return;
       var visits = parseInt(st || '0', 10) || 0;
-      if(!force && visits < 1){ localStorage.setItem(key, String(visits + 1)); return; }   /* first visit: just count */
-      if(!force && cardOpen()){ setTimeout(homeScreenGuide, 4000); return; }   /* v47: wait until the welcome card is closed */
+      if(!force && visits < 1){ if(!window.__djA2C){ window.__djA2C = 1; localStorage.setItem(key, String(visits + 1)); } return; }   /* first visit: just count (once, even if Chrome's prompt calls again) */
+      if(!force && cardOpen()){ setTimeout(function(){ homeScreenGuide(force); }, 4000); return; }   /* v47: wait until the welcome card is closed */
       var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
       var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
       var w = document.createElement('div'); w.id = 'djA2HS'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Put this app on your Home Screen');
       w.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
         + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
         + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+      var btn = 'font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer';
       w.innerHTML = '<div style="font-weight:800;font-size:17px;margin-bottom:6px">Keep ' + name.replace(/[<>&]/g,'') + ' on your Home Screen</div>'
-        + '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+        + (!ios ? (bip ? '<p style="margin:0 0 10px">One tap puts it next to your other apps. It opens full screen, and every Daraja app is inside.</p>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="install" style="' + btn + '">📲 Install ' + name.replace(/[<>&]/g,'') + '</button>'
+          : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>⋮</b> menu at the top right of Chrome</li><li>Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li><li>Tap <b>Install</b>. It opens like any other app, full screen.</li></ol>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="' + btn + '">I did it</button>')
+          + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
+          + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>' : '')
+        + (!ios ? '' : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
         + '<li>Scroll the list and tap <b>Add to Home Screen</b></li><li>Tap <b>Add</b>. It opens like any other app, full screen.</li></ol>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer">I did it</button>'
         + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
-        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>'
-        + (shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
+        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>')
+        + (ios && shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
       w.addEventListener('click', function(e){
         var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
         var a = b.getAttribute('data-a');
+        if(a === 'install' && bip){ bip.prompt(); bip.userChoice.then(function(c){ localStorage.setItem(key, c && c.outcome === 'accepted' ? 'done' : '0'); }).catch(function(){}); window.__djBIP = null; w.remove(); return; }
         if(a === 'done' || a === 'no') localStorage.setItem(key, a); else localStorage.setItem(key, '0');   /* later: ask again in two visits */
         w.remove();
       });
@@ -1885,7 +1943,7 @@
   };
   var AUDIENCE_OF = { advent:'church', steward:'church', serve:'church', drive:'church', occ:'church', churchkey:'church', church:'church', churchhq:'church', receipts:'church',
                       clubhouse:'kids', gameday:'kids',
-                      businessmanager:'business', quickquote:'business', nextstep:'business', drumbeat:'business', goodstanding:'business', zuri:'business', flipkit:'business', breakeven:'business',
+                      businessmanager:'business', quickquote:'business', nextstep:'business', drumbeat:'business', aheadofit:'business', zuri:'business', flipkit:'business', breakeven:'business',
                       everyday:'later', storykeeper:'later', academy:'later', rafiki:'later', keepsake:'later', porchlight:'later' };
   function audience(){
     var a = ''; try{ a = String(window.DJ_AUDIENCE || ((document.querySelector('meta[name="dj-audience"]') || {}).content) || '').toLowerCase(); }catch(e){}
@@ -1893,6 +1951,105 @@
     return a;
   }
   window.djAudience = audience;
+  /* 21 Nov. Jerry, relayed through the front door: "would like to be able to have a messaging
+     system from the user of an app to send a message back to the control center if they have a
+     problem, we can notify to fix it or if they wanna feature request or if they wanna report a
+     problem or something." One row in the ? menu, three kinds, and the same mailbox as Keep me
+     posted and the testers' reports — action 'report' with a tagged first line, so it lands in
+     the HQ sheet's messages tab where tools/morning-report/digest.py counts it.
+     Skipped exactly where Keep me posted is: a children's page, My Safety Plan (a plan's names and
+     numbers never leave the phone), a test copy, and a guest's visit. */
+  var DJ_FB = [
+    ['problem',  '\u{1F6A9}', 'Report a problem', 'What went wrong? What were you doing when it happened?'],
+    ['idea',     '\u{1F4A1}', 'Suggest an idea',  'What would make this app better for you?'],
+    ['question', '❓',    'Ask a question',   'What would you like to know?']
+  ];
+  /* Family Money's copy of the block carries none of the mailbox code (no djSend, no djRefKey,
+     no djSandbox), so the row must not appear there at all rather than appear and fail. The same
+     guard covers any app whose copy drifts the same way. */
+  function djFeedbackOff(){
+    if(typeof djSend !== 'function') return true;
+    try{ return kidsPage() || crisisPage() || djSandbox() || guestVisit(); }catch(e){ return true; }
+  }
+  function djFeedback(kind){
+    var k = kind || 'problem', probs = djProblems(), app = djRefKey(slugOf());
+    var of = function(x){ for(var i = 0; i < DJ_FB.length; i++) if(DJ_FB[i][0] === x) return DJ_FB[i]; return DJ_FB[0]; };
+    var fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;min-height:46px;padding:10px 12px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-top:8px';
+    var kindBtn = function(x){
+      return '<button type="button" class="djFbK" data-k="' + x[0] + '" aria-pressed="false" style="flex:1;font:inherit;font-weight:800;font-size:13px;line-height:1.2;min-height:62px;padding:8px 4px;border-radius:12px;cursor:pointer;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622">'
+        + '<span style="font-size:18px;display:block;margin-bottom:2px">' + x[1] + '</span>' + esc(x[2]) + '</button>';
+    };
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Send us a message</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">It comes straight to the people who look after these apps. Nothing is sent until you tap Send it.</p>'
+      + '<div style="display:flex;gap:6px">' + DJ_FB.map(kindBtn).join('') + '</div>'
+      + '<textarea id="djFbText" aria-label="Your message" style="' + fld + ';min-height:112px"></textarea>'
+      + '<input id="djFbName" type="text" autocomplete="name" maxlength="40" placeholder="Your name — not needed" aria-label="Your name" value="' + esc(djName()) + '" style="' + fld + '">'
+      + '<input id="djFbContact" type="text" autocomplete="email" maxlength="80" placeholder="Email or phone, if you would like an answer" aria-label="Email or phone" style="' + fld + '">'
+      + (probs.length ? '<label id="djFbProbWrap" style="display:flex;gap:10px;align-items:flex-start;font-size:14.5px;margin:10px 0 0;cursor:pointer"><input id="djFbProb" type="checkbox" checked style="width:22px;height:22px;min-height:22px;flex:none;accent-color:#23504F"><span>Send the ' + probs.length + ' recent problem message' + (probs.length === 1 ? '' : 's') + ' as well<br><small style="color:#55605B">the ones this app wrote down for you — they help us find the fault</small></span></label>' : '')
+      + '<button type="button" id="djFbGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Send it</button>'
+      + '<div id="djFbNote" role="status" style="font-size:14.5px;margin-top:8px"></div>');
+    var ta = b.querySelector('#djFbText'), note = b.querySelector('#djFbNote'), wrap = b.querySelector('#djFbProbWrap');
+    /* switching kind must not throw away what has been typed, so nothing is rebuilt */
+    function paint(){
+      ta.placeholder = of(k)[3];
+      if(wrap) wrap.style.display = (k === 'problem') ? 'flex' : 'none';
+      var bs = b.querySelectorAll('.djFbK');
+      for(var i = 0; i < bs.length; i++){
+        var on = bs[i].getAttribute('data-k') === k;
+        bs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+        bs[i].style.borderColor = on ? '#23504F' : '#C9C1AE';
+        bs[i].style.background  = on ? '#23504F' : '#fff';
+        bs[i].style.color       = on ? '#fff' : '#1F2622';
+      }
+    }
+    var bs = b.querySelectorAll('.djFbK');
+    for(var i = 0; i < bs.length; i++) bs[i].onclick = function(){ k = this.getAttribute('data-k'); paint(); };
+    paint();
+    b.querySelector('#djFbGo').onclick = function(){
+      var one = function(id, n){ return String((b.querySelector(id) || {}).value || '').replace(/[|\r\n<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+      var msg = String(ta.value || '').replace(/[|<>]/g, ' ').replace(/[ \t]+/g, ' ').trim().slice(0, 2000);
+      if(msg.length < 2){ note.textContent = 'Write a line or two first, then tap Send it.'; try{ ta.focus(); }catch(e){} return; }
+      var name = one('#djFbName', 40), contact = one('#djFbContact', 80), go = this;
+      go.disabled = true; go.textContent = 'Sending…'; note.textContent = '';
+      var pb = b.querySelector('#djFbProb');
+      var text = 'FEEDBACK|kind:' + k + '|app:' + app + '|day:' + djYMD()
+        + '\n' + msg
+        + '\n— ' + (name || '(no name)') + ' · ' + (contact || '(no reply asked for)')
+        + '\nversion: ' + (appStamp() || 'not shown');
+      if(k === 'problem' && pb && pb.checked && probs.length) text += '\n\nWhat the app wrote down:\n' + djProbText();
+      djSend({ action:'report', who:'', name: name || 'A message', app: app, contact: contact, text: text }, function(ok){
+        if(!ok){ go.disabled = false; go.textContent = 'Send it'; note.textContent = 'That did not send. Check your connection and try again — nothing you typed is lost.'; return; }
+        try{ if(name && !djName()) localStorage.setItem('dj_name', name); }catch(e){}
+        b.innerHTML = '<div style="font-weight:900;font-size:19px;margin-bottom:6px">Thank you</div>'
+          + '<p style="margin:0 0 12px;font-size:15px">We have your message' + (contact ? ', and we will come back to you.' : '. ') + (contact ? '' : 'If you would like an answer, send another with an email or a phone number.') + '</p>'
+          + '<button type="button" id="djFbDone" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Close</button>';
+        b.querySelector('#djFbDone').onclick = function(){ djBackClear(); closeAISheet(); };
+      });
+    };
+  }
+  /* 21 Nov, Jerry's idea 9: "a new app version goes to the test copy first; after 24 hours with no
+     new problems it goes to everyone." Nothing can be held back from one person and not another on
+     GitHub Pages — one copy is served to everybody — so the next version lives at <app>/beta/ and
+     only the people given that link are on it. This band is what stops someone mistaking it for the
+     released app and reporting its faults as the real one's. */
+  function djBetaBand(){
+    if(!djBetaPath() || embedded || document.getElementById('djBeta')) return;
+    var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim().replace(/[<>&]/g, '');
+    var w = document.createElement('div'); w.id = 'djBeta'; w.setAttribute('role', 'note');
+    /* along the bottom, not the top: the hello card floats over the top on purpose (v62), and the
+       dock already lifts itself above whatever bottom bar an app has, so it will clear this. */
+    w.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147481600;background:#5B3FA0;color:#fff;'
+      + 'padding:7px 12px calc(7px + env(safe-area-inset-bottom));font:13.5px/1.35 -apple-system,system-ui,sans-serif;'
+      + 'display:flex;align-items:center;gap:10px;box-shadow:0 -2px 10px rgba(0,0,0,.25)';
+    w.innerHTML = '<span style="flex:1"><b>Next version of ' + name + '</b> — not released yet. '
+      + 'Your saved work is the same as in the released one.</span>'
+      + '<a href="../" style="font:inherit;font-weight:800;color:#5B3FA0;background:#fff;border-radius:999px;'
+      + 'padding:7px 12px;min-height:38px;display:inline-flex;align-items:center;text-decoration:none;flex:none">Released one</a>';
+    document.body.appendChild(w);
+    try{ document.body.style.paddingBottom = (w.offsetHeight + 8 + (parseInt(getComputedStyle(document.body).paddingBottom, 10) || 0)) + 'px'; }catch(e){}
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', djBetaBand);
+  else setTimeout(djBetaBand, 0);
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
@@ -2116,17 +2273,24 @@
   function lsPut(k, v){ localStorage.setItem(k, JSON.stringify(v)); return localStorage.getItem(k) === JSON.stringify(v); }
   function tid(){ return 'tell' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
   function nnKeyOf(){ var P = lsJ('now_next_profiles_v1'); if(P && P.cur) return 'now_next_v1_' + P.cur; return 'now_next_v1'; }
-  function aheadReady(){ var h = lsJ('ahead_v1'); return !!(h && Array.isArray(h.items)); }
+  /* 20 Nov: every house-side link to Ahead of It still pointed at ahead_v1, the key its predecessor used.
+     On a phone with only the merged app the tell box said "Ahead of It isn't set up on this phone yet"
+     and filed the date in One Thing; on a phone that had the old app it wrote into ahead_v1, which the
+     merged app reads only on its first run, so the date never appeared. Driven in Chromium both ways.
+     Write where the app is actually keeping its list: the new key once it exists, the old one before
+     the person has opened the merged app for the first time, where it is migrated in. */
+  function aheadKey(){ var n = lsJ('aheadofit_v1'); return (n && Array.isArray(n.items)) ? 'aheadofit_v1' : 'ahead_v1'; }
+  function aheadReady(){ var h = lsJ('aheadofit_v1') || lsJ('ahead_v1'); return !!(h && Array.isArray(h.items)); }
   function tellDo(p){
     if(p.kind === 'shop'){
       var o = lsJ('dj_ourtable_v1') || {}; o.extras = Array.isArray(o.extras) ? o.extras : [];
       o.extras.push({ id:tid(), text:p.text, aisle:'Other', done:false }); return lsPut('dj_ourtable_v1', o);
     }
     if(p.kind === 'ahead'){
-      var h = lsJ('ahead_v1');
+      var ak = aheadKey(), h = lsJ(ak);
       if(!h || !Array.isArray(h.items)){ p.kind = 'todo'; p.text = p.text + (p.amt ? ' ($' + p.amt + ')' : '') + ' is due'; return tellDo(p); }
       h.items.push({ id:tid(), n:p.text, cat:'Mine', due:p.date, rep:p.rep, sev:'m', bite:'', lad:[[30,'Gather what you need'],[7,'Do it'],[1,'Confirm it went through']], who:h.tell || '', amt:p.amt || '', where:'', stepsDone:[], hist:[], said:true });
-      return lsPut('ahead_v1', h);
+      return lsPut(ak, h);
     }
     if(p.kind === 'bday'){
       var c = djCircle.get() || { me:{}, people:[], home:{}, work:{}, share:{me:true,people:true,home:true,work:true} };
@@ -2549,7 +2713,8 @@
   .big{ font-size:30px; font-weight:850; letter-spacing:-.01em; line-height:1.1; }
   .brief p{ margin:0 0 6px; font-size:16.5px; line-height:1.45; } .brief .chip{ min-height:36px; padding:4px 12px; }
   .talkbtn{ min-height:60px; font-size:18px; margin-bottom:10px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
-  .daytexts{ margin:0 0 10px; } .daytexts .btn{ flex:1 1 30%; padding:8px 6px; font-size:15px; }
+  .daytexts{ margin:0 0 10px; }
+  .alerts{ background:#FFF6E5; border-color:#E8C987; } .alerts .alert1{ border-top:1px solid #EBD9B0; padding-top:8px; margin-top:8px; } .alerts .alert1 p{ margin:0 0 6px; font-size:16px; line-height:1.4; } .alerts .btns .btn{ min-height:42px; } .daytexts .btn{ flex:1 1 30%; padding:8px 6px; font-size:15px; }
   .live{ display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; margin:0 -2px 10px; padding:0 2px 4px; scrollbar-width:none; } .live::-webkit-scrollbar{ display:none; }
   .live .live1{ flex:0 0 88%; scroll-snap-align:start; text-align:left; margin:0; cursor:pointer; font:inherit; color:inherit; }
   .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px; }
@@ -2689,7 +2854,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v1.9.4 · 2026-11-20';
+var VER = 'v2.0.2 · 2026-11-21';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -2917,6 +3082,7 @@ VIEWS.home = function(){
     h.push('<div class="clockbar"><div class="grow"><b>⏱ On the clock</b><div class="small">' + esc(cj ? cj.title : '') + (cw ? ' · ' + esc(cw.name) : '') + ' · since ' + new Date(S.clock.start).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) + '</div></div><button class="btn sm" onclick="BM.clockOut()">Clock out</button></div>'); }
   h.push(briefCard());
   h.push(textRow());
+  h.push(alertsCard());
   h.push(talkButton());
   h.push(liveCards());
   if(F('schedule')){
@@ -3057,6 +3223,36 @@ function briefRead(){
     speechSynthesis.speak(u); }catch(e){ toast('This phone can’t read aloud here. The words are all on the card.'); }
 }
 /* the three one-tap texts */
+/* ── ⚠️ Worth knowing: the truck-cab day, part 3 (v2.0 · 20 Nov 2026) ─────────────────────────────────────
+   Jerry: "Build part three now." Alerts only when they matter, on Today, at most three at a time: a big bill coming due
+   (the ⚠️ bills in Money → Next 30 / 60 days: the truck loan, insurance), a tax date from the to-dos, work done but not
+   billed, an estimate going cold, and an open slot in the week while estimates wait. Each has one button that does the
+   thing, and "Got it" puts that alert away until something about it changes (a new due date, a new follow-up).
+   Everything is worked out on this phone from what the book already holds; nothing is sent anywhere. */
+function alertsList(){
+  var t = today(), out = [];
+  if(F('expenses')){ aheadState(); S.repeats.forEach(function(r){ if(!repWarn(r) || !num(r.amount)) return;
+    var win = repEvery(r) === 1 ? 7 : 14, d = repeatDates(r, t, addDays(t, win))[0]; if(!d) return; var n = daysBetween(t, d);
+    out.push({ key:'bill:' + r.id + ':' + d, k:n, em:'💳', t:(r.name || 'A bill') + ' ' + money0(r.amount) + ' is due ' + (n === 0 ? 'today' : n === 1 ? 'tomorrow' : fd(d) + ' (in ' + n + ' days)') + '.', b:'See bills', go:"BM.go('ahead')" }); }); }
+  if(F('todos')) soonTodos(14).forEach(function(td){ if(td.cat !== 'tax') return; var d = effDue(td), n = daysBetween(t, d);
+    out.push({ key:'tax:' + td.id + ':' + d, k:n, em:'🏛️', t:td.text + (n < 0 ? ' was due ' + fd(d) + '.' : ' is due ' + (n === 0 ? 'today' : fd(d) + ' (in ' + n + ' days)') + '.'), b:'Open it', go:"BM.go('todo')" }); });
+  S.jobs.forEach(function(j){ var c = cust(j.customerId);
+    if(j.status === 'done' && jobTotal(j) - jobBilled(j) > 0.004 && (!j.date || j.date < t)){ var dd = j.date ? daysBetween(j.date, t) : 0;
+      out.push({ key:'unbilled:' + j.id + ':' + r2(jobBilled(j)), k:20, em:'💵', t:'Bill ' + c.name + '? ' + money0(jobTotal(j) - jobBilled(j)) + ' not billed' + (dd ? ', done ' + dd + ' day' + (dd > 1 ? 's' : '') + ' ago' : ' yet') + '.', b:'Bill it', go:"BM.go('job/" + j.id + "')" }); }
+    if(F('estimates') && j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) >= 7){ var w = daysBetween(j.estSent, t);
+      out.push({ key:'cold:' + j.id + ':' + j.estSent, k:30, em:'🧊', t:c.name + '’s estimate (' + money0(jobTotal(j)) + ') has waited ' + w + ' days without a yes.', b:'Follow up', go:"BM.followUp('" + j.id + "')" }); }
+  });
+  if(F('schedule')){ var g = nextGap(), we = waitingEstimates(); if(g && we.length) out.push({ key:'gap:' + t + ':' + g, k:40, em:'📅', t:g + '. ' + we.length + ' estimate' + (we.length > 1 ? 's are' : ' is') + ' waiting on a reply.', b:'Nudge them', go:"BM.go('jobs/estimate')" }); }
+  var seen = S.alertsSeen || {};
+  return out.filter(function(a){ return !seen[a.key]; }).sort(function(a, b){ return a.k - b.k; });
+}
+function alertsCard(){
+  var a = alertsList(); if(!a.length) return '';
+  return '<div class="card alerts" id="tdAlerts"><b>⚠️ Worth knowing</b>' + a.slice(0, 3).map(function(x){
+    return '<div class="alert1"><p>' + x.em + ' ' + esc(x.t) + '</p><div class="btns"><button class="btn sm main" onclick="' + x.go + '">' + esc(x.b) + '</button><button class="btn sm" onclick="BM.alertSeen(\'' + esc(x.key) + '\')">Got it</button></div></div>'; }).join('')
+    + (a.length > 3 ? '<p class="small muted" style="margin:6px 0 0">' + (a.length - 3) + ' more after these.</p>' : '') + '</div>';
+}
+function alertSeen(k){ var o = S.alertsSeen = S.alertsSeen || {}, cut = addDays(today(), -90); o[k] = today(); Object.keys(o).forEach(function(x){ if(o[x] < cut) delete o[x]; }); save(); render(); }
 function textRow(){
   if(!F('schedule')) return '';
   return '<div class="btns daytexts" id="tdTexts"><button class="btn" onclick="BM.dayText(\'late\')">⏱ Running late</button><button class="btn" onclick="BM.dayText(\'onway\')">🚚 On my way</button><button class="btn" onclick="BM.dayText(\'done\')">✅ Done, bill it</button></div>';
@@ -3098,7 +3294,7 @@ async function dayText(kind){
     + '<p class="hint">Your location is only read now, on this phone, to guess the drive. It’s never saved or sent.</p>');
   var r = await driveMin(c), w = $('dtWhy'), body = $('dtBody'); if(!w || !body) return;
   BM._dt = { kind:kind, jid:j.id, min:r.min == null ? 20 : r.min };
-  w.textContent = r.min != null ? 'About ' + r.min + ' minutes from ' + c.name.split(' ')[0] + '’s, so around ' + hmPlus(r.min) + '.' : r.why === 'loc' ? 'Location is off, so pick how long you’ll be.' : 'I couldn’t find ' + (c.address ? 'that address' : 'an address for ' + c.name) + ' on the map, so pick how long you’ll be.';
+  w.textContent = BM._dt.why = r.min != null ? 'About ' + r.min + ' minutes from ' + c.name.split(' ')[0] + '’s, so around ' + hmPlus(r.min) + '.' : r.why === 'loc' ? 'Location is off, so pick how long you’ll be.' : 'I couldn’t find ' + (c.address ? 'that address' : 'an address for ' + c.name) + ' on the map, so pick how long you’ll be.';
   dtDraw();
 }
 function dtDraw(){
@@ -3108,14 +3304,14 @@ function dtDraw(){
     + '<button class="btn main full" id="dtGo" onclick="BM.dtGo()">Next: check it and send →</button>';
 }
 function dtMin(m){ BM._dt.min = m; dtDraw(); }
+function dtReopen(){ var o = BM._dt, j = o && job(o.jid); if(!j) return; var c = cust(j.customerId);
+  sheet('<h3>' + (o.kind === 'late' ? '⏱ Running late' : '🚚 On my way') + ' · ' + esc(c.name) + '</h3><p class="muted small" id="dtWhy" style="margin:0 0 8px">' + esc(o.why || '') + '</p><div id="dtBody"></div><p class="hint">Your location is only read now, on this phone, to guess the drive. It’s never saved or sent.</p>'); dtDraw(); }
 function dtGo(){ var o = BM._dt, j = job(o.jid), c = cust(j.customerId);
+  sheetBack(dtReopen);
   compose({ c:c, jobId:j.id, kind:o.kind, label:o.kind === 'late' ? 'Running late' : 'On my way', redo:{ f:'dayText', a:[o.kind] }, text:dayTextWords(o.kind, j, o.min),
     onSent:function(){ if(o.kind === 'onway' && (j.status === 'scheduled' || j.status === 'approved')) j.status = 'working'; } }); }
 /* the live business view: four cards side by side, one swipe apart */
-function billsDue(from, to){ aheadState(); var n = 0;
-  S.repeats.forEach(function(r){ var a = num(r.amount); if(!a) return; var d = parseD(from), end = parseD(to), day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
-    for(var y = d.getFullYear(), m = d.getMonth(); new Date(y, m, 1) <= end; m++){ var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last)); if(when >= d && when <= end) n += a; } });
-  return r2(n); }
+function billsDue(from, to){ aheadState(); var n = 0; S.repeats.forEach(function(r){ var a = num(r.amount); if(a) n += a * repeatDates(r, from, to).length; }); return r2(n); }
 function liveCards(){
   var t = today(), d = parseD(t), y = d.getFullYear(), mo = d.getMonth(), wd = (d.getDay() + 6) % 7, wk0 = addDays(t, -wd);
   var ow = owed(), owT = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0)), od = ow.filter(invOverdue).length;
@@ -3167,7 +3363,7 @@ function talkCust(t){
 function custJob(c){ if(!c) return null; var js = S.jobs.filter(function(j){ return j.customerId === c.id && j.status !== 'lost'; });
   var open = js.filter(function(j){ return j.status !== 'closed'; }); var pick = (open.length ? open : js).slice().sort(function(a, b){ return (a.date === today() ? -1 : 0) - (b.date === today() ? -1 : 0) || (b.date || b.created || '').localeCompare(a.date || a.created || ''); });
   return pick[0] || null; }
-function talkStore(t){ var w = talkWords(t), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
+function talkStore(t){ var w = talkWords(t).replace(/[.,]/g, ' ').replace(/\s+/g, ' '), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
   var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
 function talkPlan(said, force){
   var t = wordsToDigits(String(said || '').trim()), w = talkWords(t); if(!t) return { kind:force || '' };
@@ -3202,53 +3398,95 @@ function talkButton(){
    there doing nothing. So no holding: one tap starts listening, a second tap stops it, and the words go straight
    into the box as they are heard. The Today button opens the box already listening. It never ends silently: if
    nothing was heard, or the microphone was refused, the line under the box says so and what to do. */
-var MIC = null;
-function micStop(){ if(MIC){ var r = MIC; MIC = null; try{ r.stop(); }catch(e){} } }
-function micLabel(on){ var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
+/* v2.0.1 (21 Nov, Jerry on his iPhone: "He heard me the first time … then he wouldn't hear me after that … It does OK
+   on my desktop but not on my phone"). The iPhone's speech service only takes a second round once the first has fully
+   finished, and cutting a round off (abort) or starting a fresh listener straight away leaves it deaf. So now: ONE
+   listener for the whole visit, a round is only ever ended with stop() or by itself, and a tap that comes before the
+   iPhone has said it finished waits for that, then starts. A start the phone refuses is tried again a few times. */
+var MIC = null, SRI = null, MICST = 'idle', MICWANT = false, MICROUND = null;   /* MICST: idle | starting | on | ending */
+function micStop(){ if(MICST === 'starting' || MICST === 'on'){ MICST = 'ending'; MIC = null; try{ SRI.stop(); }catch(e){} micLabel(false);
+  var r = MICROUND; setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; if(r && r.done) r.done(); micNext(); } }, 1500); } }
+/* the phone never said it finished: carry on anyway, and start the round that was asked for in the meantime */
+function micNext(){ if(MICWANT){ MICWANT = false; setTimeout(function(){ if($('tkIn')){ micRec(); micBegin(); } }, 250); } }
+function micLabel(on){ if(KBMIC) return; var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
 function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(--bad)' : ''; m.textContent = t; } }
-/* v1.9.4 (20 Nov, Jerry on his iPhone): the 🎤 in the box worked once and then never added anything. iPhones are known
-   to refuse a second listening session from a NEW recognizer, so one recognizer is made per page and reused. If the
-   phone still won't start it, or hears nothing, the line under the box says so, names the phone's own reason, and
-   points to the 🎤 on the iPhone keyboard, which always types into the box. */
-var SRI = null, SRLAST = '';
-function talkMic(){
-  if(MIC){ micStop(); return; }
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition, box = $('tkIn'); if(!box) return;
-  var KB = ' Or tap in the box and use the 🎤 on your keyboard.';
-  if(!SR){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); try{ box.focus(); }catch(e){} return; }
-  try{ if(!SRI) SRI = new SR(); }catch(e){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); return; }
-  var rec = SRI, base = box.value.trim(), heard = '', failed = '', prev = SRLAST;
-  rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = true;
-  rec.onresult = function(ev){ if(!$('tkIn')){ micStop(); return; } var t = ''; for(var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; t = t.trim();
-    if(prev && t.indexOf(prev) === 0 && t.length > prev.length) t = t.slice(prev.length).trim();   /* some phones hand back the last session's words first */
-    heard = t; var b = $('tkIn'); b.value = base ? base.replace(/[.,]?$/, ', ') + heard : heard; b.dispatchEvent(new Event('input', { bubbles:true })); };
-  rec.onerror = function(ev){ failed = (ev && ev.error) || 'unknown'; };
-  rec.onend = function(){ if(MIC === rec) MIC = null; micLabel(false); if(heard) SRLAST = heard; if(!$('tkIn')) return;
-    if(failed === 'not-allowed' || failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Allow it and tap 🎤 again.' + KB, true);
-    else if(!heard) micSay('I didn’t catch anything' + (failed && failed !== 'no-speech' ? ' (the phone said “' + failed + '”)' : '') + '. Tap 🎤 Tap and talk and try again.' + KB, true);
-    else talkDraw(); };
-  function go(again){
-    try{ rec.start(); MIC = rec; micLabel(true); micSay('Listening. Say it, then tap the button again.'); }
-    catch(e){ if(!again){ try{ rec.abort(); }catch(x){} setTimeout(function(){ go(true); }, 300); return; }
-      MIC = null; micLabel(false); micSay('The microphone didn’t start (' + (e && e.name || 'error') + ').' + KB, true); }
-  }
-  go(false);
+/* v1.9.6 (20 Nov, Jerry on his iPhone, third try): words ran together with no spaces, and after a couple of rounds a
+   tap did nothing at all. iPhones hand back each phrase as its own result with no leading space, so results are joined
+   with spaces. And continuous listening is unreliable on an iPhone, so each tap is one short round that ends by
+   itself after a pause (tap again to add more), always on a fresh listener, with any earlier one stopped first. A
+   watchdog makes sure a tap never just sits there: if the phone hasn't started listening within 4 seconds, the line
+   under the box says so, and the next tap starts clean. The phone's own reason is shown whenever it gives one. */
+function micJoin(ev){ var a = []; for(var k = 0; k < ev.results.length; k++) a.push(String(ev.results[k][0].transcript || '').trim()); return a.join(' ').replace(/\s+/g, ' ').trim(); }
+function micRec(){
+  if(SRI) return SRI;
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition; if(!SR) return null;
+  try{ SRI = new SR(); }catch(e){ return null; }
+  SRI.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); SRI.interimResults = true; SRI.continuous = false; SRI.maxAlternatives = 1;
+  /* the handlers stay put; each round brings its own box and words */
+  SRI.onstart = function(){ var r = MICROUND; if(!r) return; r.began = true; MICST = 'on'; micLabel(true); micSay('Listening. Say it — it stops by itself when you pause.'); };
+  SRI.onresult = function(ev){ var r = MICROUND; if(!r) return; r.began = true; var b = $('tkIn'); if(!b){ micStop(); return; }
+    r.heard = micJoin(ev); b.value = r.base ? r.base.replace(/[.,]?\s*$/, ', ') + r.heard : r.heard; b.dispatchEvent(new Event('input', { bubbles:true }));
+    clearTimeout(r.quiet); r.quiet = setTimeout(function(){ if(MICROUND === r && MICST === 'on') micStop(); }, 2500); };
+  SRI.onerror = function(ev){ var r = MICROUND; if(r) r.failed = (ev && ev.error) || 'unknown'; };
+  SRI.onend = function(){ var r = MICROUND; MICST = 'idle'; MIC = null; micLabel(false); if(r && r.done) r.done();
+    micNext(); };
+  return SRI;
 }
-function talkStart(){ talkOpen(''); talkMic(); }
+function talkMic(){
+  if(KBMIC){ kbTalk(); return; }
+  var KB = ' Or tap in the box and use the 🎤 on your keyboard.';
+  if(MICST === 'starting' || MICST === 'on'){ micStop(); return; }
+  if(!$('tkIn')) return;
+  if(!micRec()){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); try{ $('tkIn').focus(); }catch(e){} return; }
+  try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}   /* an open keyboard can hold the iPhone's microphone */
+  if(MICST === 'ending'){ MICWANT = true; micLabel(true); micSay('One moment…'); return; }   /* the last round hasn't finished yet: start as soon as it has */
+  micBegin();
+}
+function micBegin(tries){
+  var KB = ' Or tap in the box and use the 🎤 on your keyboard.', box = $('tkIn'); if(!box || !SRI) return; tries = tries || 0;
+  var r = MICROUND = { base:box.value.trim(), heard:'', failed:'', began:false, quiet:0 };
+  r.done = function(){ clearTimeout(r.quiet); if(MICROUND !== r || !$('tkIn')) return;
+    if(r.failed === 'not-allowed' || r.failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Allow it and tap 🎤 again.' + KB, true);
+    else if(!r.heard) micSay('I didn’t catch anything' + (r.failed && r.failed !== 'no-speech' && r.failed !== 'aborted' ? ' (the phone said “' + r.failed + '”)' : '') + '. Tap 🎤 and try again.' + KB, true);
+    else talkDraw(); };
+  MICST = 'starting'; MIC = SRI; micLabel(true); micSay('Starting the microphone…');
+  try{ SRI.start(); }
+  catch(e){ MICST = 'idle'; MIC = null;
+    if(tries < 3){ micSay('One moment…'); setTimeout(function(){ if($('tkIn')) micBegin(tries + 1); }, 600); return; }
+    micLabel(false); micSay('The microphone didn’t start (' + (e && e.name || 'error') + '). Tap 🎤 again.' + KB, true); return; }
+  setTimeout(function(){ if(MICROUND === r && MICST === 'starting' && !r.began){ MICST = 'ending'; try{ SRI.stop(); }catch(e){} micLabel(false);
+    micSay('The phone didn’t start listening. Tap 🎤 again.' + KB, true);
+    setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; SRI = null; micNext(); } }, 1500); } }, 5000);   /* still nothing after that: the next tap gets a new listener */
+}
+/* v2.0.2 (21 Nov, Jerry: "Doesn't work at all — rethink how you're doing the microphone on the iPhone, and the phones
+   are the same"). The browser's own listening (webkitSpeechRecognition) works on a computer but is unreliable on an iPhone,
+   and missing altogether in an app saved to the Home Screen; five rounds of fixes here could not make it dependable. Every
+   phone, iPhone and Android alike, has something that always works: the 🎤 on its own keyboard, which types whatever is
+   said into the box. So on a phone, "Tap and talk" opens the box with the keyboard already up (focus has to happen inside
+   the tap, or an iPhone won't raise the keyboard) and says to tap the keyboard's 🎤; "Talk some more" brings the keyboard
+   back with the cursor at the end. A computer keeps the browser's listening, which works there. */
+var KBMIC = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1) || !(window.SpeechRecognition || window.webkitSpeechRecognition);
+var KBTIP = /Android/i.test(navigator.userAgent || '') ? 'Tap the 🎤 on your keyboard and talk. Tap ✓ or the down arrow when you’re done.' : 'Tap the 🎤 at the bottom of your keyboard and talk. Tap Done when you’re finished.';
+function kbTalk(){
+  var b = $('tkIn'); if(!b) return;
+  var v = b.value.replace(/\s+$/, ''); if(v && !/[,.]$/.test(v)) v += ','; if(v) v += ' '; b.value = v;
+  try{ b.focus(); b.setSelectionRange(v.length, v.length); }catch(e){}
+
+}
+function talkStart(){ talkOpen(''); if(KBMIC) kbTalk(); else talkMic(); }
 function talkOpen(said, plan, note){
   var old = TALK && TALK.plan && TALK.plan.photo;
   TALK = { said:String(said || '').trim(), plan:null, picked:'' };
-  sheet('<h3>🎤 Say it, or type it</h3><label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
-    + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">🎤 Tap and talk</button>'
+  sheet('<h3>🎤 Say it, or type it</h3>' + (KBMIC ? '<p class="banner small" id="tkTip" style="margin:0 0 8px">' + esc(KBTIP) + '<br><span class="muted">No 🎤 on your keyboard? ' + (/Android/i.test(navigator.userAgent || '') ? 'Turn on voice typing in your keyboard settings.' : 'Settings → General → Keyboard → Enable Dictation.') + '</span></p>' : '') + '<label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
+    + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">' + (KBMIC ? '🎤 Talk some more' : '🎤 Tap and talk') + '</button>'
     + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
     + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p>'
     + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
     + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
     + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
-      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); if(!(window.SpeechRecognition || window.webkitSpeechRecognition)) w.querySelector('#tkMic').hidden = true; });
+      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); });
   TALK.plan = plan || talkPlan(TALK.said); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
   talkDraw(note);
-  if(!TALK.said && !(window.SpeechRecognition || window.webkitSpeechRecognition)) setTimeout(function(){ try{ $('tkIn').focus(); }catch(e){} }, 250);
 }
 function talkDraw(note){
   var p = TALK && TALK.plan, more = $('tkMore'), kind = $('tkKind'), msg = $('tkPlan'); if(!more || !p) return;
@@ -3266,7 +3504,7 @@ function talkDraw(note){
       + '<datalist id="tkCL">' + S.customers.map(function(c){ return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist>'
       + '<label class="f" for="tkW">The work</label><textarea class="i" id="tkW" data-nomic style="min-height:60px" placeholder="" oninput="BM.talkField(\'work\',this.value)">' + esc(p.work || '') + '</textarea>';
   } else more.innerHTML = '';
-  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.' : ''));
+  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? (KBMIC ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.') : ''));
 }
 function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(TALK.said, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
 function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
@@ -3571,15 +3809,27 @@ function totals(sub, tax, credits, paid){
 }
 
 /* ── line items ── */
+/* v1.9.8 (20 Nov, Jerry: "If you go one screen too far … you can't go back"). Business Manager's screens are hash
+   routes, so the phone's Back already walks them. The boxes that slide up were the gap: with one open, the phone's
+   Back left the app and the box stayed. Now each box joins the house's back trail (djBack, house v68+): the phone's
+   Back or edge swipe closes it, and a box opened from another box (Running late → the message) gets a ← Back chip and
+   a Back that returns to the box before. Closing a box any other way (✕, Save, Send) takes its steps off the trail. */
+var SHB = 0, SHB_UNWIND = 0;
+function sheetBack(fn){ if(!window.djBack || djBack.navigating()) return; SHB++; djBack.push(function(){ SHB = Math.max(0, SHB - 1); if(SHB_UNWIND) return; fn(); }); }
+function sheetGone(){ var s = $('bmSheet'); if(!s) return; if(s.querySelector('#tkMic')) micStop(); s.remove(); }
 function sheet(html, onOpen){
-  closeSheet(true);
+  var had = !!$('bmSheet'); sheetGone();
+  if(!had) sheetBack(sheetGone);
   var w = document.createElement('div'); w.className = 'shade'; w.id = 'bmSheet'; w.setAttribute('role', 'dialog');
-  w.innerHTML = '<div class="sheet"><button class="x" onclick="BM.closeSheet()" aria-label="Close">✕</button>' + html + '</div>';
+  var chip = (SHB > 1 && window.djBack) ? djBack.button() : '';
+  w.innerHTML = '<div class="sheet"><button class="x" onclick="BM.closeSheet()" aria-label="Close">✕</button>' + chip + html + '</div>';
+  var cb = w.querySelector('.djBackB'); if(cb) cb.onclick = function(){ djBack.go(); };
   w.addEventListener('click', function(e){ if(e.target === w && !w.getAttribute('data-hold')) closeSheet(); });
   document.body.appendChild(w); if(onOpen) onOpen(w);
   return w;
 }
-function closeSheet(quiet){ var s = $('bmSheet'); if(!s) return; if(s.querySelector('#tkMic')) micStop(); if(!quiet && s.getAttribute('data-compose')) clearPending(); s.remove(); }
+function closeSheet(quiet){ var s = $('bmSheet'); if(!s) return; if(!quiet && s.getAttribute('data-compose')) clearPending(); sheetGone();
+  if(SHB && window.djBack && !djBack.navigating()){ SHB_UNWIND = 1; var n = SHB; while(n-- > 0 && djBack.depth()) djBack.go(); SHB_UNWIND = 0; SHB = 0; } }
 function addItem(jid){
   var h = '<h3>Add to the price</h3><p class="muted" style="margin:0 0 10px">Tap one from your price list, or make your own.</p>';
   h += '<button class="opt" onclick="BM.editItem(\'' + jid + '\',-1)"><span class="e">✍️</span><span>Type my own item</span></button>';
@@ -3993,14 +4243,25 @@ function delExpense(id){ if(!confirm('Delete this expense?')) return; S.expenses
    Start from "cash in the bank today" (S.ahead.cash) and the two big numbers are what should be there at day 30 and day 60.
    Windows: day 0 is today; "next 30 days" is day 0 to day 29, "days 31 to 60" is day 30 to day 59, so nothing counts twice. */
 function aheadState(){ if(!S.ahead || typeof S.ahead !== 'object') S.ahead = { cash:'' }; if(!Array.isArray(S.repeats)) S.repeats = []; return S.ahead; }
-function repeatDates(r, from, to){   /* every day-of-month date for this cost between from and to (inclusive) */
-  var out = [], d = parseD(from), end = parseD(to), day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
-  for(var y = d.getFullYear(), m = d.getMonth(), g = 0; g < 4; g++, m++){
-    var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last));
-    if(when >= d && when <= end) out.push(ymd(when));
-  }
+/* v2.0 (20 Nov, truck-cab day part 3): a bill can repeat every month (on a day of the month), every 3 months or once
+   a year (from its next due date, r.next). r.warn: show it under ⚠️ Worth knowing on Today before it is due. */
+var BIG = L(500, 20000);
+function repEvery(r){ var e = Math.round(num(r.every)); return e === 3 || e === 12 ? e : 1; }
+function repWarn(r){ return r.warn != null ? !!r.warn : (repEvery(r) > 1 || num(r.amount) >= BIG); }
+function repeatDates(r, from, to){   /* every date this bill falls on between from and to (inclusive) */
+  var out = [], d = parseD(from), end = parseD(to), ev = repEvery(r);
+  if(ev === 1){ var day = Math.min(31, Math.max(1, Math.round(num(r.day)) || 1));
+    for(var y = d.getFullYear(), m = d.getMonth(), g = 0; g < 40 && new Date(y, m, 1) <= end; g++, m++){
+      var last = new Date(y, m + 1, 0).getDate(), when = new Date(y, m, Math.min(day, last));
+      if(when >= d && when <= end) out.push(ymd(when)); }
+    return out; }
+  if(!r.next) return out;
+  var a = parseD(r.next), ad = a.getDate();
+  for(var k = 0; k < 80; k++){ var y2 = a.getFullYear(), m2 = a.getMonth() + k * ev, last2 = new Date(y2, m2 + 1, 0).getDate(), w = new Date(y2, m2, Math.min(ad, last2));
+    if(w > end) break; if(w >= d) out.push(ymd(w)); }
   return out;
 }
+function repWhen(r){ var ev = repEvery(r); if(ev === 1) return 'On the ' + ordinal(r.day) + ' of each month'; var nx = repeatDates(r, today(), addDays(today(), 400))[0]; return (ev === 3 ? 'Every 3 months' : 'Once a year') + (nx ? ' · next ' + fd(nx) : ''); }
 function ahead(){
   aheadState();
   var t = today(), d30 = addDays(t, 30), d60 = addDays(t, 60), R = { t:t, d30:d30, d60:d60, inA:[], inB:[], outA:[], outB:[], later:0, laterN:0 };
@@ -4046,10 +4307,10 @@ VIEWS.ahead = function(){
   if(R.lateSum > 0) h.push('<p class="hint" style="margin:-4px 4px 10px">Late invoices (' + money0(R.lateSum) + ') are counted as if they’re paid in the next 30 days. A reminder helps that come true.</p>');
   h.push(block('Days 31 to 60', R.inBSum, R.outBSum, R.inB, R.outB));
   if(R.laterN) h.push('<p class="hint" style="margin:0 4px 10px">Not counted: ' + R.laterN + ' invoice' + (R.laterN > 1 ? 's' : '') + ' (' + money0(R.later) + ') due ' + fd(R.d60) + ' or later.</p>');
-  h.push('<h2>Bills that repeat every month</h2>');
-  h.push(S.repeats.length ? S.repeats.map(function(r){ return '<button class="card tap" onclick="BM.repeatEdit(\'' + r.id + '\')"><div class="row"><div class="grow"><b>🔁 ' + esc(r.name || 'Repeating cost') + '</b><div class="small muted">On the ' + ordinal(r.day) + ' of each month</div></div><b>' + money0(r.amount) + '</b></div></button>'; }).join('')
-    : '<div class="card muted">None yet. Add the ones that come every month — insurance, the ' + L('truck payment', 'vehicle loan') + ', rent, your phone.</div>');
-  h.push('<div class="btns"><button class="btn main" id="ahAdd" onclick="BM.repeatEdit()">➕ Add a monthly bill</button></div>');
+  h.push('<h2>Bills that repeat</h2>');
+  h.push(S.repeats.length ? S.repeats.map(function(r){ return '<button class="card tap" onclick="BM.repeatEdit(\'' + r.id + '\')"><div class="row"><div class="grow"><b>🔁 ' + esc(r.name || 'Repeating cost') + (repWarn(r) ? ' ⚠️' : '') + '</b><div class="small muted">' + esc(repWhen(r)) + '</div></div><b>' + money0(r.amount) + '</b></div></button>'; }).join('')
+    : '<div class="card muted">None yet. Add the ones that keep coming — the ' + L('truck payment', 'vehicle loan') + ', insurance, rent, your phone. ⚠️ marks the ones you’re warned about on Today.</div>');
+  h.push('<div class="btns"><button class="btn main" id="ahAdd" onclick="BM.repeatEdit()">➕ Add a bill</button></div>');
   h.push('<p class="hint" style="margin-top:12px">A rough guide, not a promise: it only knows your invoices and the bills you list here. Everyday costs like fuel and materials aren’t in it.</p>');
   return h.join('');
 };
@@ -4057,27 +4318,34 @@ function ordinal(n){ n = Math.round(num(n)) || 1; var s = (n % 100 >= 11 && n % 
 function aheadCash(v){ aheadState(); var t = String(v || '').trim(); S.ahead.cash = t === '' ? '' : num(t); save(); render(); }
 function repeatEdit(id){
   aheadState();
-  var r = id ? S.repeats.filter(function(x){ return x.id === id; })[0] : { name:'', amount:'', day:1 };
+  var r = id ? S.repeats.filter(function(x){ return x.id === id; })[0] : { name:'', amount:'', day:1, every:1 };
   if(!r) return;
-  var ideas = L(['Insurance', 'Truck payment', 'Phone', 'Rent', 'Software'], ['Insurance', 'Vehicle loan', 'Airtime & internet', 'Rent', 'Software']);
-  sheet('<h3>' + (id ? 'Monthly bill' : 'Add a monthly bill') + '</h3>'
+  var ev = repEvery(r), ideas = L(['Truck payment', 'Truck insurance', 'Liability insurance', 'Rent', 'Phone'], ['Vehicle loan', 'Vehicle insurance', 'WIBA insurance', 'Rent', 'Airtime & internet']);
+  sheet('<h3>' + (id ? 'Bill' : 'Add a bill') + '</h3>'
     + (id ? '' : '<div class="chips">' + ideas.map(function(n){ return '<button class="chip" onclick="document.getElementById(\'rpN\').value=this.textContent">' + n + '</button>'; }).join('') + '</div>')
     + '<label class="f" for="rpN">What is it?</label><input class="i" id="rpN" value="' + esc(r.name) + '" placeholder="' + L('Truck payment', 'Vehicle loan') + '">'
-    + '<div class="two"><div><label class="f" for="rpA">Amount each month</label><input class="i" id="rpA" inputmode="decimal" value="' + esc(r.amount) + '" placeholder="' + CUR + '"></div>'
-    + '<div><label class="f" for="rpD">Day of the month</label><input class="i" id="rpD" inputmode="numeric" value="' + esc(r.day) + '" placeholder="1 to 31"></div></div>'
+    + '<label class="f" for="rpE">How often?</label><select class="i" id="rpE" onchange="BM.repeatOften()">' + [[1, 'Every month'], [3, 'Every 3 months'], [12, 'Once a year']].map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === ev ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'
+    + '<div class="two"><div><label class="f" for="rpA">Amount each time</label><input class="i" id="rpA" inputmode="decimal" value="' + esc(r.amount) + '" placeholder="' + CUR + '" oninput="BM.repeatOften()"></div>'
+    + '<div id="rpDayBox"' + (ev === 1 ? '' : ' hidden') + '><label class="f" for="rpD">Day of the month</label><input class="i" id="rpD" inputmode="numeric" value="' + esc(r.day || 1) + '" placeholder="1 to 31"></div>'
+    + '<div id="rpNextBox"' + (ev === 1 ? ' hidden' : '') + '><label class="f" for="rpX">Next due</label><input class="i" id="rpX" type="date" value="' + esc(r.next || '') + '"></div></div>'
+    + '<label class="row" style="margin:12px 0 4px"><input type="checkbox" id="rpW" style="width:24px;height:24px;flex:none"' + (repWarn(r) ? ' checked' : '') + (id || r.warn != null ? ' data-set="1"' : '') + ' onchange="this.setAttribute(\'data-set\',\'1\')"><span>⚠️ Warn me on Today before it’s due</span></label>'
     + '<p class="hint">On a short month, a bill on the 31st counts on the last day.</p>'
     + '<div class="btns" style="margin-top:14px"><button class="btn main" id="rpSave" onclick="BM.repeatSave(\'' + (id || '') + '\')">Save</button>' + (id ? '<button class="btn danger" onclick="BM.repeatDel(\'' + id + '\')">Delete</button>' : '') + '</div>');
 }
+/* the form follows the choice: a day of the month, or a next due date; big or rare bills are warned about by default */
+function repeatOften(){ var ev = +$('rpE').value; $('rpDayBox').hidden = ev !== 1; $('rpNextBox').hidden = ev === 1;
+  var w = $('rpW'); if(w && !w.getAttribute('data-set')) w.checked = ev > 1 || num($('rpA').value) >= BIG; }
 function repeatSave(id){
-  var a = num($('rpA').value), dy = Math.round(num($('rpD').value)), n = $('rpN').value.trim();
+  var a = num($('rpA').value), ev = +$('rpE').value || 1, n = $('rpN').value.trim(), dy = Math.round(num($('rpD').value)), nx = $('rpX').value;
   if(!n){ alert('What is the bill? For example, insurance.'); return; }
-  if(!a){ alert('How much is it each month?'); return; }
-  if(!(dy >= 1 && dy <= 31)){ alert('Which day of the month? A number from 1 to 31.'); return; }
-  var d = { name:n, amount:r2(a), day:dy };
+  if(!a){ alert('How much is it each time?'); return; }
+  if(ev === 1 && !(dy >= 1 && dy <= 31)){ alert('Which day of the month? A number from 1 to 31.'); return; }
+  if(ev > 1 && !/^\d{4}-\d\d-\d\d$/.test(nx)){ alert('When is it next due? Pick the date.'); return; }
+  var d = { name:n, amount:r2(a), every:ev, day:ev === 1 ? dy : parseD(nx).getDate(), next:ev === 1 ? '' : nx, warn:!!$('rpW').checked };
   if(id) Object.assign(S.repeats.filter(function(x){ return x.id === id; })[0], d); else { d.id = uid(); S.repeats.push(d); }
   save(); closeSheet(); render(); toast('Saved');
 }
-function repeatDel(id){ if(!confirm('Delete this monthly bill?')) return; S.repeats = S.repeats.filter(function(x){ return x.id !== id; }); save(); closeSheet(); render(); }
+function repeatDel(id){ if(!confirm('Delete this bill?')) return; S.repeats = S.repeats.filter(function(x){ return x.id !== id; }); save(); closeSheet(); render(); }
 
 /* ── statement import ── */
 var IMP = null;
@@ -4997,6 +5265,7 @@ function makeDemo(){
     { id:'t5', text:'Order more 1/2" PEX fittings', due:'', repeat:'none', cat:'other', notes:'', done:false },
     { id:'t6', text:'Truck service / oil change', due:A(-2), repeat:'quarterly', cat:'vehicle', notes:'', done:false }
   ];
+  d.repeats = [{ id:'r1', name:'Truck payment', amount:612, every:1, day:parseD(A(4)).getDate(), next:'', warn:true }, { id:'r2', name:'Truck insurance', amount:1140, every:12, day:parseD(A(11)).getDate(), next:A(11), warn:true }];
   d.seq = { job:1010, inv:2007 };
   return d;
 }
@@ -5052,6 +5321,7 @@ function makeDemoKE(){
     { id:'t5', text:'Order more gypsum screws and cornice', due:'', repeat:'none', cat:'other', notes:'', done:false },
     { id:'t6', text:'Pick-up service', due:A(-2), repeat:'quarterly', cat:'vehicle', notes:'', done:false }
   ];
+  d.repeats = [{ id:'r1', name:'Vehicle loan', amount:28000, every:1, day:parseD(A(4)).getDate(), next:'', warn:true }, { id:'r2', name:'Vehicle insurance', amount:46000, every:12, day:parseD(A(11)).getDate(), next:A(11), warn:true }];
   d.seq = { job:1010, inv:2007 };
   return d;
 }
@@ -5535,7 +5805,7 @@ window.BM = {
   payMsg:payMsg, _region:function(){ return KE ? 'ke' : 'us'; },
   newInvoice:newInvoice, setInvDates:setInvDates, sendInvoice:sendInvoice, remind:remind, previewInv:previewInv, payment:payment, savePayment:savePayment, delPayment:delPayment, delInvoice:delInvoice,
   addExpense:addExpense, saveExpense:saveExpense, delExpense:delExpense,
-  aheadCash:aheadCash, repeatEdit:repeatEdit, repeatSave:repeatSave, repeatDel:repeatDel, _ahead:ahead,
+  aheadCash:aheadCash, repeatEdit:repeatEdit, repeatSave:repeatSave, repeatOften:repeatOften, alertSeen:alertSeen, repeatDel:repeatDel, _ahead:ahead,
   readFile:readFile, readPaste:readPaste, aiRead:aiRead, aiSort:aiSort, impOn:impOn, impCat:impCat, flipSign:flipSign, cancelImport:cancelImport, saveImport:saveImport,
   hoursCSV:hoursCSV, exp:exp,
   saveBiz:saveBiz, setFeat:setFeat, savePay:savePay, setPrice:setPrice, delPrice:delPrice, addPrice:addPrice, setCrew:setCrew, delCrew:delCrew, addCrew:addCrew, setChan:setChan, saveMsg:saveMsg,
