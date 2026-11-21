@@ -4,6 +4,8 @@
     python3 shop/voicemaker.py hq firsttime apps rules
     python3 shop/voicemaker.py nownext overview train
     python3 shop/voicemaker.py --all-missing            # every video with no recording yet
+    VOICE=elevenlabs python3 shop/voicemaker.py --splice nownext overview
+                                    # re-record only the new or reworded lines (see splice())
 
 Why this exists, in the player's own words (shop/watch.html, 7 Oct 2026):
 
@@ -339,6 +341,99 @@ def build(key, lines, model, work):
     return joined, cues
 
 
+# ── splicing: re-record only the lines that changed ──────────────────────────
+#
+# 21 Nov 2026. Jerry asked for one new line in 103 videos. Re-recording every one
+# whole in his ElevenLabs voice would have cost about 235,000 characters, more than
+# the credits left. So --splice keeps the audio of every line whose words are
+# unchanged, cut out of the existing m4a at its own cue times, and synthesises only
+# the lines that are new or reworded. The join uses the same gap as build(), and the
+# cues are written the normal way, so the player cannot tell a spliced video from a
+# whole one.
+#
+# It refuses a recording that is not in the same voice (an ElevenLabs recording is
+# 24 kHz; piper and older voices are not), because a splice would put two voices in
+# one video. Record that one whole, by name, instead.
+#
+# A new line's clip is cached by its fingerprint in SPLICE_CACHE, so a sentence that
+# appears in four of one app's videos is paid for once.
+
+SPLICE_CACHE = os.environ.get('SPLICE_CACHE', os.path.join(tempfile.gettempdir(), 'daraja-el-lines'))
+
+
+def decode(m4a, rate):
+    """The old recording as mono 16-bit pcm at `rate`, plus its frame count."""
+    r = subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-i', m4a,
+                        '-f', 's16le', '-ac', '1', '-ar', str(rate), '-'],
+                       stdin=subprocess.DEVNULL, capture_output=True)
+    if r.returncode:
+        sys.exit('ffmpeg could not read %s:\n%s' % (m4a, r.stderr.decode(errors='replace')))
+    return r.stdout
+
+
+def splice(key, lines, old, work):
+    """Like build(), but reuses old audio for unchanged lines. Returns (wav, cues, new_count)."""
+    if ENGINE != 'elevenlabs':
+        sys.exit('--splice is only for VOICE=elevenlabs recordings.')
+    src = os.path.join(HERE, old['file'])
+    rate = int(subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries',
+                               'stream=sample_rate', '-of', 'csv=p=0', src],
+                              capture_output=True, text=True).stdout.strip() or 0)
+    if rate != EL_RATE:
+        sys.exit('%s is %d Hz, not an ElevenLabs recording — splicing would mix two voices. '
+                 'Record it whole, by name, without --splice.' % (key, rate))
+    pcm = decode(src, EL_RATE)
+    have = len(pcm) // 2 / float(EL_RATE)
+    if abs(have - old['cues'][-1][1]) > 0.25:
+        sys.exit('%s: the audio is %.2f s but its cues end at %.2f s — will not cut from it.'
+                 % (key, have, old['cues'][-1][1]))
+
+    pool = {}
+    for c in old['cues']:
+        if len(c) > 3:
+            pool.setdefault(c[3], []).append(c)
+    os.makedirs(SPLICE_CACHE, exist_ok=True)
+
+    clips, fresh = [], 0
+    for n, raw in enumerate(lines):
+        h = linehash(raw)
+        if pool.get(h):
+            c = pool[h].pop(0)
+            a, b = int(round(c[0] * EL_RATE)) * 2, int(round(c[1] * EL_RATE)) * 2
+            clips.append(pcm[a:b])
+            continue
+        cached = os.path.join(SPLICE_CACHE, '%s-%s.wav' % (EL_VOICE, h))
+        if not os.path.exists(cached):
+            say_elevenlabs(for_piper(raw), cached + '.tmp.wav',
+                           for_piper(lines[n - 1]) if n else '',
+                           for_piper(lines[n + 1]) if n + 1 < len(lines) else '')
+            os.replace(cached + '.tmp.wav', cached)
+            print('     new line %d synthesised' % n, flush=True)
+        else:
+            print('     new line %d from cache' % n, flush=True)
+        with wave.open(cached, 'rb') as f:
+            if f.getframerate() != EL_RATE or f.getnchannels() != 1 or f.getsampwidth() != 2:
+                sys.exit('cached clip %s is not 24 kHz mono 16-bit' % cached)
+            clips.append(f.readframes(f.getnframes()))
+        fresh += 1
+
+    frames, cues, at = [], [], 0.0
+    quiet = b'\0' * (int(EL_RATE * EL_GAP) * 2)
+    for n, data in enumerate(clips):
+        dur = len(data) // 2 / float(EL_RATE)
+        frames.append(data)
+        cues.append([round(at, 3), round(at + dur, 3), vkey40(lines[n]), linehash(lines[n])])
+        at += dur
+        if n < len(clips) - 1:
+            frames.append(quiet)
+            at += EL_GAP
+    joined = os.path.join(work, 'all.wav')
+    with wave.open(joined, 'wb') as f:
+        f.setnchannels(1); f.setsampwidth(2); f.setframerate(EL_RATE)
+        f.writeframes(b''.join(frames))
+    return joined, cues, fresh
+
+
 def encode(wav, m4a):
     """Keep the voice's own sample rate — resampling it only adds bytes."""
     with wave.open(wav, 'rb') as f:
@@ -410,6 +505,9 @@ def main():
     p.add_argument('--check', action='store_true',
                    help='say which videos are recorded, missing or out of date; record nothing')
     p.add_argument('--dry-run', action='store_true', help='say what it would record, record nothing')
+    p.add_argument('--splice', action='store_true',
+                   help='keep the old audio of unchanged lines; synthesise only new or reworded ones '
+                        '(VOICE=elevenlabs only — see splice())')
     a = p.parse_args()
 
     for tool, how in ((('piper', 'pip install piper-tts'),) if ENGINE != 'elevenlabs' else ()) + (('ffmpeg', 'apt-get install -y ffmpeg'),):
@@ -483,7 +581,13 @@ def main():
             continue
         print('  %s — %d lines' % (key, len(lines)), flush=True)
         with tempfile.TemporaryDirectory() as work:
-            wav, cues = build(key, lines, model, work)
+            if a.splice and not index.get(key):
+                sys.exit('%s has no recording to splice from. Record it whole, without --splice.' % key)
+            if a.splice:
+                wav, cues, fresh = splice(key, lines, index[key], work)
+                print('     spliced: %d kept, %d new' % (len(lines) - fresh, fresh))
+            else:
+                wav, cues = build(key, lines, model, work)
             m4a = os.path.join(VOICE_DIR, key + '.m4a')
             encode(wav, m4a)
         with open(m4a, 'rb') as f:
@@ -491,6 +595,12 @@ def main():
         index[key] = {'file': 'voice/%s.m4a' % key, 'cues': cues, 'h': h}
         print('     %.1f s, %s' % (cues[-1][1], os.path.basename(m4a)))
         done += 1
+        # Written after every video, not once at the end: if the voice stops halfway
+        # (ElevenLabs out of credits), the videos already re-recorded keep cues that
+        # match their new audio instead of the old ones.
+        with open(INDEX, 'w', encoding='utf-8') as f:
+            json.dump(index, f, ensure_ascii=False)
+            f.write('\n')
 
     with open(INDEX, 'w', encoding='utf-8') as f:
         json.dump(index, f, ensure_ascii=False)

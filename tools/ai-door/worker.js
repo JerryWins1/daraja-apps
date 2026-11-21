@@ -5,8 +5,9 @@
  * back. Jerry, 13 Nov 2026: "Can't you pass answers back from Claude to the app
  * so we don't have to cut and paste?" This is the door that does it.
  *
- * WHAT TALKS TO IT. viaDaraja() in the shared house block, in 54 apps. It POSTs
- *     { prompt, app, want:'text'|'json', code }
+ * WHAT TALKS TO IT. viaDaraja() in the shared house block, in every app. It POSTs
+ *     { prompt, app, want:'text'|'json', code, file? }
+ * where file, when the app sends one, is { media_type, data } — a base64 PDF or photo.
  * and expects back { text: "..." } or { error: "..." }. Anything else and the
  * app quietly falls back to the person's own AI, which is what happens today.
  * So a broken door is not a broken app — it is just the old copy and paste.
@@ -30,7 +31,7 @@ const DAILY_PER_HOUSEHOLD = 200;         /* asks per day per address. 18 Nov: 40
                                             through a statement folder, and Jerry chose 200. At Haiku prices a
                                             statement is about a third of a cent, so a full 200 is roughly 60c. */
 const MAX_PROMPT_CHARS = 24000;
-const MAX_FILE_BYTES = 5 * 1024 * 1024;  /* the PDF a Dashboard statement arrives as */
+const MAX_FILE_BYTES = 5 * 1024 * 1024;  /* the PDF a Dashboard statement arrives as, or a photographed receipt */
 const MAX_TOKENS = 8000;            /* was 2000, which a month of statement lines ran past. See the thinking note below. */
 const ALLOWED = ['https://jerrywins1.github.io'];
 
@@ -70,16 +71,35 @@ export default {
     if (!prompt) return say({ error: 'nothing to ask' }, 400, origin);
     if (prompt.length > MAX_PROMPT_CHARS) return say({ error: 'that question is too long' }, 413, origin);
 
-    /* The optional PDF, for an app that wants to read a statement in one tap. */
+    /* The optional file: a PDF to read a statement in one tap, or a photo to read a receipt.
+       21 Nov 2026: Jerry photographed a Menards receipt in Business Manager and Tesseract, the
+       reader that runs on the phone, garbled the thermal print. Reading the picture is what the
+       AI is actually good at, so the door takes one. The three image types below are the ones
+       the Messages API accepts as base64 alongside PDF. HEIC is NOT one of them — an iPhone
+       photo handed straight from a file picker can arrive as image/heic, so the sending app
+       draws it to a canvas and exports a JPEG first; the error below says so plainly rather
+       than leaving someone staring at "only a PDF can be sent" over a photograph. */
+    const FILE_TYPES = {
+      'application/pdf': 'document',
+      'image/jpeg': 'image',
+      'image/png': 'image',
+      'image/webp': 'image',
+    };
     let doc = null;
     if (body.file) {
       const f = body.file;
-      if (f.media_type !== 'application/pdf') return say({ error: 'only a PDF can be sent' }, 415, origin);
+      const mt = String(f.media_type || '');
+      const kind = FILE_TYPES[mt];
+      if (!kind) {
+        return say({ error: /^image\//.test(mt)
+          ? 'that kind of photo cannot be read — send a JPEG, PNG or WebP'
+          : 'only a PDF or a photo can be sent' }, 415, origin);
+      }
       const data = String(f.data || '');
       if (!data) return say({ error: 'the file was empty' }, 400, origin);
       /* base64 is about four characters for every three bytes */
       if (data.length * 3 / 4 > MAX_FILE_BYTES) return say({ error: 'that file is too big — 5 MB is the limit' }, 413, origin);
-      doc = { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } };
+      doc = { type: kind, source: { type: 'base64', media_type: mt, data } };
     }
 
     /* The daily cap. Counted per address, reset at midnight UTC by the key's own name. */

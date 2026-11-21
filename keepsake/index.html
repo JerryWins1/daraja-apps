@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script id="dj-house-v72">
+<script id="dj-house-v77">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -508,9 +508,14 @@
     return o;
   }
 
+  /* 21 Nov: a copy of an app at <app>/beta/ is the SAME app, waiting its turn. Everything keyed on
+     the slug — its saved work, its backup entry, its tour, its Home Screen record — has to agree, or
+     a tester trying the next version would find an empty app called "beta". */
+  function djBetaPath(){ try{ return /\/beta\/?$/.test(location.pathname.replace(/\/index\.html$/,'')); }catch(e){ return false; } }
   function slugOf(){
-    var s = (window.DJ_START && window.DJ_START.slug) ||
-            (location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean).pop() || '');
+    var p = location.pathname.replace(/\/index\.html$/,'').split('/').filter(Boolean);
+    if(p[p.length - 1] === 'beta') p.pop();
+    var s = (window.DJ_START && window.DJ_START.slug) || (p.pop() || '');
     s = String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
     var alias = {churchkey:'churchkey', thekey:'thekey', churchserve:'serve', churchsteward:'steward',
                  churchhq:'churchhq', churchdrive:'drive', churchclubhouse:'clubhouse',
@@ -916,6 +921,23 @@
       pb.onclick = function(){ w.remove(); djBackPush(dockSheet); problemsSheet(); };
       box.appendChild(pb);
     }
+    /* The ? menu itself, not the Help sheet under it: only 18 of the 54 apps have a #djHelp
+       button, so a row in there would be missing from two thirds of them, and Jerry asked for
+       every app. */
+    if(!djFeedbackOff()){
+      var fb = document.createElement('button'); fb.type = 'button';
+      fb.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      fb.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">✉️</span><span style="flex:1">Send us a message<br><small style="font-weight:600;color:#55605B">a problem, an idea, or a question</small></span>';
+      fb.onclick = function(){ w.remove(); djBackPush(dockSheet); djFeedback(); };
+      box.appendChild(fb);
+    }
+    if(!djHomeScreenOff()){
+      var hs = document.createElement('button'); hs.type = 'button';
+      hs.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      hs.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">\u{1F4F2}</span><span style="flex:1">Put this app on your Home Screen<br><small style="font-weight:600;color:#55605B">it opens full screen, like any other app</small></span>';
+      hs.onclick = function(){ w.remove(); djBackClear(); homeScreenGuide(true); };
+      box.appendChild(hs);
+    }
     /* v62 (7 Oct deep check): the AI picker said "change it any time from the ? button" — now it really is here */
     if(!kidsPage() && !/\/control\//.test(location.pathname)){
       var ai = document.createElement('button'); ai.type = 'button';
@@ -1148,35 +1170,64 @@
      Home Screen on their own, and most never do. So on the second visit in Safari
      — not the first, not while installed, not inside Feedback Studio — one card
      shows the three taps, with a real arrow to where the Share button lives. */
-  function homeScreenGuide(){
+  /* v66: Chrome on Android offers its install prompt once it decides the page can be installed; keep it for our own button. */
+  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
+  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + slugOf(), 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); }catch(err){} });
+  /* 21 Nov, Jerry through the front door: "We also need a way to show them how to put the app on
+     the shortcut… for the app." The card above still appears on its own, once, on a second visit;
+     this is the way to ask for it deliberately, any time. Not offered where there is nothing to
+     add it to: already installed, inside a frame, or a browser with no Home Screen at all. */
+  function djHomeScreenOff(){
+    try{
+      if(embedded) return true;
+      if(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) return true;
+      var ua = navigator.userAgent || '';
+      var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      return !(ios || /Android/.test(ua));
+    }catch(e){ return true; }
+  }
+  function homeScreenGuide(force){
+    if(document.getElementById('djA2HS')) return;
     try{
       var ua = navigator.userAgent || '';
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-      var force = /[?&]dj_a2hs=1/.test(location.search);
-      if(embedded || (!force && (!ios || navigator.standalone))) return;
+      force = force === true || /[?&]dj_a2hs=1/.test(location.search);
+      /* v66 (15 Oct, Jerry: "there should be a way to load it on their Home Screen easier"): Android too. Chrome hands us
+         its install prompt, so there it is ONE tap (Install); without it, the card shows Chrome's own two taps. */
+      var android = /Android/.test(ua), bip = window.__djBIP || null;
+      var installed = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      if(embedded || installed || (!ios && !android) || (!force && !ios && !bip)) return;
       if(!force && guestVisit()) return;
       if(!force && /\/(welcome|watch\.html|feedback-studio|testers|help|testday|control|safety)(\/|$)/.test(location.pathname)) return;   /* v47: tester and helper pages are visited, not kept */
       var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
       if(st === 'done' || st === 'no') return;
       var visits = parseInt(st || '0', 10) || 0;
-      if(!force && visits < 1){ localStorage.setItem(key, String(visits + 1)); return; }   /* first visit: just count */
-      if(!force && cardOpen()){ setTimeout(homeScreenGuide, 4000); return; }   /* v47: wait until the welcome card is closed */
+      if(!force && visits < 1){ if(!window.__djA2C){ window.__djA2C = 1; localStorage.setItem(key, String(visits + 1)); } return; }   /* first visit: just count (once, even if Chrome's prompt calls again) */
+      if(!force && cardOpen()){ setTimeout(function(){ homeScreenGuide(force); }, 4000); return; }   /* v47: wait until the welcome card is closed */
       var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
       var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
       var w = document.createElement('div'); w.id = 'djA2HS'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Put this app on your Home Screen');
       w.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
         + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
         + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+      var btn = 'font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer';
       w.innerHTML = '<div style="font-weight:800;font-size:17px;margin-bottom:6px">Keep ' + name.replace(/[<>&]/g,'') + ' on your Home Screen</div>'
-        + '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+        + (!ios ? (bip ? '<p style="margin:0 0 10px">One tap puts it next to your other apps. It opens full screen, and every Daraja app is inside.</p>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="install" style="' + btn + '">📲 Install ' + name.replace(/[<>&]/g,'') + '</button>'
+          : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>⋮</b> menu at the top right of Chrome</li><li>Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li><li>Tap <b>Install</b>. It opens like any other app, full screen.</li></ol>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="' + btn + '">I did it</button>')
+          + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
+          + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>' : '')
+        + (!ios ? '' : '<ol style="margin:0 0 10px 20px;padding:0"><li>Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> ' + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
         + '<li>Scroll the list and tap <b>Add to Home Screen</b></li><li>Tap <b>Add</b>. It opens like any other app, full screen.</li></ol>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-a="done" style="font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer">I did it</button>'
         + '<button type="button" data-a="later" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer">Later</button>'
-        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>'
-        + (shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
+        + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don’t ask again</button></div>')
+        + (ios && shareAtBottom ? '<div aria-hidden="true" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);font-size:28px;line-height:1;color:#C9982A">&#x2B07;</div>' : '');
       w.addEventListener('click', function(e){
         var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
         var a = b.getAttribute('data-a');
+        if(a === 'install' && bip){ bip.prompt(); bip.userChoice.then(function(c){ localStorage.setItem(key, c && c.outcome === 'accepted' ? 'done' : '0'); }).catch(function(){}); window.__djBIP = null; w.remove(); return; }
         if(a === 'done' || a === 'no') localStorage.setItem(key, a); else localStorage.setItem(key, '0');   /* later: ask again in two visits */
         w.remove();
       });
@@ -1371,15 +1422,24 @@
          be a wrong one. Only the sender that really attaches the file passes opt.file - the
          external-assistant path cannot attach anything, the person does that themselves at
          the other end, so it says nothing about a file and that stays true. */
-      var fsz = '';
-      if(opt.file && opt.file.data){
-        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
-        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      /* 21 Nov 2026: a photo counts too. Jerry photographed a Menards receipt in Business
+         Manager and the phone's own reader garbled the thermal print, so the door now takes
+         image/jpeg, image/png and image/webp as well as a PDF. The sheet has to NAME what it
+         is sending, and saying "the file receipt.jpg (PDF, 380 KB)" over a photograph is the
+         wrong preview in the same way showing no file at all was. So the kind comes off the
+         media_type, not off a guess. */
+      var fsz = '', fkind = 'a PDF', flab = 'PDF';
+      if(opt.file){
+        if(/^image\//.test(String(opt.file.media_type || ''))){ fkind = 'a photo'; flab = 'photo'; }
+        if(opt.file.data){
+          var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+          fsz = kb >= 1024 ? ' (' + flab + ', ' + (kb / 1024).toFixed(1) + ' MB)' : ' (' + flab + ', ' + kb + ' KB)';
+        }
       }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
-        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || fkind) + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -1900,6 +1960,105 @@
     return a;
   }
   window.djAudience = audience;
+  /* 21 Nov. Jerry, relayed through the front door: "would like to be able to have a messaging
+     system from the user of an app to send a message back to the control center if they have a
+     problem, we can notify to fix it or if they wanna feature request or if they wanna report a
+     problem or something." One row in the ? menu, three kinds, and the same mailbox as Keep me
+     posted and the testers' reports — action 'report' with a tagged first line, so it lands in
+     the HQ sheet's messages tab where tools/morning-report/digest.py counts it.
+     Skipped exactly where Keep me posted is: a children's page, My Safety Plan (a plan's names and
+     numbers never leave the phone), a test copy, and a guest's visit. */
+  var DJ_FB = [
+    ['problem',  '\u{1F6A9}', 'Report a problem', 'What went wrong? What were you doing when it happened?'],
+    ['idea',     '\u{1F4A1}', 'Suggest an idea',  'What would make this app better for you?'],
+    ['question', '❓',    'Ask a question',   'What would you like to know?']
+  ];
+  /* Family Money's copy of the block carries none of the mailbox code (no djSend, no djRefKey,
+     no djSandbox), so the row must not appear there at all rather than appear and fail. The same
+     guard covers any app whose copy drifts the same way. */
+  function djFeedbackOff(){
+    if(typeof djSend !== 'function') return true;
+    try{ return kidsPage() || crisisPage() || djSandbox() || guestVisit(); }catch(e){ return true; }
+  }
+  function djFeedback(kind){
+    var k = kind || 'problem', probs = djProblems(), app = djRefKey(slugOf());
+    var of = function(x){ for(var i = 0; i < DJ_FB.length; i++) if(DJ_FB[i][0] === x) return DJ_FB[i]; return DJ_FB[0]; };
+    var fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;min-height:46px;padding:10px 12px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-top:8px';
+    var kindBtn = function(x){
+      return '<button type="button" class="djFbK" data-k="' + x[0] + '" aria-pressed="false" style="flex:1;font:inherit;font-weight:800;font-size:13px;line-height:1.2;min-height:62px;padding:8px 4px;border-radius:12px;cursor:pointer;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622">'
+        + '<span style="font-size:18px;display:block;margin-bottom:2px">' + x[1] + '</span>' + esc(x[2]) + '</button>';
+    };
+    var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Send us a message</div>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">It comes straight to the people who look after these apps. Nothing is sent until you tap Send it.</p>'
+      + '<div style="display:flex;gap:6px">' + DJ_FB.map(kindBtn).join('') + '</div>'
+      + '<textarea id="djFbText" aria-label="Your message" style="' + fld + ';min-height:112px"></textarea>'
+      + '<input id="djFbName" type="text" autocomplete="name" maxlength="40" placeholder="Your name — not needed" aria-label="Your name" value="' + esc(djName()) + '" style="' + fld + '">'
+      + '<input id="djFbContact" type="text" autocomplete="email" maxlength="80" placeholder="Email or phone, if you would like an answer" aria-label="Email or phone" style="' + fld + '">'
+      + (probs.length ? '<label id="djFbProbWrap" style="display:flex;gap:10px;align-items:flex-start;font-size:14.5px;margin:10px 0 0;cursor:pointer"><input id="djFbProb" type="checkbox" checked style="width:22px;height:22px;min-height:22px;flex:none;accent-color:#23504F"><span>Send the ' + probs.length + ' recent problem message' + (probs.length === 1 ? '' : 's') + ' as well<br><small style="color:#55605B">the ones this app wrote down for you — they help us find the fault</small></span></label>' : '')
+      + '<button type="button" id="djFbGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Send it</button>'
+      + '<div id="djFbNote" role="status" style="font-size:14.5px;margin-top:8px"></div>');
+    var ta = b.querySelector('#djFbText'), note = b.querySelector('#djFbNote'), wrap = b.querySelector('#djFbProbWrap');
+    /* switching kind must not throw away what has been typed, so nothing is rebuilt */
+    function paint(){
+      ta.placeholder = of(k)[3];
+      if(wrap) wrap.style.display = (k === 'problem') ? 'flex' : 'none';
+      var bs = b.querySelectorAll('.djFbK');
+      for(var i = 0; i < bs.length; i++){
+        var on = bs[i].getAttribute('data-k') === k;
+        bs[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+        bs[i].style.borderColor = on ? '#23504F' : '#C9C1AE';
+        bs[i].style.background  = on ? '#23504F' : '#fff';
+        bs[i].style.color       = on ? '#fff' : '#1F2622';
+      }
+    }
+    var bs = b.querySelectorAll('.djFbK');
+    for(var i = 0; i < bs.length; i++) bs[i].onclick = function(){ k = this.getAttribute('data-k'); paint(); };
+    paint();
+    b.querySelector('#djFbGo').onclick = function(){
+      var one = function(id, n){ return String((b.querySelector(id) || {}).value || '').replace(/[|\r\n<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+      var msg = String(ta.value || '').replace(/[|<>]/g, ' ').replace(/[ \t]+/g, ' ').trim().slice(0, 2000);
+      if(msg.length < 2){ note.textContent = 'Write a line or two first, then tap Send it.'; try{ ta.focus(); }catch(e){} return; }
+      var name = one('#djFbName', 40), contact = one('#djFbContact', 80), go = this;
+      go.disabled = true; go.textContent = 'Sending…'; note.textContent = '';
+      var pb = b.querySelector('#djFbProb');
+      var text = 'FEEDBACK|kind:' + k + '|app:' + app + '|day:' + djYMD()
+        + '\n' + msg
+        + '\n— ' + (name || '(no name)') + ' · ' + (contact || '(no reply asked for)')
+        + '\nversion: ' + (appStamp() || 'not shown');
+      if(k === 'problem' && pb && pb.checked && probs.length) text += '\n\nWhat the app wrote down:\n' + djProbText();
+      djSend({ action:'report', who:'', name: name || 'A message', app: app, contact: contact, text: text }, function(ok){
+        if(!ok){ go.disabled = false; go.textContent = 'Send it'; note.textContent = 'That did not send. Check your connection and try again — nothing you typed is lost.'; return; }
+        try{ if(name && !djName()) localStorage.setItem('dj_name', name); }catch(e){}
+        b.innerHTML = '<div style="font-weight:900;font-size:19px;margin-bottom:6px">Thank you</div>'
+          + '<p style="margin:0 0 12px;font-size:15px">We have your message' + (contact ? ', and we will come back to you.' : '. ') + (contact ? '' : 'If you would like an answer, send another with an email or a phone number.') + '</p>'
+          + '<button type="button" id="djFbDone" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Close</button>';
+        b.querySelector('#djFbDone').onclick = function(){ djBackClear(); closeAISheet(); };
+      });
+    };
+  }
+  /* 21 Nov, Jerry's idea 9: "a new app version goes to the test copy first; after 24 hours with no
+     new problems it goes to everyone." Nothing can be held back from one person and not another on
+     GitHub Pages — one copy is served to everybody — so the next version lives at <app>/beta/ and
+     only the people given that link are on it. This band is what stops someone mistaking it for the
+     released app and reporting its faults as the real one's. */
+  function djBetaBand(){
+    if(!djBetaPath() || embedded || document.getElementById('djBeta')) return;
+    var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim().replace(/[<>&]/g, '');
+    var w = document.createElement('div'); w.id = 'djBeta'; w.setAttribute('role', 'note');
+    /* along the bottom, not the top: the hello card floats over the top on purpose (v62), and the
+       dock already lifts itself above whatever bottom bar an app has, so it will clear this. */
+    w.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147481600;background:#5B3FA0;color:#fff;'
+      + 'padding:7px 12px calc(7px + env(safe-area-inset-bottom));font:13.5px/1.35 -apple-system,system-ui,sans-serif;'
+      + 'display:flex;align-items:center;gap:10px;box-shadow:0 -2px 10px rgba(0,0,0,.25)';
+    w.innerHTML = '<span style="flex:1"><b>Next version of ' + name + '</b> — not released yet. '
+      + 'Your saved work is the same as in the released one.</span>'
+      + '<a href="../" style="font:inherit;font-weight:800;color:#5B3FA0;background:#fff;border-radius:999px;'
+      + 'padding:7px 12px;min-height:38px;display:inline-flex;align-items:center;text-decoration:none;flex:none">Released one</a>';
+    document.body.appendChild(w);
+    try{ document.body.style.paddingBottom = (w.offsetHeight + 8 + (parseInt(getComputedStyle(document.body).paddingBottom, 10) || 0)) + 'px'; }catch(e){}
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', djBetaBand);
+  else setTimeout(djBetaBand, 0);
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
   function dailyHello(){
     if(embedded || !document.body || guestVisit()) return;
@@ -1929,6 +2088,22 @@
     w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
+    /* 21 Nov, from the same-look sweep: it sat at the very top and covered the app's own name for
+       the whole 8 seconds — measured at 39 of the 43 apps that show it, most of them completely,
+       which is the one moment someone most needs to see which app they opened. It now starts just
+       under the header where there is one near the top. It still floats, so nothing jumps when it
+       goes (v62); if no header is found, or it is too far down the page to be a header, nothing
+       changes. */
+    try{
+      var hd = document.querySelector('h1, header, .hd, #hdr, .title, #title, .brand');
+      if(hd){
+        var hr = hd.getBoundingClientRect();
+        if(hr.height && hr.bottom > 0 && hr.bottom < 220){
+          var want = Math.round(hr.bottom + 8);
+          w.style.top = Math.min(want, Math.max(0, window.innerHeight - 160)) + 'px';
+        }
+      }
+    }catch(e){}
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
     setTimeout(function(){ w.style.opacity = '0'; w.style.pointerEvents = 'none'; setTimeout(function(){ w.remove(); }, 450); }, 8000);
   }
@@ -2527,7 +2702,7 @@
 </script>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover">
 <meta name="description" content="Keepsake Pro — the client gift that keeps the family. Advisors gift their clients a recorded life story, a printed question deck, and the one-page 'where everything is' document. $99/month, unlimited clients, co-branded.">
 <meta property="og:title" content="Keepsake Pro — the client gift that keeps the family">
 <meta property="og:description" content="Wine gets drunk. Calendars get tossed. A mother's voice, printed as a book with your name on the gift — that gets kept. $99/mo, unlimited clients.">
