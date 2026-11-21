@@ -2704,7 +2704,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0 · 2026-11-20';
+var VER = 'v2.0.1 · 2026-11-21';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -3248,8 +3248,16 @@ function talkButton(){
    there doing nothing. So no holding: one tap starts listening, a second tap stops it, and the words go straight
    into the box as they are heard. The Today button opens the box already listening. It never ends silently: if
    nothing was heard, or the microphone was refused, the line under the box says so and what to do. */
-var MIC = null, SRI = null;
-function micStop(){ if(MIC){ var r = MIC; MIC = null; SRI = null; try{ r.stop(); }catch(e){} micLabel(false); setTimeout(function(){ try{ r.abort(); }catch(e){} }, 1500); } }
+/* v2.0.1 (21 Nov, Jerry on his iPhone: "He heard me the first time … then he wouldn't hear me after that … It does OK
+   on my desktop but not on my phone"). The iPhone's speech service only takes a second round once the first has fully
+   finished, and cutting a round off (abort) or starting a fresh listener straight away leaves it deaf. So now: ONE
+   listener for the whole visit, a round is only ever ended with stop() or by itself, and a tap that comes before the
+   iPhone has said it finished waits for that, then starts. A start the phone refuses is tried again a few times. */
+var MIC = null, SRI = null, MICST = 'idle', MICWANT = false, MICROUND = null;   /* MICST: idle | starting | on | ending */
+function micStop(){ if(MICST === 'starting' || MICST === 'on'){ MICST = 'ending'; MIC = null; try{ SRI.stop(); }catch(e){} micLabel(false);
+  var r = MICROUND; setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; if(r && r.done) r.done(); micNext(); } }, 1500); } }
+/* the phone never said it finished: carry on anyway, and start the round that was asked for in the meantime */
+function micNext(){ if(MICWANT){ MICWANT = false; setTimeout(function(){ if($('tkIn')){ micRec(); micBegin(); } }, 250); } }
 function micLabel(on){ var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
 function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(--bad)' : ''; m.textContent = t; } }
 /* v1.9.6 (20 Nov, Jerry on his iPhone, third try): words ran together with no spaces, and after a couple of rounds a
@@ -3258,38 +3266,46 @@ function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(
    itself after a pause (tap again to add more), always on a fresh listener, with any earlier one stopped first. A
    watchdog makes sure a tap never just sits there: if the phone hasn't started listening within 4 seconds, the line
    under the box says so, and the next tap starts clean. The phone's own reason is shown whenever it gives one. */
-var MICSEQ = 0;
-function micJoin(ev){ var a = []; for(var i = 0; i < ev.results.length; i++) a.push(String(ev.results[i][0].transcript || '').trim()); return a.join(' ').replace(/\s+/g, ' ').trim(); }
+function micJoin(ev){ var a = []; for(var k = 0; k < ev.results.length; k++) a.push(String(ev.results[k][0].transcript || '').trim()); return a.join(' ').replace(/\s+/g, ' ').trim(); }
+function micRec(){
+  if(SRI) return SRI;
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition; if(!SR) return null;
+  try{ SRI = new SR(); }catch(e){ return null; }
+  SRI.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); SRI.interimResults = true; SRI.continuous = false; SRI.maxAlternatives = 1;
+  /* the handlers stay put; each round brings its own box and words */
+  SRI.onstart = function(){ var r = MICROUND; if(!r) return; r.began = true; MICST = 'on'; micLabel(true); micSay('Listening. Say it — it stops by itself when you pause.'); };
+  SRI.onresult = function(ev){ var r = MICROUND; if(!r) return; r.began = true; var b = $('tkIn'); if(!b){ micStop(); return; }
+    r.heard = micJoin(ev); b.value = r.base ? r.base.replace(/[.,]?\s*$/, ', ') + r.heard : r.heard; b.dispatchEvent(new Event('input', { bubbles:true }));
+    clearTimeout(r.quiet); r.quiet = setTimeout(function(){ if(MICROUND === r && MICST === 'on') micStop(); }, 2500); };
+  SRI.onerror = function(ev){ var r = MICROUND; if(r) r.failed = (ev && ev.error) || 'unknown'; };
+  SRI.onend = function(){ var r = MICROUND; MICST = 'idle'; MIC = null; micLabel(false); if(r && r.done) r.done();
+    micNext(); };
+  return SRI;
+}
 function talkMic(){
-  if(MIC){ micStop(); return; }
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition, box = $('tkIn'); if(!box) return;
   var KB = ' Or tap in the box and use the 🎤 on your keyboard.';
-  if(!SR){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); try{ box.focus(); }catch(e){} return; }
+  if(MICST === 'starting' || MICST === 'on'){ micStop(); return; }
+  if(!$('tkIn')) return;
+  if(!micRec()){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); try{ $('tkIn').focus(); }catch(e){} return; }
   try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}   /* an open keyboard can hold the iPhone's microphone */
-  var old = SRI; SRI = null; if(old){ try{ old.onresult = old.onend = old.onerror = old.onstart = null; old.abort(); }catch(e){} }
-  var seq = ++MICSEQ, base = box.value.trim(), heard = '', failed = '', began = false, rec;
-  try{ rec = new SR(); }catch(e){ micSay('This phone can’t listen here.' + KB, true); return; }
-  SRI = rec; MIC = rec;
-  rec.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
-  function mine(){ return seq === MICSEQ; }
-  rec.onstart = function(){ if(!mine()) return; began = true; micLabel(true); micSay('Listening. Say it — it stops by itself when you pause.'); };
-  var quiet = 0;
-  /* v1.9.7: some iPhones finish listening and never say so, which left the app thinking it was still listening —
-     the next tap only stopped it, and looked like nothing happened. So 2.5 seconds after the last words, the app
-     ends the round itself; the button is then always ready for the next tap. */
-  function finish(){ if(!mine() || MIC !== rec) return; try{ rec.onend = null; rec.abort(); }catch(e){} MIC = null; SRI = null; micLabel(false); if($('tkIn')) talkDraw(); }
-  rec.onresult = function(ev){ if(!mine()) return; began = true; var b = $('tkIn'); if(!b){ micStop(); return; } heard = micJoin(ev);
-    b.value = base ? base.replace(/[.,]?\s*$/, ', ') + heard : heard; b.dispatchEvent(new Event('input', { bubbles:true }));
-    clearTimeout(quiet); quiet = setTimeout(finish, 2500); };
-  rec.onerror = function(ev){ if(!mine()) return; failed = (ev && ev.error) || 'unknown'; };
-  rec.onend = function(){ clearTimeout(quiet); if(!mine()) return; if(MIC === rec) MIC = null; SRI = null; micLabel(false); if(!$('tkIn')) return;
-    if(failed === 'not-allowed' || failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Allow it and tap 🎤 again.' + KB, true);
-    else if(!heard) micSay('I didn’t catch anything' + (failed && failed !== 'no-speech' && failed !== 'aborted' ? ' (the phone said “' + failed + '”)' : '') + '. Tap 🎤 and try again.' + KB, true);
+  if(MICST === 'ending'){ MICWANT = true; micLabel(true); micSay('One moment…'); return; }   /* the last round hasn't finished yet: start as soon as it has */
+  micBegin();
+}
+function micBegin(tries){
+  var KB = ' Or tap in the box and use the 🎤 on your keyboard.', box = $('tkIn'); if(!box || !SRI) return; tries = tries || 0;
+  var r = MICROUND = { base:box.value.trim(), heard:'', failed:'', began:false, quiet:0 };
+  r.done = function(){ clearTimeout(r.quiet); if(MICROUND !== r || !$('tkIn')) return;
+    if(r.failed === 'not-allowed' || r.failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Allow it and tap 🎤 again.' + KB, true);
+    else if(!r.heard) micSay('I didn’t catch anything' + (r.failed && r.failed !== 'no-speech' && r.failed !== 'aborted' ? ' (the phone said “' + r.failed + '”)' : '') + '. Tap 🎤 and try again.' + KB, true);
     else talkDraw(); };
-  micLabel(true); micSay('Starting the microphone…');
-  setTimeout(function(){ if(mine() && MIC === rec && !began && !heard){ try{ rec.onend = null; rec.abort(); }catch(e){} MIC = null; SRI = null; micLabel(false);
-    micSay('The phone didn’t start listening. Tap 🎤 again.' + KB, true); } }, 4000);
-  try{ rec.start(); }catch(e){ MIC = null; SRI = null; micLabel(false); micSay('The microphone didn’t start (' + (e && e.name || 'error') + '). Tap 🎤 again.' + KB, true); }
+  MICST = 'starting'; MIC = SRI; micLabel(true); micSay('Starting the microphone…');
+  try{ SRI.start(); }
+  catch(e){ MICST = 'idle'; MIC = null;
+    if(tries < 3){ micSay('One moment…'); setTimeout(function(){ if($('tkIn')) micBegin(tries + 1); }, 600); return; }
+    micLabel(false); micSay('The microphone didn’t start (' + (e && e.name || 'error') + '). Tap 🎤 again.' + KB, true); return; }
+  setTimeout(function(){ if(MICROUND === r && MICST === 'starting' && !r.began){ MICST = 'ending'; try{ SRI.stop(); }catch(e){} micLabel(false);
+    micSay('The phone didn’t start listening. Tap 🎤 again.' + KB, true);
+    setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; SRI = null; micNext(); } }, 1500); } }, 5000);   /* still nothing after that: the next tap gets a new listener */
 }
 function talkStart(){ talkOpen(''); talkMic(); }
 function talkOpen(said, plan, note){
