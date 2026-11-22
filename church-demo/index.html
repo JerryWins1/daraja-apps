@@ -1,13 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
+<meta charset="utf-8"><!-- 22 Nov 2026: FIRST, before anything else in the head. A browser only
+     looks at the first 1024 bytes for this, and the house block is ~300 KB, so every app in the
+     house was declaring its encoding long past the point anything reads it. GitHub Pages sends
+     charset=utf-8 in the header and covers it there, but any other copy - a local server, a file
+     opened from disk, a downloaded page - is left to the browser's guess, and a wrong guess turns
+     every dash and apostrophe into mojibake. Caught by the beta check, which serves the same bytes
+     twice and read them two different ways. The app's own charset line further down is left where
+     it is: the first one wins, and theirs is theirs. -->
 <!-- 8 Nov 2026: a demo is somewhere a buyer looks around, not an app they own. DJ_GUEST is the
      house layer's own supported flag for exactly that (see guestVisit() below): no tour, no Start
      menu, no Home Screen card and no daily hello. Without it the layer's "Good evening" card opened
      on top of Grace Harbor's own header, so the first thing a church shopping for an app saw was a
      greeting from us covering the product. Set before the block so it is true by the time it boots. -->
 <script>window.DJ_GUEST = true;</script>
-<script id="dj-house-v80">
+<script id="dj-house-v82">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -1494,6 +1502,11 @@
      rather than kept. Same list the rest of the house uses. */
   function djMineOff(){
     try{
+      /* An app says no with window.DJ_MINE = false. Church HQ asked whether an internal tool
+         should be exempt — that is its own chat's call, not this one's, so the house gives them
+         the switch rather than deciding about their app from here. The test copy is already
+         exempt, which is why church-demo never saw any of it. */
+      if(window.DJ_MINE === false) return true;
       if(embedded || kidsPage() || crisisPage() || guestVisit() || djSandbox()) return true;
       return /\/(welcome|testers|help|testday|control|whats-new|thanks|inspect|watch\.html)(\/|$)/.test(location.pathname);
     }catch(e){ return true; }
@@ -1840,7 +1853,21 @@
     if(!force){
       var pending = false;
       try{ pending = !!(window.DJ_TOUR && !localStorage.getItem('dj_tour_' + window.DJ_TOUR.slug)); }catch(e){}
-      if(djHold() || document.getElementById('djTour') || pending){
+      /* 22 Nov, same night, from The Church App chat and confirmed here before changing anything:
+         on church-hq at a first open this card opened ON TOP of the app's OWN welcome card
+         (#djStart, z-index 9000) and swallowed every tap — elementFromPoint at the middle of the
+         screen returned djSetup, and a click retried 60 times and timed out. A church secretary
+         met two full-screen cards before she could type a service time.
+
+         The comment below this used to say the sequencing left "exactly one new screen rather
+         than two", and it was wrong: waiting for the house's own tour is not the same as waiting
+         for an app's own welcome. cardOpen() is the test the house already had for that, and it
+         covers djStart, introOv, fsIntro, djGate, hello, welcome, firstRun and djCoachCard as
+         well as anything full-screen of the app's own, so it fixes the eight at once rather than
+         the one that was reported. Measured after: church-hq's own card is alone again, and the
+         seven apps checked with it are unchanged. */
+      var own = false; try{ own = cardOpen(); }catch(e){}
+      if(djHold() || document.getElementById('djTour') || pending || own){
         if((tries || 0) < 40) setTimeout(function(){ try{ setupOffer(false, (tries || 0) + 1); }catch(e){} }, 1500);
         return;
       }
@@ -1892,6 +1919,22 @@
     });
     draw();
     document.documentElement.appendChild(w);
+    /* Measured on church-hq, 22 Nov: this card went up at 250ms and the app's own welcome at
+       500ms, underneath it. Waiting for cardOpen() before showing is not enough on its own,
+       because at the moment of the check the app's card does not exist yet. So it also steps
+       back for a few seconds afterwards: if the app paints its own welcome under this one, this
+       one leaves without recording a refusal and asks again when that card has gone. Once they
+       have tapped "Yes, ask me" it stays put — pulling a question out from under somebody
+       half way through answering it would be worse than the overlap. */
+    var guard = setInterval(function(){
+      if(!w.parentNode || at >= 0){ clearInterval(guard); return; }
+      var o = false; try{ o = cardOpen(); }catch(e){}
+      if(!o) return;
+      clearInterval(guard); DJ_HOLD = 0;
+      if(w.parentNode) w.parentNode.removeChild(w);
+      setTimeout(function(){ try{ setupOffer(false, 1); }catch(e){} }, 1500);
+    }, 400);
+    setTimeout(function(){ clearInterval(guard); }, 8000);
   }
   function setupSheet(){
     var p = djProfile();
@@ -3405,7 +3448,7 @@
     }, tries ? 1000 : 1300);
   }
 
-  function seniorsPass(){ try{ installScreen(); }catch(e){} try{ if(!document.getElementById('djInstall')) setupOffer(); }catch(e){} try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
+  function seniorsPass(){ try{ installScreen(); }catch(e){} try{ if(!document.getElementById('djInstall')) setTimeout(function(){ try{ setupOffer(); }catch(e){} }, 2500); }catch(e){} try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
