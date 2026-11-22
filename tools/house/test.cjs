@@ -551,6 +551,30 @@ async function mine(b, port){
   ck('no page errors', errs.length === 0, errs);
   await p.close(); await ctx.close();
 
+  /* 22 Nov, from The Church App chat and confirmed before anything changed: on church-hq this
+     card went up at 250ms and the app's OWN welcome (#djStart, z 9000) at 500ms, underneath it.
+     elementFromPoint at the middle of the screen returned djSetup and a click retried 60 times
+     and timed out. Two full-screen cards before a church secretary can type a service time.
+     Waiting for cardOpen() before showing was not enough on its own: at the moment of that check
+     the app's card does not exist yet. */
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/church-hq/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(7000);
+  const own = await p.evaluate(() => {
+    const st = document.getElementById('djStart');
+    const at = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+    return { theirs: !!(st && st.checkVisibility()), setup: !!document.getElementById('djSetup'),
+             centre: at ? (at.id || (at.closest('[id]') || {}).id || at.tagName.toLowerCase()) : null };
+  });
+  ck("it never opens on top of an app's own welcome card", own.theirs && !own.setup, own);
+  ck('and that card is the thing you actually touch', own.centre === 'djStart', own);
+  /* and it is not suppressed for good - it takes its turn once their card has gone */
+  await p.evaluate(() => { const d = document.getElementById('djStart'); if (d) d.remove(); });
+  await p.waitForTimeout(5000);
+  ck('once their card has gone, it takes its turn', await p.evaluate(() => !!document.getElementById('djSetup')));
+  await p.close(); await ctx.close();
+
   /* 2 · an interview that ends in a report */
   const seen = [];
   ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
@@ -784,6 +808,17 @@ async function same(){
     return !m || !/viewport-fit=cover/.test(m[0]);
   }).map(f => path.relative(ROOT, f));
   ck('every app asks for the whole screen (viewport-fit=cover)', noCover.length === 0, noCover);
+  /* 22 Nov: a browser reads the charset out of the first 1024 bytes and nothing further. The house
+     block is about 300 KB and sits at the top of the head, so every app was declaring its encoding
+     long past the point anything looks. GitHub Pages sends charset=utf-8 in the header and hides it
+     there; any other copy is left to the browser's guess. The beta check found it by serving the
+     same bytes twice and reading them two different ways — the released app fine, the beta full of
+     mojibake. It is a flake only in the sense that a guess is sometimes right. */
+  const lateCharset = files.filter(f => {
+    const b = fs.readFileSync(f); const i = b.indexOf(Buffer.from('charset'));
+    return i < 0 || i > 1024;
+  }).map(f => path.relative(ROOT, f));
+  ck('every app declares its charset in the first 1024 bytes', lateCharset.length === 0, lateCharset);
 }
 
 (async () => {
