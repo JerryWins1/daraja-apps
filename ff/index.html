@@ -3613,6 +3613,7 @@
   .tdeal .tgain{font-size:12px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
   .tdeal .tflag{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.35}
   .tdeal .tflag.bad{color:#fca5a5}
+  .tdeal .tflag.free{color:#86efac}
   .tdeal .tradeAsk{margin-top:8px;background:none;border:1px solid var(--line);border-radius:999px;
     color:var(--ink);font:inherit;font-size:12px;font-weight:700;padding:6px 12px;min-height:38px;cursor:pointer}
   .tradeToggle{display:inline-block;margin:2px 0 8px;background:none;border:1px solid var(--line);
@@ -4595,8 +4596,12 @@ async function espnPlayerPool(leagueId){
   const proAbbr = await espnProTeamAbbrs();
   const slim = (Array.isArray(d)?d:[]).map(entry=>{
     const p = entry.player||{};
+    // The season projection, when this payload carries one. It is not guaranteed here the way it
+    // is on a roster entry, so everything downstream has to work without it — see tradeReplacement.
+    const season = (p.stats||[]).find(st=>st.scoringPeriodId===0 && st.statSourceId===1);
     return { name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", teamAbbr:proAbbr[p.proTeamId],
-      owned:(p.ownership&&p.ownership.percentOwned)||0, free:(entry.onTeamId||0)<=0, injury:p.injuryStatus||"ACTIVE" };
+      owned:(p.ownership&&p.ownership.percentOwned)||0, free:(entry.onTeamId||0)<=0, injury:p.injuryStatus||"ACTIVE",
+      projSeason:(season&&season.appliedTotal)||0 };
   });
   try{ sessionStorage.setItem(cacheKey, JSON.stringify({at:Date.now(), data:slim})); }catch(e){}
   return slim;
@@ -4668,14 +4673,30 @@ function tradeLineupTotal(players){
 
 function tradeRoster(side){ return [...(side.starters||[]), ...(side.bench||[])].filter(p=>p && p.pos); }
 
-// Replacement level per position: the last player at it who would be starting somewhere in this
-// league if everyone fielded their best lineup. Everything above that line is what a trade is
-// really moving.
-function tradeReplacement(teams){
+// Who you could actually pick up at each position, free, right now — the best of them, by
+// projection. Returns {} when ESPN's free-agent payload carries no projections, which it does not
+// always do, and the caller then falls back to the rostered baseline below.
+function tradeFreeBest(pool){
+  const best = {};
+  (pool||[]).forEach(p=>{
+    if(!p.free || !p.pos || !p.projSeason) return;
+    if(!best[p.pos] || p.projSeason > best[p.pos].projSeason) best[p.pos] = p;
+  });
+  return best;
+}
+
+// Replacement level per position. The honest definition, and the one the published analyzers use,
+// is the best player you could pick up for nothing — so when the waiver pool gives us projections,
+// that is the line. When it does not, fall back to the last player at that position who would be
+// starting somewhere in this league if everyone fielded their best lineup, which is the same idea
+// measured off the rosters we can see. Everything above the line is what a trade really moves.
+function tradeReplacement(teams, freeBest){
   const pool = {};
   teams.forEach(t=> tradeRoster(t).forEach(p=>{ (pool[p.pos]=pool[p.pos]||[]).push(tradeProj(p)); }));
   const n = teams.length, rep = {};
   Object.keys(pool).forEach(pos=>{
+    const free = freeBest && freeBest[pos];
+    if(free){ rep[pos] = free.projSeason; return; }
     pool[pos].sort((a,b)=>b-a);
     const slots = (TRADE_SLOTS[pos]||0) + (TRADE_FLEX.indexOf(pos)>=0 ? TRADE_FLEX_SLOTS/TRADE_FLEX.length : 0);
     const i = Math.min(pool[pos].length-1, Math.max(0, Math.round(n*slots)-1));
@@ -4710,14 +4731,15 @@ function tradeLeagueAvg(teams, rep){
 }
 
 /* Every 1-for-1 that leaves BOTH lineups better off, best for you first. */
-function tradeFinder(me, board, statusMap, statusMapNext){
+function tradeFinder(me, board, statusMap, statusMapNext, pool){
   const teams = [];
   (board.games||[]).forEach(g=>{ if(g.home) teams.push(g.home); if(g.away) teams.push(g.away); });
   const mine = teams.find(t=>String(t.id)===String(me.id)) || me;
   const others = teams.filter(t=>String(t.id)!==String(mine.id));
   if(!others.length || !tradeRoster(mine).length) return { ready:false, shape:null, deals:[] };
 
-  const rep = tradeReplacement(teams);
+  const freeBest = tradeFreeBest(pool);
+  const rep = tradeReplacement(teams, freeBest);
   const avg = tradeLeagueAvg(teams, rep);
   const shape = tradeShape(mine, rep, avg);
 
@@ -4747,7 +4769,30 @@ function tradeFinder(me, board, statusMap, statusMapNext){
   const best = new Map();
   deals.sort((a,b)=>b.myGain-a.myGain);
   deals.forEach(d=>{ if(!best.has(d.them.id)) best.set(d.them.id, d); });
-  return { ready:true, shape, rep, deals:[...best.values()].slice(0,4) };
+  const picked = [...best.values()].slice(0,4);
+
+  // Jerry, 22 Nov: "other things to look for is the waiver wire opportunities." The cheapest
+  // trade is the one you do not make, so every proposal is measured against simply picking
+  // somebody up: what does my lineup do if I add the best free agent at that position and give
+  // up nothing at all? When that is close to the trade, the trade is not worth a phone call.
+  picked.forEach(d=>{
+    const free = freeBest[d.get.pos];
+    if(!free) return;
+    const freeGain = tradeLineupTotal(myRoster.concat([free])) - myBase;
+    if(freeGain <= 0.5) return;
+    d.free = { who:free, gain:freeGain, mostOfIt: freeGain >= d.myGain * 0.75 };
+  });
+  // And the same question asked of the whole team, not one deal: the best thing sitting there
+  // free for each position this team is short at.
+  const thin = Object.keys(TRADE_SLOTS).filter(pos=>shape[pos] < -25);
+  const waiver = thin.map(pos=>{
+    const free = freeBest[pos];
+    if(!free) return null;
+    const gain = tradeLineupTotal(myRoster.concat([free])) - myBase;
+    return gain > 0.5 ? { pos, who:free, gain } : null;
+  }).filter(Boolean).sort((a,b)=>b.gain-a.gain);
+
+  return { ready:true, shape, rep, deals:picked, waiver, sawPool: Object.keys(freeBest).length>0 };
 }
 
 // What Jerry asked to have checked before he sends anything: is the player he would be getting
@@ -4778,9 +4823,16 @@ function tradeSectionHTML(res, meName){
   const shapeLine = (strong.length || thin.length)
     ? `<div class="arow">Your team is ${strong.length?`<b>strong at ${strong.map(esc).join(", ")}</b>`:"even across the board"}${thin.length?` and <b>thin at ${thin.map(esc).join(", ")}</b>`:""}, measured against the rest of the league.</div>`
     : `<div class="arow">Your team is even across every position against the rest of the league — there is no obvious surplus to trade from.</div>`;
-  if(!res.deals.length) return shapeLine + `<div class="arow">No one-for-one swap in this league makes both teams better right now. That usually means everybody's spare players are spare for the same reason.</div>`;
+  // The free-agent answer goes FIRST, because if it is there you do not need anyone's permission.
+  const waiverLine = (res.waiver && res.waiver.length)
+    ? `<div class="arow">🟢 <b>Free on waivers right now</b>, before you trade anything: `
+      + res.waiver.map(w=>`<b>${esc(w.who.name)}</b> (${esc(w.pos)}, +${Math.round(w.gain)})`).join(", ")
+      + `. Adding one costs you nobody.</div>`
+    : "";
+  if(!res.deals.length) return shapeLine + waiverLine + `<div class="arow">No one-for-one swap in this league makes both teams better right now. That usually means everybody's spare players are spare for the same reason.</div>`;
   const rows = res.deals.map((d,i)=>{
-    const flags = d.flags.map(f=>`<div class="tflag${f.bad?" bad":""}">${f.bad?"⚠️":"•"} ${f.text}</div>`).join("");
+    const flags = d.flags.map(f=>`<div class="tflag${f.bad?" bad":""}">${f.bad?"⚠️":"•"} ${f.text}</div>`).join("")
+      + (d.free ? `<div class="tflag${d.free.mostOfIt?" free":""}">${d.free.mostOfIt?"🟢":"•"} <b>${esc(d.free.who.name)}</b> is free on waivers and gets you +${Math.round(d.free.gain)} of this for nothing${d.free.mostOfIt?" — take him instead":""}</div>` : "");
     return `<div class="tdeal">
       <div class="tteam">${esc(d.them.owner || d.them.name)}</div>
       <div class="trow"><span class="tgive">You give</span> <b>${esc(d.give.name)}</b> <span class="tpos">${esc(d.give.pos)}</span></div>
@@ -4790,7 +4842,10 @@ function tradeSectionHTML(res, meName){
       <button class="tradeAsk" type="button" data-idx="${i}">✨ Write the message</button>
     </div>`;
   }).join("");
-  return shapeLine + rows + `<div class="arow" style="color:var(--dim)">Both sides gain because each one swaps a player he cannot start for one he can. Figures are ESPN's own season projections for the players involved.</div>`;
+  const basis = res.sawPool
+    ? "Every figure is measured against the best player you could pick up free at that position."
+    : "ESPN sent no projections for the waiver wire this time, so the comparison is against the last startable player at that position in your league instead.";
+  return shapeLine + waiverLine + rows + `<div class="arow" style="color:var(--dim)">Both sides gain because each one swaps a player he cannot start for one he can. ${basis} Figures are ESPN's own season projections.</div>`;
 }
 
 function cardHTML(cfg, r, err, statusMap, statusMapNext, board){
@@ -4865,7 +4920,7 @@ function cardHTML(cfg, r, err, statusMap, statusMapNext, board){
     tradeHTML = `<div class="arow">Tap Update scores first — the finder reads every team in your league.</div>`;
   } else {
     const tIdx = TRADE_CTX.length;
-    TRADE_CTX.push({ me:r.me, board, statusMap, statusMapNext, leagueName:(board.leagueName||cfg.leagueName||"your league") });
+    TRADE_CTX.push({ me:r.me, board, statusMap, statusMapNext, leagueId:cfg.leagueId, leagueName:(board.leagueName||cfg.leagueName||"your league") });
     tradeHTML = `<button class="tradeToggle" type="button" data-idx="${tIdx}">Find a trade ▾</button><div class="tradeBox" data-state="idle"></div>`;
   }
   const amLabel = "Assistant Manager"+(flagged.size?` (${flagged.size})`:"");
@@ -5746,7 +5801,12 @@ $("cards").addEventListener("click", async e=>{
     resyncHeight(tt);
     const ctx = TRADE_CTX[+tt.dataset.idx];
     try{
-      const res = tradeFinder(ctx.me, ctx.board, ctx.statusMap, ctx.statusMapNext);
+      // The free-agent list, so a trade can be weighed against simply picking somebody up. It is
+      // the same cached call the waiver-wire check makes, so tapping both costs one request, and
+      // a failure here is not fatal — the finder falls back to a rostered baseline.
+      let pool = null;
+      try{ pool = await espnPlayerPool(ctx.leagueId); }catch(e){}
+      const res = tradeFinder(ctx.me, ctx.board, ctx.statusMap, ctx.statusMapNext, pool);
       ctx.res = res;
       box.innerHTML = tradeSectionHTML(res, ctx.me.name);
       box.dataset.idx = tt.dataset.idx;
