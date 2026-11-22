@@ -557,21 +557,39 @@ async function mine(b, port){
      and timed out. Two full-screen cards before a church secretary can type a service time.
      Waiting for cardOpen() before showing was not enough on its own: at the moment of that check
      the app's card does not exist yet. */
+  /* IT RUNS ON FLIPKIT, NOT ON THE APP THAT REPORTED IT, and that is the whole point. It was
+     written against church-hq; church-hq then switched Make it mine off with DJ_MINE = false
+     (#591), so #djSetup can never exist there and the check passed because of the opt-out rather
+     than because of the fix — green that would hide the stacking fault coming back. The Ahead of
+     It chat spotted it. Flipkit is the same shape (its own #djStart at z 9000, full screen, on a
+     first open) and still has Make it mine on, which the last check of the three proves: if
+     somebody ever opts flipkit out, that one fails and says so rather than quietly going vacuous. */
   ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
   p = await ctx.newPage();
-  await p.goto(`http://localhost:${port}/church-hq/`, { waitUntil: 'domcontentloaded' });
+  await p.goto(`http://localhost:${port}/duka/`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(7000);
+  /* the app's own card by whichever of cardOpen()'s ids it uses, and what you actually touch at
+     the middle of the screen — "inside their card", not one hardcoded id, because the id differs
+     per app and a hardcoded one is how this check went stale the first time */
   const own = await p.evaluate(() => {
-    const st = document.getElementById('djStart');
+    const ids = ['djStart', 'introOv', 'fsIntro', 'djGate', 'hello', 'welcome', 'firstRun', 'djCoachCard'];
+    const card = ids.map(i => document.getElementById(i)).find(e => e && e.checkVisibility() && e.getBoundingClientRect().height > innerHeight * 0.4);
     const at = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
-    return { theirs: !!(st && st.checkVisibility()), setup: !!document.getElementById('djSetup'),
-             centre: at ? (at.id || (at.closest('[id]') || {}).id || at.tagName.toLowerCase()) : null };
+    return { theirs: card ? card.id : null, setup: !!document.getElementById('djSetup'),
+             optedOut: window.DJ_MINE === false,
+             touchingTheirs: !!(card && at && (at === card || card.contains(at))),
+             centre: at ? (at.id || at.tagName.toLowerCase()) : null };
   });
-  ck("it never opens on top of an app's own welcome card", own.theirs && !own.setup, own);
-  ck('and that card is the thing you actually touch', own.centre === 'djStart', own);
-  /* It used to be checked here that the offer took its turn once their card had gone. Church HQ
-     has since set DJ_MINE = false, so on this app it correctly never appears at all — the "not
-     suppressed for good" half is checked on whoscoming below, and the opt-out at the end. */
+  ck("it never opens on top of an app's own welcome card", !!own.theirs && !own.setup, own);
+  ck('and that card is the thing you actually touch', own.touchingTheirs, own);
+  ck('  (and this app has Make it mine ON, so that was not the opt-out passing it)', own.optedOut === false, own);
+  /* not suppressed for good: it takes its turn once their card has gone. This one is what proves
+     the two above are not vacuous — if the offer could never appear on this app, they would pass
+     whatever the house did, which is exactly how the church-hq version went stale. */
+  await p.evaluate(() => { for (const i of ['djStart', 'introOv', 'fsIntro', 'djGate', 'hello', 'welcome', 'firstRun', 'djCoachCard']) {
+    const d = document.getElementById(i); if (d) d.remove(); } });
+  await p.waitForTimeout(6000);
+  ck('once their card has gone, it takes its turn', await p.evaluate(() => !!document.getElementById('djSetup')));
   await p.close(); await ctx.close();
 
   /* 22 Nov, from The Church App chat after they used the DJ_MINE switch: the stacking fix moved
