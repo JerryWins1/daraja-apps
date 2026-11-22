@@ -358,6 +358,156 @@ async function filekind(b, port){
   await ctx.close();
 }
 
+/* 22 Nov 2026. Jerry: "I'd also like to improve the store so we download an app that has an icon
+   on it right away rather than having to horse around and download it and all that stuff."
+   A link from the store carries ?dj_install=1 and the house answers it with ONE screen, alone.
+   What is checked here is the "alone" — four things used to arrive in the first two and a half
+   seconds and the install card was the one buried deepest, so a check that only asked whether the
+   screen EXISTS would have passed on the broken version too. */
+async function install(b, port){
+  console.log('\nThe install screen — one screen, alone, for someone arriving from the store');
+  const seen = p => p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *')).filter(e => {
+    const c = getComputedStyle(e), r = e.getBoundingClientRect();
+    return e.id !== '' && e.checkVisibility() && r.width > 0 && r.height > 0 && (c.position === 'fixed' || +c.zIndex > 100);
+  }).map(e => e.id));
+
+  /* iPhone: the screen, and nothing else of ours over the app */
+  let ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  let p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4000);
+  let ids = await seen(p);
+  ck('on a first open it is the only thing up, with the dock', ids.includes('djInstall') && !ids.includes('djTour') && !ids.includes('djHello') && !ids.includes('djA2HS'), ids);
+  const txt = await p.evaluate(() => (document.getElementById('djInstall') || {}).innerText || '');
+  ck('it names the app and offers a way past it', /Who’s Coming/.test(txt) && /Not now, just open it/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 90));
+  ck('the icon on it is a real file that loaded', await p.evaluate(() => { const i = document.getElementById('djInstallIcon'); return !!i && i.naturalWidth > 0; }));
+  ck('it sits above the welcome tour', await p.evaluate(() => +getComputedStyle(document.getElementById('djInstall')).zIndex > 2147483000));
+  /* answered: everything that was waiting is let go */
+  await p.evaluate(() => document.querySelector('#djInstall button[data-a="skip"]').click());
+  await p.waitForTimeout(3500);
+  ids = await seen(p);
+  ck('"Not now" lets the app get on with its own first open', !ids.includes('djInstall') && ids.includes('djTour'), ids);
+  ck('and the Home Screen card does not then pile on as well', !ids.includes('djA2HS'), ids);
+  ck('no page errors', errs.length === 0, errs);
+  await p.close(); await ctx.close();
+
+  /* Android: Chrome decides a page is installable on its own schedule, usually after this is up */
+  ctx = await b.newContext({ ...require('playwright').devices['Pixel 5'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(1500);
+  const before = await p.evaluate(() => document.querySelector('#djInstall button[data-a]').innerText);
+  ck('before Chrome offers anything it shows Chrome\'s own steps', /added it/.test(before), before);
+  await p.evaluate(() => { const e = new Event('beforeinstallprompt');
+    e.prompt = () => { window.__called = 1; }; e.userChoice = Promise.resolve({ outcome: 'accepted' }); window.dispatchEvent(e); });
+  await p.waitForTimeout(600);
+  const after = await p.evaluate(() => document.querySelector('#djInstall button[data-a]').innerText);
+  ck('a prompt arriving LATE turns it into one tap', /Install/.test(after), after);
+  await p.evaluate(() => document.querySelector('#djInstall button[data-a="install"]').click());
+  await p.waitForTimeout(600);
+  ck('and that tap really calls Chrome, not our own steps', await p.evaluate(() => !!window.__called));
+  ck('accepting it is remembered, so the screen never comes back', await p.evaluate(() => localStorage.getItem('dj_a2hs_whoscoming')) === 'done');
+  await p.close(); await ctx.close();
+
+  /* nowhere to put an icon: a laptop just opens the app */
+  ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(3000);
+  ck('a laptop is never shown it', !(await seen(p)).includes('djInstall'));
+  await p.close(); await ctx.close();
+
+  /* someone who already added it */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_a2hs_whoscoming', 'done'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2500);
+  ck('someone who already has the icon goes straight in', !(await seen(p)).includes('djInstall'));
+  await p.close(); await ctx.close();
+
+  /* no marker: an ordinary visit is untouched, except that the greeting no longer burns
+     its eight seconds behind the tour's 72% shade (measured 22 Nov, before and after) */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4000);
+  ids = await seen(p);
+  ck('an ordinary visit still gets the tour and no install screen', ids.includes('djTour') && !ids.includes('djInstall'), ids);
+  ck('and the greeting is not spent underneath it', !ids.includes('djHello'), ids);
+  await p.close(); await ctx.close();
+
+  /* the store's own links */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/shop/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4000);
+  const links = await p.evaluate(() => Array.from(document.querySelectorAll('a.btn.get, a.btn.try'))
+    .map(a => a.getAttribute('href') || '').filter(h => h && !/^mailto:/.test(h)));
+  ck('the store has Get and Try links to show', links.length > 20, links.length);
+  const without = links.filter(h => !/dj_install=1/.test(h));
+  ck('every store link that opens an app carries the marker', without.length === 0, without.slice(0, 5));
+  ck('and each still carries the v= stamp that beats the cached copy', links.every(h => /[?&]v=\d+/.test(h)), links.filter(h => !/[?&]v=\d+/.test(h)).slice(0, 3));
+  await p.close(); await ctx.close();
+}
+
+/* The icons and manifests behind all of it. No browser: these are file facts, and a file fact
+   that is wrong makes Chrome quietly refuse to offer Install, which looks like nothing at all. */
+function icons(){
+  console.log('\nIcons and manifests — what Chrome and iOS are actually handed');
+  const pins = JSON.parse(fs.readFileSync(path.join(__dirname, 'pinned.json'), 'utf8')).pinned || [];
+  const walkAll = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => {
+    const f = path.join(d, e.name);
+    if (e.isDirectory()) return e.name === '.git' || e.name === 'node_modules' ? [] : walkAll(f);
+    return e.name === 'index.html' ? [f] : [];
+  });
+  const files = walkAll(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')))
+    .filter(f => !pins.some(p => path.relative(ROOT, f).startsWith(p.path + path.sep)));
+
+  const noTouch = [], badTouch = [], badManifest = [], missingIcon = [], svgOnly = [];
+  for (const f of files) {
+    const dir = path.dirname(f), rel = path.relative(ROOT, dir) || '.';
+    const s = fs.readFileSync(f, 'utf8');
+    const t = s.match(/<link[^>]*rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i);
+    if (!t) noTouch.push(rel);
+    else if (/\.svg(\?|$)/i.test(t[1])) badTouch.push(`${rel} -> ${t[1]}`);
+    else if (!/^(data|https?):/i.test(t[1]) && !fs.existsSync(path.join(dir, t[1].split('?')[0]))) badTouch.push(`${rel} -> ${t[1]} is not there`);
+    const m = s.match(/<link[^>]*rel=["']manifest["'][^>]*href=["']([^"']+)["']/i);
+    if (!m || /^(data|https?):/i.test(m[1])) continue;
+    const mp = path.join(dir, m[1].split('?')[0]);
+    if (!fs.existsSync(mp)) { badManifest.push(`${rel}: links ${m[1]}, which is not there`); continue; }
+    let j; try { j = JSON.parse(fs.readFileSync(mp, 'utf8')); } catch (e) { badManifest.push(`${rel}: will not parse`); continue; }
+    const ic = Array.isArray(j.icons) ? j.icons : [];
+    for (const i of ic) {
+      const raw = String(i.src || '').split('?')[0];
+      if (!raw || /^(data|https?):/i.test(raw)) continue;
+      /* decode first: Pit Wall's icons live at ../Apps%20(installable%20site)/, which is a real
+         folder with a space in its name. Checking the undecoded path called them missing. */
+      let src = raw; try { src = decodeURIComponent(raw); } catch (e) {}
+      if (!fs.existsSync(path.join(path.dirname(mp), src))) missingIcon.push(`${rel} -> ${raw}`);
+    }
+    if (ic.length && !ic.some(i => /\.png(\?|$)/i.test(i.src || '') || i.type === 'image/png')) svgOnly.push(rel);
+  }
+  /* iOS does not render SVG for apple-touch-icon — a blank white tile, #543 */
+  ck('no app points its Home Screen tile at an SVG', badTouch.length === 0, badTouch);
+  ck('every manifest an app links is really there and parses', badManifest.length === 0, badManifest);
+  ck('every icon a manifest names is really there', missingIcon.length === 0, missingIcon);
+  /* whether Chrome will offer Install on an SVG-only manifest could NOT be measured from this
+     container (Page.getInstallabilityErrors reported no errors even for a page with no manifest at
+     all, so it is simply not running), and the guidance that was reachable says to carry a
+     rasterised icon beside an SVG. tools/icons/manifest.cjs puts a 192 and a 512 in each. */
+  ck('no manifest offers Chrome an SVG and nothing else', svgOnly.length === 0, svgOnly);
+
+  const hm = JSON.parse(fs.readFileSync(path.join(ROOT, 'home', 'manifest.webmanifest'), 'utf8'));
+  /* "../" resolves one level above home/, which on the real site is /daraja-apps/ — so every app
+     opened from the Daraja icon stays inside it instead of falling out into Safari. Relative on
+     purpose: an absolute "/daraja-apps/" would be wrong everywhere but the live site. */
+  ck('the Daraja icon covers every app, not just the front door', hm.scope === '../', hm.scope || '(no scope)');
+  const sm = path.join(ROOT, 'shop', 'manifest.webmanifest');
+  ck('the store itself can be put on a Home Screen', fs.existsSync(sm) && /rel=["']manifest["']/.test(fs.readFileSync(path.join(ROOT, 'shop', 'index.html'), 'utf8')));
+}
+
 async function same(){
   console.log('\nThe block itself');
   const crypto = require('crypto');
@@ -366,7 +516,23 @@ async function same(){
     if (e.isDirectory()) return e.name === '.git' || e.name === 'node_modules' ? [] : walk(f);
     return e.name === 'index.html' ? [f] : [];
   });
-  const files = walk(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')));
+  const all = walk(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')));
+  /* A copy deliberately held on an older block is not drift. tools/house/pinned.json names each
+     one, who owns it and why; without that list the two Business Manager test copies pinned at v72
+     on 21 November turned this whole group red, which reads exactly like a broken sweep. The pins
+     are PRINTED, not just skipped — a pin nobody remembers is how a copy quietly becomes the oldest
+     code in the house. */
+  const pins = JSON.parse(fs.readFileSync(path.join(__dirname, 'pinned.json'), 'utf8')).pinned || [];
+  const pinnedPath = f => pins.find(p => path.relative(ROOT, f).startsWith(p.path + path.sep));
+  const files = all.filter(f => !pinnedPath(f));
+  const held = all.filter(pinnedPath);
+  if (held.length) {
+    console.log(`  (${held.length} ${held.length > 1 ? 'copies' : 'copy'} deliberately pinned, skipped below)`);
+    for (const f of held) { const p = pinnedPath(f);
+      console.log(`     ${path.relative(ROOT, f)} — ${p.version} since ${p.since}, ${p.chat}: ${p.reason}`); }
+  }
+  const stalePin = pins.filter(p => !fs.existsSync(path.join(ROOT, p.path)));
+  ck('every pin in pinned.json still names a real folder', stalePin.length === 0, stalePin.map(p => p.path));
   const seen = {};
   for (const f of files) {
     const s = fs.readFileSync(f, 'utf8');
@@ -403,6 +569,8 @@ async function same(){
     if (!only || only === 'beta') await beta(b, s.port);
     if (!only || only === 'hello') await hello(b, s.port);
     if (!only || only === 'filekind') await filekind(b, s.port);
+    if (!only || only === 'install') await install(b, s.port);
+    if (!only || only === 'icons') icons();
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }

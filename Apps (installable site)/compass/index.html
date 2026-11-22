@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v77">
+<script id="dj-house-v78">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -1171,8 +1171,8 @@
      — not the first, not while installed, not inside Feedback Studio — one card
      shows the three taps, with a real arrow to where the Share button lives. */
   /* v66: Chrome on Android offers its install prompt once it decides the page can be installed; keep it for our own button. */
-  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
-  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + slugOf(), 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); }catch(err){} });
+  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; var is = document.getElementById('djInstall'); if(is && is.__up){ is.__up(); return; } if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
+  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + slugOf(), 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); var i = document.getElementById('djInstall'); if(i){ DJ_HOLD = 0; i.remove(); } }catch(err){} });
   /* 21 Nov, Jerry through the front door: "We also need a way to show them how to put the app on
      the shortcut… for the app." The card above still appears on its own, once, on a second visit;
      this is the way to ask for it deliberately, any time. Not offered where there is nothing to
@@ -1188,6 +1188,8 @@
   }
   function homeScreenGuide(force){
     if(document.getElementById('djA2HS')) return;
+    /* 22 Nov: never behind, or straight after, the install screen — that was the pile-up. */
+    if(!force && (djHold() || window.__djIS)) return;
     try{
       var ua = navigator.userAgent || '';
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
@@ -1235,6 +1237,103 @@
     }catch(e){}
   }
 
+  /* ── 10b · the install screen, for someone arriving from the store (22 Nov 2026) ──
+     Jerry: "I'd also like to improve the store so we download an app that has an icon on it
+     right away rather than having to horse around and download it and all that stuff."
+
+     WHAT HE WAS SEEING. Measured on an iPhone 13 before a line of this was written: a first
+     open of whoscoming built four things in two and a half seconds — the welcome tour at
+     1.0s (full screen, 72% shade), the greeting at 1.5s and the Home Screen card at 2.5s,
+     both UNDERNEATH it, plus the app's own first card. The greeting spent its whole eight
+     seconds invisible under the shade, and the Home Screen card — the one thing he wanted
+     seen — was buried deepest of all. That is the horsing around.
+
+     SO: a link from the store carries ?dj_install=1, and that one screen comes first and
+     alone. Nothing else is let up until it is answered — the tour waits, the greeting waits,
+     the start menu waits, and the app's own card is covered. One answer either way and the
+     app opens as normal. It never appears once the app is installed, inside a frame, or in a
+     browser with no Home Screen at all, which includes every laptop: there a store link just
+     opens the app.
+
+     It sits ABOVE the tour on purpose, 2147483100 against 2147483000. Merely equal would have
+     made it a race between two setTimeouts, which is the fault being fixed. */
+  var DJ_HOLD = 0;
+  function djHold(){ return DJ_HOLD === 1; }
+  function djFromStore(){ try{ return /[?&]dj_install=1/.test(location.search); }catch(e){ return false; } }
+  function djAppName(){ return (document.title || 'this app').split(/ [—·|-] /)[0].trim(); }
+  function djAppIcon(){
+    try{ var l = document.querySelector('link[rel="apple-touch-icon"]');
+      if(l && l.getAttribute('href')) return l.getAttribute('href'); }catch(e){}
+    return 'icon.svg';
+  }
+  function installScreen(){
+    if(!djFromStore() || document.getElementById('djInstall') || !document.documentElement) return;
+    var key;
+    try{
+      if(djHomeScreenOff() || guestVisit()) return;
+      key = 'dj_a2hs_' + slugOf();
+      if(localStorage.getItem(key) === 'done') return;   /* they already have it on the Home Screen */
+    }catch(e){ return; }
+    DJ_HOLD = 1; window.__djIS = 1;
+    var ua = navigator.userAgent || '';
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var shareAtBottom = /iPhone|iPod/.test(ua);
+    var name = djAppName();
+    var w = document.createElement('div'); w.id = 'djInstall';
+    w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+    w.setAttribute('aria-label', 'Put ' + name + ' on your Home Screen');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#F7F4EC;color:#1F2622;'
+      + 'font:17px/1.5 -apple-system,system-ui,sans-serif;overflow:auto;-webkit-overflow-scrolling:touch;'
+      + 'padding:calc(26px + env(safe-area-inset-top)) 20px calc(26px + env(safe-area-inset-bottom));box-sizing:border-box';
+    var card = document.createElement('div');
+    card.style.cssText = 'max-width:460px;margin:0 auto;text-align:center';
+    w.appendChild(card);
+    function paint(){
+      var bip = window.__djBIP || null;
+      var BTN = 'font:inherit;font-weight:800;font-size:18px;min-height:56px;padding:12px 18px;border-radius:14px;border:0;background:#2F6E52;color:#fff;cursor:pointer;width:100%;max-width:340px';
+      var LNK = 'font:inherit;font-size:15px;font-weight:700;color:#55605B;background:none;border:0;min-height:48px;padding:10px;cursor:pointer;text-decoration:underline';
+      var OL = 'text-align:left;margin:0 auto 18px;padding-left:24px;max-width:340px';
+      var steps = ios
+        ? '<ol style="' + OL + '"><li style="margin-bottom:8px">Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> '
+          + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+          + '<li style="margin-bottom:8px">Scroll down and tap <b>Add to Home Screen</b></li>'
+          + '<li>Tap <b>Add</b></li></ol>'
+        : (bip ? '' : '<ol style="' + OL + '"><li style="margin-bottom:8px">Tap the <b>&#x22EE;</b> menu at the top right of Chrome</li>'
+          + '<li style="margin-bottom:8px">Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li>'
+          + '<li>Tap <b>Install</b></li></ol>');
+      card.innerHTML = '<img id="djInstallIcon" src="' + esc(djAppIcon()) + '" alt="" width="96" height="96" style="width:96px;height:96px;border-radius:22px;display:block;margin:0 auto 14px;box-shadow:0 6px 18px rgba(0,0,0,.18)">'
+        + '<div style="font-weight:900;font-size:24px;line-height:1.25;margin-bottom:6px">' + esc(name) + '</div>'
+        + '<p style="margin:0 0 18px;color:#55605B;font-size:16px">Put it on your Home Screen and it opens like any other app — full screen, straight from the icon.</p>'
+        + steps
+        + '<button type="button" data-a="' + (!ios && bip ? 'install' : 'did') + '" style="' + BTN + '">'
+        + (!ios && bip ? '\u{1F4F2} Install ' + esc(name) : 'I’ve added it') + '</button>'
+        + '<div style="margin-top:10px"><button type="button" data-a="skip" style="' + LNK + '">Not now, just open it</button></div>';
+    }
+    paint();
+    /* Chrome decides a page is installable on its own schedule, and on a cold load it is
+       usually AFTER this screen is up. The old card could not take a late prompt at all —
+       its first line was "if the card exists, do nothing" — so on Android it showed three
+       manual steps and never became the one-tap Install, measured 22 Nov. This takes it. */
+    w.__up = function(){ if(w.parentNode) paint(); };
+    function close(how){
+      DJ_HOLD = 0;
+      try{ localStorage.setItem(key, how); }catch(e){}
+      if(w.parentNode) w.parentNode.removeChild(w);
+    }
+    w.addEventListener('click', function(e){
+      var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
+      var a = b.getAttribute('data-a'), bip = window.__djBIP || null;
+      if(a === 'install' && bip){
+        window.__djBIP = null;
+        try{ bip.prompt(); bip.userChoice.then(function(c){ close(c && c.outcome === 'accepted' ? 'done' : '0'); }, function(){ close('0'); }); }
+        catch(err){ close('0'); }
+        return;
+      }
+      close(a === 'did' ? 'done' : '0');
+    });
+    document.documentElement.appendChild(w);
+  }
+
   /* ── 11 · printing (research patrol #4, 10 Sep 2026) ────────────────────
      The Key is meant to be printed and put in a drawer; the story book too. On
      paper: black on white, nothing of ours (dock, mic, banners), no buttons, no
@@ -1245,7 +1344,7 @@
     st.textContent = '@media print{'
       + '@page{margin:16mm 14mm;}'
       + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
-      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djInstall,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
       + 'a{color:#000 !important;text-decoration:none !important;}'
       + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
       + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
@@ -2060,8 +2159,18 @@
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', djBetaBand);
   else setTimeout(djBetaBand, 0);
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
-  function dailyHello(){
+  function dailyHello(tries){
     if(embedded || !document.body || guestVisit()) return;
+    /* 22 Nov: the greeting used to spend its whole eight seconds BEHIND something. Measured on an
+       iPhone 13 at a first open of Who's Coming: the tour went up at 1.0s with a shade of
+       rgba(10,20,20,.72) over the lot, the greeting followed at 1.5s underneath it, and what you
+       actually touched at the middle of the greeting was the tour. So it waits for the install
+       screen AND for the tour, up to about half a minute, and if it is still covered after that it
+       keeps its turn for the next open rather than being spent unseen. */
+    if(djHold() || document.getElementById('djTour')){
+      if((tries || 0) < 20) setTimeout(function(){ try{ dailyHello((tries || 0) + 1); }catch(e){} }, 1500);
+      return;
+    }
     if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
@@ -2445,6 +2554,7 @@
     try{ if(window.top !== window.self){ var pp = parent.location.pathname; if(/\/shop\/watch|\/inspect\//.test(pp) || parent.document.getElementById('djTour')) return; } }catch(e){}
     if(!force && /[?&]dj_go=/.test(location.search)) return;   /* v61: they came for one job (Start my day) — the tour waits for a normal visit */
     if(!force && guestVisit()) return;   /* v62: a guest answering a reply link */
+    if(!force && djHold()){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 1200); return; }   /* 22 Nov: the install screen is up */
     /* v62 (7 Oct deep check): One Thing's code lock (#djGate) came up AFTER the tour, which ended "pick who the
        list is for" and then met a lock. While a lock is showing, the tour waits for it to be passed. */
     if(!force){ var gt = document.getElementById('djGate'); if(gt){ var gs = getComputedStyle(gt); if(gs.display !== 'none' && gs.visibility !== 'hidden' && gt.getBoundingClientRect().height > 40){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 1500); return; } } }
@@ -2663,6 +2773,7 @@
         if(it) setTimeout(function(){ menuRun(it.go); }, 400); return; }
       try{ if(window.top !== window.self && /\/home\//.test(parent.location.pathname)) return; }catch(e){}
       if(document.getElementById('djTour') || guestVisit()) return;
+      if(djHold()){ if(tries < 8) menuLater(tries + 1); return; }   /* 22 Nov: the install screen is up */
       /* v64 (10 Oct, Business Manager): the menu opened on top of the setup interview when the tour was done but setup
          was not. An app says when its menu makes sense with DJ_MENU.when (a test, e.g. "setup finished"); and the menu
          never opens over a welcome card or anything full-screen of the app's own. Not recorded as seen, so it comes next time. */
@@ -2677,7 +2788,7 @@
     }, tries ? 1000 : 1300);
   }
 
-  function seniorsPass(){ try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
+  function seniorsPass(){ try{ installScreen(); }catch(e){} try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"
