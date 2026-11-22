@@ -771,7 +771,7 @@ const APPS = {
    {t:'Now put it on your home screen. On an iPhone, tap the share button and choose Add to Home Screen. On Android, open the browser menu and choose Install or Add to Home screen.', point:"#host"},
    {t:'That gives you a Daraja icon beside your other apps. From then on it opens straight up, with no address bar in the way.', js:"try{showShelf('home');}catch(e){}", point:"h2.shelf"},
    {t:'Tap any app once to start using it, and it joins Mine so it is waiting for you next time.', point:"#shelfView .grid"},
-   {t:'If an app is one you use all day, open it on its own and give that its own home screen icon too. The two live happily side by side.', js:"try{openApp('everyday');}catch(e){}", point:"#frameOut"},
+   {t:'There is also open on its own, which gives an app its own window for the day. It is the same app and the same information \u2014 the one Daraja icon is still all you need to add.', js:"try{openApp('everyday');}catch(e){}", point:"#frameOut"},
    "Daraja is AI-powered too: when you are not sure, tap the sparkle button in the corner, and an AI tells you which app to open, so your day starts in the right place.",
    {t:'That is the whole setup. New apps will appear on their own, so there is nothing to come back and do.', js:"try{closeApp();showShelf('home');}catch(e){}", point:"#nav"}
   ],

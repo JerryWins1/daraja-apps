@@ -374,31 +374,46 @@ async function install(b, port){
     return e.id !== '' && e.checkVisibility() && r.width > 0 && r.height > 0 && (c.position === 'fixed' || +c.zIndex > 100);
   }).map(e => e.id));
 
-  /* iPhone: the screen, and nothing else of ours over the app */
+  /* 22 Nov, Jerry's answer: ONE Daraja icon, not one per app. So the marker on an app does not
+     show the screen there at all — Safari's Add to Home Screen bookmarks the page you are
+     standing on, so an install offered from inside Who's Coming makes a Who's Coming icon
+     whatever any manifest says. It forwards to the front door, which is the only place the
+     steps really do add Daraja, and then sends them on to the app they tapped. */
   let ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
   let p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(3500);
+  ck('the marker on an app forwards to the front door', /\/home\/\?dj_install=1&go=/.test(p.url()), p.url());
+  ck('and carries the app it came from', /whoscoming/.test(decodeURIComponent(p.url())), p.url());
+  await p.close();
+
+  p = await ctx.newPage();
+  p.on('pageerror', e => errs.push(e.message));
+  const appUrl = `http://localhost:${port}/whoscoming/?v=1`;
+  await p.goto(`http://localhost:${port}/home/?dj_install=1&go=${encodeURIComponent(appUrl)}`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(4000);
   let ids = await seen(p);
-  ck('on a first open it is the only thing up, with the dock', ids.includes('djInstall') && !ids.includes('djTour') && !ids.includes('djHello') && !ids.includes('djA2HS'), ids);
+  ck('on the front door it is the only thing up, with the dock', ids.includes('djInstall') && !ids.includes('djTour') && !ids.includes('djHello') && !ids.includes('djA2HS'), ids);
   const txt = await p.evaluate(() => (document.getElementById('djInstall') || {}).innerText || '');
-  ck('it names the app and offers a way past it', /Who’s Coming/.test(txt) && /Not now, just open it/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 90));
+  ck('it offers DARAJA, not the app', /Daraja/.test(txt) && !/Who’s Coming on your Home Screen/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 80));
+  ck('it keeps the line Jerry approved, word for word',
+     /Put it on your Home Screen and it opens like any other app — full screen, straight from the icon\./.test(txt), txt.replace(/\s+/g, ' ').slice(0, 160));
+  ck('it says where the app they tapped went', /One icon for every Daraja app/.test(txt) && /Whoscoming included/i.test(txt), txt.replace(/\s+/g, ' ').slice(0, 200));
+  ck('and still offers a way past it', /Not now, just open it/.test(txt));
   ck('the icon on it is a real file that loaded', await p.evaluate(() => { const i = document.getElementById('djInstallIcon'); return !!i && i.naturalWidth > 0; }));
   ck('it sits above the welcome tour', await p.evaluate(() => +getComputedStyle(document.getElementById('djInstall')).zIndex > 2147483000));
-  /* answered: everything that was waiting is let go */
+  /* answered either way, they land in the app they tapped */
   await p.evaluate(() => document.querySelector('#djInstall button[data-a="skip"]').click());
-  await p.waitForTimeout(3500);
-  ids = await seen(p);
-  ck('"Not now" lets the app get on with its own first open', !ids.includes('djInstall') && ids.includes('djTour'), ids);
-  ck('and the Home Screen card does not then pile on as well', !ids.includes('djA2HS'), ids);
+  await p.waitForTimeout(2500);
+  ck('"Not now" still takes them on to the app they tapped', /\/whoscoming\//.test(p.url()), p.url());
   ck('no page errors', errs.length === 0, errs);
   await p.close(); await ctx.close();
 
   /* Android: Chrome decides a page is installable on its own schedule, usually after this is up */
   ctx = await b.newContext({ ...require('playwright').devices['Pixel 5'], serviceWorkers: 'block' });
   p = await ctx.newPage();
-  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.goto(`http://localhost:${port}/home/?dj_install=1`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(1500);
   const before = await p.evaluate(() => document.querySelector('#djInstall button[data-a]').innerText);
   ck('before Chrome offers anything it shows Chrome\'s own steps', /added it/.test(before), before);
@@ -406,28 +421,41 @@ async function install(b, port){
     e.prompt = () => { window.__called = 1; }; e.userChoice = Promise.resolve({ outcome: 'accepted' }); window.dispatchEvent(e); });
   await p.waitForTimeout(600);
   const after = await p.evaluate(() => document.querySelector('#djInstall button[data-a]').innerText);
-  ck('a prompt arriving LATE turns it into one tap', /Install/.test(after), after);
+  ck('a prompt arriving LATE turns it into one tap', /Install Daraja/.test(after), after);
   await p.evaluate(() => document.querySelector('#djInstall button[data-a="install"]').click());
   await p.waitForTimeout(600);
   ck('and that tap really calls Chrome, not our own steps', await p.evaluate(() => !!window.__called));
-  ck('accepting it is remembered, so the screen never comes back', await p.evaluate(() => localStorage.getItem('dj_a2hs_whoscoming')) === 'done');
+  ck('accepting it is remembered, so the screen never comes back', await p.evaluate(() => localStorage.getItem('dj_a2hs_home')) === 'done');
   await p.close(); await ctx.close();
 
   /* nowhere to put an icon: a laptop just opens the app */
   ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
   p = await ctx.newPage();
-  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.goto(`http://localhost:${port}/home/?dj_install=1`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(3000);
   ck('a laptop is never shown it', !(await seen(p)).includes('djInstall'));
+  await p.close(); await ctx.close();
+
+  /* the loop this very check found: answering it with nothing to go on to resolved an empty go
+     against the current address, so it sent them back to the same URL, marker and all */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/home/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  const wasAt = p.url();
+  await p.evaluate(() => document.querySelector('#djInstall button[data-a="skip"]').click());
+  await p.waitForTimeout(2500);
+  ck('answering it with nowhere to go on to does not loop',
+     !(await seen(p)).includes('djInstall') && p.url() === wasAt, p.url());
   await p.close(); await ctx.close();
 
   /* someone who already added it */
   ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
   p = await ctx.newPage();
-  await p.addInitScript(() => { try { localStorage.setItem('dj_a2hs_whoscoming', 'done'); } catch (e) {} });
-  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.addInitScript(() => { try { localStorage.setItem('dj_a2hs_home', 'done'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/home/?dj_install=1&go=${encodeURIComponent(`http://localhost:${port}/whoscoming/`)}`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(2500);
-  ck('someone who already has the icon goes straight in', !(await seen(p)).includes('djInstall'));
+  ck('someone who already has the icon goes straight to the app', !(await seen(p)).includes('djInstall') && /\/whoscoming\//.test(p.url()), p.url());
   await p.close(); await ctx.close();
 
   /* no marker: an ordinary visit is untouched, except that the greeting no longer burns
@@ -449,9 +477,15 @@ async function install(b, port){
   const links = await p.evaluate(() => Array.from(document.querySelectorAll('a.btn.get, a.btn.try'))
     .map(a => a.getAttribute('href') || '').filter(h => h && !/^mailto:/.test(h)));
   ck('the store has Get and Try links to show', links.length > 20, links.length);
-  const without = links.filter(h => !/dj_install=1/.test(h));
-  ck('every store link that opens an app carries the marker', without.length === 0, without.slice(0, 5));
-  ck('and each still carries the v= stamp that beats the cached copy', links.every(h => /[?&]v=\d+/.test(h)), links.filter(h => !/[?&]v=\d+/.test(h)).slice(0, 3));
+  const without = links.filter(h => !/\/home\/\?dj_install=1&go=/.test(h));
+  ck('every store link that opens an app goes through the front door', without.length === 0, without.slice(0, 5));
+  ck('and each still carries the v= stamp that beats the cached copy',
+     links.every(h => /v%3D\d+/.test(h) || /[?&]v=\d+/.test(decodeURIComponent(h))), links.slice(0, 2));
+  ck('an open redirect is refused', await p.evaluate(async () => {
+    const u = location.origin + '/home/?dj_install=1&go=' + encodeURIComponent('https://evil.example/');
+    const r = await fetch(u); const t = await r.text();
+    return /djSafeGo/.test(t);   /* the guard is in the shipped block */
+  }));
   await p.close(); await ctx.close();
 }
 
@@ -677,6 +711,21 @@ function icons(){
      all, so it is simply not running), and the guidance that was reachable says to carry a
      rasterised icon beside an SVG. tools/icons/manifest.cjs puts a 192 and a 512 in each. */
   ck('no manifest offers Chrome an SVG and nothing else', svgOnly.length === 0, svgOnly);
+  /* found by the Pit Wall chat on 22 Nov: f1/ carried a manifest.json nothing referenced, still
+     pointing at the SVG. Nothing reads it, so nothing breaks — and that is exactly why it sat
+     there. A spare manifest is the next person's wrong answer. */
+  const spare = [];
+  for (const f of files) {
+    const dir = path.dirname(f), rel = path.relative(ROOT, dir) || '.';
+    const s2 = fs.readFileSync(f, 'utf8');
+    const m2 = s2.match(/<link[^>]*rel=["']manifest["'][^>]*href=["']([^"']+)["']/i);
+    const linked = m2 && !/^(data|https?):/i.test(m2[1]) ? path.basename(m2[1].split('?')[0]) : null;
+    for (const name of fs.readdirSync(dir)) {
+      if (!/^manifest\.(json|webmanifest)$/i.test(name)) continue;
+      if (name !== linked) spare.push(`${rel}/${name}`);
+    }
+  }
+  ck('no app carries a spare manifest nothing links', spare.length === 0, spare);
 
   const hm = JSON.parse(fs.readFileSync(path.join(ROOT, 'home', 'manifest.webmanifest'), 'utf8'));
   /* "../" resolves one level above home/, which on the real site is /daraja-apps/ — so every app
