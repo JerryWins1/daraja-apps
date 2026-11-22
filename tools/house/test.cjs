@@ -569,10 +569,48 @@ async function mine(b, port){
   });
   ck("it never opens on top of an app's own welcome card", own.theirs && !own.setup, own);
   ck('and that card is the thing you actually touch', own.centre === 'djStart', own);
-  /* and it is not suppressed for good - it takes its turn once their card has gone */
-  await p.evaluate(() => { const d = document.getElementById('djStart'); if (d) d.remove(); });
-  await p.waitForTimeout(5000);
-  ck('once their card has gone, it takes its turn', await p.evaluate(() => !!document.getElementById('djSetup')));
+  /* It used to be checked here that the offer took its turn once their card had gone. Church HQ
+     has since set DJ_MINE = false, so on this app it correctly never appears at all — the "not
+     suppressed for good" half is checked on whoscoming below, and the opt-out at the end. */
+  await p.close(); await ctx.close();
+
+  /* 22 Nov, from The Church App chat after they used the DJ_MINE switch: the stacking fix moved
+     the interruption rather than removing it. The moment a secretary taps "Start with the basics"
+     the card opened over the Basics form, with the church's name already typed into it. A person
+     typing is a person typing in any app, so once somebody has put something in, the offer does
+     not come this visit — and is NOT recorded as a refusal, so it asks again another day. */
+  for (const typed of [false, true]) {
+    ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+    p = await ctx.newPage();
+    await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(1500);
+    if (typed) await p.evaluate(() => { const i = document.createElement('input');
+      document.body.appendChild(i); i.value = 'Grace Chapel Nakuru'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+    await p.waitForTimeout(2500);
+    await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove();
+      try { localStorage.setItem('dj_tour_' + (window.DJ_TOUR || {}).slug, 'done'); } catch (e) {} });
+    await p.waitForTimeout(6000);
+    const shown = await p.evaluate(() => !!document.getElementById('djSetup'));
+    const refused = await p.evaluate(() => localStorage.getItem('dj_setup_no_whoscoming'));
+    if (typed) {
+      ck('somebody who has started typing is not interrupted', !shown);
+      ck('  and that is not taken as a no', refused === null, refused);
+    } else {
+      ck('somebody who has typed nothing is still offered it', shown);
+    }
+    await p.close(); await ctx.close();
+  }
+
+  /* an app can switch the whole of it off, which is what Church HQ did */
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/church-hq/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(6000);
+  ck('an app that sets DJ_MINE = false gets none of it', await p.evaluate(() => {
+    if (window.DJ_MINE !== false) return 'this app no longer sets DJ_MINE = false';
+    if (document.getElementById('djSetup')) return 'the setup card appeared anyway';
+    return true;
+  }) === true);
   await p.close(); await ctx.close();
 
   /* 22 Nov, from the Ahead of It chat: a keyword test on the person's own first sentence used to
