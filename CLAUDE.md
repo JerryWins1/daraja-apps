@@ -158,6 +158,27 @@ updated when the rule changes, because nobody remembers it exists.
 So when a rule changes, it changes HERE, once. If you find a copy, delete the copy —
 do not update it.
 
+## When Jerry is away, decide
+
+Jerry, 22 November, after two overnight builds were held waiting for him to approve
+wording: *"When you run on your own, just decide, make the best decisions, and we'll
+fix them later."*
+
+So when a chat is working without him — overnight, or after he has said to run on its
+own — it does not stop to ask. It makes the best call, ships it, and writes down what
+it decided so he can change it afterwards. That includes words a customer reads, a
+name, a layout, which of two designs to build. This replaces "ask before merging when
+the work is genuinely his call" for those unattended runs only; when he is in the
+conversation, the seven rules above are unchanged.
+
+Every decision made this way goes in one list, in that chat's next message to him and
+on its card: what was decided, and the one line to say to undo it.
+
+Three things still wait for him, however long he is away, because they cannot be fixed
+later: money (a price charged, pay, anything moved or spent), who can get into what
+(access, keys, permissions), and anything sent to a real person. A job's prompt still
+changes only from its own chat.
+
 ## One app, one chat
 
 Jerry works on one app at a time, so every app gets exactly one chat and no chat
