@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v77">
+<script id="dj-house-v80">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -546,6 +546,10 @@
         var owned = named;
         if(!owned) for(var j=0; j<mine.p.length; j++) if(mine.p[j] && k.indexOf(mine.p[j]) === 0){ owned = true; break; }
         if(!owned && k.indexOf('fs_coach_' + me) === 0) owned = true;
+        /* 22 Nov: the house keeps two things per app that belong to that app and must go with it —
+           the four setup answers and any reports kept here. Neither matches the app's own prefixes,
+           so without this Start fresh left both behind and the app came back already set up. */
+        if(!owned && (k === 'dj_profile_' + me || k === 'dj_setup_no_' + me || k.indexOf('dj_reports_' + me) === 0)) owned = true;
         if(!owned) continue;
         if(guard[k] && !named) continue;   /* another app's, by name */
         out.push(k);
@@ -931,10 +935,28 @@
       fb.onclick = function(){ w.remove(); djBackPush(dockSheet); djFeedback(); };
       box.appendChild(fb);
     }
+    /* 22 Nov, Jerry: "a way for you to interview the user to see what they would like to see in
+       the system … either build what they're looking for or add it to the system as a feature". */
+    if(!djMineOff()){
+      var mi = document.createElement('button'); mi.type = 'button';
+      mi.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      var mp = djProfile();
+      mi.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">\u2728</span><span style="flex:1">Make it mine<br><small style="font-weight:600;color:#55605B">' + (mp.done ? 'how it is set up, and ask for something new' : 'four questions, or ask for something new') + '</small></span>';
+      mi.onclick = function(){ w.remove(); djBackPush(dockSheet); setupSheet(); };
+      box.appendChild(mi);
+      var rpN = djReports().length;
+      if(rpN){
+        var rp = document.createElement('button'); rp.type = 'button';
+        rp.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+        rp.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">\u{1F4CA}</span><span style="flex:1">My reports<br><small style="font-weight:600;color:#55605B">' + rpN + ' kept on this phone</small></span>';
+        rp.onclick = function(){ w.remove(); djBackPush(dockSheet); reportsSheet(); };
+        box.appendChild(rp);
+      }
+    }
     if(!djHomeScreenOff()){
       var hs = document.createElement('button'); hs.type = 'button';
       hs.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
-      hs.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">\u{1F4F2}</span><span style="flex:1">Put this app on your Home Screen<br><small style="font-weight:600;color:#55605B">it opens full screen, like any other app</small></span>';
+      hs.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">\u{1F4F2}</span><span style="flex:1">Put Daraja on your Home Screen<br><small style="font-weight:600;color:#55605B">one icon for every Daraja app, this one included</small></span>';
       hs.onclick = function(){ w.remove(); djBackClear(); homeScreenGuide(true); };
       box.appendChild(hs);
     }
@@ -1171,8 +1193,8 @@
      — not the first, not while installed, not inside Feedback Studio — one card
      shows the three taps, with a real arrow to where the Share button lives. */
   /* v66: Chrome on Android offers its install prompt once it decides the page can be installed; keep it for our own button. */
-  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
-  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + slugOf(), 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); }catch(err){} });
+  window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); window.__djBIP = e; var is = document.getElementById('djInstall'); if(is && is.__up){ is.__up(); return; } if(!document.getElementById('djA2HS')) setTimeout(homeScreenGuide, 800); }catch(err){} });
+  window.addEventListener('appinstalled', function(){ try{ localStorage.setItem('dj_a2hs_' + DJ_HOME_SLUG, 'done'); var c = document.getElementById('djA2HS'); if(c) c.remove(); var i = document.getElementById('djInstall'); if(i){ DJ_HOLD = 0; i.remove(); } }catch(err){} });
   /* 21 Nov, Jerry through the front door: "We also need a way to show them how to put the app on
      the shortcut… for the app." The card above still appears on its own, once, on a second visit;
      this is the way to ask for it deliberately, any time. Not offered where there is nothing to
@@ -1188,6 +1210,8 @@
   }
   function homeScreenGuide(force){
     if(document.getElementById('djA2HS')) return;
+    /* 22 Nov: never behind, or straight after, the install screen — that was the pile-up. */
+    if(!force && (djHold() || window.__djIS)) return;
     try{
       var ua = navigator.userAgent || '';
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
@@ -1199,13 +1223,50 @@
       if(embedded || installed || (!ios && !android) || (!force && !ios && !bip)) return;
       if(!force && guestVisit()) return;
       if(!force && /\/(welcome|watch\.html|feedback-studio|testers|help|testday|control|safety)(\/|$)/.test(location.pathname)) return;   /* v47: tester and helper pages are visited, not kept */
-      var key = 'dj_a2hs_' + slugOf(), st = localStorage.getItem(key) || '';
+      var key = 'dj_a2hs_' + DJ_HOME_SLUG, st = localStorage.getItem(key) || '';   /* 22 Nov: one icon, one record */
       if(st === 'done' || st === 'no') return;
       var visits = parseInt(st || '0', 10) || 0;
       if(!force && visits < 1){ if(!window.__djA2C){ window.__djA2C = 1; localStorage.setItem(key, String(visits + 1)); } return; }   /* first visit: just count (once, even if Chrome's prompt calls again) */
       if(!force && cardOpen()){ setTimeout(function(){ homeScreenGuide(force); }, 4000); return; }   /* v47: wait until the welcome card is closed */
       var name = (document.title || 'this app').split(/ [—·|-] /)[0].trim();
       var shareAtBottom = /iPhone|iPod/.test(ua);   /* iPad puts Share at the top */
+      /* 22 Nov: one Daraja icon. Inside an app this card cannot do the job itself - Safari's Add
+         to Home Screen bookmarks the page you are standing on, so following its steps here would
+         make a Who's Coming icon, which is the thing Jerry decided against. So in an app it makes
+         the offer and walks them to the front door, where the steps really do add Daraja. On the
+         front door it is the card it always was. */
+      if(!djFrontDoor()){
+        var bkb = document.getElementById('djBackup'), bkbs = bkb ? bkb.querySelectorAll('button') : [];
+        var wA = document.createElement('div'); wA.id = 'djA2HS'; wA.setAttribute('role','dialog'); wA.setAttribute('aria-label','Put Daraja on your Home Screen');
+        wA.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
+          + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
+          + 'font:15px/1.45 -apple-system,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+        var btnA = 'font:inherit;font-weight:800;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:#2F6E52;color:#fff;cursor:pointer';
+        var plain = 'font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
+        var nameA = (document.title || 'this app').split(/ [\u2014\u00b7|-] /)[0].trim().replace(/[<>&]/g, '');
+        wA.innerHTML = '<div style="font-weight:800;font-size:17px;margin-bottom:6px">One icon for all your Daraja apps</div>'
+          + '<p style="margin:0 0 10px">Daraja holds ' + esc(nameA) + ' and the rest behind one icon. Add it once and they all open from there, full screen.</p>'
+          /* the line Jerry asked for after choosing one icon. To undo it, say "take the save-a-copy
+             line off the Home Screen card". Only where the app really has a Save a copy button to
+             offer, and it says "can" because whether a Home Screen app starts with its own clean
+             slate is an iOS question no cloud chat has been able to settle. */
+          + (bkbs[0] ? '<p style="margin:0 0 10px;color:#55605B;font-size:14px">Already put things in here? Save a copy first \u2014 a Home Screen app can start with its own clean slate.</p>' : '')
+          + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+          + '<button type="button" data-a="go" style="' + btnA + '">\u{1F4F2} Show me how</button>'
+          + (bkbs[0] ? '<button type="button" data-a="save" style="' + plain + '">Save a copy</button>' : '')
+          + '<button type="button" data-a="later" style="' + plain + '">Later</button>'
+          + '<button type="button" data-a="no" style="font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:12px;border:0;background:transparent;color:#55605B;cursor:pointer">Don\u2019t ask again</button></div>';
+        wA.addEventListener('click', function(e){
+          var bb = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!bb) return;
+          var aa = bb.getAttribute('data-a');
+          if(aa === 'save'){ try{ bkbs[0].click(); }catch(err){} return; }
+          if(aa === 'go'){ wA.remove(); djToFrontDoor(location.href); return; }
+          try{ localStorage.setItem('dj_a2hs_' + DJ_HOME_SLUG, aa === 'no' ? 'no' : '0'); }catch(err){}
+          wA.remove();
+        });
+        document.body.appendChild(wA);
+        return;
+      }
       var w = document.createElement('div'); w.id = 'djA2HS'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Put this app on your Home Screen');
       w.style.cssText = 'position:fixed;left:10px;right:10px;' + (shareAtBottom ? 'bottom:calc(64px + env(safe-area-inset-bottom));' : 'top:calc(64px + env(safe-area-inset-top));')
         + 'z-index:2147481003;background:#FFFDF8;color:#1F2622;border:1.5px solid #C9982A;border-radius:16px;padding:14px 14px 12px;'
@@ -1235,6 +1296,626 @@
     }catch(e){}
   }
 
+  /* ── 10b · the install screen, for someone arriving from the store (22 Nov 2026) ──
+     Jerry: "I'd also like to improve the store so we download an app that has an icon on it
+     right away rather than having to horse around and download it and all that stuff."
+
+     WHAT HE WAS SEEING. Measured on an iPhone 13 before a line of this was written: a first
+     open of whoscoming built four things in two and a half seconds — the welcome tour at
+     1.0s (full screen, 72% shade), the greeting at 1.5s and the Home Screen card at 2.5s,
+     both UNDERNEATH it, plus the app's own first card. The greeting spent its whole eight
+     seconds invisible under the shade, and the Home Screen card — the one thing he wanted
+     seen — was buried deepest of all. That is the horsing around.
+
+     SO: a link from the store carries ?dj_install=1, and that one screen comes first and
+     alone. Nothing else is let up until it is answered — the tour waits, the greeting waits,
+     the start menu waits, and the app's own card is covered. One answer either way and the
+     app opens as normal. It never appears once the app is installed, inside a frame, or in a
+     browser with no Home Screen at all, which includes every laptop: there a store link just
+     opens the app.
+
+     It sits ABOVE the tour on purpose, 2147483100 against 2147483000. Merely equal would have
+     made it a race between two setTimeouts, which is the fault being fixed. */
+  var DJ_HOLD = 0;
+  function djHold(){ return DJ_HOLD === 1; }
+  window.djHoldOn = djHold;
+  function djFromStore(){ try{ return /[?&]dj_install=1/.test(location.search); }catch(e){ return false; } }
+  function djAppName(){ return (document.title || 'this app').split(/ [—·|-] /)[0].trim(); }
+  function djAppIcon(){
+    try{ var l = document.querySelector('link[rel="apple-touch-icon"]');
+      if(l && l.getAttribute('href')) return l.getAttribute('href'); }catch(e){}
+    return 'icon.svg';
+  }
+  /* 22 Nov, later the same night. Jerry was asked whether the store should hand out an icon per
+     app or one Daraja icon that holds them all, and chose ONE DARAJA ICON. That is not a wording
+     change, it is a different install, and the reason is in how phones actually work:
+
+       - iOS does not install a manifest. Safari's Add to Home Screen bookmarks THE PAGE YOU ARE
+         ON, with that page's apple-touch-icon and title. Stand on /whoscoming/ and you get a
+         Who's Coming icon, whatever any manifest says.
+       - Android installs the manifest OF THE PAGE YOU ARE ON. Same result.
+
+     So one Daraja icon cannot be offered from inside an app at all - the person has to be
+     standing on the front door when they add it. The store's Get links therefore go to
+     home/?dj_install=1&go=<the app>, the front door shows this screen, and whichever way they
+     answer it they are sent straight on to the app they tapped. An app reached with the marker
+     any other way forwards itself there once. */
+  var DJ_HOME_SLUG = 'home';
+  var DJ_SITE = 'https://jerrywins1.github.io/daraja-apps/';
+  /* Where the front door lives. The first version worked this out by walking up from the current
+     path, which was wrong for the eight apps under "Apps (installable site)/": it sent them to
+     /Apps (installable site)/home/, a page that does not exist. The live address is already
+     hardcoded a few lines further down for control/ai.json, so it is hardcoded here too, and
+     anything not on the live site is taken to be a copy served from the repo root, which is what
+     every local server and every check here does. */
+  function djSiteBase(){
+    try{ if(location.href.indexOf(DJ_SITE) === 0) return DJ_SITE; }catch(e){}
+    try{ return location.origin + '/'; }catch(e){ return '/'; }
+  }
+  /* Never an open redirect: only a page on this site. And never THIS page, which is not a
+     theoretical worry — the first version passed an empty string straight to new URL(), which
+     resolves to the current address, so answering the screen on the front door with no app to go
+     on to sent the person back to the same URL, marker and all, and the screen came straight back.
+     An endless loop, caught by the check that asks whether tapping Install really calls Chrome. */
+  function djSafeGo(u){
+    var v = String(u || '').trim(); if(!v) return '';
+    try{
+      var a = new URL(v, location.href);
+      if(a.href.indexOf(djSiteBase()) !== 0) return '';
+      var here = location.href.split('#')[0], there = a.href.split('#')[0];
+      return there === here ? '' : a.href;
+    }catch(e){ return ''; }
+  }
+  function djGoParam(){ try{ return djSafeGo(new URLSearchParams(location.search).get('go') || ''); }catch(e){ return ''; } }
+  function djFrontDoor(){ return slugOf() === DJ_HOME_SLUG; }
+  function djToFrontDoor(go){
+    var u = djSiteBase() + DJ_HOME_SLUG + '/?dj_install=1';
+    if(go) u += '&go=' + encodeURIComponent(go);
+    try{ location.replace(u); }catch(e){ location.href = u; }
+  }
+  function installScreen(){
+    if(!djFromStore() || document.getElementById('djInstall') || !document.documentElement) return;
+    var key;
+    try{
+      if(djHomeScreenOff() || guestVisit()) return;
+      key = 'dj_a2hs_' + DJ_HOME_SLUG;   /* one icon, so one record of having it */
+      if(localStorage.getItem(key) === 'done'){ var g0 = djGoParam(); if(g0 && djFrontDoor()) location.replace(g0); return; }
+      /* the marker reached an app rather than the front door: send it where it can be answered */
+      if(!djFrontDoor()){ djToFrontDoor(location.href.replace(/([?&])dj_install=1&?/, '$1').replace(/[?&]$/, '')); return; }
+    }catch(e){ return; }
+    DJ_HOLD = 1; window.__djIS = 1;
+    var ua = navigator.userAgent || '';
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var shareAtBottom = /iPhone|iPod/.test(ua);
+    var name = 'Daraja';
+    var goTo = djGoParam(), goName = '';
+    try{ if(goTo){ var seg = goTo.replace(/[?#].*$/, '').replace(/\/$/, '').split('/').pop();
+      goName = decodeURIComponent(seg || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); } }catch(e){}
+    var w = document.createElement('div'); w.id = 'djInstall';
+    w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+    w.setAttribute('aria-label', 'Put ' + name + ' on your Home Screen');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#F7F4EC;color:#1F2622;'
+      + 'font:17px/1.5 -apple-system,system-ui,sans-serif;overflow:auto;-webkit-overflow-scrolling:touch;'
+      + 'padding:calc(26px + env(safe-area-inset-top)) 20px calc(26px + env(safe-area-inset-bottom));box-sizing:border-box';
+    var card = document.createElement('div');
+    card.style.cssText = 'max-width:460px;margin:0 auto;text-align:center';
+    w.appendChild(card);
+    function paint(){
+      var bip = window.__djBIP || null;
+      var BTN = 'font:inherit;font-weight:800;font-size:18px;min-height:56px;padding:12px 18px;border-radius:14px;border:0;background:#2F6E52;color:#fff;cursor:pointer;width:100%;max-width:340px';
+      var LNK = 'font:inherit;font-size:15px;font-weight:700;color:#55605B;background:none;border:0;min-height:48px;padding:10px;cursor:pointer;text-decoration:underline';
+      var OL = 'text-align:left;margin:0 auto 18px;padding-left:24px;max-width:340px';
+      var steps = ios
+        ? '<ol style="' + OL + '"><li style="margin-bottom:8px">Tap the <b>Share</b> button <span aria-hidden="true">&#x2B06;&#xFE0F;</span> '
+          + (shareAtBottom ? 'at the bottom of Safari' : 'at the top of Safari') + '</li>'
+          + '<li style="margin-bottom:8px">Scroll down and tap <b>Add to Home Screen</b></li>'
+          + '<li>Tap <b>Add</b></li></ol>'
+        : (bip ? '' : '<ol style="' + OL + '"><li style="margin-bottom:8px">Tap the <b>&#x22EE;</b> menu at the top right of Chrome</li>'
+          + '<li style="margin-bottom:8px">Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li>'
+          + '<li>Tap <b>Install</b></li></ol>');
+      card.innerHTML = '<img id="djInstallIcon" src="' + esc(djFrontDoor() ? 'icon-180.png' : djAppIcon()) + '" alt="" width="96" height="96" style="width:96px;height:96px;border-radius:22px;display:block;margin:0 auto 14px;box-shadow:0 6px 18px rgba(0,0,0,.18)">'
+        + '<div style="font-weight:900;font-size:24px;line-height:1.25;margin-bottom:6px">' + esc(name) + '</div>'
+        + '<p style="margin:0 0 6px;color:#55605B;font-size:16px">Put it on your Home Screen and it opens like any other app — full screen, straight from the icon.</p>'
+        /* Jerry approved the line above at 05:06 on 22 Nov and it is unchanged. The one below is
+           new and is mine: one icon means the person who tapped Get on an app has to be told
+           where that app went. To undo it, say "drop the second line on the install screen". */
+        + '<p style="margin:0 0 18px;color:#55605B;font-size:15px">One icon for every Daraja app'
+        + (goName ? ', ' + esc(goName) + ' included' : '') + '. You go straight there next.</p>'
+        + steps
+        + '<button type="button" data-a="' + (!ios && bip ? 'install' : 'did') + '" style="' + BTN + '">'
+        + (!ios && bip ? '\u{1F4F2} Install ' + esc(name) : 'I’ve added it') + '</button>'
+        + '<div style="margin-top:10px"><button type="button" data-a="skip" style="' + LNK + '">Not now, just open it</button></div>';
+    }
+    paint();
+    /* Chrome decides a page is installable on its own schedule, and on a cold load it is
+       usually AFTER this screen is up. The old card could not take a late prompt at all —
+       its first line was "if the card exists, do nothing" — so on Android it showed three
+       manual steps and never became the one-tap Install, measured 22 Nov. This takes it. */
+    w.__up = function(){ if(w.parentNode) paint(); };
+    function close(how){
+      DJ_HOLD = 0;
+      try{ localStorage.setItem(key, how); }catch(e){}
+      if(w.parentNode) w.parentNode.removeChild(w);
+      var go = djGoParam();
+      if(go){ setTimeout(function(){ try{ location.replace(go); }catch(e){ location.href = go; } }, 250); return; }
+      /* one at a time, never both: the setup offer takes its turn once this is answered */
+      setTimeout(function(){ try{ setupOffer(); }catch(e){} }, 400);
+    }
+    w.addEventListener('click', function(e){
+      var b = e.target && e.target.closest && e.target.closest('button[data-a]'); if(!b) return;
+      var a = b.getAttribute('data-a'), bip = window.__djBIP || null;
+      if(a === 'install' && bip){
+        window.__djBIP = null;
+        try{ bip.prompt(); bip.userChoice.then(function(c){ close(c && c.outcome === 'accepted' ? 'done' : '0'); }, function(){ close('0'); }); }
+        catch(err){ close('0'); }
+        return;
+      }
+      close(a === 'did' ? 'done' : '0');
+    });
+    document.documentElement.appendChild(w);
+  }
+
+  /* ── 10c · Make it mine — the interview, the report it builds, and the profile (22 Nov 2026) ──
+     Jerry: "a way for you to interview the user to see what they would like to see in the system,
+     and they could give you something, and then you determine the questions to ask, and then
+     either build what they're looking for or add it to the system as a feature… like 'I would
+     like to have a report', and then ask him what's on the report that would be special for
+     them… If you can build those into all the AI logic, that'd be really cool."
+
+     THE LINE THAT HOLDS, and everything below is built around it: the AI ARRANGES WHAT THE APP
+     ALREADY HAS. It never writes code onto the phone, it never invents a number, and a report
+     says where each figure came from. A plan that names a figure this app does not keep is not
+     rendered blank and it is not guessed at — it is dropped, and the report says it was dropped.
+
+     ONE CONFIRMATION FOR A WHOLE INTERVIEW, not one per question. The door's own rule since
+     15 November is that the words are shown before they are sent, and that rule is kept: the
+     interview shows what is about to go, in full, once, before the first question — including
+     that each answer tapped afterwards goes the same way. Four confirm sheets inside one
+     four-question interview would be the pile-up of 21 November wearing a different hat, and a
+     sheet nobody reads is worse than one they do. */
+
+  /* Per app, not shared. The four questions ask about THIS app ("what will you mostly use this
+     for"), so one answer cannot stand for all of them — and a per-app key goes with that app's
+     own Start fresh, which a shared one must not. myKeys() is told to own both names. */
+  function djProfileKey(){ return 'dj_profile_' + djRefKey(slugOf()); }
+  function djProfile(){ try{ return JSON.parse(localStorage.getItem(djProfileKey()) || '{}') || {}; }catch(e){ return {}; } }
+  function djProfileSet(p){ try{ localStorage.setItem(djProfileKey(), JSON.stringify(p || {})); }catch(e){} }
+  function djReportsKey(){ return 'dj_reports_' + djRefKey(slugOf()); }
+  function djReports(){ try{ return JSON.parse(localStorage.getItem(djReportsKey()) || '[]') || []; }catch(e){ return []; } }
+  function djReportsSet(a){ try{ localStorage.setItem(djReportsKey(), JSON.stringify(a || [])); }catch(e){} }
+
+  /* Nowhere near a kids' page or the crisis tool, and not on the pages that are visited
+     rather than kept. Same list the rest of the house uses. */
+  function djMineOff(){
+    try{
+      if(embedded || kidsPage() || crisisPage() || guestVisit() || djSandbox()) return true;
+      return /\/(welcome|testers|help|testday|control|whats-new|thanks|inspect|watch\.html)(\/|$)/.test(location.pathname);
+    }catch(e){ return true; }
+  }
+
+  /* ── what this app can put in a report ──────────────────────────────────────
+     An app says what it has with window.djReportSource = { name, fields:[{key,label,kind}], get(period) }.
+     kind is 'number', 'text', 'list' (array of strings) or 'table' (array of arrays, first row the
+     headings). get(period) returns { key: value } and may leave a key out.
+
+     The house ships its own source so the engine is real in EVERY app from the first day instead
+     of waiting on 54 chats, and so there is something to drive in a test. Everything in it is
+     already on this phone and was put there by the house itself. */
+  function djHouseSource(){
+    return {
+      name: 'Daraja',
+      fields: [
+        { key: 'days_here',  label: 'days you have opened this app',            kind: 'number' },
+        { key: 'apps_here',  label: 'Daraja apps with something saved on this phone', kind: 'number' },
+        { key: 'app_list',   label: 'which Daraja apps those are',              kind: 'list' },
+        { key: 'problems',   label: 'problems this app recorded',               kind: 'number' },
+        { key: 'problem_list', label: 'what those problems said',               kind: 'list' },
+        { key: 'text_size',  label: 'your text size setting',                   kind: 'text' }
+      ],
+      get: function(){
+        var out = {}, slug = slugOf();
+        try{ var h = JSON.parse(localStorage.getItem('dj_hello_' + slug) || '{}'); out.days_here = h.days || 0; }catch(e){}
+        var names = [];
+        try{
+          for(var k in OWNS){ if(!Object.prototype.hasOwnProperty.call(OWNS, k)) continue;
+            var own = OWNS[k], hit = false;
+            for(var i = 0; i < (own.k || []).length; i++){ if(localStorage.getItem(own.k[i]) != null){ hit = true; break; } }
+            if(hit) names.push(k);
+          }
+        }catch(e){}
+        out.apps_here = names.length; out.app_list = names.sort();
+        var pr = djProblems();
+        out.problems = pr.length;
+        out.problem_list = pr.slice(0, 10).map(function(p){ return (p.t || '') + ' — ' + (p.m || ''); });
+        var z = textSize();
+        out.text_size = z === 1 ? 'normal' : (z > 1 ? 'larger (' + z + '×)' : 'smaller (' + z + '×)');
+        return out;
+      }
+    };
+  }
+  function djSource(){ return window.djReportSource || djHouseSource(); }
+
+  /* ── the interview ──────────────────────────────────────────────────────────
+     djAI.interview({ kind:'report'|'idea', goal:'…' }). One question at a time, each with
+     tappable answers where the AI can offer them and a box where it cannot, and it stops as
+     soon as it knows enough. Up to MAX_Q questions, so the number of asks is knowable and can
+     be said out loud before it starts — an interview is several asks against the daily cap and
+     somebody paying for it should be told that first. */
+  var IV_MAX_Q = 5;
+  function ivWordsFor(st){
+    var s = djSource(), f = (s.fields || []).map(function(x){ return x.key + ' (' + x.label + ')'; }).join('; ');
+    var p = djProfile();
+    var who = p.use ? ('\nThe person says they use this app for: ' + p.use + '.') : '';
+    var base = 'You are interviewing someone who uses an app called "' + (document.title || 'this app').split(/ [—·|-] /)[0].trim()
+      + '". They said what they want in their own words below. Ask ONE short question at a time to find out exactly what they want, '
+      + 'and stop as soon as you know enough. Never ask more than ' + IV_MAX_Q + ' questions in total. '
+      + 'Offer tappable answers whenever you reasonably can.' + who + '\n\n';
+    if(st.kind === 'report'){
+      base += 'They want a report. This app can show only these figures, and nothing else:\n  ' + f + '\n'
+        + 'Do not ask about anything outside that list, and do not promise anything outside it.\n'
+        + 'When you know enough, reply with the finished plan instead of a question.\n\n'
+        + 'Reply with ONE JSON object and nothing else, in one of these two shapes:\n'
+        + '{"done":false,"question":"…","options":["…","…"]}\n'
+        + '{"done":true,"plan":{"title":"…","period":"all"|"month"|"week","items":[{"field":"<one key from the list>","as":"number"|"text"|"list"|"table","label":"…"}],"watch":"one short sentence"}}\n';
+    } else {
+      base += 'When you know enough, reply with a short summary of exactly what they asked for, in their own words where you can.\n\n'
+        + 'Reply with ONE JSON object and nothing else, in one of these two shapes:\n'
+        + '{"done":false,"question":"…","options":["…","…"]}\n'
+        + '{"done":true,"summary":"…"}\n';
+    }
+    base += '\nWhat they said they want:\n' + st.goal + '\n';
+    if(st.qa.length){ base += '\nWhat you have asked so far, and what they answered:\n';
+      st.qa.forEach(function(x){ base += '  Q: ' + x.q + '\n  A: ' + x.a + '\n'; }); }
+    return base;
+  }
+
+  function ivSheet(html){ var b = sheet(html); return b; }
+  function ivWait(msg){ return ivSheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Make it mine</div><p style="margin:0;color:#55605B;font-size:15px">' + esc(msg) + '</p>'); }
+
+  async function ivRun(st){
+    for(var n = 0; n < IV_MAX_Q + 1; n++){
+      ivWait(st.qa.length ? 'Thinking about your answer…' : 'Thinking of the first question…');
+      var raw = await doorPost({ prompt: ivWordsFor(st), want: 'json' });
+      if(raw == null){ ivFailed(st); return; }
+      var j = extractJSON(raw);
+      if(!j){ ivFailed(st, 'that came back in a shape I could not read'); return; }
+      if(j.done || st.qa.length >= IV_MAX_Q){ ivFinish(st, j); return; }
+      var answered = await ivAsk(st, String(j.question || '').trim(), Array.isArray(j.options) ? j.options.slice(0, 4) : []);
+      if(answered === null) return;   /* they backed out: cancel means cancel */
+      st.qa.push({ q: String(j.question || '').trim(), a: answered });
+    }
+  }
+
+  function ivAsk(st, question, options){
+    return new Promise(function(done){
+      var BT = 'display:block;width:100%;text-align:left;font:inherit;font-weight:800;font-size:16px;min-height:52px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
+      var html = '<div style="font-weight:900;font-size:19px;margin-bottom:2px">Make it mine</div>'
+        + '<p style="margin:0 0 10px;color:#55605B;font-size:13px">Question ' + (st.qa.length + 1) + ' of up to ' + IV_MAX_Q + '</p>'
+        + '<p style="margin:0 0 12px;font-size:17px;font-weight:700">' + esc(question) + '</p>'
+        + '<div id="ivOpts"></div>'
+        + '<textarea id="ivBox" aria-label="Your answer" placeholder="' + (options.length ? 'or say it your own way…' : 'your answer…') + '" style="width:100%;box-sizing:border-box;min-height:70px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622"></textarea>'
+        + '<button type="button" id="ivGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Next →</button>'
+        + '<div style="text-align:center;margin-top:6px"><button type="button" id="ivStop" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">stop here</button></div>';
+      var b = ivSheet(html);
+      var og = b.querySelector('#ivOpts');
+      options.forEach(function(o){
+        var t = String(o || '').trim(); if(!t) return;
+        var btn = document.createElement('button'); btn.type = 'button'; btn.style.cssText = BT; btn.textContent = t;
+        btn.onclick = function(){ closeAISheet(); done(t); };
+        og.appendChild(btn);
+      });
+      b.querySelector('#ivGo').onclick = function(){
+        var v = (b.querySelector('#ivBox').value || '').trim();
+        if(!v) return;
+        closeAISheet(); done(v);
+      };
+      b.querySelector('#ivStop').onclick = function(){ closeAISheet(); done(null); };
+    });
+  }
+
+  function ivFailed(st, why){
+    var b = ivSheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">That did not work</div>'
+      + '<p style="margin:0 0 12px;color:#55605B;font-size:15px">' + esc(why || 'Daraja’s own AI did not answer just now') + '. Nothing was lost — you can try again, or send us what you were after and we will look at it ourselves.</p>'
+      + '<button type="button" id="ivAgain" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Try again</button>'
+      + (djFeedbackOff() ? '' : '<button type="button" id="ivSend" style="' + BTN + ';width:100%;min-height:50px;margin-top:8px">Send it to us instead</button>')
+      + '<div style="text-align:center;margin-top:6px"><button type="button" id="ivNo" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">leave it</button></div>');
+    b.querySelector('#ivAgain').onclick = function(){ closeAISheet(); ivRun(st); };
+    var sb = b.querySelector('#ivSend');
+    if(sb) sb.onclick = function(){ closeAISheet(); ivHandOver(st, ''); };
+    b.querySelector('#ivNo').onclick = function(){ djHouseClose(); };
+  }
+
+  /* 4 · what it cannot build becomes a request. It goes down the same path as Send us a
+     message, as an idea, carrying the interview so the nightly job files exactly what was
+     wanted — and nothing about who they are unless they add it themselves on that sheet. */
+  function ivTranscript(st, summary){
+    var t = 'WHAT THEY ASKED FOR: ' + st.goal + '\n';
+    st.qa.forEach(function(x){ t += '\nQ: ' + x.q + '\nA: ' + x.a + '\n'; });
+    if(summary) t += '\nWHAT THE INTERVIEW UNDERSTOOD: ' + summary + '\n';
+    return t;
+  }
+  function ivHandOver(st, summary){
+    if(djFeedbackOff()) return;
+    djFeedback('idea');
+    setTimeout(function(){
+      try{
+        var box = document.querySelector('#djAISheet textarea');
+        if(box && !box.value){ box.value = ivTranscript(st, summary); box.dispatchEvent(new Event('input', { bubbles: true })); }
+      }catch(e){}
+    }, 250);
+  }
+
+  function ivFinish(st, j){
+    if(st.kind === 'report' && j && j.plan){ reportSave(st, j.plan); return; }
+    var sum = String((j && (j.summary || j.plan && j.plan.title)) || '').trim() || 'what you described';
+    var b = ivSheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Here is what I understood</div>'
+      + '<p style="margin:0 0 12px;font-size:16px;white-space:pre-wrap">' + esc(sum) + '</p>'
+      + '<p style="margin:0 0 12px;color:#55605B;font-size:14.5px">This app cannot build that by itself. If you send it to us it goes on the list with your own words on it.</p>'
+      + (djFeedbackOff() ? '' : '<button type="button" id="ivSend" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">Send it to us</button>')
+      + '<div style="text-align:center;margin-top:6px"><button type="button" id="ivNo" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">no thanks</button></div>');
+    var sb = b.querySelector('#ivSend');
+    if(sb) sb.onclick = function(){ closeAISheet(); ivHandOver(st, sum); };
+    b.querySelector('#ivNo').onclick = function(){ djHouseClose(); };
+  }
+
+  /* ── the report the plan describes ──────────────────────────────────────────
+     Nothing here runs anything the AI sent. The plan is read as data: a title, a period, and
+     a list of field keys. A key that is not in this app's own registry is DROPPED and said to
+     have been dropped, because a figure that is quietly missing and a figure that is quietly
+     wrong look the same on a page. */
+  function reportClean(plan){
+    var s = djSource(), known = {}, kept = [], dropped = [];
+    (s.fields || []).forEach(function(f){ known[f.key] = f; });
+    var items = Array.isArray(plan && plan.items) ? plan.items : [];
+    items.slice(0, 12).forEach(function(it){
+      var k = String((it && it.field) || '').trim();
+      if(known[k]) kept.push({ field: k, label: String((it && it.label) || known[k].label), as: known[k].kind });
+      else if(k) dropped.push(k);
+    });
+    return {
+      title: String((plan && plan.title) || 'My report').slice(0, 80),
+      period: ['all', 'month', 'week'].indexOf(String(plan && plan.period)) >= 0 ? plan.period : 'all',
+      watch: String((plan && plan.watch) || '').slice(0, 200),
+      items: kept, dropped: dropped, source: s.name || 'this app'
+    };
+  }
+  function reportHTML(plan){
+    var s = djSource(), data = {};
+    try{ data = s.get ? (s.get(plan.period) || {}) : {}; }catch(e){ data = {}; }
+    var h = '<div style="font-weight:900;font-size:20px;margin-bottom:2px">' + esc(plan.title) + '</div>'
+      + '<p style="margin:0 0 12px;color:#55605B;font-size:13px">Every figure below comes from ' + esc(plan.source) + '’s own records on this phone. Nothing is worked out anywhere else.</p>';
+    var shown = 0;
+    plan.items.forEach(function(it){
+      var v = data[it.field];
+      if(v === undefined || v === null){ h += '<div style="margin:0 0 10px;color:#55605B;font-size:14.5px"><b>' + esc(it.label) + '</b><br>nothing recorded yet</div>'; return; }
+      shown++;
+      if(it.as === 'list' && Array.isArray(v)){
+        h += '<div style="margin:0 0 12px"><b style="font-size:15px">' + esc(it.label) + '</b><ul style="margin:4px 0 0 18px;padding:0;font-size:15px">'
+           + (v.length ? v.map(function(x){ return '<li>' + esc(String(x)) + '</li>'; }).join('') : '<li style="color:#55605B">nothing yet</li>') + '</ul></div>';
+      } else if(it.as === 'table' && Array.isArray(v)){
+        h += '<div style="margin:0 0 12px"><b style="font-size:15px">' + esc(it.label) + '</b><div style="overflow:auto"><table style="border-collapse:collapse;font-size:14.5px;margin-top:4px">'
+           + v.slice(0, 40).map(function(row, i){
+               var cell = i === 0 ? 'th' : 'td';
+               return '<tr>' + (Array.isArray(row) ? row : [row]).map(function(c){
+                 return '<' + cell + ' style="border:1px solid #E2DCCF;padding:4px 8px;text-align:left">' + esc(String(c)) + '</' + cell + '>'; }).join('') + '</tr>';
+             }).join('') + '</table></div></div>';
+      } else {
+        h += '<div style="margin:0 0 12px"><b style="font-size:15px">' + esc(it.label) + '</b><div style="font-size:26px;font-weight:900;line-height:1.2">' + esc(String(v)) + '</div></div>';
+      }
+    });
+    if(!plan.items.length) h += '<p style="margin:0 0 12px;color:#55605B">There was nothing on this app’s list that matched what you asked for.</p>';
+    if(plan.watch) h += '<p style="margin:12px 0 0;padding:10px 12px;background:#F7F4EC;border-radius:12px;font-size:15px"><b>What to watch for:</b> ' + esc(plan.watch) + '</p>';
+    if(plan.dropped.length) h += '<p style="margin:10px 0 0;color:#55605B;font-size:13px">Left out because this app does not keep it: ' + esc(plan.dropped.join(', ')) + '.</p>';
+    return h;
+  }
+  function reportShow(plan){
+    var b = ivSheet(reportHTML(plan)
+      + '<button type="button" id="rpOk" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:12px">Done</button>');
+    b.querySelector('#rpOk').onclick = function(){ djHouseClose(); };
+  }
+  function reportSave(st, raw){
+    var plan = reportClean(raw);
+    var b = ivSheet(reportHTML(plan)
+      + '<button type="button" id="rpKeep" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:12px">Keep this report</button>'
+      + '<div style="text-align:center;margin-top:6px"><button type="button" id="rpNo" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">don’t keep it</button></div>');
+    b.querySelector('#rpKeep').onclick = function(){
+      var all = djReports();
+      all.unshift({ id: 'r' + Date.now(), title: plan.title, plan: plan, made: djYMD() });
+      djReportsSet(all.slice(0, 20));
+      closeAISheet(); reportShow(plan);
+    };
+    b.querySelector('#rpNo').onclick = function(){ djHouseClose(); };
+  }
+  function reportsSheet(){
+    var all = djReports();
+    var h = '<div style="font-weight:900;font-size:19px;margin-bottom:8px">My reports</div>';
+    if(!all.length) h += '<p style="margin:0 0 12px;color:#55605B">None yet. "Make it mine" in this menu builds one.</p>';
+    var b = ivSheet(h + '<div id="rpList"></div>'
+      + '<button type="button" id="rpNew" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:4px">Make another →</button>');
+    var L = b.querySelector('#rpList');
+    all.forEach(function(r){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
+      row.innerHTML = '<button type="button" class="rpOpen" style="flex:1;text-align:left;font:inherit;font-weight:800;font-size:16px;min-height:52px;padding:10px 14px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer">'
+        + esc(r.title) + '<br><small style="font-weight:600;color:#55605B">kept ' + esc(r.made || '') + '</small></button>'
+        + '<button type="button" class="rpRen" aria-label="Rename" style="font:inherit;font-size:18px;min-height:52px;width:48px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;cursor:pointer">✎</button>'
+        + '<button type="button" class="rpDel" aria-label="Delete" style="font:inherit;font-size:18px;min-height:52px;width:48px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;cursor:pointer">\u{1F5D1}</button>';
+      row.querySelector('.rpOpen').onclick = function(){ closeAISheet(); djBackPush(reportsSheet); reportShow(r.plan); };
+      row.querySelector('.rpRen').onclick = function(){
+        var nm = prompt('What should this report be called?', r.title);
+        if(nm == null) return;
+        nm = String(nm).trim().slice(0, 80); if(!nm) return;
+        var a = djReports(); for(var i = 0; i < a.length; i++) if(a[i].id === r.id){ a[i].title = nm; a[i].plan.title = nm; }
+        djReportsSet(a); closeAISheet(); reportsSheet();
+      };
+      row.querySelector('.rpDel').onclick = function(){
+        if(!confirm('Delete “' + r.title + '”? The app’s own information is not touched.')) return;
+        djReportsSet(djReports().filter(function(x){ return x.id !== r.id; }));
+        closeAISheet(); reportsSheet();
+      };
+      L.appendChild(row);
+    });
+    b.querySelector('#rpNew').onclick = function(){ closeAISheet(); djBackPush(reportsSheet); mineStart(); };
+  }
+
+  /* ── the way in ─────────────────────────────────────────────────────────────
+     What they want, in their own words, typed or spoken. Then ONE confirmation covering the
+     whole interview, then the questions. */
+  function mineStart(){
+    var s = djSource(), list = (s.fields || []).map(function(f){ return f.label; }).join(', ');
+    var b = ivSheet('<div style="font-weight:900;font-size:19px;margin-bottom:4px">Make it mine</div>'
+      + '<p style="margin:0 0 12px;color:#55605B;font-size:15px">Tell me what you wish this app did, or what you would like to see. I will ask you a few questions and build it if I can.</p>'
+      + '<textarea id="mnBox" aria-label="What would you like?" placeholder="I would like a report that…" style="width:100%;box-sizing:border-box;min-height:88px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622"></textarea>'
+      + '<button type="button" id="mnGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:10px">Start →</button>'
+      + '<p style="margin:10px 0 0;color:#55605B;font-size:13px">This app can show: ' + esc(list) + '.</p>');
+    b.querySelector('#mnGo').onclick = async function(){
+      var v = (b.querySelector('#mnBox').value || '').trim(); if(!v) return;
+      var kind = /\breport|summary|statement|overview|chart|totals?\b/i.test(v) ? 'report' : 'idea';
+      var st = { goal: v, kind: kind, qa: [] };
+      closeAISheet();
+      var ok = await mineConfirm(st);
+      if(!ok) return;
+      ivRun(st);
+    };
+  }
+  /* the one confirmation — the whole of what goes, said once, before anything goes */
+  function mineConfirm(st){
+    return new Promise(function(done){
+      var words = ivWordsFor(st);
+      var b = ivSheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Before we start</div>'
+        + '<p style="margin:0 0 10px;color:#55605B;font-size:15px">This goes to <b>Daraja’s own AI</b>, and so does every answer you give. Up to ' + (IV_MAX_Q + 1) + ' asks out of your household’s ' + 200 + ' a day. Nothing about who you are is sent.</p>'
+        + '<button type="button" id="mnShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 0;min-height:32px;cursor:pointer;text-decoration:underline">see exactly what is sent</button>'
+        + '<pre id="mnWords" style="display:none;white-space:pre-wrap;font:inherit;font-size:12.5px;color:#55605B;background:#F7F4EC;border-radius:12px;padding:10px;max-height:34vh;overflow:auto;margin:8px 0 0"></pre>'
+        + '<button type="button" id="mnOk" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px;margin-top:12px">Start the questions →</button>'
+        + '<div style="text-align:center;margin-top:6px"><button type="button" id="mnNo" style="font:inherit;font-size:13px;color:#55605B;background:none;border:0;min-height:36px;cursor:pointer;text-decoration:underline">cancel</button></div>');
+      b.querySelector('#mnWords').textContent = words;
+      b.querySelector('#mnShow').onclick = function(){ var w = b.querySelector('#mnWords'); w.style.display = ''; this.style.display = 'none'; };
+      b.querySelector('#mnOk').onclick = function(){ closeAISheet(); done(true); };
+      b.querySelector('#mnNo').onclick = function(){ djHouseClose(); done(false); };
+    });
+  }
+
+  /* ── 3 · the setup interview ────────────────────────────────────────────────
+     Four questions, fixed, all tappable, no typing and NO AI AT ALL. That is a reshape of the
+     ask and here is why: these four answers are the same four whatever the app and whatever the
+     person, so sending them to a model would spend asks off the daily cap, need the door to be
+     up, need a wait between each question, and could come back with a question nobody chose the
+     wording of. Four taps beats all of that. The AI's turn is "Make it mine", above, which is
+     where an open-ended want really does need a thinking partner. */
+  var DJ_SETUP_Q = [
+    { k: 'use',   q: 'What will you mostly use this for?',  a: ['My family', 'My home', 'My work or business', 'My church or group', 'Just me'] },
+    { k: 'who',   q: 'Who else is in it with you?',          a: ['Nobody, just me', 'One other person', 'A few of us', 'A whole group'] },
+    { k: 'first', q: 'When you open it, what do you want first?', a: ['What is due now', 'The whole picture', 'Somewhere to add something', 'Whatever changed'] },
+    { k: 'style', q: 'How do you like answers?',             a: ['Short and plain', 'With a bit of explanation', 'As much detail as there is'] }
+  ];
+  /* The same test twice would drift, and the greeting needs it as much as the offer does:
+     without it the two both wake when the tour closes and the greeting wins by a few hundred
+     milliseconds, which is the covered-greeting fault for the third time in two days. */
+  function setupPending(){
+    try{
+      if(djMineOff()) return false;
+      if(djProfile().done) return false;
+      return localStorage.getItem('dj_setup_no_' + djRefKey(slugOf())) !== '1';
+    }catch(e){ return false; }
+  }
+  function setupOffer(force, tries){
+    if(!force && djMineOff()) return;
+    if(document.getElementById('djSetup')) return;
+    var p = djProfile();
+    if(!force && p.done) return;
+    if(!force){ try{ if(localStorage.getItem('dj_setup_no_' + djRefKey(slugOf())) === '1') return; }catch(e){ return; } }
+    /* IT WAITS FOR THE WELCOME TOUR, and this is the whole of the sequencing decision.
+       The ask said "on a first open, in place of or before the tour, your call". Before the tour
+       would have meant a store arrival meeting THREE full screens in a row — the install screen,
+       this, then the tour — the night after the pile-up of 21 November was fixed. The tour is the
+       app explaining itself and is what the person came for; being asked to tune it afterwards is
+       the right way round, and it leaves exactly one new screen rather than two. The profile does
+       not trim the tour anyway: a tour's steps belong to each app's own chat. */
+    if(!force){
+      var pending = false;
+      try{ pending = !!(window.DJ_TOUR && !localStorage.getItem('dj_tour_' + window.DJ_TOUR.slug)); }catch(e){}
+      if(djHold() || document.getElementById('djTour') || pending){
+        if((tries || 0) < 40) setTimeout(function(){ try{ setupOffer(false, (tries || 0) + 1); }catch(e){} }, 1500);
+        return;
+      }
+    }
+    DJ_HOLD = 1;
+    var w = document.createElement('div'); w.id = 'djSetup';
+    w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-label', 'Set this up for you');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483090;background:#F7F4EC;color:#1F2622;'
+      + 'font:17px/1.5 -apple-system,system-ui,sans-serif;overflow:auto;'
+      + 'padding:calc(26px + env(safe-area-inset-top)) 20px calc(26px + env(safe-area-inset-bottom));box-sizing:border-box';
+    var card = document.createElement('div'); card.style.cssText = 'max-width:460px;margin:0 auto';
+    w.appendChild(card);
+    var at = -1, got = {};
+    var BT = 'display:block;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:56px;padding:12px 16px;margin-bottom:10px;border-radius:14px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;cursor:pointer';
+    var LNK = 'font:inherit;font-size:15px;font-weight:700;color:#55605B;background:none;border:0;min-height:48px;padding:10px;cursor:pointer;text-decoration:underline';
+    function close(saved){
+      DJ_HOLD = 0;
+      if(!saved){ try{ localStorage.setItem('dj_setup_no_' + djRefKey(slugOf()), '1'); }catch(e){} }
+      if(w.parentNode) w.parentNode.removeChild(w);
+    }
+    function draw(){
+      if(at < 0){
+        card.innerHTML = '<div style="font-weight:900;font-size:24px;line-height:1.25;margin-bottom:8px">Shall I set this up for you?</div>'
+          + '<p style="margin:0 0 20px;color:#55605B;font-size:16px">Four questions, all taps, about ten seconds. It changes what you see first and how much the app says.</p>'
+          + '<button type="button" data-go="1" style="font:inherit;font-weight:800;font-size:18px;min-height:56px;padding:12px 18px;border-radius:14px;border:0;background:#2F6E52;color:#fff;cursor:pointer;width:100%">Yes, ask me</button>'
+          + '<div style="text-align:center;margin-top:10px"><button type="button" data-skip="1" style="' + LNK + '">No thanks, just open it</button></div>';
+        return;
+      }
+      var q = DJ_SETUP_Q[at];
+      card.innerHTML = '<p style="margin:0 0 6px;color:#55605B;font-size:13px">Question ' + (at + 1) + ' of ' + DJ_SETUP_Q.length + '</p>'
+        + '<div style="font-weight:900;font-size:22px;line-height:1.3;margin-bottom:16px">' + esc(q.q) + '</div>'
+        + q.a.map(function(x){ return '<button type="button" data-a="' + esc(x) + '" style="' + BT + '">' + esc(x) + '</button>'; }).join('')
+        + '<div style="text-align:center;margin-top:4px"><button type="button" data-skip="1" style="' + LNK + '">skip the rest</button></div>';
+    }
+    w.addEventListener('click', function(e){
+      var b = e.target && e.target.closest && e.target.closest('button'); if(!b) return;
+      if(b.getAttribute('data-skip')){ close(false); return; }
+      if(b.getAttribute('data-go')){ at = 0; draw(); return; }
+      var a = b.getAttribute('data-a'); if(a == null) return;
+      got[DJ_SETUP_Q[at].k] = a;
+      at++;
+      if(at < DJ_SETUP_Q.length){ draw(); return; }
+      got.done = 1; got.when = djYMD();
+      djProfileSet(got);
+      card.innerHTML = '<div style="font-weight:900;font-size:24px;line-height:1.25;margin-bottom:8px">Done — that is yours now</div>'
+        + '<p style="margin:0 0 20px;color:#55605B;font-size:16px">You can change any of it later: the <b>?</b> button, then <b>Make it mine</b>.</p>'
+        + '<button type="button" data-skip="1" style="font:inherit;font-weight:800;font-size:18px;min-height:56px;padding:12px 18px;border-radius:14px;border:0;background:#2F6E52;color:#fff;cursor:pointer;width:100%">Open the app</button>';
+      setTimeout(function(){ close(true); }, 2200);
+    });
+    draw();
+    document.documentElement.appendChild(w);
+  }
+  function setupSheet(){
+    var p = djProfile();
+    var h = '<div style="font-weight:900;font-size:19px;margin-bottom:8px">How this app is set up for you</div>';
+    if(p.done){
+      h += '<div style="margin:0 0 12px;font-size:15px">' + DJ_SETUP_Q.map(function(q){
+        return '<div style="margin-bottom:6px"><span style="color:#55605B">' + esc(q.q) + '</span><br><b>' + esc(p[q.k] || 'not answered') + '</b></div>'; }).join('') + '</div>';
+    } else {
+      h += '<p style="margin:0 0 12px;color:#55605B;font-size:15px">Not set up yet. Four questions, all taps.</p>';
+    }
+    var b = ivSheet(h
+      + '<button type="button" id="stGo" style="' + BTNM + ';width:100%;min-height:52px;font-size:17px">' + (p.done ? 'Answer them again' : 'Set it up now') + '</button>'
+      + '<button type="button" id="stMine" style="' + BTN + ';width:100%;min-height:50px;margin-top:8px">✨ Make it mine — ask for something</button>');
+    b.querySelector('#stGo').onclick = function(){ djHouseClose(); try{ localStorage.removeItem('dj_setup_no_' + djRefKey(slugOf())); }catch(e){} setupOffer(true); };
+    b.querySelector('#stMine').onclick = function(){ closeAISheet(); djBackPush(setupSheet); mineStart(); };
+  }
+
+  /* the profile, put to work. Small and real rather than broad and vague: the AI's own answers
+     take their length from it, and the greeting drops the chatty line for someone who asked for
+     short and plain. The welcome tour is NOT trimmed by it — a tour's steps belong to each app's
+     own chat, and skipping one from here would be this chat editing 54 apps' explanations. */
+  function djStyleLine(){
+    var p = djProfile();
+    if(p.style === 'Short and plain') return ' Keep it to one or two short sentences.';
+    if(p.style === 'As much detail as there is') return ' Give the full picture, with the detail behind it.';
+    return '';
+  }
+  window.djProfileGet = djProfile;
+  window.djReportSourceDefault = djHouseSource;
+
   /* ── 11 · printing (research patrol #4, 10 Sep 2026) ────────────────────
      The Key is meant to be printed and put in a drawer; the story book too. On
      paper: black on white, nothing of ours (dock, mic, banners), no buttons, no
@@ -1245,7 +1926,7 @@
     st.textContent = '@media print{'
       + '@page{margin:16mm 14mm;}'
       + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
-      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djInstall,#djSetup,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
       + 'a{color:#000 !important;text-decoration:none !important;}'
       + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
       + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
@@ -1528,6 +2209,29 @@
     b.querySelector('#djPbX').onclick = function(){ closeAISheet(); };
   }
   var AI_CANCELLED = { cancelled: true };
+  /* 22 Nov: the ONE place that posts to the door. It was inside viaDaraja, which also shows the
+     confirm sheet and the spinner — fine while the ✨ button was the only sender, but the Make it
+     mine interview asks the door several times behind a single confirmation, and a second copy of
+     this fetch is a second thing to get wrong when the payload changes. `raw` means the caller is
+     doing its own error wording. */
+  var DOOR_WHY = '';
+  async function doorPost(o, raw){
+    DOOR_WHY = '';
+    var c = await aiConfig();
+    if(!c.endpoint){ DOOR_WHY = 'the door is not switched on'; return null; }
+    try{
+      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ prompt: o.prompt, app: slugOf(), want: o.want || 'text',
+                               code: (localStorage.getItem('dj_tester_code') || ''), file: o.file }) });
+      var j = await r.json();
+      if(!r.ok || !j || !j.text) throw new Error(j && j.error || ('HTTP ' + r.status));
+      return j.text;
+    }catch(e){
+      DOOR_WHY = e.message || 'no answer';
+      if(!raw) djNote('AI: ' + DOOR_WHY);
+      return null;
+    }
+  }
   /* the Daraja door: a tiny proxy Jerry owns (Cloudflare Worker) holding the key; the page never sees it */
   async function viaDaraja(o){
     var c = await aiConfig(); if(!c.endpoint) return null;
@@ -1535,10 +2239,9 @@
     if(!ok) return AI_CANCELLED;
     var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || 'Asking…') + '</div><p id="djAIWait" style="margin:0;color:#55605B;font-size:15px">Thinking — a few seconds.</p>');
     try{
-      var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:o.prompt, app: slugOf(), want:o.want||'text', code: (localStorage.getItem('dj_tester_code')||''), file: o.file }) });
-      var j = await r.json();
-      if(!r.ok || !j || !j.text){ throw new Error(j && j.error || ('HTTP ' + r.status)); }
-      closeAISheet(); return j.text;
+      var t = await doorPost(o, true);
+      if(t == null) throw new Error(DOOR_WHY || 'no answer');
+      closeAISheet(); return t;
     }catch(e){
       djNote('AI: ' + (e.message || 'no answer')); var w = document.getElementById('djAIWait'); if(w) w.textContent = 'That did not work (' + (e.message||'no answer') + '). Falling back to your own AI.'; await new Promise(function(res){ setTimeout(res, 1200); }); var s = document.getElementById('djAISheet'); if(s) s.remove(); return null; }
   }
@@ -1618,6 +2321,9 @@
   window.djAI = {
     ask: async function(o){
       o = o || {}; if(!o.prompt) return;
+      /* 22 Nov: "how do you like answers?" from the setup questions. Appended HERE, before any
+         sheet is drawn, because the confirm sheet promises that what is shown is what is sent. */
+      if(o.want !== 'json' && !o.__styled){ o.prompt = o.prompt + djStyleLine(); o.__styled = 1; }
       var local = await builtIn(withCircle(o, o.prompt));
       if(local){ deliver(o, local); return; }
       var viaD = await viaDaraja(o);
@@ -2061,8 +2767,22 @@
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', djBetaBand);
   else setTimeout(djBetaBand, 0);
   function djName(){ try{ return String(localStorage.getItem('dj_name') || '').replace(/^\s*"(.*)"\s*$/, '$1'); }catch(e){ return ''; } }   /* v62: one app once saved the name with quote marks */
-  function dailyHello(){
+  function dailyHello(tries){
     if(embedded || !document.body || guestVisit()) return;
+    /* 22 Nov: the greeting used to spend its whole eight seconds BEHIND something. Measured on an
+       iPhone 13 at a first open of Who's Coming: the tour went up at 1.0s with a shade of
+       rgba(10,20,20,.72) over the lot, the greeting followed at 1.5s underneath it, and what you
+       actually touched at the middle of the greeting was the tour. So it waits for the install
+       screen AND for the tour, up to about half a minute, and if it is still covered after that it
+       keeps its turn for the next open rather than being spent unseen. */
+    var tourPending = false;
+    try{ tourPending = !!(window.DJ_TOUR && !localStorage.getItem('dj_tour_' + window.DJ_TOUR.slug)); }catch(e){}
+    var setupFirst = false;
+    try{ setupFirst = setupPending(); }catch(e){}
+    if(djHold() || document.getElementById('djTour') || tourPending || setupFirst || document.getElementById('djSetup')){
+      if((tries || 0) < 20) setTimeout(function(){ try{ dailyHello((tries || 0) + 1); }catch(e){} }, 1500);
+      return;
+    }
     if(/\/(shop|home|control|testday|inspect|whats-new|try|feedback-studio|thanks|help|testers|safety)\//.test(location.pathname)) return;   /* v63: no cheery hello in the crisis tool */
     var slug = slugOf(), key = 'dj_hello_' + slug, today = djYMD(), rec = {};
     try{ rec = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
@@ -2446,6 +3166,7 @@
     try{ if(window.top !== window.self){ var pp = parent.location.pathname; if(/\/shop\/watch|\/inspect\//.test(pp) || parent.document.getElementById('djTour')) return; } }catch(e){}
     if(!force && /[?&]dj_go=/.test(location.search)) return;   /* v61: they came for one job (Start my day) — the tour waits for a normal visit */
     if(!force && guestVisit()) return;   /* v62: a guest answering a reply link */
+    if(!force && djHold()){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 1200); return; }   /* 22 Nov: the install screen is up */
     /* v62 (7 Oct deep check): One Thing's code lock (#djGate) came up AFTER the tour, which ended "pick who the
        list is for" and then met a lock. While a lock is showing, the tour waits for it to be passed. */
     if(!force){ var gt = document.getElementById('djGate'); if(gt){ var gs = getComputedStyle(gt); if(gs.display !== 'none' && gs.visibility !== 'hidden' && gt.getBoundingClientRect().height > 40){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 1500); return; } } }
@@ -2664,6 +3385,7 @@
         if(it) setTimeout(function(){ menuRun(it.go); }, 400); return; }
       try{ if(window.top !== window.self && /\/home\//.test(parent.location.pathname)) return; }catch(e){}
       if(document.getElementById('djTour') || guestVisit()) return;
+      if(djHold()){ if(tries < 8) menuLater(tries + 1); return; }   /* 22 Nov: the install screen is up */
       /* v64 (10 Oct, Business Manager): the menu opened on top of the setup interview when the tour was done but setup
          was not. An app says when its menu makes sense with DJ_MENU.when (a test, e.g. "setup finished"); and the menu
          never opens over a welcome card or anything full-screen of the app's own. Not recorded as seen, so it comes next time. */
@@ -2678,7 +3400,7 @@
     }, tries ? 1000 : 1300);
   }
 
-  function seniorsPass(){ try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
+  function seniorsPass(){ try{ installScreen(); }catch(e){} try{ if(!document.getElementById('djInstall')) setupOffer(); }catch(e){} try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"

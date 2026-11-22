@@ -24,13 +24,49 @@ const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => {
   return e.name === 'index.html' ? [f] : [];
 });
 
+/* A copy deliberately held on an older house block is not ours to touch — tools/house/pinned.json
+ * names each one and the chat that owns it. Without this, --check kept reporting v197 as an app
+ * still pointing at an SVG, which it is, on purpose. */
+const PINNED = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'house', 'pinned.json'), 'utf8')).pinned || [];
+const isPinned = f => PINNED.some(p => path.relative(ROOT, f).startsWith(p.path + path.sep));
+
 function appsWithSvgIcon() {
-  return walk(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')))
+  return walk(ROOT).filter(f => !isPinned(f)).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')))
     .filter(f => /<link[^>]*rel=["']apple-touch-icon["'][^>]*href=["']icon\.svg["']/i.test(fs.readFileSync(f, 'utf8')))
     .map(f => path.relative(ROOT, path.dirname(f)));
 }
 
-(async () => {
+/* The render, and the ink check that goes with it, in one place: tools/icons/manifest.cjs needs
+ * exactly the same thing at 192 and 512 for the web app manifests, and a second copy of this would
+ * be a second thing to get wrong. Returns { buf, colours } — the caller decides what to do with it. */
+async function renderIcon(ctx, svgPath, size) {
+  const src = fs.readFileSync(svgPath, 'utf8');
+  /* Apple wants a full-bleed square with no transparency and applies its own rounded mask. These
+     icons draw their own rounded rect, so the corners come out transparent and iOS would show
+     black through them. Paint the page in the rect's own colour first, so the tile is solid. */
+  const bgm = src.match(/<rect[^>]*fill=["'](#[0-9a-fA-F]{3,8}|[a-z]+)["']/) || src.match(/fill=["'](#[0-9a-fA-F]{3,8})["']/);
+  const bg = bgm ? bgm[1] : '#ffffff';
+  const p = await ctx.newPage();
+  await p.setViewportSize({ width: size, height: size });
+  await p.setContent(`<!doctype html><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:${size}px;height:${size}px;overflow:hidden;background:${bg}}
+    img{width:${size}px;height:${size}px;display:block}</style><img src="data:image/svg+xml;base64,${Buffer.from(src).toString('base64')}">`);
+  await p.waitForTimeout(250);
+  const buf = await p.screenshot({ type: 'png' });
+  /* ink check: a tile that is blank, or one flat colour, is the very bug this fixes */
+  const colours = await p.evaluate(async (sz) => {
+    const img = document.querySelector('img');
+    const c = document.createElement('canvas'); c.width = c.height = sz;
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0, sz, sz);
+    const d = x.getImageData(0, 0, sz, sz).data, seen = new Set();
+    for (let i = 0; i < d.length; i += 4 * 37) seen.add(`${d[i]},${d[i+1]},${d[i+2]},${d[i+3]}`);
+    return seen.size;
+  }, size).catch(() => 0);
+  await p.close();
+  return { buf, colours };
+}
+module.exports = { renderIcon, ROOT, walk, isPinned };
+
+if (require.main === module) (async () => {
   const args = process.argv.slice(2);
   const check = args.includes('--check');
   const want = args.filter(a => a !== '--check');
@@ -45,27 +81,7 @@ function appsWithSvgIcon() {
   for (const a of apps) {
     const svg = path.join(ROOT, a, 'icon.svg');
     if (!fs.existsSync(svg)) { refused.push(`${a}: no icon.svg`); continue; }
-    const p = await ctx.newPage();
-    /* Apple wants a full-bleed square with no transparency and applies its own rounded mask. These
-       icons draw their own rounded rect, so the corners come out transparent and iOS would show
-       black through them. Paint the page in the rect's own colour first, so the tile is solid. */
-    const src = fs.readFileSync(svg, 'utf8');
-    const bgm = src.match(/<rect[^>]*fill=["'](#[0-9a-fA-F]{3,8}|[a-z]+)["']/) || src.match(/fill=["'](#[0-9a-fA-F]{3,8})["']/);
-    const bg = bgm ? bgm[1] : '#ffffff';
-    await p.setContent(`<!doctype html><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:${SIZE}px;height:${SIZE}px;overflow:hidden;background:${bg}}
-      img{width:${SIZE}px;height:${SIZE}px;display:block}</style><img src="data:image/svg+xml;base64,${Buffer.from(src).toString('base64')}">`);
-    await p.waitForTimeout(250);
-    const buf = await p.screenshot({ type: 'png' });
-    /* ink check: a tile that is blank, or one flat colour, is the very bug this fixes */
-    const colours = await p.evaluate(async (size) => {
-      const img = document.querySelector('img');
-      const c = document.createElement('canvas'); c.width = c.height = size;
-      const x = c.getContext('2d'); x.drawImage(img, 0, 0, size, size);
-      const d = x.getImageData(0, 0, size, size).data, seen = new Set();
-      for (let i = 0; i < d.length; i += 4 * 37) seen.add(`${d[i]},${d[i+1]},${d[i+2]},${d[i+3]}`);
-      return seen.size;
-    }, SIZE).catch(() => 0);
-    await p.close();
+    const { buf, colours } = await renderIcon(ctx, svg, SIZE);
     if (colours < 2) { refused.push(`${a}: the render came out flat (${colours} colour) — left alone`); continue; }
     fs.writeFileSync(path.join(ROOT, a, 'icon-180.png'), buf);
     const f = path.join(ROOT, a, 'index.html');
