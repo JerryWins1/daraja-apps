@@ -48,7 +48,10 @@ async function open(ctx, port, app){
   p.on('pageerror', e => ck('no page error: ' + e.message, false));
   await p.goto(`http://localhost:${port}/${app}/`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(1400);
-  await p.evaluate(() => { for (const id of ['djTour','djBanner']) { const t = document.getElementById(id); if (t) t.remove(); } });
+  /* djSetup joined these on 22 November: it is a real full-screen offer on a first open, so a
+     check that drives the app past it has to answer it the way a person would. */
+  await p.evaluate(() => { for (const id of ['djTour','djBanner','djSetup']) { const t = document.getElementById(id); if (t) t.remove(); }
+    try { window.DJ_HOLD = 0; localStorage.setItem('dj_setup_no_' + (location.pathname.split('/').filter(Boolean).pop() || ''), '1'); } catch (e) {} });
   return p;
 }
 
@@ -452,6 +455,182 @@ async function install(b, port){
   await p.close(); await ctx.close();
 }
 
+/* 22 Nov 2026. Jerry: "a way for you to interview the user to see what they would like to see in
+   the system … and then either build what they're looking for or add it to the system as a
+   feature." The door is MOCKED here — these cost nothing and prove the house's own logic. What a
+   real model actually answers is Jerry on a real phone, as ever.
+
+   The thing most worth checking is the line that holds: the AI arranges what the app already has.
+   So the scripted plan below deliberately asks for a figure this app does not keep, and the
+   report must DROP it and say so — a figure quietly missing and a figure quietly wrong look the
+   same on a page. */
+async function mine(b, port){
+  console.log('\nMake it mine — the setup questions, the interview, and the report it builds');
+  const devs = require('playwright').devices;
+  const sheet = p => p.evaluate(() => { const s = document.getElementById('djAISheet'); return s ? s.innerText.replace(/\s+/g, ' ') : ''; });
+  const openMine = async p => {
+    await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove(); });
+    await p.evaluate(() => document.getElementById('djDockToggle').click());
+    await p.waitForTimeout(400);
+    await p.evaluate(() => { const r = Array.from(document.querySelectorAll('#djDockSheet button')).find(x => /Make it mine/.test(x.innerText)); if (r) r.click(); });
+    await p.waitForTimeout(300);
+    await p.evaluate(() => document.getElementById('stMine').click());
+    await p.waitForTimeout(300);
+  };
+  const door = async (ctx, replies, seen) => {
+    await ctx.route('**/control/ai.json*', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ endpoint: 'https://door.test/ask' }) }));
+    await ctx.route('https://door.test/ask', r => {
+      try { seen.push(JSON.parse(r.request().postData() || '{}')); } catch (e) {}
+      const n = replies.shift();
+      if (!n) return r.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'no more scripted replies' }) });
+      if (n.status) return r.fulfill({ status: n.status, contentType: 'application/json', body: JSON.stringify({ error: n.error }) });
+      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ text: JSON.stringify(n) }) });
+    });
+  };
+
+  /* 1 · the four setup questions, on a first open */
+  let ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  let p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2500);
+  let up = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
+    .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
+  /* the tour goes first — it is the app explaining itself, and it is what they came for */
+  ck('the app\'s own welcome tour still comes first', up.includes('djTour') && !up.includes('djSetup'), up);
+  await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove();
+    try { localStorage.setItem('dj_tour_' + (window.DJ_TOUR || {}).slug, 'done'); } catch (e) {} });
+  await p.waitForTimeout(2500);
+  up = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
+    .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
+  ck('then the setup offer comes up, alone', up.includes('djSetup') && !up.includes('djHello'), up);
+  ck('it says how long it takes before asking anything', /Four questions, all taps/.test(await p.evaluate(() => document.getElementById('djSetup').innerText)));
+  await p.evaluate(() => document.querySelector('#djSetup button[data-go]').click());
+  for (let i = 0; i < 4; i++) { await p.evaluate(() => document.querySelector('#djSetup button[data-a]').click()); await p.waitForTimeout(150); }
+  await p.waitForTimeout(400);
+  const prof = await p.evaluate(() => JSON.parse(localStorage.getItem('dj_profile_whoscoming') || '{}'));
+  ck('four answers are kept, on this phone, for this app', !!(prof.use && prof.who && prof.first && prof.style && prof.done), prof);
+  await p.waitForTimeout(3500);
+  const after = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
+    .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
+  ck('then it gets out of the way', !after.includes('djSetup'), after);
+  ck('no page errors', errs.length === 0, errs);
+  await p.close(); await ctx.close();
+
+  /* 2 · an interview that ends in a report */
+  const seen = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [
+    { done: false, question: 'Which of these matters most to you?', options: ['How many apps I use', 'What went wrong'] },
+    { done: true, plan: { title: 'My Daraja month', period: 'month', watch: 'More than three problems in a week is worth telling us about.',
+      items: [{ field: 'apps_here', as: 'number', label: 'Apps with something saved' },
+              { field: 'problem_list', as: 'list', label: 'What went wrong' },
+              { field: 'bank_balance', as: 'number', label: 'Your bank balance' }] } }
+  ], seen);
+  p = await ctx.newPage();
+  const e2 = []; p.on('pageerror', e => e2.push(e.message));
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1');
+    localStorage.setItem('dj_problems', JSON.stringify([{ t: '9:01', m: 'AI: no answer' }])); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove(); });
+  await p.evaluate(() => document.getElementById('djDockToggle').click());
+  await p.waitForTimeout(400);
+  ck('the ? menu carries a Make it mine row', await p.evaluate(() => Array.from(document.querySelectorAll('#djDockSheet button')).some(x => /Make it mine/.test(x.innerText))));
+  await p.evaluate(() => { Array.from(document.querySelectorAll('#djDockSheet button')).find(x => /Make it mine/.test(x.innerText)).click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('stMine').click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'I would like a report on how I am using this'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(400);
+  const conf = await sheet(p);
+  ck('ONE confirmation covers the whole interview', /Before we start/.test(conf) && /every answer you give/.test(conf), conf.slice(0, 90));
+  ck('it says how many asks it will cost before it starts', /asks out of your household/.test(conf), conf.slice(0, 120));
+  ck('nothing is sent until that is accepted', seen.length === 0, seen.length);
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1300);
+  const q1 = await sheet(p);
+  ck('the first question arrives with tappable answers', /Question 1 of up to/.test(q1) && await p.evaluate(() => !!document.querySelector('#ivOpts button')), q1.slice(0, 80));
+  ck('and a box for anyone whose answer is not on it', await p.evaluate(() => !!document.getElementById('ivBox')));
+  await p.evaluate(() => document.querySelector('#ivOpts button').click());
+  await p.waitForTimeout(1500);
+  const rep = await sheet(p);
+  ck('the report is built from this app\'s own figures', /My Daraja month/.test(rep) && /What went wrong/.test(rep), rep.slice(0, 100));
+  ck('it says where the figures came from', /comes from .* own records on this phone/.test(rep), rep.slice(0, 140));
+  /* the line that holds */
+  ck('a figure the app does not keep is DROPPED, not invented', /Left out because this app does not keep it/.test(rep) && /bank_balance/.test(rep), rep.slice(-120));
+  ck('the whole interview cost 2 asks, not one per screen', seen.length === 2, seen.length);
+  ck('and every one of them asked for JSON', seen.every(x => x.want === 'json'), seen.map(x => x.want));
+  await p.evaluate(() => document.getElementById('rpKeep').click());
+  await p.waitForTimeout(500);
+  ck('keeping it saves it on the phone', await p.evaluate(() => (JSON.parse(localStorage.getItem('dj_reports_whoscoming') || '[]')[0] || {}).title) === 'My Daraja month');
+  await p.evaluate(() => document.getElementById('rpOk').click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('djDockToggle').click());
+  await p.waitForTimeout(400);
+  ck('and a My reports row appears once there is one', await p.evaluate(() => Array.from(document.querySelectorAll('#djDockSheet button')).some(x => /My reports/.test(x.innerText))));
+  ck('no page errors', e2.length === 0, e2);
+  await p.close(); await ctx.close();
+
+  /* 3 · the door refuses */
+  const s3 = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [{ status: 422, error: 'the assistant declined that one' }], s3);
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await openMine(p);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'a report about my week'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1600);
+  const bad = await sheet(p);
+  ck('a refusal says so plainly and loses nothing', /That did not work/.test(bad) && /Nothing was lost/.test(bad), bad.slice(0, 90));
+  ck('and offers to send it to us instead', await p.evaluate(() => !!document.getElementById('ivSend')));
+  await p.close(); await ctx.close();
+
+  /* 4 · they stop half way */
+  const s4 = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [{ done: false, question: 'Over what period?', options: ['This week', 'This month'] }], s4);
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await openMine(p);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'a report about my week'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1400);
+  await p.evaluate(() => document.getElementById('ivStop').click());
+  await p.waitForTimeout(1600);
+  ck('stopping half way really stops it', await p.evaluate(() => !document.getElementById('djAISheet')));
+  ck('and sends nothing more after it', s4.length === 1, s4.length);
+  await p.close(); await ctx.close();
+
+  /* 5 · nowhere near the kids' page or the crisis tool, and Start fresh takes it all with it */
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/safety/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2200);
+  ck('My Safety Plan is never offered any of it', !(await p.evaluate(() => !!document.getElementById('djSetup'))));
+  await p.close();
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try {
+    localStorage.setItem('dj_profile_whoscoming', '{"done":1}');
+    localStorage.setItem('dj_reports_whoscoming', '[{"id":"r1","title":"x"}]');
+    localStorage.setItem('dj_name', 'Jerry');
+  } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  const owned = await p.evaluate(() => (window.djOwnedKeys && window.djOwnedKeys()) || []);
+  ck('Start fresh erases the setup answers and the reports with the app',
+     owned.includes('dj_profile_whoscoming') && owned.includes('dj_reports_whoscoming'), owned.filter(k => /profile|reports/.test(k)));
+  ck('and still leaves the names shared across apps alone', !owned.includes('dj_name'), owned.filter(k => k === 'dj_name'));
+  await ctx.close();
+}
+
 /* The icons and manifests behind all of it. No browser: these are file facts, and a file fact
    that is wrong makes Chrome quietly refuse to offer Install, which looks like nothing at all. */
 function icons(){
@@ -570,6 +749,7 @@ async function same(){
     if (!only || only === 'hello') await hello(b, s.port);
     if (!only || only === 'filekind') await filekind(b, s.port);
     if (!only || only === 'install') await install(b, s.port);
+    if (!only || only === 'mine') await mine(b, s.port);
     if (!only || only === 'icons') icons();
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
