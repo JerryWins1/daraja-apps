@@ -3601,7 +3601,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0.11 · 2026-11-22';
+var VER = 'v2.1 · 2026-11-22';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4059,6 +4059,54 @@ function dtGo(){ var o = BM._dt, j = job(o.jid), c = cust(j.customerId);
     onSent:function(){ if(o.kind === 'onway' && (j.status === 'scheduled' || j.status === 'approved')) j.status = 'working'; } }); }
 /* the live business view: four cards side by side, one swipe apart */
 function billsDue(from, to){ aheadState(); var n = 0; S.repeats.forEach(function(r){ var a = num(r.amount); if(a) n += a * repeatDates(r, from, to).length; }); return r2(n); }
+/* ── 📊 Business Manager's own figures for "Make it mine" reports (v2.1 · 22 Nov 2026) ─────────────────────────────
+   The house (v80) builds a custom report from a plan the person makes with the AI, and can only use what an app hands it.
+   This is what Business Manager hands it: the same numbers the Today screen and Money already show, worked out the same
+   way (pl(), owed(), the bills that repeat), for the period the plan asks for. Nothing here is invented or estimated. */
+window.djReportSource = {
+  name: 'Business Manager',
+  fields: [
+    { key:'owed', label:'owed to me right now', kind:'text' },
+    { key:'owed_late', label:'of that, late', kind:'text' },
+    { key:'owed_list', label:'who owes me (customer, invoice, amount, days late)', kind:'table' },
+    { key:'paid', label:'money in (paid to me) in the period', kind:'text' },
+    { key:'spent', label:'money out (business costs) in the period', kind:'text' },
+    { key:'profit', label:'profit in the period', kind:'text' },
+    { key:'jobs_done', label:'jobs done in the period', kind:'number' },
+    { key:'jobs_week', label:'jobs booked in the next 7 days', kind:'number' },
+    { key:'unbilled', label:'work done but not billed', kind:'text' },
+    { key:'unbilled_list', label:'which jobs are done but not billed', kind:'list' },
+    { key:'bills_due', label:'bills coming due in the next 30 days', kind:'list' },
+    { key:'cold_estimates', label:'estimates waiting a week or more without a yes', kind:'list' },
+    { key:'top_customers', label:'top customers by money paid in the period', kind:'table' },
+    { key:'spend_by_kind', label:'where the money went in the period', kind:'table' }
+  ],
+  get: function(period){
+    if(!S || !S.setup || !S.setup.done) return {};
+    var t = today(), d = parseD(t), from = '0000', to = '9999';
+    if(period === 'month'){ from = ymd(new Date(d.getFullYear(), d.getMonth(), 1)); to = ymd(new Date(d.getFullYear(), d.getMonth() + 1, 0)); }
+    else if(period === 'week'){ from = addDays(t, -((d.getDay() + 6) % 7)); to = addDays(from, 6); }
+    var R = pl(from, to), ow = owed(), out = {};
+    out.owed = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0));
+    out.owed_late = r2(ow.filter(invOverdue).reduce(function(a, v){ return a + invBal(v); }, 0));
+    out.owed_list = [['Customer', 'Invoice', 'Amount', 'Days late']].concat(ow.sort(function(a, b){ return (a.due || '').localeCompare(b.due || ''); }).map(function(v){ return [cust(v.customerId).name, '#' + v.num, money(invBal(v)), invOverdue(v) ? String(daysBetween(v.due, t)) : '—']; }));
+    out.paid = R.income; out.spent = R.out; out.profit = R.profit;
+    out.jobs_done = S.jobs.filter(function(j){ return (j.status === 'done' || j.status === 'closed') && (!j.date || (j.date >= from && j.date <= to)); }).length;
+    out.jobs_week = S.jobs.filter(function(j){ return j.date && j.date >= t && j.date <= addDays(t, 6) && j.status !== 'lost' && j.status !== 'closed'; }).length;
+    var unb = S.jobs.filter(function(j){ return j.status === 'done' && jobTotal(j) - jobBilled(j) > 0.004; });
+    out.unbilled = r2(unb.reduce(function(a, j){ return a + jobTotal(j) - jobBilled(j); }, 0));
+    out.unbilled_list = unb.map(function(j){ return cust(j.customerId).name + ' — ' + j.title + ' (' + money0(jobTotal(j) - jobBilled(j)) + ')'; });
+    aheadState(); var bd = [];
+    S.repeats.forEach(function(r){ repeatDates(r, t, addDays(t, 29)).forEach(function(dt){ bd.push([dt, (r.name || 'A bill') + ' ' + money0(r.amount) + ' on ' + fd(dt)]); }); });
+    out.bills_due = bd.sort(function(a, b){ return a[0].localeCompare(b[0]); }).map(function(x){ return x[1]; });
+    out.cold_estimates = S.jobs.filter(function(j){ return j.status === 'estimate' && j.estSent && daysBetween(j.estSent, t) >= 7; }).map(function(j){ return cust(j.customerId).name + ' — ' + j.title + ', ' + money0(jobTotal(j)) + ', sent ' + daysBetween(j.estSent, t) + ' days ago'; });
+    var by = {}; R.inc.forEach(function(x){ var n = cust(x.v.customerId).name; by[n] = (by[n] || 0) + x.amount; });
+    out.top_customers = [['Customer', 'Paid']].concat(Object.keys(by).sort(function(a, b){ return by[b] - by[a]; }).slice(0, 10).map(function(n){ return [n, money(by[n])]; }));
+    out.spend_by_kind = [['Kind', 'Spent']].concat(Object.keys(R.exp).sort(function(a, b){ return R.exp[b] - R.exp[a]; }).map(function(k){ return [k, money(R.exp[k])]; }));
+    ['owed', 'owed_late', 'paid', 'spent', 'profit', 'unbilled'].forEach(function(k){ out[k] = money0(out[k]); });   /* shown as written: $6,067, not 6067 */
+    return out;
+  }
+};
 function liveCards(){
   var t = today(), d = parseD(t), y = d.getFullYear(), mo = d.getMonth(), wd = (d.getDay() + 6) % 7, wk0 = addDays(t, -wd);
   var ow = owed(), owT = r2(ow.reduce(function(a, v){ return a + invBal(v); }, 0)), od = ow.filter(invOverdue).length;
