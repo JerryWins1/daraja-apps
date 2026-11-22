@@ -575,6 +575,49 @@ async function mine(b, port){
   ck('once their card has gone, it takes its turn', await p.evaluate(() => !!document.getElementById('djSetup')));
   await p.close(); await ctx.close();
 
+  /* 22 Nov, from the Ahead of It chat: a keyword test on the person's own first sentence used to
+     decide report or request, so "a packet for the board meeting" was emailed to us instead of
+     being built out of figures the app had. The AI decides now, so the words below deliberately
+     contain none of report, summary, statement, overview, chart or totals. */
+  const s5 = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [{ done: true, plan: { title: 'A packet for the board', period: 'all', watch: '',
+    items: [{ field: 'apps_here', as: 'number', label: 'Apps with something saved' }] } }], s5);
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await openMine(p);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'a packet for the board meeting'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(300);
+  /* the words are behind "see exactly what is sent", so read what is really going, not the blurb */
+  const words = await p.evaluate(() => (document.getElementById('mnWords') || {}).textContent || '');
+  ck('the app\'s own figures go with it whatever they call it', /apps_here/.test(words) && /problem_list/.test(words), words.replace(/\s+/g, ' ').slice(0, 140));
+  ck('and the prompt no longer assumes which of the two it is', /reply with a finished PLAN/.test(words) && /reply with a SUMMARY/.test(words), words.replace(/\s+/g, ' ').slice(-200));
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1500);
+  ck('and a wish with no report-word in it still builds one',
+     await p.evaluate(() => !!document.getElementById('rpKeep')), (await sheet(p)).slice(0, 110));
+  await p.close(); await ctx.close();
+
+  /* a plan naming nothing this app keeps is a request with a title on it, not an empty page */
+  const s6 = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [{ done: true, plan: { title: 'My bank month', period: 'all', items: [{ field: 'bank_balance', as: 'number', label: 'Balance' }] } }], s6);
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await openMine(p);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'everything about my bank account'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1600);
+  const dead = await sheet(p);
+  ck('a plan the app cannot fill becomes a request, not an empty page',
+     /cannot build that by itself/.test(dead) && !/nothing recorded yet/.test(dead), dead.slice(0, 130));
+  await p.close(); await ctx.close();
+
   /* 2 · an interview that ends in a report */
   const seen = [];
   ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });

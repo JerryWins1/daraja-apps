@@ -15,7 +15,7 @@
      on top of Grace Harbor's own header, so the first thing a church shopping for an app saw was a
      greeting from us covering the product. Set before the block so it is true by the time it boots. -->
 <script>window.DJ_GUEST = true;</script>
-<script id="dj-house-v82">
+<script id="dj-house-v83">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -1569,19 +1569,27 @@
       + '". They said what they want in their own words below. Ask ONE short question at a time to find out exactly what they want, '
       + 'and stop as soon as you know enough. Never ask more than ' + IV_MAX_Q + ' questions in total. '
       + 'Offer tappable answers whenever you reasonably can.' + who + '\n\n';
-    if(st.kind === 'report'){
-      base += 'They want a report. This app can show only these figures, and nothing else:\n  ' + f + '\n'
-        + 'Do not ask about anything outside that list, and do not promise anything outside it.\n'
-        + 'When you know enough, reply with the finished plan instead of a question.\n\n'
-        + 'Reply with ONE JSON object and nothing else, in one of these two shapes:\n'
-        + '{"done":false,"question":"…","options":["…","…"]}\n'
-        + '{"done":true,"plan":{"title":"…","period":"all"|"month"|"week","items":[{"field":"<one key from the list>","as":"number"|"text"|"list"|"table","label":"…"}],"watch":"one short sentence"}}\n';
-    } else {
-      base += 'When you know enough, reply with a short summary of exactly what they asked for, in their own words where you can.\n\n'
-        + 'Reply with ONE JSON object and nothing else, in one of these two shapes:\n'
-        + '{"done":false,"question":"…","options":["…","…"]}\n'
-        + '{"done":true,"summary":"…"}\n';
-    }
+    /* 22 Nov, from the Ahead of It chat, and they were right. Until now a keyword test on the
+       person's own first sentence decided whether this was a report or a request:
+           /\breport|summary|statement|overview|chart|totals?\b/i
+       So "a packet for the board meeting" went down the request path and was offered to us by
+       email, for something this app could have built out of its own figures there and then. Their
+       own first run hit it: they wrote the goal the way an HOA treasurer would, and had to put the
+       word "report" in it to get anything built. "A one-pager for the trustees", "what do I owe
+       this month", "something I can print for the fridge" would all have missed the same way.
+
+       THE AI DECIDES NOW, AND IT COSTS NOTHING: there was always exactly one ask here either way,
+       and all the keyword test ever changed was which prompt that ask carried. So the fields go in
+       every time and the model answers with a plan or with a summary. A plan that names nothing
+       this app actually keeps is a request too - see ivFinish. */
+    base += 'This app can show only these figures, and nothing else:\n  ' + f + '\n'
+      + 'If what they want can be put together out of that list - whatever they happen to call it - reply with a finished PLAN.\n'
+      + 'If it cannot, reply with a SUMMARY of what they asked for instead, in their own words where you can. Never promise anything outside the list.\n'
+      + 'When you know enough, reply with the plan or the summary instead of another question.\n\n'
+      + 'Reply with ONE JSON object and nothing else, in one of these three shapes:\n'
+      + '{"done":false,"question":"\u2026","options":["\u2026","\u2026"]}\n'
+      + '{"done":true,"plan":{"title":"\u2026","period":"all"|"month"|"week","items":[{"field":"<one key from the list>","as":"number"|"text"|"list"|"table","label":"\u2026"}],"watch":"one short sentence"}}\n'
+      + '{"done":true,"summary":"\u2026"}\n';
     base += '\nWhat they said they want:\n' + st.goal + '\n';
     if(st.qa.length){ base += '\nWhat you have asked so far, and what they answered:\n';
       st.qa.forEach(function(x){ base += '  Q: ' + x.q + '\n  A: ' + x.a + '\n'; }); }
@@ -1665,7 +1673,13 @@
   }
 
   function ivFinish(st, j){
-    if(st.kind === 'report' && j && j.plan){ reportSave(st, j.plan); return; }
+    /* A plan that names nothing this app keeps is not a report, it is a request with a title on
+       it. Rendering it would be a page of "nothing recorded yet" where the offer to send it to us
+       should be. */
+    if(j && j.plan){
+      var clean = reportClean(j.plan);
+      if(clean.items.length){ reportSave(st, j.plan); return; }
+    }
     var sum = String((j && (j.summary || j.plan && j.plan.title)) || '').trim() || 'what you described';
     var b = ivSheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">Here is what I understood</div>'
       + '<p style="margin:0 0 12px;font-size:16px;white-space:pre-wrap">' + esc(sum) + '</p>'
@@ -1789,8 +1803,7 @@
       + '<p style="margin:10px 0 0;color:#55605B;font-size:13px">This app can show: ' + esc(list) + '.</p>');
     b.querySelector('#mnGo').onclick = async function(){
       var v = (b.querySelector('#mnBox').value || '').trim(); if(!v) return;
-      var kind = /\breport|summary|statement|overview|chart|totals?\b/i.test(v) ? 'report' : 'idea';
-      var st = { goal: v, kind: kind, qa: [] };
+      var st = { goal: v, qa: [] };
       closeAISheet();
       var ok = await mineConfirm(st);
       if(!ok) return;
