@@ -85,8 +85,20 @@ PROMO3=[
  ("And it's free. Every gift helps orphans and students in Kenya.",[],"Free · Every gift helps children in Kenya",None),
  ("Daraja. Apps that think ahead. Get yours today.",[],"jerrywins1.github.io/daraja-apps/shop",None),
 ]
+PROMO4=[
+ ("Most apps make you learn the app. This one learns you.",[STORE],"Most apps make you learn them. This one learns you.",None),
+ ("Meet Daraja. Tell it what you want to see. It asks a few questions, then builds your own report, right there.",[],"Tell it what you want · It builds your report",None),
+ ("Your numbers. Your way. A report nobody else has, in about a minute.",[],"Your numbers · Your way · In a minute",None),
+ ("Four taps, ten seconds, and the app is set up around your life.",[],"Four taps · Ten seconds · Set up for you",None),
+ ("And it looks ahead. The big bill, the renewal, the birthday. Weeks before they land.",[],"It looks ahead · Weeks before it lands",None),
+ ("One icon holds them all. Install once, and everything is inside.",[],"One icon · Every app inside",None),
+ ("No account. No subscription. Your information stays on your phone.",[],"No account · No subscription · Private",None),
+ ("It's free. And every gift helps orphans and students in Kenya.",[],"Free · Every gift helps children in Kenya",None),
+ ("Daraja. The apps that ask what you want. Get yours today.",[],"jerrywins1.github.io/daraja-apps/shop",None),
+]
 which=sys.argv[1]
 if which=='tour': build('tour',TOUR,1080,1920,'Why Daraja - store tour draft 2.mp4')
+elif which=='promo4': build('promo4',PROMO4,1080,1080,'Daraja - AI promo draft 4.mp4')
 elif which=='promo3': build('promo3',PROMO3,1080,1080,'Daraja - AI promo draft 3.mp4')
 elif which=='promo2': build('promo2',PROMO2,1080,1080,'Daraja - AI promo draft 2.mp4')
 else: build('promo',PROMO,1080,1080,'Daraja - Facebook promo draft 1.mp4')
