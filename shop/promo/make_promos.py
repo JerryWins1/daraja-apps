@@ -73,8 +73,21 @@ PROMO2=[
  ("They're free, and made to help you, and to raise money for orphans and a scholarship program in Kenya.",[],"Free · Made to help you, and children in Kenya",None),
  ("Try one today, at the Daraja store.",[],"jerrywins1.github.io/daraja-apps/shop",None),
 ]
+PROMO3=[
+ ("What if your phone already knew what your week needed?",[STORE],"What if your phone knew your week?",None),
+ ("Meet Daraja. Simple apps, with an AI that works for you, and looks ahead for you.",[],"Meet Daraja · Apps that think ahead",None),
+ ("It spots the big bill, three weeks before it lands. So you're ready, not surprised.",[],"Sees the big bill coming · 3 weeks early","Family Money"),
+ ("Ask it anything. Can we afford a new car? It answers from your own numbers, not somebody else's.",[],"“Can we afford it?” — answered from your numbers","Family Money"),
+ ("Run a business from your truck? Your whole day, briefed in one minute, before the first job.",["business-manager.jpg"],"Your day, briefed in one minute","Business Manager"),
+ ("Not sure where to start? Tell the store about your week, and it picks the apps that fit you.",[],"Tell it about your week · It picks your apps",None),
+ ("Got an idea? Say so, right inside any app. We're listening, and we build.",[],"Your idea, one tap away · We’re listening",None),
+ ("No account. No subscription. Your information stays on your phone.",[],"No account · No subscription · Private",None),
+ ("And it's free. Every gift helps orphans and students in Kenya.",[],"Free · Every gift helps children in Kenya",None),
+ ("Daraja. Apps that think ahead. Get yours today.",[],"jerrywins1.github.io/daraja-apps/shop",None),
+]
 which=sys.argv[1]
 if which=='tour': build('tour',TOUR,1080,1920,'Why Daraja - store tour draft 2.mp4')
+elif which=='promo3': build('promo3',PROMO3,1080,1080,'Daraja - AI promo draft 3.mp4')
 elif which=='promo2': build('promo2',PROMO2,1080,1080,'Daraja - AI promo draft 2.mp4')
 else: build('promo',PROMO,1080,1080,'Daraja - Facebook promo draft 1.mp4')
 print('ok')
