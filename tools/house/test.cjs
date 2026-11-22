@@ -48,7 +48,10 @@ async function open(ctx, port, app){
   p.on('pageerror', e => ck('no page error: ' + e.message, false));
   await p.goto(`http://localhost:${port}/${app}/`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(1400);
-  await p.evaluate(() => { for (const id of ['djTour','djBanner']) { const t = document.getElementById(id); if (t) t.remove(); } });
+  /* djSetup joined these on 22 November: it is a real full-screen offer on a first open, so a
+     check that drives the app past it has to answer it the way a person would. */
+  await p.evaluate(() => { for (const id of ['djTour','djBanner','djSetup']) { const t = document.getElementById(id); if (t) t.remove(); }
+    try { window.DJ_HOLD = 0; localStorage.setItem('dj_setup_no_' + (location.pathname.split('/').filter(Boolean).pop() || ''), '1'); } catch (e) {} });
   return p;
 }
 
@@ -358,6 +361,381 @@ async function filekind(b, port){
   await ctx.close();
 }
 
+/* 22 Nov 2026. Jerry: "I'd also like to improve the store so we download an app that has an icon
+   on it right away rather than having to horse around and download it and all that stuff."
+   A link from the store carries ?dj_install=1 and the house answers it with ONE screen, alone.
+   What is checked here is the "alone" — four things used to arrive in the first two and a half
+   seconds and the install card was the one buried deepest, so a check that only asked whether the
+   screen EXISTS would have passed on the broken version too. */
+async function install(b, port){
+  console.log('\nThe install screen — one screen, alone, for someone arriving from the store');
+  const seen = p => p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *')).filter(e => {
+    const c = getComputedStyle(e), r = e.getBoundingClientRect();
+    return e.id !== '' && e.checkVisibility() && r.width > 0 && r.height > 0 && (c.position === 'fixed' || +c.zIndex > 100);
+  }).map(e => e.id));
+
+  /* 22 Nov, Jerry's answer: ONE Daraja icon, not one per app. So the marker on an app does not
+     show the screen there at all — Safari's Add to Home Screen bookmarks the page you are
+     standing on, so an install offered from inside Who's Coming makes a Who's Coming icon
+     whatever any manifest says. It forwards to the front door, which is the only place the
+     steps really do add Daraja, and then sends them on to the app they tapped. */
+  let ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  let p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto(`http://localhost:${port}/whoscoming/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(3500);
+  ck('the marker on an app forwards to the front door', /\/home\/\?dj_install=1&go=/.test(p.url()), p.url());
+  ck('and carries the app it came from', /whoscoming/.test(decodeURIComponent(p.url())), p.url());
+  await p.close();
+
+  p = await ctx.newPage();
+  p.on('pageerror', e => errs.push(e.message));
+  const appUrl = `http://localhost:${port}/whoscoming/?v=1`;
+  await p.goto(`http://localhost:${port}/home/?dj_install=1&go=${encodeURIComponent(appUrl)}`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4000);
+  let ids = await seen(p);
+  ck('on the front door it is the only thing up, with the dock', ids.includes('djInstall') && !ids.includes('djTour') && !ids.includes('djHello') && !ids.includes('djA2HS'), ids);
+  const txt = await p.evaluate(() => (document.getElementById('djInstall') || {}).innerText || '');
+  ck('it offers DARAJA, not the app', /Daraja/.test(txt) && !/Who’s Coming on your Home Screen/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 80));
+  ck('it keeps the line Jerry approved, word for word',
+     /Put it on your Home Screen and it opens like any other app — full screen, straight from the icon\./.test(txt), txt.replace(/\s+/g, ' ').slice(0, 160));
+  ck('it says where the app they tapped went', /One icon for every Daraja app/.test(txt) && /Whoscoming included/i.test(txt), txt.replace(/\s+/g, ' ').slice(0, 200));
+  ck('and still offers a way past it', /Not now, just open it/.test(txt));
+  ck('the icon on it is a real file that loaded', await p.evaluate(() => { const i = document.getElementById('djInstallIcon'); return !!i && i.naturalWidth > 0; }));
+  ck('it sits above the welcome tour', await p.evaluate(() => +getComputedStyle(document.getElementById('djInstall')).zIndex > 2147483000));
+  /* answered either way, they land in the app they tapped */
+  await p.evaluate(() => document.querySelector('#djInstall button[data-a="skip"]').click());
+  await p.waitForTimeout(2500);
+  ck('"Not now" still takes them on to the app they tapped', /\/whoscoming\//.test(p.url()), p.url());
+  ck('no page errors', errs.length === 0, errs);
+  await p.close(); await ctx.close();
+
+  /* Android: Chrome decides a page is installable on its own schedule, usually after this is up */
+  ctx = await b.newContext({ ...require('playwright').devices['Pixel 5'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/home/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(1500);
+  const before = await p.evaluate(() => document.querySelector('#djInstall button[data-a]').innerText);
+  ck('before Chrome offers anything it shows Chrome\'s own steps', /added it/.test(before), before);
+  await p.evaluate(() => { const e = new Event('beforeinstallprompt');
+    e.prompt = () => { window.__called = 1; }; e.userChoice = Promise.resolve({ outcome: 'accepted' }); window.dispatchEvent(e); });
+  await p.waitForTimeout(600);
+  const after = await p.evaluate(() => document.querySelector('#djInstall button[data-a]').innerText);
+  ck('a prompt arriving LATE turns it into one tap', /Install Daraja/.test(after), after);
+  await p.evaluate(() => document.querySelector('#djInstall button[data-a="install"]').click());
+  await p.waitForTimeout(600);
+  ck('and that tap really calls Chrome, not our own steps', await p.evaluate(() => !!window.__called));
+  ck('accepting it is remembered, so the screen never comes back', await p.evaluate(() => localStorage.getItem('dj_a2hs_home')) === 'done');
+  await p.close(); await ctx.close();
+
+  /* nowhere to put an icon: a laptop just opens the app */
+  ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/home/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(3000);
+  ck('a laptop is never shown it', !(await seen(p)).includes('djInstall'));
+  await p.close(); await ctx.close();
+
+  /* the loop this very check found: answering it with nothing to go on to resolved an empty go
+     against the current address, so it sent them back to the same URL, marker and all */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/home/?dj_install=1`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  const wasAt = p.url();
+  await p.evaluate(() => document.querySelector('#djInstall button[data-a="skip"]').click());
+  await p.waitForTimeout(2500);
+  ck('answering it with nowhere to go on to does not loop',
+     !(await seen(p)).includes('djInstall') && p.url() === wasAt, p.url());
+  await p.close(); await ctx.close();
+
+  /* someone who already added it */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_a2hs_home', 'done'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/home/?dj_install=1&go=${encodeURIComponent(`http://localhost:${port}/whoscoming/`)}`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2500);
+  ck('someone who already has the icon goes straight to the app', !(await seen(p)).includes('djInstall') && /\/whoscoming\//.test(p.url()), p.url());
+  await p.close(); await ctx.close();
+
+  /* no marker: an ordinary visit is untouched, except that the greeting no longer burns
+     its eight seconds behind the tour's 72% shade (measured 22 Nov, before and after) */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4000);
+  ids = await seen(p);
+  ck('an ordinary visit still gets the tour and no install screen', ids.includes('djTour') && !ids.includes('djInstall'), ids);
+  ck('and the greeting is not spent underneath it', !ids.includes('djHello'), ids);
+  await p.close(); await ctx.close();
+
+  /* the store's own links */
+  ctx = await b.newContext({ ...require('playwright').devices['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/shop/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4000);
+  const links = await p.evaluate(() => Array.from(document.querySelectorAll('a.btn.get, a.btn.try'))
+    .map(a => a.getAttribute('href') || '').filter(h => h && !/^mailto:/.test(h)));
+  ck('the store has Get and Try links to show', links.length > 20, links.length);
+  const without = links.filter(h => !/\/home\/\?dj_install=1&go=/.test(h));
+  ck('every store link that opens an app goes through the front door', without.length === 0, without.slice(0, 5));
+  ck('and each still carries the v= stamp that beats the cached copy',
+     links.every(h => /v%3D\d+/.test(h) || /[?&]v=\d+/.test(decodeURIComponent(h))), links.slice(0, 2));
+  ck('an open redirect is refused', await p.evaluate(async () => {
+    const u = location.origin + '/home/?dj_install=1&go=' + encodeURIComponent('https://evil.example/');
+    const r = await fetch(u); const t = await r.text();
+    return /djSafeGo/.test(t);   /* the guard is in the shipped block */
+  }));
+  await p.close(); await ctx.close();
+}
+
+/* 22 Nov 2026. Jerry: "a way for you to interview the user to see what they would like to see in
+   the system … and then either build what they're looking for or add it to the system as a
+   feature." The door is MOCKED here — these cost nothing and prove the house's own logic. What a
+   real model actually answers is Jerry on a real phone, as ever.
+
+   The thing most worth checking is the line that holds: the AI arranges what the app already has.
+   So the scripted plan below deliberately asks for a figure this app does not keep, and the
+   report must DROP it and say so — a figure quietly missing and a figure quietly wrong look the
+   same on a page. */
+async function mine(b, port){
+  console.log('\nMake it mine — the setup questions, the interview, and the report it builds');
+  const devs = require('playwright').devices;
+  const sheet = p => p.evaluate(() => { const s = document.getElementById('djAISheet'); return s ? s.innerText.replace(/\s+/g, ' ') : ''; });
+  const openMine = async p => {
+    await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove(); });
+    await p.evaluate(() => document.getElementById('djDockToggle').click());
+    await p.waitForTimeout(400);
+    await p.evaluate(() => { const r = Array.from(document.querySelectorAll('#djDockSheet button')).find(x => /Make it mine/.test(x.innerText)); if (r) r.click(); });
+    await p.waitForTimeout(300);
+    await p.evaluate(() => document.getElementById('stMine').click());
+    await p.waitForTimeout(300);
+  };
+  const door = async (ctx, replies, seen) => {
+    await ctx.route('**/control/ai.json*', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ endpoint: 'https://door.test/ask' }) }));
+    await ctx.route('https://door.test/ask', r => {
+      try { seen.push(JSON.parse(r.request().postData() || '{}')); } catch (e) {}
+      const n = replies.shift();
+      if (!n) return r.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'no more scripted replies' }) });
+      if (n.status) return r.fulfill({ status: n.status, contentType: 'application/json', body: JSON.stringify({ error: n.error }) });
+      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ text: JSON.stringify(n) }) });
+    });
+  };
+
+  /* 1 · the four setup questions, on a first open */
+  let ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  let p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2500);
+  let up = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
+    .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
+  /* the tour goes first — it is the app explaining itself, and it is what they came for */
+  ck('the app\'s own welcome tour still comes first', up.includes('djTour') && !up.includes('djSetup'), up);
+  await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove();
+    try { localStorage.setItem('dj_tour_' + (window.DJ_TOUR || {}).slug, 'done'); } catch (e) {} });
+  await p.waitForTimeout(2500);
+  up = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
+    .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
+  ck('then the setup offer comes up, alone', up.includes('djSetup') && !up.includes('djHello'), up);
+  ck('it says how long it takes before asking anything', /Four questions, all taps/.test(await p.evaluate(() => document.getElementById('djSetup').innerText)));
+  await p.evaluate(() => document.querySelector('#djSetup button[data-go]').click());
+  for (let i = 0; i < 4; i++) { await p.evaluate(() => document.querySelector('#djSetup button[data-a]').click()); await p.waitForTimeout(150); }
+  await p.waitForTimeout(400);
+  const prof = await p.evaluate(() => JSON.parse(localStorage.getItem('dj_profile_whoscoming') || '{}'));
+  ck('four answers are kept, on this phone, for this app', !!(prof.use && prof.who && prof.first && prof.style && prof.done), prof);
+  await p.waitForTimeout(3500);
+  const after = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
+    .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
+  ck('then it gets out of the way', !after.includes('djSetup'), after);
+  ck('no page errors', errs.length === 0, errs);
+  await p.close(); await ctx.close();
+
+  /* 2 · an interview that ends in a report */
+  const seen = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [
+    { done: false, question: 'Which of these matters most to you?', options: ['How many apps I use', 'What went wrong'] },
+    { done: true, plan: { title: 'My Daraja month', period: 'month', watch: 'More than three problems in a week is worth telling us about.',
+      items: [{ field: 'apps_here', as: 'number', label: 'Apps with something saved' },
+              { field: 'problem_list', as: 'list', label: 'What went wrong' },
+              { field: 'bank_balance', as: 'number', label: 'Your bank balance' }] } }
+  ], seen);
+  p = await ctx.newPage();
+  const e2 = []; p.on('pageerror', e => e2.push(e.message));
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1');
+    localStorage.setItem('dj_problems', JSON.stringify([{ t: '9:01', m: 'AI: no answer' }])); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove(); });
+  await p.evaluate(() => document.getElementById('djDockToggle').click());
+  await p.waitForTimeout(400);
+  ck('the ? menu carries a Make it mine row', await p.evaluate(() => Array.from(document.querySelectorAll('#djDockSheet button')).some(x => /Make it mine/.test(x.innerText))));
+  await p.evaluate(() => { Array.from(document.querySelectorAll('#djDockSheet button')).find(x => /Make it mine/.test(x.innerText)).click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('stMine').click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'I would like a report on how I am using this'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(400);
+  const conf = await sheet(p);
+  ck('ONE confirmation covers the whole interview', /Before we start/.test(conf) && /every answer you give/.test(conf), conf.slice(0, 90));
+  ck('it says how many asks it will cost before it starts', /asks out of your household/.test(conf), conf.slice(0, 120));
+  ck('nothing is sent until that is accepted', seen.length === 0, seen.length);
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1300);
+  const q1 = await sheet(p);
+  ck('the first question arrives with tappable answers', /Question 1 of up to/.test(q1) && await p.evaluate(() => !!document.querySelector('#ivOpts button')), q1.slice(0, 80));
+  ck('and a box for anyone whose answer is not on it', await p.evaluate(() => !!document.getElementById('ivBox')));
+  await p.evaluate(() => document.querySelector('#ivOpts button').click());
+  await p.waitForTimeout(1500);
+  const rep = await sheet(p);
+  ck('the report is built from this app\'s own figures', /My Daraja month/.test(rep) && /What went wrong/.test(rep), rep.slice(0, 100));
+  ck('it says where the figures came from', /comes from .* own records on this phone/.test(rep), rep.slice(0, 140));
+  /* the line that holds */
+  ck('a figure the app does not keep is DROPPED, not invented', /Left out because this app does not keep it/.test(rep) && /bank_balance/.test(rep), rep.slice(-120));
+  ck('the whole interview cost 2 asks, not one per screen', seen.length === 2, seen.length);
+  ck('and every one of them asked for JSON', seen.every(x => x.want === 'json'), seen.map(x => x.want));
+  await p.evaluate(() => document.getElementById('rpKeep').click());
+  await p.waitForTimeout(500);
+  ck('keeping it saves it on the phone', await p.evaluate(() => (JSON.parse(localStorage.getItem('dj_reports_whoscoming') || '[]')[0] || {}).title) === 'My Daraja month');
+  await p.evaluate(() => document.getElementById('rpOk').click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('djDockToggle').click());
+  await p.waitForTimeout(400);
+  ck('and a My reports row appears once there is one', await p.evaluate(() => Array.from(document.querySelectorAll('#djDockSheet button')).some(x => /My reports/.test(x.innerText))));
+  ck('no page errors', e2.length === 0, e2);
+  await p.close(); await ctx.close();
+
+  /* 3 · the door refuses */
+  const s3 = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [{ status: 422, error: 'the assistant declined that one' }], s3);
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await openMine(p);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'a report about my week'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1600);
+  const bad = await sheet(p);
+  ck('a refusal says so plainly and loses nothing', /That did not work/.test(bad) && /Nothing was lost/.test(bad), bad.slice(0, 90));
+  ck('and offers to send it to us instead', await p.evaluate(() => !!document.getElementById('ivSend')));
+  await p.close(); await ctx.close();
+
+  /* 4 · they stop half way */
+  const s4 = [];
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  await door(ctx, [{ done: false, question: 'Over what period?', options: ['This week', 'This month'] }], s4);
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('dj_setup_no_whoscoming', '1'); } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  await openMine(p);
+  await p.evaluate(() => { document.getElementById('mnBox').value = 'a report about my week'; document.getElementById('mnGo').click(); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.getElementById('mnOk').click());
+  await p.waitForTimeout(1400);
+  await p.evaluate(() => document.getElementById('ivStop').click());
+  await p.waitForTimeout(1600);
+  ck('stopping half way really stops it', await p.evaluate(() => !document.getElementById('djAISheet')));
+  ck('and sends nothing more after it', s4.length === 1, s4.length);
+  await p.close(); await ctx.close();
+
+  /* 5 · nowhere near the kids' page or the crisis tool, and Start fresh takes it all with it */
+  ctx = await b.newContext({ ...devs['iPhone 13'], serviceWorkers: 'block' });
+  p = await ctx.newPage();
+  await p.goto(`http://localhost:${port}/safety/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2200);
+  ck('My Safety Plan is never offered any of it', !(await p.evaluate(() => !!document.getElementById('djSetup'))));
+  await p.close();
+  p = await ctx.newPage();
+  await p.addInitScript(() => { try {
+    localStorage.setItem('dj_profile_whoscoming', '{"done":1}');
+    localStorage.setItem('dj_reports_whoscoming', '[{"id":"r1","title":"x"}]');
+    localStorage.setItem('dj_name', 'Jerry');
+  } catch (e) {} });
+  await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(2000);
+  const owned = await p.evaluate(() => (window.djOwnedKeys && window.djOwnedKeys()) || []);
+  ck('Start fresh erases the setup answers and the reports with the app',
+     owned.includes('dj_profile_whoscoming') && owned.includes('dj_reports_whoscoming'), owned.filter(k => /profile|reports/.test(k)));
+  ck('and still leaves the names shared across apps alone', !owned.includes('dj_name'), owned.filter(k => k === 'dj_name'));
+  await ctx.close();
+}
+
+/* The icons and manifests behind all of it. No browser: these are file facts, and a file fact
+   that is wrong makes Chrome quietly refuse to offer Install, which looks like nothing at all. */
+function icons(){
+  console.log('\nIcons and manifests — what Chrome and iOS are actually handed');
+  const pins = JSON.parse(fs.readFileSync(path.join(__dirname, 'pinned.json'), 'utf8')).pinned || [];
+  const walkAll = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => {
+    const f = path.join(d, e.name);
+    if (e.isDirectory()) return e.name === '.git' || e.name === 'node_modules' ? [] : walkAll(f);
+    return e.name === 'index.html' ? [f] : [];
+  });
+  const files = walkAll(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')))
+    .filter(f => !pins.some(p => path.relative(ROOT, f).startsWith(p.path + path.sep)));
+
+  const noTouch = [], badTouch = [], badManifest = [], missingIcon = [], svgOnly = [];
+  for (const f of files) {
+    const dir = path.dirname(f), rel = path.relative(ROOT, dir) || '.';
+    const s = fs.readFileSync(f, 'utf8');
+    const t = s.match(/<link[^>]*rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i);
+    if (!t) noTouch.push(rel);
+    else if (/\.svg(\?|$)/i.test(t[1])) badTouch.push(`${rel} -> ${t[1]}`);
+    else if (!/^(data|https?):/i.test(t[1]) && !fs.existsSync(path.join(dir, t[1].split('?')[0]))) badTouch.push(`${rel} -> ${t[1]} is not there`);
+    const m = s.match(/<link[^>]*rel=["']manifest["'][^>]*href=["']([^"']+)["']/i);
+    if (!m || /^(data|https?):/i.test(m[1])) continue;
+    const mp = path.join(dir, m[1].split('?')[0]);
+    if (!fs.existsSync(mp)) { badManifest.push(`${rel}: links ${m[1]}, which is not there`); continue; }
+    let j; try { j = JSON.parse(fs.readFileSync(mp, 'utf8')); } catch (e) { badManifest.push(`${rel}: will not parse`); continue; }
+    const ic = Array.isArray(j.icons) ? j.icons : [];
+    for (const i of ic) {
+      const raw = String(i.src || '').split('?')[0];
+      if (!raw || /^(data|https?):/i.test(raw)) continue;
+      /* decode first: Pit Wall's icons live at ../Apps%20(installable%20site)/, which is a real
+         folder with a space in its name. Checking the undecoded path called them missing. */
+      let src = raw; try { src = decodeURIComponent(raw); } catch (e) {}
+      if (!fs.existsSync(path.join(path.dirname(mp), src))) missingIcon.push(`${rel} -> ${raw}`);
+    }
+    if (ic.length && !ic.some(i => /\.png(\?|$)/i.test(i.src || '') || i.type === 'image/png')) svgOnly.push(rel);
+  }
+  /* iOS does not render SVG for apple-touch-icon — a blank white tile, #543 */
+  ck('no app points its Home Screen tile at an SVG', badTouch.length === 0, badTouch);
+  ck('every manifest an app links is really there and parses', badManifest.length === 0, badManifest);
+  ck('every icon a manifest names is really there', missingIcon.length === 0, missingIcon);
+  /* whether Chrome will offer Install on an SVG-only manifest could NOT be measured from this
+     container (Page.getInstallabilityErrors reported no errors even for a page with no manifest at
+     all, so it is simply not running), and the guidance that was reachable says to carry a
+     rasterised icon beside an SVG. tools/icons/manifest.cjs puts a 192 and a 512 in each. */
+  ck('no manifest offers Chrome an SVG and nothing else', svgOnly.length === 0, svgOnly);
+  /* found by the Pit Wall chat on 22 Nov: f1/ carried a manifest.json nothing referenced, still
+     pointing at the SVG. Nothing reads it, so nothing breaks — and that is exactly why it sat
+     there. A spare manifest is the next person's wrong answer. */
+  const spare = [];
+  for (const f of files) {
+    const dir = path.dirname(f), rel = path.relative(ROOT, dir) || '.';
+    const s2 = fs.readFileSync(f, 'utf8');
+    const m2 = s2.match(/<link[^>]*rel=["']manifest["'][^>]*href=["']([^"']+)["']/i);
+    const linked = m2 && !/^(data|https?):/i.test(m2[1]) ? path.basename(m2[1].split('?')[0]) : null;
+    for (const name of fs.readdirSync(dir)) {
+      if (!/^manifest\.(json|webmanifest)$/i.test(name)) continue;
+      if (name !== linked) spare.push(`${rel}/${name}`);
+    }
+  }
+  ck('no app carries a spare manifest nothing links', spare.length === 0, spare);
+
+  const hm = JSON.parse(fs.readFileSync(path.join(ROOT, 'home', 'manifest.webmanifest'), 'utf8'));
+  /* "../" resolves one level above home/, which on the real site is /daraja-apps/ — so every app
+     opened from the Daraja icon stays inside it instead of falling out into Safari. Relative on
+     purpose: an absolute "/daraja-apps/" would be wrong everywhere but the live site. */
+  ck('the Daraja icon covers every app, not just the front door', hm.scope === '../', hm.scope || '(no scope)');
+  const sm = path.join(ROOT, 'shop', 'manifest.webmanifest');
+  ck('the store itself can be put on a Home Screen', fs.existsSync(sm) && /rel=["']manifest["']/.test(fs.readFileSync(path.join(ROOT, 'shop', 'index.html'), 'utf8')));
+}
+
 async function same(){
   console.log('\nThe block itself');
   const crypto = require('crypto');
@@ -366,7 +744,23 @@ async function same(){
     if (e.isDirectory()) return e.name === '.git' || e.name === 'node_modules' ? [] : walk(f);
     return e.name === 'index.html' ? [f] : [];
   });
-  const files = walk(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')));
+  const all = walk(ROOT).filter(f => /dj-house-v\d+/.test(fs.readFileSync(f, 'utf8')));
+  /* A copy deliberately held on an older block is not drift. tools/house/pinned.json names each
+     one, who owns it and why; without that list the two Business Manager test copies pinned at v72
+     on 21 November turned this whole group red, which reads exactly like a broken sweep. The pins
+     are PRINTED, not just skipped — a pin nobody remembers is how a copy quietly becomes the oldest
+     code in the house. */
+  const pins = JSON.parse(fs.readFileSync(path.join(__dirname, 'pinned.json'), 'utf8')).pinned || [];
+  const pinnedPath = f => pins.find(p => path.relative(ROOT, f).startsWith(p.path + path.sep));
+  const files = all.filter(f => !pinnedPath(f));
+  const held = all.filter(pinnedPath);
+  if (held.length) {
+    console.log(`  (${held.length} ${held.length > 1 ? 'copies' : 'copy'} deliberately pinned, skipped below)`);
+    for (const f of held) { const p = pinnedPath(f);
+      console.log(`     ${path.relative(ROOT, f)} — ${p.version} since ${p.since}, ${p.chat}: ${p.reason}`); }
+  }
+  const stalePin = pins.filter(p => !fs.existsSync(path.join(ROOT, p.path)));
+  ck('every pin in pinned.json still names a real folder', stalePin.length === 0, stalePin.map(p => p.path));
   const seen = {};
   for (const f of files) {
     const s = fs.readFileSync(f, 'utf8');
@@ -403,6 +797,9 @@ async function same(){
     if (!only || only === 'beta') await beta(b, s.port);
     if (!only || only === 'hello') await hello(b, s.port);
     if (!only || only === 'filekind') await filekind(b, s.port);
+    if (!only || only === 'install') await install(b, s.port);
+    if (!only || only === 'mine') await mine(b, s.port);
+    if (!only || only === 'icons') icons();
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }
