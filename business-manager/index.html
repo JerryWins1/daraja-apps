@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v75">
+<script id="dj-house-v77">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -1422,15 +1422,24 @@
          be a wrong one. Only the sender that really attaches the file passes opt.file - the
          external-assistant path cannot attach anything, the person does that themselves at
          the other end, so it says nothing about a file and that stays true. */
-      var fsz = '';
-      if(opt.file && opt.file.data){
-        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
-        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      /* 21 Nov 2026: a photo counts too. Jerry photographed a Menards receipt in Business
+         Manager and the phone's own reader garbled the thermal print, so the door now takes
+         image/jpeg, image/png and image/webp as well as a PDF. The sheet has to NAME what it
+         is sending, and saying "the file receipt.jpg (PDF, 380 KB)" over a photograph is the
+         wrong preview in the same way showing no file at all was. So the kind comes off the
+         media_type, not off a guess. */
+      var fsz = '', fkind = 'a PDF', flab = 'PDF';
+      if(opt.file){
+        if(/^image\//.test(String(opt.file.media_type || ''))){ fkind = 'a photo'; flab = 'photo'; }
+        if(opt.file.data){
+          var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+          fsz = kb >= 1024 ? ' (' + flab + ', ' + (kb / 1024).toFixed(1) + ' MB)' : ' (' + flab + ', ' + kb + ' KB)';
+        }
       }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
-        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || fkind) + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -2079,6 +2088,22 @@
     w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
+    /* 21 Nov, from the same-look sweep: it sat at the very top and covered the app's own name for
+       the whole 8 seconds — measured at 39 of the 43 apps that show it, most of them completely,
+       which is the one moment someone most needs to see which app they opened. It now starts just
+       under the header where there is one near the top. It still floats, so nothing jumps when it
+       goes (v62); if no header is found, or it is too far down the page to be a header, nothing
+       changes. */
+    try{
+      var hd = document.querySelector('h1, header, .hd, #hdr, .title, #title, .brand');
+      if(hd){
+        var hr = hd.getBoundingClientRect();
+        if(hr.height && hr.bottom > 0 && hr.bottom < 220){
+          var want = Math.round(hr.bottom + 8);
+          w.style.top = Math.min(want, Math.max(0, window.innerHeight - 160)) + 'px';
+        }
+      }
+    }catch(e){}
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
     setTimeout(function(){ w.style.opacity = '0'; w.style.pointerEvents = 'none'; setTimeout(function(){ w.remove(); }, 450); }, 8000);
   }
@@ -2681,7 +2706,7 @@
 <title>Business Manager</title>
 <meta name="description" content="Estimates, jobs, invoices with a pay link, expenses and profit — one simple app for a one-truck business.">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Business Manager">
@@ -2854,7 +2879,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.0.2 · 2026-11-21';
+var VER = 'v2.0.11 · 2026-11-22';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -3404,7 +3429,7 @@ function talkButton(){
    listener for the whole visit, a round is only ever ended with stop() or by itself, and a tap that comes before the
    iPhone has said it finished waits for that, then starts. A start the phone refuses is tried again a few times. */
 var MIC = null, SRI = null, MICST = 'idle', MICWANT = false, MICROUND = null;   /* MICST: idle | starting | on | ending */
-function micStop(){ if(MICST === 'starting' || MICST === 'on'){ MICST = 'ending'; MIC = null; try{ SRI.stop(); }catch(e){} micLabel(false);
+function micStop(){ if(MICST === 'starting' || MICST === 'on'){ micLog('stop'); MICST = 'ending'; MIC = null; try{ SRI.stop(); }catch(e){} micLabel(false);
   var r = MICROUND; setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; if(r && r.done) r.done(); micNext(); } }, 1500); } }
 /* the phone never said it finished: carry on anyway, and start the round that was asked for in the meantime */
 function micNext(){ if(MICWANT){ MICWANT = false; setTimeout(function(){ if($('tkIn')){ micRec(); micBegin(); } }, 250); } }
@@ -3416,28 +3441,40 @@ function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(
    itself after a pause (tap again to add more), always on a fresh listener, with any earlier one stopped first. A
    watchdog makes sure a tap never just sits there: if the phone hasn't started listening within 4 seconds, the line
    under the box says so, and the next tap starts clean. The phone's own reason is shown whenever it gives one. */
+/* v2.0.10 (21 Nov): a short line under the talk box showing what the phone reports in each round, so one screenshot from
+   Jerry's iPhone shows where the second round's words get lost (his phone lights the microphone but no words arrive).
+   Temporary: take it out once the second round works there. */
+var MICLOG = [], MICT0 = 0;
+function micLog(t){ MICLOG.push(t); if(MICLOG.length > 24) MICLOG.shift(); var d = $('tkDbg'); if(d) d.textContent = 'mic: ' + MICLOG.join(' · '); }
 function micJoin(ev){ var a = []; for(var k = 0; k < ev.results.length; k++) a.push(String(ev.results[k][0].transcript || '').trim()); return a.join(' ').replace(/\s+/g, ' ').trim(); }
+/* v2.0.11 (22 Nov): Jerry's screenshot of the mic line settled it. Every round after the first went: new listener → start →
+   audiostart → (no speechstart, no result) → error "aborted". The iPhone turned the microphone on but its speech engine
+   never heard a word — after the app had aborted the first round's listener and made a new one. So, as in v2.0.1 (which
+   was never fairly tested, because v1.9.8's history step was breaking the first round at the time): one listener for the
+   whole visit, rounds end only with stop() or by themselves, never abort, and the next round waits for the last to end. */
 function micRec(){
   if(SRI) return SRI;
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition; if(!SR) return null;
   try{ SRI = new SR(); }catch(e){ return null; }
   SRI.lang = navigator.language || (KE ? 'en-KE' : 'en-US'); SRI.interimResults = true; SRI.continuous = false; SRI.maxAlternatives = 1;
+  micLog('listener made');
+  var ms = function(){ return Math.round((Date.now() - MICT0) / 100) / 10 + 's'; };
+  ['audiostart', 'speechstart', 'audioend', 'nomatch'].forEach(function(ev){ try{ SRI.addEventListener(ev, function(){ micLog(ev + ' ' + ms()); }); }catch(e){} });
   /* the handlers stay put; each round brings its own box and words */
-  SRI.onstart = function(){ var r = MICROUND; if(!r) return; r.began = true; MICST = 'on'; micLabel(true); micSay('Listening. Say it — it stops by itself when you pause.'); };
-  SRI.onresult = function(ev){ var r = MICROUND; if(!r) return; r.began = true; var b = $('tkIn'); if(!b){ micStop(); return; }
+  SRI.onstart = function(){ micLog('start ' + ms()); var r = MICROUND; if(!r) return; r.began = true; MICST = 'on'; micLabel(true); micSay('Listening. Say it — it stops by itself when you pause.'); };
+  SRI.onresult = function(ev){ micLog('result ' + ms()); var r = MICROUND; if(!r) return; r.began = true; var b = $('tkIn'); if(!b){ micStop(); return; }
     r.heard = micJoin(ev); b.value = r.base ? r.base.replace(/[.,]?\s*$/, ', ') + r.heard : r.heard; b.dispatchEvent(new Event('input', { bubbles:true }));
     clearTimeout(r.quiet); r.quiet = setTimeout(function(){ if(MICROUND === r && MICST === 'on') micStop(); }, 2500); };
-  SRI.onerror = function(ev){ var r = MICROUND; if(r) r.failed = (ev && ev.error) || 'unknown'; };
-  SRI.onend = function(){ var r = MICROUND; MICST = 'idle'; MIC = null; micLabel(false); if(r && r.done) r.done();
+  SRI.onerror = function(ev){ micLog('error ' + ((ev && ev.error) || '?') + ' ' + ms()); var r = MICROUND; if(r) r.failed = (ev && ev.error) || 'unknown'; };
+  SRI.onend = function(){ micLog('end ' + ms()); var r = MICROUND; MICST = 'idle'; MIC = null; micLabel(false); if(r && r.done) r.done();
     micNext(); };
   return SRI;
 }
 function talkMic(){
-  if(KBMIC){ kbTalk(); return; }
   var KB = ' Or tap in the box and use the 🎤 on your keyboard.';
   if(MICST === 'starting' || MICST === 'on'){ micStop(); return; }
   if(!$('tkIn')) return;
-  if(!micRec()){ micSay('This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); try{ $('tkIn').focus(); }catch(e){} return; }
+  if(!micRec()){ micSay(IOS ? SAFARI_TIP + KB : 'This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); kbTalk(); return; }
   try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}   /* an open keyboard can hold the iPhone's microphone */
   if(MICST === 'ending'){ MICWANT = true; micLabel(true); micSay('One moment…'); return; }   /* the last round hasn't finished yet: start as soon as it has */
   micBegin();
@@ -3446,10 +3483,10 @@ function micBegin(tries){
   var KB = ' Or tap in the box and use the 🎤 on your keyboard.', box = $('tkIn'); if(!box || !SRI) return; tries = tries || 0;
   var r = MICROUND = { base:box.value.trim(), heard:'', failed:'', began:false, quiet:0 };
   r.done = function(){ clearTimeout(r.quiet); if(MICROUND !== r || !$('tkIn')) return;
-    if(r.failed === 'not-allowed' || r.failed === 'service-not-allowed') micSay('The microphone isn’t allowed for this page. Allow it and tap 🎤 again.' + KB, true);
+    if(r.failed === 'not-allowed' || r.failed === 'service-not-allowed') micSay((IOS ? 'The microphone isn’t allowed here. In Safari, tap aA → Website Settings → Microphone → Allow, then tap 🎤 again.' : 'The microphone isn’t allowed for this page. Allow it and tap 🎤 again.') + KB, true);
     else if(!r.heard) micSay('I didn’t catch anything' + (r.failed && r.failed !== 'no-speech' && r.failed !== 'aborted' ? ' (the phone said “' + r.failed + '”)' : '') + '. Tap 🎤 and try again.' + KB, true);
     else talkDraw(); };
-  MICST = 'starting'; MIC = SRI; micLabel(true); micSay('Starting the microphone…');
+  MICST = 'starting'; MIC = SRI; micLabel(true); micSay('Starting the microphone…'); MICT0 = Date.now(); micLog('round');
   try{ SRI.start(); }
   catch(e){ MICST = 'idle'; MIC = null;
     if(tries < 3){ micSay('One moment…'); setTimeout(function(){ if($('tkIn')) micBegin(tries + 1); }, 600); return; }
@@ -3458,14 +3495,15 @@ function micBegin(tries){
     micSay('The phone didn’t start listening. Tap 🎤 again.' + KB, true);
     setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; SRI = null; micNext(); } }, 1500); } }, 5000);   /* still nothing after that: the next tap gets a new listener */
 }
-/* v2.0.2 (21 Nov, Jerry: "Doesn't work at all — rethink how you're doing the microphone on the iPhone, and the phones
-   are the same"). The browser's own listening (webkitSpeechRecognition) works on a computer but is unreliable on an iPhone,
-   and missing altogether in an app saved to the Home Screen; five rounds of fixes here could not make it dependable. Every
-   phone, iPhone and Android alike, has something that always works: the 🎤 on its own keyboard, which types whatever is
-   said into the box. So on a phone, "Tap and talk" opens the box with the keyboard already up (focus has to happen inside
-   the tap, or an iPhone won't raise the keyboard) and says to tap the keyboard's 🎤; "Talk some more" brings the keyboard
-   back with the cursor at the end. A computer keeps the browser's listening, which works there. */
-var KBMIC = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1) || !(window.SpeechRecognition || window.webkitSpeechRecognition);
+/* v2.0.7 (21 Nov, Jerry: "Fix the talk button"). His later screenshots show the page open inside another app's built-in
+   browser (an X at the top, a compass at the bottom right), not Safari. Those browsers usually can't use the microphone,
+   which is why the in-app listening "didn't even activate" there while it worked in Safari earlier the same night (two
+   rounds in a row, v1.9.7) and on his computer. So: the browser's own listening is back wherever the phone offers it,
+   using the v1.9.7 rounds that worked for him in Safari. Where the phone doesn't offer it, or refuses the microphone, the
+   box says plainly to open the page in Safari (the compass), and the keyboard's own 🎤 still works meanwhile. */
+var IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1);
+var SAFARI_TIP = 'This page is open inside another app, where the microphone can’t be used. Tap the compass at the bottom right (or ⋯ → Open in Safari) and try again there.';
+var KBMIC = !(window.SpeechRecognition || window.webkitSpeechRecognition);
 var KBTIP = /Android/i.test(navigator.userAgent || '') ? 'Tap the 🎤 on your keyboard and talk. Tap ✓ or the down arrow when you’re done.' : 'Tap the 🎤 at the bottom of your keyboard and talk. Tap Done when you’re finished.';
 function kbTalk(){
   var b = $('tkIn'); if(!b) return;
@@ -3477,14 +3515,14 @@ function talkStart(){ talkOpen(''); if(KBMIC) kbTalk(); else talkMic(); }
 function talkOpen(said, plan, note){
   var old = TALK && TALK.plan && TALK.plan.photo;
   TALK = { said:String(said || '').trim(), plan:null, picked:'' };
-  sheet('<h3>🎤 Say it, or type it</h3>' + (KBMIC ? '<p class="banner small" id="tkTip" style="margin:0 0 8px">' + esc(KBTIP) + '<br><span class="muted">No 🎤 on your keyboard? ' + (/Android/i.test(navigator.userAgent || '') ? 'Turn on voice typing in your keyboard settings.' : 'Settings → General → Keyboard → Enable Dictation.') + '</span></p>' : '') + '<label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
+  sheet('<h3>🎤 Say it, or type it</h3>' + (KBMIC ? '<p class="banner small" id="tkTip" style="margin:0 0 8px">' + (IOS ? esc(SAFARI_TIP) + '<br>Meanwhile: ' : '') + esc(KBTIP) + '<br><span class="muted">No 🎤 on your keyboard? ' + (/Android/i.test(navigator.userAgent || '') ? 'Turn on voice typing in your keyboard settings.' : 'Settings → General → Keyboard → Enable Dictation.') + '</span></p>' : '') + '<label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
     + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">' + (KBMIC ? '🎤 Talk some more' : '🎤 Tap and talk') + '</button>'
     + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
-    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p>'
+    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p><p class="small muted" id="tkDbg" style="margin:0 2px 8px;font-size:12px">' + (MICLOG.length ? 'mic: ' + esc(MICLOG.join(' · ')) : '') + '</p>'
     + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
     + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
     + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
-      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); });
+      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); }, true);
   TALK.plan = plan || talkPlan(TALK.said); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
   talkDraw(note);
 }
@@ -3817,9 +3855,13 @@ function totals(sub, tax, credits, paid){
 var SHB = 0, SHB_UNWIND = 0;
 function sheetBack(fn){ if(!window.djBack || djBack.navigating()) return; SHB++; djBack.push(function(){ SHB = Math.max(0, SHB - 1); if(SHB_UNWIND) return; fn(); }); }
 function sheetGone(){ var s = $('bmSheet'); if(!s) return; if(s.querySelector('#tkMic')) micStop(); s.remove(); }
-function sheet(html, onOpen){
+/* v2.0.8 (21 Nov): the talk box opts out of the back trail (noBack). Jerry tried last night's v1.9.7 side by side and
+   it listened on his iPhone while the current app didn't; the only difference in that path was this: opening a box adds
+   a history step (pushState) for the phone's Back, right as the microphone starts — which looks to be what cuts an
+   iPhone's listening off. The talk box closes with ✕ as it did in v1.9.7; every other box keeps Back. */
+function sheet(html, onOpen, noBack){
   var had = !!$('bmSheet'); sheetGone();
-  if(!had) sheetBack(sheetGone);
+  if(!had && !noBack) sheetBack(sheetGone);
   var w = document.createElement('div'); w.className = 'shade'; w.id = 'bmSheet'; w.setAttribute('role', 'dialog');
   var chip = (SHB > 1 && window.djBack) ? djBack.button() : '';
   w.innerHTML = '<div class="sheet"><button class="x" onclick="BM.closeSheet()" aria-label="Close">✕</button>' + chip + html + '</div>';
@@ -4181,6 +4223,9 @@ function pl(from, to){
 VIEWS.money = function(){
   setHead('Money');
   var p = route[1] || 'tm', P = period(p), R = pl(P[0], P[1]), h = [];
+  /* v2.0.3 (21 Nov, Jerry: "it would be good if the operating buttons are on top and the reporting things down below,
+     because they're gonna be really long"). The things you DO with money come first; the figures and lists follow. */
+  if(F('expenses')) h.push('<div class="btns" id="moneyActs" style="margin-bottom:10px"><button class="btn main" onclick="BM.newReceipt()">📸 Receipt</button><button class="btn" onclick="BM.addExpense()">➕ Expense</button><button class="btn" onclick="BM.go(\'import\')">📄 Import statement</button><button class="btn" onclick="BM.go(\'expenses/' + p + '\')">📋 All expenses</button>' + ((S.receipts || []).length ? '<button class="btn" onclick="BM.go(\'receipts\')">🗂️ Receipts</button>' : '') + '</div>');
   h.push('<div class="chips">' + [['tm', 'This month'], ['lm', 'Last month'], ['ty', 'This year'], ['ly', 'Last year'], ['all', 'All']].map(function(x){ return '<button class="chip' + (x[0] === p ? ' on' : '') + '" onclick="BM.go(\'money/' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>');
   h.push('<div class="card"><div class="muted small" style="font-weight:800">' + esc(P[2].toUpperCase()) + '</div>'
     + '<div class="tot"><span>Money in (paid to you)</span><b style="color:var(--good)">' + money(R.income) + '</b></div>'
@@ -4197,7 +4242,6 @@ VIEWS.money = function(){
     var cats = Object.keys(R.exp).sort(function(a, b){ return R.exp[b] - R.exp[a]; }), mx = cats.length ? R.exp[cats[0]] : 1;
     h.push('<h2>Where the money went</h2><div class="card">' + (cats.length ? cats.map(function(k){ return '<div style="margin:6px 0"><div class="row small"><span class="grow">' + esc(k) + '</span><b>' + money(R.exp[k]) + '</b></div><div class="bar"><i style="width:' + Math.max(2, R.exp[k] / mx * 100) + '%"></i></div></div>'; }).join('') : '<p class="muted" style="margin:0">No expenses in this period.</p>')
       + (R.personal ? '<p class="hint">Not counted: ' + money(R.personal) + ' marked personal.</p>' : '') + '</div>');
-    h.push('<div class="btns"><button class="btn" onclick="BM.newReceipt()">📸 Receipt</button><button class="btn" onclick="BM.addExpense()">➕ Expense</button><button class="btn" onclick="BM.go(\'import\')">📄 Import statement</button><button class="btn" onclick="BM.go(\'expenses/' + p + '\')">📋 All expenses</button>' + ((S.receipts || []).length ? '<button class="btn" onclick="BM.go(\'receipts\')">🗂️ Receipts</button>' : '') + '</div>');
   }
   /* jobs that brought money in this period */
   var jm = {}; R.inc.forEach(function(x){ if(x.v.jobId) jm[x.v.jobId] = 1; });
@@ -4516,11 +4560,34 @@ async function rcPhoto(inp){
     msg.textContent = 'Getting the receipt reader ready (first time takes a moment)…';
     await loadScript(OCR_JS);
     var w = await Tesseract.createWorker('eng', 1, Object.assign({ logger:function(m){ if(m.status === 'recognizing text') msg.textContent = 'Reading the receipt… ' + Math.round(m.progress * 100) + '%'; } }, OCR_OPT));
-    var out = await w.recognize(blob); text = out.data.text || ''; await w.terminate();
+    try{ await w.setParameters({ tessedit_pageseg_mode:'6', preserve_interword_spaces:'1' }); }catch(e){}   /* a receipt is one block of rows */
+    var out = await w.recognize(await ocrPrep(f).catch(function(){ return blob; })); text = out.data.text || ''; await w.terminate();
   }catch(e){
     msg.innerHTML = 'I couldn’t read the photo here (' + esc(e.message || 'no connection') + '). The photo is saved — type the items in below, or paste the receipt text.';
   }
-  startReceipt(text, pid, 'photo');
+  var img = '';
+  try{ img = await new Promise(function(res){ var fr = new FileReader(); fr.onload = function(){ res(String(fr.result).split(',')[1] || ''); }; fr.onerror = function(){ res(''); }; fr.readAsDataURL(blob); }); }catch(e){}
+  if(blob && blob.type !== 'image/jpeg') img = '';   /* the AI door takes JPEG, PNG or WebP — never an iPhone's HEIC straight from the camera */
+  startReceipt(text, pid, 'photo'); if(RC){ RC.img = img; render(); }
+}
+/* v2.0.4 (21 Nov, Jerry's Menards receipt read as one wrong line and a total of -$174.39). The reader was given the
+   photo already shrunk for saving, so small receipt print was a few pixels high. It now reads the full photo, cleaned
+   up: grey, contrast stretched so faint thermal print goes dark, and sized to about 2,000 px across. */
+async function ocrPrep(file){
+  var url = URL.createObjectURL(file);
+  try{
+    var img = await new Promise(function(res, rej){ var i = new Image(); i.onload = function(){ res(i); }; i.onerror = rej; i.src = url; });
+    var W = img.naturalWidth, H = img.naturalHeight, k = Math.min(2.5, 2000 / Math.min(W, H) > 1 ? Math.min(2000 / Math.min(W, H), 2.5) : 2400 / Math.max(W, H) < 1 ? 2400 / Math.max(W, H) : 1);
+    var c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+    var g = c.getContext('2d'); g.drawImage(img, 0, 0, c.width, c.height);
+    var d = g.getImageData(0, 0, c.width, c.height), p = d.data, hist = new Uint32Array(256), n = p.length / 4;
+    for(var i = 0; i < p.length; i += 4){ var y = (p[i] * 299 + p[i + 1] * 587 + p[i + 2] * 114) / 1000 | 0; p[i] = y; hist[y]++; }
+    var lo = 0, hi = 255, acc = 0; for(; lo < 255; lo++){ acc += hist[lo]; if(acc > n * 0.02) break; } acc = 0; for(; hi > 0; hi--){ acc += hist[hi]; if(acc > n * 0.02) break; }
+    var span = Math.max(1, hi - lo);
+    for(var j = 0; j < p.length; j += 4){ var v = Math.max(0, Math.min(255, (p[j] - lo) * 255 / span)); p[j] = p[j + 1] = p[j + 2] = v; }
+    g.putImageData(d, 0, 0);
+    return await new Promise(function(res){ c.toBlob(res, 'image/png'); });
+  } finally { URL.revokeObjectURL(url); }
 }
 function rcText(){ var t = $('rcT').value.trim(); if(!t){ alert('Paste the receipt first.'); return; } startReceipt(t, '', 'email'); }
 function rcManual(){ startReceipt('', '', 'typed'); if(!RC.lines.length) RC.lines.push({ name:'', amount:0, to:'' }); render(); }
@@ -4533,7 +4600,65 @@ function startReceipt(text, pid, how){
 }
 
 /* reading receipt text: works on Home Depot / Lowe's style receipts and pasted eReceipts */
+/* v2.0.4 (21 Nov, Jerry's Menards receipt). Store slips like Menards put the item name on one line and, under it, the
+   item number with "qty @ price" and the line total (sometimes the total drops to a line of its own). Their plain
+   "TOTAL" is before tax and "TOTAL SALE" is what was paid. And the phone's reader garbles some characters on thermal
+   paper ("J614066 b @7.97" for "3614066 6 @7.97"). This reads that layout, works out a line from qty × price when
+   its total is missing or unreadable, and takes the paid total over the before-tax one. parseReceipt then keeps
+   whichever reading of the slip adds up best. */
+function ocrDigits(t){ return String(t).replace(/[OoQD]/g, '0').replace(/[Il|]/g, '1').replace(/[J]/g, '3').replace(/[Ss]/g, '5').replace(/[b]/g, '6').replace(/[B]/g, '8').replace(/[Z]/g, '2'); }
+function parseRows(text){
+  var MONEY = /(-?\$?\s?\d{1,5}(?:,\d{3})*\.\d{2})/, out = { items:[], tax:0, total:0, sub:0 };
+  var lines = String(text || '').split(/\r?\n/).map(function(l){ return l.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+  var bare = function(l){ var m = l && l.match(/^-?\$?\s?(\d{1,5}(?:,\d{3})*\.\d{2})\s*[A-Z]{0,2}$/); return m ? num(m[1]) : null; };
+  var name = '';
+  for(var i = 0; i < lines.length; i++){
+    var l = lines[i], m, nx = lines[i + 1];
+    /* totals and tax: the amount on the same line, or alone on the next */
+    var lab = l.replace(MONEY, '').trim(), amt = (l.match(MONEY) || [])[1], val = amt != null ? Math.abs(num(amt)) : (bare(nx) != null ? bare(nx) : null);
+    if(/^(total\s+sale|grand\s+total|amount\s+due|balance\s+due|total\s+due)\b/i.test(lab)){ if(val != null){ out.total = val; if(amt == null) i++; } name = ''; continue; }
+    if(/^(sub-?\s?total|total)\b/i.test(lab) && !/number|items|saved|savings/i.test(lab)){ if(val != null){ out.sub = out.sub || val; if(amt == null) i++; } name = ''; continue; }
+    if(/^(sales\s+)?(tax|vat)\b/i.test(lab)){ if(val != null){ out.tax = out.tax || val; if(amt == null) i++; } name = ''; continue; }
+    if(/\b(visa|master ?card|amex|discover|debit|credit|cash|change|tender|auth|contactless|arqc|aid|number of items)\b/i.test(lab)){ name = ''; continue; }
+    /* the item-number row: a 6–8 character code (allowing for misread digits), maybe "qty @ price", maybe the line total */
+    var row = l.match(/^([A-Za-z0-9]{6,9})\b\s*(.*)$/);
+    if(name && row && (ocrDigits(row[1]).match(/\d/g) || []).length >= 4){
+      var rest = row[2], qty = 1, unit = 0, tot = null, q;
+      if((q = rest.match(/(\S+)\s*@\s*\$?\s?(\S+?)(?=\s|$)/))){ qty = parseInt(ocrDigits(q[1]), 10) || 1; unit = num(ocrDigits(q[2].replace(/^[^\d]+/, ''))); rest = rest.replace(q[0], ' '); }
+      var tm = rest.match(/(\d{1,5}(?:,\d{3})*\.\d{2})\s*[A-Z]{0,2}\s*$/); if(tm) tot = num(tm[1]);
+      if(tot == null && bare(nx) != null){ tot = bare(nx); i++; }
+      if(unit && qty > 1 && (tot == null || Math.abs(r2(qty * unit) - tot) > 0.015)){ var calc = r2(qty * unit); if(tot == null || !(tot > 0)) tot = calc; else if(Math.abs(calc - tot) > 0.015) tot = tot; }
+      if(tot != null && tot > 0) out.items.push({ name:(name + (qty > 1 ? ' (' + qty + ' @ ' + cur(unit.toFixed(2)) + ')' : '')).slice(0, 60), amount:tot });
+      name = ''; continue;
+    }
+    if(name && bare(l) != null){ out.items.push({ name:name.slice(0, 60), amount:bare(l) }); name = ''; continue; }   /* the item number was lost: the price alone follows the name */
+    /* a name line: words, no price */
+    if(/[A-Za-z]{2}/.test(l) && !MONEY.test(l)) name = l.replace(/\s{2,}/g, ' '); else name = '';
+  }
+  if(!out.total && out.sub) out.total = r2(out.sub + out.tax);
+  return out;
+}
 function parseReceipt(text){
+  var a = parseReceiptLines(text), b = parseRows(text);
+  function miss(r, tot){ var s = r.items.reduce(function(x, y){ return x + y.amount; }, 0); return tot ? Math.abs(r2(tot - (r.tax || 0) - s)) : 1e9; }
+  var tot = b.total || a.total, tax = b.tax || a.tax;
+  var useB = b.items.length && (!a.items.length || miss({ items:b.items, tax:tax }, tot) <= miss({ items:a.items, tax:tax }, tot) || b.items.length > a.items.length);
+  var items = (useB ? b.items : a.items).slice();
+  /* v2.0.6 (21 Nov): the phone read "TOTAL SALE" as "[OTAL SALE" and "TAX" as "Sm (4X", so totals came in as items.
+     The numbers give them away even when the words don't: look for three amounts where one plus another makes the
+     third (160.73 + 13.66 = 174.39). The biggest is the total, the smaller of the other two the tax, the rest the
+     before-tax total — and none of the three is an item. */
+  var vals = []; String(text || '').replace(/(\d{1,5}(?:,\d{3})*\.\d{2})/g, function(m){ var v = num(m); if(v > 0 && vals.indexOf(v) < 0) vals.push(v); return m; });
+  vals.sort(function(x, y){ return y - x; });
+  for(var A = 0; A < vals.length && !(tot && tax); A++) for(var B = A + 1; B < vals.length; B++) for(var C = B + 1; C < vals.length; C++){
+    if(Math.abs(r2(vals[B] + vals[C]) - vals[A]) < 0.011 && vals[C] < vals[B] * 0.2){ if(!tot || tot === vals[B]) tot = vals[A]; if(!tax) tax = vals[C]; A = vals.length; break; } }
+  if(tot) items = items.filter(function(x){ var sub = r2(tot - tax); return !(Math.abs(x.amount - tot) < 0.011 || Math.abs(x.amount - tax) < 0.011 && tax || Math.abs(x.amount - sub) < 0.011 && items.length > 1); });
+  var gap = tot ? r2(tot - tax - items.reduce(function(x, y){ return x + y.amount; }, 0)) : 0;
+  /* still short of what the slip says was paid: show the difference as its own line to fix, rather than a wrong total */
+  if(gap > 0.009 && items.length) items.push({ name:'❓ A line I couldn’t read — check the receipt', amount:gap });
+  return { vendor:a.vendor, date:a.date, tax:tax, total:tot, items:items };
+}
+function parseReceiptLines(text){
   var out = { vendor:'', date:'', tax:0, total:0, items:[] }, t = String(text || '');
   for(var i = 0; i < STORES.length; i++){ var re = new RegExp(STORES[i].replace(/[’']/g, '[’\']?').replace(/[&]/g, '&').replace(/ /g, '\\s*'), 'i'); if(re.test(t)){ out.vendor = STORES[i]; break; } }
   var dm = t.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/) || t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
@@ -4562,6 +4687,7 @@ function parseReceipt(text){
     if(name.length < 2 || /^(qty|price|amount|item|description)$/i.test(name)) return;
     out.items.push({ name:name.slice(0, 60), amount:num(m[2]) });
   });
+  if(out.total < 0) out.total = 0;   /* a refund or rebate line misread as the total */
   if(!out.tax && out.total){ var s = out.items.reduce(function(a, x){ return a + x.amount; }, 0), d = r2(out.total - s); if(d > 0 && d < s * 0.15) out.tax = d; }
   return out;
 }
@@ -4580,6 +4706,11 @@ function receiptReview(){
   h += '<div class="card"><div class="two"><div><label class="f" for="rcV" style="margin-top:0">Store</label><input class="i" id="rcV" value="' + esc(RC.vendor) + '" onchange="BM.rcSet(\'vendor\',this.value)" placeholder="' + L('Home Depot', 'e.g. Nakuru Hardware') + '"></div><div><label class="f" for="rcD" style="margin-top:0">Date</label><input class="i" type="date" id="rcD" value="' + esc(RC.date) + '" onchange="BM.rcSet(\'date\',this.value)"></div></div>'
     + (RC.photo ? '<button class="btn sm" style="margin-top:8px" onclick="BM.showPhoto(\'' + RC.photo + '\')">📸 See the photo</button>' : '') + '</div>';
   h += '<div class="card"><label class="f" for="rcM" style="margin-top:0">Most of this is for</label><select class="i" id="rcM" onchange="BM.rcMost(this.value)">' + destOptions(RC.most, false) + '</select><p class="hint">Then change just the items that go somewhere else — a tool for the shop, a snack that’s personal, or a split between two jobs.</p></div>';
+  /* v2.0.9 (21 Nov): the phone's own reader garbles a photographed store slip. When the reading doesn't add up, the
+     first thing on the screen is the way to a proper one: the AI reads the photo itself (the house AI door takes photos
+     from house v77). With the door off, the same button asks the person's own AI with the phone's reading instead. */
+  var shaky = RC.img && hasAI() && (RC.lines.some(function(l){ return /^❓/.test(l.name || ''); }) || !RC.lines.length || (RC.total && Math.abs(RC.total - s.total) > 0.02));
+  if(shaky) h += '<div class="banner" id="rcAIbar" style="margin:0 0 10px">The phone couldn’t read all of this receipt.<button class="btn main full" style="margin-top:8px" onclick="BM.rcAI()">✨ Have AI read the photo</button></div>';
   h += '<h2>Items (' + RC.lines.length + ')</h2>';
   h += RC.lines.map(function(l, i){
     var sel = l.to || RC.most;
@@ -4587,7 +4718,7 @@ function receiptReview(){
       + '<select class="i" style="min-height:44px;margin-top:6px;font-size:15px' + (l.to && l.to !== RC.most ? ';border-color:var(--amber);background:var(--amberSoft)' : '') + '" onchange="BM.rcTo(' + i + ',this.value)" aria-label="Where it goes">' + destOptions(sel, true) + '</select>'
       + (l.to === 'split' ? '<div class="small muted" style="margin-top:4px">' + l.split.map(function(p){ return money(p.amt) + ' → ' + esc(destName(p.to)); }).join(' · ') + ' <a href="javascript:void 0" onclick="BM.rcSplit(' + i + ')">change</a></div>' : '') + '</div>';
   }).join('');
-  h += '<div class="btns"><button class="btn sm" onclick="BM.rcAdd()">➕ Add an item</button>' + (hasAI() && RC.text ? '<button class="btn sm" onclick="BM.rcAI()">✨ Have AI read it</button>' : '') + '</div>';
+  h += '<div class="btns"><button class="btn sm" onclick="BM.rcAdd()">➕ Add an item</button>' + (hasAI() && (RC.text || RC.img) ? '<button class="btn sm" onclick="BM.rcAI()">✨ Have AI read ' + (RC.img ? 'the photo' : 'it') + '</button>' : '') + '</div>';
   h += '<div class="card" style="margin-top:10px"><div class="tot"><span>Items</span><span>' + money(s.items) + '</span></div><div class="tot"><span>Tax</span><span><input class="i" style="width:110px;min-height:40px;text-align:right" inputmode="decimal" value="' + (s.tax ? s.tax.toFixed(2) : '') + '" placeholder="0.00" onchange="BM.rcSet(\'tax\',this.value)" aria-label="Tax"></span></div><div class="tot grand"><span>Total</span><span>' + money(s.total) + '</span></div>'
     + (RC.total && Math.abs(RC.total - s.total) > 0.02 ? '<div class="banner small" style="margin:8px 0 0">The receipt says <b>' + money(RC.total) + '</b> but these add up to <b>' + money(s.total) + '</b>. Check for a missed or misread line.</div>' : '') + '</div>';
   var jobsHere = {}; RC.lines.forEach(function(l){ (l.to === 'split' ? l.split : [{ to:l.to || RC.most }]).forEach(function(p){ if(p.to && p.to.indexOf('job:') === 0) jobsHere[p.to.slice(4)] = 1; }); });
@@ -4646,8 +4777,10 @@ function rcSave(){
   toast('Saved ' + money(rec.total) + ' → ' + where); go('rcpt/' + rec.id);
 }
 function rcAI(){
+  var photo = !!RC.img;
   djAI.ask({ title:'Read this receipt', want:'text', circle:false,
-    prompt:'This is the text of a store receipt (it may be messy — it was read from a photo or copied from an email). Pull out what was bought. Write exactly this, with nothing else:\nStore: name of the store\nDate: YYYY-MM-DD\nItem name | price\nItem name | price\nTax: 0.00\nTotal: 0.00\n\nUse the price actually charged for each line (after any discount). Leave out payment, card and change lines.\n\n' + String(RC.text).slice(0, 8000),
+    file:photo ? { name:'receipt.jpg', media_type:'image/jpeg', data:RC.img } : undefined,
+    prompt:(photo ? 'This is a photo of a store receipt. Read it carefully, line by line. If you cannot see a photo, use the text further down instead, which the phone read from it (it may be garbled). ' : 'This is the text of a store receipt (it may be messy — it was read from a photo or copied from an email). ') + 'Pull out what was bought. Write exactly this, with nothing else:\nStore: name of the store\nDate: YYYY-MM-DD\nItem name | price\nItem name | price\nTax: 0.00\nTotal: 0.00\n\nUse the price actually charged for each line (after any discount). Leave out payment, card and change lines.\n\n' + String(RC.text).slice(0, 8000),
     onResult:function(v, raw){
       var n = 0, lines = [];
       bulletless(raw).forEach(function(l){ var m;

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script id="dj-house-v75">
+<script id="dj-house-v77">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -1422,15 +1422,24 @@
          be a wrong one. Only the sender that really attaches the file passes opt.file - the
          external-assistant path cannot attach anything, the person does that themselves at
          the other end, so it says nothing about a file and that stays true. */
-      var fsz = '';
-      if(opt.file && opt.file.data){
-        var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
-        fsz = kb >= 1024 ? ' (PDF, ' + (kb / 1024).toFixed(1) + ' MB)' : ' (PDF, ' + kb + ' KB)';
+      /* 21 Nov 2026: a photo counts too. Jerry photographed a Menards receipt in Business
+         Manager and the phone's own reader garbled the thermal print, so the door now takes
+         image/jpeg, image/png and image/webp as well as a PDF. The sheet has to NAME what it
+         is sending, and saying "the file receipt.jpg (PDF, 380 KB)" over a photograph is the
+         wrong preview in the same way showing no file at all was. So the kind comes off the
+         media_type, not off a guess. */
+      var fsz = '', fkind = 'a PDF', flab = 'PDF';
+      if(opt.file){
+        if(/^image\//.test(String(opt.file.media_type || ''))){ fkind = 'a photo'; flab = 'photo'; }
+        if(opt.file.data){
+          var kb = Math.round(String(opt.file.data).length * 3 / 4 / 1024);   /* base64: 4 characters per 3 bytes */
+          fsz = kb >= 1024 ? ' (' + flab + ', ' + (kb / 1024).toFixed(1) + ' MB)' : ' (' + flab + ', ' + kb + ' KB)';
+        }
       }
       var ctx = (opt.circle === false || o.circle === false) ? '' : djCircle.summary();
       var b = sheet('<div style="font-weight:900;font-size:19px;margin-bottom:6px">' + esc(o.title || opt.title || 'Ask an AI') + '</div>'
         + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Sending to <b>' + esc(opt.who) + '</b>: <span id="djAIShort">\u201c' + esc(short) + '\u201d</span> <button type="button" id="djAIShow" style="font:inherit;font-size:13px;font-weight:800;color:#23504F;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;text-decoration:underline">see the words</button></p>'
-        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || 'a PDF') + '</b>' + esc(fsz) + '</p>' : '')
+        + (opt.file ? '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">\u2026 and the file <b>' + esc(opt.file.name || fkind) + '</b>' + esc(fsz) + '</p>' : '')
         + '<textarea id="djAIQ" aria-label="The question" style="display:none;width:100%;min-height:110px;font:inherit;font-size:15px;padding:10px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;margin-bottom:10px"></textarea>'
         + (ctx ? '<label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:#1F2622"><input type="checkbox" id="djAICircle" style="width:24px;height:24px;flex:none;accent-color:#23504F"' + (circleOn() ? ' checked' : '') + '><span>Include <b>My Circle</b> so it knows your people <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-size:13px">see what</a></span></label>'
            : ((opt.circle !== false && o.circle !== false && !djCircle.get()) ? '<p style="margin:0 0 10px;font-size:13.5px;color:#55605B">Want better answers? <a href="' + djCircle.url + '" target="_blank" rel="noopener" style="color:#23504F;font-weight:800">Tell it about your people once \u2192</a></p>' : ''))
@@ -2079,6 +2088,22 @@
     w.innerHTML = '<div style="flex:1"><b style="color:#fff">' + g + (nm ? ', ' + nm.replace(/[<>&]/g,'') : '') + '.' + back + '</b><div style="opacity:.95;font-size:14.5px">' + line + '</div></div><span aria-hidden="true" style="opacity:.8">✕</span>';
     w.onclick = function(){ w.remove(); };
     document.body.appendChild(w);
+    /* 21 Nov, from the same-look sweep: it sat at the very top and covered the app's own name for
+       the whole 8 seconds — measured at 39 of the 43 apps that show it, most of them completely,
+       which is the one moment someone most needs to see which app they opened. It now starts just
+       under the header where there is one near the top. It still floats, so nothing jumps when it
+       goes (v62); if no header is found, or it is too far down the page to be a header, nothing
+       changes. */
+    try{
+      var hd = document.querySelector('h1, header, .hd, #hdr, .title, #title, .brand');
+      if(hd){
+        var hr = hd.getBoundingClientRect();
+        if(hr.height && hr.bottom > 0 && hr.bottom < 220){
+          var want = Math.round(hr.bottom + 8);
+          w.style.top = Math.min(want, Math.max(0, window.innerHeight - 160)) + 'px';
+        }
+      }
+    }catch(e){}
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
     setTimeout(function(){ w.style.opacity = '0'; w.style.pointerEvents = 'none'; setTimeout(function(){ w.remove(); }, 450); }, 8000);
   }
@@ -4376,8 +4401,10 @@ return {inext,iprev,isound,start,explore,showme,did,later,open,close,restart,ski
     padding-top: max(8px, var(--dj-pt, 0px));
     padding-bottom: max(8px, var(--dj-pb, 0px));
   }
-  /* small chips and nav items get 40px, which is still a comfortable target */
-  nav button, .pills button, .chips button, .tabs button { min-height: 40px !important; }
+  /* 21 Nov: these were 40px, called "still a comfortable target" when they were written. Every
+     other tappable thing in the house is 44, which is the size Apple and Google both ask for, and
+     the same-look sweep found FlipKit and My Safety Plan short because of this one rule. */
+  nav button, .pills button, .chips button, .tabs button { min-height: 44px !important; }
 
   /* ── the floating helper must never share space with a header or a bar ── */
   #djHelp { top: auto !important; bottom: calc(150px + env(safe-area-inset-bottom)) !important;

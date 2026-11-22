@@ -2,7 +2,7 @@
 /* Checks on the shared house block (the <script id="dj-house-vNN"> every app carries).
  *
  *   node tools/house/test.cjs            all of it
- *   node tools/house/test.cjs back       one group: back, mic, tell, fresh, beta, same
+ *   node tools/house/test.cjs back       one group: back, mic, tell, fresh, beta, hello, same
  *
  * Why this file exists. On 20 November the back-stack, the microphone and the tell
  * box were each fixed and each verified by a throwaway script in a container that
@@ -277,6 +277,87 @@ async function beta(b, port){
   }
 }
 
+async function hello(b, port){
+  console.log("\nThe greeting — it must not cover the app's own name");
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  /* a spread, not all 55: these are apps whose header the greeting used to cover completely */
+  const some = ['everyday', 'jarbyjar', 'ourtable', 'story-keeper', 'tripstab', 'whoscoming', 'f1'];
+  let covered = [];
+  for (const a of some) {
+    const p = await ctx.newPage();
+    try {
+      await p.goto(`http://localhost:${port}/${a}/`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await p.waitForTimeout(1500);
+      const pct = await p.evaluate(() => {
+        const h = document.getElementById('djHello');
+        const head = document.querySelector('h1, header, .hd, #hdr, .title, #title, .brand');
+        if (!h || !head) return null;
+        const a = h.getBoundingClientRect(), r = head.getBoundingClientRect();
+        if (!r.width || !r.height) return null;
+        const w = Math.min(r.right, a.right) - Math.max(r.left, a.left);
+        const t = Math.min(r.bottom, a.bottom) - Math.max(r.top, a.top);
+        return (w > 0 && t > 0) ? Math.round(100 * w * t / (r.width * r.height)) : 0;
+      });
+      if (pct !== null && pct > 40) covered.push(`${a} ${pct}%`);
+    } catch (e) {}
+    await p.close();
+  }
+  ck('it starts below the header, not over it', covered.length === 0, covered);
+  await ctx.close();
+}
+
+/* 21 Nov 2026. The AI door now reads a photographed receipt as well as a PDF, so the sheet
+   that shows the person what is about to leave the phone has to name which it is. A sheet
+   that says "the file receipt.jpg (PDF, 380 KB)" over a photograph is a wrong preview, and
+   a wrong preview is worse than none — that was the reasoning when the sheet first learned
+   to name a file, and it is the reasoning here. */
+async function filekind(b, port){
+  console.log('\nThe confirm sheet — it must name what it is about to send');
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  /* the door's real address is in control/ai.json; stand in for both it and the door */
+  await ctx.route('**/control/ai.json*', r => r.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ endpoint: 'https://door.test/ask' }) }));
+  let sent = null;
+  await ctx.route('https://door.test/ask', r => {
+    try { sent = JSON.parse(r.request().postData() || '{}'); } catch (e) { sent = 'unparseable'; }
+    return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ text: 'Menards, $41.37.' }) });
+  });
+  const p = await open(ctx, port, 'advent');
+
+  const data = 'A'.repeat(4 * 1024);                 /* base64 for 3 KB */
+  const ask = async (file) => {
+    await p.evaluate(f => { window.djAI.ask({ title: 'Read it', prompt: 'Read this', file: f }); }, file);
+    await p.waitForTimeout(700);
+    return await p.evaluate(() => {
+      const s = document.getElementById('djAISheet');
+      return s ? s.innerText.replace(/\s+/g, ' ') : null;
+    });
+  };
+  const cancel = async () => {
+    await p.evaluate(() => { const x = document.getElementById('djAIX'); if (x) x.click(); });
+    await p.waitForTimeout(300);
+  };
+
+  let t = await ask({ media_type: 'application/pdf', name: 'statement.pdf', data });
+  ck('a PDF is still called a PDF', /statement\.pdf/.test(t || '') && /\(PDF, 3 KB\)/.test(t || ''), t);
+  await cancel();
+
+  t = await ask({ media_type: 'image/jpeg', name: 'receipt.jpg', data });
+  ck('a photo is called a photo, not a PDF', /receipt\.jpg/.test(t || '') && /\(photo, 3 KB\)/.test(t || '') && !/PDF/.test(t || ''), t);
+  await cancel();
+
+  t = await ask({ media_type: 'image/png', data });
+  ck('a photo with no name still says photo', /a photo/.test(t || '') && !/PDF/.test(t || ''), t);
+
+  /* and it really goes to the door, with the type the app chose */
+  await p.evaluate(() => { const g = document.getElementById('djAIGo'); if (g) g.click(); });
+  await p.waitForTimeout(1200);
+  ck('the photo reaches the door with its own media_type',
+     !!sent && sent.file && sent.file.media_type === 'image/png' && sent.file.data === 'A'.repeat(4 * 1024),
+     sent && sent.file ? sent.file.media_type : sent);
+  await ctx.close();
+}
+
 async function same(){
   console.log('\nThe block itself');
   const crypto = require('crypto');
@@ -300,6 +381,15 @@ async function same(){
      odd.length <= 4, odd);
   const vers = new Set(files.map(f => (fs.readFileSync(f, 'utf8').match(/dj-house-v(\d+)/) || [])[1]));
   ck('every app is on the same house version', vers.size === 1, [...vers]);
+  /* env(safe-area-inset-*) reads 0 without this, so the dock, the greeting and the Home Screen
+     card all sit under the notch or the home bar on the phones that have them. Five apps were
+     missing it on 21 November, the store and the front door among them. A console warning would
+     only reach somebody already looking; this reaches whoever runs the checks. */
+  const noCover = files.filter(f => {
+    const m = fs.readFileSync(f, 'utf8').match(/<meta[^>]*name=["']viewport["'][^>]*>/i);
+    return !m || !/viewport-fit=cover/.test(m[0]);
+  }).map(f => path.relative(ROOT, f));
+  ck('every app asks for the whole screen (viewport-fit=cover)', noCover.length === 0, noCover);
 }
 
 (async () => {
@@ -311,6 +401,8 @@ async function same(){
     if (!only || only === 'mic')  await mic(b, s.port);
     if (!only || only === 'tell') await tell(b, s.port);
     if (!only || only === 'beta') await beta(b, s.port);
+    if (!only || only === 'hello') await hello(b, s.port);
+    if (!only || only === 'filekind') await filekind(b, s.port);
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }

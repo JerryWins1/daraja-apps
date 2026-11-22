@@ -992,3 +992,16 @@ Jerry: "every screen you get in, you need to be able to get out of … just put 
 - Every screen now has a round ✕ at the top right that stays put while you scroll and goes straight to the main screen (`sheetX`). Answers are saved as you go.
 - The budget questions remember where you stopped (`db.budI`). Starting again picks up there, with a "Start from the top" link.
 - Each budget question has **🔎 What makes up $X?** (`budWhat`), and each line of the summary has *what's in it*. It shows every payee in that kind, biggest first, then each payment. Tap a payment to move it.
+
+## v10.0 · the month at a glance (21 Nov)
+
+Jerry: "when I think of a dashboard, I think of one screen that has statistics and buttons like dials … just a quick glance at the status of the financial condition." He approved a mock-up first.
+- `glanceHTML` replaces the pulse card at the top of the main screen. It shows the pulse month, the last one with statements.
+  - One sentence: under or over income, with the next action button.
+  - Three dials: Income in (against usual income), Spent (against the Part 1 budget), and Yearly bills (saved against the next bill of each).
+  - Tiles: Safe to spend and Net worth.
+  - **Coming up**: the next 30 days (`glComing`). It lists only steady monthly bills (about once a month, at a steady amount) and Part 2 bills due by next month, with a "short" mark where savings fall short.
+  - **Needs you**: questions, the spouse's questions, Charged twice, To look into, missing statements, short bill savings and backup.
+  - Four buttons: Add statements, Ask, Budget and Lists.
+- Every dial, tile and row opens what's behind it. The heads-up card still sits above the glance, and everything else moves below it.
+- The overview and first-time videos each have one reworded line, re-recorded by name.
