@@ -3677,7 +3677,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.3.3 · 2026-11-23';
+var VER = 'v2.3.4 · 2026-11-23';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4248,11 +4248,11 @@ function talkStore(t){ var w = talkWords(t).replace(/[.,]/g, ' ').replace(/\s+/g
   var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
 function talkPlan(said, force){
   /* “three receipts, one for 2995”: the count and the “one for” are not amounts */
-  var t = wordsToDigits(String(said || '').trim().replace(/\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|several|some)\s+(receipts?|quotes?|estimates?)\b/gi, '$1').replace(/\b(?:one|1)\s+(?=for\b)/gi, '')), w = talkWords(t); if(!t) return { kind:force || '' };
+  var t = wordsToDigits(String(said || '').trim().replace(/\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|several|some)\s+(receipts?|quotes?|estimates?)\b/gi, '$1').replace(/\b(?:one|1)\s+(?=(?:for|from|at)\b)/gi, '')), w = talkWords(t); if(!t) return { kind:force || '' };
   var kind = force || ((/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\b(receipts?|received)\b/.test(w)) ? 'receipt' : /^\s*(quote|estimate|price|bid)\b/.test(w) ? 'quote' : '');
   if(kind === 'receipt'){
-    var c = talkCust(t), j = custJob(c), amt = talkAmount(t.replace(/^\D*?(?=\$|\d)/, ''));
-    var amb = talkAmb(t.replace(/^\D*?(?=\$|\d)/, ''));
+    var c = talkCust(t), j = custJob(c), amt = talkAmount(/\$\s*\d/.test(t) ? t.slice(t.search(/\$\s*\d/)) : t.replace(/^\D*?(?=\$|\d)/, ''));   /* a $ amount wins over any other number said */
+    var amb = /\$\s*\d/.test(t) ? null : talkAmb(t.replace(/^\D*?(?=\$|\d)/, ''));
     return { kind:'receipt', amount:amt, amb:amb && amb[1] === amt ? amb : null, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
   }
   if(kind === 'quote'){
@@ -4457,8 +4457,11 @@ function talkAI(){
         : { kind:'quote', custId:c ? c.id : '', name:c ? c.name : String(j.customer || '').trim(), work:String(j.work || '').trim() }, '✨ Sorted by ' + (aiLabel() === 'my AI' ? 'the AI' : aiLabel()) + ' — check it, then Save it.');
     } });
 }
-function talkNext(said){ setTimeout(function(){ talkOpen(said); if(KBMIC) kbTalk(); }, 350); }
+/* v2.3.4: a tap meant for the last box must never save the next one unseen — Save ignores taps for its first second */
+var TALK_OPENED = 0;
+function talkNext(said){ setTimeout(function(){ talkOpen(said); TALK_OPENED = Date.now(); if(KBMIC) kbTalk(); }, 350); }
 function talkSave(){
+  if(Date.now() - TALK_OPENED < 1200) return;
   var p = TALK && TALK.plan, miss = talkMissing(p);
   if(miss){ talkWarn(); var msg = $('tkPlan'); if(msg){ msg.style.outline = '3px solid var(--bad)'; setTimeout(function(){ msg.style.outline = ''; }, 900); } var f = !p || !p.kind ? null : p.kind === 'receipt' ? $('tkA') : !p.name ? $('tkC') : $('tkW'); if(f) try{ f.focus(); }catch(e){} return; }
   var sv = (TALK.rest ? talkSplit(TALK.said).first : TALK.said) || (p.kind === 'receipt' ? 'Receipt ' + money(p.amount) + (p.store ? ' ' + p.store : '') : 'Quote ' + p.name + ': ' + p.work); TALK.said = sv;
