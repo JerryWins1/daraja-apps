@@ -3677,7 +3677,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.3.2 · 2026-11-23';
+var VER = 'v2.3.3 · 2026-11-23';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4227,9 +4227,11 @@ function wordsToDigits(t){
 function talkAmb(t){ if(KE) return null; var m = String(t).match(/(?:^|[^\d$.,])(\d{3,4})(?![\d.,]*\d)(?!\s*(?:dollars?|bucks|cents?|and\s+\d))/i);
   if(!m || /\$\s*$/.test(String(t).slice(0, m.index + m[0].indexOf(m[1])))) return null; var n = +m[1]; return n % 100 ? [r2(n / 100), n] : null; }
 /* v2.3: “…and I have another receipt for…” — the first one is checked and saved, then the next opens with its own words */
-var TALK_NEXT = /[,.;]?\s*\b(?:and\s+)?(?:(?:i\s+)?(?:have|got|had|there(?:s|’s|'s| is))\s+)?(?:another|one more|a second|the next|next)\s+(receipt|quote|estimate)\b[,.:]?/i;
+/* v2.3.3 (Jerry: “three receipts, one for 2995, another one for 3295, and a fourth one for $1982”): a list said naturally —
+   “another one”, “a second / third / fourth one”, “the next one”, “the last one” — splits the same way as “another receipt” */
+var TALK_NEXT = /[,.;]?\s*\b(?:and\s+)?(?:(?:i\s+)?(?:have|got|had|there(?:s|’s|'s| is))\s+)?(?:another|one more|(?:a|the)\s+(?:second|third|fourth|fifth|sixth|seventh|next|last)|second|third|fourth|fifth|next|last)\s+(receipt|quote|estimate|one)s?\b[,.:]?/i;
 function talkSplit(said){ var t = String(said || ''), m = t.match(TALK_NEXT); if(!m || !t.slice(0, m.index).trim()) return { first:t, rest:'', kind:'' };
-  var k = /receipt/i.test(m[1]) ? 'receipt' : 'quote'; return { first:t.slice(0, m.index).trim(), rest:(k === 'receipt' ? 'Receipt ' : 'Quote ') + t.slice(m.index + m[0].length).trim(), kind:k }; }
+  var k = /receipt/i.test(m[1]) ? 'receipt' : /quote|estimate/i.test(m[1]) ? 'quote' : (/\b(quotes?|estimates?|bids?)\b/i.test(t) && !/\b(receipts?|received)\b/i.test(t) ? 'quote' : 'receipt'); return { first:t.slice(0, m.index).trim(), rest:(k === 'receipt' ? 'Receipt ' : 'Quote ') + t.slice(m.index + m[0].length).trim(), kind:k }; }
 function talkAmount(t){ var m = String(t).replace(/(\d),(\d{3})/g, '$1$2').match(/(?:\$|kes\s*|ksh\s*)?(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars?|bucks|shillings?|bob))?(?:\s*(?:and\s*)?(\d{1,2})\s*cents?)?/i);
   return m ? r2(+m[1] + (m[2] ? +m[2] / 100 : 0)) : 0; }
 /* a customer named in the sentence: "Johnson job", "the Patels", "for Sarah" */
@@ -4245,8 +4247,9 @@ function custJob(c){ if(!c) return null; var js = S.jobs.filter(function(j){ ret
 function talkStore(t){ var w = talkWords(t).replace(/[.,]/g, ' ').replace(/\s+/g, ' '), hit = STORES.filter(function(s){ return w.indexOf(talkWords(s).trim()) >= 0; })[0]; if(hit) return hit;
   var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
 function talkPlan(said, force){
-  var t = wordsToDigits(String(said || '').trim()), w = talkWords(t); if(!t) return { kind:force || '' };
-  var kind = force || ((/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\b(receipt|received)\b/.test(w)) ? 'receipt' : /^\s*(quote|estimate|price|bid)\b/.test(w) ? 'quote' : '');
+  /* “three receipts, one for 2995”: the count and the “one for” are not amounts */
+  var t = wordsToDigits(String(said || '').trim().replace(/\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|several|some)\s+(receipts?|quotes?|estimates?)\b/gi, '$1').replace(/\b(?:one|1)\s+(?=for\b)/gi, '')), w = talkWords(t); if(!t) return { kind:force || '' };
+  var kind = force || ((/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\b(receipts?|received)\b/.test(w)) ? 'receipt' : /^\s*(quote|estimate|price|bid)\b/.test(w) ? 'quote' : '');
   if(kind === 'receipt'){
     var c = talkCust(t), j = custJob(c), amt = talkAmount(t.replace(/^\D*?(?=\$|\d)/, ''));
     var amb = talkAmb(t.replace(/^\D*?(?=\$|\d)/, ''));
@@ -4264,7 +4267,7 @@ function talkPlan(said, force){
 }
 /* what is still missing, in plain words, or '' when it can be saved */
 function talkMissing(p){
-  if(!p || !p.kind) return 'Tap 🧾 Receipt or 📝 Quote, so I know which it is.';
+  if(!p || !p.kind) return 'I can’t tell if this is a receipt or a quote. Tap 🧾 Receipt or 📝 Quote.';
   if(p.kind === 'receipt') return !(p.amount > 0) ? 'How much was it? Type the amount in the box above.' : p.amb ? 'Was it ' + money(p.amb[0]) + ' or ' + money0(p.amb[1]) + '? Tap one.' : '';
   return !p.name ? 'Who is the quote for? Type their name above.' : !p.work ? 'What’s the work? Type it above.' : '';
 }
@@ -4395,6 +4398,16 @@ function talkOpen(said, plan, note){
 }
 /* “I got 9.52 at Home Depot, another receipt for…” — the word “another” says the first was a receipt too */
 function talkGuess(sp){ return sp.kind && !talkPlan(sp.first).kind ? sp.kind : ''; }
+/* v2.3.3 (Jerry, 23 Nov: “this is her financial records and we don’t wanna screw it up … be cautious before we save things”):
+   whatever is still missing or unclear shows as a ⚠️ warning in plain sight, and Save it stays greyed out until it is fixed */
+function talkWarn(note, hint){
+  var p = TALK && TALK.plan, msg = $('tkPlan'), gb = $('tkGo'), miss = TALK && TALK.said ? talkMissing(p) : (p && p.kind ? talkMissing(p) : 'empty');
+  if(gb){ gb.style.opacity = miss ? '.45' : ''; gb.setAttribute('aria-disabled', miss ? 'true' : 'false'); }
+  if(!msg) return;
+  var warn = !note && miss && miss !== 'empty', text = note || (warn ? '⚠️ ' + miss : (miss === 'empty' ? hint || '' : ''));
+  msg.textContent = text; msg.style.color = warn ? 'var(--warn)' : '';
+  msg.style.cssText += warn ? ';background:#FDF3E1;border:2px solid var(--amber);border-radius:12px;padding:10px 12px;font-weight:800;font-size:16px' : ';background:none;border:0;padding:0;font-weight:inherit;font-size:';
+}
 function talkAmbPick(i){ var p = TALK && TALK.plan; if(!p || !p.amb) return; p.amount = p.amb[i]; p.amb = null; talkDraw(); }
 function talkDraw(note){
   var p = TALK && TALK.plan, more = $('tkMore'), kind = $('tkKind'), msg = $('tkPlan'); if(!more || !p) return;
@@ -4415,14 +4428,14 @@ function talkDraw(note){
   var nw = /^quote/i.test(TALK.rest || '') ? 'quote' : 'receipt', nx = $('tkNext'), gb = $('tkGo');
   if(nx){ nx.hidden = !TALK.rest; nx.textContent = TALK.rest ? '➡️ One more ' + nw + ' is waiting. Check this one, then tap “Save it — then the next” at the bottom.' : ''; }
   if(gb) gb.textContent = TALK.rest ? 'Save it — then the next ' + nw + ' ➡️' : 'Save it';
-  msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? (KBMIC ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.') : ''));
+  talkWarn(note, TALK.said ? '' : (r && q ? (KBMIC ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.') : ''));
 }
 function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(talkSplit(TALK.said).first, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
 function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
   if(k === 'amount'){ p.amount = num(v); if(p.amb){ p.amb = null; var ab = $('tkAmb'); if(ab) ab.remove(); } }
   else if(k === 'name'){ p.name = String(v).trim(); var c = S.customers.filter(function(x){ return x.name.toLowerCase() === p.name.toLowerCase(); })[0]; p.custId = c ? c.id : ''; }
   else p[k] = String(v).trim();
-  var msg = $('tkPlan'); if(msg){ msg.style.color = ''; msg.textContent = talkMissing(p); } }
+  talkWarn(); }
 function talkJob(v){ if(TALK && TALK.plan) TALK.plan.jobId = v; }
 async function talkPhoto(inp){ var f = inp.files && inp.files[0]; if(!f || !TALK || !TALK.plan) return;
   try{ var blob = await shrink(f), id = 'rc_' + uid(); await putFile(id, blob); if(TALK.plan.photo) delFile(TALK.plan.photo); TALK.plan.photo = id; toast('Photo added'); }catch(e){ alert('That photo wouldn’t save on this phone.'); }
@@ -4447,7 +4460,7 @@ function talkAI(){
 function talkNext(said){ setTimeout(function(){ talkOpen(said); if(KBMIC) kbTalk(); }, 350); }
 function talkSave(){
   var p = TALK && TALK.plan, miss = talkMissing(p);
-  if(miss){ var msg = $('tkPlan'); if(msg){ msg.style.color = 'var(--bad)'; msg.textContent = miss; } var f = !p || !p.kind ? null : p.kind === 'receipt' ? $('tkA') : !p.name ? $('tkC') : $('tkW'); if(f) try{ f.focus(); }catch(e){} return; }
+  if(miss){ talkWarn(); var msg = $('tkPlan'); if(msg){ msg.style.outline = '3px solid var(--bad)'; setTimeout(function(){ msg.style.outline = ''; }, 900); } var f = !p || !p.kind ? null : p.kind === 'receipt' ? $('tkA') : !p.name ? $('tkC') : $('tkW'); if(f) try{ f.focus(); }catch(e){} return; }
   var sv = (TALK.rest ? talkSplit(TALK.said).first : TALK.said) || (p.kind === 'receipt' ? 'Receipt ' + money(p.amount) + (p.store ? ' ' + p.store : '') : 'Quote ' + p.name + ': ' + p.work); TALK.said = sv;
   if(p.kind === 'receipt'){
     var to = p.jobId ? 'job:' + p.jobId : 'supplies', vendor = p.store || 'Receipt', rid = uid(), eid = uid();
