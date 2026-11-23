@@ -3677,7 +3677,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.2.1 · 2026-11-23';
+var VER = 'v2.3 · 2026-11-23';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4222,6 +4222,14 @@ function wordsToDigits(t){
   });
   flush(); return out.join(' ');
 }
+/* v2.3 (23 Nov, Jerry on his iPhone): the keyboard's 🎤 writes “thirty-two ninety-five” as 3295, so a bare 3- or 4-digit
+   number with no “dollars”, no $ and no cents could be $32.95 or $3,295. talkAmb gives both, and the box shows two buttons. */
+function talkAmb(t){ if(KE) return null; var m = String(t).match(/(?:^|[^\d$.,])(\d{3,4})(?![\d.,]*\d)(?!\s*(?:dollars?|bucks|cents?|and\s+\d))/i);
+  if(!m || /\$\s*$/.test(String(t).slice(0, m.index + m[0].indexOf(m[1])))) return null; var n = +m[1]; return n % 100 ? [r2(n / 100), n] : null; }
+/* v2.3: “…and I have another receipt for…” — the first one is checked and saved, then the next opens with its own words */
+var TALK_NEXT = /[,.;]?\s*\b(?:and\s+)?(?:(?:i\s+)?(?:have|got|had|there(?:s|’s|'s| is))\s+)?(?:another|one more|a second|the next|next)\s+(receipt|quote|estimate)\b[,.:]?/i;
+function talkSplit(said){ var t = String(said || ''), m = t.match(TALK_NEXT); if(!m || !t.slice(0, m.index).trim()) return { first:t, rest:'', kind:'' };
+  var k = /receipt/i.test(m[1]) ? 'receipt' : 'quote'; return { first:t.slice(0, m.index).trim(), rest:(k === 'receipt' ? 'Receipt ' : 'Quote ') + t.slice(m.index + m[0].length).trim(), kind:k }; }
 function talkAmount(t){ var m = String(t).replace(/(\d),(\d{3})/g, '$1$2').match(/(?:\$|kes\s*|ksh\s*)?(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars?|bucks|shillings?|bob))?(?:\s*(?:and\s*)?(\d{1,2})\s*cents?)?/i);
   return m ? r2(+m[1] + (m[2] ? +m[2] / 100 : 0)) : 0; }
 /* a customer named in the sentence: "Johnson job", "the Patels", "for Sarah" */
@@ -4238,10 +4246,11 @@ function talkStore(t){ var w = talkWords(t).replace(/[.,]/g, ' ').replace(/\s+/g
   var m = String(t).match(/\b(?:at|from)\s+([A-Za-z][\w&' ]{1,30}?)(?=[,.]|\s+(?:for|on|job)\b|$)/i); return m ? m[1].trim().replace(/\b\w/g, function(x){ return x.toUpperCase(); }) : ''; }
 function talkPlan(said, force){
   var t = wordsToDigits(String(said || '').trim()), w = talkWords(t); if(!t) return { kind:force || '' };
-  var kind = force || ((/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\breceipt\b/.test(w)) ? 'receipt' : /^\s*(quote|estimate|price|bid)\b/.test(w) ? 'quote' : '');
+  var kind = force || ((/^\s*(receipt|spent|bought|paid|expense)\b/.test(w) || /\b(receipt|received)\b/.test(w)) ? 'receipt' : /^\s*(quote|estimate|price|bid)\b/.test(w) ? 'quote' : '');
   if(kind === 'receipt'){
     var c = talkCust(t), j = custJob(c), amt = talkAmount(t.replace(/^\D*?(?=\$|\d)/, ''));
-    return { kind:'receipt', amount:amt, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
+    var amb = talkAmb(t.replace(/^\D*?(?=\$|\d)/, ''));
+    return { kind:'receipt', amount:amt, amb:amb && amb[1] === amt ? amb : null, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
   }
   if(kind === 'quote'){
     var c2 = talkCust(t), rest = t.replace(/^\s*(quote|estimate|price|bid)\s*(for|up)?\s*/i, ''), name = '', work = rest;
@@ -4256,7 +4265,7 @@ function talkPlan(said, force){
 /* what is still missing, in plain words, or '' when it can be saved */
 function talkMissing(p){
   if(!p || !p.kind) return 'Tap 🧾 Receipt or 📝 Quote, so I know which it is.';
-  if(p.kind === 'receipt') return p.amount > 0 ? '' : 'How much was it? Type the amount in the box above.';
+  if(p.kind === 'receipt') return !(p.amount > 0) ? 'How much was it? Type the amount in the box above.' : p.amb ? 'Was it ' + money(p.amb[0]) + ' or ' + money0(p.amb[1]) + '? Tap one.' : '';
   return !p.name ? 'Who is the quote for? Type their name above.' : !p.work ? 'What’s the work? Type it above.' : '';
 }
 function talkOK(p){ return !talkMissing(p); }
@@ -4371,18 +4380,22 @@ function kbTalk(){
 function talkStart(){ talkOpen(''); if(KBMIC) kbTalk(); else talkMic(); }
 function talkOpen(said, plan, note){
   var old = TALK && TALK.plan && TALK.plan.photo;
-  TALK = { said:String(said || '').trim(), plan:null, picked:'' };
-  sheet('<h3>🎤 Say it, or type it</h3>' + (KBMIC ? '<p class="banner small" id="tkTip" style="margin:0 0 8px">' + esc(KBTIP) + (!TOUCH ? '' : '<br><span class="muted">No 🎤 on your keyboard? ' + (/Android/i.test(navigator.userAgent || '') ? 'Turn on voice typing in your keyboard settings.' : 'Settings → General → Keyboard → Enable Dictation.') + '</span>') + '</p>' : '') + '<label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
+  var sp = talkSplit(String(said || '').trim());
+  TALK = { said:String(said || '').trim(), plan:null, picked:'', rest:sp.rest, implied:sp.kind };
+  sheet('<h3>🎤 Say it, or type it</h3>' + (KBMIC ? '<p class="banner small" id="tkTip" style="margin:0 0 8px">' + esc(KBTIP) + '<br>More than one? Say “another receipt” and keep going — each one opens in turn.' + (!TOUCH ? '' : '<br><span class="muted">No 🎤 on your keyboard? ' + (/Android/i.test(navigator.userAgent || '') ? 'Turn on voice typing in your keyboard settings.' : 'Settings → General → Keyboard → Enable Dictation.') + '</span>') + '</p>' : '') + '<label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
     + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">' + (KBMIC ? (TOUCH ? '🎤 Add more with your keyboard’s mic' : '✏️ Add more') : IOS && MICHEARD ? '🎤 Add more with your keyboard’s mic' : '🎤 Tap and talk') + '</button>'
     + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
-    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p><p class="small muted" id="tkDbg" style="margin:0 2px 8px;font-size:12px"' + (/[?&]micdebug\b/.test(location.search) ? '' : ' hidden') + '>' + (MICLOG.length ? 'mic: ' + esc(MICLOG.join(' · ')) : '') + '</p>'
+    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p><p class="banner small" id="tkNext" style="margin:0 0 8px" hidden></p><p class="small muted" id="tkDbg" style="margin:0 2px 8px;font-size:12px"' + (/[?&]micdebug\b/.test(location.search) ? '' : ' hidden') + '>' + (MICLOG.length ? 'mic: ' + esc(MICLOG.join(' · ')) : '') + '</p>'
     + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
     + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
     + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
-      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; TALK.plan = talkPlan(i.value, TALK.picked); if(ph) TALK.plan.photo = ph; talkDraw(); }); }, true);
-  TALK.plan = plan || talkPlan(TALK.said); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
+      i.addEventListener('input', function(){ var ph = TALK.plan && TALK.plan.photo; TALK.said = i.value; var sp = talkSplit(i.value); TALK.rest = sp.rest; TALK.implied = sp.kind; TALK.plan = talkPlan(sp.first, TALK.picked || talkGuess(sp)); if(ph) TALK.plan.photo = ph; talkDraw(); }); }, true);
+  TALK.plan = plan || talkPlan(sp.first, talkGuess(sp)); if(plan && plan.kind) TALK.picked = plan.kind; if(old) TALK.plan.photo = old;
   talkDraw(note);
 }
+/* “I got 9.52 at Home Depot, another receipt for…” — the word “another” says the first was a receipt too */
+function talkGuess(sp){ return sp.kind && !talkPlan(sp.first).kind ? sp.kind : ''; }
+function talkAmbPick(i){ var p = TALK && TALK.plan; if(!p || !p.amb) return; p.amount = p.amb[i]; p.amb = null; talkDraw(); }
 function talkDraw(note){
   var p = TALK && TALK.plan, more = $('tkMore'), kind = $('tkKind'), msg = $('tkPlan'); if(!more || !p) return;
   var r = F('expenses') || F('materials'), q = F('estimates');
@@ -4390,7 +4403,7 @@ function talkDraw(note){
     + (q ? '<button type="button" class="chip' + (p.kind === 'quote' ? ' on' : '') + '" onclick="BM.talkKind(\'quote\')">📝 Quote</button>' : '');
   if(p.kind === 'receipt'){
     var js = S.jobs.filter(function(j){ return j.status !== 'lost' && (j.status !== 'closed' || j.id === p.jobId); }).sort(function(a, b){ return b.num - a.num; }).slice(0, 40);
-    more.innerHTML = '<div class="two"><div><label class="f" for="tkA" style="margin-top:0">Amount</label><input class="i" id="tkA" data-nomic inputmode="decimal" placeholder="' + CUR + '" value="' + (p.amount > 0 ? p.amount : '') + '" oninput="BM.talkField(\'amount\',this.value)"></div>'
+    more.innerHTML = '<div class="two"><div><label class="f" for="tkA" style="margin-top:0">Amount</label><input class="i" id="tkA" data-nomic inputmode="decimal" placeholder="' + CUR + '" value="' + (p.amount > 0 ? p.amount : '') + '" oninput="BM.talkField(\'amount\',this.value)">' + (p.amb ? '<div class="chips" id="tkAmb" style="margin-top:6px"><button type="button" class="chip" onclick="BM.talkAmbPick(0)">' + money(p.amb[0]) + '</button><button type="button" class="chip" onclick="BM.talkAmbPick(1)">' + money0(p.amb[1]) + '</button></div>' : '') + '</div>'
       + '<div><label class="f" for="tkS" style="margin-top:0">Store</label><input class="i" id="tkS" data-nomic value="' + esc(p.store || '') + '" placeholder="" oninput="BM.talkField(\'store\',this.value)"></div></div>'
       + '<label class="f" for="tkJ">For which job?</label><select class="i" id="tkJ" onchange="BM.talkJob(this.value)"><option value="">— Not for one job —</option>' + js.map(function(j){ return '<option value="' + j.id + '"' + (j.id === p.jobId ? ' selected' : '') + '>' + esc(j.title + ' — ' + cust(j.customerId).name) + '</option>'; }).join('') + '</select>'
       + '<label class="btn full" style="margin-top:8px">📸 ' + (p.photo ? 'Photo added ✓ — change it' : 'Add the photo') + '<input type="file" accept="image/*" capture="environment" hidden onchange="BM.talkPhoto(this)"></label>';
@@ -4399,11 +4412,12 @@ function talkDraw(note){
       + '<datalist id="tkCL">' + S.customers.map(function(c){ return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist>'
       + '<label class="f" for="tkW">The work</label><textarea class="i" id="tkW" data-nomic style="min-height:60px" placeholder="" oninput="BM.talkField(\'work\',this.value)">' + esc(p.work || '') + '</textarea>';
   } else more.innerHTML = '';
+  var nx = $('tkNext'); if(nx){ nx.hidden = !TALK.rest; nx.textContent = TALK.rest ? '➡️ Next: one more ' + (/^quote/i.test(TALK.rest) ? 'quote' : 'receipt') + ' — it opens when you tap Save it.' : ''; }
   msg.style.color = ''; msg.textContent = note || (TALK.said ? talkMissing(p) : (r && q ? (KBMIC ? 'Start with “Receipt…” or “Quote…”, or tap one of these.' : 'Tap 🎤 and say “Receipt…” or “Quote…”, or tap one of these and type.') : ''));
 }
-function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(TALK.said, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
+function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(talkSplit(TALK.said).first, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
 function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
-  if(k === 'amount') p.amount = num(v);
+  if(k === 'amount'){ p.amount = num(v); if(p.amb){ p.amb = null; var ab = $('tkAmb'); if(ab) ab.remove(); } }
   else if(k === 'name'){ p.name = String(v).trim(); var c = S.customers.filter(function(x){ return x.name.toLowerCase() === p.name.toLowerCase(); })[0]; p.custId = c ? c.id : ''; }
   else p[k] = String(v).trim();
   var msg = $('tkPlan'); if(msg){ msg.style.color = ''; msg.textContent = talkMissing(p); } }
@@ -4428,10 +4442,11 @@ function talkAI(){
         : { kind:'quote', custId:c ? c.id : '', name:c ? c.name : String(j.customer || '').trim(), work:String(j.work || '').trim() }, '✨ Sorted by ' + (aiLabel() === 'my AI' ? 'the AI' : aiLabel()) + ' — check it, then Save it.');
     } });
 }
+function talkNext(said){ setTimeout(function(){ talkOpen(said); if(KBMIC) kbTalk(); }, 350); }
 function talkSave(){
   var p = TALK && TALK.plan, miss = talkMissing(p);
   if(miss){ var msg = $('tkPlan'); if(msg){ msg.style.color = 'var(--bad)'; msg.textContent = miss; } var f = !p || !p.kind ? null : p.kind === 'receipt' ? $('tkA') : !p.name ? $('tkC') : $('tkW'); if(f) try{ f.focus(); }catch(e){} return; }
-  var sv = TALK.said || (p.kind === 'receipt' ? 'Receipt ' + money(p.amount) + (p.store ? ' ' + p.store : '') : 'Quote ' + p.name + ': ' + p.work); TALK.said = sv;
+  var sv = (TALK.rest ? talkSplit(TALK.said).first : TALK.said) || (p.kind === 'receipt' ? 'Receipt ' + money(p.amount) + (p.store ? ' ' + p.store : '') : 'Quote ' + p.name + ': ' + p.work); TALK.said = sv;
   if(p.kind === 'receipt'){
     var to = p.jobId ? 'job:' + p.jobId : 'supplies', vendor = p.store || 'Receipt', rid = uid(), eid = uid();
     var cat = p.jobId ? 'Materials & supplies' : guessCat(vendor); if(cat === 'Other business') cat = 'Materials & supplies';
@@ -4439,7 +4454,8 @@ function talkSave(){
     S.expenses.push({ id:eid, date:rec.date, vendor:vendor, amount:p.amount, cat:cat, jobId:p.jobId, note:'Said: ' + TALK.said.slice(0, 200), source:'voice', receiptId:rid });
     (S.receipts = S.receipts || []).push(rec);
     if(p.jobId && job(p.jobId)) logJob(job(p.jobId), 'Receipt (said): ' + vendor + ' ' + money(p.amount));
-    TALK = null; save(); closeSheet(true); render(); toast('Saved ' + money(rec.total) + ' → ' + destName(to));
+    var nxt = TALK.rest; TALK = null; save(); closeSheet(true); render(); toast('Saved ' + money(rec.total) + ' → ' + destName(to) + (nxt ? ' · now the next one' : ''));
+    if(nxt) talkNext(nxt);
     return;
   }
   var c = p.custId ? cust(p.custId) : null;
@@ -4448,7 +4464,7 @@ function talkSave(){
   var j = { id:uid(), num:S.seq.job++, customerId:c.id, title:title, desc:p.work, status:'new', created:today(), items:[], times:[], log:[{ d:today(), t:'Said into the phone: ' + TALK.said.slice(0, 200) }], said:true };
   S.jobs.push(j);
   if(F('lineItems')){ j.items = draftItems(j.title + '. ' + j.desc); j.via = 'list'; }
-  TALK = null; save(); closeSheet(true); render();
+  var nxt2 = TALK.rest; TALK = null; save(); closeSheet(true); render(); if(nxt2) talkNext(nxt2);
   toast('Draft estimate for ' + c.name + ' is waiting in Needs you' + (j.items.length ? '' : ' — add the prices'));
 }
 
@@ -6780,7 +6796,7 @@ document.getElementById('backBtn').addEventListener('click', back);
 /* everything the buttons call */
 window.BM = {
   go:go, back:back, closeSheet:closeSheet, relist:relist, guessCat:guessCat, _q:'', _cq:'',
-  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkKind:talkKind, talkField:talkField, talkMic:talkMic, talkStart:talkStart, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
+  talkSave:talkSave, talkAI:talkAI, talkJob:talkJob, talkKind:talkKind, talkAmbPick:talkAmbPick, talkSplit:talkSplit, talkField:talkField, talkMic:talkMic, talkStart:talkStart, talkPhoto:talkPhoto, talkPlan:talkPlan, talkOpen:talkOpen,
   briefShow:briefShow, briefRead:briefRead, dayText:dayText, dtMin:dtMin, dtGo:dtGo,
   keepDemo:keepDemo, fresh:fresh, tourShow:tourShow, redoSetup:redoSetup,
   suPick:suPick, suMulti:suMulti, suForm:suForm, suSkip:suSkip, suBack:suBack, suAll:suAll, suDone:suDone,
