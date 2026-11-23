@@ -3626,6 +3626,7 @@
   .twhatif .twGo{margin-top:8px;width:100%;background:none;border:1px solid var(--line);border-radius:999px;
     color:var(--ink);font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;min-height:42px;cursor:pointer}
   .twhatif .twBox .tdeal{margin-bottom:0}
+  .tdeal.bye{border-color:#3b4a66}
   .tdeal .tradeAsk{margin-top:8px;background:none;border:1px solid var(--line);border-radius:999px;
     color:var(--ink);font:inherit;font-size:12px;font-weight:700;padding:6px 12px;min-height:38px;cursor:pointer}
   .tradeToggle{display:inline-block;margin:2px 0 8px;background:none;border:1px solid var(--line);
@@ -3974,16 +3975,30 @@ function starterCounts(starters, statusMap){
 const ESPN_API = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/";
 function espnSeason(){ const d=new Date(); return d.getMonth()>=7 ? d.getFullYear() : d.getFullYear()-1; }
 let ESPN_PROTEAMS = null;
+let ESPN_BYES = null;
 async function espnProTeamAbbrs(){
   if(ESPN_PROTEAMS) return ESPN_PROTEAMS;
-  const map = {};
+  const map = {}, byes = {};
   try{
     const res = await fetch(ESPN_API + espnSeason() + "?view=proTeamSchedules_wl", {cache:"no-store"});
     const d = await res.json();
-    (d.settings && d.settings.proTeams || []).forEach(t=>{ map[t.id]=t.abbrev; });
+    // The same response says when each NFL team has no game — its bye. It was being thrown away
+    // and is what the trade finder needs to see a bye collision coming weeks out. ESPN usually
+    // puts it on the team as byeWeek; where it does not, the week is the gap in its schedule.
+    (d.settings && d.settings.proTeams || []).forEach(t=>{
+      map[t.id] = t.abbrev;
+      let bye = +t.byeWeek || 0;
+      if(!bye){
+        const played = t.proGamesByScoringPeriod || {};
+        for(let w=1; w<=14; w++){ if(!played[w] || !played[w].length){ bye = w; break; } }
+      }
+      if(bye) byes[t.abbrev] = bye;
+    });
   }catch(e){}
-  ESPN_PROTEAMS = map; return map;
+  ESPN_PROTEAMS = map; ESPN_BYES = byes; return map;
 }
+// abbr -> the week that team sits out, as read above. Empty until the call above has run once.
+function espnByeWeeks(){ return ESPN_BYES || {}; }
 async function espnGetLeague(id){
   const url = ESPN_API + espnSeason() + "/segments/0/leagues/" + id + "?view=mTeam&view=mMatchupScore&view=mRoster&view=mSettings&view=mTransactions2&_=" + Date.now();
   let res;
@@ -4743,7 +4758,7 @@ function tradeLeagueAvg(teams, rep){
 }
 
 /* Every 1-for-1 that leaves BOTH lineups better off, best for you first. */
-function tradeFinder(me, board, statusMap, statusMapNext, pool){
+function tradeFinder(me, board, statusMap, statusMapNext, pool, byes){
   const teams = [];
   (board.games||[]).forEach(g=>{ if(g.home) teams.push(g.home); if(g.away) teams.push(g.away); });
   const mine = teams.find(t=>String(t.id)===String(me.id)) || me;
@@ -4804,7 +4819,12 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool){
     return gain > 0.5 ? { pos, who:free, gain } : null;
   }).filter(Boolean).sort((a,b)=>b.gain-a.gain);
 
-  return { ready:true, shape, rep, deals:picked, waiver, freeBest,
+  // The bye-week win-win, which the search above cannot see because it never scores a like-for-like
+  // swap: my running back for yours, when our bad weeks are different ones.
+  const byeDeals = tradeByeDeals(mine, others, byes||{}, (board.wk||1) + 1);
+  const myHoles = tradeByeHoles(mine, byes||{}, (board.wk||1) + 1);
+
+  return { ready:true, shape, rep, deals:picked, waiver, freeBest, byeDeals, myHoles,
            sawPool: Object.keys(freeBest).length>0,
            // what the "check an offer" pickers are filled from
            myPlayers: myRoster.slice().sort((a,b)=>(a.pos||"").localeCompare(b.pos||"") || tradeProj(b)-tradeProj(a)),
@@ -4828,6 +4848,90 @@ function tradeFlags(get, give, mine, statusMap, statusMapNext){
     f.push({ bad:true, text:"Every "+esc(get.pos)+" you would have is on a bye that week" });
   }
   return f;
+}
+
+/* ---------------------- the bye-week trade ----------------------
+   Jerry, 22 Nov: "look for future bye weeks for a player, both on my team and other teams and see
+   if there is a trade that can help the other team and my team. Win win."
+
+   This is a different animal from the trades above and the finder deliberately skips it there:
+   swapping like for like — my running back for your running back — barely moves either season
+   total, which is why it never scores. But if both of MY running backs sit out week 9 and one of
+   yours sits out week 12, we each have a week where we cannot field a starting lineup, and
+   swapping fixes both at once. Nobody gives anything up. It is the cleanest win-win in fantasy
+   football and it is invisible until somebody lines the bye weeks up.
+
+   A "hole" here means a week where a team cannot fill its starting slots at a position because
+   too many of the players it would start are out. The search looks only for swaps that close a
+   hole on BOTH sides, and it reports what each one costs in points, which is usually nothing. */
+
+function tradeByeOf(p, byes){ return (p && p.teamAbbr && byes[p.teamAbbr]) || 0; }
+
+// The weeks, from here on, where this team cannot fill its slots at this position.
+// How many starting slots this team simply cannot fill, added up over every bye week from here
+// on. One number, so a swap that halves a hole counts as the improvement it is.
+function tradeByeShort(side, byes, fromWeek){
+  return tradeByeHoles(side, byes, fromWeek).reduce((a,h)=>a+h.short, 0);
+}
+function tradeByeHoles(side, byes, fromWeek){
+  const holes = [];
+  Object.keys(TRADE_SLOTS).forEach(pos=>{
+    const at = tradeRoster(side).filter(p=>p.pos===pos);
+    if(!at.length) return;
+    const need = TRADE_SLOTS[pos];
+    const weeks = {};
+    at.forEach(p=>{ const w = tradeByeOf(p, byes); if(w && w >= fromWeek) weeks[w] = (weeks[w]||0) + 1; });
+    Object.keys(weeks).forEach(w=>{
+      const out = weeks[w], left = at.length - out;
+      if(left < need) holes.push({ pos, week:+w, out, left, need, short: need - left });
+    });
+  });
+  return holes;
+}
+
+/* Swaps at the same position that close a bye hole for both managers. */
+function tradeByeDeals(mine, others, byes, fromWeek){
+  const out = [];
+  if(!Object.keys(byes).length) return out;
+  const myRoster = tradeRoster(mine);
+  const myHoles = tradeByeHoles(mine, byes, fromWeek);
+  if(!myHoles.length) return out;
+  const myShort = tradeByeShort(mine, byes, fromWeek);
+  const myBase = tradeLineupTotal(myRoster);
+
+  others.forEach(them=>{
+    const theirRoster = tradeRoster(them);
+    const theirHoles = tradeByeHoles(them, byes, fromWeek);
+    if(!theirHoles.length) return;
+    const theirShort = tradeByeShort(them, byes, fromWeek);
+    myHoles.forEach(mh=>{
+      theirHoles.forEach(th=>{
+        if(mh.pos !== th.pos) return;          // the fix is like for like, at the shared position
+        if(mh.week === th.week) return;        // both short in the same week fixes nothing
+        // give away one of mine who is out in MY bad week, take one of theirs who is not
+        myRoster.filter(p=>p.pos===mh.pos && tradeByeOf(p,byes)===mh.week).forEach(give=>{
+          theirRoster.filter(p=>p.pos===mh.pos && tradeByeOf(p,byes)!==mh.week
+                                && tradeByeOf(p,byes)===th.week).forEach(get=>{
+            // does it really close both holes? ask the same question again of the new rosters
+            const myAfter = myRoster.filter(p=>p!==give).concat([get]);
+            const theirAfter = theirRoster.filter(p=>p!==get).concat([give]);
+            const myLeft = tradeByeShort({starters:myAfter, bench:[]}, byes, fromWeek);
+            const theirLeft = tradeByeShort({starters:theirAfter, bench:[]}, byes, fromWeek);
+            if(myLeft >= myShort || theirLeft >= theirShort) return;
+            out.push({ them, give, get, pos:mh.pos, myWeek:mh.week, theirWeek:th.week,
+              myCost: tradeLineupTotal(myAfter) - myBase,
+              fixedMine: myShort - myLeft, fixedTheirs: theirShort - theirLeft,
+              allOfIt: myLeft === 0 });
+          });
+        });
+      });
+    });
+  });
+  // the one that costs least per hole closed, one per manager
+  out.sort((a,b)=>(b.fixedMine-a.fixedMine) || (b.myCost-a.myCost));
+  const best = new Map();
+  out.forEach(d=>{ if(!best.has(d.them.id)) best.set(d.them.id, d); });
+  return [...best.values()].slice(0,3);
 }
 
 /* "Uncle Joe just offered me this — is it any good?"
@@ -4915,6 +5019,26 @@ function tradeSectionHTML(res, idx){
       <button class="tradeAsk" type="button" data-idx="${i}">✨ Write the message</button>
     </div>`;
   }).join("");
+  // Bye-week trades get their own block, because the reason they are good is not the one above:
+  // nobody gains points, both managers stop having a week they cannot field a team.
+  const byeRows = (res.byeDeals||[]).map(d=>`<div class="tdeal bye">
+      <div class="tteam">${esc(d.them.owner || d.them.name)} · bye-week swap</div>
+      <div class="trow"><span class="tgive">You give</span> <b>${esc(d.give.name)}</b> <span class="tpos">${esc(d.give.pos)}, out wk ${d.myWeek}</span></div>
+      <div class="trow"><span class="tget">You get</span> <b>${esc(d.get.name)}</b> <span class="tpos">${esc(d.get.pos)}, out wk ${d.theirWeek}</span></div>
+      <div class="tverdict good">${d.allOfIt ? "Fixes" : "Helps"} week ${d.myWeek} for you and week ${d.theirWeek} for them. ${Math.abs(d.myCost) < 5 ? "Costs you nothing either way." : (d.myCost >= 0 ? "You even gain "+Math.round(d.myCost)+" points." : "It costs you "+Math.abs(Math.round(d.myCost))+" points the rest of the season — your call whether the week is worth it.")}</div>
+    </div>`).join("");
+  const holeWords = (res.myHoles||[])
+    .map(h=>`<b>${esc(h.pos)}</b> in week ${h.week}`)
+    .filter((v,i,a)=>a.indexOf(v)===i);
+  const holeList = holeWords.length > 1
+    ? holeWords.slice(0,-1).join(", ") + " and " + holeWords[holeWords.length-1]
+    : holeWords[0];
+  const byeIntro = byeRows
+    ? `<div class="arow">📅 <b>Bye weeks</b> — you are short at ${holeList}. These swaps help that for you AND for them, which is why they tend to get accepted:</div>`
+    : (holeWords.length
+        ? `<div class="arow">📅 <b>Bye weeks</b> — you are short at ${holeList}, and nobody in this league has the matching problem to swap with. The waiver wire is the fix.</div>`
+        : "");
+
   // The pickers. Three plain dropdowns rather than anything clever, because this gets used with a
   // phone in one hand and someone else's offer on the screen.
   const opt = (p,i)=>`<option value="${esc(String(p.id))}">${esc(p.pos)} — ${esc(p.name)}</option>`;
@@ -4929,7 +5053,7 @@ function tradeSectionHTML(res, idx){
   const basis = res.sawPool
     ? "Every figure is measured against the best player you could pick up free at that position."
     : "ESPN sent no projections for the waiver wire this time, so the comparison is against the last startable player at that position in your league instead.";
-  return shapeLine + waiverLine + rows + whatIf + `<div class="arow" style="color:var(--dim)">Both sides gain because each one swaps a player he cannot start for one he can. ${basis} Figures are ESPN's own season projections.</div>`;
+  return shapeLine + waiverLine + byeIntro + byeRows + rows + whatIf + `<div class="arow" style="color:var(--dim)">Both sides gain because each one swaps a player he cannot start for one he can. ${basis} Figures are ESPN's own season projections.</div>`;
 }
 
 function cardHTML(cfg, r, err, statusMap, statusMapNext, board){
@@ -5890,7 +6014,9 @@ $("cards").addEventListener("click", async e=>{
       // a failure here is not fatal — the finder falls back to a rostered baseline.
       let pool = null;
       try{ pool = await espnPlayerPool(ctx.leagueId); }catch(e){}
-      const res = tradeFinder(ctx.me, ctx.board, ctx.statusMap, ctx.statusMapNext, pool);
+      // every NFL team's bye week, off the schedule call the app already makes and caches
+      try{ await espnProTeamAbbrs(); }catch(e){}
+      const res = tradeFinder(ctx.me, ctx.board, ctx.statusMap, ctx.statusMapNext, pool, espnByeWeeks());
       ctx.res = res;
       box.innerHTML = tradeSectionHTML(res, +tt.dataset.idx);
       box.dataset.idx = tt.dataset.idx;
