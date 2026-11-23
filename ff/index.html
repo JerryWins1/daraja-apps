@@ -3941,7 +3941,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.29 · 2026-11-23</small></div>
+<div class="stamp"><small id="stamp">v4.30 · 2026-11-23</small></div>
 
 <script>
 /* =========================================================================
@@ -4816,11 +4816,22 @@ function tradeShapes(teams, slots){
 function tradeStillCovered(rosterAfter, pos, slots, avg){
   return tradeStarting({starters:rosterAfter, bench:[]}, slots)[pos] >= (avg[pos]||0);
 }
-// The same rule for a swap being weighed: covered afterwards, OR no worse off there than before.
-// Handing over a backup leaves a team exactly the options it had, and that is not a hole.
+// The same rule for a swap being weighed, and it is counted STARTER BY STARTER. Jerry, 23 Nov, on
+// being shown "your best receiver for their best back": "You would only do that trade if i had at
+// least two good wr." Adding the starters up let one star hide a hole beside him — an 18 and a 6
+// are "above average" as a pair, and nobody who starts a 6 thinks he is covered at receiver. So:
+// after the swap, EVERY starting spot at that position holds a player at least as good as the
+// league's average starter there. The one exception is a swap that leaves those starters no
+// worse than they were: handing over a backup leaves a team exactly the options it had.
+function tradeStartersAt(roster, pos, slots){
+  return (roster||[]).filter(p=>p.pos===pos && !tradeIsOut(p)).sort((a,b)=>tradeVal(b)-tradeVal(a)).slice(0, slots[pos]||0);
+}
 function tradeCoveredAfter(before, after, pos, slots, avg){
-  const a = tradeStarting({starters:after, bench:[]}, slots)[pos];
-  return a >= (avg[pos]||0) - 1e-9 || a >= tradeStarting({starters:before, bench:[]}, slots)[pos] - 1e-9;
+  const n = slots[pos]||0; if(!n) return true;
+  const good = (avg[pos]||0) / n;
+  const a = tradeStartersAt(after, pos, slots).map(tradeVal), b = tradeStartersAt(before, pos, slots).map(tradeVal);
+  if(a.length >= n && a.every(v=>v >= good - 1e-9)) return true;
+  return a.length >= b.length && b.every((v,i)=>a[i] >= v - 1e-9);
 }
 // Who is NOT in this roster's best starting lineup: the same filling order as tradeLineupTotal,
 // kept on the players rather than their numbers. This is what a manager has to trade from.
@@ -4919,6 +4930,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
         if(vGet > vGive && theirGain < (vGet - vGive)) return;
         const keep = theirAfter.filter(p=>p.pos===target && !tradeIsOut(p)).sort((a,b)=>tradeVal(b)-tradeVal(a))[0] || null;
         deals.push({ them, give, get, S:give.pos, W:target, myGain, theirGain, keep,
+          mine: tradeStartersAt(myAfter, give.pos, slots),
           flags: tradeFlags(get, give, mine, statusMap, statusMapNext) });
       });
     });
@@ -5043,10 +5055,10 @@ function tradeWhatIf(ctx, giveId, themId, getId){
   const avg = tradeShapes(teams.indexOf(mine)>=0 ? teams : teams.concat([mine]), slots).avg;
   const cover = [];
   if(give.pos !== get.pos){
-    if(tradeStillCovered(theirRoster, get.pos, slots, avg) && !tradeStillCovered(theirRoster.filter(p=>p!==get).concat([give]), get.pos, slots, avg))
-      cover.push({ bad:false, text:"It leaves them without a good "+esc(get.pos)+" to start — expect a no" });
-    if(tradeStillCovered(myRoster, give.pos, slots, avg) && !tradeStillCovered(myRoster.filter(p=>p!==give).concat([get]), give.pos, slots, avg))
-      cover.push({ bad:true, text:"It leaves you without a good "+esc(give.pos)+" to start" });
+    if(!tradeCoveredAfter(theirRoster, theirRoster.filter(p=>p!==get).concat([give]), get.pos, slots, avg))
+      cover.push({ bad:false, text:"It leaves them short of a good "+esc(get.pos)+" to start — expect a no" });
+    if(!tradeCoveredAfter(myRoster, myRoster.filter(p=>p!==give).concat([get]), give.pos, slots, avg))
+      cover.push({ bad:true, text:"It leaves you short of a good "+esc(give.pos)+" to start" });
   }
   return { give, get, them, cover,
     myGain: tradeLineupTotal(myRoster.filter(p=>p!==give).concat([get]), slots) - myBefore,
@@ -5128,7 +5140,7 @@ function tradeSectionHTML(res, idx){
       + (d.free ? `<div class="tflag${d.free.mostOfIt?" free":""}">${d.free.mostOfIt?"🟢":"•"} <b>${esc(d.free.who.name)}</b> is free on waivers and gets you ${sign(d.free.gain)} a week of this for nothing${d.free.mostOfIt?" — take him instead":""}</div>` : "");
     return `<div class="tdeal">
       <div class="tteam">${esc(d.them.owner || d.them.name)}</div>
-      <div class="tfit">${esc(d.give.name)} would start for them${d.keep ? `, and they still have ${esc(d.keep.name)} at ${esc(d.W)}` : ""}.</div>
+      <div class="tfit">${esc(d.give.name)} would start for them${d.keep ? `, and they still have ${esc(d.keep.name)} at ${esc(d.W)}` : ""}.${(d.mine||[]).length ? ` You still start ${list(d.mine.map(p=>esc(p.name)+" ("+tf1(tradeVal(p))+")"))} at ${esc(d.S)}.` : ""}</div>
       ${tradePlayerRow("give", d.give)}${tradePlayerRow("get", d.get)}
       <div class="tgain">Your lineup <b>${sign(d.myGain)}</b> points a week · theirs ${sign(d.theirGain)}</div>
       ${flags}
