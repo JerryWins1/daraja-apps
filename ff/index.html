@@ -3645,6 +3645,7 @@
   .tafter span{flex:1;color:var(--dim)}
   .tafter b{flex:none}
   .tafter i{flex:none;width:44px;text-align:right;font-style:normal;font-weight:800;color:#86efac}
+  .tafter p{margin:2px 0 0;font-size:11px;color:var(--dim)}
   /* Check an offer: three dropdowns and a button, used one-handed with someone else's offer on screen. */
   .twhatif{border:1px dashed var(--line);border-radius:12px;padding:10px;margin:10px 0}
   .twhatif .twnote{font-size:11.5px;color:var(--dim);margin:2px 0 6px;line-height:1.35}
@@ -3948,7 +3949,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.31 · 2026-11-23</small></div>
+<div class="stamp"><small id="stamp">v4.32 · 2026-11-23</small></div>
 
 <script>
 /* =========================================================================
@@ -4079,9 +4080,24 @@ function espnSideSummary(d, proAbbr, teamObj, entrySide){
     // whole season). Its average is points per game played, which is what the trade finder
     // values a player on — a pre-season projection has no idea who has since been hurt.
     const played = stats.find(st=>st.scoringPeriodId===0 && st.statSourceId===0 && (st.statSplitTypeId==null || st.statSplitTypeId===0) && thisYear(st));
+    // And his RECENT form: what he actually scored in each of the last four weeks, when ESPN
+    // sends those lines with the roster (one actual line a week, scoringPeriodId = the week). A
+    // season average cannot see a back who took over the job a month ago, or a receiver who has
+    // gone quiet. A week he did not play — no line, or a line with nothing in it — is left out
+    // rather than counted as a zero. If ESPN sends none of this, recentN is 0 and nothing changes.
+    const byWeek = new Map();
+    stats.forEach(st=>{
+      if(st.statSourceId!==0 || !thisYear(st)) return;
+      const w = +st.scoringPeriodId;
+      if(!(w > 0 && w < sp && w >= sp-4)) return;
+      const tot = +st.appliedTotal || 0;
+      if(!tot && !(st.stats && Object.keys(st.stats).length)) return;
+      if(!byWeek.has(w)) byWeek.set(w, tot);
+    });
+    const recentN = byWeek.size, recentPts = recentN ? [...byWeek.values()].reduce((a,b)=>a+b,0) / recentN : 0;
     return { id:p.id, name:p.fullName, pos:ESPN_POS[p.defaultPositionId]||"", pts:(actual&&actual.appliedTotal)||0,
       projPts:(projected&&projected.appliedTotal)||0, projSeason:(season&&season.appliedTotal)||0,
-      avgPts:(played&&played.appliedAverage)||0,
+      avgPts:(played&&played.appliedAverage)||0, recentPts, recentN,
       teamAbbr: proAbbr[p.proTeamId], injury:p.injuryStatus||"ACTIVE" };
   };
   const starters = roster.filter(e=>e.lineupSlotId!==20 && e.lineupSlotId!==21)
@@ -4184,7 +4200,9 @@ const ESPN = {
     // narrower flexes (3 RB/WR, 5 WR/TE) are counted with it.
     const c = (d.settings && d.settings.rosterSettings && d.settings.rosterSettings.lineupSlotCounts) || null;
     const slots = c ? { QB:+c[0]||0, RB:+c[2]||0, WR:+c[4]||0, TE:+c[6]||0, FLEX:(+c[23]||0)+(+c[3]||0)+(+c[5]||0) } : null;
-    return { leagueName:(d.settings&&d.settings.name)||("League "+leagueId), wk, games, slots,
+    // The last week the league plays, so a trade can be weighed over the weeks actually left.
+    const lastWeek = +(d.status && d.status.finalScoringPeriod) || 0;
+    return { leagueName:(d.settings&&d.settings.name)||("League "+leagueId), wk, games, slots, lastWeek,
       standings: espnStandings(d), activity: espnActivity(d) };
   }
 };
@@ -4763,6 +4781,17 @@ function waiverSectionHTML(trouble, pool, statusMap){
    Unasked, it never proposes bringing in a player only at a position where he is already strong
    (his words on a quarterback swap: "I'm not weak at qb so why would you even propose it").
 
+   VERSION FIVE, same day: "Ok keep working on it. It needs some improvements." He left what to
+   me, so these are the two things a general manager would have asked next, both from data the
+   app already had in hand:
+     - THE REST OF THE SEASON, NOT ONE WEEK. A trade is weighed over the weeks actually left,
+       and a player contributes nothing in his bye week (tradeSeasonAvg). A back whose bye has
+       passed is worth more than the same back with his bye still to come, and now scores so.
+     - RECENT FORM. Where ESPN sends the last four weeks' actual scores with the roster, a
+       player's value leans 40% on them (tradeVal), and the card says when a man is well above
+       or below his season average. Where it does not, nothing changes.
+   Decided without him, as he asked; the card lists each with the line that undoes it.
+
    Every number comes out of calls the app already makes. The strategy rules are the ones the
    published guides agree on: target managers whose needs match your surplus, and value a player
    on his current role and production rather than his draft cost or pre-season projection. */
@@ -4785,7 +4814,10 @@ function tradeCanMove(p){ return !!p && !tradeIsOut(p) && !/^DOUBTFUL$/i.test(p.
 // the pre-season projection only when there is nothing else to go on. Out means zero.
 function tradeVal(p){
   if(!p || tradeIsOut(p)) return 0;
-  const avg = +p.avgPts || 0, wk = +p.projPts || 0, pre = (+p.projSeason || 0) / 17;
+  const wk = +p.projPts || 0, pre = (+p.projSeason || 0) / 17;
+  const rec = (+p.recentN >= 2) ? (+p.recentPts || 0) : 0;
+  // two or more recent games on record: the season average gives up 40% of its say to them
+  const avg = (+p.avgPts > 0 && +p.recentN >= 2) ? 0.6*(+p.avgPts) + 0.4*rec : (+p.avgPts || 0);
   if(avg > 0) return wk > 0 ? 0.7*avg + 0.3*wk : avg;
   if(wk > 0) return wk;
   return pre;
@@ -4817,6 +4849,26 @@ function tradeLineupTotal(players, slots){
   left.sort((a,b)=>b-a);
   for(let i=0;i<(S.FLEX||0) && i<left.length;i++) total += left[i];
   return total;
+}
+
+// The weeks still to be played after this one, to the league's last week.
+function tradeWeeks(board){
+  const last = +(board && board.lastWeek) || 17, out = [];
+  for(let w = (+(board && board.wk) || 1) + 1; w <= last; w++) out.push(w);
+  return out;
+}
+// The same best lineup as an AVERAGE WEEK OVER THE REST OF THE SEASON: in the week a player's
+// NFL team is off he cannot be started, so the lineup is rebuilt without him for that week.
+// With no weeks left, or no bye weeks known, it is exactly tradeLineupTotal.
+function tradeSeasonAvg(players, slots, weeks, byes){
+  const full = tradeLineupTotal(players, slots);
+  if(!weeks || !weeks.length || !byes) return full;
+  const off = [];
+  (players||[]).forEach(p=>{ const w = p && p.teamAbbr && byes[p.teamAbbr]; if(w && weeks.indexOf(w)>=0 && off.indexOf(w)<0) off.push(w); });
+  if(!off.length) return full;
+  let sum = full * (weeks.length - off.length);
+  off.forEach(w=>{ sum += tradeLineupTotal(players.filter(p=>byes[p.teamAbbr]!==w), slots); });
+  return sum / weeks.length;
 }
 
 // What this team's STARTERS score at each position — the raw material for strong and weak.
@@ -4939,7 +4991,9 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
   const target = picked0 ? want : null;
 
   const myRoster = tradeRoster(mine);
-  const myBase = tradeLineupTotal(myRoster, slots);
+  const weeks = tradeWeeks(board), B = byes || {};
+  const total = players => tradeSeasonAvg(players, slots, weeks, B);
+  const myBase = total(myRoster);
   const freeBest = tradeFreeBest(pool);
   const deals = [];
   let wouldHelp = 0;   // players elsewhere who would improve my lineup at all, for the "why not" line
@@ -4951,10 +5005,10 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
 
   others.forEach(them=>{
     const theirRoster = tradeRoster(them);
-    const theirBase = tradeLineupTotal(theirRoster, slots);
+    const theirBase = total(theirRoster);
     const theirMov = movable(theirRoster);
     if(target) theirMov.filter(p=>p.pos===target).forEach(p=>{
-      if(tradeLineupTotal(myRoster.concat([p]), slots) - myBase >= TRADE_MIN) wouldHelp++; });
+      if(total(myRoster.concat([p])) - myBase >= TRADE_MIN) wouldHelp++; });
     tradePacks(theirMov).forEach(get=>{
       // Pointed at a position: the trade has to bring one in. Left alone: it has to bring in
       // somebody at a position where I am not already strong.
@@ -4977,9 +5031,9 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
         const myAfter = myRoster.filter(p=>give.indexOf(p)<0).concat(get);
         const theirAfter = theirRoster.filter(p=>get.indexOf(p)<0).concat(give);
         // Rule 7, the after-trade analysis: rebuild both starting lineups and compare the totals.
-        const myGain = tradeLineupTotal(myAfter, slots) - myBase;
+        const myGain = total(myAfter) - myBase;
         if(myGain < TRADE_WORTH) return;
-        const theirGain = tradeLineupTotal(theirAfter, slots) - theirBase;
+        const theirGain = total(theirAfter) - theirBase;
         if(theirGain < TRADE_WORTH) return;
         // No throw-ins. In a two-player package BOTH have to start for the team getting them. Without
         // this the search learns to pad an uneven swap with a spare nobody will play, just to make
@@ -5019,7 +5073,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
     d.needs = d.gavePos.map(pos=>Object.assign({ pos }, tradeNeed(d.theirRoster, pos, slots, shapes.avg)));
     d.mine = d.gavePos.map(pos=>({ pos, who: tradeStartersAt(d.myAfter, pos, slots) }));
     d.keep = d.gotPos.map(pos=>({ pos, who: tradeStartersAt(d.theirAfter, pos, slots) }));
-    d.flags = [].concat(...d.get.map(g=>tradeFlags(g, d.give[0], mine, statusMap, statusMapNext)));
+    d.flags = [].concat(...d.get.map(g=>tradeFlags(g, d.give[0], mine, statusMap, statusMapNext, B, weeks)));
     if(d.give.length > d.get.length) d.room = "them";
     else if(d.get.length > d.give.length) d.room = "me";
     delete d.myAfter; delete d.theirAfter; delete d.theirRoster;
@@ -5029,7 +5083,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
   // position do for my lineup, giving up nobody?
   const freeGainAt = pos=>{
     const f = freeBest[pos]; if(!f) return null;
-    const gain = tradeLineupTotal(myRoster.concat([f]), slots) - myBase;
+    const gain = total(myRoster.concat([f])) - myBase;
     return gain >= TRADE_MIN ? { who:f, gain } : null;
   };
   picked.forEach(d=>{ const f = d.gotPos.map(freeGainAt).filter(Boolean).sort((a,b)=>b.gain-a.gain)[0];
@@ -5038,7 +5092,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
 
   const fromWeek = (board.wk||1) + 1;
   return { ready:true, read, strong, weak, target, chosen:picked0, wouldHelp, looked, passed, teams:others.length,
-    deals:picked, waiver, freeBest, slots,
+    deals:picked, waiver, freeBest, slots, weeksLeft:weeks.length, byesKnown:Object.keys(B).length > 0,
     notCounted: myRoster.filter(tradeIsOut),
     byeDeals: tradeByeDeals(mine, others, byes||{}, fromWeek, slots),
     myHoles: tradeByeHoles(mine, byes||{}, fromWeek, slots),
@@ -5047,7 +5101,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
 }
 
 // What to know about the player coming in before sending anything.
-function tradeFlags(get, give, mine, statusMap, statusMapNext){
+function tradeFlags(get, give, mine, statusMap, statusMapNext, byes, weeks){
   const f = [];
   if(tradeIsOut(get)) f.push({ bad:true, text: esc(get.name)+" is "+esc(INJ_ABBR[get.injury]||get.injury)+" — he is not playing" });
   else if(get.injury && get.injury!=="ACTIVE") f.push({ bad:false, text: esc(get.name)+" is "+esc(INJ_ABBR[get.injury]||get.injury)+" — check the injury report before you send this" });
@@ -5057,6 +5111,15 @@ function tradeFlags(get, give, mine, statusMap, statusMapNext){
   // the scout's note: is ESPN expecting much less of him this week than he has been giving?
   const avg = +get.avgPts || 0, wk = +get.projPts || 0;
   if(avg > 0 && wk > 0 && st!=="bye" && wk < 0.6*avg) f.push({ bad:false, text: "ESPN projects "+esc(get.name)+" for "+tf1(wk)+" this week against his "+tf1(avg)+" average — worth a look at why" });
+  // his bye, if it is still ahead and not already said above: it is in the numbers, and he should know
+  const bw = byes && get.teamAbbr && byes[get.teamAbbr];
+  if(bw && weeks && weeks.indexOf(bw) >= 0 && stNext!=="bye") f.push({ bad:false, text: esc(get.name)+" still has his bye to come, in week "+bw+" — already counted in the lineup numbers" });
+  // and his form: the last few games against the season
+  const rn = +get.recentN || 0, rp = +get.recentPts || 0;
+  if(rn >= 2 && avg > 0){
+    if(rp <= 0.7*avg) f.push({ bad:true, text: esc(get.name)+" has cooled off: "+tf1(rp)+" a game over his last "+rn+", against "+tf1(avg)+" on the season" });
+    else if(rp >= 1.3*avg) f.push({ bad:false, text: esc(get.name)+" is running hot: "+tf1(rp)+" a game over his last "+rn+", against "+tf1(avg)+" on the season — you are paying for the hot streak" });
+  }
   return f;
 }
 
@@ -5130,10 +5193,12 @@ function tradeWhatIf(ctx, giveId, themId, getId){
   const give = myRoster.find(p=>String(p.id)===String(giveId));
   const get  = theirRoster.find(p=>String(p.id)===String(getId));
   if(!give || !get) return null;
-  const myBefore = tradeLineupTotal(myRoster, slots);
-  const theirBefore = tradeLineupTotal(theirRoster, slots);
+  const weeks = tradeWeeks(ctx.board), B = ctx.byes || {};
+  const total = players => tradeSeasonAvg(players, slots, weeks, B);
+  const myBefore = total(myRoster);
+  const theirBefore = total(theirRoster);
   const free = (ctx.freeBest||{})[get.pos];
-  const freeGain = free ? tradeLineupTotal(myRoster.concat([free]), slots) - myBefore : 0;
+  const freeGain = free ? total(myRoster.concat([free])) - myBefore : 0;
   const avg = tradeShapes(teams.indexOf(mine)>=0 ? teams : teams.concat([mine]), slots).avg;
   const cover = [];
   if(give.pos !== get.pos){
@@ -5143,9 +5208,9 @@ function tradeWhatIf(ctx, giveId, themId, getId){
       cover.push({ bad:true, text:"It leaves you short of a good "+esc(give.pos)+" to start" });
   }
   return { give, get, them, cover,
-    myGain: tradeLineupTotal(myRoster.filter(p=>p!==give).concat([get]), slots) - myBefore,
-    theirGain: tradeLineupTotal(theirRoster.filter(p=>p!==get).concat([give]), slots) - theirBefore,
-    flags: tradeFlags(get, give, mine, ctx.statusMap, ctx.statusMapNext),
+    myGain: total(myRoster.filter(p=>p!==give).concat([get])) - myBefore,
+    theirGain: total(theirRoster.filter(p=>p!==get).concat([give])) - theirBefore,
+    flags: tradeFlags(get, give, mine, ctx.statusMap, ctx.statusMapNext, B, weeks),
     free: (free && freeGain >= TRADE_MIN) ? { who:free, gain:freeGain } : null };
 }
 function tradeWhatIfHTML(w){
@@ -5172,7 +5237,7 @@ function tradeWhatIfHTML(w){
 }
 // One side of a deal: the name, the position, and what he actually scores.
 function tradePlayerRow(kind, p){
-  return `<div class="trow"><span class="${kind==="give"?"tgive":"tget"}">${kind==="give"?"You give":"You get"}</span> <b>${esc(p.name)}</b> <span class="tpos">${esc(p.pos)} · ${tradeIsOut(p) ? "out" : tf1(tradeVal(p))+" a game"}</span></div>`;
+  return `<div class="trow"><span class="${kind==="give"?"tgive":"tget"}">${kind==="give"?"You give":"You get"}</span> <b>${esc(p.name)}</b> <span class="tpos">${esc(p.pos)} · ${tradeIsOut(p) ? "out" : tf1(tradeVal(p))+" a game"}${(!tradeIsOut(p) && +p.recentN >= 2) ? " · last "+p.recentN+": "+tf1(p.recentPts) : ""}</span></div>`;
 }
 
 function tradeSectionHTML(res, idx){
@@ -5235,7 +5300,7 @@ function tradeSectionHTML(res, idx){
       <div class="tteam">${esc(d.them.owner || d.them.name)}</div>
       <div class="tfit">${need}</div>
       ${d.give.map(p=>tradePlayerRow("give", p)).join("")}${d.get.map(p=>tradePlayerRow("get", p)).join("")}
-      <div class="tafter"><div><span>Your best lineup</span><b>${tf1(d.myBefore)} → ${tf1(d.myBefore+d.myGain)}</b><i>${sign(d.myGain)}</i></div><div><span>Their best lineup</span><b>${tf1(d.theirBefore)} → ${tf1(d.theirBefore+d.theirGain)}</b><i>${sign(d.theirGain)}</i></div></div>
+      <div class="tafter"><div><span>Your best lineup</span><b>${tf1(d.myBefore)} → ${tf1(d.myBefore+d.myGain)}</b><i>${sign(d.myGain)}</i></div><div><span>Their best lineup</span><b>${tf1(d.theirBefore)} → ${tf1(d.theirBefore+d.theirGain)}</b><i>${sign(d.theirGain)}</i></div>${res.weeksLeft ? `<p>An average week over the ${res.weeksLeft} week${res.weeksLeft>1?"s":""} left${res.byesKnown ? ", bye weeks counted" : ""}.</p>` : ""}</div>
       <div class="tflag">• ${keepMine} ${keepTheirs}</div>
       ${room}${flags}
       <button class="tradeAsk" type="button" data-idx="${i}">✨ Write the message</button>
@@ -5270,7 +5335,7 @@ function tradeSectionHTML(res, idx){
   return `<div class="arow">${shapeLine}</div>` + notCounted + pickRow
     + (why ? `<div class="arow">${why}</div>` : "")
     + rows + waiverLine + byeIntro + byeRows + whatIf
-    + `<div class="arow" style="color:var(--dim)">A player is valued on his points per game this season, and a trade only counts if it improves the lineup you can actually start. Quarterbacks, running backs, receivers and tight ends only.</div>`;
+    + `<div class="arow" style="color:var(--dim)">A player is valued on his points per game this season, leaning on his last few games where ESPN gives them, and a trade only counts if it improves the lineup you can actually start over the weeks left. Quarterbacks, running backs, receivers and tight ends only.</div>`;
 }
 
 function cardHTML(cfg, r, err, statusMap, statusMapNext, board){
@@ -6269,7 +6334,7 @@ $("cards").addEventListener("click", async e=>{
     const box = wrap.querySelector(".twBox");
     if(!ctx || !ctx.res){ return; }
     const w = tradeWhatIf({ me:ctx.me, board:ctx.board, statusMap:ctx.statusMap,
-                            statusMapNext:ctx.statusMapNext, freeBest:ctx.res.freeBest },
+                            statusMapNext:ctx.statusMapNext, freeBest:ctx.res.freeBest, byes:espnByeWeeks() },
                           wrap.querySelector(".twGive").value,
                           wrap.querySelector(".twTeam").value,
                           wrap.querySelector(".twGet").value);
