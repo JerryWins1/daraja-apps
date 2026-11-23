@@ -3622,6 +3622,22 @@
   .tdeal .tverdict{font-size:12.5px;font-weight:700;margin-top:6px;line-height:1.35}
   .tdeal .tverdict.good{color:#86efac}
   .tdeal .tverdict.bad{color:#fca5a5}
+  /* The scout's report: one line a position, the verdict at the right-hand end. */
+  .tread{display:flex;align-items:baseline;gap:8px;font-size:12.5px;margin:5px 0;font-variant-numeric:tabular-nums}
+  .tread b{flex:none;width:26px}
+  .tread span{color:var(--dim)}
+  .tread .trank{margin-left:auto;flex:none}
+  .tread .tcall{flex:none;width:64px;text-align:right;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .tread.weak .tcall{color:#fca5a5}
+  .tread.strong .tcall{color:#86efac}
+  .tspare{font-size:11.5px;color:var(--dim);margin-top:6px;line-height:1.35}
+  /* Which position to improve: four buttons, the chosen one filled. */
+  .tpickwrap{margin:10px 0 4px}
+  .tpickwrap .tteam{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);margin-bottom:6px}
+  .tpicks{display:flex;gap:6px;flex-wrap:wrap}
+  .tpick{flex:1 1 60px;background:none;border:1px solid var(--line);border-radius:999px;color:var(--ink);font:inherit;
+    font-size:12.5px;font-weight:700;padding:8px 6px;min-height:42px;cursor:pointer;white-space:nowrap}
+  .tpick.on{background:var(--ink);color:#0b1220;border-color:var(--ink)}
   /* Check an offer: three dropdowns and a button, used one-handed with someone else's offer on screen. */
   .twhatif{border:1px dashed var(--line);border-radius:12px;padding:10px;margin:10px 0}
   .twhatif .twnote{font-size:11.5px;color:var(--dim);margin:2px 0 6px;line-height:1.35}
@@ -3925,7 +3941,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.28 · 2026-11-23</small></div>
+<div class="stamp"><small id="stamp">v4.29 · 2026-11-23</small></div>
 
 <script>
 /* =========================================================================
@@ -4697,6 +4713,29 @@ function waiverSectionHTML(trouble, pool, statusMap){
         anyone else, unless what it would start there afterwards is still league-average or
         better — and I am held to the same at the position I give from.
 
+   VERSION THREE, the same evening. Jerry sent a picture of his roster and asked what his weakness
+   was; the answer given in chat was "tight end, and you have seven receivers for three spots to
+   trade from". He said:
+
+     "The trade finder should figure this out the way you just did. I'd like to tell you that
+      I'd like to improve my rb position and then have you go find a potential trade that is a
+      win win situation for both teams."
+
+   The finder had missed it for two reasons, and both are changed here.
+     - Strong and weak were "two points a week off the league". Two points is a tenth of what a
+       pair of running backs scores and a quarter of what a tight end does, so a tight end could
+       be the worst in the league and never be called weak. Rule 4 is now a share of the league
+       average at that position (TRADE_EDGE), and the report gives the rank beside it.
+     - Rule 5 only looked for a partner by comparing averages, and only let me trade from a
+       position where my STARTERS were strong. What a manager actually trades from is the bench:
+       good players he cannot start. So rule 5 is now tested directly — my player has to make
+       THEIR starting lineup better, and they must still be covered where they gave — which is
+       what "strong where I am weak, weak where I am strong" comes to, measured on the two
+       rosters rather than inferred from two averages.
+   And he chooses the position. With nothing chosen it looks at his weakest; a tap on QB, RB, WR
+   or TE looks there instead, weak or not, because it is his team. Every other rule still gates
+   every proposal, so a tap can perfectly well come back with "no trade does that".
+
    Every number comes out of calls the app already makes. The strategy rules are the ones the
    published guides agree on: target managers whose needs match your surplus, and value a player
    on his current role and production rather than his draft cost or pre-season projection. */
@@ -4704,8 +4743,7 @@ function waiverSectionHTML(trouble, pool, statusMap){
 const TRADE_POS = ["QB","RB","WR","TE"];
 const TRADE_SLOTS = { QB:1, RB:2, WR:2, TE:1, FLEX:1 };      // used when the league's own are not known
 const TRADE_OUT = /^(OUT|INJURY_RESERVE|IR|SUSPENSION|SUSP|PUP|PHYSICALLY_UNABLE_TO_PERFORM|NON_FOOTBALL_INJURY|NFI|COVID_19|BEREAVEMENT)$/i;
-const TRADE_EDGE = 2.0;       // points a week my starters must beat (or trail) the league by to call it a strength (or weakness)
-const TRADE_PARTNER = 1.0;    // and how far the other way a partner has to be
+const TRADE_EDGE = 0.10;      // my starters must beat (or trail) the league average at a position by this share of it to be called strong (or weak)
 const TRADE_MIN = 0.5;        // a lineup gain smaller than this is noise, not a trade
 const TRADE_FAIR = 0.30;      // the two players' values must be within 30% of each other
 
@@ -4778,6 +4816,41 @@ function tradeShapes(teams, slots){
 function tradeStillCovered(rosterAfter, pos, slots, avg){
   return tradeStarting({starters:rosterAfter, bench:[]}, slots)[pos] >= (avg[pos]||0);
 }
+// The same rule for a swap being weighed: covered afterwards, OR no worse off there than before.
+// Handing over a backup leaves a team exactly the options it had, and that is not a hole.
+function tradeCoveredAfter(before, after, pos, slots, avg){
+  const a = tradeStarting({starters:after, bench:[]}, slots)[pos];
+  return a >= (avg[pos]||0) - 1e-9 || a >= tradeStarting({starters:before, bench:[]}, slots)[pos] - 1e-9;
+}
+// Who is NOT in this roster's best starting lineup: the same filling order as tradeLineupTotal,
+// kept on the players rather than their numbers. This is what a manager has to trade from.
+function tradeSpare(players, slots){
+  const S = slots || TRADE_SLOTS, left = [], out = [];
+  TRADE_POS.forEach(pos=>{
+    (players||[]).filter(p=>p.pos===pos).sort((a,b)=>tradeVal(b)-tradeVal(a))
+      .forEach((p,i)=>{ if(i < (S[pos]||0)) return; if(pos==="QB") out.push(p); else left.push(p); });
+  });
+  left.sort((a,b)=>tradeVal(b)-tradeVal(a));
+  return out.concat(left.slice(S.FLEX||0));
+}
+const tfOrd = n => n + (n%100>=11 && n%100<=13 ? "th" : ["th","st","nd","rd"][Math.min(n%10,4)%4]);
+// The scout's report on one team: at each position what the starters score, what the league's
+// do, where that ranks, and how many healthy players sit behind them unable to start.
+function tradeRead(mine, all, slots, shapes){
+  const raw = all.map(t=>({ id:t.id, s:tradeStarting(t, slots) }));
+  const me = raw.find(r=>r.id===mine.id).s;
+  const spare = tradeSpare(tradeRoster(mine), slots).filter(p=>tradeCanMove(p) && tradeVal(p) > 0);
+  const out = {};
+  TRADE_POS.forEach(pos=>{
+    const avg = shapes.avg[pos] || 0;
+    const pct = avg > 0 ? (me[pos] - avg) / avg : 0;
+    out[pos] = { pos, start:me[pos], avg, pct, of:raw.length,
+      rank: 1 + raw.filter(r=>r.s[pos] > me[pos] + 1e-9).length,
+      call: pct >= TRADE_EDGE ? "strong" : pct <= -TRADE_EDGE ? "weak" : "even",
+      spare: spare.filter(p=>p.pos===pos) };
+  });
+  return out;
+}
 
 // The best healthy free agent at each of the four positions, when the waiver list says anything
 // about what they score.
@@ -4791,7 +4864,7 @@ function tradeFreeBest(pool){
   return best;
 }
 
-function tradeFinder(me, board, statusMap, statusMapNext, pool, byes){
+function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
   const teams = tradeTeams(board);
   const mine = teams.find(t=>String(t.id)===String(me.id)) || me;
   const others = teams.filter(t=>String(t.id)!==String(mine.id));
@@ -4800,50 +4873,55 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes){
   const slots = tradeSlots(board);
   const all = teams.indexOf(mine)>=0 ? teams : teams.concat([mine]);
   const shapes = tradeShapes(all, slots);
-  const shape = shapes.get(mine.id);
-  const strong = TRADE_POS.filter(p=>shape[p] >  TRADE_EDGE).sort((a,b)=>shape[b]-shape[a]);
-  const weak   = TRADE_POS.filter(p=>shape[p] < -TRADE_EDGE).sort((a,b)=>shape[a]-shape[b]);
+  const read = tradeRead(mine, all, slots, shapes);
+  const strong = TRADE_POS.filter(p=>read[p].call==="strong").sort((a,b)=>read[b].pct-read[a].pct);
+  const weak   = TRADE_POS.filter(p=>read[p].call==="weak").sort((a,b)=>read[a].pct-read[b].pct);
+  // Rule 4: the position to improve. His own choice if he made one; otherwise the weakest, and
+  // if nothing is weak there is nothing to fix and nothing is proposed.
+  const picked0 = TRADE_POS.indexOf(want) >= 0;
+  const target = picked0 ? want : (weak[0] || null);
 
   const myRoster = tradeRoster(mine);
   const myBase = tradeLineupTotal(myRoster, slots);
   const freeBest = tradeFreeBest(pool);
-  const deals = [], mirrors = [];
+  const deals = [];
+  let wouldHelp = 0;   // players elsewhere who would improve my lineup at all, for the "why not" line
 
-  // Rule 4: a trade needs something to trade FROM and something to trade FOR.
-  if(strong.length && weak.length) others.forEach(them=>{
-    const ts = shapes.get(them.id);
+  if(target) others.forEach(them=>{
     const theirRoster = tradeRoster(them);
     const theirBase = tradeLineupTotal(theirRoster, slots);
-    strong.forEach(S=> weak.forEach(W=>{
-      // Rule 5: the mirror. Thin where I am strong, deep where I am thin.
-      if(!(ts[S] < -TRADE_PARTNER && ts[W] > TRADE_PARTNER)) return;
-      if(mirrors.indexOf(them.owner || them.name) < 0) mirrors.push(them.owner || them.name);
-      myRoster.filter(p=>p.pos===S && tradeCanMove(p)).forEach(give=>{
-        theirRoster.filter(p=>p.pos===W && tradeCanMove(p)).forEach(get=>{
-          const vGive = tradeVal(give), vGet = tradeVal(get);
-          if(!(vGive > 0) || !(vGet > 0)) return;
-          // Rule 6: about the same worth, or it is not an offer anybody takes seriously.
-          if(Math.abs(vGive - vGet) > TRADE_FAIR * Math.max(vGive, vGet)) return;
-          const myAfter = myRoster.filter(p=>p!==give).concat([get]);
-          const theirAfter = theirRoster.filter(p=>p!==get).concat([give]);
-          // Rule 8: nobody is left without a good option where he gave. They must still start a
-          // league-average group at the position I take from, and so must I at the one I give from.
-          if(!tradeStillCovered(theirAfter, W, slots, shapes.avg)) return;
-          if(!tradeStillCovered(myAfter, S, slots, shapes.avg)) return;
-          // Rule 7: both starting lineups better.
-          const myGain = tradeLineupTotal(myAfter, slots) - myBase;
-          if(myGain < TRADE_MIN) return;
-          const theirGain = tradeLineupTotal(theirAfter, slots) - theirBase;
-          if(theirGain < TRADE_MIN) return;
-          // ...and nobody pays more than he gains. Handing over a 17-point receiver for a 12-point
-          // backup to pick up one point a week passes every test above and is still a bad trade.
-          if(vGive > vGet && myGain < (vGive - vGet)) return;
-          if(vGet > vGive && theirGain < (vGet - vGive)) return;
-          deals.push({ them, give, get, S, W, myGain, theirGain, theirShape:ts,
-            flags: tradeFlags(get, give, mine, statusMap, statusMapNext) });
-        });
+    theirRoster.filter(p=>p.pos===target && tradeCanMove(p)).forEach(get=>{
+      const vGet = tradeVal(get);
+      if(!(vGet > 0)) return;
+      if(tradeLineupTotal(myRoster.concat([get]), slots) - myBase >= TRADE_MIN) wouldHelp++;
+      // A swap inside one position cannot make both lineups better, so what I give comes from
+      // one of the other three.
+      myRoster.filter(p=>p.pos!==target && tradeCanMove(p)).forEach(give=>{
+        const vGive = tradeVal(give);
+        if(!(vGive > 0)) return;
+        // Rule 6: about the same worth, or it is not an offer anybody takes seriously.
+        if(Math.abs(vGive - vGet) > TRADE_FAIR * Math.max(vGive, vGet)) return;
+        const myAfter = myRoster.filter(p=>p!==give).concat([get]);
+        const theirAfter = theirRoster.filter(p=>p!==get).concat([give]);
+        // Rule 8: nobody is left without a good option where he gave.
+        if(!tradeCoveredAfter(theirRoster, theirAfter, target, slots, shapes.avg)) return;
+        if(!tradeCoveredAfter(myRoster, myAfter, give.pos, slots, shapes.avg)) return;
+        // Rules 5 and 7: both starting lineups better. Theirs improving is the proof that they
+        // need what I am sending — he starts for them — and rule 8 is the proof they can spare
+        // what I am asking for.
+        const myGain = tradeLineupTotal(myAfter, slots) - myBase;
+        if(myGain < TRADE_MIN) return;
+        const theirGain = tradeLineupTotal(theirAfter, slots) - theirBase;
+        if(theirGain < TRADE_MIN) return;
+        // ...and nobody pays more than he gains. Handing over a 17-point receiver for a 12-point
+        // backup to pick up one point a week passes every test above and is still a bad trade.
+        if(vGive > vGet && myGain < (vGive - vGet)) return;
+        if(vGet > vGive && theirGain < (vGet - vGive)) return;
+        const keep = theirAfter.filter(p=>p.pos===target && !tradeIsOut(p)).sort((a,b)=>tradeVal(b)-tradeVal(a))[0] || null;
+        deals.push({ them, give, get, S:give.pos, W:target, myGain, theirGain, keep,
+          flags: tradeFlags(get, give, mine, statusMap, statusMapNext) });
       });
-    }));
+    });
   });
 
   // One proposal per manager, and the one most likely to be said yes to: ranked on what the
@@ -4863,10 +4941,10 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes){
     return gain >= TRADE_MIN ? { who:f, gain } : null;
   };
   picked.forEach(d=>{ const f = freeGainAt(d.get.pos); if(f) d.free = { who:f.who, gain:f.gain, mostOfIt: f.gain >= d.myGain*0.75 }; });
-  const waiver = weak.map(pos=>{ const f = freeGainAt(pos); return f ? { pos, who:f.who, gain:f.gain } : null; }).filter(Boolean);
+  const waiver = (target ? [target] : []).map(pos=>{ const f = freeGainAt(pos); return f ? { pos, who:f.who, gain:f.gain } : null; }).filter(Boolean);
 
   const fromWeek = (board.wk||1) + 1;
-  return { ready:true, shape, strong, weak, deals:picked, waiver, freeBest, slots, mirrors,
+  return { ready:true, read, strong, weak, target, chosen:picked0, wouldHelp, deals:picked, waiver, freeBest, slots,
     notCounted: myRoster.filter(tradeIsOut),
     byeDeals: tradeByeDeals(mine, others, byes||{}, fromWeek, slots),
     myHoles: tradeByeHoles(mine, byes||{}, fromWeek, slots),
@@ -5008,26 +5086,36 @@ function tradeSectionHTML(res, idx){
   if(!res.ready) return `<div class="arow">Not enough of the league has loaded to look for a trade yet. Tap Update scores and come back.</div>`;
   const list = a => a.length > 1 ? a.slice(0,-1).join(", ") + " and " + a[a.length-1] : a[0];
   const sign = v => (v >= 0 ? "+" : "") + tf1(v);
-  const tag = p => `<b>${esc(p)}</b> (${sign(res.shape[p])} a week)`;
+  const POSWORD = { QB:"quarterback", RB:"running back", WR:"receiver", TE:"tight end" };
+  const POSMANY = { QB:"quarterbacks", RB:"running backs", WR:"receivers", TE:"tight ends" };
 
-  // Rule 4, said out loud: what this team is, and so whether a trade makes sense at all.
-  let shapeLine, why = "";
-  if(res.strong.length && res.weak.length){
-    shapeLine = `Your starters are strong at ${list(res.strong.map(tag))} and thin at ${list(res.weak.map(tag))}, against the rest of the league.`;
-    if(!res.deals.length) why = (res.mirrors||[]).length
-      // A mirror exists but nothing passes: the usual cause is strength that is all starters and
-      // no spare. Swapping a player you start for one you would start just moves the hole.
-      ? `${esc(list(res.mirrors))} ${res.mirrors.length>1?"are":"is"} the mirror of you, but no swap of healthy, evenly-matched players leaves both lineups better with both teams still covered at the position they give from. Usually that means the strength is players already being started, so trading one opens a hole as big as the one it closes. No trade worth proposing.`
-      : `No team in this league is the mirror of that right now — thin at ${esc(res.strong[0])} and deep at ${esc(res.weak[0])} — so there is no trade worth proposing.`;
-  } else if(res.strong.length){
-    shapeLine = `Your starters are strong at ${list(res.strong.map(tag))} and have no real weakness at QB, RB, WR or TE.`;
-    why = `With nothing to fix, a trade would only move strength around. No trade makes sense right now.`;
-  } else if(res.weak.length){
-    shapeLine = `Your starters are thin at ${list(res.weak.map(tag))} and have no surplus anywhere to trade from.`;
-    why = `A trade would mean opening a second hole to close the first. The waiver wire is the place to look.`;
+  // Rule 4, said out loud, the way a scout would put it: each position against the league, and
+  // what is sitting on the bench to trade from.
+  const callWord = { strong:"strong", weak:"weak", even:"average" };
+  const readRows = TRADE_POS.map(p=>{ const r = res.read[p];
+    return `<div class="tread ${r.call}"><b>${p}</b><span>${tf1(r.start)} · league ${tf1(r.avg)}</span><span class="trank">${tfOrd(r.rank)} of ${r.of}</span><span class="tcall">${callWord[r.call]}</span></div>`; }).join("");
+  const spareBits = TRADE_POS.filter(p=>res.read[p].spare.length)
+    .map(p=>`${res.read[p].spare.length} ${res.read[p].spare.length>1 ? POSMANY[p] : POSWORD[p]}`);
+  const spareLine = spareBits.length
+    ? `Healthy and not in your best lineup: ${list(spareBits)}. That is what you have to trade from.`
+    : `Everybody healthy on your roster is already in your best lineup, so there is nothing spare to trade from.`;
+  const shapeLine = `<b>Your starters against the league</b> <span style="color:var(--dim)">· points a week</span>${readRows}<div class="tspare">${spareLine}</div>`;
+
+  // He chooses the position. The weakest is marked, and looked at first if he has not chosen.
+  const pickRow = `<div class="tpickwrap"><div class="tteam">Which position do you want to improve?</div><div class="tpicks">`
+    + TRADE_POS.map(p=>`<button class="tpick${res.target===p?" on":""}" type="button" data-pos="${p}">${p}${res.weak[0]===p?" · weakest":""}</button>`).join("")
+    + `</div></div>`;
+
+  let why = "";
+  if(!res.target){
+    why = `None of the four is clearly weak, so there is nothing a trade needs to fix. Tap a position above if you want me to look for a win-win there anyway.`;
+  } else if(!res.deals.length){
+    const P = POSWORD[res.target];
+    why = res.wouldHelp
+      ? `<b>No win-win trade for a ${P} right now.</b> ${res.wouldHelp} ${res.wouldHelp>1 ? POSMANY[res.target]+" on other teams" : P+" on another team"} would improve your lineup, but none can be had in an even swap that also leaves the other team's lineup better and still covered at ${esc(res.target)}. I would rather say that than hand you a trade nobody accepts.`
+      : `<b>No trade for a ${P} would help.</b> No ${P} another team can move would start ahead of the ones you already have.`;
   } else {
-    shapeLine = `Your starters are within a couple of points of the league average at QB, RB, WR and TE.`;
-    why = `There is no clear strength to trade from or weakness to fix, so no trade makes sense right now.`;
+    why = `<b>Win-win trades for a ${POSWORD[res.target]}</b>${res.chosen ? "" : " — your weakest position"}. Each one leaves both starting lineups better.`;
   }
   const notCounted = (res.notCounted||[]).length
     ? `<div class="arow" style="color:var(--dim)">Not counted, because they are not playing: ${res.notCounted.map(p=>esc(p.name)+" ("+esc(INJ_ABBR[p.injury]||p.injury)+")").join(", ")}.</div>` : "";
@@ -5040,7 +5128,7 @@ function tradeSectionHTML(res, idx){
       + (d.free ? `<div class="tflag${d.free.mostOfIt?" free":""}">${d.free.mostOfIt?"🟢":"•"} <b>${esc(d.free.who.name)}</b> is free on waivers and gets you ${sign(d.free.gain)} a week of this for nothing${d.free.mostOfIt?" — take him instead":""}</div>` : "");
     return `<div class="tdeal">
       <div class="tteam">${esc(d.them.owner || d.them.name)}</div>
-      <div class="tfit">They are thin at ${esc(d.S)} (${sign(d.theirShape[d.S])}) and deep at ${esc(d.W)} (${sign(d.theirShape[d.W])}) — the mirror of you.</div>
+      <div class="tfit">${esc(d.give.name)} would start for them${d.keep ? `, and they still have ${esc(d.keep.name)} at ${esc(d.W)}` : ""}.</div>
       ${tradePlayerRow("give", d.give)}${tradePlayerRow("get", d.get)}
       <div class="tgain">Your lineup <b>${sign(d.myGain)}</b> points a week · theirs ${sign(d.theirGain)}</div>
       ${flags}
@@ -5073,7 +5161,7 @@ function tradeSectionHTML(res, idx){
     <div class="twBox"></div>
   </div>`;
 
-  return `<div class="arow">${shapeLine}</div>` + notCounted
+  return `<div class="arow">${shapeLine}</div>` + notCounted + pickRow
     + (why ? `<div class="arow">${why}</div>` : "")
     + rows + waiverLine + byeIntro + byeRows + whatIf
     + `<div class="arow" style="color:var(--dim)">A player is valued on his points per game this season, and a trade only counts if it improves the lineup you can actually start. Quarterbacks, running backs, receivers and tight ends only.</div>`;
@@ -6039,6 +6127,7 @@ $("cards").addEventListener("click", async e=>{
       try{ pool = await espnPlayerPool(ctx.leagueId); }catch(e){}
       // every NFL team's bye week, off the schedule call the app already makes and caches
       try{ await espnProTeamAbbrs(); }catch(e){}
+      ctx.pool = pool;
       const res = tradeFinder(ctx.me, ctx.board, ctx.statusMap, ctx.statusMapNext, pool, espnByeWeeks());
       ctx.res = res;
       box.innerHTML = tradeSectionHTML(res, +tt.dataset.idx);
@@ -6049,6 +6138,19 @@ $("cards").addEventListener("click", async e=>{
       box.innerHTML = `<div class="msg err">Couldn't work out a trade (${esc(err.message)}). Try again.</div>`;
       tt.disabled = false; tt.textContent = "Find a trade ▾";
     }
+    resyncHeight(box);
+    return;
+  }
+  // "Which position do you want to improve?" — the same search, pointed where he says.
+  const tp = e.target.closest(".tpick");
+  if(tp){
+    const box = tp.closest(".tradeBox");
+    const ctx = box && TRADE_CTX[+box.dataset.idx];
+    if(!ctx) return;
+    const res = tradeFinder(ctx.me, ctx.board, ctx.statusMap, ctx.statusMapNext, ctx.pool, espnByeWeeks(), tp.dataset.pos);
+    ctx.res = res;
+    box.innerHTML = tradeSectionHTML(res, +box.dataset.idx);
+    const wrap = box.querySelector(".twhatif"); if(wrap) tradeFillGet(wrap);
     resyncHeight(box);
     return;
   }
@@ -6082,8 +6184,9 @@ $("cards").addEventListener("click", async e=>{
       + (d.them.owner || d.them.name) + " in " + ctx.leagueName + ". "
       + "I am offering my " + d.give.pos + " " + d.give.name + " (" + tf1(tradeVal(d.give)) + " points a game) for their "
       + d.get.pos + " " + d.get.name + " (" + tf1(tradeVal(d.get)) + " a game). "
-      + "Say plainly why it helps us both: their starters are thin at " + d.S + " and deep at " + d.W
-      + ", and mine are the reverse, so each of us gets a player we can actually start. "
+      + "Say plainly why it helps us both: " + d.give.name + " would start for them"
+      + (d.keep ? ", they still have " + d.keep.name + " at " + d.W : "")
+      + ", and " + d.get.name + " would start for me, so each of us gets a player we can actually use. "
       + "Keep it to three or four sentences, no hype, and do not invent any statistics beyond what I have told you.";
     try{ if(window.djAI && djAI.ask) djAI.ask(q); else alert(q); }catch(err){}
     return;
