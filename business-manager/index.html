@@ -3675,7 +3675,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.1 · 2026-11-22';
+var VER = 'v2.1.1 · 2026-11-23';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4272,12 +4272,12 @@ function talkButton(){
    finished, and cutting a round off (abort) or starting a fresh listener straight away leaves it deaf. So now: ONE
    listener for the whole visit, a round is only ever ended with stop() or by itself, and a tap that comes before the
    iPhone has said it finished waits for that, then starts. A start the phone refuses is tried again a few times. */
-var MIC = null, SRI = null, MICST = 'idle', MICWANT = false, MICROUND = null;   /* MICST: idle | starting | on | ending */
+var MICHEARD = false, MIC = null, SRI = null, MICST = 'idle', MICWANT = false, MICROUND = null;   /* MICST: idle | starting | on | ending */
 function micStop(){ if(MICST === 'starting' || MICST === 'on'){ micLog('stop'); MICST = 'ending'; MIC = null; try{ SRI.stop(); }catch(e){} micLabel(false);
   var r = MICROUND; setTimeout(function(){ if(MICST === 'ending' && MICROUND === r){ MICST = 'idle'; if(r && r.done) r.done(); micNext(); } }, 1500); } }
 /* the phone never said it finished: carry on anyway, and start the round that was asked for in the meantime */
 function micNext(){ if(MICWANT){ MICWANT = false; setTimeout(function(){ if($('tkIn')){ micRec(); micBegin(); } }, 250); } }
-function micLabel(on){ if(KBMIC) return; var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : '🎤 Tap and talk'; b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
+function micLabel(on){ if(KBMIC) return; var b = $('tkMic'); if(b){ b.textContent = on ? '● Listening… tap when you’re done' : (IOS && MICHEARD ? '🎤 Add more with your keyboard’s mic' : '🎤 Tap and talk'); b.classList.toggle('main', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } }
 function micSay(t, bad){ var m = $('tkPlan'); if(m){ m.style.color = bad ? 'var(--bad)' : ''; m.textContent = t; } }
 /* v1.9.6 (20 Nov, Jerry on his iPhone, third try): words ran together with no spaces, and after a couple of rounds a
    tap did nothing at all. iPhones hand back each phrase as its own result with no leading space, so results are joined
@@ -4306,7 +4306,7 @@ function micRec(){
   ['audiostart', 'speechstart', 'audioend', 'nomatch'].forEach(function(ev){ try{ SRI.addEventListener(ev, function(){ micLog(ev + ' ' + ms()); }); }catch(e){} });
   /* the handlers stay put; each round brings its own box and words */
   SRI.onstart = function(){ micLog('start ' + ms()); var r = MICROUND; if(!r) return; r.began = true; MICST = 'on'; micLabel(true); micSay('Listening. Say it — it stops by itself when you pause.'); };
-  SRI.onresult = function(ev){ micLog('result ' + ms()); var r = MICROUND; if(!r) return; r.began = true; var b = $('tkIn'); if(!b){ micStop(); return; }
+  SRI.onresult = function(ev){ micLog('result ' + ms()); MICHEARD = true; var r = MICROUND; if(!r) return; r.began = true; var b = $('tkIn'); if(!b){ micStop(); return; }
     r.heard = micJoin(ev); b.value = r.base ? r.base.replace(/[.,]?\s*$/, ', ') + r.heard : r.heard; b.dispatchEvent(new Event('input', { bubbles:true }));
     clearTimeout(r.quiet); r.quiet = setTimeout(function(){ if(MICROUND === r && MICST === 'on') micStop(); }, 2500); };
   SRI.onerror = function(ev){ micLog('error ' + ((ev && ev.error) || '?') + ' ' + ms()); var r = MICROUND; if(r) r.failed = (ev && ev.error) || 'unknown'; };
@@ -4314,9 +4314,16 @@ function micRec(){
     micNext(); };
   return SRI;
 }
+/* v2.1.1 (23 Nov, Jerry on his iPhone in Safari): the mic line showed every round after the first going start → audiostart →
+   nothing → aborted, even on one listener that was never cut off; and the 🎤 on his keyboard worked every time ("something
+   is disconnected there"). An iPhone's web speech hears one round per visit to a page. So on an iPhone, once a round has
+   been heard, "add more" brings the keyboard up at the end of the words and says to tap the keyboard's 🎤. */
+function kbMore(){ kbTalk(); var b = $('tkMic'); if(b) b.textContent = '🎤 Add more with your keyboard’s mic';
+  if(!$('tkTip')){ var p = document.createElement('p'); p.className = 'banner small'; p.id = 'tkTip'; p.style.margin = '0 0 8px'; p.textContent = KBTIP; var box = $('tkIn'); if(box && box.parentNode){ var lab = box.parentNode.querySelector('label[for="tkIn"]'); box.parentNode.insertBefore(p, lab || box); } } }
 function talkMic(){
   var KB = ' Or tap in the box and use the 🎤 on your keyboard.';
   if(MICST === 'starting' || MICST === 'on'){ micStop(); return; }
+  if(IOS && MICHEARD){ kbMore(); return; }
   if(!$('tkIn')) return;
   if(!micRec()){ micSay(IOS ? SAFARI_TIP + KB : 'This phone can’t listen here. Tap in the box and use the 🎤 on your keyboard, or type it.', true); kbTalk(); return; }
   try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}   /* an open keyboard can hold the iPhone's microphone */
@@ -4360,9 +4367,9 @@ function talkOpen(said, plan, note){
   var old = TALK && TALK.plan && TALK.plan.photo;
   TALK = { said:String(said || '').trim(), plan:null, picked:'' };
   sheet('<h3>🎤 Say it, or type it</h3>' + (KBMIC ? '<p class="banner small" id="tkTip" style="margin:0 0 8px">' + (IOS ? esc(SAFARI_TIP) + '<br>Meanwhile: ' : '') + esc(KBTIP) + '<br><span class="muted">No 🎤 on your keyboard? ' + (/Android/i.test(navigator.userAgent || '') ? 'Turn on voice typing in your keyboard settings.' : 'Settings → General → Keyboard → Enable Dictation.') + '</span></p>' : '') + '<label class="f" for="tkIn" style="margin-top:0">What you said</label><textarea class="i" id="tkIn" data-nomic style="min-height:70px" placeholder="">' + esc(TALK.said) + '</textarea>'
-    + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">' + (KBMIC ? '🎤 Talk some more' : '🎤 Tap and talk') + '</button>'
+    + '<button class="btn full talkbtn" id="tkMic" type="button" onclick="BM.talkMic()" style="margin:8px 0 0;min-height:54px;font-size:17px">' + (KBMIC ? '🎤 Talk some more' : IOS && MICHEARD ? '🎤 Add more with your keyboard’s mic' : '🎤 Tap and talk') + '</button>'
     + '<div class="chips" style="margin-top:10px" id="tkKind"></div><div id="tkMore"></div>'
-    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p><p class="small muted" id="tkDbg" style="margin:0 2px 8px;font-size:12px">' + (MICLOG.length ? 'mic: ' + esc(MICLOG.join(' · ')) : '') + '</p>'
+    + '<p class="small" id="tkPlan" role="status" style="margin:8px 2px;min-height:1.2em"></p><p class="small muted" id="tkDbg" style="margin:0 2px 8px;font-size:12px"' + (/[?&]micdebug\b/.test(location.search) ? '' : ' hidden') + '>' + (MICLOG.length ? 'mic: ' + esc(MICLOG.join(' · ')) : '') + '</p>'
     + '<button class="btn main full" id="tkGo" onclick="BM.talkSave()">Save it</button>'
     + (hasAI() ? '<button class="btn sm full" style="margin-top:8px" onclick="BM.talkAI()">✨ Not sure? Ask ' + esc(aiLabel()) + ' to sort it</button>' : '')
     + '<p class="hint">Nothing is saved until you tap Save it.</p>', function(w){ var i = w.querySelector('#tkIn');
