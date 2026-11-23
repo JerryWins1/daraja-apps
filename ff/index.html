@@ -3614,6 +3614,18 @@
   .tdeal .tflag{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.35}
   .tdeal .tflag.bad{color:#fca5a5}
   .tdeal .tflag.free{color:#86efac}
+  .tdeal .tverdict{font-size:12.5px;font-weight:700;margin-top:6px;line-height:1.35}
+  .tdeal .tverdict.good{color:#86efac}
+  .tdeal .tverdict.bad{color:#fca5a5}
+  /* Check an offer: three dropdowns and a button, used one-handed with someone else's offer on screen. */
+  .twhatif{border:1px dashed var(--line);border-radius:12px;padding:10px;margin:10px 0}
+  .twhatif .twrow{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12.5px}
+  .twhatif .twrow span{flex:none;width:62px;font-size:10.5px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+  .twhatif select{flex:1;min-width:0;background:#0e1626;color:var(--ink);border:1px solid var(--line);
+    border-radius:9px;padding:8px;min-height:40px;font:inherit;font-size:12.5px}
+  .twhatif .twGo{margin-top:8px;width:100%;background:none;border:1px solid var(--line);border-radius:999px;
+    color:var(--ink);font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;min-height:42px;cursor:pointer}
+  .twhatif .twBox .tdeal{margin-bottom:0}
   .tdeal .tradeAsk{margin-top:8px;background:none;border:1px solid var(--line);border-radius:999px;
     color:var(--ink);font:inherit;font-size:12px;font-weight:700;padding:6px 12px;min-height:38px;cursor:pointer}
   .tradeToggle{display:inline-block;margin:2px 0 8px;background:none;border:1px solid var(--line);
@@ -3906,7 +3918,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.24 · 2026-11-22</small></div>
+<div class="stamp"><small id="stamp">v4.25 · 2026-11-23</small></div>
 
 <script>
 /* =========================================================================
@@ -4792,7 +4804,11 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool){
     return gain > 0.5 ? { pos, who:free, gain } : null;
   }).filter(Boolean).sort((a,b)=>b.gain-a.gain);
 
-  return { ready:true, shape, rep, deals:picked, waiver, sawPool: Object.keys(freeBest).length>0 };
+  return { ready:true, shape, rep, deals:picked, waiver, freeBest,
+           sawPool: Object.keys(freeBest).length>0,
+           // what the "check an offer" pickers are filled from
+           myPlayers: myRoster.slice().sort((a,b)=>(a.pos||"").localeCompare(b.pos||"") || tradeProj(b)-tradeProj(a)),
+           otherTeams: others.map(t=>({ id:t.id, name:t.name, owner:t.owner })) };
 }
 
 // What Jerry asked to have checked before he sends anything: is the player he would be getting
@@ -4814,7 +4830,64 @@ function tradeFlags(get, give, mine, statusMap, statusMapNext){
   return f;
 }
 
-function tradeSectionHTML(res, meName){
+/* "Uncle Joe just offered me this — is it any good?"
+   The question that actually arrives in your inbox, and the one where a manager gets talked into
+   something: both names are good, so the offer sounds fair, and nobody checks what it does to the
+   starting lineup. Same arithmetic as the finder above — rebuild both lineups and look. */
+function tradeWhatIf(ctx, giveId, themId, getId){
+  const teams = [];
+  (ctx.board.games||[]).forEach(g=>{ if(g.home) teams.push(g.home); if(g.away) teams.push(g.away); });
+  const mine = teams.find(t=>String(t.id)===String(ctx.me.id)) || ctx.me;
+  const them = teams.find(t=>String(t.id)===String(themId));
+  if(!them) return null;
+  const myRoster = tradeRoster(mine), theirRoster = tradeRoster(them);
+  const give = myRoster.find(p=>String(p.id)===String(giveId));
+  const get  = theirRoster.find(p=>String(p.id)===String(getId));
+  if(!give || !get) return null;
+
+  const myBefore = tradeLineupTotal(myRoster);
+  const myAfter  = tradeLineupTotal(myRoster.filter(p=>p!==give).concat([get]));
+  const theirBefore = tradeLineupTotal(theirRoster);
+  const theirAfter  = tradeLineupTotal(theirRoster.filter(p=>p!==get).concat([give]));
+
+  const free = (ctx.freeBest||{})[get.pos];
+  const freeGain = free ? tradeLineupTotal(myRoster.concat([free])) - myBefore : 0;
+  return {
+    give, get, them,
+    myGain: myAfter - myBefore,
+    theirGain: theirAfter - theirBefore,
+    flags: tradeFlags(get, give, mine, ctx.statusMap, ctx.statusMapNext),
+    free: (free && freeGain > 0.5) ? { who:free, gain:freeGain } : null
+  };
+}
+
+// The verdict, in the words a person would use, and never dressed up: a trade that costs you
+// points is a no even when the name coming back is famous.
+function tradeWhatIfHTML(w){
+  if(!w) return `<div class="arow">Pick a player on each side.</div>`;
+  const mine = Math.round(w.myGain), theirs = Math.round(w.theirGain);
+  const verdict = mine > 0.5
+    ? (theirs > 0.5 ? "Worth doing — and they gain too, so they may well say yes."
+                    : "Worth doing for you. They lose by it, so expect a no.")
+    : (mine < -0.5 ? "Turn it down. It costs you points."
+                   : "It barely moves your lineup either way.");
+  const cls = mine > 0.5 ? "good" : mine < -0.5 ? "bad" : "";
+  const flags = w.flags.map(f=>`<div class="tflag${f.bad?" bad":""}">${f.bad?"⚠️":"•"} ${f.text}</div>`).join("");
+  const freeLine = w.free
+    ? `<div class="tflag${w.free.gain >= w.myGain ? " free" : ""}">${w.free.gain >= w.myGain ? "🟢" : "•"} <b>${esc(w.free.who.name)}</b> is free on waivers and is worth +${Math.round(w.free.gain)} to you for nothing${w.free.gain >= w.myGain ? " — better than this trade" : ""}</div>`
+    : "";
+  return `<div class="tdeal">
+    <div class="tteam">${esc(w.them.owner || w.them.name)}</div>
+    <div class="trow"><span class="tgive">You give</span> <b>${esc(w.give.name)}</b> <span class="tpos">${esc(w.give.pos)}</span></div>
+    <div class="trow"><span class="tget">You get</span> <b>${esc(w.get.name)}</b> <span class="tpos">${esc(w.get.pos)}</span></div>
+    <div class="tgain">Your lineup <b>${mine>=0?"+":""}${mine}</b> points the rest of the season · theirs ${theirs>=0?"+":""}${theirs}</div>
+    <div class="tverdict ${cls}">${verdict}</div>
+    ${flags}${freeLine}
+  </div>`;
+}
+
+function tradeSectionHTML(res, idx){
+  res.idx = idx;
   if(!res.ready) return `<div class="arow">Not enough of the league has loaded to look for a trade yet. Tap Update scores and come back.</div>`;
   const order = Object.keys(res.shape).sort((a,b)=>res.shape[b]-res.shape[a]);
   const EDGE = 25;   // season points, not weekly — below this it is noise, not a surplus
@@ -4829,8 +4902,8 @@ function tradeSectionHTML(res, meName){
       + res.waiver.map(w=>`<b>${esc(w.who.name)}</b> (${esc(w.pos)}, +${Math.round(w.gain)})`).join(", ")
       + `. Adding one costs you nobody.</div>`
     : "";
-  if(!res.deals.length) return shapeLine + waiverLine + `<div class="arow">No one-for-one swap in this league makes both teams better right now. That usually means everybody's spare players are spare for the same reason.</div>`;
-  const rows = res.deals.map((d,i)=>{
+  const noDeals = `<div class="arow">No one-for-one swap in this league makes both teams better right now. That usually means everybody's spare players are spare for the same reason.</div>`;
+  const rows = !res.deals.length ? noDeals : res.deals.map((d,i)=>{
     const flags = d.flags.map(f=>`<div class="tflag${f.bad?" bad":""}">${f.bad?"⚠️":"•"} ${f.text}</div>`).join("")
       + (d.free ? `<div class="tflag${d.free.mostOfIt?" free":""}">${d.free.mostOfIt?"🟢":"•"} <b>${esc(d.free.who.name)}</b> is free on waivers and gets you +${Math.round(d.free.gain)} of this for nothing${d.free.mostOfIt?" — take him instead":""}</div>` : "");
     return `<div class="tdeal">
@@ -4842,10 +4915,21 @@ function tradeSectionHTML(res, meName){
       <button class="tradeAsk" type="button" data-idx="${i}">✨ Write the message</button>
     </div>`;
   }).join("");
+  // The pickers. Three plain dropdowns rather than anything clever, because this gets used with a
+  // phone in one hand and someone else's offer on the screen.
+  const opt = (p,i)=>`<option value="${esc(String(p.id))}">${esc(p.pos)} — ${esc(p.name)}</option>`;
+  const whatIf = `<div class="twhatif" data-idx="${res.idx}">
+    <div class="tteam">Or check an offer they sent you</div>
+    <label class="twrow"><span>You give</span><select class="twGive">${res.myPlayers.map(opt).join("")}</select></label>
+    <label class="twrow"><span>To</span><select class="twTeam">${res.otherTeams.map(t=>`<option value="${esc(String(t.id))}">${esc(t.owner||t.name)}</option>`).join("")}</select></label>
+    <label class="twrow"><span>You get</span><select class="twGet"></select></label>
+    <button class="twGo" type="button">What would that do?</button>
+    <div class="twBox"></div>
+  </div>`;
   const basis = res.sawPool
     ? "Every figure is measured against the best player you could pick up free at that position."
     : "ESPN sent no projections for the waiver wire this time, so the comparison is against the last startable player at that position in your league instead.";
-  return shapeLine + waiverLine + rows + `<div class="arow" style="color:var(--dim)">Both sides gain because each one swaps a player he cannot start for one he can. ${basis} Figures are ESPN's own season projections.</div>`;
+  return shapeLine + waiverLine + rows + whatIf + `<div class="arow" style="color:var(--dim)">Both sides gain because each one swaps a player he cannot start for one he can. ${basis} Figures are ESPN's own season projections.</div>`;
 }
 
 function cardHTML(cfg, r, err, statusMap, statusMapNext, board){
@@ -5808,13 +5892,31 @@ $("cards").addEventListener("click", async e=>{
       try{ pool = await espnPlayerPool(ctx.leagueId); }catch(e){}
       const res = tradeFinder(ctx.me, ctx.board, ctx.statusMap, ctx.statusMapNext, pool);
       ctx.res = res;
-      box.innerHTML = tradeSectionHTML(res, ctx.me.name);
+      box.innerHTML = tradeSectionHTML(res, +tt.dataset.idx);
       box.dataset.idx = tt.dataset.idx;
+      const wrap = box.querySelector(".twhatif"); if(wrap) tradeFillGet(wrap);
       tt.remove();
     }catch(err){
       box.innerHTML = `<div class="msg err">Couldn't work out a trade (${esc(err.message)}). Try again.</div>`;
       tt.disabled = false; tt.textContent = "Find a trade ▾";
     }
+    resyncHeight(box);
+    return;
+  }
+  // "Check an offer": one button, and the team dropdown beside it fills the player list (see the
+  // change listener below).
+  const tw = e.target.closest(".twGo");
+  if(tw){
+    const wrap = tw.closest(".twhatif");
+    const ctx = TRADE_CTX[+wrap.dataset.idx];
+    const box = wrap.querySelector(".twBox");
+    if(!ctx || !ctx.res){ return; }
+    const w = tradeWhatIf({ me:ctx.me, board:ctx.board, statusMap:ctx.statusMap,
+                            statusMapNext:ctx.statusMapNext, freeBest:ctx.res.freeBest },
+                          wrap.querySelector(".twGive").value,
+                          wrap.querySelector(".twTeam").value,
+                          wrap.querySelector(".twGet").value);
+    box.innerHTML = tradeWhatIfHTML(w);
     resyncHeight(box);
     return;
   }
@@ -5844,6 +5946,27 @@ $("cards").addEventListener("click", async e=>{
   b.textContent = opening ? `🧢 Hide ${b.dataset.base} ▴` : `🧢 Show ${b.dataset.base} ▾`;
   // expanding/collapsing changes THIS slide's height without a scroll event firing
   resyncHeight(b);
+});
+// Choosing a team in "check an offer" refills the list of their players beside it. Also called
+// once when the section renders, so the box is never empty before anything is touched.
+function tradeFillGet(wrap){
+  const ctx = TRADE_CTX[+wrap.dataset.idx]; if(!ctx || !ctx.board) return;
+  const id = wrap.querySelector(".twTeam").value;
+  const teams = [];
+  (ctx.board.games||[]).forEach(g=>{ if(g.home) teams.push(g.home); if(g.away) teams.push(g.away); });
+  const them = teams.find(t=>String(t.id)===String(id));
+  const sel = wrap.querySelector(".twGet");
+  if(!them){ sel.innerHTML = ""; return; }
+  sel.innerHTML = tradeRoster(them)
+    .slice().sort((a,b)=>(a.pos||"").localeCompare(b.pos||"") || tradeProj(b)-tradeProj(a))
+    .map(p=>`<option value="${esc(String(p.id))}">${esc(p.pos)} — ${esc(p.name)}</option>`).join("");
+}
+$("cards").addEventListener("change", e=>{
+  const t = e.target.closest && e.target.closest(".twTeam");
+  if(!t) return;
+  const wrap = t.closest(".twhatif"); if(!wrap) return;
+  tradeFillGet(wrap);
+  const box = wrap.querySelector(".twBox"); if(box) box.innerHTML = "";
 });
 // Enter in the "ask" box submits the same way tapping the Ask button does.
 $("cards").addEventListener("keydown", e=>{
