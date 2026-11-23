@@ -3949,7 +3949,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.32 · 2026-11-23</small></div>
+<div class="stamp"><small id="stamp">v4.33 · 2026-11-23</small></div>
 
 <script>
 /* =========================================================================
@@ -4792,6 +4792,26 @@ function waiverSectionHTML(trouble, pool, statusMap){
        or below his season average. Where it does not, nothing changes.
    Decided without him, as he asked; the card lists each with the line that undoes it.
 
+   VERSION SIX, same day. Jerry handed over a write-up, "Fantasy Football Trade Analysis – Best
+   Practices (Professional & Sharp Approach)", as the standard to hold this to. Most of it was
+   already here (start from the starting lineup, match the other team's real need, never a
+   two-for-one that only improves a bench, byes, the rest of the season). Three things were not:
+     - "Value players relative to replacement." Fairness compared raw points, so a quarterback
+       scoring 18 looked the equal of a receiver scoring 18. It now compares points ABOVE what
+       the waiver wire offers at that position (tradeReplacement) — which is also how a scarce
+       position gets its premium.
+     - "Apply a quality-over-quantity discount ... Best piece × 100% + 2nd × 75%." The second
+       player in a package counts three-quarters (TRADE_PACK), and "a trade is generally
+       considered fair when the adjusted sides are within ~5%" / "within ~5–10%" replaces my
+       30%: within a tenth, or within a point a week when the values are small.
+     - "Ignore recent hot or cold streaks unless the underlying role has changed" and "Buy the
+       process, sell the results." Version five leaned a player's value 40% on his last four
+       weeks. That is undone: the streak no longer moves his value, and is said on the card as
+       what it is — a sell-high or a buy-low to look into.
+   What it asks for that this app cannot do, and does not pretend to: real-trade market values,
+   expert rest-of-season rankings, target and snap share, schedule strength. None of that is in
+   anything ESPN sends here. The footer of the section says so.
+
    Every number comes out of calls the app already makes. The strategy rules are the ones the
    published guides agree on: target managers whose needs match your surplus, and value a player
    on his current role and production rather than his draft cost or pre-season projection. */
@@ -4803,7 +4823,10 @@ const TRADE_EDGE = 0.10;      // my starters must beat (or trail) the league ave
 const TRADE_MIN = 0.5;        // a lineup gain smaller than this is noise, not a trade
 const TRADE_WORTH = 1.0;      // and a trade is only PROPOSED if it is worth this much a week to BOTH lineups
 const TRADE_SHORT = 0.6;      // a starter scoring under this share of the league's average starter is a hole
-const TRADE_FAIR = 0.30;      // the two players' values must be within 30% of each other
+const TRADE_FAIR = 0.30;      // bye-week swaps only: like for like at one position, within 30%
+const TRADE_EVEN = 0.10;      // a trade is even when the two sides' value is within a tenth...
+const TRADE_EVEN_PTS = 1.0;   // ...or within a point a week, which matters when the values are small
+const TRADE_PACK = [1, 0.75, 0.55, 0.4];   // quality over quantity: what the 1st, 2nd, 3rd piece of a package counts for
 
 const tf1 = v => (Math.round((v||0)*10)/10).toFixed(1);
 function tradeIsOut(p){ return !!(p && p.injury && TRADE_OUT.test(p.injury)); }
@@ -4814,10 +4837,9 @@ function tradeCanMove(p){ return !!p && !tradeIsOut(p) && !/^DOUBTFUL$/i.test(p.
 // the pre-season projection only when there is nothing else to go on. Out means zero.
 function tradeVal(p){
   if(!p || tradeIsOut(p)) return 0;
-  const wk = +p.projPts || 0, pre = (+p.projSeason || 0) / 17;
-  const rec = (+p.recentN >= 2) ? (+p.recentPts || 0) : 0;
-  // two or more recent games on record: the season average gives up 40% of its say to them
-  const avg = (+p.avgPts > 0 && +p.recentN >= 2) ? 0.6*(+p.avgPts) + 0.4*rec : (+p.avgPts || 0);
+  // His last few games do NOT move this. "Ignore recent hot or cold streaks unless the underlying
+  // role has changed": a streak is a note on the card (tradeFlags), not a change in his worth.
+  const avg = +p.avgPts || 0, wk = +p.projPts || 0, pre = (+p.projSeason || 0) / 17;
   if(avg > 0) return wk > 0 ? 0.7*avg + 0.3*wk : avg;
   if(wk > 0) return wk;
   return pre;
@@ -4965,13 +4987,34 @@ function tradeNeed(roster, pos, slots, avg){
   return { short: st.length < n || worst < TRADE_SHORT*good, empty: st.length < n, worst, good,
            out: (roster||[]).filter(p=>p.pos===pos && tradeIsOut(p)) };
 }
+// REPLACEMENT LEVEL: what a manager can have at each position for nothing. The best healthy free
+// agent when the waiver list is known; otherwise the first player at that position who would
+// not start for anybody in the league. A player's trade value is what he scores ABOVE this.
+function tradeReplacement(all, slots, freeBest){
+  const rep = {};
+  TRADE_POS.forEach(pos=>{
+    const fa = freeBest && freeBest[pos] ? tradeVal(freeBest[pos]) : 0;
+    if(fa > 0){ rep[pos] = fa; return; }
+    const vals = [];
+    all.forEach(t=>tradeRoster(t).forEach(p=>{ if(p.pos===pos && !tradeIsOut(p)) vals.push(tradeVal(p)); }));
+    vals.sort((a,b)=>b-a);
+    const n = all.length * (slots[pos]||0) + (pos==="QB" ? 0 : Math.round(all.length * (slots.FLEX||0) / 3));
+    rep[pos] = vals.length ? vals[Math.min(n, vals.length-1)] : 0;
+  });
+  return rep;
+}
+const tradeOver = (p, rep) => Math.max(0, tradeVal(p) - (rep[p.pos]||0));
+// One side of a deal, quality over quantity: the best piece counts in full, the next for less.
+function tradeSide(pack, rep){
+  return pack.map(p=>tradeOver(p, rep)).sort((a,b)=>b-a).reduce((t,v,i)=>t + v*(TRADE_PACK[i]||0.3), 0);
+}
+function tradeIsEven(a, b){ return Math.abs(a-b) <= Math.max(TRADE_EVEN * Math.max(a,b), TRADE_EVEN_PTS); }
 // Every way of offering one player or two from a list.
 function tradePacks(list){
   const out = list.map(p=>[p]);
   for(let i=0;i<list.length;i++) for(let j=i+1;j<list.length;j++) out.push([list[i], list[j]]);
   return out;
 }
-const tradeSum = a => a.reduce((t,p)=>t+tradeVal(p), 0);
 
 function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
   const teams = tradeTeams(board);
@@ -4998,6 +5041,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
   const deals = [];
   let wouldHelp = 0;   // players elsewhere who would improve my lineup at all, for the "why not" line
 
+  const repl = tradeReplacement(all, slots, freeBest);
   const uniq = a => a.filter((v,i)=>a.indexOf(v)===i);
   const movable = r => r.filter(p=>tradeCanMove(p) && tradeVal(p) > 0);
   const myPacks = tradePacks(movable(myRoster));
@@ -5010,23 +5054,25 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
     if(target) theirMov.filter(p=>p.pos===target).forEach(p=>{
       if(total(myRoster.concat([p])) - myBase >= TRADE_MIN) wouldHelp++; });
     tradePacks(theirMov).forEach(get=>{
-      // Pointed at a position: the trade has to bring one in. Left alone: it has to bring in
-      // somebody at a position where I am not already strong.
-      if(target ? !get.some(p=>p.pos===target) : !get.some(p=>read[p.pos].call!=="strong")) return;
-      const vGet = tradeSum(get);
+      // Pointed at a position: the trade has to bring one in. Left alone: nobody comes in at a
+      // position where I am already strong — not even as the second piece of a package, which
+      // is how a quarterback he did not need got back in through the side door.
+      if(target ? !get.some(p=>p.pos===target) : get.some(p=>read[p.pos].call==="strong")) return;
+      const vGet = tradeSide(get, repl);
       myPacks.forEach(give=>{
         if(give.length===2 && get.length===2) return;
         // A swap inside one position cannot make both lineups better.
         if(give.length===1 && get.length===1 && give[0].pos===get[0].pos) return;
         looked++;
-        const vGive = tradeSum(give);
-        // Rule 6: about the same worth, or it is not an offer anybody takes seriously.
-        if(Math.abs(vGive - vGet) > TRADE_FAIR * Math.max(vGive, vGet)) return;
+        const vGive = tradeSide(give, repl);
+        // Rule 6: even on value, or it is not an offer anybody takes seriously. Value is points
+        // above replacement, the second piece of a package counted at three-quarters.
+        if(!tradeIsEven(vGive, vGet)) return;
         // Two for one only means something if the one is the best player in the deal. Otherwise
         // it is one player for a worse one with a throw-in.
         if(give.length !== get.length){
           const one = give.length===1 ? give[0] : get[0], two = give.length===2 ? give : get;
-          if(tradeVal(one) <= Math.max(tradeVal(two[0]), tradeVal(two[1]))) return;
+          if(tradeOver(one, repl) <= Math.max(tradeOver(two[0], repl), tradeOver(two[1], repl))) return;
         }
         const myAfter = myRoster.filter(p=>give.indexOf(p)<0).concat(get);
         const theirAfter = theirRoster.filter(p=>get.indexOf(p)<0).concat(give);
@@ -5045,11 +5091,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
         const gavePos = uniq(give.map(p=>p.pos)), gotPos = uniq(get.map(p=>p.pos));
         if(!gotPos.every(pos=>tradeCoveredAfter(theirRoster, theirAfter, pos, slots, shapes.avg))) return;
         if(!gavePos.every(pos=>tradeCoveredAfter(myRoster, myAfter, pos, slots, shapes.avg))) return;
-        // ...and nobody pays more than he gains. Handing over a 17-point receiver for a 12-point
-        // backup to pick up one point a week passes every test above and is still a bad trade.
-        if(vGive > vGet && myGain < (vGive - vGet)) return;
-        if(vGet > vGive && theirGain < (vGet - vGive)) return;
-        deals.push({ them, give, get, myGain, theirGain, myBefore:myBase, theirBefore:theirBase,
+        deals.push({ them, give, get, myGain, theirGain, myBefore:myBase, theirBefore:theirBase, vGive, vGet,
           gavePos, gotPos, myAfter, theirAfter, theirRoster });
       });
     });
@@ -5092,7 +5134,7 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes, want){
 
   const fromWeek = (board.wk||1) + 1;
   return { ready:true, read, strong, weak, target, chosen:picked0, wouldHelp, looked, passed, teams:others.length,
-    deals:picked, waiver, freeBest, slots, weeksLeft:weeks.length, byesKnown:Object.keys(B).length > 0,
+    deals:picked, waiver, freeBest, slots, repl, replFromWaivers: TRADE_POS.some(p=>freeBest[p]), weeksLeft:weeks.length, byesKnown:Object.keys(B).length > 0,
     notCounted: myRoster.filter(tradeIsOut),
     byeDeals: tradeByeDeals(mine, others, byes||{}, fromWeek, slots),
     myHoles: tradeByeHoles(mine, byes||{}, fromWeek, slots),
@@ -5117,8 +5159,8 @@ function tradeFlags(get, give, mine, statusMap, statusMapNext, byes, weeks){
   // and his form: the last few games against the season
   const rn = +get.recentN || 0, rp = +get.recentPts || 0;
   if(rn >= 2 && avg > 0){
-    if(rp <= 0.7*avg) f.push({ bad:true, text: esc(get.name)+" has cooled off: "+tf1(rp)+" a game over his last "+rn+", against "+tf1(avg)+" on the season" });
-    else if(rp >= 1.3*avg) f.push({ bad:false, text: esc(get.name)+" is running hot: "+tf1(rp)+" a game over his last "+rn+", against "+tf1(avg)+" on the season — you are paying for the hot streak" });
+    if(rp <= 0.7*avg) f.push({ bad:false, text: esc(get.name)+" has cooled off: "+tf1(rp)+" a game over his last "+rn+", against "+tf1(avg)+" on the season. A buy-low if his role is the same; a warning if he has lost touches — check before you send" });
+    else if(rp >= 1.3*avg) f.push({ bad:false, text: esc(get.name)+" is running hot: "+tf1(rp)+" a game over his last "+rn+", against "+tf1(avg)+" on the season. His price is at its highest — make sure the role changed and it is not a lucky stretch" });
   }
   return f;
 }
@@ -5207,7 +5249,9 @@ function tradeWhatIf(ctx, giveId, themId, getId){
     if(!tradeCoveredAfter(myRoster, myRoster.filter(p=>p!==give).concat([get]), give.pos, slots, avg))
       cover.push({ bad:true, text:"It leaves you short of a good "+esc(give.pos)+" to start" });
   }
-  return { give, get, them, cover,
+  const repl = tradeReplacement(teams.indexOf(mine)>=0 ? teams : teams.concat([mine]), slots, ctx.freeBest||{});
+  const vGive = tradeSide([give], repl), vGet = tradeSide([get], repl);
+  return { give, get, them, cover, vGive, vGet, even: tradeIsEven(vGive, vGet),
     myGain: total(myRoster.filter(p=>p!==give).concat([get])) - myBefore,
     theirGain: total(theirRoster.filter(p=>p!==get).concat([give])) - theirBefore,
     flags: tradeFlags(get, give, mine, ctx.statusMap, ctx.statusMapNext, B, weeks),
@@ -5232,6 +5276,7 @@ function tradeWhatIfHTML(w){
     ${tradePlayerRow("give", w.give)}${tradePlayerRow("get", w.get)}
     <div class="tgain">Your lineup <b>${sign(w.myGain)}</b> points a week · theirs ${sign(w.theirGain)}</div>
     <div class="tverdict ${cls}">${verdict}</div>
+    <div class="tflag${(!w.even && w.vGive > w.vGet) ? " bad" : ""}">${(!w.even && w.vGive > w.vGet) ? "⚠️" : "•"} On value ${w.even ? "it is even" : w.vGive > w.vGet ? "you are overpaying" : "you are getting the better of it"}: you give ${tf1(w.vGive)}, you get ${tf1(w.vGet)} — points a week above what the waiver wire offers at that position.</div>
     ${flags}${freeLine}
   </div>`;
 }
@@ -5302,6 +5347,7 @@ function tradeSectionHTML(res, idx){
       ${d.give.map(p=>tradePlayerRow("give", p)).join("")}${d.get.map(p=>tradePlayerRow("get", p)).join("")}
       <div class="tafter"><div><span>Your best lineup</span><b>${tf1(d.myBefore)} → ${tf1(d.myBefore+d.myGain)}</b><i>${sign(d.myGain)}</i></div><div><span>Their best lineup</span><b>${tf1(d.theirBefore)} → ${tf1(d.theirBefore+d.theirGain)}</b><i>${sign(d.theirGain)}</i></div>${res.weeksLeft ? `<p>An average week over the ${res.weeksLeft} week${res.weeksLeft>1?"s":""} left${res.byesKnown ? ", bye weeks counted" : ""}.</p>` : ""}</div>
       <div class="tflag">• ${keepMine} ${keepTheirs}</div>
+      <div class="tflag">• On value it is even: you give ${tf1(d.vGive)}, you get ${tf1(d.vGet)} — points a week above what the waiver wire offers at that position${d.give.length + d.get.length > 2 ? ", the second player in a package counted at three-quarters" : ""}.</div>
       ${room}${flags}
       <button class="tradeAsk" type="button" data-idx="${i}">✨ Write the message</button>
     </div>`;
@@ -5335,7 +5381,7 @@ function tradeSectionHTML(res, idx){
   return `<div class="arow">${shapeLine}</div>` + notCounted + pickRow
     + (why ? `<div class="arow">${why}</div>` : "")
     + rows + waiverLine + byeIntro + byeRows + whatIf
-    + `<div class="arow" style="color:var(--dim)">A player is valued on his points per game this season, leaning on his last few games where ESPN gives them, and a trade only counts if it improves the lineup you can actually start over the weeks left. Quarterbacks, running backs, receivers and tight ends only.</div>`;
+    + `<div class="arow" style="color:var(--dim)">A player is valued on his points per game this season, measured against what the waiver wire offers at his position, and a trade only counts if it improves the lineup you can actually start over the weeks left. Quarterbacks, running backs, receivers and tight ends only. This works from your league's own ESPN numbers; it does not see market trade values, expert rankings, target share or schedule strength.</div>`;
 }
 
 function cardHTML(cfg, r, err, statusMap, statusMapNext, board){
