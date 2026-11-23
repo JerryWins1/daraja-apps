@@ -3677,7 +3677,7 @@ var S = null, preview = false;   /* preview: the tour is showing the example bus
 var KE = /\/business-manager-ke(\/|$)/.test(location.pathname) || /[?&]region=ke\b/.test(location.search);
 function L(us, ke){ return KE ? ke : us; }
 var TAXN = L('Sales tax', 'VAT'), CUR = L('$', 'KES'), TRIPMIN = L(300, 5000);
-var VER = 'v2.3.4 · 2026-11-23';
+var VER = 'v2.3.5 · 2026-11-23';
 /* Prices (membership model, Jerry 10 Oct 2026 — matches the business shelf page): quotes only $49 a year, the full
    office $149 a year; the $49 counts toward it, so the upgrade is $100 a year more. Founding members: first year free,
    then half price. Change them here only. No payment gates while testing — nobody pays. */
@@ -4229,7 +4229,7 @@ function talkAmb(t){ if(KE) return null; var m = String(t).match(/(?:^|[^\d$.,])
 /* v2.3: “…and I have another receipt for…” — the first one is checked and saved, then the next opens with its own words */
 /* v2.3.3 (Jerry: “three receipts, one for 2995, another one for 3295, and a fourth one for $1982”): a list said naturally —
    “another one”, “a second / third / fourth one”, “the next one”, “the last one” — splits the same way as “another receipt” */
-var TALK_NEXT = /[,.;]?\s*\b(?:and\s+)?(?:(?:i\s+)?(?:have|got|had|there(?:s|’s|'s| is))\s+)?(?:another|one more|(?:a|the)\s+(?:second|third|fourth|fifth|sixth|seventh|next|last)|second|third|fourth|fifth|next|last)\s+(receipt|quote|estimate|one)s?\b[,.:]?/i;
+var TALK_NEXT = /[,.;]?\s*\b(?:and\s+)?(?:(?:i\s+)?(?:have|got|had|there(?:s|’s|'s| is))\s+)?(?:another|one more|(?:a|the)\s+(?:second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|next|last|\d+(?:st|nd|rd|th))|second|third|fourth|fifth|next|last|\d+(?:st|nd|rd|th))\s+(receipt|quote|estimate|one)s?\b[,.:]?/i;   /* v2.3.5: the iPhone keyboard writes “a 2nd one” */
 function talkSplit(said){ var t = String(said || ''), m = t.match(TALK_NEXT); if(!m || !t.slice(0, m.index).trim()) return { first:t, rest:'', kind:'' };
   var k = /receipt/i.test(m[1]) ? 'receipt' : /quote|estimate/i.test(m[1]) ? 'quote' : (/\b(quotes?|estimates?|bids?)\b/i.test(t) && !/\b(receipts?|received)\b/i.test(t) ? 'quote' : 'receipt'); return { first:t.slice(0, m.index).trim(), rest:(k === 'receipt' ? 'Receipt ' : 'Quote ') + t.slice(m.index + m[0].length).trim(), kind:k }; }
 function talkAmount(t){ var m = String(t).replace(/(\d),(\d{3})/g, '$1$2').match(/(?:\$|kes\s*|ksh\s*)?(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars?|bucks|shillings?|bob))?(?:\s*(?:and\s*)?(\d{1,2})\s*cents?)?/i);
@@ -4253,7 +4253,8 @@ function talkPlan(said, force){
   if(kind === 'receipt'){
     var c = talkCust(t), j = custJob(c), amt = talkAmount(/\$\s*\d/.test(t) ? t.slice(t.search(/\$\s*\d/)) : t.replace(/^\D*?(?=\$|\d)/, ''));   /* a $ amount wins over any other number said */
     var amb = /\$\s*\d/.test(t) ? null : talkAmb(t.replace(/^\D*?(?=\$|\d)/, ''));
-    return { kind:'receipt', amount:amt, amb:amb && amb[1] === amt ? amb : null, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
+    var dl = t.match(/\$\s*\d[\d,]*(?:\.\d{1,2})?/g) || [];
+    return { kind:'receipt', multi:dl.length > 1 ? dl.slice(0, 3).join(' and ') : '', amount:amt, amb:amb && amb[1] === amt ? amb : null, store:talkStore(t), jobId:j ? j.id : '', who:c ? c.name : '' };
   }
   if(kind === 'quote'){
     var c2 = talkCust(t), rest = t.replace(/^\s*(quote|estimate|price|bid)\s*(for|up)?\s*/i, ''), name = '', work = rest;
@@ -4268,7 +4269,7 @@ function talkPlan(said, force){
 /* what is still missing, in plain words, or '' when it can be saved */
 function talkMissing(p){
   if(!p || !p.kind) return 'I can’t tell if this is a receipt or a quote. Tap 🧾 Receipt or 📝 Quote.';
-  if(p.kind === 'receipt') return !(p.amount > 0) ? 'How much was it? Type the amount in the box above.' : p.amb ? 'Was it ' + money(p.amb[0]) + ' or ' + money0(p.amb[1]) + '? Tap one.' : '';
+  if(p.kind === 'receipt') return !(p.amount > 0) ? 'How much was it? Type the amount in the box above.' : p.multi ? 'I heard more than one amount (' + p.multi + '). If that’s two receipts, say “another receipt” between them. If it’s one, type the right amount in Amount.' : p.amb ? 'Was it ' + money(p.amb[0]) + ' or ' + money0(p.amb[1]) + '? Tap one.' : '';
   return !p.name ? 'Who is the quote for? Type their name above.' : !p.work ? 'What’s the work? Type it above.' : '';
 }
 function talkOK(p){ return !talkMissing(p); }
@@ -4432,7 +4433,7 @@ function talkDraw(note){
 }
 function talkKind(k){ if(!TALK) return; var ph = TALK.plan && TALK.plan.photo; TALK.picked = k; TALK.plan = talkPlan(talkSplit(TALK.said).first, k); if(ph) TALK.plan.photo = ph; talkDraw(); }
 function talkField(k, v){ var p = TALK && TALK.plan; if(!p) return;
-  if(k === 'amount'){ p.amount = num(v); if(p.amb){ p.amb = null; var ab = $('tkAmb'); if(ab) ab.remove(); } }
+  if(k === 'amount'){ p.amount = num(v); p.multi = ''; if(p.amb){ p.amb = null; var ab = $('tkAmb'); if(ab) ab.remove(); } }
   else if(k === 'name'){ p.name = String(v).trim(); var c = S.customers.filter(function(x){ return x.name.toLowerCase() === p.name.toLowerCase(); })[0]; p.custId = c ? c.id : ''; }
   else p[k] = String(v).trim();
   talkWarn(); }
