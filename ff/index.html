@@ -3924,7 +3924,7 @@
   <button class="link block" id="cancelWizard" type="button">Cancel</button>
 </div>
 
-<div class="stamp"><small id="stamp">v4.26 · 2026-11-23</small></div>
+<div class="stamp"><small id="stamp">v4.27 · 2026-11-23</small></div>
 
 <script>
 /* =========================================================================
@@ -4692,6 +4692,9 @@ function waiverSectionHTML(trouble, pool, statusMap){
         improves both lineups on paper and is still an insult; nobody accepts it.
      7. Both starting lineups must come out better — a player only scores if you can start him,
         so the test is rebuilding both lineups after the swap, not comparing two names.
+     8. Nobody is left without a good option. A team is never asked for its quarterback, or
+        anyone else, unless what it would start there afterwards is still league-average or
+        better — and I am held to the same at the position I give from.
 
    Every number comes out of calls the app already makes. The strategy rules are the ones the
    published guides agree on: target managers whose needs match your surplus, and value a player
@@ -4764,7 +4767,15 @@ function tradeShapes(teams, slots){
   TRADE_POS.forEach(pos=>{ avg[pos] = teams.reduce((a,t)=>a+raw.get(t.id)[pos], 0) / (teams.length||1); });
   const shapes = new Map();
   teams.forEach(t=>{ const s = {}; TRADE_POS.forEach(pos=>{ s[pos] = raw.get(t.id)[pos] - avg[pos]; }); shapes.set(t.id, s); });
+  shapes.avg = avg;
   return shapes;
+}
+// After a swap, are this roster's starters at one position still at least league-average? Jerry,
+// 23 Nov: "you can't propose a trade for a qb for instance if the other team doesn't have a good
+// option." Nobody hands over a starter with nothing decent behind him, whatever else comes back —
+// and the same goes for me: closing one hole by opening another is not a trade.
+function tradeStillCovered(rosterAfter, pos, slots, avg){
+  return tradeStarting({starters:rosterAfter, bench:[]}, slots)[pos] >= (avg[pos]||0);
 }
 
 // The best healthy free agent at each of the four positions, when the waiver list says anything
@@ -4812,11 +4823,21 @@ function tradeFinder(me, board, statusMap, statusMapNext, pool, byes){
           if(!(vGive > 0) || !(vGet > 0)) return;
           // Rule 6: about the same worth, or it is not an offer anybody takes seriously.
           if(Math.abs(vGive - vGet) > TRADE_FAIR * Math.max(vGive, vGet)) return;
+          const myAfter = myRoster.filter(p=>p!==give).concat([get]);
+          const theirAfter = theirRoster.filter(p=>p!==get).concat([give]);
+          // Rule 8: nobody is left without a good option where he gave. They must still start a
+          // league-average group at the position I take from, and so must I at the one I give from.
+          if(!tradeStillCovered(theirAfter, W, slots, shapes.avg)) return;
+          if(!tradeStillCovered(myAfter, S, slots, shapes.avg)) return;
           // Rule 7: both starting lineups better.
-          const myGain = tradeLineupTotal(myRoster.filter(p=>p!==give).concat([get]), slots) - myBase;
+          const myGain = tradeLineupTotal(myAfter, slots) - myBase;
           if(myGain < TRADE_MIN) return;
-          const theirGain = tradeLineupTotal(theirRoster.filter(p=>p!==get).concat([give]), slots) - theirBase;
+          const theirGain = tradeLineupTotal(theirAfter, slots) - theirBase;
           if(theirGain < TRADE_MIN) return;
+          // ...and nobody pays more than he gains. Handing over a 17-point receiver for a 12-point
+          // backup to pick up one point a week passes every test above and is still a bad trade.
+          if(vGive > vGet && myGain < (vGive - vGet)) return;
+          if(vGet > vGive && theirGain < (vGet - vGive)) return;
           deals.push({ them, give, get, S, W, myGain, theirGain, theirShape:ts,
             flags: tradeFlags(get, give, mine, statusMap, statusMapNext) });
         });
@@ -4940,7 +4961,15 @@ function tradeWhatIf(ctx, giveId, themId, getId){
   const theirBefore = tradeLineupTotal(theirRoster, slots);
   const free = (ctx.freeBest||{})[get.pos];
   const freeGain = free ? tradeLineupTotal(myRoster.concat([free]), slots) - myBefore : 0;
-  return { give, get, them,
+  const avg = tradeShapes(teams.indexOf(mine)>=0 ? teams : teams.concat([mine]), slots).avg;
+  const cover = [];
+  if(give.pos !== get.pos){
+    if(tradeStillCovered(theirRoster, get.pos, slots, avg) && !tradeStillCovered(theirRoster.filter(p=>p!==get).concat([give]), get.pos, slots, avg))
+      cover.push({ bad:false, text:"It leaves them without a good "+esc(get.pos)+" to start — expect a no" });
+    if(tradeStillCovered(myRoster, give.pos, slots, avg) && !tradeStillCovered(myRoster.filter(p=>p!==give).concat([get]), give.pos, slots, avg))
+      cover.push({ bad:true, text:"It leaves you without a good "+esc(give.pos)+" to start" });
+  }
+  return { give, get, them, cover,
     myGain: tradeLineupTotal(myRoster.filter(p=>p!==give).concat([get]), slots) - myBefore,
     theirGain: tradeLineupTotal(theirRoster.filter(p=>p!==get).concat([give]), slots) - theirBefore,
     flags: tradeFlags(get, give, mine, ctx.statusMap, ctx.statusMapNext),
@@ -4956,7 +4985,7 @@ function tradeWhatIfHTML(w){
     : "It barely moves your lineup either way.";
   const cls = (up && !tradeIsOut(w.get)) ? "good" : (down || tradeIsOut(w.get)) ? "bad" : "";
   const sign = v => (v >= 0 ? "+" : "") + tf1(v);
-  const flags = w.flags.map(f=>`<div class="tflag${f.bad?" bad":""}">${f.bad?"⚠️":"•"} ${f.text}</div>`).join("");
+  const flags = w.flags.concat(w.cover||[]).map(f=>`<div class="tflag${f.bad?" bad":""}">${f.bad?"⚠️":"•"} ${f.text}</div>`).join("");
   const freeLine = w.free
     ? `<div class="tflag${w.free.gain >= w.myGain ? " free" : ""}">${w.free.gain >= w.myGain ? "🟢" : "•"} <b>${esc(w.free.who.name)}</b> is free on waivers and is worth ${sign(w.free.gain)} a week to you for nothing${w.free.gain >= w.myGain ? " — better than this trade" : ""}</div>`
     : "";
@@ -4987,7 +5016,7 @@ function tradeSectionHTML(res, idx){
     if(!res.deals.length) why = (res.mirrors||[]).length
       // A mirror exists but nothing passes: the usual cause is strength that is all starters and
       // no spare. Swapping a player you start for one you would start just moves the hole.
-      ? `${esc(list(res.mirrors))} ${res.mirrors.length>1?"are":"is"} the mirror of you, but no swap of healthy, evenly-matched players leaves both lineups better — your strength at ${esc(res.strong[0])} is players you already start, so trading one opens a hole as big as the one it closes. No trade worth proposing.`
+      ? `${esc(list(res.mirrors))} ${res.mirrors.length>1?"are":"is"} the mirror of you, but no swap of healthy, evenly-matched players leaves both lineups better with both teams still covered at the position they give from. Usually that means the strength is players already being started, so trading one opens a hole as big as the one it closes. No trade worth proposing.`
       : `No team in this league is the mirror of that right now — thin at ${esc(res.strong[0])} and deep at ${esc(res.weak[0])} — so there is no trade worth proposing.`;
   } else if(res.strong.length){
     shapeLine = `Your starters are strong at ${list(res.strong.map(tag))} and have no real weakness at QB, RB, WR or TE.`;
