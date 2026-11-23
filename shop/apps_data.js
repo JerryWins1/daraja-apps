@@ -607,7 +607,7 @@ const APPS = {
     {t:"If all you want is quotes, start in quotes-only mode and the rest stays out of your way until you ask for it. That is the whole app. Go and try it with this example business \u2014 you cannot break anything.", js:"try{BM.tourShow('home')}catch(e){}"}
   ]} },
   name:'Business Manager', em:'🧰', sub:'the office for a one-truck trade business', fresh:true, cat:'work', price:'$149 a year', testing:true,
-  tag:'A Today screen that briefs your day, texts “running late” in one tap, takes receipts and quotes by voice and warns you before big bills, quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, the cash you can expect in 30 and 60 days, to-dos and tax dates. Includes Next Step Board, Message Assistant and Feedback Studio.',
+  tag:'A Today screen that briefs your day, texts “running late” in one tap, takes receipts and quotes by voice and warns you before big bills, quotes your customer signs, invoices with a pay link, receipts split by job, your real profit, the cash you can expect in 30 and 60 days, to-dos and tax dates. Includes Next Step Board.',
   try:BASE+'business-manager/?mode=full',
   train:[
    {t:'Business Manager setup \u2014 about five minutes, and you only do it once.', js:"try{BM.tourShow('setup');}catch(e){}"},
@@ -1789,7 +1789,7 @@ const APPS = {
    "Step eight: tap Put every piece on my calendar. Open the file, and your phone reminds you on the right day.",
    "Step nine: when a piece is due, tap Copy, or Open in Messages, or Open in email. Your own app opens with the words ready. You press send. Then tap mark sent, or mark done, and the piece turns green.",
    "You will know it is working when your phone buzzes, you open Message Assistant, and the next piece is already written. New campaign clears the plan for the next one, and keeps your groups."],
-  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'off', off: 'on hold, Jerry 23 Nov 2026 (was on the work shelf)', also:['home','later','church','free','ownday','kenya'], featured:'A tool for every app on this page \u2014 it writes the message, you send it.', price:'$19 one-time', testing:true, video:true,
+  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'off', off: 'on hold, Jerry 23 Nov 2026 (was on the work shelf)', also:['home','later','church','free','ownday','kenya'], heldFeatured:'A tool for every app on this page \u2014 it writes the message, you send it.', price:'$19 one-time', testing:true, video:true,
   tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece. Why not just ChatGPT? You’d have to know what to ask. This asks for you, then lays out every piece on a calendar.',
   try:BASE+'drumbeat/',
   lines:[
