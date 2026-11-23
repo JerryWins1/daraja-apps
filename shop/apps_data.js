@@ -75,7 +75,7 @@ function djDonateHref(key){
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
-const STORE_V = 'v3.5 · 2026-11-21';
+const STORE_V = 'v3.6 · 2026-11-23';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
@@ -89,9 +89,8 @@ const LIVE = [];
    push the testers to finish the rest. In PHASE 'donate' an app not named here shows "Coming soon".
    Add an app's id here when it passes. (Taken from the Ready to Sell report of 12 Nov: every app
    with at least one pass on its current version.) */
-const LAUNCH = ['home','academy','breakeven','churchgameday','churchkey','churchserve','compass','drumbeat','rafiki',
-  'advent','ahead','businessmanager','church','churchclubhouse','churchdrive','everyday','feedback','nextstep',
-  'nownext','npreceipts','ourtable','pitwall','porchlight','safety','storykeeper','thekey','whoscoming'];
+const LAUNCH = ['home','academy','breakeven','churchgameday','churchkey','churchserve','compass','advent','ahead','businessmanager','church','churchclubhouse','everyday','nextstep',
+  'nownext','npreceipts','ourtable','porchlight','safety','storykeeper','thekey','whoscoming'];
 
 /* ══ WHAT WE ARE TESTING THIS ROUND ══ Jerry, 11 Sep: "the store needs only the apps we want
    to test — it gets confusing." While PHASE is 'testing', the store and Test Day show only
@@ -120,12 +119,12 @@ const TEST_NOW = [
      which is next week -- so the app with the nearest real-world date was the one app
      no tester could reach. Our Table comes out with it: it changed the same day and was
      already marked READY, which hoists it above this order anyway. */
-  'churchdrive',
+  /* churchdrive on hold 23 Nov (Jerry) */
   /* 13 Nov 2026: Jar by Jar, new — a family budget in jars, built out for the store */ 'jarbyjar',
   /* 18 Nov 2026: Trip Tab, new — one phone keeps the tab for a group trip, built out for the store */ 'tripstab',
-  /* changed 6 Nov */ 'businessmanager','whoscoming','everyday','drumbeat','churchserve','ourtable',
+  /* changed 6 Nov */ 'businessmanager','whoscoming','everyday',/* drumbeat on hold 23 Nov (Jerry) */'churchserve','ourtable',
   /* Group 1, the rest */ 'home','duka','nownext','nextstep','church',
-  /* Group 2, the rest */ 'ahead','compass','safety','porchlight','rafiki','npreceipts','churchclubhouse'
+  /* Group 2, the rest */ 'ahead','compass','safety','porchlight',/* rafiki on hold 23 Nov (Jerry) */'npreceipts','churchclubhouse'
 ];
 /* 6 Oct 2026, Jerry: “One Thing is ready to go… Our Table looks good, post it to the testers.” READY apps lead the store, the Testers' List and Founding Testers. */
 const READY = ['nownext','ourtable'];
@@ -1462,7 +1461,7 @@ const APPS = {
    "Your comments stay on your own device. There is no account to make.",
    "If you build anything, it saves you an afternoon of notes.",
    "Try it below, on any app you like."],
-  name:'Feedback Studio', em:'🎙', sub:'talk while you test', cat:'work', price:'$12', testing:true,
+  name:'Feedback Studio', em:'🎙', sub:'talk while you test', cat:'off', off: 'on hold, Jerry 23 Nov 2026 (was on the work shelf)', price:'$12', testing:true,
   tag:'Use an app, talk out loud — your voice becomes the builder\'s to-do list',
   try:BASE+'feedback-studio/', video:true,
   
@@ -1790,7 +1789,7 @@ const APPS = {
    "Step eight: tap Put every piece on my calendar. Open the file, and your phone reminds you on the right day.",
    "Step nine: when a piece is due, tap Copy, or Open in Messages, or Open in email. Your own app opens with the words ready. You press send. Then tap mark sent, or mark done, and the piece turns green.",
    "You will know it is working when your phone buzzes, you open Message Assistant, and the next piece is already written. New campaign clears the plan for the next one, and keeps your groups."],
-  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'work', also:['home','later','church','free','ownday','kenya'], featured:'A tool for every app on this page \u2014 it writes the message, you send it.', price:'$19 one-time', testing:true, video:true,
+  name:'Message Assistant', em:'📣', sub:'one message, every channel', cat:'off', off: 'on hold, Jerry 23 Nov 2026 (was on the work shelf)', also:['home','later','church','free','ownday','kenya'], featured:'A tool for every app on this page \u2014 it writes the message, you send it.', price:'$19 one-time', testing:true, video:true,
   tag:'Tell it your news once — it writes the whole campaign and tells you when to send each piece. Why not just ChatGPT? You’d have to know what to ask. This asks for you, then lays out every piece on a calendar.',
   try:BASE+'drumbeat/',
   lines:[
@@ -2085,7 +2084,7 @@ const APPS = {
    {"t": "Everything is saved in your Library, on your own phone. Each recorded sermon lands there, ready to open again.", "js": "try{ var b=document.querySelector('#sn2 [data-a=lib]'); if(b) b.click(); }catch(e){}"},
    {"t": "And for the church office: when you post Sunday's message on the Weekly Update page, add the outline and the verses, and everyone's Sermon Notes has them before the service starts.", "js": "try{ var x=document.querySelector('#sn2 [data-a=x]'); if(x) x.click(); go('home'); }catch(e){}"}],
   name:'The Church App', em:'⛪', sub:'your church in every pocket', cat:'church', price:'$149 first year · then $49 a year', testing:true, video:true,
-  tag:'Sermons with notes you can record (with the scriptures and take-home questions pulled out), events, prayer requests and giving, in one app with your church’s name on it. Your office keeps it current from a phone. Set up for you.',
+  tag:'Sermons with notes you can record (with the scriptures and take-home questions pulled out), events, prayer requests and giving, in one app with your church’s name on it. It comes with its own updater: your office posts sermons, events and news from a phone on the Weekly Update page, with no website and no web designer. Set up for you.',
   /* 8 Nov 2026: this pointed at https://jerrywins1.github.io/immanuel-app/ — a real
      congregation's live app. Every buyer who tapped "Try it" was browsing Immanuel's actual
      prayer wall and giving page, which is why the narration below has to ask them not to
@@ -2237,7 +2236,7 @@ const APPS = {
    "New in November: the row under the message reads Text it, WhatsApp, Email it, Copy. Tap WhatsApp and pick the group.",
    "Shoebox Counter is AI-powered: when you want help, tap the sparkle button in the corner, and an AI looks at what you are short of and suggests what to buy first, so your ministry stretches every dollar.",
    "It is free, for every drive you will ever run. Get it below."],
-  name:'Shoebox Counter', em:'📦', sub:'how many full boxes can we pack?', cat:'church', showName:'Shoebox Counter', price:'$19 one-time', testing:true, video:true,
+  name:'Shoebox Counter', em:'📦', sub:'how many full boxes can we pack?', cat:'off', off: 'on hold, Jerry 23 Nov 2026 (was on the church shelf)', showName:'Shoebox Counter', price:'$19 one-time', testing:true, video:true,
   tag:'Count what’s been donated and it tells you how many complete boxes or kits you can make right now, and what to ask for on Sunday. Works for food and coat drives too.',
   try:'https://jerrywins1.github.io/daraja-apps/church-drive/',
   },
@@ -2508,7 +2507,7 @@ const APPS = {
    {t:"That is the whole job, and it is done for good. Every Daraja app reads it from here.", js:"try{window.scrollTo(0,0);}catch(e){}", point:"#people"}
   ]},
  flipkit: {
-  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'home', price:'$9', testing:true, fresh:true, video:true,
+  name:'FlipKit', em:'💸', sub:'clutter into cash', cat:'off', off: 'on hold, Jerry 23 Nov 2026 (was on the home shelf)', price:'$9', testing:true, fresh:true, video:true,
   tag:'Turn your clutter into cash — your AI prices it, writes the listing, you pocket the money. Why not just ChatGPT? FlipKit asks it the right question, then keeps your floor price and your cash total.',
   try:'https://jerrywins1.github.io/daraja-apps/flipkit/',
   extra:{ firsttime:{title:"Explain it to me", sub:"About three minutes, for a first-timer: what it is for, who it helps, and how a flip works. Sound on.", lines:[
@@ -2607,7 +2606,7 @@ const APPS = {
    "It is free, which is rather less than one afternoon of company usually costs.",
    "Rafiki is AI-powered: when you want more than a chat, tap the sparkle button in the corner to ask Rafiki something bigger, and a real AI answers like a kind friend, so your day feels less alone.",
    "If you know somebody who lives alone, this is the one to show them. Try it below."],
-  name:'Rafiki', em:'💛', sub:'a friend who knows your family', cat:'later', price:'$19 one-time', testing:true, fresh:true, video:true,
+  name:'Rafiki', em:'💛', sub:'a friend who knows your family', cat:'off', off: 'on hold, Jerry 23 Nov 2026 (was on the later shelf)', price:'$19 one-time', testing:true, fresh:true, video:true,
   tag:'For anybody who lives alone — a friend that learns your family, remembers what you tell it, and speaks first. Why not just ChatGPT? Rafiki says good morning by name, and nothing you tell it leaves your phone.',
   try:'https://jerrywins1.github.io/daraja-apps/rafiki/',
   },
@@ -2670,7 +2669,7 @@ const APPS = {
    {"t": "There is a to-do list with big check boxes, a place to talk with your helper, and a board where the family can leave notes. Every question can be read out loud, and the words come in three sizes.", "js": "try{porchTour.scene('todo')}catch(e){}", "point": ".todo"},
    {"t": "Sorting your real Gmail, talking with your helper and the family board all work when you open On Guard inside Claude, with your own Claude account. The try-it page below shows example emails, so you can see how it works first.", "js": "try{porchTour.scene('home')}catch(e){}", "point": ".card .btn-big"},
    "If you know someone who dreads their inbox, show them this one. Try it below."],
-  name:'On Guard', em:'🏮', sub:'your mail sorted, scams caught', cat:'off', off:'Jerry\u2019s own for now \u2014 he is using it himself; was $29 one-time on the Later life shelf', price:'$29 one-time', testing:true, fresh:true, video:true,
+  name:'On Guard', em:'🏮', sub:'your mail sorted, scams caught', cat:'later', price:'$29 one-time', testing:true, fresh:true, video:true,
   tag:'A patient helper that asks a few easy questions, then sorts your Gmail into what needs an answer, what can wait, and what looks like a scam. It reads mail aloud and helps you write back. The try-it page shows example mail; sorting your real Gmail works when you open it inside Claude.',
   try:BASE+'porchlight/',
   
