@@ -96,52 +96,92 @@ async function back(b, port){
 }
 
 async function mic(b, port){
-  console.log("\nDictation — the phone's own keyboard does it, and nothing of ours is in the way");
-  /* 24 Nov 2026. This group used to drive the house's own floating microphone: that it kept
-     listening on a one-line box, that a session the browser closed was started again, that the
-     words already said survived. All of that is gone, by Jerry's decision on 23 November — on his
-     iPhone the browser's listening heard him the first round or two on a page and then heard
-     nothing, while the keyboard's own 🎤 worked every time, and he chose "Yes, every app".
+  console.log("\nDictation — the keyboard on a phone, a button on a computer");
+  /* 24 Nov 2026, twice in one day. Jerry had the house's floating microphone taken out of every
+     app that morning: on his iPhone it heard him the first round or two and then heard nothing,
+     while the keyboard's own worked every time. That afternoon, using Family Money on his
+     desktop, he had no microphone anywhere — a desktop keyboard has none — and chose
+     "Computers only". So this group checks BOTH halves, because either one alone is a fault he
+     has already reported. */
+  const devs = require('playwright').devices;
+  const stub = () => { window.__SRS = [];
+    window.SpeechRecognition = function(){ this.continuous = false; this.interimResults = false; this.lang = '';
+      this.start = function(){ window.__SRS.push(this); }; this.stop = function(){ if (this.onend) this.onend(); };
+      this.abort = function(){ if (this.onend) this.onend(); }; }; };
 
-     So what is left to check is the opposite of what was here: that the house puts NOTHING beside
-     a box any more, and that tapping a box still brings a keyboard up — which is the only thing
-     the person needs for the keyboard's 🎤 to be there. Whether the dictation itself works is the
-     phone's business and Jerry's to see; a container has no microphone and never did. */
-  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
-  /* a recogniser is still offered, so this proves the house ignores it rather than lacking it */
-  await ctx.addInitScript(() => {
-    window.__SRS = [];
-    window.SpeechRecognition = function(){ this.start = function(){ window.__SRS.push(this); }; this.stop = function(){}; this.abort = function(){}; };
-  });
-  const p = await open(ctx, port, 'advent');
-  const r = await p.evaluate(async () => {
+  /* a computer: the button is there, and behaves the way 20 November settled */
+  let ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  await ctx.addInitScript(stub);
+  let p = await open(ctx, port, 'advent');
+  const c = await p.evaluate(async () => {
     const inp = document.createElement('input'); inp.type = 'text';
+    inp.style.cssText = 'position:fixed;top:300px;left:40px;width:260px;height:40px;z-index:5';
     document.body.appendChild(inp); inp.focus();
-    await new Promise(r => setTimeout(r, 900));
-    return { floating: !!document.getElementById('djMic'),
-             focused: document.activeElement === inp,
-             started: window.__SRS.length };
+    await new Promise(r => setTimeout(r, 700));
+    const m = document.getElementById('djMic');
+    const out = { seenAsComputer: matchMedia('(hover: hover) and (pointer: fine)').matches, mic: !!m };
+    if (!m) return out;
+    m.click(); await new Promise(r => setTimeout(r, 120));
+    const a = window.__SRS[window.__SRS.length - 1];
+    out.continuous = a.continuous;
+    a.onresult({ results: [[{ transcript: 'buy milk' }]] });
+    a.onend();                                            /* the browser closing the session itself */
+    await new Promise(r => setTimeout(r, 120));
+    out.restarted = window.__SRS.length === 2;
+    if (out.restarted) window.__SRS[1].onresult({ results: [[{ transcript: 'and bread' }]] });
+    out.text = inp.value;
+    return out;
   });
-  ck('nothing of ours is put beside a box', r.floating === false);
-  ck('  and the box keeps the focus, so the keyboard comes up', r.focused === true);
-  ck('  with no browser listening started behind it', r.started === 0, r.started);
+  ck('a computer gets the button back beside the box', c.mic === true, c);
+  /* the suggestion that came with the ask was one phrase per tap. That IS the 20 November
+     complaint — "the microphone would shut off after every word", on his Mac — and the phone,
+     which is what failed in November, does not use this any more. */
+  ck('  and it keeps listening past the first pause', c.continuous === true, c.continuous);
+  ck('  a session the browser closes is started again', c.restarted === true);
+  ck('  with the words already said still there', c.text === 'buy milk and bread', c.text);
+  await p.close(); await ctx.close();
 
-  /* the Tell it sheet: the same, plus the one line telling them where the keyboard's mic is */
-  const t = await p.evaluate(async () => {
-    const b = document.getElementById('djTell'); if (b) b.click();
-    await new Promise(r => setTimeout(r, 900));
-    const s = document.getElementById('djAISheet');
-    return { sheet: !!s, text: s ? s.innerText.replace(/\s+/g, ' ') : '',
-             oldButton: !!document.getElementById('djTellMic'),
-             focused: !!(document.activeElement && document.activeElement.id === 'djTellIn'),
-             started: window.__SRS.length };
-  });
-  ck('Tell it opens', t.sheet, t);
-  ck('  with no Tap and talk button of ours', t.oldButton === false);
-  ck('  it says where the keyboard\'s mic is', /on your keyboard/.test(t.text), t.text.slice(0, 120));
-  ck('  its box has the focus', t.focused === true, t);
-  ck('  and nothing is listening behind it', t.started === 0, t.started);
-  await ctx.close();
+  /* a phone, and a tablet with a keyboard, see nothing of ours: they have a keyboard mic */
+  for (const [label, dev] of [['an iPhone', devs['iPhone 13']], ['an iPad', devs['iPad (gen 7)']]]) {
+    ctx = await b.newContext({ ...dev, serviceWorkers: 'block' });
+    await ctx.addInitScript(stub);
+    p = await open(ctx, port, 'advent');
+    const r = await p.evaluate(async () => {
+      const inp = document.createElement('input'); inp.type = 'text';
+      document.body.appendChild(inp); inp.focus();
+      await new Promise(r => setTimeout(r, 700));
+      return { computer: matchMedia('(hover: hover) and (pointer: fine)').matches,
+               mic: !!document.getElementById('djMic'), started: window.__SRS.length,
+               focused: document.activeElement === inp };
+    });
+    ck(label + ' is not taken for a computer', r.computer === false, r);
+    ck('  so nothing of ours is put beside a box', r.mic === false);
+    ck('  and nothing is listening behind it', r.started === 0, r.started);
+    ck('  the box keeps focus, so the keyboard comes up', r.focused === true);
+    await p.close(); await ctx.close();
+  }
+
+  /* Tell it must say the true thing on each, and keep its promise on a computer */
+  for (const [label, opts, want, mic] of [
+    ['a computer', { viewport: { width: 1280, height: 800 } }, /beside it/, true],
+    ['a phone',    { ...devs['iPhone 13'] },                   /on your keyboard/, false],
+  ]) {
+    ctx = await b.newContext({ ...opts, serviceWorkers: 'block' });
+    await ctx.addInitScript(stub);
+    p = await open(ctx, port, 'advent');
+    await p.evaluate(() => { const t = document.getElementById('djTell'); if (t) t.click(); });
+    await p.waitForTimeout(1200);
+    const t = await p.evaluate(() => ({
+      line: (((document.getElementById('djAISheet') || {}).innerText || '').match(/(Tap|Click) the box[^\n]*/) || ['none'])[0],
+      mic: !!document.getElementById('djMic'),
+      oldButton: !!document.getElementById('djTellMic') }));
+    ck('Tell it on ' + label + ' says where the microphone is', want.test(t.line), t.line);
+    /* it promised a button beside the box and did not deliver one: the house's own 🎤 in the
+       sheet's heading made the box fail the "this app has its own microphone" guard */
+    ck('  and the sheet keeps that promise', t.mic === mic, t);
+    ck('  with no Tap and talk button of ours', t.oldButton === false);
+    await p.close(); await ctx.close();
+  }
 }
 
 async function tell(b, port){
