@@ -2,7 +2,8 @@
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 await sleep(2600);
 const VW=window.innerWidth, VH=window.innerHeight, out=[];
-['dTipDot','djHelp','djFreshLink2','djMic'].forEach(id=>{
+/* djMic went on 24 Nov 2026 — the phone's keyboard does the talking now (house v85). */
+['dTipDot','djHelp','djFreshLink2'].forEach(id=>{
   const el=document.getElementById(id); if(!el) return;
   const r=el.getBoundingClientRect();
   if(r.width<2) return;

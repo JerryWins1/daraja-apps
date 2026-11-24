@@ -293,95 +293,14 @@
   }
   window.djBanner = djBanner;
 
-  /* ── 4 · talk into any typing box ────────────────────────────────────────
-     Rafiki and Feedback Studio had this; twenty-one apps did not. The button
-     only appears once you tap into a box, so no screen changes until you want it. */
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var rec = null, micBtn = null, curBox = null;
-
-  function eligible(el){
-    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
-    var t = (el.tagName||'').toLowerCase();
-    if(t === 'textarea') return true;
-    if(t !== 'input') return false;
-    var ty = (el.type||'text').toLowerCase();
-    if(['text','search','tel','url','email'].indexOf(ty) < 0) return false;
-    if(el.readOnly || el.disabled) return false;
-    /* Leave alone any box that already has its own microphone — Rafiki, Feedback
-       Studio and In My Own Words built their own and theirs are better placed.
-       Stop at <body>: once our own button is on the page its emoji is inside body's
-       text, which would make every box after the first one look already-served. */
-    var p = el.parentElement;
-    for(var i=0; i<3 && p && p !== document.body && p !== document.documentElement; i++, p = p.parentElement){
-      var t = p.textContent || '';
-      if(micBtn && p.contains(micBtn)) t = t.split('\u{1F3A4}').join('');
-      if(t.indexOf('\u{1F3A4}') >= 0) return false;
-    }
-    return true;
-  }
-
-  function place(box){
-    if(!micBtn){
-      micBtn = document.createElement('button');
-      micBtn.type = 'button';
-      micBtn.id = 'djMic';
-      micBtn.textContent = '\u{1F3A4}';
-      micBtn.setAttribute('aria-label','Say it instead of typing');
-      micBtn.title = 'Say it instead of typing';
-      /* every app has its own button styling — min-height:44px, padding, box-sizing —
-         so this one states its shape outright or it comes out the wrong size */
-      micBtn.style.cssText = 'position:absolute !important;z-index:2147482000;'
-        + 'box-sizing:border-box !important;width:40px !important;height:40px !important;'
-        + 'min-width:40px !important;min-height:40px !important;max-width:40px !important;'
-        + 'max-height:40px !important;padding:0 !important;margin:0 !important;'
-        + 'border-radius:50% !important;border:1px solid rgba(128,128,128,.4);background:#fff;'
-        + 'color:#1F2622;font-size:19px;line-height:1;cursor:pointer;'
-        + 'box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center';
-      micBtn.addEventListener('mousedown', function(e){ e.preventDefault(); });
-      micBtn.addEventListener('click', function(e){ e.preventDefault(); talk(); });
-      document.body.appendChild(micBtn);
-    }
-    var r = box.getBoundingClientRect();
-    /* scrolled out of sight — inside a sheet or off the page — so show nothing */
-    if(r.bottom < 4 || r.top > window.innerHeight - 4 || r.width < 60){ hide(); return; }
-    micBtn.hidden = false; micBtn.style.setProperty('display','flex','important');
-    /* measure what the browser actually made, rather than trusting the numbers above */
-    var m = micBtn.getBoundingClientRect();
-    var w = m.width  || 40, h = m.height || 40;
-    micBtn.style.top  = (window.scrollY + r.top + (r.height - h)/2) + 'px';
-    micBtn.style.left = (window.scrollX + r.right - w - 6) + 'px';
-    /* a short box would be swallowed by the button — sit just outside it instead */
-    if(r.width < w + 90) micBtn.style.left = (window.scrollX + r.right + 6) + 'px';
-  }
-  function hide(){ if(micBtn){ micBtn.hidden = true; micBtn.style.setProperty('display','none','important'); } }
-
-  function talk(){
-    var box = curBox; if(!box) return;
-    if(rec){ try{ rec.stop(); }catch(e){} return; }
-    rec = new SR();
-    rec.lang = navigator.language || 'en-US';
-    rec.interimResults = true;
-    rec.continuous = (box.tagName.toLowerCase() === 'textarea');
-    var base = (box.value || '').trim();
-    micBtn.textContent = '⏹';
-    micBtn.style.background = '#D96C4F';
-    micBtn.setAttribute('aria-label','Stop listening');
-    rec.onresult = function(e){
-      var t = '';
-      for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
-      box.value = (base ? base + ' ' : '') + t;
-      box.dispatchEvent(new Event('input', {bubbles:true}));
-    };
-    function done(){
-      rec = null;
-      if(micBtn){ micBtn.textContent = '\u{1F3A4}'; micBtn.style.background = '#fff';
-                  micBtn.setAttribute('aria-label','Say it instead of typing'); }
-      box.dispatchEvent(new Event('change', {bubbles:true}));
-    }
-    rec.onend = done;
-    rec.onerror = done;
-    try{ rec.start(); }catch(e){ done(); }
-  }
+  /* ── 4 · talking into a box: the phone's own keyboard does it ────────────
+     REMOVED 24 Nov 2026, same as in every app's house block (v85). Jerry found the
+     browser's listening stopped hearing after a round or two on his iPhone while the
+     keyboard's own mic worked every time, and chose one behaviour everywhere.
+     NOTE FOR WHOEVER COMES NEXT: this page carries a copy of the house block frozen at
+     v65, twenty versions behind the apps. That drift is older than this change and was
+     not fixed here; only the microphone was taken out, so the player does not float a
+     button nobody else has any more. */
 
 
   /* ── 5 · the floating helpers must not sit on the words ──────────────────
@@ -946,24 +865,6 @@
     }
   }
 
-  function start(){
-    if(!SR) return;                                   /* no microphone here — show nothing */
-    document.addEventListener('focusin', function(e){
-      if(eligible(e.target)){ curBox = e.target; place(e.target); }
-      else if(e.target !== micBtn){ hide(); }
-    });
-    document.addEventListener('focusout', function(e){
-      setTimeout(function(){
-        if(document.activeElement !== curBox && document.activeElement !== micBtn){
-          if(rec){ try{ rec.stop(); }catch(err){} }
-          hide(); curBox = null;
-        }
-      }, 120);
-    });
-    /* capture, so a scroll inside a sheet or panel moves the button too */
-    window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
-    window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
-  }
   /* Each app builds its 💡 on its own timer, so a fixed list of delays always loses
      the race in some app — Steward's arrived after the last pass and stayed on
      screen. Watch for it instead of guessing when it turns up. */
@@ -1136,7 +1037,7 @@
     st.textContent = '@media print{'
       + '@page{margin:16mm 14mm;}'
       + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
-      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
       + 'a{color:#000 !important;text-decoration:none !important;}'
       + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
       + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
@@ -2230,7 +2131,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ if(!embedded) start(); try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
+  function boot(){ try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
     try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); yieldDock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
     /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
