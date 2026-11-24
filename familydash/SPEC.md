@@ -1063,3 +1063,21 @@ Jerry, answering the questions: "It chose one thing. I chose something else … 
 - "✨ What is this? → Use it" on this screen now sets the dropdown rather than saving at once.
 - `whatIs` asks with `web:true`. The house door (house v87, #657) looks the business up once Jerry switches web search on at the door; until then it answers from memory as before. A looked-up answer shows its sources (`djAI.sources()`) under it, as the search terms require.
 - The two video lines that pointed at the old buttons now point at `#gkC`. The words are unchanged, so nothing needed re-recording.
+
+## v10.7 · it learns from a correction, asks to change them all, and opens the statement (24 Nov)
+
+Jerry asked for four things through the code-review chat, from screenshots of The Questions, then said "Let's build that so I can test the changes that we made so far."
+1. **The lookup opens the statement.**
+   - A card's link is now "📄 Open the September Community Trust statement".
+   - On a computer with the folder linked, it opens in a new tab at the line's page (`stmtOpen`).
+   - Anywhere else, the person picks the file once and the page is drawn in the app with ← Page → (`stmtPick` / `stmtShow`).
+   - Bank lines (transfers, deposits, ACH, dividends and the like: `bankish`) no longer show the web-search link. Shops keep it.
+2. **A note on every question screen.** The "What was it?" box from v10.6 is there. The note now also shows with 📝 wherever the line is listed (`txRow`).
+3. **It learns from a correction.**
+   - `suggestFor` now checks what he told the app about a payee (`db.rules`) before the first guess on the line.
+   - `gkSave` gives every unanswered line from that payee the corrected category, whatever its earlier guess. Before, only lines with no guess got it.
+   - `guessCat` already used the rule first for later statements.
+4. **Ask to change them all.**
+   - When the choice differs from the guess and the payee has other lines, a screen asks "Change the other N from X to Y too?", listing them.
+   - **Yes, all** sorts them (they come off the question list). **Just this one** saves only this line; the app remembers the payee either way.
+Videos for these wait on Jerry's wording (through the code-review chat).
