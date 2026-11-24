@@ -1181,3 +1181,10 @@ Jerry, on his Community Trust statement: "there's two lines to that transaction 
 - **Repair**: adding the statement again fills in lines already brought in with only that first line, then re-guesses any not yet answered. This works the same way as the PayPal "Payment: USD" repair.
 - **Cut-short lines stand alone** (`cutShort`): a line that is still only "…Payment: USD" or only "WITHDRAWAL" has no shared key, so there is no "change the other 100" prompt and no rule is learned. Rules already learned for "usd" or "withdrawal" are removed on load (`rulesFix`).
 - **Price-jump heads-up** fires only for a bill whose earlier charges all sat within 15% of the usual. Restaurants and shops vary, so they no longer trigger it.
+
+## v11.7 · The second line fills itself in; Add statements always opens; one Add statements button (25 Nov)
+
+Jerry: "why do you wanna see a statement? I just want to see the second line of the text. Can you do that?"; "When I hit the add statement … I got this screen. Why am I getting that again?"; "two buttons right together, add statements twice."
+- **`fillShort`**: the first time the questions open, lines still cut short ("…Payment: USD", "WITHDRAWAL") are filled in from the PDFs in the linked folder. It reads only files for those accounts, by folder, last 4 digits, account name or the remembered file. It matches on date and amount, and the description must start with what was there. Lines not yet answered are guessed again; answered ones keep their category.
+- **Add statements** opens the import box once any account exists, even with setup questions still open. Before that, it starts at the first unanswered question rather than question 1.
+- The 📄 Add statements button in the top box's row is gone; the brown bar at the bottom is the one.

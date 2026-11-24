@@ -3450,7 +3450,7 @@
   .glrow{ display:flex; gap:8px; align-items:center; width:100%; padding:9px 0; border:0; border-top:1px solid var(--line); background:none; font:inherit; color:inherit; text-align:left; } .glbox h3 + .glrow{ border-top:0; } .glrow.tap{ cursor:pointer; }
   .glrow .d{ color:var(--soft); font-size:13px; width:50px; flex:none; } .glrow .t{ flex:1; } .glrow b{ white-space:nowrap; }
   .glbox .pill{ display:inline-block; padding:1px 9px; border-radius:10px; font-size:12px; font-weight:800; background:#FFF1D6; color:var(--amber); } .glbox .pill.bad{ background:#F6DEDA; color:var(--red); }
-  .glacts{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:10px; } .glacts button{ background:var(--brand); color:#fff; border:0; border-radius:14px; padding:10px 2px; font:inherit; font-size:12px; font-weight:700; cursor:pointer; min-height:64px; } .glacts i{ display:block; font-style:normal; font-size:20px; }
+  .glacts{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px; } .glacts button{ background:var(--brand); color:#fff; border:0; border-radius:14px; padding:10px 2px; font:inherit; font-size:12px; font-weight:700; cursor:pointer; min-height:64px; } .glacts i{ display:block; font-style:normal; font-size:20px; }
   .shtop{ position:sticky; top:-1px; z-index:5; display:flex; align-items:center; gap:8px; min-height:44px; margin:-6px 0 4px; background:inherit; } .shx{ margin-left:auto; width:44px; height:44px; border-radius:22px; border:1px solid #ccc; background:#fff; color:#333; font-size:20px; font-weight:700; line-height:1; cursor:pointer; flex:none; }
   .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:2147481500; } .sheet.on{ display:flex; } @media (min-width:700px){ .sheet{ align-items:center; } }
   #sheetIn a, #main a{ color:var(--brand); font-weight:700; }
@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.6 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.7 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3833,7 +3833,9 @@ function saveMix(id){ var a = acct(id); a.mix = { s:Math.max(0,num(document.getE
 
 /* ── bringing statements in ── */
 function openImport(){
-  if(!db || !db.setup){ setupQ(db ? db.sq || 0 : 0); return; }
+  /* v11.7 · Jerry, 25 Nov: "When I hit the add statement … I got this screen. Why am I getting that again?" Once there are accounts,
+     adding statements never waits on the setup questions; with none yet, it picks up at the first question not answered. */
+  if(!db || (!db.setup && !(db.accts || []).length)){ setupQ(db ? sqAcc() : 0); return; }
   openSheet('<h3>Add statements</h3><p class="sub">Most banks and card companies let you download your activity as a file. Pick as many as you like — a few months from each account.</p>'
     + (FS.name ? '<button class="b warm full" id="fsBtn" onclick="checkFolder()">🔄 Check my folder for new statements</button><p class="sub" style="margin:6px 0 10px">Your folder: <b>' + esc(FS.name) + '</b>' + (db.fsLast ? ' · last checked ' + shortDate(db.fsLast) : '') + '. <a href="#" onclick="pickFolder();return false" style="color:var(--brand);font-weight:800">Use a different folder</a></p>' : '')
     + (canFolder() && !FS.name ? '<button class="b primary full" id="dirBtn" onclick="pickFolder()">📁 Load a whole folder</button><p class="sub" style="margin:6px 0 0">Pick your money folder. Everything in it, and in the folders inside it, is read at once. You can also drag the folder onto this page.' + (window.showDirectoryPicker ? ' It is remembered, so next month is one tap.' : '') + '</p>' : '')
@@ -4349,7 +4351,24 @@ function suggestFor(t){
   return null;
 }
 var GK = null;
-function openGTKY(id){
+/* v11.7 · Jerry, 25 Nov: "why do you wanna see a statement? I just want to see the second line of the text. Can you do that?"
+   Lines brought in before the second line was read are filled in by the app itself, from the statements already in the linked
+   folder, the first time the questions open. Nothing to add again. */
+var FILLED = 0;
+async function fillShort(){ if(FILLED || !FS.h) return; var S = db.tx.filter(function(t){ return cutShort(t.desc) && !t.fixedDesc; }); if(!S.length){ FILLED = 1; return; } FILLED = 1;
+  try{ if((await FS.h.queryPermission({ mode:'read' })) !== 'granted' && (await FS.h.requestPermission({ mode:'read' })) !== 'granted'){ FILLED = 0; return; } }catch(e){ FILLED = 0; return; }
+  var by = {}; S.forEach(function(t){ (by[t.a] = by[t.a] || []).push(t); });
+  var all = []; try{ all = await stmtWalk(FS.h, '', []); }catch(e){ return; }
+  var files = all.filter(function(x){ if(!/\.pdf$/i.test(x.path)) return false; var pl = x.path.toLowerCase();
+    return S.some(function(t){ if(t.f && t.f === x.path) return true; var a = acct(t.a) || {}, fold = String(a.folder || '').toLowerCase(); return (fold && pl.indexOf(fold + '/') >= 0) || (a.last4 && pl.indexOf(a.last4) >= 0) || (stmtNorm(a.name) && stmtNorm(pl).indexOf(stmtNorm(a.name)) >= 0); }); }).slice(0, 150);
+  if(!files.length) return; toast('Filling in the second line from ' + files.length + ' statement' + (files.length===1?'':'s') + '…');
+  var n = 0;
+  for(var i = 0; i < files.length; i++){ var o = null; try{ var f = await files[i].h.getFile(); o = await new Promise(function(res){ readPDF(f, res); }); }catch(e){} if(!o || !o.rows) continue;
+    o.rows.forEach(function(r){ var full = String(r.desc || ''); if(cutShort(full)) return;
+      S.forEach(function(t){ if(t.fixedDesc || t.d !== r.d || Math.abs(Math.abs(t.amt) - Math.abs(r.raw)) > 0.005) return; var head = t.desc.replace(/: [A-Z]{3}$/, ':');
+        if(full.length > head.length && full.indexOf(head) === 0){ t.desc = full.slice(0, 80); t.fixedDesc = 1; if(!t.f) t.f = files[i].path; if(!db.asked[t.id]){ t.cat = guessCat(t.desc, t.amt, acct(t.a), ''); delete t.sug; } n++; } }); }); }
+  if(n){ save(); toast(n + ' line' + (n===1?'':'s') + ' filled in with the shop name.'); var sh = document.getElementById('sheetIn'); if(GK && sh && /questions|Getting to know you/i.test(sh.textContent)){ var c = queue()[0]; GK = null; if(c) openGTKY(c.id); } else render(); } }
+function openGTKY(id){ try{ fillShort(); }catch(e){}
   var Q = queue(); if(id){ var one = db.tx.filter(function(t){ return t.id === id; })[0]; if(one){ Q = [one].concat(Q.filter(function(t){ return t.id !== id; })); db.notSure = db.notSure.filter(function(x){ return x !== id; }); } }
   if(!GK || id) GK = { total:Q.length, done:0 };
   if(RV && RV.st === 'chk' && GK.done > 0){ var w = RV.walk; RV = null; GK = null; if(w) rvChkNext(); else rvChk(); return; }
@@ -5571,7 +5590,7 @@ function glanceHTML(){ var P = pulseData(pulseMonth()), m = P.m, x = three(m), m
   if(P.jar && P.jar.bad) N.push(['openPart2()', '🐖 ' + esc(P.jar.t), '!']);
   if(P.backup) N.push(['backupOpen()', '💾 No backup saved yet', '!']);
   h += '<div class="glbox"><h3>Needs you<small>' + (N.length || '') + '</small></h3>' + (N.map(function(r){ return '<button class="glrow tap" onclick="' + r[0] + '"><span class="t">' + r[1] + '</span><span class="pill">' + r[2] + '</span></button>'; }).join('') || '<div class="glrow"><span class="t" style="color:var(--ok);font-weight:700">✓ Nothing needs you right now.</span></div>') + '</div>';
-  h += '<div class="glacts"><button onclick="openImport()"><i>📄</i>Add statements</button><button onclick="var a=document.getElementById(\'askCard\');if(a){a.scrollIntoView({behavior:\'smooth\',block:\'start\'});var i=a.querySelector(\'textarea,input\');if(i)setTimeout(function(){i.focus();},400);}"><i>💬</i>Ask</button><button onclick="' + (db.budgetSet ? 'openFirstLoad(1)' : 'budStart()') + '"><i>✏️</i>Budget</button><button onclick="openLists()"><i>📋</i>Lists</button></div></div>';
+  h += '<div class="glacts"><button onclick="var a=document.getElementById(\'askCard\');if(a){a.scrollIntoView({behavior:\'smooth\',block:\'start\'});var i=a.querySelector(\'textarea,input\');if(i)setTimeout(function(){i.focus();},400);}"><i>💬</i>Ask</button><button onclick="' + (db.budgetSet ? 'openFirstLoad(1)' : 'budStart()') + '"><i>✏️</i>Budget</button><button onclick="openLists()"><i>📋</i>Lists</button></div></div>';
   return h; }
 /* "Same as usual": only when every payee this month is known and nothing is missing. It closes the month and writes the note. */
 function closeMonth(m){ var P = pulseData(m); if(P.q || P.miss.length){ alert('There ' + (P.q ? 'are questions' : 'are statements missing') + ' for this month first.'); return; }
