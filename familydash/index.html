@@ -9,7 +9,7 @@
      every dash and apostrophe into mojibake. Caught by the beta check, which serves the same bytes
      twice and read them two different ways. The app's own charset line further down is left where
      it is: the first one wins, and theirs is theirs. -->
-<script id="dj-house-v85">
+<script id="dj-house-v86">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -321,31 +321,156 @@
   }
   window.djBanner = djBanner;
 
-  /* ── 4 · talking into a box: the phone's own keyboard does it ────────────
-     REMOVED 24 Nov 2026, and this note is here so nobody puts it back by accident.
+  /* ── 4 · talking into a box: the keyboard on a phone, a button on a computer ──
+     TAKEN OUT 24 Nov 2026 AND PUT BACK THE SAME DAY, for computers only. Both halves are
+     Jerry's and both are here so nobody has to guess which way round it went.
 
-     The house used to float its own 🎤 beside whichever box you tapped into, driven by the
-     browser's webkitSpeechRecognition. Jerry, 23 Nov, testing in Business Manager on his
-     iPhone: it heard him the first round or two on a page and then started and heard nothing
-     — worked twice, not a third time — while the 🎤 on his keyboard worked every time. Asked
-     whether this should change in one app or in all of them he chose "Yes, every app":
-     "it should've worked the same way throughout the whole app… stick to using the phone mic
-     button itself."
+     OUT: he tested Business Manager on his iPhone on 23 Nov. The house's floating microphone
+     heard him the first round or two on a page and then started and heard nothing — worked
+     twice, not a third time — while the microphone on his keyboard worked every time. Asked
+     whether to change one app or all of them he chose "Yes, every app": "it should've worked
+     the same way throughout the whole app… stick to using the phone mic button itself."
 
-     So every box in every app now takes dictation the way every other app on the phone does:
-     tap the box, tap the 🎤 on the keyboard. Nothing of ours sits beside it, nothing of ours
-     can stop listening, and there is one way to do it rather than two.
+     BACK: the next day, using Family Money on his desktop — "now I'm using the app on my
+     desktop and I don't have a microphone button anywhere… can you distinguish between the app
+     running on a desktop and the phone?" Offered a 🎤 beside the box on computers only, or one
+     corner button everywhere, he chose COMPUTERS ONLY. A desktop keyboard has no 🎤, which is
+     the cost this file recorded when the button was removed.
 
-     WHAT WENT WITH IT: the floating #djMic, eligible()/place()/hide()/talk(), the four-second
-     silence timer and the restart-on-end dance of 20 November, and the focusin wiring in
-     start(). Apps that marked a box data-nomic to keep our button away can leave the attribute
-     — nothing reads it now — and Business Manager's capture-phase workaround (#629) can come
-     out whenever that chat gets to it.
+     SO: a phone uses its keyboard's 🎤 and sees nothing of ours. A computer gets the button
+     back, beside whichever box you click into.
 
-     WHAT THIS COSTS, said rather than hidden: a laptop keyboard has no 🎤, so dictation on a
-     computer goes away. Jerry's apps are used on phones and he asked for one behaviour
-     everywhere; keeping the old button on desktop only would be the two-ways-of-doing-it he
-     was complaining about. To put it back, say "bring back Daraja's own microphone button". */
+     HOW A COMPUTER IS TOLD APART, and why not the user agent: hover and a fine pointer. A
+     tablet with a keyboard case still counts as a phone by that test, which is right — it has
+     a keyboard 🎤 and no mouse to click a small round button with. A user-agent string would
+     have put the iPad on the wrong side.
+
+     WHAT IS DELIBERATELY UNCHANGED, against the suggestion that came with the ask: continuous
+     stays ON, a session the browser closes is still started again, and four seconds of silence
+     still ends it. The suggestion was one phrase per tap. That is exactly the 20 November
+     complaint — Jerry, on his Mac in Chrome: "I hit the microphone, and the microphone would
+     shut off after every word" — and it was fixed by turning continuous on. The 23 November
+     failure was the PHONE, and the phone does not use this any more. Putting one-phrase-per-tap
+     back on the only device that ever complained about it would undo the right fix with the
+     wrong one. */
+  function djComputer(){
+    try{ return !!(window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches); }catch(e){ return false; }
+  }
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, micBtn = null, curBox = null, recStop = 0, recHush = null;
+
+  function eligible(el){
+    if(!el || el.dataset.djMic === 'off' || el.hasAttribute('data-nomic')) return false;   /* v63: an app with its own 🎤 marks the box data-nomic */
+    var t = (el.tagName||'').toLowerCase();
+    if(t === 'textarea') return true;
+    if(t !== 'input') return false;
+    var ty = (el.type||'text').toLowerCase();
+    if(['text','search','tel','url','email'].indexOf(ty) < 0) return false;
+    if(el.readOnly || el.disabled) return false;
+    /* Leave alone any box that already has its own microphone — Rafiki, Feedback
+       Studio and In My Own Words built their own and theirs are better placed.
+       Stop at <body>: once our own button is on the page its emoji is inside body's
+       text, which would make every box after the first one look already-served. */
+    /* 24 Nov: this guard reads a 🎤 near the box as "this app has its own". The house's OWN
+       sheets have one in their furniture — "🎤 Tell it" is the heading, and the line under it
+       now says where the microphone is — so the Tell it box failed its own eligibility and the
+       sheet promised a button that never appeared. Measured on a computer before shipping. The
+       guard is about an APP's microphone, so the house's own sheets are exempt from it. */
+    if(!(el.closest && el.closest('#djAISheet, #djDockSheet'))){
+      var p = el.parentElement;
+      for(var i=0; i<3 && p && p !== document.body && p !== document.documentElement; i++, p = p.parentElement){
+        var t = p.textContent || '';
+        if(micBtn && p.contains(micBtn)) t = t.split('\u{1F3A4}').join('');
+        if(t.indexOf('\u{1F3A4}') >= 0) return false;
+      }
+    }
+    return true;
+  }
+
+  function place(box){
+    if(!micBtn){
+      micBtn = document.createElement('button');
+      micBtn.type = 'button';
+      micBtn.id = 'djMic';
+      micBtn.textContent = '\u{1F3A4}';
+      micBtn.setAttribute('aria-label','Say it instead of typing');
+      micBtn.title = 'Say it instead of typing';
+      /* every app has its own button styling — min-height:44px, padding, box-sizing —
+         so this one states its shape outright or it comes out the wrong size */
+      micBtn.style.cssText = 'position:absolute !important;z-index:2147482000;'
+        + 'box-sizing:border-box !important;width:40px !important;height:40px !important;'
+        + 'min-width:40px !important;min-height:40px !important;max-width:40px !important;'
+        + 'max-height:40px !important;padding:0 !important;margin:0 !important;'
+        + 'border-radius:50% !important;border:1px solid rgba(128,128,128,.4);background:#fff;'
+        + 'color:#1F2622;font-size:19px;line-height:1;cursor:pointer;'
+        + 'box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center';
+      micBtn.addEventListener('mousedown', function(e){ e.preventDefault(); });
+      micBtn.addEventListener('click', function(e){ e.preventDefault(); talk(); });
+      document.body.appendChild(micBtn);
+    }
+    var r = box.getBoundingClientRect();
+    /* scrolled out of sight — inside a sheet or off the page — so show nothing */
+    if(r.bottom < 4 || r.top > window.innerHeight - 4 || r.width < 60){ hide(); return; }
+    micBtn.hidden = false; micBtn.style.setProperty('display','flex','important');
+    /* measure what the browser actually made, rather than trusting the numbers above */
+    var m = micBtn.getBoundingClientRect();
+    var w = m.width  || 40, h = m.height || 40;
+    micBtn.style.top  = (window.scrollY + r.top + (r.height - h)/2) + 'px';
+    micBtn.style.left = (window.scrollX + r.right - w - 6) + 'px';
+    /* a short box would be swallowed by the button — sit just outside it instead */
+    if(r.width < w + 90) micBtn.style.left = (window.scrollX + r.right + 6) + 'px';
+  }
+  function hide(){ if(micBtn){ micBtn.hidden = true; micBtn.style.setProperty('display','none','important'); } }
+
+  /* 20 Nov. Jerry, testing on his Mac in Chrome: "I hit the microphone, and the microphone
+     would shut off after every word." Chrome ends a recognition session at the first pause
+     unless continuous is on — and it was on only for a <textarea>, so every one-line box
+     stopped after a word. It is on for every box now. Two things come with that: a session
+     Chrome ends on its own is started again, so a long sentence survives it, and four seconds
+     of silence is what finishes the dictation, since nothing else would. */
+  function talk(){
+    var box = curBox; if(!box) return;
+    if(rec){ recStop = 1; try{ rec.stop(); }catch(e){} return; }
+    recStop = 0;
+    var base = (box.value || '').trim();
+    micBtn.textContent = '⏹';
+    micBtn.style.background = '#D96C4F';
+    micBtn.setAttribute('aria-label','Stop listening');
+    function hush(){
+      if(recHush) clearTimeout(recHush);
+      recHush = setTimeout(function(){ recStop = 1; if(rec){ try{ rec.stop(); }catch(e){} } }, 4000);
+    }
+    function done(){
+      if(recHush){ clearTimeout(recHush); recHush = null; }
+      rec = null; recStop = 0;
+      if(micBtn){ micBtn.textContent = '\u{1F3A4}'; micBtn.style.background = '#fff';
+                  micBtn.setAttribute('aria-label','Say it instead of typing'); }
+      box.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+    function go(){
+      rec = new SR();
+      rec.lang = navigator.language || 'en-US';
+      rec.interimResults = true;
+      rec.continuous = true;
+      rec.onresult = function(e){
+        var t = '';
+        for(var i=0; i<e.results.length; i++) t += e.results[i][0].transcript;
+        box.value = (base ? base + ' ' : '') + t;
+        box.dispatchEvent(new Event('input', {bubbles:true}));
+        hush();
+      };
+      /* no-speech and aborted are how Chrome closes a quiet session; onend decides what next */
+      rec.onerror = function(e){ var k = e && e.error; if(k !== 'no-speech' && k !== 'aborted') recStop = 1; };
+      rec.onend = function(){
+        if(recStop){ done(); return; }
+        base = (box.value || '').trim();   /* a fresh session restarts e.results from empty */
+        try{ go(); }catch(err){ done(); }
+      };
+      try{ rec.start(); }catch(e){ done(); }
+    }
+    hush(); go();
+  }
+
 
 
   /* ── 5 · the floating helpers must not sit on the words ──────────────────
@@ -971,6 +1096,24 @@
     }
   }
 
+  function start(){
+    if(!SR || !djComputer()) return;   /* a phone has its keyboard's own; show nothing of ours */
+    document.addEventListener('focusin', function(e){
+      if(eligible(e.target)){ curBox = e.target; place(e.target); }
+      else if(e.target !== micBtn){ hide(); }
+    });
+    document.addEventListener('focusout', function(e){
+      setTimeout(function(){
+        if(document.activeElement !== curBox && document.activeElement !== micBtn){
+          if(rec){ try{ rec.stop(); }catch(err){} }
+          hide(); curBox = null;
+        }
+      }, 120);
+    });
+    /* capture, so a scroll inside a sheet or panel moves the button too */
+    window.addEventListener('scroll', function(){ if(curBox && micBtn) place(curBox); }, {passive:true, capture:true});
+    window.addEventListener('resize', function(){ if(curBox && micBtn) place(curBox); });
+  }
   /* Each app builds its 💡 on its own timer, so a fixed list of delays always loses
      the race in some app — Steward's arrived after the last pass and stayed on
      screen. Watch for it instead of guessing when it turns up. */
@@ -1897,7 +2040,7 @@
     st.textContent = '@media print{'
       + '@page{margin:16mm 14mm;}'
       + 'body{zoom:1 !important;background:#fff !important;color:#000 !important;font-size:14pt !important;line-height:1.45 !important;}'
-      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djInstall,#djSetup,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
+      + '#djSbx,#djSbxPop,#djHello,#djMenu,#djTour,#djInstall,#djSetup,#djDockSheet,#djDock,#djAa,#djSaved,#djUpdated,#djA2HS,#djOffline,#djBackup,#djMic,#djBanner,#djKeyMeter,button.djPH,nav,[role="navigation"],.fab,#fsBar,#fsPill,#fsIntro,video,audio,iframe{display:none !important;}'
       + 'a{color:#000 !important;text-decoration:none !important;}'
       + 'section,.card,article,li,tr,h2,h3{break-inside:avoid;page-break-inside:avoid;}'
       + 'h1,h2,h3{break-after:avoid;page-break-after:avoid;}'
@@ -2890,7 +3033,9 @@
        focused instead, so the keyboard comes up with its own mic on it. */
     var b = sheet('<div style="font-weight:900;font-size:20px;margin-bottom:2px">🎤 Tell it</div>'
       + '<p style="margin:0 0 10px;color:#55605B;font-size:14.5px">Say one thing. It goes to the right app, after you say yes.</p>'
-      + '<p style="margin:0 0 10px;color:#55605B;font-size:14px">Tap the box, then the 🎤 on your keyboard — or just type it.</p>'
+      + '<p style="margin:0 0 10px;color:#55605B;font-size:14px">' + (djComputer()
+          ? 'Click the box, then the 🎤 beside it \u2014 or just type it.'
+          : 'Tap the box, then the 🎤 on your keyboard \u2014 or just type it.') + '</p>'
       + '<input id="djTellIn" aria-label="What to add" placeholder="e.g. remind me to call Mary Tuesday" style="width:100%;min-height:48px;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1.5px solid #C9C1AE;background:#fff;color:#1F2622;box-sizing:border-box">'
       + '<div id="djTellPlan" style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#F2EEE4;font-size:16px;min-height:24px;color:#55605B">Try: “add milk to the shopping list” · “car insurance due the 15th, $240” · “Mary’s birthday is March 14”</div>'
       + '<div id="djTellTo" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
@@ -3216,7 +3361,7 @@
      ours would be a second one on every box. The dock still runs: tidying the app's
      own scattered helpers into one corner button matters more in a small window,
      not less. */
-  function boot(){ try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
+  function boot(){ if(!embedded) start(); try{ seniorsPass(); }catch(e){} dockPasses(); claimStartFresh(); auditFixes();
     [800, 2500].forEach(function(ms){ setTimeout(auditFixes, ms); });
     try{ new MutationObserver(function(){ stayLabels(); nameButtons(); clearTimeout(window.__djDockT); window.__djDockT = setTimeout(function(){ try{ dock(); yieldDock(); }catch(e){} }, 300); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
     /* v45: a bar that only SHOWS later (a class flips — Ahead of It's coach bar) moves the dock too */
