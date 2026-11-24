@@ -1089,3 +1089,15 @@ Jerry approved the name, the one line ("The more you teach it, the more of the r
 - **The training video** gains one line after step eight, taken from his script: "Fix one charge from a store, and it fixes every other purchase from that store, and asks if you'd like them all changed at once." Re-recorded by name: 13 cues for 13 lines.
 - Every claim is true of v10.7. On a phone, "tap to see the actual bank statement" means picking the file once, after which the page shows in the app.
 - The store card belongs to the house and store chat; the line was relayed there.
+
+## v10.9 · statements open in the app; card payments and investment trades stay out of the questions (24 Nov)
+
+- **The statement opens in the app.** "📄 Open the … statement" used to open a blank tab first, then an alert, which left the page unresponsive for Jerry. Now it draws the statement in the app (`stmtView`): a PDF page with ← Page →, or a spreadsheet as a table with the matching row highlighted (`stmtTable`). "Open it in a new tab" is a button inside.
+  - A line is found by its words and amount, or its date and amount, or its amount alone (`stmtPage`), so a badly read description still finds it.
+  - Spreadsheets (.csv, .xlsx) are read row by row (`stmtRows`, `stmtRowHit`).
+- **Card payments.** Jerry: "all the ones in that credit column are payments. The credit card being paid off." A credit on a card that says payment is money moving (`cardPay`). It's filed by itself on reading and, once, for lines already in (`cardPayFix`).
+- **Investment accounts.** Jerry: "whatever happens in the investment account stays within that account."
+  - Every line in an investment account is filed as staying inside it (`invFile`: money moving, never spending, never a question).
+  - A trade-looking line in an account not yet marked shows "📈 This looks like a trade inside an investment account" with **Mark … as an investment account** (`invMark`).
+  - Money sent into it from checking or a card still counts on that side.
+- `shop/voicemaker.py`: `EL_SPEED` can now be set from the environment (default unchanged, 1.07). "Learns as you go" was re-recorded at 1.0, 42 s, because Jerry asked for it "slowed down just a smidge".

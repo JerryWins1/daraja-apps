@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v10.8 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v10.9 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4352,6 +4352,7 @@ function openGTKY(id){
   openSheet('<div class="stepno">' + (GKA && RV ? 'Part 1 · account ' + (RV.i + 1) + ' of ' + RV.L.length + ' · ' + esc(acctLabel(a)) + ' · payment ' : ASKR ? 'The questions · ' : 'Getting to know you · item ') + n + ' of ' + tot + '</div>'
     + '<div class="card" style="margin:8px 0 10px"><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:24px">' + (t.amt < 0 ? '+' + money(-t.amt) : money(t.amt)) + '</b><span style="margin-left:auto;color:var(--soft);font-weight:700">' + shortDate(t.d) + '</span></div>'
     + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin-top:6px;word-break:break-word">' + esc(t.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(a)) + (ch ? ' · ' + esc(ch) : '') + (t.src ? ' · from ' + esc(t.src) : '') + '</div>' + (ch === 'check' || ch === 'cash' || /zelle|venmo|cash ?app/i.test(t.desc) || bankish(t.desc) ? '' : '<a href="' + webLook(t.desc) + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-weight:800;color:var(--brand)">🔎 Search the web for “' + esc(webName(t.desc)) + '”</a>' + whatBtn(t.desc, 'gkWhat', t.id)) + stmtBtn(t.id) + '</div>'
+    + (tradeLike(t.desc) && !invAcct(a) ? '<div class="line warn" style="font-size:14.5px">📈 This looks like a trade inside an investment account. What happens inside it stays inside it — it isn’t spending.<button class="b small primary" style="display:block;margin-top:8px" onclick="invMark(\'' + t.a + '\')">Mark ' + esc(a.name || 'this account') + ' as an investment account</button></div>' : '')
     + '<h3 style="font-size:19px;margin:14px 0 8px">' + (cur ? 'This looks like <b>' + esc(cur) + '</b> — right?' : 'What was this?') + '</h3>'
     + (N.top.length ? '<div class="pick" id="gkChips">' + N.top.filter(function(n){ return n !== cur; }).slice(0, 4).map(function(n){ return '<button data-chip="' + esc(n) + '" onclick="gkChip(this.getAttribute(\'data-chip\'))">' + esc(n) + '</button>'; }).join('') + '</div>' : '')
     + '<select id="gkC" style="width:100%;font-size:17px;padding:10px;border-radius:12px;margin-top:8px" onchange="gkLab()">' + (cur ? '' : '<option value="">— pick one —</option>') + '<option value="__new">＋ A new category…</option><option value="__help">＋ Help for a person not listed…</option>'
@@ -4380,30 +4381,68 @@ function stmtBtn(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0
   if(window.showDirectoryPicker) return '<div><a href="#" style="display:inline-block;margin-top:6px;font-weight:800;color:var(--brand)" onclick="stmtOpen(\'' + id + '\');return false">' + label + '</a></div>';
   return '<div><a href="#" style="display:inline-block;margin-top:6px;font-weight:800;color:var(--brand)" onclick="stmtPick(\'' + id + '\');return false">' + label + '</a><div class="sub" style="font-size:12.5px;margin:2px 0 0">This device can’t reach your Family Money folder, so pick the statement file and it opens right here.</div></div>'; }
 /* a phone (or a browser that can't link a folder): pick the file, and the page with the line is drawn here, with ← → for the others */
-function stmtPick(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return; var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.pdf,.csv,application/pdf';
-  inp.onchange = async function(){ var f = inp.files && inp.files[0]; if(!f) return; toast('Looking for ' + t.desc + '…'); var pg = 0; try{ pg = await stmtPage(f, t); }catch(e){} if(/\.pdf$/i.test(f.name)) stmtShow(f, pg || 1, t, !pg); else alert(pg ? 'Found it in ' + f.name + '.' : 'That file doesn’t have this line.'); };
+function stmtPick(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return; var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.pdf,.csv,.xlsx,.xls,application/pdf';
+  inp.onchange = async function(){ var f = inp.files && inp.files[0]; if(!f) return; toast('Looking for ' + t.desc + '…'); stmtView(f, t); };
   inp.click(); }
 var STV = null;
+async function stmtView(f, t){ var pg = 0; try{ pg = await stmtPage(f, t); }catch(e){} if(/\.pdf$/i.test(f.name)) return stmtShow(f, pg || 1, t, !pg); return stmtTable(f, t); }
+async function stmtTable(f, t){ var R = await stmtRows(f), hit = stmtRowHit(R, t), from = Math.max(0, hit - 8), to = Math.min(R.length, (hit < 0 ? 20 : hit + 9)), head = R[0] || [];
+  STV = { f:f, t:t };
+  openSheet('<div class="stepno">' + esc(f.name) + '</div>' + (hit < 0 ? '<div class="line warn" style="font-size:14px">No row for ' + money(Math.abs(t.amt)) + ' on ' + esc(shortDate(t.d)) + ' in this file — showing the top.</div>' : '<p class="sub" style="margin:0 0 6px">The highlighted row is ' + money(Math.abs(t.amt)) + ' on ' + esc(shortDate(t.d)) + '.</p>')
+    + '<div style="overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:8px;background:#fff"><table style="border-collapse:collapse;font-size:13px;width:100%">'
+    + (from > 0 ? '<tr>' + head.map(function(c){ return '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#f4f1ea">' + esc(c) + '</th>'; }).join('') + '</tr>' : '')
+    + R.slice(from, to).map(function(r, k){ var i = from + k, on = i === hit; return '<tr' + (on ? ' id="stHit" style="background:#FFF1C2;font-weight:800"' : '') + '>' + r.map(function(c){ return '<td style="padding:4px 6px;border-bottom:1px solid #eee;white-space:nowrap">' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table></div>'
+    + '<button class="b full" style="margin-top:8px" onclick="stmtTab()">Open the whole file in a new tab</button><button class="b primary full" onclick="sheetBack()">Back</button>');
+  var h = document.getElementById('stHit'); if(h) try{ h.scrollIntoView({ block:'center' }); }catch(e){} }
+function stmtTab(){ if(!STV || !STV.f) return; var u = URL.createObjectURL(STV.f) + (STV.pg ? '#page=' + STV.pg : ''); window.open(u, '_blank'); }
 async function stmtShow(f, pg, t, miss){ var L = await new Promise(function(res){ pdfLib(res); }); if(!L){ alert('The statement reader didn’t load — check the internet.'); return; }
   var doc = STV && STV.f === f ? STV.doc : await L.getDocument({ data:new Uint8Array(await f.arrayBuffer()) }).promise; STV = { f:f, doc:doc, pg:pg, t:t };
   openSheet('<div class="stepno">' + esc(f.name) + ' · page ' + pg + ' of ' + doc.numPages + '</div>' + (miss ? '<div class="line warn" style="font-size:14px">' + esc(t.desc) + ' isn’t in this file — showing page 1.</div>' : '<p class="sub" style="margin:0 0 6px">' + esc(t.desc) + ' · ' + money(t.amt) + ' is on this page.</p>')
     + '<canvas id="stCan" style="width:100%;border:1px solid var(--line);border-radius:8px;background:#fff"></canvas>'
     + '<div class="row" style="gap:8px;margin-top:8px"><button class="b" style="flex:1" ' + (pg <= 1 ? 'disabled' : '') + ' onclick="SHBACK=1;stmtShow(STV.f,STV.pg-1,STV.t)">← Page</button><button class="b" style="flex:1" ' + (pg >= doc.numPages ? 'disabled' : '') + ' onclick="SHBACK=1;stmtShow(STV.f,STV.pg+1,STV.t)">Page →</button></div>'
-    + '<button class="b primary full" onclick="sheetBack()">Back</button>');
+    + '<button class="b full" onclick="stmtTab()">Open it in a new tab</button><button class="b primary full" onclick="sheetBack()">Back</button>');
   var page = await doc.getPage(pg), cv = document.getElementById('stCan'); if(!cv) return; var w = cv.clientWidth || 360, v0 = page.getViewport({ scale:1 }), sc = (w * (window.devicePixelRatio || 1)) / v0.width, vp = page.getViewport({ scale:sc });
   cv.width = vp.width; cv.height = vp.height; await page.render({ canvasContext:cv.getContext('2d'), viewport:vp }).promise; }
 async function stmtWalk(dir, path, out){ for await (var en of dir.values()){ if(en.kind === 'file'){ if(/\.(pdf|csv|xlsx?|ofx|qfx)$/i.test(en.name)) out.push({ h:en, path:path + en.name }); } else if(en.kind === 'directory' && !/^\./.test(en.name)) await stmtWalk(en, path + en.name + '/', out); } return out; }
 async function stmtByPath(root, path){ var parts = String(path).split('/').filter(Boolean); if(parts.length > 1 && parts[0] === root.name) parts.shift(); var d = root;
   for(var i = 0; i < parts.length - 1; i++) d = await d.getDirectoryHandle(parts[i]); return d.getFileHandle(parts[parts.length - 1]); }
 function stmtNorm(x){ return String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
-async function stmtPage(file, t){ if(!/\.pdf$/i.test(file.name)) return /\.(csv)$/i.test(file.name) ? ((await file.text()).toLowerCase().replace(/[^a-z0-9]+/g,'').indexOf(stmtNorm(t.desc).slice(0, 14)) >= 0 ? 1 : 0) : 0;
-  var L = await new Promise(function(res){ pdfLib(res); }); if(!L) return 0; var doc = await L.getDocument({ data:new Uint8Array(await file.arrayBuffer()) }).promise, want = stmtNorm(t.desc).slice(0, 14), amt = Math.abs(t.amt).toFixed(2);
-  for(var i = 1; i <= doc.numPages; i++){ var tc = await (await doc.getPage(i)).getTextContent(), txt = tc.items.map(function(x){ return x.str; }).join(' '); if(stmtNorm(txt).indexOf(want) >= 0 && txt.replace(/,/g,'').indexOf(amt) >= 0) return i; }
-  return 0; }
+/* v10.9 · Jerry, 24 Nov: "the open worked when it was a PDF file … It failed when the document was a spreadsheet", and the line's
+   words can be wrong when a statement was read badly ("2026 on the statement closing date when Payments"). So a line is found by its
+   words and amount, or else its date and amount, or else its amount alone; a spreadsheet by the row with that amount and date. */
+/* v10.9 · Jerry, 24 Nov: "all the ones in that credit column are payments. The credit card being paid off." A credit on a card that
+   says payment is money moving from the bank, not something to ask about. */
+function cardPay(t){ var a = acct(t.a); return !!(a && a.type === 'card' && t.amt < 0 && /payment|pymt|autopay|auto pay|thank you/i.test(t.desc)); }
+/* v10.9 · Jerry, 24 Nov, on a Schwab NVIDIA purchase: "whatever happens in the investment account stays within that account". Lines
+   inside an investment account (buys, sells, dividends) are filed as staying inside it — never spending, never a question. Money
+   sent into it from checking or a card is still counted on that side. */
+function invAcct(a){ return !!(a && INV_TYPES[a.type]); }
+function tradeLike(d){ return /\(\s*[\d.,]+\s*sh(ares)?\s*@|\b(purchase|sale|sold|bought|reinvest(ment)?|dividend|cap(ital)? gain|buy|sell)\b.*\b(sh|shares|@)\b|\breinvest/i.test(String(d || '')); }
+function invFile(t){ t.cat = 'xfer'; delete t.sug; t.inv = 1; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); }
+function invMark(aid){ var a = acct(aid); if(!a) return; a.type = 'invest'; a.track = 'lines'; var n = 0; db.tx.forEach(function(t){ if(t.a === aid){ invFile(t); n++; } }); save(); render(); toast(a.name + ' is an investment account now — ' + n + ' line' + (n===1?'':'s') + ' stay inside it.'); GK = null; openGTKY(); }
+function cardPayFix(){ db.tx.forEach(function(t){ if(!db.asked[t.id] && invAcct(acct(t.a))) invFile(t); }); var n = 0; db.tx.forEach(function(t){ if(db.asked[t.id] || !cardPay(t)) return; t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); n++; }); if(n) save(); return n; }
+function stmtDates(d){ var y = d.slice(0,4), m = d.slice(5,7), dd = d.slice(8,10), mo = new Date(+y, +m - 1, +dd); return [m + '/' + dd, (+m) + '/' + (+dd), d, mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + (+dd), mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + dd]; }
+async function stmtRows(file){ if(/\.csv$/i.test(file.name)) return parseCSVRows(await file.text());
+  if(/\.xlsx?$/i.test(file.name)){ if(!window.XLSX) await new Promise(function(res){ var sc = document.createElement('script'); sc.src = XLSX_URL; sc.onload = res; sc.onerror = res; document.head.appendChild(sc); }); if(!window.XLSX) return [];
+    var wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type:'array', cellDates:true }), ws = wb.Sheets[wb.SheetNames[0]]; return XLSX.utils.sheet_to_json(ws, { header:1, raw:false, dateNF:'yyyy-mm-dd' }); }
+  return []; }
+function parseCSVRows(txt){ var R = [], row = [], cur = '', q = false; for(var i = 0; i < txt.length; i++){ var ch = txt[i];
+    if(q){ if(ch === '"'){ if(txt[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if(ch === '"') q = true; else if(ch === ','){ row.push(cur); cur = ''; } else if(ch === '\n' || ch === '\r'){ if(ch === '\r' && txt[i+1] === '\n') i++; row.push(cur); R.push(row); row = []; cur = ''; } else cur += ch; }
+  if(cur || row.length){ row.push(cur); R.push(row); } return R.filter(function(r){ return r.some(function(c){ return String(c).trim(); }); }); }
+function stmtRowHit(R, t){ var amt = Math.abs(t.amt).toFixed(2), D = stmtDates(t.d), best = -1, bs = 0;
+  R.forEach(function(r, i){ var line = r.join(' ').replace(/[$,]/g, ''), sc = 0; if(!r.some(function(c){ var v = String(c).replace(/[$,()\s-]/g, ''); return v && Math.abs(+v).toFixed(2) === amt; })) return; sc = 1;
+    if(D.some(function(d){ return line.indexOf(d) >= 0; })) sc += 2; if(stmtNorm(line).indexOf(stmtNorm(t.desc).slice(0, 10)) >= 0) sc += 2; if(sc > bs){ bs = sc; best = i; } });
+  return best; }
+async function stmtPage(file, t){ if(!/\.pdf$/i.test(file.name)){ var R = await stmtRows(file); return stmtRowHit(R, t) >= 0 ? 1 : 0; }
+  var L = await new Promise(function(res){ pdfLib(res); }); if(!L) return 0; var doc = await L.getDocument({ data:new Uint8Array(await file.arrayBuffer()) }).promise, want = stmtNorm(t.desc).slice(0, 14), amt = Math.abs(t.amt).toFixed(2), D = stmtDates(t.d), byDate = 0, byAmt = 0;
+  for(var i = 1; i <= doc.numPages; i++){ var tc = await (await doc.getPage(i)).getTextContent(), txt = tc.items.map(function(x){ return x.str; }).join(' '), flat = txt.replace(/,/g,''); if(flat.indexOf(amt) < 0) continue;
+    if(stmtNorm(txt).indexOf(want) >= 0) return i; if(!byDate && D.some(function(d){ return txt.indexOf(d) >= 0; })) byDate = i; if(!byAmt) byAmt = i; }
+  return byDate || byAmt; }
 async function stmtOpen(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return;
   if(!FS.h){ if(confirm('To open statements, the app needs to see your Family Money folder (it only reads it — nothing is copied or sent). Choose the folder now? Then tap 📄 See the statement again.')) linkRoot(); return; }
   try{ if((await FS.h.queryPermission({ mode:'read' })) !== 'granted' && (await FS.h.requestPermission({ mode:'read' })) !== 'granted') return; }catch(e){}
-  var w = window.open('', '_blank'); if(w) try{ w.document.title = 'Finding the statement…'; w.document.body.innerHTML = '<p style="font:18px system-ui;padding:24px">Finding the statement with ' + esc(t.desc) + '…</p>'; }catch(e){}
+  toast('Finding the statement…');   /* v10.9: no blank tab opened ahead — that one left the page unresponsive behind the alert */
   try{ var a = acct(t.a) || {}, hit = null, page = 0;
     if(t.f){ try{ var fh = await stmtByPath(FS.h, t.f), f0 = await fh.getFile(); page = await stmtPage(f0, t); hit = f0; }catch(e){} }
     if(!hit || !page){ var all = await stmtWalk(FS.h, '', []), m = t.d.slice(0, 7), m2 = addMonths(m, 1), mon = function(k){ var x = new Date(+k.slice(0,4), +k.slice(5,7) - 1, 1); return [x.toLocaleDateString('en-US', { month:'long' }).toLowerCase(), x.toLocaleDateString('en-US', { month:'short' }).toLowerCase(), k, k.replace('-', ''), k.slice(5,7) + '-' + k.slice(0,4), k.slice(5,7) + k.slice(0,4)]; };
@@ -4411,11 +4450,9 @@ async function stmtOpen(id){ var t = db.tx.filter(function(x){ return x.id === i
       all.forEach(function(x){ var pl = x.path.toLowerCase(), sc = 0; if(fold && pl.indexOf(fold + '/') >= 0) sc += 10; if(a.last4 && pl.indexOf(a.last4) >= 0) sc += 6; if(stmtNorm(a.name) && stmtNorm(pl).indexOf(stmtNorm(a.name)) >= 0) sc += 4; keys.forEach(function(k, i){ if(pl.indexOf(k) >= 0) sc += i < 6 ? 5 : 3; }); x.sc = sc; });
       var C = all.filter(function(x){ return x.sc > 0; }).sort(function(x,y){ return y.sc - x.sc; }).slice(0, 12);
       for(var i = 0; i < C.length && !page; i++){ try{ var f1 = await C[i].h.getFile(), pg = await stmtPage(f1, t); if(pg){ hit = f1; page = pg; t.f = C[i].path; save(); } }catch(e){} } }
-    if(!hit || !page){ if(w) w.close(); alert('Couldn’t find the statement with “' + t.desc + '” in ' + FS.name + '. It may be in a folder the app wasn’t given, or a statement that can’t be read.'); return; }
-    var url = URL.createObjectURL(hit) + (/\.pdf$/i.test(hit.name) ? '#page=' + page : '');
-    if(w) w.location.href = url; else window.open(url, '_blank');
-    toast('Opened ' + hit.name + (/\.pdf$/i.test(hit.name) ? ', page ' + page : '') + ' in a new tab.'); }
-  catch(e){ if(w) w.close(); alert('Couldn’t open the statement (' + (e.message || e) + ').'); } }
+    if(!hit || !page){ toast('Couldn’t find a statement with ' + money(Math.abs(t.amt)) + ' on ' + shortDate(t.d) + ' in ' + FS.name + ' — it may be in a folder the app wasn’t given.'); return; }
+    if(/\.pdf$/i.test(hit.name)) stmtShow(hit, page, t, false); else stmtTable(hit, t); }
+  catch(e){ toast('Couldn’t open the statement (' + (e.message || e) + ').'); } }
 function whatBtn(desc, use, id){ if(!window.djAI) return ''; return '<div><a href="#" class="whatA" style="display:inline-block;margin-top:6px;font-weight:800;color:var(--brand)" onclick="whatIs(this,' + JSON.stringify(webName(desc)).replace(/"/g,'&quot;') + ',\'' + use + '\',\'' + (id || '') + '\');return false">✨ What is this?</a><div class="whatOut" style="font-size:15px;margin-top:4px"></div></div>'; }
 function whatIs(el, name, use, id){ var out = el.parentNode.querySelector('.whatOut'); if(!out) return; out.textContent = 'Asking…';
   var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)' && n !== 'Income' && n !== 'Moving money between our accounts'; });
@@ -4919,6 +4956,8 @@ function autoKnown(id){ var n = 0, card = 0, K = {};
   var PM = {}; db.accts.forEach(function(x){ var w = /paypal/i.test(x.name + ' ' + (x.inst||'')) ? 'paypal' : /venmo/i.test(x.name + ' ' + (x.inst||'')) ? 'venmo' : ''; if(!w || x.id === id) return; db.tx.forEach(function(t){ if(t.a === x.id) PM[w + '|' + t.d.slice(0,7)] = 1; }); });
   acctLines(id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0) return; var k = mkey(t.desc), c = null, why = '', w = /paypal/i.test(t.desc) ? 'paypal' : /venmo/i.test(t.desc) ? 'venmo' : '';
     if(w && t.amt > 0 && PM[w + '|' + t.d.slice(0,7)]){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'Paid through ' + (w === 'paypal' ? 'PayPal' : 'Venmo') + ' — what it bought is sorted on that account', cat:'xfer', at:today(), auto:1 }); card++; return; }
+    if(invAcct(acct(t.a))){ invFile(t); card++; return; }
+    if(cardPay(t)){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'A payment to this card — the money moving from the bank', cat:'xfer', at:today(), auto:1 }); card++; return; }
     if(channel(t)) return;
     if(t.cat === 'xfer' && t.amt > 0 && (/card|credit|capital one|discover|amex|american express|citi|chase|visa|mastercard/i.test(t.desc))){ c = 'xfer'; why = 'Paying a card — what it bought is on the card’s own statement'; card++; }
     else if(k && K[k] && K[k] !== 'uncat'){ c = K[k]; why = 'Same payee as before'; n++; }
@@ -5612,7 +5651,7 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
-function render(){
+function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
