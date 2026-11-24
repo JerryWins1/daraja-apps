@@ -1140,3 +1140,22 @@ Jerry: "PayPal takes out of the bank account, so there should be a corresponding
 - **Finding pairs** (`ppDupes`): each counted PayPal charge is paired with a counted line on another account of the same amount within five days. Lines saying PayPal or PP* come first; amount-only matches are marked to check.
 - **📋 Lists › 🔁 Counted twice? PayPal and your other accounts** (`ppCheck`): shows the total counted twice, with **Count it once**, **Count each once — fix all**, and **They're different**.
 - The main screen's **Needs you** shows how many there are.
+
+## v11.4 · How each account works (24 Nov)
+
+Jerry: "should we think bigger and get a little better setup of our transaction types and what the process of those transactions should be?" He chose the five roles, then said "go ahead and build the account roles screen".
+- Every account has a role (`a.role`). When unset, `roleGuess` picks one from its type and name:
+  - **Everyday**: checking and cards.
+  - **Pass-through**: PayPal, Venmo, Cash App, Zelle.
+  - **Savings**.
+  - **Investments and retirement**.
+  - **Loans and mortgage**.
+- What each role does with its lines (`roleApply`, also applied as statements are read in `autoKnown`, and once on load):
+  - **Everyday:** as before.
+  - **Pass-through:** purchases count here; card or bank top-ups are money moving (`ppFund`); doubles are checked (`ppDupes`).
+  - **Savings:** money moving, except interest or dividends coming in, which are income.
+  - **Investments:** everything inside stays inside.
+  - **Loans:** money moving, since the payment counts from checking.
+- Lines a role filed are marked (`t.byRole`). Changing a role sends those back to the questions with a fresh guess, then applies the new role. An account made Investments takes the investment type; changing back restores its old type.
+- `invAcct`, `ppAcct` and "Mark … as an investment account" now go through the roles.
+- **🧭 How each account works** (`openRoles`) is in ⚙️ Settings and 📋 Lists: one card per account, with a dropdown and a sentence on what that role does.
