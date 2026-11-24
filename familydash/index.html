@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.2 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.3 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4452,6 +4452,31 @@ function repCheck(id){ var t = db.tx.filter(function(x){ return x.id === id; })[
     + '<div class="line ' + (nm >= 2 && monthly ? 'ok' : 'warn') + '" style="font-weight:700">' + verdict + '</div>'
     + '<ul class="list">' + L.map(function(x){ var on = x.id === t.id; return '<li' + (on ? ' style="background:#FFF1C2"' : '') + '><span class="d">' + shortDate(x.d) + '</span><span class="ds">' + esc(x.desc) + '<small>' + esc(acctLabel(acct(x.a) || {})) + (on ? ' · this one' : '') + '</small></span><span class="amt">' + money(Math.abs(x.amt)) + '</span></li>'; }).join('') + '</ul>'
     + '<button class="b primary full" onclick="sheetBack()">Back</button>'); }
+/* v11.3 · Jerry, 24 Nov: "PayPal takes out of the bank account, so there should be a corresponding bank charge … if so, we're
+   overstating our expenses by a lot." PayPal's own codes: "General Credit Card Deposit" (T0700) is a purchase funded by a card, "Bank
+   Deposit to PP Account" (T0300) one funded by the bank — so the same purchase is also on that card or bank statement. It's counted once,
+   on the PayPal side where the business is named; the card or bank side is money moving. This finds every pair still counted twice. */
+function ppAcct(a){ return !!(a && /paypal/i.test((a.name || '') + ' ' + (a.inst || ''))); }
+function counted(t){ return t.amt > 0 && t.cat !== 'xfer' && t.cat !== 'inc' && counts(acct(t.a)) && !t.splitOf; }
+function ppDupes(){ var P = db.tx.filter(function(t){ return ppAcct(acct(t.a)) && counted(t) && inWin(t) && !t.ppNot; }), used = {}, out = [];
+  P.forEach(function(p){ var C = db.tx.filter(function(x){ return !used[x.id] && !x.ppNot && x.a !== p.a && !ppAcct(acct(x.a)) && counted(x) && Math.abs(x.amt - p.amt) < 0.01 && Math.abs(daysBetween(p.d, x.d)) <= 5; });
+    if(!C.length) return; C.sort(function(x,y){ var px = /paypal|\bpp\s?\*|pypl/i.test(x.desc) ? 0 : 1, py = /paypal|\bpp\s?\*|pypl/i.test(y.desc) ? 0 : 1; return px - py || Math.abs(daysBetween(p.d, x.d)) - Math.abs(daysBetween(p.d, y.d)); });
+    var x = C[0]; used[x.id] = 1; out.push({ p:p, x:x, sure:/paypal|\bpp\s?\*|pypl/i.test(x.desc) }); });
+  return out.sort(function(a,b){ return (b.sure ? 1 : 0) - (a.sure ? 1 : 0) || b.p.amt - a.p.amt; }); }
+var PPD = [];
+function ppCheck(){ PPD = ppDupes(); var tot = r2(PPD.reduce(function(s,d){ return s + d.p.amt; }, 0)), sure = PPD.filter(function(d){ return d.sure; }).length; LASTLIST = function(){ ppCheck(); };
+  openSheet('<div class="stepno">Lists</div><h3>🔁 Counted twice? PayPal and your other accounts</h3>'
+    + '<p class="sub">' + (PPD.length ? PPD.length + ' PayPal charge' + (PPD.length===1?'':'s') + ' also counted on a card or bank statement — ' + money(tot) + ' of spending counted twice. ' + (sure ? sure + ' say PayPal on the other side; ' : '') + 'the rest match by amount and date only, so check those.' : 'Nothing counted twice. ✓') + ' Each is kept on the PayPal side, where the business is named; the other side becomes money moving.</p>'
+    + (PPD.length > 1 ? '<button class="b primary full" onclick="ppFixAll()">✓ Count each once — fix all ' + PPD.length + '</button>' : '')
+    + PPD.map(function(d, i){ return '<div class="card" style="padding:10px 12px;margin:8px 0' + (d.sure ? '' : ';border:2px solid #E3B04B') + '"><div style="display:flex;justify-content:space-between;font-weight:800"><span>' + money(d.p.amt) + '</span><span style="color:var(--soft);font-weight:700">' + (d.sure ? 'same charge' : 'same amount — check it') + '</span></div>'
+        + '<div class="sub" style="margin:4px 0 0">PayPal · ' + esc(shortDate(d.p.d)) + ' · ' + esc(ppStrip(d.p.desc)) + ' · ' + esc(shName(d.p.cat) || 'Not sorted yet') + '</div>'
+        + '<div class="sub" style="margin:2px 0 0">' + esc(acctLabel(acct(d.x.a) || {})) + ' · ' + esc(shortDate(d.x.d)) + ' · ' + esc(d.x.desc) + ' · ' + esc(shName(d.x.cat) || 'Not sorted yet') + '</div>'
+        + '<div class="row" style="gap:6px;margin-top:8px"><button class="b small primary" style="margin:0" onclick="ppFix(' + i + ')">Count it once</button><button class="b small ghost" style="margin:0" onclick="ppNot(' + i + ')">They’re different</button></div></div>'; }).join('')
+    + '<button class="b ghost" style="width:100%" onclick="sheetBack()">Done for now</button>'); }
+function ppFix1(d){ var x = d.x; x.cat = 'xfer'; delete x.sug; db.asked[x.id] = 1; x.ppPair = d.p.id; db.notSure = db.notSure.filter(function(y){ return y.id !== x.id && y !== x.id; }); db.reclass.unshift({ id:x.id, d:x.d, amt:x.amt, desc:x.desc, what:'Paid through PayPal — counted on the PayPal line', cat:'xfer', at:today(), auto:1 }); }
+function ppFix(i){ var d = PPD[i]; if(!d) return; ppFix1(d); save(); render(); toast('Counted once, on the PayPal line.'); var el = document.getElementById('sheetIn'), sc = el ? el.scrollTop : 0; SHBACK = 1; ppCheck(); if(el) el.scrollTop = sc; }
+function ppFixAll(){ var n = 0, v = 0; PPD.forEach(function(d){ ppFix1(d); n++; v += d.p.amt; }); save(); render(); toast(n + ' fixed — ' + money(r2(v)) + ' no longer counted twice.'); SHBACK = 1; ppCheck(); }
+function ppNot(i){ var d = PPD[i]; if(!d) return; d.x.ppNot = 1; d.p.ppNot = 1; save(); SHBACK = 1; ppCheck(); }
 function ppFund(t){ var a = acct(t.a); return !!(a && /paypal/i.test((a.name || '') + ' ' + (a.inst || '')) && t.amt < 0 && /general credit card deposit|bank deposit to pp|deposit from|funding|general card deposit|transfer from bank/i.test(t.desc)); }
 function cardPay(t){ var a = acct(t.a); return !!(a && a.type === 'card' && t.amt < 0 && /payment|pymt|autopay|auto pay|thank you/i.test(t.desc)); }
 /* v10.9 · Jerry, 24 Nov, on a Schwab NVIDIA purchase: "whatever happens in the investment account stays within that account". Lines
@@ -5493,6 +5518,7 @@ function glanceHTML(){ var P = pulseData(pulseMonth()), m = P.m, x = three(m), m
   if(P.q) N.push(['askRound()', '❓ Questions about payments', P.q]);
   if(P.sp.length) N.push(['spouseRound()', '💬 Questions for ' + esc(db.spouse || 'your spouse'), P.sp.length]);
   if(dl) N.push(['openDups()', '👯 Charged twice?', dl]);
+  var pd = 0; try{ if(db.accts.some(ppAcct)) pd = ppDupes().length; }catch(e){} if(pd) N.push(['ppCheck()', '🔁 PayPal charges counted twice', pd]);
   if(lk) N.push(['openLook()', '🔍 To look into', lk]);
   if(P.miss.length) N.push(['openAudit()', '📄 Statements missing for ' + esc(mn), P.miss.length]);
   if(P.jar && P.jar.bad) N.push(['openPart2()', '🐖 ' + esc(P.jar.t), '!']);
@@ -5651,6 +5677,7 @@ function openLists(){
     + (dupList().length ? '<button class="b full" style="text-align:left" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ' to check)</button>' : '')
     + '<button class="b full" style="text-align:left" onclick="catCheck()">🧹 Check every category</button>'
     + (db.accts.some(function(a){ return a.type === 'card'; }) ? '<button class="b full" style="text-align:left" onclick="payCheck()">💳 Card payments, matched to the bank</button>' : '')
+    + (db.accts.some(ppAcct) ? '<button class="b full" style="text-align:left" onclick="ppCheck()">🔁 Counted twice? PayPal and your other accounts</button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openNotSure()">❔ Not sure yet (' + db.notSure.length + ')</button>'
     + '<button class="b full" style="text-align:left" onclick="openReclass()">🗂️ What you told me (' + db.reclass.length + ')</button>'
     + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');

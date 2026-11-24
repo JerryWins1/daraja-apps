@@ -1132,3 +1132,11 @@ Jerry: "Having a ton of trouble with categorizing the PayPal because there's not
 - A PayPal file's direction is worked out afresh each time, because a remembered direction from the old misreading would be backwards.
 - "General Credit Card Deposit" in PayPal (topping up from a card for the payment beside it) is filed as money moving (`ppFund`).
 - Checked against Jerry's July statement locally (30 lines, every payee named). The statement isn't in the repo.
+
+## v11.3 · PayPal charges counted twice (24 Nov)
+
+Jerry: "PayPal takes out of the bank account, so there should be a corresponding bank charge … if so, we're overstating our expenses by a lot." From PayPal's transaction codes: "General Credit Card Deposit" (T0700) is a purchase funded by a credit card, and "Bank Deposit to PP Account" (T0300) one funded from the bank. So a funded purchase is also on that card or bank statement.
+- **Rule:** count it once, on the PayPal side where the business is named. The card or bank side is money moving. (`autoKnown` already did this for unanswered lines that say PayPal; this catches the rest.)
+- **Finding pairs** (`ppDupes`): each counted PayPal charge is paired with a counted line on another account of the same amount within five days. Lines saying PayPal or PP* come first; amount-only matches are marked to check.
+- **📋 Lists › 🔁 Counted twice? PayPal and your other accounts** (`ppCheck`): shows the total counted twice, with **Count it once**, **Count each once — fix all**, and **They're different**.
+- The main screen's **Needs you** shows how many there are.
