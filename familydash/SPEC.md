@@ -1016,3 +1016,13 @@ Jerry, sorting his credit cards: "let's go back more closer to the way the check
 - The pinned bar holds the big ✓, then 🔍 Later, 💬 (save it for the spouse, `sinSpouse`) and ← Back.
 - **✨ Let my AI suggest answers for all N** (`sinAI`) sends the payee names of every line with no guess, on every account, up to 200 per tap. Each one then comes up with "Your AI thinks … — right?", to say yes to or change.
 - **⚡ Accept the app's guess for the rest** shows after three yeses to the app's own guesses (not the AI's). It lists every remaining payee the app has a confident guess for, all ticked. Unticked ones come back one at a time.
+
+## v10.2 · move a line from any list, and check every category (24 Nov)
+
+Jerry, on "What makes up Arizona car": "there's some things in here that are not Arizona car … can I go through this list and change it? … then probably a lot of other things are wrong. So you should check the whole database."
+- Tapping a line in any list (What makes up, a category's month, the month's lines) opens **Move a line** (`movePick`). It shows the charge with its web-search link, the recent categories as buttons, the full list, a note box, and a box for moving every line from that payee, which also remembers it for next time. Moving one line alone leaves the payee's remembered category as it was. **Move it** returns to the same list, redrawn (`LASTLIST`).
+- **🧹 Check every category** (`catCheck`) is under What makes up and in 📋 Lists. It shows one list, biggest first, of:
+  - payees filed in more than one category (**Move all to** the usual one);
+  - payees whose statement words point to a different category than the one they're in (checked with the remembered rules set aside);
+  - on request, payees the AI thinks are clearly misfiled (`ccAI`, which sends payee names and category names only).
+- Each card offers **Move all to X**, **Somewhere else…** or **It's right**. "It's right" is remembered in `db.ccOk`.
