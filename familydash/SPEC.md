@@ -1159,3 +1159,17 @@ Jerry: "should we think bigger and get a little better setup of our transaction 
 - Lines a role filed are marked (`t.byRole`). Changing a role sends those back to the questions with a fresh guess, then applies the new role. An account made Investments takes the investment type; changing back restores its old type.
 - `invAcct`, `ppAcct` and "Mark … as an investment account" now go through the roles.
 - **🧭 How each account works** (`openRoles`) is in ⚙️ Settings and 📋 Lists: one card per account, with a dropdown and a sentence on what that role does.
+
+## v11.5 · Settings shows where each question stands; bills one at a time (24 Nov)
+
+Jerry: "If you listed the information under that tab…", then, on the bills question, one at a time with how often and which months; "use some of the information from above… property tax house 1, house 2… BMW and then the Tesla"; and on the 529 and help questions, "figure that one out and let's go build it".
+- **Settings** lists every setup question with ✓ and the answer under it (`sqSum`), or "Not answered yet", plus "N of 19 answered" and "▶ Pick up where you left off" (`sqAcc`).
+- **Cars** is a new question after homes (`db.cars`).
+- **Bills that don't come every month** (`billPickHTML`, `billStep`, `billSave`, `billDone`):
+  - The pick list offers common ones named per home and per car, plus large payees seen in the statements but not in the last four months (`billSeen`), skipping anything already in Part 2 or sorted as Part 1.
+  - Then one bill per screen: how often (once, twice, quarterly, monthly but uneven, other), which months, amount each time, and an escrow box. Escrow sets aside nothing. Monthly-but-uneven goes to Part 1 as varying.
+  - A summary shows each bill and the monthly set-aside.
+- **Goes up and down** is pre-ticked from the statements (`varGuess`, month-to-month spread over 15%).
+- The 529 question now reads "Do you ever pay for something and then get paid back from a 529 plan?". The "regularly help anyone" question is gone.
+- **Open the statement** tries every statement in the account's folder after the most likely twelve.
+
