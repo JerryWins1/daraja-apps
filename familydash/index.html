@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.5 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.6 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3694,7 +3694,12 @@ var INCOME = /(payroll|direct dep|dir dep|salary|social security|ssa treas|ss be
 /* v11.2 · PayPal's own words come first on every line ("PreApproved Payment Bill User Payment: Google"), so the payee is what follows */
 var PP_PRE = /^\s*(pre-?approved payment bill user payment|preapproved payment|express checkout payment|general payment|mobile payment|website payment|subscription payment|payment to|bill user payment|recurring payment)\s*:?\s*/i;
 function ppStrip(d){ return String(d || '').replace(PP_PRE, ''); }
-function mkey(desc){
+/* v11.6 · Jerry, 25 Nov: "a lot of transactions … start out with the same top line, but the second line would put in a different
+   category … it wants me to lump all these together, but I can't." A line whose shop name is missing (only "Payment: USD", only
+   "WITHDRAWAL") stands alone: no shared key, no change-all, nothing learned from it. */
+function cutShort(desc){ var x = String(desc||'').trim(); return /:( [A-Z]{3})?$/.test(x) || thinDesc(x); }
+function rulesFix(){ var n = (db.rules||[]).length; db.rules = (db.rules||[]).filter(function(r){ return r.k && !thinDesc(r.k) && !/^(usd|eur|gbp|cad|aud|mxn)$/.test(r.k); }); if(db.rules.length !== n) save(); }
+function mkey(desc){ if(cutShort(desc)) return '';
   var s = ppStrip(desc).toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
     .replace(/\b(pos|debit|credit|purchase|card|recurring|sq|tst|pp|paypal|ach|web|id|ppd|ccd|des|indn|co|inc|llc|www|com|the|online|check|ckcd|visa|mc)\b/g,' ').replace(/\s+/g,' ').trim();
   return s.split(' ').slice(0,2).join(' ');
@@ -4102,7 +4107,7 @@ function takeFile(){
   CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
     /* v11.2 · reading a statement again after a fix: a line already here under its cut-short words ("…Payment: USD") gets its full words, not a twin */
-    var old = db.tx.filter(function(t){ return t.a === CUR.a && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc !== r.desc && /:( [A-Z]{3})?$/.test(t.desc) && r.desc.indexOf(t.desc.replace(/ [A-Z]{3}$/, '')) === 0 && !t.fixedDesc; })[0];
+    var old = db.tx.filter(function(t){ return t.a === CUR.a && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc !== r.desc && (/:( [A-Z]{3})?$/.test(t.desc) || thinDesc(t.desc)) && r.desc.length > t.desc.length && r.desc.indexOf(t.desc.replace(/: [A-Z]{3}$/, ':')) === 0 && !t.fixedDesc; })[0];
     if(old){ old.desc = r.desc; old.fixedDesc = 1; if(!db.asked[old.id]){ old.cat = guessCat(r.desc, amt, a, r.bcat); delete old.sug; } IMP.fixed = (IMP.fixed || 0) + 1; return; }
     var nt = { id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }; if(r.path) nt.f = String(r.path).slice(0, 300); db.tx.push(nt); IMP.added++; (IMP.newIds = IMP.newIds || []).push(nt.id); });
   try{ FLAGNEW += flagSuspicious(IMP.newIds || []); IMP.newIds = []; }catch(e){}
@@ -4645,7 +4650,7 @@ function openReclass(){ openSheet('<h3>What you told me</h3><p class="sub">Every
    land back on the same list with the total redone. */
 var LASTLIST = null, MOVE = null;
 function moveNames(){ var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)'; }); return { top:recentNames(names, 6), az:names.slice().sort(function(x,y){ return x.localeCompare(y); }) }; }
-function samePayee(t){ if(channel(t)) return [t]; var k = mkey(t.desc) || t.desc; return db.tx.filter(function(x){ return !channel(x) && (mkey(x.desc) || x.desc) === k && inWin(x); }); }
+function samePayee(t){ if(channel(t) || cutShort(t.desc)) return [t]; var k = mkey(t.desc) || t.desc; return db.tx.filter(function(x){ return !channel(x) && (mkey(x.desc) || x.desc) === k && inWin(x); }); }
 function movePick(id, back){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return; var N = moveNames(), all = samePayee(t), here = shName(t.cat);
   MOVE = { id:id, back:back || LASTLIST };
   openSheet('<div class="stepno">Move a line</div><div class="card" style="margin:6px 0 10px;padding:12px 14px"><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:22px">' + (t.amt < 0 ? '+' + money(-t.amt) : money(t.amt)) + '</b><span style="margin-left:auto;color:var(--soft);font-weight:700">' + shortDate(t.d) + ' ' + t.d.slice(0,4) + '</span></div>'
@@ -5770,7 +5775,7 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
-function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); rulesFix(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -6033,6 +6038,9 @@ function noticeMore(){ var H = [], m = thisMonth(), td = today(), day = +td.slic
   /* a regular bill much bigger than usual, in the last 45 days */
   R.forEach(function(g){ var T = db.tx.filter(function(t){ return (mkey(t.desc) || t.desc) === g.k && t.amt > 0 && counts(acct(t.a)); }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }); if(T.length < 4) return;
     var last = T[T.length-1], prev = T.slice(0, -1).map(function(t){ return t.amt; }).sort(function(a,b){ return a - b; }), med = prev[Math.floor(prev.length / 2)];
+    /* v11.6 · Jerry, 25 Nov, on a restaurant: "that number's going to be all over the place. Why did that get flagged?" Only a bill that
+       is the same price every time can jump: the earlier ones must all sit within 15% of the usual. */
+    if(!prev.every(function(v){ return Math.abs(v - med) <= Math.max(3, med * .15); })) return;
     if(daysBetween(last.d, td) <= 45 && last.amt > med * 1.5 && last.amt - med > 40) H.push({ k:'big:' + last.id, pri:2, em:'📈', t:esc(g.desc) + ' was ' + money(last.amt) + ' on ' + esc(shortDate(last.d)) + '.', sub:'It’s usually about ' + money(med) + '. Worth a look — a price rise, a one-off, or a mistake?', look:last }); });
   /* a payment that normally comes out every month and hasn't this month, though later lines are in */
   R.forEach(function(g){ var dd = +g.last.d.slice(8,10), seen = db.tx.some(function(t){ return t.d.slice(0,7) === m && (mkey(t.desc) || t.desc) === g.k; }); var ls = lastSeen(g.last.a);
@@ -7010,6 +7018,9 @@ function pdfLines(f, cb){ pdfLib(function(L){ if(!L) return cb(null);
           tc.items.forEach(function(it){ if(!it.str || !it.str.trim()) return; var y = Math.round(it.transform[5] / 3), x = it.transform[4]; (rows[y] = rows[y] || []).push({ x:x, s:it.str.trim() }); });
           Object.keys(rows).map(Number).sort(function(a,b){ return b - a; }).forEach(function(y){ out.push(rows[y].sort(function(a,b){ return a.x - b.x; })); }); page(); }, function(){ page(); }); })();
     }, function(){ cb(null); }); }; r.onerror = function(){ cb(null); }; r.readAsArrayBuffer(f); }); }
+/* v11.6 · Jerry, 25 Nov: "there's two lines to that transaction … when you see Jewel, you know it's for groceries." Some banks print only the kind
+   (WITHDRAWAL, DEBIT CARD DEBIT) on the dated line and the shop on the line under it. A row that is only such words takes the next line. */
+function thinDesc(x){ var w = String(x||'').trim().split(/\s+/); return !!w[0] && w.length <= 4 && w.every(function(v){ return /^(withdrawal|debit|card|pos|purchase|checkcard|check|ach|eft|electronic|point|of|sale|recurring|payment|deposit|online|mobile|-)$/i.test(v); }); }
 var MON3 = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, sept:9, oct:10, nov:11, dec:12 };
 var MONEY_RE = /^\(?-?\s?\$?\s?-?[\d,]*\d\.\d{2}\)?(\s?(cr|dr|-))?$/i;
 function pdfParse(lines, name){
@@ -7031,11 +7042,12 @@ function pdfParse(lines, name){
     /* split the line back into words, then: a date first (with an optional second, the posting date), money last */
     var d = null, k = 0;
     if(/^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[0])){ d = dateOf(tok[0]); k = 1; if(tok[1] && /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[1])) k = 2; }
+    else if(/^[A-Za-z]{3}\d{2}[A-Za-z]?$/.test(tok[0]||'') && MON3[tok[0].slice(0,3).toLowerCase()]){ var mo2 = MON3[tok[0].slice(0,3).toLowerCase()]; d = (mo2 > endM ? endY - 1 : endY) + '-' + pad2(mo2) + '-' + tok[0].slice(3,5); k = 1; }
     else if(MON3[(tok[0]||'').replace('.','').toLowerCase()] && /^\d{1,2},?$/.test(tok[1]||'')){ var mo = MON3[tok[0].replace('.','').toLowerCase()], dd = parseInt(tok[1], 10); d = (mo > endM ? endY - 1 : endY) + '-' + pad2(mo) + '-' + pad2(dd); k = 2;
       if(MON3[(tok[2]||'').replace('.','').toLowerCase()] && /^\d{1,2},?$/.test(tok[3]||'')) k = 4; }
     /* v11.2 · PayPal prints who was paid on the line under "PreApproved Payment Bill User Payment:" (Jerry's July statement, 24 Nov).
        A line with no date right after such a row finishes its description; "ID:" lines and the wrapped year digit are skipped. */
-    if(!d && last && last.more){ if(/^(ref\s*)?id\s*:/i.test(c.join(' '))){ last.more = 0; last = null; return; } var more = c.join(' ').replace(/^\d\s+/, '').replace(/^\d$/, '').trim(); if(more && !MONEY_RE.test(more) && !/^(date|description|currency|amount|fees|total)/i.test(more)){ last.desc = (last.desc + ' ' + more).slice(0, 80); return; } last = null; }
+    if(!d && last && last.more){ if(/^(ref\s*)?id\s*:/i.test(c.join(' '))){ last.more = 0; last = null; return; } var more = c.join(' ').replace(/^\d\s+/, '').replace(/^\d$/, '').trim(); if(last.more === 2 && (/\d\.\d{2}\b/.test(more) || /balance|total|page \d|^date\b|description|thru/i.test(more))) more = ''; if(more && !MONEY_RE.test(more) && !/^(date|description|currency|amount|fees|total)/i.test(more)){ last.desc = (last.desc + ' ' + more).slice(0, 80); if(last.more === 2){ last.more = 0; last = null; } return; } last = null; }
     if(d) last = null;
     if(!d) { var bm = /(ending|closing|new) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(bm){ out.bal = Math.abs(num(bm[2])); } var sb = /(beginning|opening|previous) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(sb && prevBal == null) prevBal = num(sb[2]); return; }
     var rest = tok.slice(k), money = [];
@@ -7050,7 +7062,7 @@ function pdfParse(lines, name){
     if(money.length >= 2){ var bal = num(money[money.length-1].replace(/cr|dr/ig,'')); if(prevBal != null && Math.abs(Math.abs(bal - prevBal) - A.n) < 0.02) into = bal > prevBal; prevBal = bal; out.bal = Math.abs(bal); }
     if(into == null) into = card ? (A.minus || A.cr || /payment|pymt|pmt|credit/i.test(desc) && A.minus) : (A.cr || (!A.minus && IN.test(desc)));
     if(!card && A.minus && !A.cr) into = false;
-    if(A.n){ var row = { d:d, desc:desc.slice(0,80), raw: into ? A.n : -A.n }; out.rows.push(row); last = row; if(/:$/.test(row.desc) || PP_PRE.test(row.desc)) Object.defineProperty(row, 'more', { value:1, writable:true, enumerable:false }); }
+    if(A.n){ var row = { d:d, desc:desc.slice(0,80), raw: into ? A.n : -A.n }; out.rows.push(row); last = row; if(/:$/.test(row.desc) || PP_PRE.test(row.desc)) Object.defineProperty(row, 'more', { value:1, writable:true, enumerable:false }); else if(thinDesc(row.desc)) Object.defineProperty(row, 'more', { value:2, writable:true, enumerable:false }); }
   });
   if(endY && endM){ out.asOf = endY + '-' + pad2(endM) + '-' + pad2(new Date(endY, endM, 0).getDate()); }
   if(card){ out.bankText += ' credit card'; }

@@ -1173,3 +1173,11 @@ Jerry: "If you listed the information under that tab…", then, on the bills que
 - The 529 question now reads "Do you ever pay for something and then get paid back from a 529 plan?". The "regularly help anyone" question is gone.
 - **Open the statement** tries every statement in the account's folder after the most likely twelve.
 
+
+## v11.6 · Two-line statement entries; no lumping lines with no shop name; steady bills only for price jumps (25 Nov)
+
+Jerry, on his Community Trust statement: "there's two lines to that transaction … when you see Jewel, you know it's for groceries." On PayPal: "it wants me to lump all these together, but I can't." On a restaurant heads-up: "that number's going to be all over the place. Why did that get flagged?"
+- **Second lines** (`thinDesc`, `pdfParse`): a dated row whose description is only the kind of transaction (WITHDRAWAL, DEBIT CARD DEBIT, POS…) takes the one line under it. That line is skipped if it holds money or reads like a balance, total, page or column header. Dates printed as `SEP02` / `NOV03E` are read too.
+- **Repair**: adding the statement again fills in lines already brought in with only that first line, then re-guesses any not yet answered. This works the same way as the PayPal "Payment: USD" repair.
+- **Cut-short lines stand alone** (`cutShort`): a line that is still only "…Payment: USD" or only "WITHDRAWAL" has no shared key, so there is no "change the other 100" prompt and no rule is learned. Rules already learned for "usd" or "withdrawal" are removed on load (`rulesFix`).
+- **Price-jump heads-up** fires only for a bill whose earlier charges all sat within 15% of the usual. Restaurants and shops vary, so they no longer trigger it.
