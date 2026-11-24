@@ -3558,7 +3558,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v10.3 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v10.4 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4823,7 +4823,7 @@ function sortHub(){ var A = sortAccts(), S = A.map(function(a){ return sortState
         + (ok ? '' : '<div class="row" style="gap:8px;margin-top:8px"><button class="b small primary" style="flex:1" onclick="sortIn(\'' + a.id + '\')">👆 Sort it here</button></div><div class="sub" style="margin:6px 0 0;font-size:13px">or <a href="#" onclick="sortMake(\'' + a.id + '\');return false">a spreadsheet</a> · <a href="#" onclick="SORTA=\'' + a.id + '\';document.getElementById(\'shIn\').click();return false">give one back</a></div>') + '</div>'; }).join('')
     + '<input type="file" id="shIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="shRead(this.files[0]);this.value=\'\'">'
     + '<div class="stickfoot">' + (next ? '<button class="b primary full" style="margin-top:0" onclick="sortIn(\'' + next.id + '\')">👆 Next: ' + esc(acctLabel(next)) + '</button>' : '<button class="b primary full" style="margin-top:0" onclick="ckMark(\'sort\');askRound()">All sorted — on to the questions' + (later ? ' (' + later + ')' : '') + '</button>')
-    + (next ? '<button class="b full" onclick="sortRestForMe()">✨ Sort the rest for me</button>' : '')
+    + (next ? '<button class="b full" onclick="guessList()">📋 See every guess in one list — fix the wrong ones</button><button class="b full" onclick="sortRestForMe()">✨ Sort the rest for me</button>' : '')
     + (lookList().length ? '<button class="b full" onclick="openLook()">🔍 To look into (' + lookList().length + ')</button>' : '')
     + (dupList().some(function(x){ return !x.f.done; }) ? '<button class="b full" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ')</button>' : '')
     + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button></div>'); }
@@ -4957,6 +4957,7 @@ function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
     + (one && t0.amt > 0 ? '<p style="margin:8px 0 0"><a href="#" onclick="sortInSplit();return false" style="font-size:14px;font-weight:800">✂️ Split it across categories</a></p>' : '') + '</div><div id="sinSplit"></div>'
     + (S.yes >= 3 && conf.length >= 2 ? '<button class="b full" style="border-color:var(--ok);color:var(--ok);margin-top:14px" onclick="sinAllList()">⚡ Accept the app’s guess for the other ' + conf.length + ' payees<small style="display:block;font-weight:600">you’ll see them all first</small></button>' : '')
     + (N0 > 3 && window.djAI ? '<button class="b full" style="margin-top:10px" onclick="sinAI()">✨ Let my AI suggest answers for all ' + N0 + '</button>' : '')
+    + '<button class="b full" style="margin-top:10px" onclick="guessList()">📋 See every guess in one list</button>'
     + '<button class="b ghost" style="width:100%" onclick="sortHub()">Done for now</button>'
     + '<div class="stickfoot"><button class="b primary full" id="sinYes" style="margin-top:0" onclick="sinYes()">' + (nm ? '✓ ' + (aiS ? 'Yes — ' : '') + esc(nm) + (one ? '' : ' — all ' + g.length) : 'Save') + '</button>'
     + '<div class="row" style="gap:6px"><button class="b small" style="flex:1;margin:0" onclick="sortInLater()">🔍 Later</button><button class="b small" style="flex:1;margin:0" onclick="sinSpouse()">💬 ' + esc(db.spouse || 'Spouse') + '</button>' + (S.i ? '<button class="b small" style="flex:0 0 auto;margin:0" onclick="SIN.i--;sortInStep()">← Back</button>' : '') + '</div></div>');
@@ -5064,7 +5065,31 @@ function sinAI(){ var by = {}; sinLines().forEach(function(t){ if(channel(t)) re
       var byName = {}; db.cats.forEach(function(c){ byName[catLabel(c).toLowerCase()] = c.id; byName[c.name.toLowerCase()] = byName[c.name.toLowerCase()] || c.id; }); byName[SYS.onetime.name.toLowerCase()] = 'onetime';
       var n = 0; Object.keys(v).forEach(function(k){ var cid = byName[String(v[k]||'').toLowerCase().trim()]; if(!cid || D.indexOf(k) < 0) return;
         db.tx.forEach(function(t){ if(!db.asked[t.id] && (!t.cat || t.cat === 'uncat') && !channel(t) && (mkey(t.desc) || t.desc) === k){ t.cat = cid; t.sug = 1; n++; } }); });
-      save(); render(); toast(n + ' line' + (n===1?'':'s') + ' have a suggestion now — say yes or change each one.' + (Object.keys(by).length > 200 ? ' Tap it again for the rest.' : '')); if(SIN) sortInStep(); } }); }
+      save(); render(); toast(n + ' line' + (n===1?'':'s') + ' have a suggestion now.'); guessList(); } }); }
+/* v10.4 · Jerry, 24 Nov: "If you could go through them, and then I could look over your answers and just correct the ones that
+   need it." Every line still to sort that has a guess (the AI's ✨ or the app's own), one row per payee, all ticked, each with
+   its category already chosen. Change a category in place, untick anything to sort one at a time later, then Accept. */
+var GL = [];
+function guessRows(){ var by = {}; sortAccts().forEach(function(a){ acctLines(a.id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0 || channel(t) || t.look || t.subAsk || !t.cat || t.cat === 'uncat') return;
+      var k = t.a + '|' + (mkey(t.desc) || t.desc) + '|' + t.cat; (by[k] = by[k] || { T:[], ai:false }).T.push(t); if(t.sug) by[k].ai = true; }); });
+  return Object.keys(by).map(function(k){ var r = by[k]; r.tot = r.T.reduce(function(s,t){ return s + Math.abs(t.amt); }, 0); return r; }).sort(function(a,b){ return b.tot - a.tot; }); }
+function guessList(){ GL = guessRows(); var left = 0; try{ left = sinUnguessed(); }catch(e){}
+  var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)'; }).sort(function(x,y){ return x.localeCompare(y); }), lines = GL.reduce(function(s,r){ return s + r.T.length; }, 0);
+  openSheet('<div class="stepno">Sort each account</div><h3>📋 Every guess, in one list</h3>'
+    + '<p class="sub">' + (GL.length ? lines + ' line' + (lines===1?'':'s') + ' from ' + GL.length + ' payee' + (GL.length===1?'':'s') + ', biggest first. Change any category that’s wrong; untick any you want to sort one at a time. ✨ = your AI’s suggestion.' : 'No guesses waiting.') + '</p>'
+    + (GL.length ? '<label class="ck" style="margin:0 0 6px"><input type="checkbox" checked onchange="Array.prototype.forEach.call(document.querySelectorAll(\'#sheetIn [data-gl]\'),function(b){b.checked=this.checked;},this);glCount()"> Tick or untick them all</label>' : '')
+    + GL.slice(0, 400).map(function(r, i){ var t = r.T[0], cur = shName(t.cat);
+      return '<div style="border-top:1px solid var(--line);padding:8px 0;display:flex;gap:10px;align-items:flex-start"><input type="checkbox" data-gl="' + i + '" checked onchange="glCount()" style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:4px 0 0;padding:0">'
+        + '<div style="flex:1;min-width:0"><div style="font-family:ui-monospace,Menlo,monospace;font-size:13.5px;font-weight:700;word-break:break-word">' + (r.ai ? '✨ ' : '') + esc(t.desc) + '</div><div class="sub" style="margin:2px 0 4px;font-size:12.5px">' + esc(acctLabel(acct(t.a) || {})) + ' · ' + r.T.length + ' line' + (r.T.length===1?'':'s') + ' · ' + money(r.tot) + '</div>'
+        + '<select data-glc="' + i + '" style="width:100%;font-size:15px;padding:6px;border-radius:10px">' + names.map(function(n){ return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div></div>'; }).join('')
+    + (GL.length > 400 ? '<p class="sub">And ' + (GL.length - 400) + ' more — accept these first and the rest show next.</p>' : '')
+    + (left && window.djAI ? '<button class="b full" style="margin-top:10px" onclick="sinAI()">✨ Let my AI suggest the ' + left + ' line' + (left===1?'':'s') + ' with no guess yet</button>' : left ? '<p class="sub">' + left + ' line' + (left===1?'':'s') + ' have no guess yet — they come up one at a time.</p>' : '')
+    + '<div class="stickfoot"><button class="b primary full" id="glGo" style="margin-top:0" onclick="guessSave()">' + (GL.length ? '✓ Accept ' + Math.min(GL.length, 400) + ' payees' : 'Back') + '</button><button class="b ghost" style="width:100%" onclick="sortHub()">Back to the accounts</button></div>'); }
+function glCount(){ var n = document.querySelectorAll('#sheetIn [data-gl]:checked').length, b = document.getElementById('glGo'); if(b) b.textContent = n ? '✓ Accept ' + n + ' payee' + (n===1?'':'s') : 'Nothing ticked'; }
+function guessSave(){ if(!GL.length){ sortHub(); return; } var n = 0, p = 0;
+  Array.prototype.forEach.call(document.querySelectorAll('#sheetIn [data-gl]'), function(b){ if(!b.checked) return; var i = +b.getAttribute('data-gl'), r = GL[i], sel = document.querySelector('#sheetIn [data-glc="' + i + '"]'); if(!r || !sel) return;
+    SHNEW = []; var cid = shFind(sel.value); if(!cid) return; r.T.forEach(function(t){ sortSet(t, cid); n++; }); p++; });
+  save(); render(); toast(n + ' line' + (n===1?'':'s') + ' from ' + p + ' payee' + (p===1?'':'s') + ' sorted. Change any later by tapping it in a list.'); SHBACK = 1; if(guessRows().length) guessList(); else sortHub(); }
 /* 🎤 say the category: the words heard are matched to the closest category name */
 function catMatch(said, names){ var w = String(said||'').toLowerCase().replace(/[^a-z0-9 &]/g,' ').replace(/\s+/g,' ').trim(); if(!w) return null;
   var syn = { 'eating out':'dining', 'restaurant':'dining', 'restaurants':'dining', 'food':'groceries', 'grocery':'groceries', 'gasoline':'gas', 'fuel':'gas', 'doctor':'health', 'medical':'health', 'pharmacy':'health', 'church':'giving', 'tithe':'giving', 'donation':'giving' };
