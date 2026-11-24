@@ -1026,3 +1026,9 @@ Jerry, on "What makes up Arizona car": "there's some things in here that are not
   - payees whose statement words point to a different category than the one they're in (checked with the remembered rules set aside);
   - on request, payees the AI thinks are clearly misfiled (`ccAI`, which sends payee names and category names only).
 - Each card offers **Move all to X**, **Somewhere else…** or **It's right**. "It's right" is remembered in `db.ccOk`.
+
+## v10.3 · ✨ What is this? (24 Nov)
+
+Jerry: "you gave me Tangled Roots Cafe … personal care, but if you looked on the website, you would see this as a restaurant … one more level of checking?"
+- A web page can't read another website, so under the web-search link (on the sort screen, the questions and Move a line) **✨ What is this?** (`whatIs`) asks the AI what the business is. It sends the cleaned payee name and the category names, nothing else, and needs no confirm box because the tap is the ask. It shows "✨ A neighborhood café — **Dining out** [Use it]". Use it picks the category; on the sort screen you still tap ✓.
+- Real web search for the AI belongs to the house's AI door. Jerry chose "Both", so it went to the house chat on 24 Nov, with a small charge per lookup for him to approve there.
