@@ -3413,7 +3413,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v10.0 · 2026-11-21 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v10.1 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4226,7 +4226,7 @@ function gkHelp(id){
 function gkNewHelp(id, kind){ var n = document.getElementById('hpN').value.trim(); if(!n){ alert('Type their name first.'); return; } var h = { id:uid(), name:n, kind:kind }; db.helpees.push(h); gkSave(id, 'help:' + h.id, ''); }
 function gkSave(id, c, what){
   var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t || !c) return;
-  t.cat = c; delete t.sug; if(what) t.note = what.trim(); db.asked[id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== id; });
+  noteRecent(c); t.cat = c; delete t.sug; if(what) t.note = what.trim(); db.asked[id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== id; });
   db.reclass = db.reclass.filter(function(r){ return r.id !== id; });
   db.reclass.unshift({ id:id, d:t.d, amt:t.amt, desc:t.desc, what:t.note || catName(c), cat:c, at:today() });
   var ch = channel(t); if(ch){ db.pats = db.pats.filter(function(p){ return !(p.ch === ch && Math.abs(p.amt - t.amt) <= Math.max(5, p.amt * .1)); }); db.pats.unshift({ ch:ch, amt:t.amt, cat:c }); }
@@ -4647,7 +4647,7 @@ function sortMade(a, n, R){ a.passes = (a.passes||0) + 1; db.shMade = today(); s
    app's guess already picked, any category or a new one, and "not sure" sends it to the questions. The spreadsheet stays
    as the other way. What is answered here is remembered exactly as a sheet given back is. */
 var SIN = null;
-function sortSet(t, id){ t.cat = id; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; });
+function sortSet(t, id){ noteRecent(id); t.cat = id; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; });
   db.reclass = db.reclass.filter(function(x){ return x.id !== t.id; }); db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:t.note || catName(id), cat:id, at:today() });
   if(!channel(t) && !isP3(id) && id !== 'onetime' && id !== 'inc' && id !== 'xfer'){ var k = mkey(t.desc); if(k){ db.rules = db.rules.filter(function(x){ return x.k !== k; }); db.rules.unshift({ k:k, cat:id }); } } }
 /* v8.5 · Jerry, 19 Nov: "in the setup, actually go through that list and see which ones are valid and not, and add them before
@@ -4677,7 +4677,7 @@ function sortGroups(L){ var G = {}, order = []; L.forEach(function(t){ subApply(
   return order.map(function(k){ return G[k]; }); }
 function sortIn(id, only){ var a = acct(id); if(!a) return sortHub(); if(!db.catsChecked) return catReview(function(){ sortIn(id, only); }); var AK = autoKnown(id);
   var L = (only ? db.tx.filter(function(t){ return t.a === id && db.notSure.indexOf(t.id) >= 0 && inWin(t); }) : acctLines(id).filter(function(t){ return !(db.asked[t.id] && t.cat !== 'uncat') && db.notSure.indexOf(t.id) < 0; })).sort(function(x,y){ return x.d < y.d ? -1 : 1; });
-  SIN = { a:id, groups:sortGroups(L), i:0, auto:AK, done:0, look:!!only }; save(); sortInStep(); }
+  SIN = { a:id, groups:sortGroups(L), i:0, auto:AK, done:0, look:!!only, yes:0 }; save(); sortInStep(); }
 /* the "Look into later" list: everything set aside, by account and payee, to open any time */
 function lookList(){ var by = {}; db.tx.forEach(function(t){ if(db.notSure.indexOf(t.id) < 0 || !inWin(t)) return; var k = t.a + '|' + (subKey(t) || mkey(t.desc) || t.desc); (by[k] = by[k] || { a:t.a, T:[] }).T.push(t); });
   return Object.keys(by).map(function(k){ return by[k]; }); }
@@ -4702,31 +4702,39 @@ function sortInStep(){ var S = SIN, a = acct(S.a), g = S.groups[S.i];
      category A to Z, so a new one lands where you'd look for it. */
   var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)'; }), use = {};
   db.tx.forEach(function(t){ if(db.asked[t.id] && t.cat && t.cat !== 'uncat'){ var k = shName(t.cat); if(k) use[k] = (use[k]||0) + 1; } });
-  var top = names.filter(function(n){ return use[n]; }).sort(function(x,y){ return use[y] - use[x]; }).slice(0, 8), az = names.slice().sort(function(x,y){ return x.localeCompare(y); });
+  /* v10.1 · Jerry, 24 Nov: "leave the top used ones, because I find myself repeating one after the next" — the last ones used, newest first */
+  var top = recentNames(names, 6), az = names.slice().sort(function(x,y){ return x.localeCompare(y); });
+  var aiS = g[0].sug && nm, conf = sinConfident(S), N0 = sinUnguessed();
   var opt = function(n){ return '<option' + (n === nm ? ' selected' : '') + '>' + esc(n) + '</option>'; };
   var cw = channel(t0) === 'check' || channel(t0) === 'cash', sets = !one && !cw && !t0.subAsk ? chargeSets(g) : [], each = g.length > 1 && g.every(function(t){ return Math.abs(Math.abs(t.amt) - Math.abs(t0.amt)) <= Math.max(1, Math.abs(t0.amt) * .1); });
   var askName = t0.subAsk || (each && g.length >= 3);
   openSheet('<div class="stepno">Sort · ' + esc(acctLabel(a)) + ' · ' + (S.i + 1) + ' of ' + S.groups.length + '</div>'
     + '<div class="meter" style="margin:4px 0 12px"><i style="width:' + Math.round(S.i / S.groups.length * 100) + '%;background:var(--ok)"></i></div>'
     + (g.backTo ? '<div class="line ok" style="font-size:14px;margin:0 0 8px">Back to the other ' + g.length + ' line' + (g.length===1?'':'s') + ' from this payee — tick any more that are different, or sort the rest together.</div>' : '')
-    + '<h3 style="font-family:ui-monospace,Menlo,monospace;font-size:18px;word-break:break-word">' + esc(t0.desc) + '</h3>'
+    + '<div class="card" style="margin:6px 0 10px;padding:12px 14px"><div style="font-family:ui-monospace,Menlo,monospace;font-size:17px;font-weight:700;word-break:break-word">' + esc(t0.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(a)) + '</div>'
+    + (channel(t0) === 'check' || channel(t0) === 'cash' || /zelle|venmo|cash ?app/i.test(t0.desc) ? '' : '<a href="' + webLook(t0.desc) + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-weight:800;color:var(--brand)">🔎 Search the web for “' + esc(webName(t0.desc)) + '”</a>') + '</div>'
     + (g.some(function(t){ return t.look; }) ? '<div class="line warn" style="font-size:14px;margin:0 0 8px">⚠️ ' + esc(g.filter(function(t){ return t.look; })[0].look) + '</div>' : '')
     + '<p class="sub" style="margin-top:0">' + (one ? shortDate(t0.d) + ' ' + t0.d.slice(0,4) + ' · ' + (t0.amt >= 0 ? 'spent ' + money(t0.amt) : 'came in ' + money(-t0.amt)) : g.length + ' lines · ' + (each ? money(Math.abs(t0.amt)) + ' each, ' : '') + money(Math.abs(tot)) + ' in all · ' + shortDate(g[0].d) + ' to ' + shortDate(g[g.length-1].d)) + '</p>'
     + (one ? '' : '<details style="margin:-4px 0 10px"' + (g.backTo ? ' open' : '') + '><summary style="cursor:pointer;font-weight:800;color:var(--brand);font-size:14px">See each line</summary><p class="sub" style="margin:6px 0 0;font-size:13px">Tick any line that’s different, then sort it on its own.</p><ul class="list">' + g.map(function(t, i){ return '<li style="font-size:14px;display:block"><label style="display:flex;gap:10px;align-items:center;width:100%;margin:0;font-weight:400;cursor:pointer"><input type="checkbox" data-li="' + i + '" onchange="sinTicks()" style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:0;padding:0"><span style="flex:0 0 52px;color:var(--soft)">' + shortDate(t.d) + '</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">' + esc(t.desc) + (t.note ? '<small style="display:block;color:var(--soft)">' + esc(t.note) + '</small>' : '') + '</span><span style="flex:0 0 auto;font-weight:800">' + money(Math.abs(t.amt)) + '</span></label></li>'; }).join('') + '</ul><button class="b small" id="sinOwn" style="display:none" onclick="sinOwn()">Sort these on their own</button></details>')   /* v9.4 · Jerry: "I lost the ability to pick each line and deal with it" */
     + (sets.length > 1 ? '<div class="line warn" style="font-size:14.5px">These look like <b>' + sets.length + ' different charges</b> — ' + sets.slice(0, 4).map(function(T){ return money(Math.abs(T[T.length-1].amt)) + ' ×' + T.length; }).join(', ') + (sets.length > 4 ? '…' : '') + '. <a href="#" onclick="sortInSplitBy();return false" style="font-weight:800">Sort each one</a></div>' : '')
     + (channel(t0) && !askName ? '<p class="sub" style="font-size:14px">' + esc(({ check:'A check', cash:'Cash' })[channel(t0)] || ('A ' + channel(t0).replace(/^\w/, function(x){ return x.toUpperCase(); }) + ' payment')) + ' — only you know what it was for.</p>' : '')
     + (askName ? '<label style="margin-top:8px">What is it? <small style="font-weight:600;color:var(--soft)">(optional — e.g. Hulu)</small></label><input id="sinSub" placeholder="Name this charge" value="' + esc(t0.sub || '') + '">' : '')
-    + '<div id="sinCatBox"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:12px"><label style="margin:0">Category</label><a href="#" id="sinRen" onclick="sortInRename();return false" style="font-size:14px;font-weight:800">✎ Rename it</a></div>'
+    + '<h3 style="font-size:19px;margin:14px 0 8px">' + (nm ? (aiS ? '✨ Your AI thinks this is <b>' : 'This looks like <b>') + esc(nm) + '</b> — right?' : 'What was this?') + '</h3>'
+    + '<div class="pick" id="sinChips" style="grid-template-columns:repeat(2,minmax(0,1fr))">' + top.filter(function(n){ return n !== nm; }).slice(0, 5).map(function(n){ return '<button data-chip="' + esc(n) + '" onclick="sinPick(this.getAttribute(\'data-chip\'))">' + esc(n) + '</button>'; }).join('')
+    + (window.SpeechRecognition || window.webkitSpeechRecognition ? '<button id="sinSay" onclick="sinSay()" style="border-color:var(--brand);color:var(--brand)">🎤 Say it<small>e.g. “dining out”</small></button>' : '') + '</div>'
+    + '<div id="sinCatBox"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:12px"><label style="margin:0">' + (nm || top.length ? 'Or pick from every category' : 'Category') + '</label><a href="#" id="sinRen" onclick="sortInRename();return false" style="font-size:14px;font-weight:800">✎ Rename it</a></div>'
     + '<select id="sinCat" style="width:100%;font-size:17px;padding:10px;border-radius:12px;margin-top:6px" onchange="document.getElementById(\'sinNewRow\').style.display=this.value===\'__new\'?\'flex\':\'none\';if(this.value===\'__new\')document.getElementById(\'sinNew\').focus()">'
     + (nm ? '' : '<option value="">— pick one —</option>') + '<option value="__new">＋ A new category…</option>'
-    + (top.length ? '<optgroup label="Picked most">' + top.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) >= 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup><optgroup label="All, A to Z">' + az.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) < 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup>' : az.map(opt).join('')) + '</select>'
+    + (top.length ? '<optgroup label="Used last">' + top.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) >= 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup><optgroup label="All, A to Z">' + az.map(function(n){ return '<option' + (n === nm && top.indexOf(nm) < 0 ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</optgroup>' : az.map(opt).join('')) + '</select>'
     + '<div id="sinNewRow" class="row" style="gap:8px;margin-top:8px;display:none"><input id="sinNew" placeholder="Name the new category" style="flex:1" onkeydown="if(event.key===\'Enter\'){ event.preventDefault(); sinNewAdd(); }"><button class="b" style="margin:0;flex:0 0 auto" onclick="sinNewAdd()">＋ Add</button></div>'
-    + '<input id="sinNote" maxlength="60" placeholder="Note (optional) — e.g. for the golf trip" value="' + esc(one && !/^part \d/.test(t0.note || '') ? t0.note || '' : '') + '" style="margin-top:8px">'   /* v9.3 · Jerry: "add a field to put a comment in, not a long one" */
+    + '<label for="sinNote" style="margin-top:12px">What was this? <small style="font-weight:600;color:var(--soft)">(a short note, optional)</small></label><input id="sinNote" maxlength="60" placeholder="e.g. for the golf trip" value="' + esc(one && !/^part \d/.test(t0.note || '') ? t0.note || '' : '') + '" style="margin-top:8px">'   /* v9.3 · Jerry: "add a field to put a comment in, not a long one" */
     + (innerWidth >= 700 ? '<p class="sub" style="margin:6px 0 0;font-size:13px">Tip: type a letter to jump to it — D, then D again for the next one. Enter saves.</p>' : '')
     + (one && t0.amt > 0 ? '<p style="margin:8px 0 0"><a href="#" onclick="sortInSplit();return false" style="font-size:14px;font-weight:800">✂️ Split it across categories</a></p>' : '') + '</div><div id="sinSplit"></div>'
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sortInSave()">' + (nm ? '✓ ' + esc(nm) + (one ? '' : ' — all ' + g.length) : 'Save') + '</button>'
-    + '<div class="row" style="gap:8px"><button class="b" style="flex:1" onclick="sortInLater()">🔍 Look into later</button>' + (S.i ? '<button class="b" style="flex:0 0 auto" onclick="SIN.i--;sortInStep()">← Back</button>' : '') + '</div>'
-    + '<button class="b ghost" style="width:100%" onclick="sortHub()">Done for now</button></div>');
+    + (S.yes >= 3 && conf.length >= 2 ? '<button class="b full" style="border-color:var(--ok);color:var(--ok);margin-top:14px" onclick="sinAllList()">⚡ Accept the app’s guess for the other ' + conf.length + ' payees<small style="display:block;font-weight:600">you’ll see them all first</small></button>' : '')
+    + (N0 > 3 && window.djAI ? '<button class="b full" style="margin-top:10px" onclick="sinAI()">✨ Let my AI suggest answers for all ' + N0 + '</button>' : '')
+    + '<button class="b ghost" style="width:100%" onclick="sortHub()">Done for now</button>'
+    + '<div class="stickfoot"><button class="b primary full" id="sinYes" style="margin-top:0" onclick="sinYes()">' + (nm ? '✓ ' + (aiS ? 'Yes — ' : '') + esc(nm) + (one ? '' : ' — all ' + g.length) : 'Save') + '</button>'
+    + '<div class="row" style="gap:6px"><button class="b small" style="flex:1;margin:0" onclick="sortInLater()">🔍 Later</button><button class="b small" style="flex:1;margin:0" onclick="sinSpouse()">💬 ' + esc(db.spouse || 'Spouse') + '</button>' + (S.i ? '<button class="b small" style="flex:0 0 auto;margin:0" onclick="SIN.i--;sortInStep()">← Back</button>' : '') + '</div></div>');
   var sel = document.getElementById('sinCat'); if(!sel) return;
   var lab = function(){ var b = document.querySelector('#sheetIn .stickfoot button.primary'); if(b && !SPLIT) b.textContent = sel.value === '__new' ? '＋ Add the new category' : !sel.value ? 'Save' : '✓ ' + sel.value + (one ? '' : ' — all ' + g.length); var r = document.getElementById('sinRen'); if(r) r.style.visibility = catByName(sel.value) ? '' : 'hidden'; };
   sel.addEventListener('change', lab); lab(); SPLIT = null;
@@ -4796,6 +4804,59 @@ function sinNewAdd(){ var n = (document.getElementById('sinNew').value || '').tr
   sortInStep(); var sel = document.getElementById('sinCat'); if(sel){ for(var k = sel.options.length - 1; k >= 0; k--) if(sel.options[k].text === label){ sel.selectedIndex = k; break; } sel.dispatchEvent(new Event('change')); }
   var nt = document.getElementById('sinNote'); if(nt){ nt.value = keep.note; nt.focus(); } var sb = document.getElementById('sinSub'); if(sb && keep.sub) sb.value = keep.sub;
   toast('Added “' + label + '”. Add a note if you like, then save.'); }
+/* v10.1 · Jerry, 24 Nov, sorting the credit cards: "let's go back more closer to the way the checking account goes and then add
+   some options on the AI suggestion." The card at the top like checking, "This looks like X — right?" with one ✓, the last few
+   categories as buttons, 🎤 Say it, a note, Save it for my spouse, the AI for every line with a yes or no on each, and — once
+   he has said yes to a few of the app's own guesses — the rest of its confident guesses on one list to tick through. */
+function noteRecent(id){ if(!id || id === 'uncat') return; db.recentCats = [id].concat((db.recentCats || []).filter(function(x){ return x !== id; })).slice(0, 12); }
+function recentNames(names, n){ var out = []; (db.recentCats || []).forEach(function(id){ var k = shName(id); if(k && names.indexOf(k) >= 0 && out.indexOf(k) < 0) out.push(k); }); return out.slice(0, n); }
+function sinPick(n){ var sel = document.getElementById('sinCat'); if(!sel) return; for(var k = 0; k < sel.options.length; k++) if(sel.options[k].text === n){ sel.selectedIndex = k; break; }
+  sel.dispatchEvent(new Event('change')); document.getElementById('sinNewRow').style.display = 'none';
+  Array.prototype.forEach.call(document.querySelectorAll('#sinChips [data-chip]'), function(b){ b.classList.toggle('on', b.getAttribute('data-chip') === n); }); }
+function sinYes(){ var S = SIN, g = S.groups[S.i]; if(!g) return; var sel = document.getElementById('sinCat'), nm = shName(g[0].cat);   /* a yes to the app's own guess counts toward "accept the rest" */
+  if(!SPLIT && nm && sel && sel.value === nm && !g[0].sug) S.yes = (S.yes || 0) + 1; sortInSave(); }
+function sinSpouse(){ var S = SIN, g = S.groups[S.i]; if(!g) return; g.forEach(function(t){ delete t.subAsk; delete db.asked[t.id]; db.spouseQ = (db.spouseQ || []).filter(function(x){ return x !== t.id; }).concat([t.id]); if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); });
+  S.i++; save(); toast('Saved for ' + (db.spouse || 'your spouse') + ' — it waits here until they sit down.'); sortInStep(); }
+/* the app's own guesses still ahead on this card (not the AI's, which get a yes or no one at a time) */
+function sinConfident(S){ return S.groups.slice(S.i + 1).filter(function(g){ var c = g[0].cat; return c && c !== 'uncat' && !g[0].sug && !g.some(function(t){ return t.look || t.subAsk; }) && g.every(function(t){ return t.cat === c; }); }); }
+function sinAllList(){ var S = SIN, C = sinConfident(S);
+  openSheet('<div class="stepno">Sort · ' + esc(acctLabel(acct(S.a))) + '</div><h3>⚡ The app’s guesses for the rest</h3><p class="sub">Untick any that are wrong — those come back one at a time.</p><ul class="list">'
+    + C.map(function(g, i){ var tot = g.reduce(function(x,t){ return x + t.amt; }, 0); return '<li style="display:block;font-size:14.5px"><label style="display:flex;gap:10px;align-items:center;margin:0;font-weight:400;cursor:pointer"><input type="checkbox" data-acc="' + i + '" checked style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:0;padding:0"><span style="flex:1;min-width:0"><b style="font-family:ui-monospace,Menlo,monospace;font-size:13.5px;word-break:break-word">' + esc(g[0].desc) + '</b><small style="display:block;color:var(--soft)">' + g.length + ' line' + (g.length===1?'':'s') + ' · ' + money(Math.abs(tot)) + '</small></span><b style="flex:0 0 auto;color:var(--ok)">' + esc(shName(g[0].cat)) + '</b></label></li>'; }).join('') + '</ul>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sinAllSave()">✓ Accept the ticked ones</button><button class="b ghost" style="width:100%" onclick="sortInStep()">Back to one at a time</button></div>'); }
+function sinAllSave(){ var S = SIN, C = sinConfident(S), n = 0, keep = {};
+  Array.prototype.forEach.call(document.querySelectorAll('#sheetIn [data-acc]'), function(b){ if(b.checked) keep[+b.getAttribute('data-acc')] = 1; });
+  C.forEach(function(g, i){ if(!keep[i]) return; g.forEach(function(t){ delete t.subAsk; sortSet(t, t.cat); }); n += g.length; var at = S.groups.indexOf(g); if(at > S.i) S.groups.splice(at, 1); S.done++; });
+  save(); toast(n + ' line' + (n===1?'':'s') + ' sorted.'); sortInStep(); }
+/* lines with no guess at all, on every account still to sort */
+function sinLines(){ var L = []; sortAccts().forEach(function(a){ acctLines(a.id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0) return; if(!t.cat || t.cat === 'uncat') L.push(t); }); }); return L; }
+function sinUnguessed(){ try{ return sinLines().length; }catch(e){ return 0; } }
+function sinAI(){ var by = {}; sinLines().forEach(function(t){ if(channel(t)) return; var k = mkey(t.desc) || t.desc; if(k) by[k] = 1; });
+  var D = Object.keys(by).slice(0, 200); if(!D.length){ alert('The lines left are checks or cash — only you know those.'); return; }
+  var names = db.cats.map(function(c){ return catLabel(c); }).concat([SYS.onetime.name]);
+  ask({ title:'Suggest answers', want:'json', circle:false,
+    prompt:'These are payees from my bank and credit card statements, and my budget categories. Suggest the best category for each. Answer with JSON only: {"payee exactly as given": "category exactly as given"}. If you cannot tell, leave it out.\n\nCategories:\n' + names.join('\n') + '\n\nPayees:\n' + D.join('\n'),
+    onResult:function(v){ if(!v || typeof v !== 'object'){ alert('That answer did not come back in the expected shape.'); return; }
+      var byName = {}; db.cats.forEach(function(c){ byName[catLabel(c).toLowerCase()] = c.id; byName[c.name.toLowerCase()] = byName[c.name.toLowerCase()] || c.id; }); byName[SYS.onetime.name.toLowerCase()] = 'onetime';
+      var n = 0; Object.keys(v).forEach(function(k){ var cid = byName[String(v[k]||'').toLowerCase().trim()]; if(!cid || D.indexOf(k) < 0) return;
+        db.tx.forEach(function(t){ if(!db.asked[t.id] && (!t.cat || t.cat === 'uncat') && !channel(t) && (mkey(t.desc) || t.desc) === k){ t.cat = cid; t.sug = 1; n++; } }); });
+      save(); render(); toast(n + ' line' + (n===1?'':'s') + ' have a suggestion now — say yes or change each one.' + (Object.keys(by).length > 200 ? ' Tap it again for the rest.' : '')); if(SIN) sortInStep(); } }); }
+/* 🎤 say the category: the words heard are matched to the closest category name */
+function catMatch(said, names){ var w = String(said||'').toLowerCase().replace(/[^a-z0-9 &]/g,' ').replace(/\s+/g,' ').trim(); if(!w) return null;
+  var syn = { 'eating out':'dining', 'restaurant':'dining', 'restaurants':'dining', 'food':'groceries', 'grocery':'groceries', 'gasoline':'gas', 'fuel':'gas', 'doctor':'health', 'medical':'health', 'pharmacy':'health', 'church':'giving', 'tithe':'giving', 'donation':'giving' };
+  Object.keys(syn).forEach(function(k){ if(w === k) w = syn[k]; });
+  var best = null, bs = 0; names.forEach(function(n){ var l = n.toLowerCase().replace(/[^a-z0-9 &]/g,' ').replace(/\s+/g,' ').trim(), sc = 0;
+    if(l === w) sc = 100; else if(l.indexOf(w) === 0) sc = 90; else if((' ' + l + ' ').indexOf(' ' + w + ' ') >= 0) sc = 85; else if(l.indexOf(w) >= 0) sc = 70;
+    else { var A = w.split(' '), B = l.split(' '), hit = A.filter(function(x){ return x.length > 2 && B.some(function(y){ return y.indexOf(x) === 0 || x.indexOf(y) === 0 && y.length > 2; }); }).length; sc = hit ? 50 + 30 * hit / A.length : 0; }
+    if(sc > bs){ bs = sc; best = n; } }); return bs >= 50 ? best : null; }
+function sinSay(){ var R = window.SpeechRecognition || window.webkitSpeechRecognition, b = document.getElementById('sinSay'); if(!R) return;
+  var r = new R(); r.lang = 'en-US'; r.interimResults = false; r.continuous = false; r.maxAlternatives = 4;
+  var names = Array.prototype.map.call(document.querySelectorAll('#sinCat option'), function(o){ return o.text; }).filter(function(n, i, A){ return n !== '＋ A new category…' && n !== '— pick one —' && A.indexOf(n) === i; });
+  if(b) b.innerHTML = '🎤 Listening…<small>say the category</small>';
+  r.onresult = function(e){ var got = null, heard = ''; for(var k = 0; k < e.results[0].length && !got; k++){ heard = heard || e.results[0][k].transcript; got = catMatch(e.results[0][k].transcript, names); }
+    if(got){ sinPick(got); toast('Heard “' + heard + '” → ' + got + '. Tap ✓ to save.'); var sv = document.querySelector('#sheetIn .stickfoot button.primary'); if(sv) sv.scrollIntoView({ block:'nearest' }); } else toast('Heard “' + heard + '” — no category like that. Pick it from the list, or say it again.'); };
+  r.onend = function(){ var b2 = document.getElementById('sinSay'); if(b2) b2.innerHTML = '🎤 Say it<small>e.g. “dining out”</small>'; };
+  r.onerror = function(e){ if(e && e.error === 'not-allowed') toast('The microphone is turned off for this page — allow it in the browser’s settings.'); };
+  try{ r.start(); }catch(e){} }
 function sortInLater(){ var S = SIN, g = S.groups[S.i]; g.forEach(function(t){ delete t.subAsk; delete db.asked[t.id]; if(db.notSure.indexOf(t.id) < 0) db.notSure.push(t.id); }); S.i++; save(); sortInStep(); }
 
 /* after a sheet is given back (shRead calls this when it came from Sort each account) */
