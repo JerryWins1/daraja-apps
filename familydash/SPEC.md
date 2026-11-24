@@ -1005,3 +1005,14 @@ Jerry: "when I think of a dashboard, I think of one screen that has statistics a
   - Four buttons: Add statements, Ask, Budget and Lists.
 - Every dial, tile and row opens what's behind it. The heads-up card still sits above the glance, and everything else moves below it.
 - The overview and first-time videos each have one reworded line, re-recorded by name.
+
+## v10.1 · sorting a card the way checking works, plus faster ways through (24 Nov)
+
+Jerry, sorting his credit cards: "let's go back more closer to the way the checking account goes and then add some options on the AI suggestion", "leave the top used ones", "if the user validates a couple, give them a chance to do all of them", and "what if I just said dining out … and then you find it?"
+- The payee sits in a box at the top with its web-search link, then the question "This looks like X — right?", or "✨ Your AI thinks this is X — right?", or "What was this?". The big ✓ at the bottom says yes.
+- The last categories used (`db.recentCats`, kept by `sortSet` and `gkSave`) show as buttons under the question, and as "Used last" at the top of the full list.
+- 🎤 **Say it** (`sinSay`, the browser's speech recognition, one phrase) matches the words to the closest category (`catMatch`, with a few everyday synonyms) and selects it. Nothing is saved until ✓.
+- A labelled note box, "What was this?", sits under the category.
+- The pinned bar holds the big ✓, then 🔍 Later, 💬 (save it for the spouse, `sinSpouse`) and ← Back.
+- **✨ Let my AI suggest answers for all N** (`sinAI`) sends the payee names of every line with no guess, on every account, up to 200 per tap. Each one then comes up with "Your AI thinks … — right?", to say yes to or change.
+- **⚡ Accept the app's guess for the rest** shows after three yeses to the app's own guesses (not the AI's). It lists every remaining payee the app has a confident guess for, all ticked. Unticked ones come back one at a time.
