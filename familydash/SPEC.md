@@ -1118,3 +1118,17 @@ Jerry chose "Yes, build both".
 ## v11.1 · tick which ones change (24 Nov)
 
 Jerry, on Immanuel Church (coffee, plus donations): "just tick the ones that change." The "Change the other N … too?" screen has a tick box on every line (all ticked) and a "Tick or untick them all" box. The button counts the ticked ones. Unticked lines keep their category; any still waiting keep their own guess (`GKSKIP`, `t.keepGuess`), even though the payee's remembered category follows the new choice.
+
+## v11.2 · PayPal statements read in full (24 Nov)
+
+Jerry: "Having a ton of trouble with categorizing the PayPal because there's not a lot of detail on it." His statement had the payee all along. PayPal prints it on the line under the type ("PreApproved Payment Bill User Payment:" / then the payee / then "ID: …"), and the app kept only the first line plus the USD column.
+- `pdfParse`:
+  - A row whose description ends in ":" or starts with a PayPal type takes the next undated lines until the "ID:" line. This handles two-line payee names.
+  - A currency code at the end of a description is dropped.
+  - A year cut by a wrap ("07/08/202" / "6") falls back to the statement's year.
+  - "General Credit Card Deposit" no longer makes a PayPal statement look like a card statement. That misreading had turned its signs around.
+- `mkey` and `webName` skip PayPal's type words (`PP_PRE`), so payees are told apart. Before, every PayPal payment was one payee ("preapproved payment"), and a correction to one would have applied to all.
+- Reading a PayPal statement again repairs the lines already in the app (`takeFile`): same account, date and amount, with the old cut-short words. They get their full words instead of a twin. Ones not yet answered are guessed again; answered ones keep the answer.
+- A PayPal file's direction is worked out afresh each time, because a remembered direction from the old misreading would be backwards.
+- "General Credit Card Deposit" in PayPal (topping up from a card for the payment beside it) is filed as money moving (`ppFund`).
+- Checked against Jerry's July statement locally (30 lines, every payee named). The statement isn't in the repo.
