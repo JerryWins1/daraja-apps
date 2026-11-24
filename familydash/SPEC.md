@@ -1039,3 +1039,13 @@ Jerry: "If you could go through them, and then I could look over your answers an
 - **📋 See every guess in one list** (`guessList`) is on Sort each account and on the sort screen. It lists every line still to sort that has a guess (the AI's ✨ or the app's own), one row per account and payee, biggest first, up to 400. Each row is ticked and has its category in a dropdown to change in place. **Accept** sorts the ticked rows with whatever their dropdown says; unticked rows wait to be sorted one at a time. A "Tick or untick them all" box is at the top.
 - **✨ Let my AI suggest answers** now opens this list when it finishes, rather than going one at a time. The list also offers the AI for lines that still have no guess.
 - Anything accepted can be changed later by tapping it in any list (Move a line), or found with 🧹 Check every category.
+
+## v10.5 · 📄 See the statement (24 Nov)
+
+Jerry: "we actually have that document in our folder, right? Could we go dig out the October Capital One statement … and display it? And then we don't have to go dig through our file folders and lose our place." He chose computer only.
+- Each line now remembers the file it was read from (`t.f`, the path inside the linked folder), set in `groupAndGo` and `takeFile`.
+- **📄 See the statement** (`stmtOpen`) appears on the sort screen, the questions and Move a line, wherever the browser can link a folder (`showDirectoryPicker`: Chrome and Edge on a computer).
+  - It opens the remembered file, or, for lines read before this, searches the linked folder. The search ranks files by the account's folder, last 4, name and the line's month or the next one, then confirms the file holds the line's words and amount.
+  - It opens the file in a new tab at that PDF page (`#page=N`), so the app keeps its place. The tab is opened at the tap so it isn't blocked as a popup.
+  - If the folder isn't linked, it offers to link it.
+  - Nothing is copied or sent.
