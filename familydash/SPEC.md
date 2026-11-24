@@ -1049,3 +1049,17 @@ Jerry: "we actually have that document in our folder, right? Could we go dig out
   - It opens the file in a new tab at that PDF page (`#page=N`), so the app keeps its place. The tab is opened at the tap so it isn't blocked as a popup.
   - If the folder isn't linked, it offers to link it.
   - Nothing is copied or sent.
+
+## v10.6 · the questions in one dropdown, and What is this? looks it up (24 Nov)
+
+Jerry, answering the questions: "It chose one thing. I chose something else … it didn't change the blue line to that line. It kept what it thought it was initially," then: "you could combine the blue line, what you think it is, and the 2 lines for something else in a different category into one … If that was just a drop down."
+- The questions screen (`openGTKY`) drops its list of answer buttons (the guess, One-time, Help, A different category, Something else) and the second screens behind them. Now it shows:
+  - "This looks like X — right?";
+  - recent categories as buttons;
+  - one dropdown (`#gkC`) already set to the guess, with ＋ A new category…, ＋ Help for a person not listed…, Used last, then All A to Z;
+  - a note box, "What was it?";
+  - one blue button (`#gkGo`, `gkGoSave`), whose label always matches the dropdown (`gkLab`);
+  - "🔍 Not sure — keep it for later", Save it for my spouse and the AI-for-all button, as before.
+- "✨ What is this? → Use it" on this screen now sets the dropdown rather than saving at once.
+- `whatIs` asks with `web:true`. The house door (house v87, #657) looks the business up once Jerry switches web search on at the door; until then it answers from memory as before. A looked-up answer shows its sources (`djAI.sources()`) under it, as the search terms require.
+- The two video lines that pointed at the old buttons now point at `#gkC`. The words are unchanged, so nothing needed re-recording.
