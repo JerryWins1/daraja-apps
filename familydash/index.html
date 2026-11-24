@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.1 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.2 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3691,8 +3691,11 @@ var KW = {
 var XFER = /(payment.{0,12}thank you|autopay|auto pay|online pmt|online payment|credit card payment|card payment|epay|transfer (to|from)|xfer|internal transfer|payment received|pymt)/i;
 var INCOME = /(payroll|direct dep|dir dep|salary|social security|ssa treas|ss benefit|pension|annuity|dividend|interest paid|interest earned|deposit)/i;
 /* ── sorting: the family's own rules first, then the built-in words ── */
+/* v11.2 · PayPal's own words come first on every line ("PreApproved Payment Bill User Payment: Google"), so the payee is what follows */
+var PP_PRE = /^\s*(pre-?approved payment bill user payment|preapproved payment|express checkout payment|general payment|mobile payment|website payment|subscription payment|payment to|bill user payment|recurring payment)\s*:?\s*/i;
+function ppStrip(d){ return String(d || '').replace(PP_PRE, ''); }
 function mkey(desc){
-  var s = String(desc||'').toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
+  var s = ppStrip(desc).toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
     .replace(/\b(pos|debit|credit|purchase|card|recurring|sq|tst|pp|paypal|ach|web|id|ppd|ccd|des|indn|co|inc|llc|www|com|the|online|check|ckcd|visa|mc)\b/g,' ').replace(/\s+/g,' ').trim();
   return s.split(' ').slice(0,2).join(' ');
 }
@@ -4067,6 +4070,8 @@ function nextFile(){
   if(!CUR.rows.length){ alert('I could not read any spending lines in “' + CUR.name + '”. If it came from a bank, try its CSV or QFX download instead.'); nextFile(); return; }
   if(!CUR.key) CUR.key = srcKey(CUR);
   var known = (db.src||{})[CUR.key];
+  var isPP = (CUR.files || []).some(function(f){ return /paypal/i.test((f.bankText || '') + ' ' + (f.path || f.name || '')); });   /* v11.2: PayPal statements were once read as card statements, so a remembered direction can be backwards — work it out afresh */
+  if(isPP && known) known = { a:known.a, flip:(function(){ var n = CUR.rows.filter(function(r){ return r.raw < 0; }).length; return n >= CUR.rows.length - n; })() };
   if(CUR.forceA && acct(CUR.forceA)){ var fR = CUR.rows, fn = fR.filter(function(r){ return r.raw < 0; }).length; CUR.a = CUR.forceA; CUR.flip = CUR.aiCSV ? true : known && known.a === CUR.a ? known.flip : fn >= fR.length - fn; takeFile(); return; }
   if(known && acct(known.a) && !acct(known.a).closed){ CUR.a = known.a; CUR.flip = known.flip; takeFile(); return; }
   if(ROUTE){ IMP.unrouted = (IMP.unrouted||0) + 1; nextFile(); return; }
@@ -4096,6 +4101,9 @@ function takeFile(){
   var seenNow = {};
   CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
+    /* v11.2 · reading a statement again after a fix: a line already here under its cut-short words ("…Payment: USD") gets its full words, not a twin */
+    var old = db.tx.filter(function(t){ return t.a === CUR.a && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc !== r.desc && /:( [A-Z]{3})?$/.test(t.desc) && r.desc.indexOf(t.desc.replace(/ [A-Z]{3}$/, '')) === 0 && !t.fixedDesc; })[0];
+    if(old){ old.desc = r.desc; old.fixedDesc = 1; if(!db.asked[old.id]){ old.cat = guessCat(r.desc, amt, a, r.bcat); delete old.sug; } IMP.fixed = (IMP.fixed || 0) + 1; return; }
     var nt = { id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }; if(r.path) nt.f = String(r.path).slice(0, 300); db.tx.push(nt); IMP.added++; (IMP.newIds = IMP.newIds || []).push(nt.id); });
   try{ FLAGNEW += flagSuspicious(IMP.newIds || []); IMP.newIds = []; }catch(e){}
   if(CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || a.balUnknown || (CUR.asOf || today()) >= a.asOf)){ if(a.balUnknown){ a.hist = []; delete a.balUnknown; } setBal(a, Math.abs(CUR.bal), CUR.asOf || today()); }
@@ -4444,6 +4452,7 @@ function repCheck(id){ var t = db.tx.filter(function(x){ return x.id === id; })[
     + '<div class="line ' + (nm >= 2 && monthly ? 'ok' : 'warn') + '" style="font-weight:700">' + verdict + '</div>'
     + '<ul class="list">' + L.map(function(x){ var on = x.id === t.id; return '<li' + (on ? ' style="background:#FFF1C2"' : '') + '><span class="d">' + shortDate(x.d) + '</span><span class="ds">' + esc(x.desc) + '<small>' + esc(acctLabel(acct(x.a) || {})) + (on ? ' · this one' : '') + '</small></span><span class="amt">' + money(Math.abs(x.amt)) + '</span></li>'; }).join('') + '</ul>'
     + '<button class="b primary full" onclick="sheetBack()">Back</button>'); }
+function ppFund(t){ var a = acct(t.a); return !!(a && /paypal/i.test((a.name || '') + ' ' + (a.inst || '')) && t.amt < 0 && /general credit card deposit|bank deposit to pp|deposit from|funding|general card deposit|transfer from bank/i.test(t.desc)); }
 function cardPay(t){ var a = acct(t.a); return !!(a && a.type === 'card' && t.amt < 0 && /payment|pymt|autopay|auto pay|thank you/i.test(t.desc)); }
 /* v10.9 · Jerry, 24 Nov, on a Schwab NVIDIA purchase: "whatever happens in the investment account stays within that account". Lines
    inside an investment account (buys, sells, dividends) are filed as staying inside it — never spending, never a question. Money
@@ -4452,7 +4461,7 @@ function invAcct(a){ return !!(a && INV_TYPES[a.type]); }
 function tradeLike(d){ return /\(\s*[\d.,]+\s*sh(ares)?\s*@|\b(purchase|sale|sold|bought|reinvest(ment)?|dividend|cap(ital)? gain|buy|sell)\b.*\b(sh|shares|@)\b|\breinvest/i.test(String(d || '')); }
 function invFile(t){ t.cat = 'xfer'; delete t.sug; t.inv = 1; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); }
 function invMark(aid){ var a = acct(aid); if(!a) return; a.type = 'invest'; a.track = 'lines'; var n = 0; db.tx.forEach(function(t){ if(t.a === aid){ invFile(t); n++; } }); save(); render(); toast(a.name + ' is an investment account now — ' + n + ' line' + (n===1?'':'s') + ' stay inside it.'); GK = null; openGTKY(); }
-function cardPayFix(){ db.tx.forEach(function(t){ if(!db.asked[t.id] && invAcct(acct(t.a))) invFile(t); }); var n = 0; db.tx.forEach(function(t){ if(db.asked[t.id] || !cardPay(t)) return; t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); n++; }); if(n) save(); return n; }
+function cardPayFix(){ db.tx.forEach(function(t){ if(!db.asked[t.id] && invAcct(acct(t.a))) invFile(t); if(!db.asked[t.id] && ppFund(t)){ t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); } }); var n = 0; db.tx.forEach(function(t){ if(db.asked[t.id] || !cardPay(t)) return; t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); n++; }); if(n) save(); return n; }
 function stmtDates(d){ var y = d.slice(0,4), m = d.slice(5,7), dd = d.slice(8,10), mo = new Date(+y, +m - 1, +dd); return [m + '/' + dd, (+m) + '/' + (+dd), d, mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + (+dd), mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + dd]; }
 async function stmtRows(file){ if(/\.csv$/i.test(file.name)) return parseCSVRows(await file.text());
   if(/\.xlsx?$/i.test(file.name)){ if(!window.XLSX) await new Promise(function(res){ var sc = document.createElement('script'); sc.src = XLSX_URL; sc.onload = res; sc.onerror = res; document.head.appendChild(sc); }); if(!window.XLSX) return [];
@@ -4496,7 +4505,7 @@ function whatIs(el, name, use, id){ var out = el.parentNode.querySelector('.what
       var src = []; try{ src = (window.djAI && djAI.sources && djAI.sources()) || []; }catch(e){}   /* a looked-up answer is shown with where it came from */
       out.innerHTML = '✨ ' + esc(w || 'Not sure') + (src.length ? '<span style="display:block;font-size:13px;color:var(--soft);margin-top:2px">From: ' + src.slice(0, 3).map(function(x){ return '<a href="' + esc(String(x.url || '').replace(/^javascript:/i, '')) + '" target="_blank" rel="noopener">' + esc(x.title || x.url || 'source') + '</a>'; }).join(' · ') + '</span>' : '') + (okc ? ' — <b>' + esc(c) + '</b> <button class="b small primary" style="margin:4px 0 0 6px;min-height:36px" onclick="' + use + '(' + JSON.stringify(c).replace(/"/g,'&quot;') + (id ? ',\'' + id + '\'' : '') + ')">Use it</button>' : ''); } }); }
 function gkWhat(n, id){ gkChip(n); }
-function webName(d){ return String(d||'').replace(/^(paypal|pp|sq|tst|venmo|zelle( to| from)?)\s*\*?\s*/i,'').replace(/\b\d{3}[- ]?\d{3}[- ]?\d{4}\b/g,' ').replace(/[*#]/g,' ').replace(/\d{3,}/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/\s+/g,' ').trim().slice(0,40) || String(d||'').slice(0,40); }
+function webName(d){ return ppStrip(d).replace(/^(paypal|pp|sq|tst|venmo|zelle( to| from)?)\s*\*?\s*/i,'').replace(/\b\d{3}[- ]?\d{3}[- ]?\d{4}\b/g,' ').replace(/[*#]/g,' ').replace(/\d{3,}/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/\s+/g,' ').trim().slice(0,40) || String(d||'').slice(0,40); }
 function webLook(d){ return 'https://www.google.com/search?q=' + encodeURIComponent(webName(d) + ' charge'); }
 function fkey(d){ return String(d||'').toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ').replace(/\s+/g,' ').trim(); }
 function acctLabel(a){ return (a.name || 'an account') + (a.last4 ? ' ••' + a.last4 : ''); }
@@ -4995,6 +5004,7 @@ function autoKnown(id){ var n = 0, card = 0, K = {};
   acctLines(id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0) return; var k = mkey(t.desc), c = null, why = '', w = /paypal/i.test(t.desc) ? 'paypal' : /venmo/i.test(t.desc) ? 'venmo' : '';
     if(w && t.amt > 0 && PM[w + '|' + t.d.slice(0,7)]){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'Paid through ' + (w === 'paypal' ? 'PayPal' : 'Venmo') + ' — what it bought is sorted on that account', cat:'xfer', at:today(), auto:1 }); card++; return; }
     if(invAcct(acct(t.a))){ invFile(t); card++; return; }
+    if(ppFund(t)){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'PayPal topped up from a card or bank for the payment beside it', cat:'xfer', at:today(), auto:1 }); card++; return; }
     if(cardPay(t)){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'A payment to this card — the money moving from the bank', cat:'xfer', at:today(), auto:1 }); card++; return; }
     if(channel(t)) return;
     if(t.cat === 'xfer' && t.amt > 0 && (/card|credit|capital one|discover|amex|american express|citi|chase|visa|mastercard/i.test(t.desc))){ c = 'xfer'; why = 'Paying a card — what it bought is on the card’s own statement'; card++; }
@@ -6853,23 +6863,27 @@ function pdfParse(lines, name){
   var txt = lines.map(function(l){ return l.map(function(c){ return c.s; }).join(' '); }), all = txt.join('\n');
   var out = { name:name, rows:[], bal:null, asOf:null, pdf:true, hasDesc:true, bankText:txt.slice(0, 25).join(' ') };
   out.acctNo = last4Of(all) || (/(?:\*{2,}|x{2,}|ending in\s*)(\d{4})\b/i.exec(all) || [])[1] || last4Name(name) || null;
-  var card = /credit limit|minimum payment|card ending|new balance|billing cycle|credit card/i.test(all);
+  var card = /credit limit|minimum payment|card ending|new balance|billing cycle|credit card/i.test(all.replace(/(general )?credit card deposit|paypal/ig, ''));   /* PayPal's "General Credit Card Deposit" lines don't make it a card statement */
   /* the statement's last date sets the year: "Period 10/01/2026 - 10/31/2026", "Sep 28, 2026 - Oct 27, 2026", "October 31, 2026" */
   var endY = null, endM = null, m, re = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})|([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})/g;
   while((m = re.exec(all))){ var y = m[3] ? +m[3] : +m[6], mo = m[1] ? +m[1] : MON3[(m[4]||'').slice(0,4).toLowerCase()] || MON3[(m[4]||'').slice(0,3).toLowerCase()]; if(y < 100) y += 2000; if(!mo || y < 2000 || y > 2100) continue; if(!endY || y * 100 + mo > endY * 100 + endM){ endY = y; endM = mo; } }
   if(!endY){ var yy = /\b(20\d\d)\b/.exec(all); endY = yy ? +yy[1] : new Date().getFullYear(); endM = 12; }
   function dateOf(s){ var a = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/.exec(s), mo, d, y;
-    if(a){ mo = +a[1]; d = +a[2]; y = a[3] ? (+a[3] < 100 ? 2000 + +a[3] : +a[3]) : null; }
+    if(a){ mo = +a[1]; d = +a[2]; y = a[3] ? (+a[3] < 100 ? 2000 + +a[3] : +a[3] < 1000 ? null : +a[3]) : null; }
     else { var b = /^([A-Za-z]{3,4})\.?$/.exec(s); return null; }
     if(mo < 1 || mo > 12 || d < 1 || d > 31) return null; if(!y) y = mo > endM ? endY - 1 : endY; return y + '-' + pad2(mo) + '-' + pad2(d); }
   function amt(s){ var neg = /^\(|\)$|^-|-\s?\$|\s?(cr|-)$/i.test(s.trim()), n = num(s.replace(/cr|dr/ig,'').replace(/[()]/g,'')); return { n:Math.abs(n), minus:neg, cr:/cr$/i.test(s.trim()) }; }
-  var prevBal = null, IN = /deposit|credit(?! card)|refund|dividend|interest paid|payment.{0,12}thank|thank you|returned|reversal|transfer from|from share|ach credit|direct dep|payroll|ssa treas|annuity|pension|cashback|cash back/i;
+  var prevBal = null, last = null, IN = /deposit|credit(?! card)|refund|dividend|interest paid|payment.{0,12}thank|thank you|returned|reversal|transfer from|from share|ach credit|direct dep|payroll|ssa treas|annuity|pension|cashback|cash back/i;
   lines.forEach(function(l){ var c = l.map(function(x){ return x.s; }), tok = c.join(' ').split(/\s+/);
     /* split the line back into words, then: a date first (with an optional second, the posting date), money last */
     var d = null, k = 0;
     if(/^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[0])){ d = dateOf(tok[0]); k = 1; if(tok[1] && /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[1])) k = 2; }
     else if(MON3[(tok[0]||'').replace('.','').toLowerCase()] && /^\d{1,2},?$/.test(tok[1]||'')){ var mo = MON3[tok[0].replace('.','').toLowerCase()], dd = parseInt(tok[1], 10); d = (mo > endM ? endY - 1 : endY) + '-' + pad2(mo) + '-' + pad2(dd); k = 2;
       if(MON3[(tok[2]||'').replace('.','').toLowerCase()] && /^\d{1,2},?$/.test(tok[3]||'')) k = 4; }
+    /* v11.2 · PayPal prints who was paid on the line under "PreApproved Payment Bill User Payment:" (Jerry's July statement, 24 Nov).
+       A line with no date right after such a row finishes its description; "ID:" lines and the wrapped year digit are skipped. */
+    if(!d && last && last.more){ if(/^(ref\s*)?id\s*:/i.test(c.join(' '))){ last.more = 0; last = null; return; } var more = c.join(' ').replace(/^\d\s+/, '').replace(/^\d$/, '').trim(); if(more && !MONEY_RE.test(more) && !/^(date|description|currency|amount|fees|total)/i.test(more)){ last.desc = (last.desc + ' ' + more).slice(0, 80); return; } last = null; }
+    if(d) last = null;
     if(!d) { var bm = /(ending|closing|new) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(bm){ out.bal = Math.abs(num(bm[2])); } var sb = /(beginning|opening|previous) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(sb && prevBal == null) prevBal = num(sb[2]); return; }
     var rest = tok.slice(k), money = [];
     /* gather money from the end: "1,500.00", "- $1,500.00", "(24.50)", "24.50 CR" */
@@ -6877,13 +6891,13 @@ function pdfParse(lines, name){
       if(t2 && /^(-|\$|-\$)$/.test(rest[rest.length-2]) && MONEY_RE.test(t2.replace(/\s/g,''))){ money.unshift(t2.replace(/\s/g,'')); rest.splice(-2, 2); continue; }
       if(/^(cr|dr)$/i.test(t) && rest.length > 1 && MONEY_RE.test(rest[rest.length-2])){ money.unshift(rest[rest.length-2] + t); rest.splice(-2, 2); continue; }
       if(MONEY_RE.test(t)){ money.unshift(t); rest.pop(); continue; } break; }
-    var desc = rest.join(' ').replace(/\s+/g,' ').trim();
+    var desc = rest.join(' ').replace(/\s+/g,' ').trim().replace(/\s+(USD|EUR|GBP|CAD|AUD|MXN)$/, '');   /* a currency column isn't part of the description */
     if(!money.length || !desc || /^(beginning|opening|previous|ending|closing|new) balance|^total|^balance/i.test(desc)){ if(/balance/i.test(desc) && money.length){ var bv = num(money[money.length-1]); if(/beginning|opening|previous/i.test(desc)) prevBal = bv; else out.bal = Math.abs(bv); } return; }
     var A = amt(money[0]), into;
     if(money.length >= 2){ var bal = num(money[money.length-1].replace(/cr|dr/ig,'')); if(prevBal != null && Math.abs(Math.abs(bal - prevBal) - A.n) < 0.02) into = bal > prevBal; prevBal = bal; out.bal = Math.abs(bal); }
     if(into == null) into = card ? (A.minus || A.cr || /payment|pymt|pmt|credit/i.test(desc) && A.minus) : (A.cr || (!A.minus && IN.test(desc)));
     if(!card && A.minus && !A.cr) into = false;
-    if(A.n) out.rows.push({ d:d, desc:desc.slice(0,80), raw: into ? A.n : -A.n });
+    if(A.n){ var row = { d:d, desc:desc.slice(0,80), raw: into ? A.n : -A.n }; out.rows.push(row); last = row; if(/:$/.test(row.desc) || PP_PRE.test(row.desc)) Object.defineProperty(row, 'more', { value:1, writable:true, enumerable:false }); }
   });
   if(endY && endM){ out.asOf = endY + '-' + pad2(endM) + '-' + pad2(new Date(endY, endM, 0).getDate()); }
   if(card){ out.bankText += ' credit card'; }
