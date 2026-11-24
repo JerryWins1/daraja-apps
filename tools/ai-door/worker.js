@@ -35,6 +35,43 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;  /* the PDF a Dashboard statement arrive
 const MAX_TOKENS = 8000;            /* was 2000, which a month of statement lines ran past. See the thinking note below. */
 const ALLOWED = ['https://jerrywins1.github.io'];
 
+/* SEARCHING THE WEB. An app can ask the door to look something up rather than answer
+ * from what the model already knows, by sending  web: true  alongside the prompt.
+ * Family Money's "What is this?" is the first to want it.
+ *
+ * THIS IS OFF UNTIL JERRY SAYS A PRICE. Searching is the one thing in this door that
+ * costs money per use rather than per token: $10 USD per 1,000 searches on the Claude
+ * API, so a penny a search, on top of the tokens the results spend as input. Under
+ * CLAUDE.md money waits for Jerry however long he is away, so the switch below ships
+ * off, and  web: true  is simply ignored while it is — the app still gets an answer,
+ * from the model's own knowledge, exactly as it does today. Nothing breaks when it is
+ * turned on and nothing breaks while it is off.
+ *
+ * WHAT TURNS IT ON. One word: WEB_SEARCH_ON = true. The two numbers under it are what
+ * the money actually depends on, so change them together with him, not alone.
+ */
+const WEB_SEARCH_ON = false;             /* the switch. Off until Jerry has chosen the cap. */
+const WEB_MAX_USES = 2;                  /* searches allowed inside ONE ask. 2c worst case per ask. */
+const DAILY_SEARCHES_PER_HOUSEHOLD = 20; /* searching asks per day per address. 20 x 2 = 40 searches = 40c a day
+                                            worst case for one household, and that is the number to quote: the
+                                            counter counts ASKS THAT MAY SEARCH, not searches performed, because
+                                            the door cannot know in advance how many the model will run. Most
+                                            asks run one or none. */
+const WEB_MAX_ROUNDS = 3;                /* how many times the door will resume a paused search before giving up */
+
+/* Direct, not dynamic filtering. Newer tool versions default to running the search from
+   inside code execution so the model can filter results before they reach it, which saves
+   input tokens — but it needs programmatic tool calling and the door runs with thinking
+   disabled, so it is the wrong thing to lean on here. allowed_callers: ['direct'] keeps the
+   search a plain server tool. The tokens it costs instead are Haiku tokens: five pages of
+   results is about a tenth of a cent, against a penny for the search itself. */
+const WEB_TOOL = {
+  type: 'web_search_20260318',
+  name: 'web_search',
+  max_uses: WEB_MAX_USES,
+  allowed_callers: ['direct'],
+};
+
 const cors = (origin) => ({
   'Access-Control-Allow-Origin': origin,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -104,7 +141,8 @@ export default {
 
     /* The daily cap. Counted per address, reset at midnight UTC by the key's own name. */
     const who = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const key = `d:${new Date().toISOString().slice(0, 10)}:${who}`;
+    const day = new Date().toISOString().slice(0, 10);
+    const key = `d:${day}:${who}`;
     if (env.DOOR_COUNT) {
       const used = parseInt(await env.DOOR_COUNT.get(key) || '0', 10);
       if (used >= DAILY_PER_HOUSEHOLD) {
@@ -112,6 +150,23 @@ export default {
       }
       /* Count before asking, so a burst cannot slip through while we wait. */
       await env.DOOR_COUNT.put(key, String(used + 1), { expirationTtl: 172800 });
+    }
+
+    /* Should this one search? An ask that cannot search is not refused — it is answered
+       the old way, because an error here would send the app back to the person's own AI,
+       and an answer without a lookup is better than no answer at all. */
+    let web = false;
+    if (body.web === true && WEB_SEARCH_ON) {
+      if (!env.DOOR_COUNT) {
+        web = true;                      /* no counter bound: the cap is simply off, as the daily cap is */
+      } else {
+        const wkey = `w:${day}:${who}`;
+        const usedWeb = parseInt(await env.DOOR_COUNT.get(wkey) || '0', 10);
+        if (usedWeb < DAILY_SEARCHES_PER_HOUSEHOLD) {
+          web = true;
+          await env.DOOR_COUNT.put(wkey, String(usedWeb + 1), { expirationTtl: 172800 });
+        }
+      }
     }
 
     /* want:'json' means the app will JSON.parse what comes back, so say so plainly. */
@@ -122,7 +177,10 @@ export default {
     const content = doc ? [doc, { type: 'text', text: prompt }] : prompt;
 
     let r, j;
+    const msgs = [{ role: 'user', content }];
+    let rounds = 0;
     try {
+      while (true) {
       r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -147,10 +205,20 @@ export default {
              If a future model refuses type 'disabled', raise the effort question before deleting
              this: silently dropping it brings the empty answers straight back. */
           thinking: { type: 'disabled' },
-          messages: [{ role: 'user', content }],
+          ...(web ? { tools: [WEB_TOOL] } : {}),
+          messages: msgs,
         }),
       });
       j = await r.json();
+      /* A turn that searches can come back paused part way through: the search has run,
+         the model has not finished. Send its own half of the turn straight back and it
+         carries on. Without this the door would hand the app a half answer. */
+      if (r.ok && j && j.stop_reason === 'pause_turn' && ++rounds <= WEB_MAX_ROUNDS) {
+        msgs.push({ role: 'assistant', content: j.content });
+        continue;
+      }
+      break;
+      }
     } catch {
       return say({ error: 'could not reach the assistant' }, 502, origin);
     }
@@ -163,6 +231,11 @@ export default {
        app falls back to the person's own AI, which is the old behaviour anyway. */
     if (j.stop_reason === 'refusal') return say({ error: 'the assistant declined that one' }, 422, origin);
 
+    /* Out of rounds and still mid-search. Say so rather than hand over half a thought. */
+    if (j.stop_reason === 'pause_turn') {
+      return say({ error: 'that one took too long to look up — try asking again' }, 502, origin);
+    }
+
     /* Its own answer, so the next person does not have to guess the way we did. If this ever
        fires, the reply really was cut off mid-thought: raise MAX_TOKENS or send less at a time. */
     if (j.stop_reason === 'max_tokens') {
@@ -173,6 +246,19 @@ export default {
     if (body.want === 'json') text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
     if (!text) return say({ error: 'the assistant sent nothing back' }, 502, origin);
 
-    return say({ text }, 200, origin);
+    /* WHERE IT CAME FROM, AND WHY THIS IS NOT OPTIONAL. Anthropic's own terms for the search
+       tool: when the answer is shown to a person as it came back, the sources have to be shown
+       with it. So the door hands them up, and an app that turns searching on shows them. Five
+       is plenty on a phone. */
+    const out = { text, web };
+    const seen = [];
+    for (const b of (j.content || [])) {
+      for (const c of (b.citations || [])) {
+        if (c && c.url && !seen.some(x => x.url === c.url)) seen.push({ url: c.url, title: c.title || c.url });
+      }
+    }
+    if (seen.length) out.sources = seen.slice(0, 5);
+
+    return say(out, 200, origin);
   },
 };

@@ -970,6 +970,85 @@ async function same(){
   ck('every app declares its charset in the first 1024 bytes', lateCharset.length === 0, lateCharset);
 }
 
+/* 24 Nov 2026. An app can ask the door to LOOK SOMETHING UP rather than answer from what
+   the model already knows, by passing web:true. Three things have to be true for that to work,
+   and two of them fail silently:
+     - the flag has to survive the trip to the door. It is one word in the payload and nothing
+       on screen changes if it is dropped, so the only way to know is to read what was posted.
+     - the ON-DEVICE model has to be skipped. It is tried first because it is free and instant,
+       but it is offline — if it answers, the ask is served from memory and the lookup never
+       happens, and the answer looks completely normal.
+     - the sources have to come back up to the app. Anthropic's terms for the search tool
+       require an answer shown as it came back to be shown with its sources.
+   The door itself ships with searching OFF until Jerry has set what a search may cost, so all
+   of this is the plumbing being ready, not the lookup being live. tools/ai-door/test.mjs covers
+   the door's own half. */
+async function door(b, port){
+  console.log('\nAsking the door to look something up — the flag, the offline skip, the sources');
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  await ctx.route('**/control/ai.json*', r => r.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ endpoint: 'https://door.test/ask' }) }));
+  let sent = null, reply = { text: 'A retirement account.' };
+  await ctx.route('https://door.test/ask', r => {
+    try { sent = JSON.parse(r.request().postData() || '{}'); } catch (e) { sent = 'unparseable'; }
+    return r.fulfill({ contentType: 'application/json', body: JSON.stringify(reply) });
+  });
+  const p = await open(ctx, port, 'advent');
+
+  /* stand in for the on-device model, so "was it skipped" is a real measurement and not just
+     the absence of a browser that has one. It answers instantly and says so. */
+  await p.evaluate(() => {
+    window.LanguageModel = {
+      availability: async () => 'available',
+      create: async () => ({ prompt: async () => 'ANSWERED ON THE DEVICE' }),
+    };
+  });
+
+  const ask = async (o) => {
+    sent = null;
+    await p.evaluate(x => { window.djAI.ask(x); }, o);
+    await p.waitForTimeout(600);
+    await p.evaluate(() => { const g = document.getElementById('djAIGo'); if (g) g.click(); });
+    await p.waitForTimeout(1200);
+    return await p.evaluate(() => {
+      const s = document.getElementById('djAISheet');
+      return s ? s.innerText.replace(/\s+/g, ' ') : null;
+    });
+  };
+
+  /* an ordinary ask: the device answers it and the door is never troubled */
+  await ask({ title: 'Ask', prompt: 'What is a Roth IRA?' });
+  ck('an ordinary ask is still served by the phone itself, free', sent === null, sent);
+
+  /* the same ask, wanting the web */
+  let t = await ask({ title: 'Ask', prompt: 'What is a Roth IRA?', web: true });
+  ck('an ask that wants the web does NOT stop at the offline model', sent !== null,
+     'the door was never reached: ' + JSON.stringify(t));
+  ck('and it does not show the device answer', !/ON THE DEVICE/.test(t || ''), t);
+  ck('web:true reaches the door', !!sent && sent.web === true, sent && sent.web);
+  ck('the question still reaches it too', !!sent && /Roth IRA/.test(sent.prompt || ''), sent && sent.prompt);
+
+  /* and an ask that did not want the web says so, rather than leaving the field out */
+  await p.evaluate(() => { delete window.LanguageModel; });
+  await ask({ title: 'Ask', prompt: 'Add these up' });
+  ck('an ask that did not want the web sends web:false, not nothing',
+     !!sent && sent.web === false, sent && JSON.stringify(sent.web));
+
+  /* the sources */
+  reply = { text: 'A retirement account.', web: true,
+            sources: [{ url: 'https://irs.gov/roth', title: 'Roth IRAs | IRS' }] };
+  await ask({ title: 'Ask', prompt: 'What is a Roth IRA?', web: true });
+  const src = await p.evaluate(() => (window.djAI.sources && window.djAI.sources()) || null);
+  ck('the app can read where the answer came from',
+     Array.isArray(src) && src.length === 1 && src[0].url === 'https://irs.gov/roth', JSON.stringify(src));
+
+  reply = { text: 'From memory.' };
+  await ask({ title: 'Ask', prompt: 'Add these up' });
+  const none = await p.evaluate(() => (window.djAI.sources && window.djAI.sources()) || null);
+  ck('an answer that was not looked up carries no stale sources', none === null, JSON.stringify(none));
+  await ctx.close();
+}
+
 (async () => {
   const only = process.argv[2];
   const s = await serve();
@@ -984,6 +1063,7 @@ async function same(){
     if (!only || only === 'install') await install(b, s.port);
     if (!only || only === 'mine') await mine(b, s.port);
     if (!only || only === 'icons') icons();
+    if (!only || only === 'door') await door(b, s.port);
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }

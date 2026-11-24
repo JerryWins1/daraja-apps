@@ -9,7 +9,7 @@
      every dash and apostrophe into mojibake. Caught by the beta check, which serves the same bytes
      twice and read them two different ways. The app's own charset line further down is left where
      it is: the first one wins, and theirs is theirs. -->
-<script id="dj-house-v86">
+<script id="dj-house-v87">
 /* 4 Oct 2026 — Jerry: "why is it talking to me … turn them all off right now." One switch for every app:
    nothing speaks unless the person turns the voice on (localStorage dj_voice = 'on'). Exceptions: the store's
    videos (you pressed ▶) and Rafiki (talking is the whole app; it has its own mute). */
@@ -2328,17 +2328,26 @@
      mine interview asks the door several times behind a single confirmation, and a second copy of
      this fetch is a second thing to get wrong when the payload changes. `raw` means the caller is
      doing its own error wording. */
-  var DOOR_WHY = '';
+  var DOOR_WHY = '', DOOR_SOURCES = null;
   async function doorPost(o, raw){
-    DOOR_WHY = '';
+    DOOR_WHY = ''; DOOR_SOURCES = null;
     var c = await aiConfig();
     if(!c.endpoint){ DOOR_WHY = 'the door is not switched on'; return null; }
     try{
       var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ prompt: o.prompt, app: slugOf(), want: o.want || 'text',
-                               code: (localStorage.getItem('dj_tester_code') || ''), file: o.file }) });
+                               code: (localStorage.getItem('dj_tester_code') || ''), file: o.file,
+                               /* 24 Nov: an app that wants the answer looked up rather than remembered
+                                  passes web:true. The door ignores it until Jerry has set what a search
+                                  may cost, so an app can send it today and simply be answered the old
+                                  way — nothing to change here when he switches it on. */
+                               web: o.web === true }) });
       var j = await r.json();
       if(!r.ok || !j || !j.text) throw new Error(j && j.error || ('HTTP ' + r.status));
+      /* Where it came from. Empty unless the door really searched, and the terms for the search
+         tool say that an answer shown as it came back is shown with its sources — so an app that
+         asks to search reads DOOR_SOURCES and puts them under the answer. */
+      DOOR_SOURCES = (j.sources && j.sources.length) ? j.sources : null;
       return j.text;
     }catch(e){
       DOOR_WHY = e.message || 'no answer';
@@ -2438,7 +2447,10 @@
       /* 22 Nov: "how do you like answers?" from the setup questions. Appended HERE, before any
          sheet is drawn, because the confirm sheet promises that what is shown is what is sent. */
       if(o.want !== 'json' && !o.__styled){ o.prompt = o.prompt + djStyleLine(); o.__styled = 1; }
-      var local = await builtIn(withCircle(o, o.prompt));
+      /* 24 Nov: the on-device model is tried first because it is free and instant — but it is
+         also offline, so it cannot look anything up. An ask that wants the web skips it and goes
+         straight to the door; otherwise web:true would be quietly answered from memory. */
+      var local = o.web ? null : await builtIn(withCircle(o, o.prompt));
       if(local){ deliver(o, local); return; }
       var viaD = await viaDaraja(o);
       if(viaD === AI_CANCELLED) return;   /* they read the words and backed out. Cancel means cancel — falling through to the
@@ -2477,6 +2489,8 @@
     b.querySelector('#djAICp').onclick = function(){ var me = this; try{ var cp = navigator.clipboard.writeText(text); if(cp && cp.then) cp.then(function(){ me.textContent = 'copied ✓'; }, function(){ me.textContent = 'could not copy — select the words instead'; }); }catch(e){} };
   }
   window.djAI && (window.djAI.showAnswer = showAnswer);
+  /* the pages the last answer was looked up from, or null. See DOOR_SOURCES above. */
+  window.djAI && (window.djAI.sources = function(){ return DOOR_SOURCES; });
   /* id renamed from djAsk → djAIBtn (21 Sep 2026): One Thing’s routines layer also owns a #djAsk,
      and the clash left its Routines tab blank. */
   function askButton(){
