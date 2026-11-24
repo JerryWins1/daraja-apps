@@ -3413,7 +3413,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v10.1 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v10.2 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4017,12 +4017,12 @@ function addGroup(){ var n = prompt('Name of the new group? (for a second home, 
   save(); render(); openCats(); }
 
 /* ── one month's lines ── */
-function openTx(){
+function openTx(){ LASTLIST = function(){ openTx(); };
   var T = txIn(view).sort(function(a,b){ return a.d < b.d ? 1 : -1; });
   openSheet('<h3>' + monthName(view) + '</h3><p class="sub">Tap a line to move it to another category.</p><ul class="list">' + (T.map(txRow).join('') || '<li>Nothing this month yet.</li>') + '</ul><button class="b full" onclick="openManual()">＋ Add one by hand</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
 }
-function txRow(t){ return '<li class="tap" onclick="pickCatFor(\'' + esc(t.desc).replace(/'/g,'') + '\',\'' + t.id + '\')"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '<small>' + esc(catName(t.cat)) + ' · ' + esc((acct(t.a)||{}).name||'') + '</small></span><span class="amt"' + (t.amt < 0 ? ' style="color:var(--ok)"' : '') + '>' + (t.amt < 0 ? '+' + money(-t.amt) : money(t.amt)) + '</span></li>'; }
-function openCatTx(id){
+function txRow(t){ return '<li class="tap" onclick="movePick(\'' + t.id + '\')"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '<small>' + esc(catName(t.cat)) + ' · ' + esc((acct(t.a)||{}).name||'') + '</small></span><span class="amt"' + (t.amt < 0 ? ' style="color:var(--ok)"' : '') + '>' + (t.amt < 0 ? '+' + money(-t.amt) : money(t.amt)) + '</span></li>'; }
+function openCatTx(id){ LASTLIST = function(){ openCatTx(id); };
   var c = cat(id), T = txIn(view).filter(function(t){ return t.cat === id; }).sort(function(a,b){ return a.d < b.d ? 1 : -1; }), s = r2(T.reduce(function(a,t){ return a + t.amt; },0));
   openSheet('<h3>' + esc(catName(id)) + '</h3><p class="sub">' + monthName(view) + ': ' + money(s) + (c && db.budgetSet ? ' of ' + money(c.budget||0,1) : '') + '</p><ul class="list">' + (T.map(txRow).join('') || '<li>Nothing this month.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
 }
@@ -4253,6 +4253,72 @@ function sortAI(){
 function openNotSure(){ var L = db.tx.filter(function(t){ return db.notSure.indexOf(t.id) >= 0; });
   openSheet('<h3>Not sure yet</h3><p class="sub">Kept so they can be asked again, or looked up — a check image on the bank’s website often answers it.</p><ul class="list">' + (L.map(function(t){ return '<li class="tap" onclick="openGTKY(\'' + t.id + '\')"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '<small>' + esc(acctLabel(acct(t.a)||{})) + '</small></span><span class="amt">' + money(t.amt) + '</span></li>'; }).join('') || '<li>Nothing here.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
 function openReclass(){ openSheet('<h3>What you told me</h3><p class="sub">Every answer, newest first. Tap one to change it.</p><ul class="list">' + (db.reclass.slice(0,200).map(function(r){ return '<li class="tap" onclick="openGTKY(\'' + r.id + '\');delete db.asked[\'' + r.id + '\']"><span class="d">' + shortDate(r.d) + '</span><span class="ds">' + esc(r.what) + '<small>' + esc(r.desc) + ' · ' + esc(catName(r.cat)) + '</small></span><span class="amt">' + money(r.amt) + '</span></li>'; }).join('') || '<li>Nothing yet.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
+/* v10.2 · Jerry, 24 Nov, on "What makes up Arizona car": "there's some things in here that are not Arizona car … can I go
+   through this list and change it?" Tap a line, pick where it belongs (just this one, or every line from that payee), and
+   land back on the same list with the total redone. */
+var LASTLIST = null, MOVE = null;
+function moveNames(){ var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)'; }); return { top:recentNames(names, 6), az:names.slice().sort(function(x,y){ return x.localeCompare(y); }) }; }
+function samePayee(t){ if(channel(t)) return [t]; var k = mkey(t.desc) || t.desc; return db.tx.filter(function(x){ return !channel(x) && (mkey(x.desc) || x.desc) === k && inWin(x); }); }
+function movePick(id, back){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return; var N = moveNames(), all = samePayee(t), here = shName(t.cat);
+  MOVE = { id:id, back:back || LASTLIST };
+  openSheet('<div class="stepno">Move a line</div><div class="card" style="margin:6px 0 10px;padding:12px 14px"><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:22px">' + (t.amt < 0 ? '+' + money(-t.amt) : money(t.amt)) + '</b><span style="margin-left:auto;color:var(--soft);font-weight:700">' + shortDate(t.d) + ' ' + t.d.slice(0,4) + '</span></div>'
+    + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin-top:6px;word-break:break-word">' + esc(t.desc) + '</div><div class="sub" style="margin:4px 0 0">' + esc(acctLabel(acct(t.a) || {})) + ' · now in <b>' + esc(here || 'Not sorted yet') + '</b></div>'
+    + (channel(t) === 'check' || channel(t) === 'cash' ? '' : '<a href="' + webLook(t.desc) + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-weight:800;color:var(--brand)">🔎 Search the web for “' + esc(webName(t.desc)) + '”</a>') + '</div>'
+    + '<h3 style="font-size:19px;margin:12px 0 8px">Where does it belong?</h3>'
+    + (N.top.length ? '<div class="pick" id="mvChips">' + N.top.filter(function(n){ return n !== here; }).slice(0, 6).map(function(n){ return '<button data-chip="' + esc(n) + '" onclick="mvChip(this.getAttribute(\'data-chip\'))">' + esc(n) + '</button>'; }).join('') + '</div>' : '')
+    + '<label for="mvCat" style="margin-top:12px">Or pick from every category</label><select id="mvCat" style="width:100%;font-size:17px;padding:10px;border-radius:12px;margin-top:6px"><option value="">— pick one —</option>' + N.az.map(function(n){ return '<option' + (n === here ? ' disabled' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select>'
+    + '<label for="mvNote" style="margin-top:12px">What was this? <small style="font-weight:600;color:var(--soft)">(a short note, optional)</small></label><input id="mvNote" maxlength="60" value="' + esc(t.note && !/^part \d/.test(t.note) ? t.note : '') + '">'
+    + (all.length > 1 ? '<label class="ck" style="margin-top:12px"><input type="checkbox" id="mvAll"' + (all.every(function(x){ return x.cat === t.cat; }) ? ' checked' : '') + '> Move every line from this payee (' + all.length + ') — and remember it for next time</label>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="moveSave()">Move it</button><button class="b ghost" style="width:100%" onclick="sheetBack()">Leave it where it is</button></div>'); }
+function mvChip(n){ var s = document.getElementById('mvCat'); if(!s) return; s.value = n; Array.prototype.forEach.call(document.querySelectorAll('#mvChips [data-chip]'), function(b){ b.classList.toggle('on', b.getAttribute('data-chip') === n); }); }
+function moveSave(){ var M = MOVE, t = M && db.tx.filter(function(x){ return x.id === M.id; })[0]; if(!t) return; var v = document.getElementById('mvCat').value; if(!v){ document.getElementById('mvCat').focus(); return; }
+  SHNEW = []; var cid = shFind(v); if(!cid) return; var allB = document.getElementById('mvAll'), L = allB && allB.checked ? samePayee(t) : [t], nt = (document.getElementById('mvNote').value || '').trim().slice(0, 60);
+  var k = mkey(t.desc), prev = db.rules.filter(function(r){ return r.k === k; })[0];
+  if(nt) t.note = nt; L.forEach(function(x){ sortSet(x, cid); });
+  if(L.length === 1 && samePayee(t).length > 1 && k){ db.rules = db.rules.filter(function(r){ return r.k !== k; }); if(prev) db.rules.unshift(prev); }   /* one line moved on its own doesn't retrain the whole payee */
+  save(); render(); toast((L.length === 1 ? 'Moved' : L.length + ' lines moved') + ' to ' + v + '.');
+  SHST.pop(); SHBACK = 1; if(M.back){ try{ M.back(); return; }catch(e){} } closeSheet(); }
+/* "then probably a lot of other things are wrong. So you should check the whole database." One list of what looks misfiled:
+   a payee filed in more than one place; a line whose own words point at a different category than the one it's in; and,
+   if asked, what the AI thinks doesn't belong (payee names and category names only — no amounts). */
+var CCAI = {};
+function catCheckFind(){ var F = [], ok = db.ccOk || {}, by = {};
+  db.tx.forEach(function(t){ if(!inWin(t) || !counts(acct(t.a)) || !db.asked[t.id] || t.cat === 'uncat' || t.splitOf || channel(t)) return; var k = mkey(t.desc) || t.desc; (by[k] = by[k] || []).push(t); });
+  var keepRules = db.rules; db.rules = [];
+  try{ Object.keys(by).forEach(function(k){ var T = by[k], cs = {}; T.forEach(function(t){ (cs[t.cat] = cs[t.cat] || []).push(t); }); var ids = Object.keys(cs);
+      if(ids.length > 1 && !ok['two:' + k]){ var main = ids.sort(function(a,b){ return cs[b].length - cs[a].length; })[0];
+        F.push({ key:'two:' + k, why:'Filed in ' + ids.length + ' places', T:T, sug:main, cats:ids.map(function(id){ return cs[id].length + ' in ' + shName(id); }).join(', ') }); return; }
+      var c = T[0].cat, g = guessCat(T[0].desc, T[0].amt, acct(T[0].a), T[0].bcat);
+      if(ids.length === 1 && g && g !== 'uncat' && g !== c && !isP3(c) && c !== 'xfer' && c !== 'inc' && g !== 'xfer' && !ok['kw:' + k]) F.push({ key:'kw:' + k, why:'The statement words point to ' + shName(g), T:T, sug:g });
+      var ai = CCAI[k]; if(ai && ai !== c && !ok['ai:' + k] && !F.some(function(f){ return f.T === T; })) F.push({ key:'ai:' + k, why:'✨ Your AI thinks this belongs in ' + shName(ai), T:T, sug:ai }); }); }
+  finally{ db.rules = keepRules; }
+  return F.sort(function(a,b){ var x = a.T.reduce(function(s,t){ return s + Math.abs(t.amt); }, 0), y = b.T.reduce(function(s,t){ return s + Math.abs(t.amt); }, 0); return y - x; }); }
+var CCBACK = null;
+function catCheck(){ if(LASTLIST && !LASTLIST.cc) CCBACK = LASTLIST; LASTLIST = function(){ catCheck(); }; LASTLIST.cc = 1; var F = catCheckFind();
+  var html = '<div class="stepno">Check every category</div><h3>🧹 ' + (F.length ? F.length + ' payee' + (F.length===1?'':'s') + ' to look at' : 'Nothing looks out of place') + '</h3>'
+    + '<p class="sub">Biggest first. Move it, or tell the app it’s right — it won’t ask about that one again.</p>'
+    + F.slice(0, 60).map(function(f, i){ var t = f.T[0], tot = f.T.reduce(function(s,x){ return s + x.amt; }, 0), now = shName(t.cat);
+      return '<div class="card" style="padding:12px 14px;margin:8px 0"><div style="font-family:ui-monospace,Menlo,monospace;font-weight:700;word-break:break-word">' + esc(t.desc) + '</div>'
+        + '<div class="sub" style="margin:2px 0 0">' + f.T.length + ' line' + (f.T.length===1?'':'s') + ' · ' + money(tot) + ' · ' + (f.cats ? esc(f.cats) : 'in <b>' + esc(now) + '</b>') + '</div>'
+        + '<div style="margin-top:6px;font-weight:700;color:var(--amber)">' + esc(f.why) + '</div>'
+        + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="b small primary" style="margin:0" onclick="ccMove(' + i + ')">Move all to ' + esc(shName(f.sug)) + '</button><button class="b small" style="margin:0" onclick="ccPick(' + i + ')">Somewhere else…</button><button class="b small ghost" style="margin:0" onclick="ccOk(' + i + ')">It’s right</button></div></div>'; }).join('')
+    + (window.djAI ? '<button class="b full" style="margin-top:12px" onclick="ccAI()">✨ Ask my AI to look through every category too</button><p class="sub" style="font-size:13px;margin:4px 0 0">It sees payee names and category names only — no amounts, no account numbers.</p>' : '')
+    + '<button class="b ghost" style="width:100%" onclick="ccDone()">Done for now</button>';
+  CCF = F; openSheet(html); }
+function ccDone(){ var B = CCBACK; CCBACK = null; if(B && SHST.length){ SHST.pop(); SHBACK = 1; try{ B(); return; }catch(e){} } closeSheet(); render(); }
+var CCF = [];
+function ccRedraw(){ var el = document.getElementById('sheetIn'), sc = el ? el.scrollTop : 0; SHBACK = 1; catCheck(); if(el) el.scrollTop = sc; }
+function ccMove(i){ var f = CCF[i]; if(!f) return; f.T.forEach(function(t){ sortSet(t, f.sug); }); save(); render(); toast(f.T.length + ' line' + (f.T.length===1?'':'s') + ' moved to ' + shName(f.sug) + '.'); ccRedraw(); }
+function ccOk(i){ var f = CCF[i]; if(!f) return; db.ccOk = db.ccOk || {}; db.ccOk[f.key] = today(); save(); ccRedraw(); }
+function ccPick(i){ var f = CCF[i]; if(!f) return; movePick(f.T[0].id, LASTLIST); var b = document.getElementById('mvAll'); if(b) b.checked = true; }
+function ccAI(){ var by = {}; db.tx.forEach(function(t){ if(!inWin(t) || !db.asked[t.id] || channel(t) || t.cat === 'uncat' || t.cat === 'xfer' || t.cat === 'inc' || t.splitOf) return; var k = mkey(t.desc) || t.desc, n = shName(t.cat); if(!n) return; (by[n] = by[n] || {})[k] = 1; });
+  var lines = [], total = 0; Object.keys(by).forEach(function(n){ var P = Object.keys(by[n]).slice(0, 60); total += P.length; lines.push(n + ': ' + P.join(' | ')); });
+  if(!lines.length){ alert('Nothing sorted yet to check.'); return; } var names = shCatNames().filter(function(n){ return n !== 'Help: (type their name)'; });
+  ask({ title:'Check every category', want:'json', circle:false,
+    prompt:'These are my household budget categories, each with the payee names from my bank and credit card statements that I filed in it. Find payees that are clearly in the wrong category — for example a restaurant filed under a car. Do not flag anything that could reasonably belong where it is. Answer with JSON only: {"payee exactly as given": "better category exactly as given"}. If nothing is clearly wrong, answer {}.\n\nAll categories:\n' + names.join('\n') + '\n\nWhat is filed where:\n' + lines.join('\n'),
+    onResult:function(v){ if(!v || typeof v !== 'object'){ alert('That answer did not come back in the expected shape.'); return; }
+      var n = 0; Object.keys(v).forEach(function(k){ SHNEW = []; var nm = String(v[k]||'').trim(); if(names.indexOf(nm) < 0) return; var id = shFind(nm); if(id){ CCAI[k] = id; n++; } });
+      toast(n ? 'Your AI flagged ' + n + ' payee' + (n===1?'':'s') + '.' : 'Your AI found nothing clearly out of place.'); SHBACK = 1; catCheck(); } }); }
 function pickCatFor(desc, txid){ if(txid){ delete db.asked[txid]; openGTKY(txid); } else openGTKY(); }
 
 /* ── v4.7 · Going through it together (Jerry, 16 Nov). The process another chat used with him over two days, account by
@@ -4339,12 +4405,13 @@ function rvTime(){ var R = RV, x = R.L[R.i]; if(R.bud) db.budI = R.i; if(!x){ if
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="rvTimeSave()">Next</button><button class="b ghost" style="width:100%" onclick="RV.i++;rvTime()">Skip this one</button></div>'); }
 /* Jerry, 20 Nov: "It has healthcare 72,000. I'd like to know what that is." Every payee in a kind, biggest first, then each line.
    Tap a line to move it if it's in the wrong place. */
-function budWhat(cid){ var c = cat(cid); if(!c) return; var T = db.tx.filter(function(t){ return t.cat === cid && counts(acct(t.a)) && t.amt > 0 && inWin(t); }), by = {}, tot = 0;
+function budWhat(cid){ var c = cat(cid); if(!c) return; LASTLIST = function(){ budWhat(cid); }; var T = db.tx.filter(function(t){ return t.cat === cid && counts(acct(t.a)) && t.amt > 0 && inWin(t); }), by = {}, tot = 0;
   T.forEach(function(t){ var k = mkey(t.desc) || t.desc, b = by[k] = by[k] || { n:0, s:0, d:t.desc }; b.n++; b.s += t.amt; tot += t.amt; });
   var P = Object.keys(by).map(function(k){ return by[k]; }).sort(function(a,b){ return b.s - a.s; });
   openSheet('<h3>What makes up ' + esc(catLabel(c)) + '</h3><p class="sub">' + money(r2(tot),1) + ' from ' + T.length + ' payment' + (T.length===1?'':'s') + '. Biggest first. Tap a line if it belongs somewhere else.</p>'
     + '<div class="card" style="padding:8px 14px">' + P.slice(0, 12).map(function(b){ return '<div class="trow"><span>' + esc(b.d) + '<small style="display:block;color:var(--soft)">' + b.n + (b.n===1?' payment':' payments') + '</small></span><b>' + money(r2(b.s),1) + '</b></div>'; }).join('') + (P.length > 12 ? '<div class="sub" style="margin:4px 0 0">and ' + (P.length - 12) + ' more</div>' : '') + '</div>'
     + '<ul class="list">' + T.slice().sort(function(a,b){ return b.amt - a.amt; }).map(txRow).join('') + '</ul>'
+    + '<button class="b full" onclick="catCheck()">🧹 Check every category for lines in the wrong place</button>'
     + '<button class="b primary full" onclick="sheetBack()">Back</button>'); }
 function rvTimeSave(){ var R = RV, x = R.L[R.i], c = x.c, v = tapVal('rv'); if(!v){ alert('Tap one of the answers first.'); return; }
   db.threePart = true; c.timing = v; c.asNeeded = v === 'need';
@@ -5233,6 +5300,7 @@ function openLists(){
     + (db.uses529 || e529.length ? '<button class="b full" style="text-align:left" onclick="openList(\'edu529\')">🎓 Paid by the 529<span style="float:right">' + money(e529.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openList(\'onetime\')">🎁 One-time purchases</button>'
     + (dupList().length ? '<button class="b full" style="text-align:left" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ' to check)</button>' : '')
+    + '<button class="b full" style="text-align:left" onclick="catCheck()">🧹 Check every category</button>'
     + '<button class="b full" style="text-align:left" onclick="openNotSure()">❔ Not sure yet (' + db.notSure.length + ')</button>'
     + '<button class="b full" style="text-align:left" onclick="openReclass()">🗂️ What you told me (' + db.reclass.length + ')</button>'
     + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
