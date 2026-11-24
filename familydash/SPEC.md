@@ -1081,3 +1081,11 @@ Jerry asked for four things through the code-review chat, from screenshots of Th
    - When the choice differs from the guess and the payee has other lines, a screen asks "Change the other N from X to Y too?", listing them.
    - **Yes, all** sorts them (they come off the question list). **Just this one** saves only this line; the app remembers the payee either way.
 Videos for these wait on Jerry's wording (through the code-review chat).
+
+## v10.8 · "Learns as you go" in the videos (24 Nov)
+
+Jerry approved the name, the one line ("The more you teach it, the more of the routine it takes off your hands.") and the 40-second script through the code-review chat.
+- A new video, **Learns as you go** (`extra.learns` in shop/apps_data.js), uses his script word for word, split into seven lines. Each line has a screen behind it: the glance; the questions dropdown; the "Change the other … too?" screen (`videoLearn`, example family only); "N filed themselves" after a new month (`videoNext`); the note box. Recorded by name: 38 seconds, 7 cues for 7 lines.
+- **The training video** gains one line after step eight, taken from his script: "Fix one charge from a store, and it fixes every other purchase from that store, and asks if you'd like them all changed at once." Re-recorded by name: 13 cues for 13 lines.
+- Every claim is true of v10.7. On a phone, "tap to see the actual bank statement" means picking the file once, after which the page shows in the app.
+- The store card belongs to the house and store chat; the line was relayed there.
