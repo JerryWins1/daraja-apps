@@ -96,8 +96,21 @@ PROMO4=[
  ("It's free. And every gift helps orphans and students in Kenya.",[],"Free · Every gift helps children in Kenya",None),
  ("Daraja. The apps that ask what you want. Get yours today.",[],"jerrywins1.github.io/daraja-apps/shop",None),
 ]
+PROMO5=[
+ ("Most apps make you learn the app. Daraja asks what you want.",[STORE],"Most apps make you learn them. Daraja asks what you want.",None),
+ ("Every Daraja app works the moment you open it. Real tools, doing real work, from the first tap.",[],"Real apps · Working from the first tap",None),
+ ("Need something that isn't there? Tell the A.I. It asks a few questions, then builds it for you, right there.",[],"Not there? Tell the AI · It builds it",None),
+ ("A report nobody else has. Your numbers, your way, in about a minute.",[],"Your numbers · Your way · In a minute",None),
+ ("Tell it about your life once, and it remembers. The app is set up around you.",[],"Tell it once · It remembers · Set up for you",None),
+ ("And it looks ahead. The big bill, the renewal, the birthday. Weeks before they land.",[],"It looks ahead · Weeks before it lands",None),
+ ("One icon holds them all. Install once, and everything is inside.",[],"One icon · Every app inside",None),
+ ("No account. No subscription. Your information stays on your phone.",[],"No account · No subscription · Private",None),
+ ("It's free. And every gift helps orphans and students in Kenya.",[],"Free · Every gift helps children in Kenya",None),
+ ("Daraja. The apps that ask what you want. Get yours today.",[],"jerrywins1.github.io/daraja-apps/shop",None),
+]
 which=sys.argv[1]
 if which=='tour': build('tour',TOUR,1080,1920,'Why Daraja - store tour draft 2.mp4')
+elif which=='promo5': build('promo5',PROMO5,1080,1080,'Daraja - AI promo draft 5.mp4')
 elif which=='promo4': build('promo4',PROMO4,1080,1080,'Daraja - AI promo draft 4.mp4')
 elif which=='promo3': build('promo3',PROMO3,1080,1080,'Daraja - AI promo draft 3.mp4')
 elif which=='promo2': build('promo2',PROMO2,1080,1080,'Daraja - AI promo draft 2.mp4')
