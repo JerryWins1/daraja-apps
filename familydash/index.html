@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.3 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.4 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4456,7 +4456,7 @@ function repCheck(id){ var t = db.tx.filter(function(x){ return x.id === id; })[
    overstating our expenses by a lot." PayPal's own codes: "General Credit Card Deposit" (T0700) is a purchase funded by a card, "Bank
    Deposit to PP Account" (T0300) one funded by the bank — so the same purchase is also on that card or bank statement. It's counted once,
    on the PayPal side where the business is named; the card or bank side is money moving. This finds every pair still counted twice. */
-function ppAcct(a){ return !!(a && /paypal/i.test((a.name || '') + ' ' + (a.inst || ''))); }
+function ppAcct(a){ return roleOf(a) === 'pass'; }
 function counted(t){ return t.amt > 0 && t.cat !== 'xfer' && t.cat !== 'inc' && counts(acct(t.a)) && !t.splitOf; }
 function ppDupes(){ var P = db.tx.filter(function(t){ return ppAcct(acct(t.a)) && counted(t) && inWin(t) && !t.ppNot; }), used = {}, out = [];
   P.forEach(function(p){ var C = db.tx.filter(function(x){ return !used[x.id] && !x.ppNot && x.a !== p.a && !ppAcct(acct(x.a)) && counted(x) && Math.abs(x.amt - p.amt) < 0.01 && Math.abs(daysBetween(p.d, x.d)) <= 5; });
@@ -4477,15 +4477,51 @@ function ppFix1(d){ var x = d.x; x.cat = 'xfer'; delete x.sug; db.asked[x.id] = 
 function ppFix(i){ var d = PPD[i]; if(!d) return; ppFix1(d); save(); render(); toast('Counted once, on the PayPal line.'); var el = document.getElementById('sheetIn'), sc = el ? el.scrollTop : 0; SHBACK = 1; ppCheck(); if(el) el.scrollTop = sc; }
 function ppFixAll(){ var n = 0, v = 0; PPD.forEach(function(d){ ppFix1(d); n++; v += d.p.amt; }); save(); render(); toast(n + ' fixed — ' + money(r2(v)) + ' no longer counted twice.'); SHBACK = 1; ppCheck(); }
 function ppNot(i){ var d = PPD[i]; if(!d) return; d.x.ppNot = 1; d.p.ppNot = 1; save(); SHBACK = 1; ppCheck(); }
-function ppFund(t){ var a = acct(t.a); return !!(a && /paypal/i.test((a.name || '') + ' ' + (a.inst || '')) && t.amt < 0 && /general credit card deposit|bank deposit to pp|deposit from|funding|general card deposit|transfer from bank/i.test(t.desc)); }
+function ppFund(t){ var a = acct(t.a); return !!(a && ppAcct(a) && t.amt < 0 && /general credit card deposit|bank deposit to pp|deposit from|funding|general card deposit|transfer from bank/i.test(t.desc)); }
 function cardPay(t){ var a = acct(t.a); return !!(a && a.type === 'card' && t.amt < 0 && /payment|pymt|autopay|auto pay|thank you/i.test(t.desc)); }
 /* v10.9 · Jerry, 24 Nov, on a Schwab NVIDIA purchase: "whatever happens in the investment account stays within that account". Lines
    inside an investment account (buys, sells, dividends) are filed as staying inside it — never spending, never a question. Money
    sent into it from checking or a card is still counted on that side. */
-function invAcct(a){ return !!(a && INV_TYPES[a.type]); }
+function invAcct(a){ return roleOf(a) === 'invest'; }
+/* v11.4 · Jerry, 24 Nov: "should we think bigger and get a little better setup of our transaction types and what the process of those
+   transactions should be?" — then "go ahead and build the account roles screen". Each account has one role, guessed and changeable, and
+   the role decides what its lines are, every time statements are read. */
+var ROLES = {
+  everyday:{ em:'🏦', t:'Everyday', d:'Checking and credit cards. What goes in and out counts toward the month; card payments and transfers between your accounts are money moving.' },
+  pass:{ em:'📲', t:'Pass-through', d:'PayPal, Venmo. Purchases count here, where the business is named; the same charge on a card or the bank is money moving, and doubles are checked.' },
+  savings:{ em:'🐖', t:'Savings', d:'Money in and out is moving between your accounts; interest counts as income. Nothing here is spending.' },
+  invest:{ em:'📈', t:'Investments and retirement', d:'What happens inside stays inside — buys, sells, dividends. Only money sent in or taken out counts, on the other side. The balance counts toward net worth.' },
+  loan:{ em:'🏡', t:'Loans and mortgage', d:'A balance you owe. The payment counts once, from checking; lines here are money moving.' } };
+function roleGuess(a){ if(!a) return 'everyday'; if(/paypal|venmo|cash ?app|zelle/i.test((a.name || '') + ' ' + (a.inst || ''))) return 'pass'; if(INV_TYPES[a.type]) return 'invest';
+  if(a.type === 'savings') return 'savings'; if(/^(mortgage|heloc|loan|otherL)$/.test(a.type)) return 'loan'; return 'everyday'; }
+function roleOf(a){ return a ? (a.role || roleGuess(a)) : ''; }
+function roleFile(t, cat, why, role){ t.cat = cat; delete t.sug; db.asked[t.id] = 1; t.byRole = role; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); if(why) t.roleWhy = why; }
+/* apply an account's role to its lines still waiting (and, for investments, to all of them) */
+function roleApply(a){ var r = roleOf(a), n = 0; db.tx.forEach(function(t){ if(t.a !== a.id) return;
+    if(r === 'invest'){ if(t.byRole !== 'invest'){ roleFile(t, 'xfer', 'Inside an investment account', 'invest'); t.inv = 1; n++; } return; }
+    if(db.asked[t.id] && !t.byRole) return;
+    if(r === 'savings'){ if(t.amt < 0 && /interest|dividend/i.test(t.desc)) roleFile(t, 'inc', 'Interest on savings', 'savings'); else roleFile(t, 'xfer', 'Moving money to or from savings', 'savings'); n++; return; }
+    if(r === 'loan'){ roleFile(t, 'xfer', 'A loan’s own line — the payment is counted from checking', 'loan'); n++; return; }
+    if(r === 'pass' && ppFund(t)){ roleFile(t, 'xfer', 'Topped up from a card or the bank for the payment beside it', 'pass'); n++; } });
+  return n; }
+/* a role changed: lines it had filed go back to being asked about, then the new role is applied */
+function roleSet(aid, r){ var a = acct(aid); if(!a || !ROLES[r]) return; var was = roleOf(a); a.role = r;
+  if(r === 'invest' && !INV_TYPES[a.type]){ a.oldType = a.type; a.type = 'invest'; a.track = 'lines'; } else if(was === 'invest' && r !== 'invest' && a.oldType){ a.type = a.oldType; delete a.oldType; }
+  db.tx.forEach(function(t){ if(t.a === aid && t.byRole && t.byRole !== r){ delete db.asked[t.id]; delete t.byRole; delete t.roleWhy; delete t.inv; t.cat = guessCat(t.desc, t.amt, a, t.bcat); } });
+  var n = roleApply(a); save(); render(); SHBACK = 1; openRoles(); toast(a.name + ': ' + ROLES[r].t + (n ? ' — ' + n + ' line' + (n===1?'':'s') + ' filed' : '') + '.'); }
+function rolesAll(){ db.accts.forEach(function(a){ if(!a.closed) roleApply(a); }); }
+function openRoles(){ var A = db.accts.filter(function(a){ return !a.closed && counts(a) && (TYPES[a.type] && (TYPES[a.type].st || INV_TYPES[a.type] || /^(mortgage|heloc|loan|otherL)$/.test(a.type)) || db.tx.some(function(t){ return t.a === a.id; })); });
+  LASTLIST = function(){ openRoles(); };
+  openSheet('<div class="stepno">Settings</div><h3>How each account works</h3><p class="sub">Each account has one role, and the role decides what its lines are — every time a statement is read. Change one with a tap; anything it filed goes back to being asked about.</p>'
+    + A.map(function(a){ var r = roleOf(a), n = db.tx.filter(function(t){ return t.a === a.id; }).length;
+      return '<div class="card" style="padding:12px 14px;margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>' + esc(acctLabel(a)) + '</b><small style="color:var(--soft)">' + n + ' line' + (n===1?'':'s') + (a.role ? '' : ' · the app’s guess') + '</small></div>'
+        + '<select data-role="' + a.id + '" style="width:100%;font-size:16px;padding:8px;border-radius:10px;margin-top:8px" onchange="roleSet(this.getAttribute(\'data-role\'), this.value)">' + Object.keys(ROLES).map(function(k){ return '<option value="' + k + '"' + (k === r ? ' selected' : '') + '>' + ROLES[k].em + ' ' + ROLES[k].t + '</option>'; }).join('') + '</select>'
+        + '<p class="sub" style="margin:6px 0 0;font-size:13px">' + esc(ROLES[r].d) + '</p></div>'; }).join('')
+    + '<button class="b primary full" onclick="sheetBack()">Done</button>'); }
+function invAcctOld(a){ return !!(a && INV_TYPES[a.type]); }
 function tradeLike(d){ return /\(\s*[\d.,]+\s*sh(ares)?\s*@|\b(purchase|sale|sold|bought|reinvest(ment)?|dividend|cap(ital)? gain|buy|sell)\b.*\b(sh|shares|@)\b|\breinvest/i.test(String(d || '')); }
 function invFile(t){ t.cat = 'xfer'; delete t.sug; t.inv = 1; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); }
-function invMark(aid){ var a = acct(aid); if(!a) return; a.type = 'invest'; a.track = 'lines'; var n = 0; db.tx.forEach(function(t){ if(t.a === aid){ invFile(t); n++; } }); save(); render(); toast(a.name + ' is an investment account now — ' + n + ' line' + (n===1?'':'s') + ' stay inside it.'); GK = null; openGTKY(); }
+function invMark(aid){ var a = acct(aid); if(!a) return; a.role = 'invest'; if(!INV_TYPES[a.type]){ a.oldType = a.type; a.type = 'invest'; a.track = 'lines'; } var n = roleApply(a); save(); render(); toast(a.name + ' is an investment account now — ' + n + ' line' + (n===1?'':'s') + ' stay inside it.'); GK = null; openGTKY(); }
 function cardPayFix(){ db.tx.forEach(function(t){ if(!db.asked[t.id] && invAcct(acct(t.a))) invFile(t); if(!db.asked[t.id] && ppFund(t)){ t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); } }); var n = 0; db.tx.forEach(function(t){ if(db.asked[t.id] || !cardPay(t)) return; t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); n++; }); if(n) save(); return n; }
 function stmtDates(d){ var y = d.slice(0,4), m = d.slice(5,7), dd = d.slice(8,10), mo = new Date(+y, +m - 1, +dd); return [m + '/' + dd, (+m) + '/' + (+dd), d, mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + (+dd), mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + dd]; }
 async function stmtRows(file){ if(/\.csv$/i.test(file.name)) return parseCSVRows(await file.text());
@@ -5028,7 +5064,8 @@ function autoKnown(id){ var n = 0, card = 0, K = {};
   var PM = {}; db.accts.forEach(function(x){ var w = /paypal/i.test(x.name + ' ' + (x.inst||'')) ? 'paypal' : /venmo/i.test(x.name + ' ' + (x.inst||'')) ? 'venmo' : ''; if(!w || x.id === id) return; db.tx.forEach(function(t){ if(t.a === x.id) PM[w + '|' + t.d.slice(0,7)] = 1; }); });
   acctLines(id).forEach(function(t){ if((db.asked[t.id] && t.cat !== 'uncat') || db.notSure.indexOf(t.id) >= 0) return; var k = mkey(t.desc), c = null, why = '', w = /paypal/i.test(t.desc) ? 'paypal' : /venmo/i.test(t.desc) ? 'venmo' : '';
     if(w && t.amt > 0 && PM[w + '|' + t.d.slice(0,7)]){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'Paid through ' + (w === 'paypal' ? 'PayPal' : 'Venmo') + ' — what it bought is sorted on that account', cat:'xfer', at:today(), auto:1 }); card++; return; }
-    if(invAcct(acct(t.a))){ invFile(t); card++; return; }
+    if(invAcct(acct(t.a))){ invFile(t); t.byRole = 'invest'; card++; return; }
+    var rl = roleOf(acct(t.a)); if(rl === 'savings' || rl === 'loan'){ roleFile(t, rl === 'savings' && t.amt < 0 && /interest|dividend/i.test(t.desc) ? 'inc' : 'xfer', '', rl); card++; return; }
     if(ppFund(t)){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'PayPal topped up from a card or bank for the payment beside it', cat:'xfer', at:today(), auto:1 }); card++; return; }
     if(cardPay(t)){ t.cat = 'xfer'; db.asked[t.id] = 1; db.reclass.unshift({ id:t.id, d:t.d, amt:t.amt, desc:t.desc, what:'A payment to this card — the money moving from the bank', cat:'xfer', at:today(), auto:1 }); card++; return; }
     if(channel(t)) return;
@@ -5675,6 +5712,7 @@ function openLists(){
     + (db.uses529 || e529.length ? '<button class="b full" style="text-align:left" onclick="openList(\'edu529\')">🎓 Paid by the 529<span style="float:right">' + money(e529.reduce(function(a,t){ return a + t.amt; },0),1) + '</span></button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openList(\'onetime\')">🎁 One-time purchases</button>'
     + (dupList().length ? '<button class="b full" style="text-align:left" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ' to check)</button>' : '')
+    + '<button class="b full" style="text-align:left" onclick="openRoles()">🧭 How each account works</button>'
     + '<button class="b full" style="text-align:left" onclick="catCheck()">🧹 Check every category</button>'
     + (db.accts.some(function(a){ return a.type === 'card'; }) ? '<button class="b full" style="text-align:left" onclick="payCheck()">💳 Card payments, matched to the bank</button>' : '')
     + (db.accts.some(ppAcct) ? '<button class="b full" style="text-align:left" onclick="ppCheck()">🔁 Counted twice? PayPal and your other accounts</button>' : '')
@@ -5727,7 +5765,7 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
-function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -6278,6 +6316,7 @@ function openSettings(){
   openSheet('<h3>Settings</h3><p class="sub">Every answer from setup. Tap one to change it.</p>'
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="spaceOpen()">' + (SPACE === 'practice' ? '🧪 Practice — switch back to Ours' : '🏡 Ours, the real one · 🧪 Practice') + '</button>'
     + SQ.map(function(q, i){ return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + q.ask + '</button>'; }).join('')
+    + '<button class="b full" style="text-align:left;font-weight:800" onclick="openRoles()">🧭 How each account works</button>'
     + '<h4>More</h4>' + (LOCK ? '<button class="b full" onclick="lockNow()">🔒 Lock it now</button><button class="b full" onclick="lockOff()">🔓 Take the passcode off</button>' : '<button class="b full" onclick="promiseScreen()">🔐 Lock it with a passcode</button>') + '<button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
     + '<button class="b full" onclick="openPart2()">📅 Yearly bills and bookings</button>'
     + '<button class="b full" onclick="pickBudgetFile()">📊 Start the budget from my spreadsheet</button>'
