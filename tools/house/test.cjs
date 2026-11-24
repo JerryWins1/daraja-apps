@@ -96,41 +96,51 @@ async function back(b, port){
 }
 
 async function mic(b, port){
-  console.log('\nDictation — it must not stop at the first pause');
+  console.log("\nDictation — the phone's own keyboard does it, and nothing of ours is in the way");
+  /* 24 Nov 2026. This group used to drive the house's own floating microphone: that it kept
+     listening on a one-line box, that a session the browser closed was started again, that the
+     words already said survived. All of that is gone, by Jerry's decision on 23 November — on his
+     iPhone the browser's listening heard him the first round or two on a page and then heard
+     nothing, while the keyboard's own 🎤 worked every time, and he chose "Yes, every app".
+
+     So what is left to check is the opposite of what was here: that the house puts NOTHING beside
+     a box any more, and that tapping a box still brings a keyboard up — which is the only thing
+     the person needs for the keyboard's 🎤 to be there. Whether the dictation itself works is the
+     phone's business and Jerry's to see; a container has no microphone and never did. */
   const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
-  await ctx.addInitScript(() => {           /* a recogniser we can drive; Chromium has none */
+  /* a recogniser is still offered, so this proves the house ignores it rather than lacking it */
+  await ctx.addInitScript(() => {
     window.__SRS = [];
-    window.SpeechRecognition = function(){
-      this.continuous = false; this.interimResults = false; this.lang = '';
-      this.start = function(){ window.__SRS.push(this); };
-      this.stop  = function(){ if (this.onend) this.onend(); };
-      this.abort = function(){ if (this.onend) this.onend(); };
-    };
+    window.SpeechRecognition = function(){ this.start = function(){ window.__SRS.push(this); }; this.stop = function(){}; this.abort = function(){}; };
   });
   const p = await open(ctx, port, 'advent');
   const r = await p.evaluate(async () => {
-    const out = {};
     const inp = document.createElement('input'); inp.type = 'text';
     document.body.appendChild(inp); inp.focus();
-    await new Promise(r => setTimeout(r, 600));
-    const m = document.getElementById('djMic'); if (!m) return out;
-    m.click(); await new Promise(r => setTimeout(r, 100));
-    const a = window.__SRS[window.__SRS.length - 1];
-    out.continuous = a.continuous;                       /* false on a one-line box was the bug */
-    a.onresult({ results: [[{ transcript: 'buy milk' }]] });
-    a.onend();                                           /* Chrome closing the session itself */
-    await new Promise(r => setTimeout(r, 100));
-    out.restarted = window.__SRS.length === 2;
-    window.__SRS[1].onresult({ results: [[{ transcript: 'and bread' }]] });
-    out.text = inp.value;
-    m.click(); await new Promise(r => setTimeout(r, 100));
-    out.stopStays = window.__SRS.length === 2;
-    return out;
+    await new Promise(r => setTimeout(r, 900));
+    return { floating: !!document.getElementById('djMic'),
+             focused: document.activeElement === inp,
+             started: window.__SRS.length };
   });
-  ck('a one-line box keeps listening', r.continuous === true, r.continuous);
-  ck('a session the browser closes is started again', r.restarted === true);
-  ck('  and the words already said survive it', r.text === 'buy milk and bread', r.text);
-  ck('tapping stop does not start it again', r.stopStays === true);
+  ck('nothing of ours is put beside a box', r.floating === false);
+  ck('  and the box keeps the focus, so the keyboard comes up', r.focused === true);
+  ck('  with no browser listening started behind it', r.started === 0, r.started);
+
+  /* the Tell it sheet: the same, plus the one line telling them where the keyboard's mic is */
+  const t = await p.evaluate(async () => {
+    const b = document.getElementById('djTell'); if (b) b.click();
+    await new Promise(r => setTimeout(r, 900));
+    const s = document.getElementById('djAISheet');
+    return { sheet: !!s, text: s ? s.innerText.replace(/\s+/g, ' ') : '',
+             oldButton: !!document.getElementById('djTellMic'),
+             focused: !!(document.activeElement && document.activeElement.id === 'djTellIn'),
+             started: window.__SRS.length };
+  });
+  ck('Tell it opens', t.sheet, t);
+  ck('  with no Tap and talk button of ours', t.oldButton === false);
+  ck('  it says where the keyboard\'s mic is', /on your keyboard/.test(t.text), t.text.slice(0, 120));
+  ck('  its box has the focus', t.focused === true, t);
+  ck('  and nothing is listening behind it', t.started === 0, t.started);
   await ctx.close();
 }
 
