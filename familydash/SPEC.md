@@ -1114,3 +1114,7 @@ Jerry chose "Yes, build both".
   - It says whether that looks like a monthly subscription ("$82.99 around the 28th, 4 months in a row"), two months running, a one-off, or irregular.
   - It reads only what's already in the app.
 - The sample family's card payments don't match its checking amounts (sample data), so the check shows ⚠️ with both amounts there. Real statements should match.
+
+## v11.1 · tick which ones change (24 Nov)
+
+Jerry, on Immanuel Church (coffee, plus donations): "just tick the ones that change." The "Change the other N … too?" screen has a tick box on every line (all ticked) and a "Tick or untick them all" box. The button counts the ticked ones. Unticked lines keep their category; any still waiting keep their own guess (`GKSKIP`, `t.keepGuess`), even though the payee's remembered category follows the new choice.
