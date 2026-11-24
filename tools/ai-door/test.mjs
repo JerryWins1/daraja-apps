@@ -15,13 +15,14 @@
 import worker from './worker.js';
 
 const ORIGIN = 'https://jerrywins1.github.io';
-let pass = 0, fail = 0, lastBody = null;
+let pass = 0, fail = 0, lastBody = null, bodies = [];
 const ck = (n, ok, d) => { if (ok) { pass++; console.log('  ✓ ' + n); } else { fail++; console.log('  ✗ ' + n + ': ' + d); } };
 
 /* a fake Anthropic that replies with whatever the test sets; a FACTORY, never a reused Response */
 function stubAnthropic(make) {
   globalThis.fetch = async (url, init) => {
     lastBody = JSON.parse(init.body);
+    bodies.push(lastBody);
     const { status, json } = make();
     return new Response(JSON.stringify(json), { status, headers: { 'Content-Type': 'application/json' } });
   };
@@ -146,6 +147,143 @@ console.log('\n=== everything that must not break ===');
   r = await call(null, env(), ORIGIN, 'OPTIONS');
   ck('the browser preflight is allowed', r.status === 204, String(r.status));
   ck('CORS names the one allowed site', r.cors === ORIGIN, String(r.cors));
+}
+
+/* ------------------------------------------------------------------ *
+ * SEARCHING THE WEB
+ *
+ * The switch ships off, so the off-path is the one the door is really running
+ * today and it gets tested as it stands. The on-path is tested against a copy
+ * of worker.js with that one word flipped — which is also the guard that the
+ * word has not been renamed, since the patch asserts it found exactly one.
+ * ------------------------------------------------------------------ */
+
+console.log('\n=== searching, while the switch is off ===');
+stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'From memory.' }] } }));
+{
+  const e = env();
+  const r = await call({ prompt: 'What is a Roth IRA?', web: true }, e);
+  ck('web:true still gets an answer', r.status === 200 && r.j.text === 'From memory.', JSON.stringify(r.j));
+  ck('no search tool is sent', !('tools' in lastBody), JSON.stringify(lastBody.tools));
+  ck('the answer says it did not search', r.j.web === false, JSON.stringify(r.j.web));
+  ck('and no search slot was spent', (await e.DOOR_COUNT.get('w:' + new Date().toISOString().slice(0, 10) + ':unknown')) === null, 'a search slot was spent');
+
+  await call({ prompt: 'hello' });
+  ck('a plain ask sends no tools either', !('tools' in lastBody), JSON.stringify(lastBody.tools));
+}
+
+/* worker.js with WEB_SEARCH_ON flipped, loaded as its own module */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const SRC = new URL('./worker.js', import.meta.url);
+const src = readFileSync(SRC, 'utf8');
+const OFF = 'const WEB_SEARCH_ON = false;';
+ck('the switch is still spelled the way the tests patch it', src.split(OFF).length - 1 === 1,
+   'WEB_SEARCH_ON = false appears ' + (src.split(OFF).length - 1) + ' times in worker.js');
+ck('the switch ships OFF', src.includes(OFF), 'worker.js does not ship with searching off');
+const onPath = join(tmpdir(), 'daraja-door-web-on-' + process.pid + '.mjs');
+writeFileSync(onPath, src.replace(OFF, 'const WEB_SEARCH_ON = true;'));
+const on = (await import(pathToFileURL(onPath).href)).default;
+const callOn = async (body, e = env(), o = ORIGIN, m = 'POST') => {
+  const r = await on.fetch(req(body, o, m), e);
+  let j = null; try { j = await r.json(); } catch {}
+  return { status: r.status, j, cors: r.headers.get('Access-Control-Allow-Origin') };
+};
+
+console.log('\n=== searching, switched on ===');
+stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'It is a retirement account.' }] } }));
+{
+  const r = await callOn({ prompt: 'What is a Roth IRA?', web: true });
+  ck('the ask is answered', r.status === 200 && /retirement/.test(r.j.text), JSON.stringify(r.j));
+  ck('the answer says it searched', r.j.web === true, JSON.stringify(r.j.web));
+  ck('one search tool is sent', Array.isArray(lastBody.tools) && lastBody.tools.length === 1, JSON.stringify(lastBody.tools));
+  ck('it is web_search_20260318', lastBody.tools[0].type === 'web_search_20260318', lastBody.tools[0].type);
+  ck('it is named web_search', lastBody.tools[0].name === 'web_search', lastBody.tools[0].name);
+  ck('max_uses caps it at 2 searches an ask', lastBody.tools[0].max_uses === 2, String(lastBody.tools[0].max_uses));
+  ck('it searches directly, not through code execution',
+     JSON.stringify(lastBody.tools[0].allowed_callers) === '["direct"]', JSON.stringify(lastBody.tools[0].allowed_callers));
+  ck('thinking is still disabled when searching', lastBody.thinking.type === 'disabled', JSON.stringify(lastBody.thinking));
+
+  const r2 = await callOn({ prompt: 'What is a Roth IRA?' });
+  ck('an ask that did not ask to search sends no tools', !('tools' in lastBody), JSON.stringify(lastBody.tools));
+  ck('and its answer says so', r2.j.web === false, JSON.stringify(r2.j.web));
+}
+
+console.log('\n=== where the answer came from ===');
+{
+  stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [
+    { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [{ type: 'web_search_result', url: 'https://irs.gov/roth', title: 'IRS' }] },
+    { type: 'text', text: 'It is a retirement account.', citations: [
+      { type: 'web_search_result_location', url: 'https://irs.gov/roth', title: 'Roth IRAs | IRS' },
+      { type: 'web_search_result_location', url: 'https://irs.gov/roth', title: 'Roth IRAs | IRS' },
+      { type: 'web_search_result_location', url: 'https://ssa.gov/x', title: 'SSA' },
+    ] },
+  ] } }));
+  const r = await callOn({ prompt: 'What is a Roth IRA?', web: true });
+  ck('the sources come back with the answer', Array.isArray(r.j.sources) && r.j.sources.length === 2, JSON.stringify(r.j.sources));
+  ck('the same page is not listed twice', r.j.sources.filter(x => x.url === 'https://irs.gov/roth').length === 1, JSON.stringify(r.j.sources));
+  ck('each source has a title and a link', r.j.sources.every(x => x.url && x.title), JSON.stringify(r.j.sources));
+
+  stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [
+    { type: 'text', text: 'Lots of places.', citations: Array.from({ length: 9 }, (_, i) => ({ url: 'https://e' + i + '.test/p', title: 'E' + i })) },
+  ] } }));
+  const many = await callOn({ prompt: 'x', web: true });
+  ck('no more than five sources reach a phone', many.j.sources.length === 5, String(many.j.sources.length));
+
+  stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'From memory.' }] } }));
+  const none = await callOn({ prompt: 'x', web: true });
+  ck('an answer with no citations carries no sources key', !('sources' in none.j), JSON.stringify(none.j));
+}
+
+console.log('\n=== a search that pauses part way ===');
+{
+  let n = 0;
+  stubAnthropic(() => {
+    n++;
+    return n === 1
+      ? { status: 200, json: { stop_reason: 'pause_turn', content: [
+          { type: 'server_tool_use', id: 'srvtoolu_9', name: 'web_search', input: { query: 'roth ira' } }] } }
+      : { status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Finished it.' }] } };
+  });
+  bodies = [];
+  const r = await callOn({ prompt: 'What is a Roth IRA?', web: true });
+  ck('a paused turn is picked back up', r.status === 200 && r.j.text === 'Finished it.', r.status + ' ' + JSON.stringify(r.j));
+  ck('it took two requests, not one', bodies.length === 2, String(bodies.length));
+  ck("the second sends back the model's own half of the turn",
+     bodies[1].messages.length === 2 && bodies[1].messages[1].role === 'assistant', JSON.stringify((bodies[1].messages || []).map(m => m.role)));
+  ck('the question is still there underneath it', bodies[1].messages[0].role === 'user', JSON.stringify(bodies[1].messages[0].role));
+
+  /* paused forever: the door must not hand over half a thought */
+  stubAnthropic(() => ({ status: 200, json: { stop_reason: 'pause_turn', content: [{ type: 'text', text: 'half a' }] } }));
+  bodies = [];
+  const stuck = await callOn({ prompt: 'x', web: true });
+  ck('a search that never finishes is its own error', stuck.status === 502 && /took too long to look up/.test(stuck.j.error || ''), stuck.status + ' ' + JSON.stringify(stuck.j));
+  ck('it gave up after four tries, not forever', bodies.length === 4, String(bodies.length));
+}
+
+console.log('\n=== what searching is allowed to cost ===');
+{
+  stubAnthropic(() => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'ok' }] } }));
+  const e = env();
+  const today = new Date().toISOString().slice(0, 10);
+  for (let i = 0; i < 20; i++) await callOn({ prompt: 'x', web: true }, e);
+  ck('twenty searching asks a day are counted', (await e.DOOR_COUNT.get('w:' + today + ':unknown')) === '20',
+     String(await e.DOOR_COUNT.get('w:' + today + ':unknown')));
+
+  const r = await callOn({ prompt: 'x', web: true }, e);
+  ck('the twenty-first is still answered', r.status === 200 && r.j.text === 'ok', r.status + ' ' + JSON.stringify(r.j));
+  ck('but it does not search', r.j.web === false && !('tools' in lastBody), JSON.stringify({ web: r.j.web, tools: lastBody.tools }));
+
+  const e2 = env();
+  await callOn({ prompt: 'x' }, e2);
+  ck('an ask that never wanted to search spends no search slot', (await e2.DOOR_COUNT.get('w:' + today + ':unknown')) === null, 'a slot was spent');
+  ck('it still spends an ordinary slot', (await e2.DOOR_COUNT.get('d:' + today + ':unknown')) === '1', 'no ordinary slot was spent');
+
+  const noKv = env({ DOOR_COUNT: undefined });
+  const nk = await callOn({ prompt: 'x', web: true }, noKv);
+  ck('with no counter bound it searches (cap simply off, as for asks)', nk.j.web === true, JSON.stringify(nk.j.web));
 }
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
