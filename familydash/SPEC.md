@@ -1101,3 +1101,16 @@ Jerry approved the name, the one line ("The more you teach it, the more of the r
   - A trade-looking line in an account not yet marked shows "📈 This looks like a trade inside an investment account" with **Mark … as an investment account** (`invMark`).
   - Money sent into it from checking or a card still counts on that side.
 - `shop/voicemaker.py`: `EL_SPEED` can now be set from the environment (default unchanged, 1.07). "Learns as you go" was re-recorded at 1.0, 42 s, because Jerry asked for it "slowed down just a smidge".
+
+## v11.0 · card payments matched to the bank, and 🔁 Check for repeats (24 Nov)
+
+Jerry chose "Yes, build both".
+- **Card payments matched to the bank** (`payMatch`). A card payment is matched to a bank line of the same amount within six days.
+  - The card side shows "✓ Matches $100.90 from Checking on Oct 4", or ⚠️ with what the bank paid when the amounts differ (`payNear`: a bank line within six days that names the card's bank), or ⚠️ no matching bank line.
+  - A bank line that matches a card payment shows "💳 Same as the … payment to …" with **Yes — money moving to the card** (`payIsCard`).
+  - 📋 Lists has **💳 Card payments, matched to the bank** (`payCheck`), with the ones that don't match first.
+- **🔁 Check for repeats** (`repCheck`) sits under the statement link on the questions, sort and Move-a-line screens.
+  - It lists every charge in the same account within about 2% of the amount, plus the same payee anywhere, from three months before to three months after.
+  - It says whether that looks like a monthly subscription ("$82.99 around the 28th, 4 months in a row"), two months running, a one-off, or irregular.
+  - It reads only what's already in the app.
+- The sample family's card payments don't match its checking amounts (sample data), so the check shows ⚠️ with both amounts there. Real statements should match.
