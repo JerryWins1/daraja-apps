@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.4 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.5 · 2026-11-24 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4551,7 +4551,12 @@ async function stmtOpen(id){ var t = db.tx.filter(function(x){ return x.id === i
       var keys = mon(m).concat(mon(m2)), fold = String(a.folder || '').toLowerCase();
       all.forEach(function(x){ var pl = x.path.toLowerCase(), sc = 0; if(fold && pl.indexOf(fold + '/') >= 0) sc += 10; if(a.last4 && pl.indexOf(a.last4) >= 0) sc += 6; if(stmtNorm(a.name) && stmtNorm(pl).indexOf(stmtNorm(a.name)) >= 0) sc += 4; keys.forEach(function(k, i){ if(pl.indexOf(k) >= 0) sc += i < 6 ? 5 : 3; }); x.sc = sc; });
       var C = all.filter(function(x){ return x.sc > 0; }).sort(function(x,y){ return y.sc - x.sc; }).slice(0, 12);
-      for(var i = 0; i < C.length && !page; i++){ try{ var f1 = await C[i].h.getFile(), pg = await stmtPage(f1, t); if(pg){ hit = f1; page = pg; t.f = C[i].path; save(); } }catch(e){} } }
+      for(var i = 0; i < C.length && !page; i++){ try{ var f1 = await C[i].h.getFile(), pg = await stmtPage(f1, t); if(pg){ hit = f1; page = pg; t.f = C[i].path; save(); } }catch(e){} }
+      /* v11.5 · Jerry, 24 Nov: "The first check I did on the bank statement said I couldn't find it." The likeliest dozen weren't it — so every
+         other statement in that account's folder is tried too (and, if the account has no folder, every statement whose name has its last 4). */
+      if(!page){ var tried = {}; C.forEach(function(x){ tried[x.path] = 1; }); var R = all.filter(function(x){ var pl = x.path.toLowerCase(); return !tried[x.path] && ((fold && pl.indexOf(fold + '/') >= 0) || (a.last4 && pl.indexOf(a.last4) >= 0) || (!fold && !a.last4)); }).slice(0, 80);
+        toast('Looking through ' + R.length + ' more statement' + (R.length===1?'':'s') + '…');
+        for(var j = 0; j < R.length && !page; j++){ try{ var f2 = await R[j].h.getFile(), pg2 = await stmtPage(f2, t); if(pg2){ hit = f2; page = pg2; t.f = R[j].path; save(); } }catch(e){} } } }
     if(!hit || !page){ toast('Couldn’t find a statement with ' + money(Math.abs(t.amt)) + ' on ' + shortDate(t.d) + ' in ' + FS.name + ' — it may be in a folder the app wasn’t given.'); return; }
     if(/\.pdf$/i.test(hit.name)) stmtShow(hit, page, t, false); else stmtTable(hit, t); }
   catch(e){ toast('Couldn’t open the statement (' + (e.message || e) + ').'); } }
@@ -6081,7 +6086,7 @@ function tapPick(name, el){ Array.prototype.forEach.call(document.querySelectorA
 function tapVal(name){ var b = document.querySelector('#tp_' + name + ' button.on'); return b ? b.getAttribute('data-v') : null; }
 function setupQ(i, edit, dir){ if(!db){ db = blank(); save(); } if(!edit && !i && !db.autoAsked && !db.ex){ autoScreen(); return; } SQEDIT = !!edit; i = Math.max(0, Math.min(i, SQ.length));
   if(!edit && db.ansd){ var sk = function(k){ return k >= 0 && k < SQ.length && SQ[k].key && db.ansd[SQ[k].key]; }; while(sk(i)) i += (dir || 1); if(i < 0){ i = 0; while(sk(i)) i++; } } if(!edit){ db.sq = i; save(); } if(i >= SQ.length){ setupSummary(); return; } var q = SQ[i]; openSheet(sqHead(i, q.sec) + '<h3>' + q.ask + '</h3>' + q.html() + sqFoot(i)); if(q.after) q.after(); }
-function sqNext(i){ var q = SQ[i]; if(q.save && q.save() === false) return; save(); if(SQEDIT){ rebuildPlan(); save(); render(); openSettings(); toast('Saved.'); return; } setupQ(i + 1); }
+function sqNext(i){ var q = SQ[i]; if(q.save && q.save() === false) return; db.sqDone = db.sqDone || {}; db.sqDone[q.ask] = 1; save(); if(SQEDIT){ rebuildPlan(); save(); render(); openSettings(); toast('Saved.'); return; } setupQ(i + 1); }
 function sqLater(i){ var q = SQ[i]; if(q.save) q.save(); db.sq = i; save(); closeSheet(); render(); toast('Saved. Carry on whenever you like.'); }
 var YCHIPS = [['Property tax','ptax'],['Estimated income tax','esttax'],['Home insurance (yearly)','hins'],['Car insurance (yearly)','cinsY'],['Landscaping or snow removal','lawn'],['Club dues','club'],['Boat or RV storage','storage'],['Card annual fees','annual'],['Travel','travel']];
 var YKW = { ptax:'property tax,county treas,tax collector,county tax,assessor', esttax:'usataxpymt,irs ,estimated tax,est tax,dept of revenue,department of revenue', hins:'homeowners ins,home insur,hazard ins', cinsY:'auto insur,car insur,geico,state farm,allstate,progressive,usaa',
@@ -6093,6 +6098,9 @@ SQ = [
   { sec:'Household', ask:'Do you have more than one home? Name each one.',
     html:function(){ var n = (db.homes||[]).length || 1; return taps('homes', [['1','One home'],['2','Two homes','each becomes its own group'],['3','Three homes']], String(n)) + '<div id="qHomes"></div>'; },
     after:function(){ sqHomes(); }, save:function(){ var n = +(tapVal('homes')||1), H = []; for(var k=0;k<n;k++){ var el = document.getElementById('qH' + k); H.push((el && el.value.trim()) || (n === 1 ? 'Our home' : 'Home ' + (k+1))); } db.homes = H; } },
+  { sec:'Household', ask:'Do you have cars? Name each one.', sum:function(){ return db.cars ? (db.cars.length ? db.cars.join(' · ') : 'No cars') : ''; },
+    html:function(){ return '<p class="sub">So their insurance and registration can be asked about by name — “Car insurance · the Tesla”. None? Just tap Next.</p><div id="qCars"></div><div class="row" style="gap:8px;margin-top:8px"><input id="qCN" placeholder="e.g. The Tesla" style="flex:1" onkeydown="if(event.key===\'Enter\'){event.preventDefault();carAdd();}"><button class="b" style="margin:0;flex:0 0 auto" onclick="carAdd()">＋ Add</button></div>'; },
+    after:function(){ db.cars = db.cars || []; carRows(); }, save:function(){ db.cars = db.cars || []; var el = document.getElementById('qCN'); if(el && el.value.trim()) db.cars.push(el.value.trim()); } },
   { sec:'Household', ask:'Monthly income: list each source and its amount.',
     html:function(){ return '<p class="sub">Tap to add a common one, then type the amount.</p><div class="mchips">' + ['Pension','Social Security','Salary','Rental income','Annuity'].map(function(s){ return '<button onclick="incAdd(\'' + s + '\')">＋ ' + s + '</button>'; }).join('') + '<button onclick="incAdd(\'\')">＋ Other</button></div><div id="qInc"></div>'; },
     after:function(){ incRows(); }, save:function(){ incRead(); } },
@@ -6100,25 +6108,22 @@ SQ = [
     html:function(){ var y = new Date().getFullYear(); return '<label>The budget starts</label>' + taps('bf', [[thisMonth(), 'This month', monthName(thisMonth())], [addMonths(thisMonth(),1), 'Next month', monthName(addMonths(thisMonth(),1))]], db.budgetFrom || thisMonth()) + (db.hfSet ? '<p class="sub" style="margin-top:10px">Working on <b>' + esc(winLabel()) + '</b>. <a href="#" onclick="yearPick();return false" style="color:var(--brand);font-weight:800">Change it</a></p>' : '<label>Pull past spending from</label>' + (db.tx.length ? '<p class="sub" style="margin:0 0 6px">Your statements go back to ' + (function(){ var f = db.tx.reduce(function(a,t){ return t.d < a ? t.d : a; }, '9999'); return shortDate(f) + ', ' + f.slice(0,4); })() + '.</p>' : '') + taps('hf', [[y + '-01-01','January 1 this year','recommended'],[addMonths(thisMonth(),-3) + '-01','3 months back'],[addMonths(thisMonth(),-12) + '-01','12 months back']], db.historyFrom || (y + '-01-01')) + '<label for="qHF">Or type a date</label><input id="qHF" type="date" value="' + (db.historyFrom && [y + '-01-01', addMonths(thisMonth(),-3) + '-01', addMonths(thisMonth(),-12) + '-01'].indexOf(db.historyFrom) < 0 ? db.historyFrom : '') + '">'); },
     save:function(){ db.budgetFrom = tapVal('bf') || thisMonth(); if(db.hfSet) return; var t = document.getElementById('qHF').value; db.historyFrom = t || tapVal('hf') || (new Date().getFullYear() + '-01-01'); } },
   { sec:'Accounts', ask:'Add each checking, savings and card account.',
-    html:function(){ return '<p class="sub">Just a name and the last 4 digits — never a full number or a password. For each one you’ll say whose money it is, and how a card gets paid. Statements come in after setup.</p><div id="suAccts">' + acctListHTML(true) + '</div><button class="b warm full" onclick="openAcct(null, function(){ setupQ(4, SQEDIT); })">＋ Add an account</button>'; } },
+    html:function(){ return '<p class="sub">Just a name and the last 4 digits — never a full number or a password. For each one you’ll say whose money it is, and how a card gets paid. Statements come in after setup.</p><div id="suAccts">' + acctListHTML(true) + '</div><button class="b warm full" onclick="openAcct(null, function(){ setupQ(sqAcc(), SQEDIT); })">＋ Add an account</button>'; } },
   { sec:'How the budget is built', ask:'Use the three-part budget?',
     html:function(){ return '<div class="note" style="margin-bottom:10px">1 · Spend each month<br>2 · Save each month for bills that come once or twice a year<br>3 · As needed — help and one-time payments from savings</div>' + taps('tp', [['1','Yes, three parts','recommended'],['0','No, keep one simple budget']], db.threePart ? '1' : '0'); },
     save:function(){ db.threePart = tapVal('tp') !== '0'; } },
-  { sec:'How the budget is built', ask:'List your bills that come once or twice a year.',
-    html:function(){ return '<p class="sub">Tap the ones you have. Leave the amount blank if you don’t know it yet — it will show as unknown, never a guess.</p><div class="mchips">' + YCHIPS.map(function(c){ return '<button onclick="yAdd(\'' + c[0] + '\',\'' + c[1] + '\')">＋ ' + c[0] + '</button>'; }).join('') + '<button onclick="yAdd(\'\',\'\')">＋ Other</button></div><div id="qY"></div>'; },
-    after:function(){ yRows(); }, save:function(){ yRead(); } },
+  { sec:'How the budget is built', ask:'Bills that don’t come every month.', sum:function(){ var L = yList(); return L.length ? L.slice(0, 4).map(function(c){ return c.name + (c.escrow ? ' (in the mortgage)' : c.due && c.due.length ? ' (' + c.due.map(function(m){ return MONS[m-1]; }).join(', ') + ')' : ''); }).join(' · ') + (L.length > 4 ? ' · +' + (L.length - 4) + ' more' : '') : ''; },
+    html:function(){ return billPickHTML(); }, save:function(){ return billPickSave(); } },
   { sec:'How the budget is built', ask:'Will you move the set-aside money into a separate savings account each month?',
     html:function(){ return taps('sa', [['1','Yes','recommended — the app says how much each month'],['0','No']], db.setAside ? '1' : '0'); }, save:function(){ db.setAside = tapVal('sa') !== '0'; } },
   { sec:'How the budget is built', ask:'Which spending goes up and down from month to month?',
-    html:function(){ rebuildPlan(); return '<p class="sub">These use an average instead of a fixed number, and show their low and high months.</p><div class="mchips" id="qVar">' + p1Cats().map(function(c){ return '<button class="' + (c.variable ? 'on' : '') + '" data-id="' + c.id + '" onclick="this.classList.toggle(\'on\')">' + esc(catLabel(c)) + '</button>'; }).join('') + '</div>'; },
-    save:function(){ Array.prototype.forEach.call(document.querySelectorAll('#qVar button'), function(b){ var c = cat(b.getAttribute('data-id')); if(c) c.variable = b.classList.contains('on'); }); } },
+    sum:function(){ var V = p1Cats().filter(function(c){ return c.variable; }); return db.sqDone && db.sqDone.vari ? V.length + ' go up and down · ' + (p1Cats().length - V.length) + ' stay the same' : ''; },
+    html:function(){ rebuildPlan(); var pre = varGuess(); return '<p class="sub">Most everyday spending goes up and down — those are planned at their average, with their low and high months. Leave unticked only what is the same every month (mortgage, insurance, phone, subscriptions).' + (pre.n ? ' <b>Ticked from your statements</b> — change any that are wrong.' : '') + '</p><div class="mchips" id="qVar">' + p1Cats().map(function(c){ var on = c.varAsked ? c.variable : (pre.v[c.id] != null ? pre.v[c.id] : c.variable); return '<button class="' + (on ? 'on' : '') + '" data-id="' + c.id + '" onclick="this.classList.toggle(\'on\')">' + esc(catLabel(c)) + '</button>'; }).join('') + '</div>'; },
+    save:function(){ Array.prototype.forEach.call(document.querySelectorAll('#qVar button'), function(b){ var c = cat(b.getAttribute('data-id')); if(c){ c.variable = b.classList.contains('on'); c.varAsked = 1; } }); db.sqDone = db.sqDone || {}; db.sqDone.vari = 1; } },
   { sec:'How the budget is built', ask:'Must the regular budget stay at or under income?',
     html:function(){ return taps('rule', [['1','Yes','recommended — if not, the app shows the gap'],['0','No']], db.rule ? '1' : '0'); }, save:function(){ db.rule = tapVal('rule') !== '0'; } },
-  { sec:'Special categories', ask:'Do you regularly help anyone in a way that isn’t a monthly bill?',
-    html:function(){ return '<p class="sub">A loan, or help as it’s needed. Each person gets their own log with a running total.</p><div id="qHelp"></div><label for="qHN">Add someone</label><input id="qHN" placeholder="Their name"><div class="pick" style="margin-top:8px"><button onclick="helpAdd(\'loan\')">A loan<small>to be paid back</small></button><button onclick="helpAdd(\'gift\')">A gift<small>not paid back</small></button></div>'; },
-    after:function(){ helpRows(); } },
-  { sec:'Special categories', ask:'Do you pay for things that are later covered by another account?',
-    html:function(){ return '<p class="sub">For example, school costs paid by card and then covered by a 529. Those count as education paid by the 529 — not family spending — and get a tax flag.</p>' + taps('e529', [['1','Yes, a 529 covers some costs'],['0','No']], db.uses529 ? '1' : '0'); }, save:function(){ db.uses529 = tapVal('e529') === '1'; } },
+  { sec:'Special categories', ask:'Do you ever pay for something and then get paid back from a 529 plan?', sum:function(){ return db.sqDone && db.sqDone.e529 ? (db.uses529 ? 'Yes — a 529 pays some back' : 'No') : ''; },
+    html:function(){ return '<p class="sub">For example, a grandchild’s tuition paid on your card, and later the 529 plan sends that money back to you. Then it isn’t family spending: the app files it as school costs the 529 covered, and flags it for taxes.</p>' + taps('e529', [['1','Yes, a 529 pays some back'],['0','No']], db.uses529 ? '1' : '0'); }, save:function(){ db.uses529 = tapVal('e529') === '1'; db.sqDone = db.sqDone || {}; db.sqDone.e529 = 1; } },
   { sec:'Special categories', ask:'Do you sometimes pay for a business or nonprofit on a personal card?',
     html:function(){ return '<p class="sub">Those come out of family spending and go on a list for the other books.</p>' + taps('biz', [['1','Yes'],['0','No']], db.bizCard ? '1' : '0'); }, save:function(){ db.bizCard = tapVal('biz') === '1'; } },
   { sec:'Special categories', ask:'Is there anyone whose subscriptions and costs you want to track separately?',
@@ -6144,6 +6149,86 @@ window.tap_homes = function(){ sqHomes(); };
 function incRows(){ var el = document.getElementById('qInc'); if(!el) return; el.innerHTML = db.incomes.map(function(i, k){ return '<div class="row" style="margin:8px 0;align-items:center;flex-wrap:nowrap"><input data-in="' + k + '" value="' + esc(i.name) + '" placeholder="Source" style="flex:1.4;min-width:0"><input data-ia="' + k + '" inputmode="decimal" value="' + (i.amt||'') + '" placeholder="$ a month" style="flex:1;min-width:0"><button class="b small" style="flex:none" aria-label="Remove" onclick="incRead();db.incomes.splice(' + k + ',1);incRows()">✕</button></div>'; }).join('') + (db.incomes.length ? '<div class="line ok">Total: ' + money(income(),1) + ' a month</div>' : ''); }
 function incRead(){ db.incomes.forEach(function(i, k){ var n = document.querySelector('[data-in="' + k + '"]'), a = document.querySelector('[data-ia="' + k + '"]'); if(n) i.name = n.value.trim() || 'Income'; if(a) i.amt = Math.abs(num(a.value)); }); }
 function incAdd(n){ incRead(); db.incomes.push({ id:uid(), name:n, amt:0 }); incRows(); var el = document.querySelector('[data-ia="' + (db.incomes.length-1) + '"]'); if(el) el.focus(); }
+/* v11.5 · Jerry, 24 Nov: "I came back and I couldn't figure out why I left … maybe have a status on it" and "if you listed the information
+   under that tab … I don't have to go to it." Each question shows its answer, or that it isn't answered yet. */
+function sqSum(q){ var D = db.sqDone || {}, done = !!D[q.ask], t = '', yn = function(v, y, n){ return done ? (v ? y : n) : ''; }, a = q.ask;
+  if(q.sum) t = q.sum();
+  else if(/^Who is in the household/.test(a)) t = db.people || '';
+  else if(/^Do you have more than one home/.test(a)) t = done || (db.homes || []).length > 1 ? (db.homes || ['Our home']).join(' · ') : '';
+  else if(/^Monthly income/.test(a)) t = (db.incomes || []).filter(function(i){ return i.amt; }).map(function(i){ return i.name + ' ' + money(i.amt,1); }).join(' · ') + ((db.incomes || []).length > 1 ? ' · ' + money(income(),1) + ' a month' : '');
+  else if(/^When does the budget start/.test(a)) t = db.budgetFrom ? 'Starts ' + monthName(db.budgetFrom) + (db.historyFrom ? ' · history from ' + monthName(db.historyFrom.slice(0,7)) : '') : '';
+  else if(/^Add each checking/.test(a)) t = db.accts.length ? db.accts.length + ' account' + (db.accts.length===1?'':'s') + ': ' + db.accts.slice(0, 4).map(function(x){ return x.name; }).join(', ') + (db.accts.length > 4 ? '…' : '') : '';
+  else if(/^Use the three-part/.test(a)) t = yn(db.threePart, 'Yes, three parts', 'One simple budget');
+  else if(/^Will you move the set-aside/.test(a)) t = yn(db.setAside, 'Yes, into savings each month', 'No');
+  else if(/^Must the regular budget/.test(a)) t = yn(db.rule, 'Yes — the app shows any gap', 'No');
+  else if(/^Do you sometimes pay for a business/.test(a)) t = yn(db.bizCard, 'Yes', 'No');
+  else if(/^Is there anyone whose subscriptions/.test(a)) t = (db.lists || []).length ? db.lists.map(function(l){ return l.name; }).join(' · ') : done ? 'No separate lists' : '';
+  else if(/^Which kinds of payments/.test(a)){ var on = Object.keys(FLAGS).filter(function(k){ return (db.flagsOn || {})[k] !== 0; }).length; t = done ? on + ' of ' + Object.keys(FLAGS).length + ' flags on' : ''; }
+  else if(/^At what amount/.test(a)) t = done ? 'Over ' + money(db.threshold || 500,1) : '';
+  else if(/^May the app look in your email/.test(a)) t = done ? (db.emailOk === 'no' ? 'No, never' : 'Ask again when it can') : '';
+  else if(/^Who answers/.test(a)) t = done ? (db.whoAnswers === 'spouse' ? 'Me, and ' + (db.spouse || 'my spouse') : 'Me') : '';
+  else if(/^Who are your CPA/.test(a)) t = [db.cpa ? 'CPA: ' + db.cpa : '', db.advisor ? 'Advisor: ' + db.advisor : ''].filter(Boolean).join(' · ') || (done ? 'None named' : '');
+  return { ok:!!(t || done), t:t }; }
+function sqAcc(){ return sqAt('Add each checking'); }
+function sqAt(start){ for(var i = 0; i < SQ.length; i++) if(SQ[i].ask.indexOf(start) === 0) return i; return 0; }
+var MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function carRows(){ var el = document.getElementById('qCars'); if(!el) return; el.innerHTML = (db.cars || []).length ? '<ul class="list">' + db.cars.map(function(c, k){ return '<li><span class="ds">🚗 ' + esc(c) + '</span><button aria-label="Remove" onclick="db.cars.splice(' + k + ',1);carRows()">✕</button></li>'; }).join('') + '</ul>' : ''; }
+function carAdd(){ var el = document.getElementById('qCN'), n = el ? el.value.trim() : ''; if(!n) return; db.cars = db.cars || []; db.cars.push(n); el.value = ''; carRows(); el.focus(); }
+/* v11.5 · Jerry, 24 Nov: "maybe it's better to go one by one, give them an option of the cycle of payment, and then click the months rather
+   than try to fill it in for them" — and "when you know you have two houses, you can say property tax house 1, property tax house 2 … how
+   many cars … the BMW and then the Tesla." First a tick list (what the statements show, then the usual ones named for each home and car),
+   then one bill at a time: its name, how often, the months, the amount each time, or paid inside the mortgage. */
+function billSeen(){ var by = {}, allM = {}; db.tx.forEach(function(t){ if(t.amt <= 0 || t.cat === 'xfer' || t.cat === 'inc' || !counts(acct(t.a)) || !inWin(t) || channel(t)) return; var k = mkey(t.desc); if(!k) return; (allM[k] = allM[k] || {})[t.d.slice(0,7)] = 1; if(t.amt >= 100) (by[k] = by[k] || []).push(t); });
+  /* not monthly bills (seen in more than four months at any amount), not ones already on the list, not ones already sorted as everyday spending */
+  Object.keys(by).forEach(function(k){ var T = by[k]; if(Object.keys(allM[k]).length > 4 || T.some(function(t){ var c = cat(t.cat); return c && c.part === 2; }) || T.every(function(t){ var c = cat(t.cat); return db.asked[t.id] && c && c.part === 1; })) delete by[k]; });
+  return Object.keys(by).map(function(k){ var T = by[k], m = {}; T.forEach(function(t){ m[+t.d.slice(5,7)] = 1; }); var M = Object.keys(m).map(Number).sort(function(a,b){ return a - b; }); return { k:k, T:T, M:M, desc:T[0].desc, amt:r2(T.reduce(function(s,t){ return s + t.amt; }, 0) / T.length) }; })
+    .filter(function(x){ return x.M.length >= 1 && x.M.length <= 4 && x.T.length <= 4; }).sort(function(a,b){ return b.amt - a.amt; }).slice(0, 10); }
+function billCommon(){ var H = (db.homes && db.homes.length > 1) ? db.homes : [''], C = db.cars || [], L = [];
+  H.forEach(function(h){ L.push(['Property tax' + (h ? ' · ' + h : ''), 'ptax']); L.push(['Home insurance' + (h ? ' · ' + h : ''), 'hins']); });
+  C.forEach(function(c){ L.push(['Car insurance · ' + c, 'cinsY']); L.push(['Registration · ' + c, '']); }); if(!C.length) L.push(['Car insurance', 'cinsY']);
+  L.push(['Estimated income tax', 'esttax'], ['Club dues', 'club'], ['Card annual fees', 'annual'], ['Landscaping or snow removal', 'lawn'], ['Travel', 'travel']); return L; }
+function billHave(n){ var l = n.toLowerCase().trim(); return yList().filter(function(c){ return c.name.toLowerCase().trim() === l; })[0] || null; }
+function billPickHTML(){ var have = yList(), seen = billSeen(), common = billCommon().filter(function(x){ return !billHave(x[0]); });
+  return '<p class="sub">Tick each one you pay. Next, you go through them one at a time — how often, which months, how much.</p>'
+    + (have.length ? '<h4 style="margin:10px 0 4px">On your list</h4>' + have.map(function(c){ return '<label class="ck"><input type="checkbox" data-bh="' + c.id + '" checked> ' + esc(c.name) + '</label>'; }).join('') : '')
+    + (seen.length ? '<h4 style="margin:12px 0 4px">Seen in your statements</h4>' + seen.map(function(x, i){ return '<label class="ck"><input type="checkbox" data-bs="' + i + '"> ' + esc(ppStrip(x.desc)) + ' <small style="color:var(--soft)">· ' + x.M.map(function(m){ return MONS[m-1]; }).join(' & ') + ' · ' + money(x.amt,1) + '</small></label>'; }).join('') : '')
+    + '<h4 style="margin:12px 0 4px">Common ones</h4>' + common.map(function(x, i){ return '<label class="ck"><input type="checkbox" data-bc="' + i + '"> ' + esc(x[0]) + '</label>'; }).join('')
+    + '<label for="qBN" style="margin-top:10px">Another one</label><input id="qBN" placeholder="e.g. Water softener service">'; }
+var BW = null;
+function billPickSave(){ var seen = billSeen(), common = billCommon().filter(function(x){ return !billHave(x[0]); }), ids = []; ensureYearlyGroup();
+  Array.prototype.forEach.call(document.querySelectorAll('[data-bh]'), function(b){ if(b.checked) ids.push(b.getAttribute('data-bh')); else { var c = cat(b.getAttribute('data-bh')); if(c && !db.tx.some(function(t){ return t.cat === c.id; })) db.cats = db.cats.filter(function(x){ return x.id !== c.id; }); } });
+  var add = function(name, kw, due, amt, k){ var c = billHave(name); if(!c){ c = { id:uid(), g:'g_yearly', name:name, part:2, yearly:null, due:due || [], budget:0, kw:(YKW[kw] || '') + (k ? (YKW[kw] ? ',' : '') + k : '') }; db.cats.push(c); if(amt) c.each = amt; } if(ids.indexOf(c.id) < 0) ids.push(c.id); };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-bs]'), function(b){ if(!b.checked) return; var x = seen[+b.getAttribute('data-bs')]; add(ppStrip(x.desc).replace(/\s+/g,' ').trim().slice(0, 40), '', x.M, x.amt, x.k); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-bc]'), function(b){ if(!b.checked) return; var x = common[+b.getAttribute('data-bc')]; add(x[0], x[1]); });
+  var o = document.getElementById('qBN'); if(o && o.value.trim()) add(o.value.trim(), '');
+  db.sqDone = db.sqDone || {}; db.sqDone['Bills that don’t come every month.'] = 1; save();
+  if(!ids.length) return true; BW = { ids:ids, i:0, q:SQ.indexOf(SQ.filter(function(q){ return q.ask === 'Bills that don’t come every month.'; })[0]), edit:SQEDIT }; billStep(); return false; }
+var BOFT = [['1','Once a year'],['2','Twice a year'],['4','Every quarter'],['12','Most months, but it goes up and down'],['0','Some other months']];
+function billStep(){ var B = BW, c = cat(B.ids[B.i]); if(!c){ return billDone(); }
+  var times = c.oft || (c.due && c.due.length ? String(c.due.length > 4 ? 12 : c.due.length === 3 ? 0 : c.due.length) : ''), each = c.each != null ? c.each : (c.yearly != null && c.due && c.due.length ? r2(c.yearly / c.due.length) : '');
+  openSheet('<div class="stepno">Bills that don’t come every month · ' + (B.i + 1) + ' of ' + B.ids.length + '</div>'
+    + '<label for="bwN">What it is</label><input id="bwN" value="' + esc(c.name) + '">'
+    + '<label class="ck" style="margin-top:10px"><input type="checkbox" id="bwE"' + (c.escrow ? ' checked' : '') + ' onchange="document.getElementById(\'bwRest\').style.display=this.checked?\'none\':\'\'"> Paid inside the mortgage payment (escrow) — nothing to set aside</label>'
+    + '<div id="bwRest"' + (c.escrow ? ' style="display:none"' : '') + '><h3 style="font-size:18px;margin:12px 0 6px">How often?</h3>' + taps('bwO', BOFT.map(function(o){ return [o[0], o[1]]; }), times)
+    + '<h3 style="font-size:18px;margin:12px 0 6px">Which months?</h3><div class="mchips" id="bwM">' + MONS.map(function(m, k){ return '<button class="' + ((c.due || []).indexOf(k + 1) >= 0 ? 'on' : '') + '" data-m="' + (k + 1) + '" onclick="this.classList.toggle(\'on\')">' + m + '</button>'; }).join('') + '</div>'
+    + (c.due && c.due.length && !c.oft ? '<p class="sub" style="font-size:13px;margin:4px 0 0">Ticked from your statements — change them if they’re not right.</p>' : '')
+    + '<label for="bwA" style="margin-top:12px">Amount each time <small style="font-weight:600;color:var(--soft)">(blank = not known yet)</small></label><input id="bwA" inputmode="decimal" value="' + esc(String(each)) + '" placeholder="$"></div>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="billSave()">' + (B.i + 1 < B.ids.length ? 'Next bill' : 'Done') + '</button><div class="row" style="gap:6px">' + (B.i ? '<button class="b small" style="flex:1;margin:0" onclick="BW.i--;billStep()">← Back</button>' : '') + '<button class="b small" style="flex:1;margin:0" onclick="BW.i++;billStep()">Skip this one</button></div></div>'); }
+function billSave(){ var c = cat(BW.ids[BW.i]); if(!c) return; c.name = (document.getElementById('bwN').value || '').trim() || c.name; c.escrow = document.getElementById('bwE').checked;
+  if(c.escrow){ c.yearly = 0; c.due = []; c.each = 0; c.part = 2; }
+  else { var o = tapVal('bwO'), M = Array.prototype.filter.call(document.querySelectorAll('#bwM button'), function(b){ return b.classList.contains('on'); }).map(function(b){ return +b.getAttribute('data-m'); }), a = (document.getElementById('bwA').value || '').trim();
+    if(o === '12'){ c.part = 1; c.variable = true; c.varAsked = 1; c.oft = o; c.due = M; }
+    else { var need = { '1':1, '2':2, '4':4 }[o]; if(need && M.length && M.length !== need){ alert('That’s ' + M.length + ' month' + (M.length===1?'':'s') + ' ticked for “' + BOFT.filter(function(x){ return x[0] === o; })[0][1].toLowerCase() + '”. Tick ' + need + ', or pick “Some other months”.'); return; }
+      c.part = 2; c.oft = o || ''; c.due = M; c.each = a === '' ? null : Math.abs(num(a)); c.yearly = c.each == null ? null : r2(c.each * Math.max(1, M.length || (+o || 1))); } }
+  save(); BW.i++; billStep(); }
+function billDone(){ var B = BW, L = B.ids.map(cat).filter(Boolean), tot = 0; L.forEach(function(c){ if(c.part === 2 && c.yearly) tot += c.yearly; });
+  openSheet('<div class="stepno">Bills that don’t come every month</div><h3>Your list</h3><ul class="list">' + L.map(function(c){ return '<li><span class="ds">' + esc(c.name) + '<small>' + (c.escrow ? 'paid inside the mortgage' : c.part === 1 ? 'most months — planned at its average' : (c.due && c.due.length ? c.due.map(function(m){ return MONS[m-1]; }).join(', ') : 'months not set') + (c.each != null ? ' · ' + money(c.each,1) + ' each' : ' · amount not known yet')) + '</small></span><span class="amt">' + (c.part === 2 && c.yearly ? money(c.yearly,1) + '/yr' : '') + '</span></li>'; }).join('') + '</ul>'
+    + '<p class="sub">Set aside each month for these: <b>' + money(r2(tot / 12),1) + '</b>.</p><button class="b primary full" onclick="billOn()">' + (B.edit ? 'Save' : 'Next question') + '</button>'); }
+function billOn(){ var B = BW; BW = null; rebuildPlan(); save(); render(); if(B.edit){ openSettings(); toast('Saved.'); } else setupQ(B.q + 1); }
+/* "Goes up and down" ticked from the statements: a kind whose monthly total moves more than about 15% from month to month */
+function varGuess(){ var by = {}, n = 0, v = {}; db.tx.forEach(function(t){ var c = cat(t.cat); if(!c || t.amt <= 0 || !counts(acct(t.a)) || !inWin(t)) return; var m = t.d.slice(0,7); (by[c.id] = by[c.id] || {})[m] = ((by[c.id] || {})[m] || 0) + t.amt; });
+  Object.keys(by).forEach(function(id){ var V = Object.keys(by[id]).map(function(m){ return by[id][m]; }); if(V.length < 3) return; var avg = V.reduce(function(a,b){ return a + b; }, 0) / V.length, sd = Math.sqrt(V.reduce(function(s,x){ return s + Math.pow(x - avg, 2); }, 0) / V.length); v[id] = avg ? sd / avg > 0.15 : false; n++; });
+  return { v:v, n:n }; }
 function yList(){ return db.cats.filter(function(c){ return c.part === 2; }); }
 function yRows(){ var el = document.getElementById('qY'); if(!el) return; el.innerHTML = yList().map(function(c){ return '<div class="card" style="padding:10px 12px;margin:8px 0"><input data-yn="' + c.id + '" value="' + esc(c.name) + '" aria-label="Bill name"><div class="row" style="align-items:center;margin-top:6px;flex-wrap:nowrap"><input data-ya="' + c.id + '" inputmode="decimal" placeholder="Yearly amount (blank = unknown)" value="' + (c.yearly == null ? '' : c.yearly) + '" style="flex:1;min-width:0" aria-label="Yearly amount"><button class="b small" style="flex:none" aria-label="Remove" onclick="yRead();db.cats=db.cats.filter(function(x){return x.id!==\'' + c.id + '\'});yRows()">✕</button></div><div class="mchips" style="margin-top:6px">' + [1,2,3,4,5,6,7,8,9,10,11,12].map(function(k){ return '<button class="' + ((c.due||[]).indexOf(k) >= 0 ? 'on' : '') + '" data-ym="' + c.id + '" data-m="' + k + '" onclick="this.classList.toggle(\'on\')">' + new Date(2026, k-1, 1).toLocaleDateString('en-US',{ month:'short' }) + '</button>'; }).join('') + '</div></div>'; }).join(''); }
 function yRead(){ yList().forEach(function(c){ var n = document.querySelector('[data-yn="' + c.id + '"]'), a = document.querySelector('[data-ya="' + c.id + '"]'); if(n) c.name = n.value.trim() || 'Yearly bill'; if(a){ var v = a.value.trim(); c.yearly = v === '' ? null : Math.abs(num(v)); }
@@ -6238,7 +6323,7 @@ function acctListHTML(short){
   if(!db.accts.length) return '<p class="sub">Nothing added yet.</p>';
   return '<ul class="list">' + db.accts.map(function(a){ var T = TYPES[a.type] || TYPES.otherA;
     var tags = (a.notPersonal ? '<span class="pill">not ours</span>' : '') + (a.familyUse ? '<span class="pill">family use</span>' : '') + (a.type === 'card' ? '<span class="pill">' + ({ full:'pays in full', min:'pays minimum', hand:'paid by hand' }[a.payMode || 'full']) + '</span>' : '') + (a.closed ? '<span class="pill">closed</span>' : '');
-    return '<li class="tap" onclick="openAcct(\'' + a.id + '\'' + (short ? ', function(){ setupQ(4, SQEDIT); }' : '') + ')"><span style="font-size:22px">' + T.em + '</span><span class="ds">' + esc(acctLabel(a)) + tags + '<small>' + T.t + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + '</small></span><span class="amt" style="color:' + (T.s === 'l' ? 'var(--red)' : 'inherit') + '">' + (a.balUnknown ? 'unknown' : T.s === 'n' ? Math.round(a.bal||0).toLocaleString('en-US') + ' pts' : (T.s === 'l' ? '−' : '') + money(a.bal||0,1)) + '</span></li>'; }).join('') + '</ul>';
+    return '<li class="tap" onclick="openAcct(\'' + a.id + '\'' + (short ? ', function(){ setupQ(sqAcc(), SQEDIT); }' : '') + ')"><span style="font-size:22px">' + T.em + '</span><span class="ds">' + esc(acctLabel(a)) + tags + '<small>' + T.t + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + '</small></span><span class="amt" style="color:' + (T.s === 'l' ? 'var(--red)' : 'inherit') + '">' + (a.balUnknown ? 'unknown' : T.s === 'n' ? Math.round(a.bal||0).toLocaleString('en-US') + ' pts' : (T.s === 'l' ? '−' : '') + money(a.bal||0,1)) + '</span></li>'; }).join('') + '</ul>';
 }
 function openAcct(id, done){
   ACCT_DONE = done || null; var a = id ? acct(id) : { id:'', name:'', type:'checking', bal:0, payMode:'full' };
@@ -6315,7 +6400,9 @@ function spaceFresh(copy){ if(!confirm(copy ? 'Replace Practice with a copy of O
 function openSettings(){
   openSheet('<h3>Settings</h3><p class="sub">Every answer from setup. Tap one to change it.</p>'
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="spaceOpen()">' + (SPACE === 'practice' ? '🧪 Practice — switch back to Ours' : '🏡 Ours, the real one · 🧪 Practice') + '</button>'
-    + SQ.map(function(q, i){ return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + q.ask + '</button>'; }).join('')
+    + (function(){ var A = SQ.map(sqSum), done = A.filter(function(x){ return x.ok; }).length, nx = A.map(function(x, i){ return x.ok ? -1 : i; }).filter(function(i){ return i >= 0; })[0];
+        return '<p class="sub" style="margin:8px 0 4px"><b>' + done + ' of ' + SQ.length + ' answered.</b></p>' + (nx != null ? '<button class="b primary full" style="text-align:left" onclick="setupQ(' + nx + ', true)">▶ Pick up where you left off<small style="display:block;font-weight:600;opacity:.85">' + esc(SQ[nx].ask) + '</small></button>' : '')
+          + SQ.map(function(q, i){ var x = A[i]; return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + (x.ok ? '<span style="color:var(--ok)">✓</span> ' : '') + q.ask + '<small style="display:block;font-weight:600;margin-top:3px;color:' + (x.ok ? 'var(--soft)' : 'var(--amber)') + '">' + (x.ok ? esc(x.t || 'Answered') : 'Not answered yet') + '</small></button>'; }).join(''); })()
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="openRoles()">🧭 How each account works</button>'
     + '<h4>More</h4>' + (LOCK ? '<button class="b full" onclick="lockNow()">🔒 Lock it now</button><button class="b full" onclick="lockOff()">🔓 Take the passcode off</button>' : '<button class="b full" onclick="promiseScreen()">🔐 Lock it with a passcode</button>') + '<button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
     + '<button class="b full" onclick="openPart2()">📅 Yearly bills and bookings</button>'
