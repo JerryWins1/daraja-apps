@@ -1032,3 +1032,10 @@ Jerry, on "What makes up Arizona car": "there's some things in here that are not
 Jerry: "you gave me Tangled Roots Cafe … personal care, but if you looked on the website, you would see this as a restaurant … one more level of checking?"
 - A web page can't read another website, so under the web-search link (on the sort screen, the questions and Move a line) **✨ What is this?** (`whatIs`) asks the AI what the business is. It sends the cleaned payee name and the category names, nothing else, and needs no confirm box because the tap is the ask. It shows "✨ A neighborhood café — **Dining out** [Use it]". Use it picks the category; on the sort screen you still tap ✓.
 - Real web search for the AI belongs to the house's AI door. Jerry chose "Both", so it went to the house chat on 24 Nov, with a small charge per lookup for him to approve there.
+
+## v10.4 · every guess in one list (24 Nov)
+
+Jerry: "If you could go through them, and then I could look over your answers and just correct the ones that need it."
+- **📋 See every guess in one list** (`guessList`) is on Sort each account and on the sort screen. It lists every line still to sort that has a guess (the AI's ✨ or the app's own), one row per account and payee, biggest first, up to 400. Each row is ticked and has its category in a dropdown to change in place. **Accept** sorts the ticked rows with whatever their dropdown says; unticked rows wait to be sorted one at a time. A "Tick or untick them all" box is at the top.
+- **✨ Let my AI suggest answers** now opens this list when it finishes, rather than going one at a time. The list also offers the AI for lines that still have no guess.
+- Anything accepted can be changed later by tapping it in any list (Move a line), or found with 🧹 Check every category.
