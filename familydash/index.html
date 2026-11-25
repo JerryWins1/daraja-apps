@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.1 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.2 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4121,17 +4121,22 @@ function stmtKeep(a, hasSub){ db.stmts = db.stmts || {}; (CUR.files || [CUR]).fo
 /* the first time a statement shows more than one account, ask what each one is */
 function splitNeed(a){ if(!a) return false; var S = {}, n = {}; CUR.rows.forEach(function(r){ if(r.sub){ S[r.sub] = r.subName; n[r.sub] = (n[r.sub] || 0) + 1; } });
   var K = Object.keys(S); if(!K.length || (K.length === 1 && !(a.subs || {})[K[0]] && false)) return false; var miss = K.filter(function(k){ return !(a.subs || {})[k] || !acct(a.subs[k]); }); if(!miss.length) return false;
-  var kind = function(nm){ nm = nm.toLowerCase(); return /checking|share draft|draft/.test(nm) ? 'here' : /money market/.test(nm) ? 'mm' : /equity|heloc|mortgage|loan/.test(nm) ? 'loan' : 'savings'; };
+  /* v13.2 · Jerry, 25 Nov: "The Old account is closed starting in November. We use a new account" — a new statement from the same bank offers the
+     accounts already made (the same Regular Savings carries on), and only the first checking section is taken to be this account. */
+  var same = db.accts.filter(function(x){ return x.id !== a.id && x.subOf && String((acct(x.subOf) || {}).inst || '').toLowerCase() === String(a.inst || '').toLowerCase(); });
+  var hereUsed = Object.keys(a.subs || {}).some(function(k){ return a.subs[k] === a.id; });
+  var kind = function(nm){ var n0 = nm.toLowerCase(), hit = same.filter(function(x){ return x.name.toLowerCase().split(' · ').pop() === n0; })[0]; if(hit) return 'old:' + hit.id;
+    if(/checking|share draft|draft/.test(n0)){ if(hereUsed) return 'checking2'; hereUsed = true; return 'here'; } return /money market/.test(n0) ? 'mm' : /equity|heloc|mortgage|loan/.test(n0) ? 'loan' : 'savings'; };
   if(K.length === 1){ a.subs = a.subs || {}; a.subs[K[0]] = a.id; save(); return false; }
   SUBQ = { K:K, S:S };
   openSheet('<div class="stepno">' + esc(acctLabel(a)) + '</div><h3>This statement has ' + K.length + ' accounts on it</h3><p class="sub">What is each one? Each gets its own lines and its own balance, so money moving between them isn’t counted as spending. Next month this is remembered.</p>'
     + K.map(function(k){ var d = miss.indexOf(k) < 0 ? 'done' : kind(S[k]); return '<div class="card" style="padding:10px 12px;margin:8px 0"><b>Acct ' + esc(k) + ' · ' + esc(S[k]) + '</b><small style="display:block;color:var(--soft)">' + n[k] + ' line' + (n[k]===1?'':'s') + '</small>'
-      + (d === 'done' ? '<small style="display:block;color:var(--ok,#2E7D4F);font-weight:700">✓ ' + esc(acctLabel(acct(a.subs[k]))) + '</small>' : '<select data-sp="' + esc(k) + '" style="width:100%;font-size:15px;padding:6px 8px;border-radius:10px;margin-top:6px"><option value="here"' + (d === 'here' ? ' selected' : '') + '>🏦 Checking — this is ' + esc(a.name) + '</option><option value="savings"' + (d === 'savings' ? ' selected' : '') + '>🐖 Savings</option><option value="mm"' + (d === 'mm' ? ' selected' : '') + '>🐖 Money market</option><option value="checking2">🏦 Another checking account</option><option value="loan"' + (d === 'loan' ? ' selected' : '') + '>🏡 Loan or home equity</option></select>') + '</div>'; }).join('')
+      + (d === 'done' ? '<small style="display:block;color:var(--ok,#2E7D4F);font-weight:700">✓ ' + esc(acctLabel(acct(a.subs[k]))) + '</small>' : '<select data-sp="' + esc(k) + '" style="width:100%;font-size:15px;padding:6px 8px;border-radius:10px;margin-top:6px"><option value="here"' + (d === 'here' ? ' selected' : '') + '>🏦 Checking — this is ' + esc(a.name) + '</option><option value="savings"' + (d === 'savings' ? ' selected' : '') + '>🐖 Savings</option><option value="mm"' + (d === 'mm' ? ' selected' : '') + '>🐖 Money market</option><option value="checking2"' + (d === 'checking2' ? ' selected' : '') + '>🏦 Another checking account</option><option value="loan"' + (d === 'loan' ? ' selected' : '') + '>🏡 Loan or home equity</option>' + same.map(function(x){ return '<option value="old:' + x.id + '"' + (d === 'old:' + x.id ? ' selected' : '') + '>↪ The same ' + esc(x.name.split(' · ').pop()) + ' as before</option>'; }).join('') + '</select>') + '</div>'; }).join('')
     + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="subSave()">Save — bring the lines in</button></div>');
   return true; }
 var SUBQ = null;
 function subSave(){ var a = acct(CUR.a), G = SUBQ; if(!a || !G) return; a.subs = a.subs || {};
-  Array.prototype.forEach.call(document.querySelectorAll('#sheetIn [data-sp]'), function(sel){ var k = sel.getAttribute('data-sp'), v = sel.value; if(v === 'here'){ a.subs[k] = a.id; return; }
+  Array.prototype.forEach.call(document.querySelectorAll('#sheetIn [data-sp]'), function(sel){ var k = sel.getAttribute('data-sp'), v = sel.value; if(v === 'here'){ a.subs[k] = a.id; return; } if(v.indexOf('old:') === 0 && acct(v.slice(4))){ a.subs[k] = v.slice(4); return; }
     var nm = G.S[k].toLowerCase().replace(/\b\w/g, function(c){ return c.toUpperCase(); }), x = { id:uid(), hist:[], inst:a.inst || a.name, name:(a.inst || a.name) + ' · ' + nm, type:v === 'loan' ? 'heloc' : v === 'checking2' ? 'checking' : 'savings', mapG:v === 'loan' ? 'loan' : 'bank', track:'lines', subOf:a.id, folder:'__in ' + a.id, role:v === 'loan' ? 'loan' : v === 'checking2' ? 'everyday' : 'savings', balUnknown:1, bal:0 };
     db.accts.push(x); a.subs[k] = x.id; });
   SUBQ = null; save(); takeFile(); }
