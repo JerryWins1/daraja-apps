@@ -2320,15 +2320,85 @@
      mine interview asks the door several times behind a single confirmation, and a second copy of
      this fetch is a second thing to get wrong when the payload changes. `raw` means the caller is
      doing its own error wording. */
+  /* ------------------------------------------------------------------ *
+   * PROVING AN ASK CAME FROM A DARAJA APP (24 Nov 2026)
+   *
+   * Jerry, through the code-review chat: "fix the AI door so strangers can't use it."
+   * The door's only gate was the Origin header, and a header is whatever the sender
+   * says it is — one line of curl could spend his Anthropic key all day.
+   *
+   * So every ask now carries a Cloudflare Turnstile token: proof from a real browser
+   * on Jerry's own site. The widget is INVISIBLE — nobody sees anything, nobody taps
+   * anything. The site key is public and comes down in control/ai.json; the secret
+   * lives only in the Worker.
+   *
+   * WHILE THE SITE KEY IS EMPTY THIS DOES NOTHING AT ALL, and that is deliberate: the
+   * apps learn to send tokens first, and the door starts requiring them when Jerry
+   * sets the secret. Either half alone would have broken the door for everyone.
+   *
+   * IF IT FAILS, THE ASK STILL GOES — without a token. Before the door enforces,
+   * that is simply how it works today. After, the door answers 403 and the app falls
+   * back to the person's own AI, which is the old behaviour. Never a dead end.
+   * ------------------------------------------------------------------ */
+  var TS_LOAD = null, TS_BOX = null, TS_ID = null, TS_PENDING = null;
+  function tsLoad(){
+    if(TS_LOAD) return TS_LOAD;
+    TS_LOAD = new Promise(function(ok, no){
+      try{
+        if(window.turnstile) return ok();
+        var s = document.createElement('script');
+        s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        s.async = true; s.defer = true;
+        s.onload = function(){ ok(); };
+        s.onerror = function(){ no(new Error('could not load the check')); };
+        (document.head || document.documentElement).appendChild(s);
+      }catch(e){ no(e); }
+    });
+    return TS_LOAD;
+  }
+  async function tsToken(sitekey){
+    await tsLoad();
+    if(!window.turnstile) throw new Error('the check did not load');
+    if(TS_ID == null){
+      TS_BOX = document.createElement('div');
+      TS_BOX.id = 'djTurnstile';
+      /* off screen rather than display:none — a hidden widget can refuse to run */
+      TS_BOX.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden';
+      (document.body || document.documentElement).appendChild(TS_BOX);
+      /* execution 'execute' means: get ready now, run the check when we ask. The widget
+         being invisible is chosen where the widget was made, not here. */
+      TS_ID = turnstile.render(TS_BOX, { sitekey: sitekey, execution: 'execute',
+        callback: function(tok){ var p = TS_PENDING; TS_PENDING = null; if(p) p.ok(tok); },
+        'error-callback': function(){ var p = TS_PENDING; TS_PENDING = null; if(p) p.no(new Error('the check was refused')); }
+      });
+      if(TS_ID == null || TS_ID === undefined) throw new Error('the check would not start');
+    }else{
+      /* a token is single use and expires in five minutes, so every ask gets a fresh one */
+      try{ turnstile.reset(TS_ID); }catch(e){}
+    }
+    return await new Promise(function(ok, no){
+      var t = setTimeout(function(){ if(TS_PENDING){ TS_PENDING = null; no(new Error('the check timed out')); } }, 15000);
+      TS_PENDING = { ok: function(v){ clearTimeout(t); ok(v); }, no: function(e){ clearTimeout(t); no(e); } };
+      try{ turnstile.execute(TS_BOX); }
+      catch(e){ TS_PENDING = null; clearTimeout(t); no(e); }
+    });
+  }
   var DOOR_WHY = '', DOOR_SOURCES = null;
   async function doorPost(o, raw){
     DOOR_WHY = ''; DOOR_SOURCES = null;
     var c = await aiConfig();
     if(!c.endpoint){ DOOR_WHY = 'the door is not switched on'; return null; }
+    /* the proof, when there is a site key to make one with. A failure here is not fatal:
+       the ask goes without it and the door decides. */
+    var tok = '';
+    if(c.turnstile_sitekey){
+      try{ tok = await tsToken(c.turnstile_sitekey); }
+      catch(e){ tok = ''; }
+    }
     try{
       var r = await fetch(c.endpoint, { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ prompt: o.prompt, app: slugOf(), want: o.want || 'text',
-                               code: (localStorage.getItem('dj_tester_code') || ''), file: o.file,
+                               code: (localStorage.getItem('dj_tester_code') || ''), file: o.file, token: tok,
                                /* 24 Nov: an app that wants the answer looked up rather than remembered
                                   passes web:true. The door ignores it until Jerry has set what a search
                                   may cost, so an app can send it today and simply be answered the old

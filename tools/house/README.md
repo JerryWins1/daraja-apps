@@ -2,7 +2,7 @@
 
     node tools/house/test.cjs            all of it
     node tools/house/test.cjs back       one group, named:
-                                         back, mic, tell, beta, hello, filekind, door, fresh, same
+                                         back, mic, tell, beta, hello, filekind, door, guard, fresh, same
 
 Needs Playwright, which a cloud container already has.
 
@@ -30,7 +30,7 @@ and each verified by a throwaway script in a container that then went away, and
 the Ahead of It chat lost its Start fresh harness the same way. A check nobody
 can re-run is a check that only happened once.
 
-## Three traps that made earlier runs lie
+## Four traps that made earlier runs lie
 
 All three are guarded against in the file, and all three are worth knowing
 before you add a check of your own. Each one fails silently, which is what makes
@@ -49,6 +49,18 @@ them worth writing down: two hide a broken fix, the third hides a working one.
   what made the house-layer chat report Start fresh as not erasing anything when
   it was erasing correctly. Seed by hand on the page instead, or re-read through
   a context whose init script has been cleared.
+
+- **The server reads the files off disk as the run goes, so DO NOT TOUCH THE
+  WORKING TREE WHILE IT IS RUNNING.** `git checkout`, `git stash`, a sweep, an
+  edit: any of them and the later groups grade different code from the earlier
+  ones, with nothing in the output to say so. Measured 25 November: a full run
+  started on a branch at house v88 was still going when that branch was swapped
+  for `main` at v87, and the nine checks that had not run yet failed. They looked
+  exactly like a broken feature — the client was not sending its token — and the
+  only thing that gave it away was the posted body in the failure text carrying a
+  field from the older version. Half an hour nearly went into a bug that was not
+  there. The run takes about twelve minutes; wait it out, or run it on a second
+  checkout.
 
 A note, not a trap: the house claims `window.djStartFresh` at 0 ms, then again
 at 300 ms and 1500 ms, because an older erase layer at the end of the page
