@@ -1280,3 +1280,7 @@ Jerry: "The Old account is closed starting in November. We use a new account so 
 ## v13.3 · Each month checked on its own (25 Nov)
 
 Jerry's first balance check showed checking "doesn't add up by $4,944.79" and kept one statement per account. The AI had read several months in one answer, and `aiParse` added them together as one statement. Now each `Opening` line starts a new statement for its account and each `Closing` ends it, so every month is kept and checked on its own. Reading the folder with AI again replaces the combined entry.
+
+## v13.4 · Rows that open something look like it (25 Nov)
+
+Jerry: "it doesn't look like that's an active link … put a line on it … so they know it's a link." Every list row that opens something (`.list li.tap`) now has a › on the right. On a computer it lightens and underlines its words under the pointer.
