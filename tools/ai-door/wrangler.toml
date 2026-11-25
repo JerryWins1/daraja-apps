@@ -13,5 +13,28 @@ compatibility_date = "2026-11-13"
 binding = "DOOR_COUNT"
 id = "8f788b48bb4443c3be403dad9088ebee"
 
-# The key is NOT here. It goes in Cloudflare's secret store:
+# A brake on bursts. Cloudflare counts this one, so fifty asks arriving at the same
+# moment cannot all read the same number and all go through, which is what happens to
+# the KV cap above. NOTHING TO CREATE for this: unlike a KV namespace, the namespace_id
+# is just a number you pick, and bindings that share one share their counters. It needs
+# wrangler 4.36.0 or newer. Without the binding the door still works and the brake is
+# simply off — worker.js checks for it, as it does for DOOR_COUNT.
+#
+# Cloudflare's own documentation is honest that these limits are per location and
+# approximate, so this NARROWS the read-then-write window rather than closing it.
+# Closing it needs an atomic counter (a Durable Object), which needs a migration on
+# deploy; that is the next piece of work, not something to half-do here.
+[[ratelimits]]
+name = "DOOR_RATE"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }
+
+# NEITHER KEY IS HERE. Both go in Cloudflare's secret store:
 #   wrangler secret put ANTHROPIC_API_KEY
+#   wrangler secret put TURNSTILE_SECRET
+#
+# TURNSTILE_SECRET is what makes the door start REQUIRING proof that a request came
+# from a real browser on jerrywins1.github.io. Until it is set, the door does not
+# enforce and every app keeps working — which is why the apps can start sending
+# tokens before this exists. The matching SITE key is public and belongs in
+# control/ai.json as turnstile_sitekey.

@@ -35,6 +35,59 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;  /* the PDF a Dashboard statement arrive
 const MAX_TOKENS = 8000;            /* was 2000, which a month of statement lines ran past. See the thinking note below. */
 const ALLOWED = ['https://jerrywins1.github.io'];
 
+/* WHO IS ALLOWED THROUGH THIS DOOR. Jerry, 24 Nov 2026, through the code-review chat:
+ * "fix the AI door so strangers can't use it."
+ *
+ * THE HOLE. Until today the only gate was the Origin header above — and a header is
+ * whatever the sender says it is. Any script, any curl, one line long, could set
+ * Origin: https://jerrywins1.github.io and spend Jerry's Anthropic key all day. The
+ * $20/month spend limit he put on the key was the only thing in the way, and a spend
+ * limit is a bill, not a lock.
+ *
+ * THE FIX IS CLOUDFLARE TURNSTILE. An invisible widget on the page proves the request
+ * came from a real browser on Jerry's own site, and the door checks that proof with
+ * Cloudflare before it spends anything. A token is single use and expires in five
+ * minutes, so a captured one is worth almost nothing.
+ *
+ * THE SITE KEY IS PUBLIC AND LIVES IN control/ai.json. THE SECRET IS NOT, and goes
+ * where the Anthropic key goes — Cloudflare's own secret store, as TURNSTILE_SECRET,
+ * put there by Jerry. Never in the repo, never in a chat. CLAUDE.md, Secrets.
+ *
+ * IT ENFORCES ONLY ONCE THE SECRET EXISTS, and that is the whole point of the rollout
+ * order. The apps start SENDING tokens first; the door starts REQUIRING them the
+ * moment Jerry sets TURNSTILE_SECRET. In between, every app keeps working. Without
+ * that, whichever half shipped first would have broken the door for everyone.
+ */
+const TURNSTILE_VERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const TURNSTILE_HOST = 'jerrywins1.github.io';   /* siteverify says where the token was made; it must be here */
+const MAX_TOKEN_CHARS = 2048;
+
+/* AND A CEILING OVER EVERYBODY, not just per household. The per-household cap below
+ * stops one family running away with it; it does nothing about a hundred addresses.
+ * 1,000 asks a day across everyone is far more than the house uses — a handful of
+ * households at 200 each — and it is the number that keeps a bad day from becoming a
+ * bill. Change it here. */
+const DAILY_TOTAL = 1000;
+
+/* A BRAKE ON BURSTS, and the honest note about what it does not do.
+ *
+ * The per-household cap reads the count and then writes it back, so fifty asks that
+ * arrive at the same moment all read the same number and all go through — the review
+ * reproduced it: fifty concurrent asks ended with a stored count of 1. The cap of 200
+ * was never reached by a batch.
+ *
+ * DOOR_RATE is Cloudflare's own rate-limiting binding and it narrows that window a
+ * lot: twenty asks per address per minute, counted by Cloudflare rather than by us.
+ * It is OPTIONAL, like DOOR_COUNT, so the door still works before the binding exists.
+ *
+ * WHAT IT DOES NOT DO, said plainly so nobody reads this as solved: Cloudflare's own
+ * documentation says these limits are enforced per location and are approximate, and
+ * that a burst can let more than the configured number through. So the read-then-write
+ * window is NARROWED, not closed. Closing it properly needs an atomic counter — a
+ * Durable Object — which needs a binding and a migration on Jerry's deploy, so it is
+ * written down as the next piece of work rather than half-done here. */
+const RATE_PER_MINUTE = 20;
+
 /* SEARCHING THE WEB. An app can ask the door to look something up rather than answer
  * from what the model already knows, by sending  web: true  alongside the prompt.
  * Family Money's "What is this?" is the first to want it.
@@ -104,6 +157,42 @@ export default {
     try { body = await request.json(); }
     catch { return say({ error: 'that was not JSON' }, 400, origin); }
 
+    /* The brake first, because it is the cheapest thing here. */
+    const who = request.headers.get('CF-Connecting-IP') || 'unknown';
+    if (env.DOOR_RATE) {
+      try {
+        const rl = await env.DOOR_RATE.limit({ key: who });
+        if (rl && rl.success === false) return say({ error: 'too many at once — give it a moment' }, 429, origin);
+      } catch { /* a binding that is not there yet must never take the door down */ }
+    }
+
+    /* Then the proof that this came from a Daraja app at all. Before the daily counters,
+       so a forged ask cannot burn a real family's slots, and well before anything is spent. */
+    if (env.TURNSTILE_SECRET) {
+      const token = String(body.token || '');
+      if (!token || token.length > MAX_TOKEN_CHARS) {
+        return say({ error: 'this did not come from a Daraja app' }, 403, origin);
+      }
+      let tv;
+      try {
+        const form = new FormData();
+        form.append('secret', env.TURNSTILE_SECRET);
+        form.append('response', token);
+        form.append('remoteip', who);
+        /* a fresh key each time, so a retry of the SAME request is not read as a reused token */
+        form.append('idempotency_key', crypto.randomUUID());
+        const vr = await fetch(TURNSTILE_VERIFY, { method: 'POST', body: form });
+        tv = await vr.json();
+      } catch {
+        /* Cloudflare unreachable. Fail CLOSED: an open door is the thing being fixed. */
+        return say({ error: 'could not check that this came from a Daraja app — try again' }, 503, origin);
+      }
+      /* success alone is not enough: the token has to have been made on Jerry's own site. */
+      if (!tv || tv.success !== true || tv.hostname !== TURNSTILE_HOST) {
+        return say({ error: 'this did not come from a Daraja app' }, 403, origin);
+      }
+    }
+
     const prompt = String(body.prompt || '').trim();
     if (!prompt) return say({ error: 'nothing to ask' }, 400, origin);
     if (prompt.length > MAX_PROMPT_CHARS) return say({ error: 'that question is too long' }, 413, origin);
@@ -140,16 +229,23 @@ export default {
     }
 
     /* The daily cap. Counted per address, reset at midnight UTC by the key's own name. */
-    const who = request.headers.get('CF-Connecting-IP') || 'unknown';
     const day = new Date().toISOString().slice(0, 10);
     const key = `d:${day}:${who}`;
+    const allKey = `t:${day}`;
     if (env.DOOR_COUNT) {
       const used = parseInt(await env.DOOR_COUNT.get(key) || '0', 10);
       if (used >= DAILY_PER_HOUSEHOLD) {
         return say({ error: 'that is all the asks for today — it starts again tomorrow' }, 429, origin);
       }
+      /* and the ceiling over everybody. Its own wording, because it is not this family's
+         fault and "you have used yours up" would be a lie. */
+      const all = parseInt(await env.DOOR_COUNT.get(allKey) || '0', 10);
+      if (all >= DAILY_TOTAL) {
+        return say({ error: 'the assistant is resting for today — it starts again tomorrow' }, 429, origin);
+      }
       /* Count before asking, so a burst cannot slip through while we wait. */
       await env.DOOR_COUNT.put(key, String(used + 1), { expirationTtl: 172800 });
+      await env.DOOR_COUNT.put(allKey, String(all + 1), { expirationTtl: 172800 });
     }
 
     /* Should this one search? An ask that cannot search is not refused — it is answered
