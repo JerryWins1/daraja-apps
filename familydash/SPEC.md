@@ -1226,3 +1226,11 @@ Jerry: "If you're going to do 200 and some odd at a time, you should be able to 
 
 Jerry: "When you click the lines to expand, it goes back to the top and you lose your spot."
 - Opening a row and changing a row's category redraw the list in place (`qlRedraw`). The scroll position and the row order stay where they were, and no extra Back step is added. The order is worked out fresh when the list opens or the sort changes.
+
+## v12.2 · The list never jumps; a ✓ on every row (25 Nov)
+
+Jerry: "It could be smoother … every time you click something, it goes up to the top. You lose your spot." He was away, so these calls were made for him:
+- Nothing on the list redraws the page any more. Opening a row's lines (`qlToggle`), changing its category (`qlPick`) and ticking it (`qlTick`) all change that row in place.
+- **A ✓ button on every row** (`qlOne`) answers that row on the spot. It stays grey on a row with no category until one is picked.
+- **Answered rows fold away** where they are (`qlDone`); the count at the top and the Accept button update.
+- When the shown rows are all done and more remain, the list reopens with the rest.
