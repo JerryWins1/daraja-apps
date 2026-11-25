@@ -1279,7 +1279,7 @@ Jerry: "The Old account is closed starting in November. We use a new account so 
 
 ## v13.3 · Each month checked on its own (25 Nov)
 
-Jerry's first balance check showed checking "doesn't add up by $4,944.79" and kept one statement per account. The AI had read several months in one answer, and `aiParse` added them together as one statement. Now each `Opening` line starts a new statement for its account and each `Closing` ends it, so every month is kept and checked on its own. Reading the folder with AI again replaces the combined entry.
+Jerry's first balance check showed checking as not adding up and kept one statement per account. The AI had read several months in one answer, and `aiParse` added them together as one statement. Now each `Opening` line starts a new statement for its account and each `Closing` ends it, so every month is kept and checked on its own. Reading the folder with AI again replaces the combined entry.
 
 ## v13.4 · Rows that open something look like it (25 Nov)
 
@@ -1287,7 +1287,7 @@ Jerry: "it doesn't look like that's an active link … put a line on it … so t
 
 ## v13.5 · Balance check: no leftovers, no empty "ties", and the AI's own words (25 Nov)
 
-Jerry's check showed a June home-equity entry off by $9,998.21: the old combined figure, still there. It also showed his main checking at $0 "tying" for May and June. He chose to fix all three.
+Jerry's check showed a June home-equity entry off: the old combined figure, still there. It also showed his main checking at $0 "tying" for May and June. He chose to fix all three.
 - **Leftovers:** the first AI reading of an account in a session clears the balance figures kept for it and its split accounts. After that, each month is kept under the account and the month, so a month read again replaces what was kept.
 - **Empty months:** a statement month with no lines and a missing opening or closing balance isn't kept. A kept month with no lines, while the app does have lines for that account that month, shows "no lines were tied to this statement" instead of "ties".
 - **What the AI read:** the AI's answer for each statement is kept (the last 40). Each month on Does it balance? has a "What the AI read" link that shows it word for word.
@@ -1295,3 +1295,7 @@ Jerry's check showed a June home-equity entry off by $9,998.21: the old combined
 ## v13.6 · Lines and balances joined; picture PDFs offered again (25 Nov)
 
 Jerry's June checking and home equity showed balances with "no lines tied". The AI had listed the lines in one place and the Opening and Closing balances in another. `aiParse` now joins a part with lines but no balances to the next part that has balances but no lines (and the other way round) into one statement. Picking an account's files again also offers its picture PDFs to the AI again, so "Read them with AI, below" always has its button.
+
+## v13.7 · Dated balance lines (25 Nov)
+
+"What the AI read" showed the AI writing each balance as a dated line, for example `<date>,Opening balance,<amount>,<account>`. The app was reading these as transactions, so nothing tied and fake "Opening balance" lines landed in the accounts. `aiParse` now goes by the words in the Description ("Opening balance", "Closing balance" and their usual synonyms), not only the first column. `balLineFix` runs on load and removes any line whose whole description is a balance line.

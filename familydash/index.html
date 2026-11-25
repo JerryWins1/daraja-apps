@@ -3576,7 +3576,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.6 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.7 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3714,6 +3714,8 @@ function billDupFix(){ var seen = {}, gone = {}; db.cats.forEach(function(c){ if
     keep.due = (keep.due || []).concat((c.due || []).filter(function(m){ return (keep.due || []).indexOf(m) < 0; })).sort(function(a,b){ return a - b; }); if(keep.yearly == null && c.yearly != null) keep.yearly = c.yearly; if(!keep.each && c.each) keep.each = c.each; if(c.escrow) keep.escrow = 1; gone[c.id] = keep.id; });
   var ids = Object.keys(gone); if(!ids.length) return; db.tx.forEach(function(t){ if(gone[t.cat]) t.cat = gone[t.cat]; }); (db.rules || []).forEach(function(r){ if(gone[r.cat]) r.cat = gone[r.cat]; }); db.recentCats = (db.recentCats || []).map(function(x){ return gone[x] || x; }).filter(function(x, i, A){ return A.indexOf(x) === i; });
   db.cats = db.cats.filter(function(c){ return !gone[c.id]; }); save(); }
+/* v13.7 · balance lines an AI answer slipped in as if they were money moving are taken out */
+function balLineFix(){ var n0 = db.tx.length; db.tx = db.tx.filter(function(t){ return !/^(opening|closing|beginning|ending|previous|new|starting) balance$/i.test(String(t.desc || '').trim()); }); if(db.tx.length !== n0){ save(); try{ toast((n0 - db.tx.length) + ' balance line' + (n0 - db.tx.length === 1 ? '' : 's') + ' taken out — they were never money moving.'); }catch(e){} } }
 function rulesFix(){ var n = (db.rules||[]).length; db.rules = (db.rules||[]).filter(function(r){ return r.k && !thinDesc(r.k) && !/^(usd|eur|gbp|cad|aud|mxn)$/.test(r.k); }); if(db.rules.length !== n) save(); }
 function mkey(desc){ if(cutShort(desc)) return '';
   var s = ppStrip(desc).toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
@@ -5994,7 +5996,7 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
-function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ balLineFix(); cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -7538,6 +7540,8 @@ function aiParse(raw, name){ var txt = String(raw || '').replace(/^```[a-z]*\s*|
   var key = function(acc){ var m = /acct\s*#?\s*(\d{1,4})|account\s*#?\s*(\d{1,4})/i.exec(acc || ''); return m ? (m[1] || m[2]) : String(acc || '').trim().toUpperCase(); };
   var nm = function(acc){ return String(acc || '').replace(/\b(acct|account)\s*#?\s*\d{1,4}\b/i, '').replace(/\s+/g, ' ').trim() || String(acc || '').trim(); };
   R.forEach(function(r){ if(!r || r.length < 3) return; var d0 = String(r[0] || '').trim(), acc = String(r[3] || '').trim(), k = acc ? key(acc) : '', amt = num(String(r[2] || '').replace(/[$\s]/g, ''));
+    /* v13.7 · the AI also writes a balance as a dated line — "2025-02-01,Opening balance,11679.43,…ACCT# 8" — so the words decide, not only the first column */
+    var ds = String(r[1] || '').trim(); if(/^(opening|beginning|previous|starting) balance$/i.test(ds)) d0 = 'Opening'; else if(/^(closing|ending|new) balance$/i.test(ds)) d0 = 'Closing';
     /* v13.3 · one answer can hold several months: each Opening line starts a new statement for that account, so each month is checked on its own */
     if(k && !SB[k]) SB[k] = { name:nm(acc), per:[{ open:null, close:null, rows:[] }] }; var cur = k ? SB[k].per[SB[k].per.length - 1] : null;
     if(/^opening$/i.test(d0)){ if(k){ if(cur.open != null || cur.rows.length || cur.close != null) SB[k].per.push(cur = { open:null, close:null, rows:[] }); cur.open = amt; } return; }
