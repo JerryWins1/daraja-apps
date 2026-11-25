@@ -1,8 +1,8 @@
 // Daraja Studio app shell — network first (22 Sep 2026).
 // The old worker served the saved copy first and fetched the new one behind it, so a fix only
 // showed on the SECOND open. Now the phone asks the network first and keeps a copy for offline.
-const CACHE='feedback-studio-v94';
-const ASSETS=['./','./index.html'];
+const CACHE='feedback-studio-v95';
+const ASSETS=['./','./index.html','../house/house-v87.js'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>Promise.all(ASSETS.map(u=>c.add(u).catch(()=>null)))).then(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('feedback-studio-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{ if(e.request.method!=='GET') return;

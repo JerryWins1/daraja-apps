@@ -25,7 +25,7 @@
  * then means nothing more than "the released file has not changed yet", which is true, simple, and
  * cannot strand anybody.
  *
- * The beta is a byte-identical copy of the app. It needs no build step and no injected marker: the
+ * The beta is a copy of the app (byte-identical, except the house script's relative path gains one "../"). It needs no build step and no injected marker: the
  * house block (v75) sees that it is sitting at <app>/beta/, uses the parent folder as the app's
  * slug so the tester's saved work, backup entry and tour all still belong to the same app, and
  * shows a band saying this is the next version with a way back to the released one.
@@ -48,12 +48,18 @@ function houseOf(file) {
   return m ? Number(m[1]) : null;
 }
 
+/* The house block lives in house/house-vNN.js and pages load it by a relative path. The beta sits one
+   folder deeper than the released app, so its copy needs one more "../", and promote takes it back off. */
+const HOUSE_SRC = /(<script id="dj-house-v\d+" src=")([^"]+)(")/;
+const deeper = s => s.replace(HOUSE_SRC, (m, a, p, z) => a + '../' + p + z);
+const shallower = s => s.replace(HOUSE_SRC, (m, a, p, z) => a + p.replace(/^\.\.\//, '') + z);
+
 function start(app) {
   if (!fs.existsSync(live(app))) throw new Error(`there is no ${app}/index.html`);
   const v = houseOf(live(app));
   if (v === null || v < 75) throw new Error(`${app} carries house v${v || '?'}; the beta band and the slug fix arrived in v75`);
   fs.mkdirSync(path.dirname(beta(app)), { recursive: true });
-  fs.copyFileSync(live(app), beta(app));
+  fs.writeFileSync(beta(app), deeper(fs.readFileSync(live(app), 'utf8')));
   const b = read();
   b.holds = b.holds.filter(h => h.app !== app);
   b.holds.push({ app, since: new Date().toISOString(), hours: HOLD_HOURS });
@@ -80,7 +86,7 @@ function promote(app, force) {
   if (!fs.existsSync(beta(app))) throw new Error(`${app}/beta/index.html is gone; run drop and start again`);
   const left = (h.hours || HOLD_HOURS) - hours(h.since);
   if (left > 0 && !force) throw new Error(`${app} has ${left.toFixed(1)} hours left of its ${h.hours || HOLD_HOURS}-hour hold. Pass --now to go early, and say why in the commit.`);
-  fs.copyFileSync(beta(app), live(app));
+  fs.writeFileSync(live(app), shallower(fs.readFileSync(beta(app), 'utf8')));
   fs.rmSync(path.join(ROOT, app, 'beta'), { recursive: true, force: true });
   b.holds = b.holds.filter(x => x.app !== app);
   write(b);

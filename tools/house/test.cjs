@@ -533,7 +533,10 @@ async function install(b, port){
      links.every(h => /v%3D\d+/.test(h) || /[?&]v=\d+/.test(decodeURIComponent(h))), links.slice(0, 2));
   ck('an open redirect is refused', await p.evaluate(async () => {
     const u = location.origin + '/home/?dj_install=1&go=' + encodeURIComponent('https://evil.example/');
-    const r = await fetch(u); const t = await r.text();
+    const r = await fetch(u); let t = await r.text();
+    /* the block is its own file now (25 Nov 2026), so follow the script tag to it */
+    const m = t.match(/<script id="dj-house-v\d+" src="([^"]+)"/);
+    if (m) t += await (await fetch(new URL(m[1], location.origin + '/home/'))).text();
     return /djSafeGo/.test(t);   /* the guard is in the shipped block */
   }));
   await p.close(); await ctx.close();
