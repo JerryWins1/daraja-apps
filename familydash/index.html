@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.2 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.3 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -7523,13 +7523,15 @@ function aiParse(raw, name){ var txt = String(raw || '').replace(/^```[a-z]*\s*|
   var key = function(acc){ var m = /acct\s*#?\s*(\d{1,4})|account\s*#?\s*(\d{1,4})/i.exec(acc || ''); return m ? (m[1] || m[2]) : String(acc || '').trim().toUpperCase(); };
   var nm = function(acc){ return String(acc || '').replace(/\b(acct|account)\s*#?\s*\d{1,4}\b/i, '').replace(/\s+/g, ' ').trim() || String(acc || '').trim(); };
   R.forEach(function(r){ if(!r || r.length < 3) return; var d0 = String(r[0] || '').trim(), acc = String(r[3] || '').trim(), k = acc ? key(acc) : '', amt = num(String(r[2] || '').replace(/[$\s]/g, ''));
-    if(k && !SB[k]) SB[k] = { name:nm(acc), open:null, close:null };
-    if(/^opening$/i.test(d0)){ if(k) SB[k].open = amt; return; } if(/^closing$/i.test(d0)){ if(k) SB[k].close = amt; out.bal = Math.abs(amt); return; } if(/^balance$/i.test(d0)){ var b0 = num(String(r[1] || r[2] || '').replace(/[$\s]/g, '')); if(b0) out.bal = Math.abs(b0); return; }
+    /* v13.3 · one answer can hold several months: each Opening line starts a new statement for that account, so each month is checked on its own */
+    if(k && !SB[k]) SB[k] = { name:nm(acc), per:[{ open:null, close:null, rows:[] }] }; var cur = k ? SB[k].per[SB[k].per.length - 1] : null;
+    if(/^opening$/i.test(d0)){ if(k){ if(cur.open != null || cur.rows.length || cur.close != null) SB[k].per.push(cur = { open:null, close:null, rows:[] }); cur.open = amt; } return; }
+    if(/^closing$/i.test(d0)){ if(k){ cur.close = amt; SB[k].per.push({ open:null, close:null, rows:[] }); } out.bal = Math.abs(amt); return; } if(/^balance$/i.test(d0)){ var b0 = num(String(r[1] || r[2] || '').replace(/[$\s]/g, '')); if(b0) out.bal = Math.abs(b0); return; }
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d0) || !isFinite(amt) || !amt) return;
-    var row = { d:d0, desc:String(r[1] || '').replace(/\s+/g, ' ').trim().slice(0, 80), raw:r2(amt) }; if(k){ row.sub = k; row.subName = SB[k].name; } out.rows.push(row); });
+    var row = { d:d0, desc:String(r[1] || '').replace(/\s+/g, ' ').trim().slice(0, 80), raw:r2(amt) }; if(k){ row.sub = k; row.subName = SB[k].name; cur.rows.push(row); } out.rows.push(row); });
   var D = out.rows.map(function(r){ return r.d; }).sort(); out.asOf = D[D.length-1] || null;
-  out.stmts = Object.keys(SB).map(function(k){ var X = out.rows.filter(function(r){ return r.sub === k; }), dd = X.map(function(r){ return r.d; }).sort();
-    return { sub:k, name:SB[k].name, open:SB[k].open, close:SB[k].close, sum:r2(X.reduce(function(x,r){ return x + r.raw; }, 0)), n:X.length, from:dd[0] || '', to:dd[dd.length-1] || out.asOf || '', asOf:out.asOf || '' }; });
+  out.stmts = []; Object.keys(SB).forEach(function(k){ SB[k].per.forEach(function(P){ if(P.open == null && P.close == null && !P.rows.length) return; var dd = P.rows.map(function(r){ return r.d; }).sort();
+    out.stmts.push({ sub:k, name:SB[k].name, open:P.open, close:P.close, sum:r2(P.rows.reduce(function(x,r){ return x + r.raw; }, 0)), n:P.rows.length, from:dd[0] || '', to:dd[dd.length-1] || out.asOf || '', asOf:dd[dd.length-1] || out.asOf || '' }); }); });
   return out; }
 function pdfText(f){ return new Promise(function(res){ pdfLines(f, function(L){ res(L && L.length ? L.map(function(r){ return r.map(function(c){ return c.s; }).join('  '); }).join('\n') : ''); }); }); }
 function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a); if(!L.length){ F.i++; if(F.i < F.ids.length) return fmAIgo(); FAI = null; return fmDone(ONESK); }
