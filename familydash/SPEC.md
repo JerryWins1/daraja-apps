@@ -1270,3 +1270,9 @@ Jerry chose "teach the AI reader". His Community Trust statements are scanned pi
 - **`aiParse`** reads that four-column answer into lines that carry their account, plus per-account statement balances, the same shape as a text statement (`row.sub`, `out.stmts`). The split question, the line moving, `stmtKeep` and the balance check then work unchanged. A three-column answer still goes to `parseCSV`.
 - **AI answers word a line differently each time.** For AI-read statements, already-here lines are matched on account, date and amount, not words, so a re-read doesn't double anything.
 - **Statements screen:** picture PDFs found when picking an account's folder are listed — "📷 N statements are in the folder but are scanned pictures…" — with "✨ Read them with AI" (`FMF['acct:'+id]`). The "lines read" message no longer says to download a CSV instead.
+
+## v13.2 · A new account at the same bank carries on the old accounts (25 Nov)
+
+Jerry: "The Old account is closed starting in November. We use a new account so what happens then when I put a statement in the new account?"
+- **The "This statement has N accounts" question** now also offers "↪ The same Regular Savings as before" for every account already made from a statement at the same bank. A section with the same name comes pre-picked that way, so the new statements carry on in the same savings and money market accounts, with no second copies.
+- **Only the first checking section is taken to be "this account".** A second one (for example Diane Checking) comes pre-picked as "Another checking account".
