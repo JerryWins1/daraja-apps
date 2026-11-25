@@ -3576,7 +3576,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.4 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.5 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4119,9 +4119,18 @@ function fileAcct(id){
 }
 var IMP = { added:0, skipped:0 };
 /* v13.0 · the statement's own numbers, kept for the balance check: opening, closing, and what its lines add up to */
-function stmtKeep(a, hasSub){ db.stmts = db.stmts || {}; (CUR.files || [CUR]).forEach(function(p){ (p.stmts || []).forEach(function(st){ if(st.open == null && st.close == null) return;
+var STCLR = {};
+function stmtKeep(a, hasSub){ db.stmts = db.stmts || {};
+  /* v13.5 · the first AI reading of an account this session starts its balance check afresh — earlier figures for it and its accounts go */
+  if(CUR.aiCSV && !STCLR[a.id]){ STCLR[a.id] = 1; var mine = {}; mine[a.id] = 1; db.accts.forEach(function(x){ if(x.subOf === a.id) mine[x.id] = 1; }); Object.keys(a.subs || {}).forEach(function(k){ mine[a.subs[k]] = 1; }); Object.keys(db.stmts).forEach(function(k){ if(mine[db.stmts[k].a]) delete db.stmts[k]; }); }
+  (CUR.files || [CUR]).forEach(function(p){
+  /* v13.5 · the AI's own answer is kept (the last 40), so "What the AI read" can show it beside the numbers */
+  if(p.raw && p.path){ db.aiRaw = db.aiRaw || {}; db.aiRaw[p.path] = String(p.raw).slice(0, 40000); var K = Object.keys(db.aiRaw); if(K.length > 40) K.slice(0, K.length - 40).forEach(function(k){ delete db.aiRaw[k]; }); }
+  (p.stmts || []).forEach(function(st){ if(st.open == null && st.close == null) return; if(!st.n && (st.open == null || st.close == null)) return;
     var aid = st.sub && a.subs && a.subs[st.sub] ? a.subs[st.sub] : a.id, x = acct(aid); if(!x) return; if(hasSub && st.close != null && (!x.asOf || x.balUnknown || st.asOf >= x.asOf)){ delete x.balUnknown; setBal(x, Math.abs(st.close), st.asOf || st.to || today()); }
-    db.stmts[aid + '|' + (st.to || st.asOf)] = { a:aid, from:st.from, to:st.to || st.asOf, open:st.open, close:st.close, sum:st.sum, n:st.n, flip:!!CUR.flip, f:p.path || '' }; }); }); }
+    /* v13.5 · reading a month again replaces what was kept for it, so an old wrong figure can't linger */
+    var mo = String(st.to || st.asOf).slice(0,7); Object.keys(db.stmts).forEach(function(k){ var o = db.stmts[k]; if(o.a === aid && String(o.to).slice(0,7) === mo) delete db.stmts[k]; });
+    db.stmts[aid + '|' + mo] = { a:aid, from:st.from, to:st.to || st.asOf, open:st.open, close:st.close, sum:st.sum, n:st.n, flip:!!CUR.flip, f:p.path || '', ai:!!CUR.aiCSV }; }); }); }
 /* the first time a statement shows more than one account, ask what each one is */
 function splitNeed(a){ if(!a) return false; var S = {}, n = {}; CUR.rows.forEach(function(r){ if(r.sub){ S[r.sub] = r.subName; n[r.sub] = (n[r.sub] || 0) + 1; } });
   var K = Object.keys(S); if(!K.length || (K.length === 1 && !(a.subs || {})[K[0]] && false)) return false; var miss = K.filter(function(k){ return !(a.subs || {})[k] || !acct(a.subs[k]); }); if(!miss.length) return false;
@@ -4604,8 +4613,10 @@ function stmtChecks(){ var S = db.stmts || {}, by = {}; Object.keys(S).forEach(f
     L.forEach(function(st){ var open = st.open;
       var read = open != null && st.close != null ? r2(open + st.sum - st.close) : null;
       var mine = db.tx.filter(function(t){ return t.a === aid && !t.splitOf && t.d >= st.from && t.d <= st.to; }).reduce(function(x,t){ return x + t.amt; }, 0), want = st.flip ? -st.sum : st.sum, inApp = st.n ? r2(mine - want) : 0;
-      out.push({ a:a, st:st, read:read, inApp:inApp, ok:(read == null || Math.abs(read) < 0.02) && Math.abs(inApp) < 0.02 }); }); });
+      var empty = !st.n && db.tx.some(function(t){ return t.a === aid && !t.splitOf && t.d.slice(0,7) === String(st.to).slice(0,7); });
+      out.push({ a:a, st:st, read:read, inApp:inApp, empty:empty, ok:!empty && (read == null || Math.abs(read) < 0.02) && Math.abs(inApp) < 0.02 }); }); });
   return out; }
+function aiRawShow(path){ var r = (db.aiRaw || {})[path]; if(!r) return; openSheet('<div class="stepno">What the AI read</div><h3 style="word-break:break-word">' + esc(String(path).split('/').pop()) + '</h3><p class="sub">The AI’s answer for this statement, word for word. Opening and Closing lines are each account’s balances; the rest are its lines.</p><pre style="white-space:pre-wrap;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:60vh;overflow:auto">' + esc(r) + '</pre><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sheetBack()">Back</button></div>'); }
 function openBalance(){ var C = stmtChecks(), bad = C.filter(function(c){ return !c.ok; }), R = xferPairs(), m = pulseMonth ? pulseMonth() : thisMonth(); LASTLIST = function(){ openBalance(); };
   var T = db.tx.filter(function(t){ return t.d.slice(0,7) === m && !t.splitOf && ownAcct(acct(t.a)); }), inc = 0, sp = 0, mv = 0;
   T.forEach(function(t){ if(t.cat === 'inc') inc += -t.amt; else if(t.cat === 'xfer'){ mv += t.amt; } else sp += t.amt; });
@@ -4616,7 +4627,7 @@ function openBalance(){ var C = stmtChecks(), bad = C.filter(function(c){ return
       return '<div class="card" style="padding:10px 12px;margin:8px 0"><b>' + esc(acctLabel(a)) + '</b> <span style="float:right;font-weight:800;color:' + (nb ? '#B5452E' : 'var(--ok,#2E7D4F)') + '">' + (nb ? nb + ' off' : '✓') + '</span>'
         + '<table style="width:100%;font-size:13px;margin-top:6px;border-collapse:collapse">' + L.slice(-12).map(function(c){ var st = c.st;
           return '<tr><td style="padding:3px 0">' + esc(monthName(st.to.slice(0,7), true)) + '</td><td>' + (st.close != null ? money(Math.abs(st.close)) : '') + '</td><td style="text-align:right">'
-            + (c.read != null && Math.abs(c.read) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">statement doesn’t add up by ' + money(Math.abs(c.read)) + ' — a line wasn’t read</span>' : Math.abs(c.inApp) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">app ' + (c.inApp > 0 ? 'has ' : 'is short ') + money(Math.abs(c.inApp)) + '</span>' : c.read == null ? '<span style="color:var(--soft)">no opening balance</span>' : '<span style="color:var(--ok,#2E7D4F);font-weight:700">ties ✓</span>') + '</td></tr>'; }).join('') + '</table></div>'; }).join('')
+            + (c.empty ? '<span style="color:#B5452E;font-weight:700">no lines were tied to this statement, but the app has lines this month</span>' : c.read != null && Math.abs(c.read) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">statement doesn’t add up by ' + money(Math.abs(c.read)) + ' — a line wasn’t read</span>' : Math.abs(c.inApp) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">app ' + (c.inApp > 0 ? 'has ' : 'is short ') + money(Math.abs(c.inApp)) + '</span>' : c.read == null ? '<span style="color:var(--soft)">no opening balance</span>' : '<span style="color:var(--ok,#2E7D4F);font-weight:700">ties ✓</span>') + (st.f && db.aiRaw && db.aiRaw[st.f] ? ' <a href="#" onclick="aiRawShow(' + JSON.stringify(st.f).replace(/"/g, '&quot;') + ');return false" style="color:var(--brand);font-weight:700;font-size:12px;white-space:nowrap">What the AI read</a>' : '') + '</td></tr>'; }).join('') + '</table></div>'; }).join('')
     + '<h4 style="margin:14px 0 4px">' + esc(monthName(m)) + ' for the household</h4><div class="card" style="padding:10px 12px"><table style="width:100%;font-size:14px;border-collapse:collapse">'
     + '<tr><td>Money in (income)</td><td style="text-align:right">' + money(r2(inc)) + '</td></tr><tr><td>Spending</td><td style="text-align:right">− ' + money(r2(sp)) + '</td></tr>'
     + '<tr><td>Left over</td><td style="text-align:right;font-weight:800">' + money(r2(inc - sp)) + '</td></tr>'
@@ -7533,7 +7544,7 @@ function aiParse(raw, name){ var txt = String(raw || '').replace(/^```[a-z]*\s*|
     if(/^closing$/i.test(d0)){ if(k){ cur.close = amt; SB[k].per.push({ open:null, close:null, rows:[] }); } out.bal = Math.abs(amt); return; } if(/^balance$/i.test(d0)){ var b0 = num(String(r[1] || r[2] || '').replace(/[$\s]/g, '')); if(b0) out.bal = Math.abs(b0); return; }
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d0) || !isFinite(amt) || !amt) return;
     var row = { d:d0, desc:String(r[1] || '').replace(/\s+/g, ' ').trim().slice(0, 80), raw:r2(amt) }; if(k){ row.sub = k; row.subName = SB[k].name; cur.rows.push(row); } out.rows.push(row); });
-  var D = out.rows.map(function(r){ return r.d; }).sort(); out.asOf = D[D.length-1] || null;
+  var D = out.rows.map(function(r){ return r.d; }).sort(); out.asOf = D[D.length-1] || null; out.raw = txt;
   out.stmts = []; Object.keys(SB).forEach(function(k){ SB[k].per.forEach(function(P){ if(P.open == null && P.close == null && !P.rows.length) return; var dd = P.rows.map(function(r){ return r.d; }).sort();
     out.stmts.push({ sub:k, name:SB[k].name, open:P.open, close:P.close, sum:r2(P.rows.reduce(function(x,r){ return x + r.raw; }, 0)), n:P.rows.length, from:dd[0] || '', to:dd[dd.length-1] || out.asOf || '', asOf:dd[dd.length-1] || out.asOf || '' }); }); });
   return out; }
