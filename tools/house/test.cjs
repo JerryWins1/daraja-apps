@@ -938,7 +938,16 @@ async function same(){
   for (const f of files) {
     const s = fs.readFileSync(f, 'utf8');
     const i = s.indexOf('<script id="dj-house-v'), j = s.indexOf('</script>', i);
-    (seen[crypto.createHash('sha1').update(s.slice(i, j)).digest('hex').slice(0, 10)] ||= []).push(path.relative(ROOT, f));
+    /* An app that loads the block from house/house-vNN.js (moved out of the pages, Nov 2026) is
+       compared by that file's text, so it counts as the same block as an inline copy. */
+    let body = s.slice(i, j);
+    const ext = body.match(/^<script[^>]*?\ssrc="([^"]+)"[^>]*>/);
+    if (ext) {
+      const hp = path.resolve(path.dirname(f), ext[1]);
+      if (!fs.existsSync(hp)) { ck(`${path.relative(ROOT, f)} points at a house file that is there`, false, ext[1]); continue; }
+      body = '<script id="dj-house-v' + body.match(/dj-house-v(\d+)/)[1] + '">' + fs.readFileSync(hp, 'utf8');
+    }
+    (seen[crypto.createHash('sha1').update(body).digest('hex').slice(0, 10)] ||= []).push(path.relative(ROOT, f));
   }
   const groups = Object.values(seen).sort((a, b) => b.length - a.length);
   ck(`${files.length} apps carry the house block`, files.length >= 50, files.length);
