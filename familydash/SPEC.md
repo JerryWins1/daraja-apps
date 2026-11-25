@@ -1221,3 +1221,8 @@ Jerry: "If you're going to do 200 and some odd at a time, you should be able to 
 - **"✓ Accept N ticked lines"** answers every line in the ticked rows and learns a rule for each shop. The list then redraws with what's left. "Answer them one by one" goes back to single questions.
 - **"✨ Let my AI pick for the N it can't guess"** uses the same AI call as before and comes back to the list.
 - **Getting there:** "Answer the N questions" opens the list when there are more than 10. Every question also has a "📋 See all N as a list" button.
+
+## v12.1 · The list keeps your place (25 Nov)
+
+Jerry: "When you click the lines to expand, it goes back to the top and you lose your spot."
+- Opening a row and changing a row's category redraw the list in place (`qlRedraw`). The scroll position and the row order stay where they were, and no extra Back step is added. The order is worked out fresh when the list opens or the sort changes.
