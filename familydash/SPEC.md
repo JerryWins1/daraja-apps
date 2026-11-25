@@ -1234,3 +1234,31 @@ Jerry: "It could be smoother … every time you click something, it goes up to t
 - **A ✓ button on every row** (`qlOne`) answers that row on the spot. It stays grey on a row with no category until one is picked.
 - **Answered rows fold away** where they are (`qlDone`); the count at the top and the Accept button update.
 - When the shown rows are all done and more remain, the list reopens with the rest.
+
+## v13.0 · Every dollar counted once, and proof that it balances (25 Nov)
+
+Jerry: "you need to know their function and how to account for them so the money in and out balances … do some research and make sure your algorithm is good … then we need to reconcile this database." Also: "on the your money box, have two buttons … if there is a way to go directly to another page, the option should be available." He approved the six sample screens as one build.
+
+The rule, as Quicken, Monarch, Tiller, PocketSmith and Rocket Money all apply it: every dollar is counted once, where the detail is. Money moving between our own accounts (card payments from the bank, PayPal top-ups, savings ↔ checking, payments to a loan) is a transfer, never spending or income. Interest and fees stay spending.
+
+- **The money box:** with more than one question waiting it offers "📋 As a list" and "👆 One at a time" side by side (`askRound('list'|'one')`).
+- **List rows:** each has 🔎 Web (not for bank transfers, cash or checks), 📄 Statement and 🔁 Repeats (`qlLinks`). Back from either returns to the list as it is now, at the same scroll position; saving repeats does the same.
+- **How each account works, asked when it is added:** `mapAdd` has "How does it work?" (the five roles, with the sentence for each). A closed account asks "Which one took its place?" (`a.replacedBy`).
+- **Statements holding several accounts:**
+  - `pdfParse` reads "NAME … ACCT# n" section headers. Each line carries its section, and each section keeps its own opening and closing balance.
+  - The first time, the app asks what each account is (checking = this account, savings, money market, another checking, loan). It makes the new accounts (`subOf`, no folder of their own, never "missing") and remembers the mapping in `a.subs`.
+  - Lines read before the split move to their account, matched on date, amount and words, so nothing doubles.
+- **Statement numbers kept:** `db.stmts`, one per account per statement: opening, closing, the sum of its lines, the dates, and the file.
+- **Transfer partners:** `xferPartner` looks for another of our accounts, the other direction, the same amount, within five days. `autoPairs` runs on load and after every statement:
+  - A line still waiting that looks like a transfer and has a partner becomes money moving, on both sides.
+  - PayPal pairs where the other side says PayPal are counted once.
+  - Answered lines are never changed.
+- **🔁 Money moving between our accounts** (`openXfers`, in Lists) shows every move with its partner. A move without one says why: no statement yet for that card or month, a replaced card, or an account followed by its total.
+- **⚖️ Does it balance?** (`openBalance`, in Lists):
+  - Each statement is checked two ways: opening + lines = closing, so every line was read; and the app's lines for that account and those dates add up to the statement's.
+  - It also shows a household line for the month (income, spending, left over) and whether money moving nets to zero.
+- **▶ Watch how on each section:**
+  - The questions (list and one at a time) and the monthly report each have their own button. Setting up uses the "train" video. Does it balance and Money moving use the new "report" video.
+  - The two new videos, "Answering the questions" and "Does it balance?", are recorded with ElevenLabs at 1.0, with 8 and 7 cues for 8 and 7 lines.
+- **Workflow check done:** the money box, the list ⇄ one at a time, the list rows, repeats → back to the list, and balance ⇄ transfers each jump straight where you want to go.
+- **Not yet:** splitting a mortgage payment into principal and interest (it needs the loan statement). Accounts read before v13.0 have no statement balances until their statements are read again.

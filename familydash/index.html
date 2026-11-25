@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v12.2 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.0 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3628,7 +3628,9 @@ function openSheet(html){ var on = document.getElementById('sheet').classList.co
   if(!SHBACK){ if(on && shKeep(SHCUR) && SHCUR !== html){ SHST.push(SHCUR); if(SHST.length > 20) SHST.shift(); } if(!on){ SHST = []; try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } }
   SHBACK = 0; SHCUR = html;
   document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = '<div class="shtop">' + (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + '<button class="shx" id="sheetX" aria-label="Close this screen" title="Close" onclick="sheetX()">✕</button></div>' + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
-function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK = 1; openSheet(p); }
+function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK = 1;
+  if(QL.on && p.indexOf('The questions · list') >= 0){ var sc = QL.sc || 0; openQList(); var el = document.getElementById('sheetIn'); if(el) el.scrollTop = sc; return; }   /* the list comes back as it is now, at the same place */
+  openSheet(p); }
 /* v9.9 · Jerry, 20 Nov: "every screen you get in, you need to be able to get out of … just put an X on top." Every screen has
    an ✕ at the top right. Anything already answered is saved as it goes, so nothing is lost; a walk-through picks up where it was. */
 function sheetX(){ closeSheet(); try{ render(); }catch(e){} }
@@ -4112,18 +4114,48 @@ function fileAcct(id){
     + '</ul><button class="b primary full" onclick="takeFile()">Yes, bring it in</button><button class="b full" onclick="CUR.flip=!CUR.flip;takeFile()">No — spent and came in are backwards</button>');
 }
 var IMP = { added:0, skipped:0 };
+/* v13.0 · the statement's own numbers, kept for the balance check: opening, closing, and what its lines add up to */
+function stmtKeep(a, hasSub){ db.stmts = db.stmts || {}; (CUR.files || [CUR]).forEach(function(p){ (p.stmts || []).forEach(function(st){ if(st.open == null && st.close == null) return;
+    var aid = st.sub && a.subs && a.subs[st.sub] ? a.subs[st.sub] : a.id, x = acct(aid); if(!x) return; if(hasSub && st.close != null && (!x.asOf || x.balUnknown || st.asOf >= x.asOf)){ delete x.balUnknown; setBal(x, Math.abs(st.close), st.asOf || st.to || today()); }
+    db.stmts[aid + '|' + (st.to || st.asOf)] = { a:aid, from:st.from, to:st.to || st.asOf, open:st.open, close:st.close, sum:st.sum, n:st.n, flip:!!CUR.flip, f:p.path || '' }; }); }); }
+/* the first time a statement shows more than one account, ask what each one is */
+function splitNeed(a){ if(!a) return false; var S = {}, n = {}; CUR.rows.forEach(function(r){ if(r.sub){ S[r.sub] = r.subName; n[r.sub] = (n[r.sub] || 0) + 1; } });
+  var K = Object.keys(S); if(!K.length || (K.length === 1 && !(a.subs || {})[K[0]] && false)) return false; var miss = K.filter(function(k){ return !(a.subs || {})[k] || !acct(a.subs[k]); }); if(!miss.length) return false;
+  var kind = function(nm){ nm = nm.toLowerCase(); return /checking|share draft|draft/.test(nm) ? 'here' : /money market/.test(nm) ? 'mm' : /equity|heloc|mortgage|loan/.test(nm) ? 'loan' : 'savings'; };
+  if(K.length === 1){ a.subs = a.subs || {}; a.subs[K[0]] = a.id; save(); return false; }
+  SUBQ = { K:K, S:S };
+  openSheet('<div class="stepno">' + esc(acctLabel(a)) + '</div><h3>This statement has ' + K.length + ' accounts on it</h3><p class="sub">What is each one? Each gets its own lines and its own balance, so money moving between them isn’t counted as spending. Next month this is remembered.</p>'
+    + K.map(function(k){ var d = miss.indexOf(k) < 0 ? 'done' : kind(S[k]); return '<div class="card" style="padding:10px 12px;margin:8px 0"><b>Acct ' + esc(k) + ' · ' + esc(S[k]) + '</b><small style="display:block;color:var(--soft)">' + n[k] + ' line' + (n[k]===1?'':'s') + '</small>'
+      + (d === 'done' ? '<small style="display:block;color:var(--ok,#2E7D4F);font-weight:700">✓ ' + esc(acctLabel(acct(a.subs[k]))) + '</small>' : '<select data-sp="' + esc(k) + '" style="width:100%;font-size:15px;padding:6px 8px;border-radius:10px;margin-top:6px"><option value="here"' + (d === 'here' ? ' selected' : '') + '>🏦 Checking — this is ' + esc(a.name) + '</option><option value="savings"' + (d === 'savings' ? ' selected' : '') + '>🐖 Savings</option><option value="mm"' + (d === 'mm' ? ' selected' : '') + '>🐖 Money market</option><option value="checking2">🏦 Another checking account</option><option value="loan"' + (d === 'loan' ? ' selected' : '') + '>🏡 Loan or home equity</option></select>') + '</div>'; }).join('')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="subSave()">Save — bring the lines in</button></div>');
+  return true; }
+var SUBQ = null;
+function subSave(){ var a = acct(CUR.a), G = SUBQ; if(!a || !G) return; a.subs = a.subs || {};
+  Array.prototype.forEach.call(document.querySelectorAll('#sheetIn [data-sp]'), function(sel){ var k = sel.getAttribute('data-sp'), v = sel.value; if(v === 'here'){ a.subs[k] = a.id; return; }
+    var nm = G.S[k].toLowerCase().replace(/\b\w/g, function(c){ return c.toUpperCase(); }), x = { id:uid(), hist:[], inst:a.inst || a.name, name:(a.inst || a.name) + ' · ' + nm, type:v === 'loan' ? 'heloc' : v === 'checking2' ? 'checking' : 'savings', mapG:v === 'loan' ? 'loan' : 'bank', track:'lines', subOf:a.id, folder:'__in ' + a.id, role:v === 'loan' ? 'loan' : v === 'checking2' ? 'everyday' : 'savings', balUnknown:1, bal:0 };
+    db.accts.push(x); a.subs[k] = x.id; });
+  SUBQ = null; save(); takeFile(); }
 function takeFile(){
-  var a = acct(CUR.a), have = {}; db.tx.forEach(function(t){ if(t.splitOf) return; have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc] = (have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc]||0) + 1; });
+  var a = acct(CUR.a); if(splitNeed(a)) return;
+  /* a statement that holds several accounts: each line goes to its own account; lines read before the split move across first, so nothing doubles */
+  var subOf = function(r){ return r.sub && a.subs && a.subs[r.sub] && acct(a.subs[r.sub]) ? a.subs[r.sub] : CUR.a; };
+  CUR.rows.forEach(function(r){ var ra = subOf(r); if(ra === CUR.a) return; var amt = r2(CUR.flip ? -r.raw : r.raw);
+    var old = db.tx.filter(function(t){ return t.a === CUR.a && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc === r.desc && !t.movedSub; })[0];
+    if(old){ old.a = ra; old.movedSub = 1; if(!db.asked[old.id] || old.byRole){ old.cat = guessCat(old.desc, old.amt, acct(ra), old.bcat); delete db.asked[old.id]; delete old.byRole; } IMP.moved = (IMP.moved || 0) + 1; } });
+  var have = {}; db.tx.forEach(function(t){ if(t.splitOf) return; have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc] = (have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc]||0) + 1; });
   Object.keys(db.splitKeys || {}).forEach(function(k){ have[k] = (have[k]||0) + db.splitKeys[k]; });   /* a charge that was split counts as already here */
   var seenNow = {};
-  CUR.rows.forEach(function(r){ var amt = r2(CUR.flip ? -r.raw : r.raw), k = CUR.a + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
+  CUR.rows.forEach(function(r){ var ra = subOf(r), amt = r2(CUR.flip ? -r.raw : r.raw), k = ra + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
     /* v11.2 · reading a statement again after a fix: a line already here under its cut-short words ("…Payment: USD") gets its full words, not a twin */
-    var old = db.tx.filter(function(t){ return t.a === CUR.a && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc !== r.desc && (/:( [A-Z]{3})?$/.test(t.desc) || thinDesc(t.desc)) && r.desc.length > t.desc.length && r.desc.indexOf(t.desc.replace(/: [A-Z]{3}$/, ':')) === 0 && !t.fixedDesc; })[0];
+    var old = db.tx.filter(function(t){ return t.a === ra && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc !== r.desc && (/:( [A-Z]{3})?$/.test(t.desc) || thinDesc(t.desc)) && r.desc.length > t.desc.length && r.desc.indexOf(t.desc.replace(/: [A-Z]{3}$/, ':')) === 0 && !t.fixedDesc; })[0];
     if(old){ old.desc = r.desc; old.fixedDesc = 1; if(!db.asked[old.id]){ old.cat = guessCat(r.desc, amt, a, r.bcat); delete old.sug; } IMP.fixed = (IMP.fixed || 0) + 1; return; }
-    var nt = { id:uid(), a:CUR.a, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, a, r.bcat) }; if(r.path) nt.f = String(r.path).slice(0, 300); db.tx.push(nt); IMP.added++; (IMP.newIds = IMP.newIds || []).push(nt.id); });
+    var nt = { id:uid(), a:ra, d:r.d, desc:r.desc, amt:amt, bcat:r.bcat || '', cat:guessCat(r.desc, amt, acct(ra) || a, r.bcat) }; if(r.path) nt.f = String(r.path).slice(0, 300); db.tx.push(nt); IMP.added++; (IMP.newIds = IMP.newIds || []).push(nt.id); });
   try{ FLAGNEW += flagSuspicious(IMP.newIds || []); IMP.newIds = []; }catch(e){}
-  if(CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || a.balUnknown || (CUR.asOf || today()) >= a.asOf)){ if(a.balUnknown){ a.hist = []; delete a.balUnknown; } setBal(a, Math.abs(CUR.bal), CUR.asOf || today()); }
+  var hasSub = CUR.rows.some(function(r){ return r.sub; });
+  if(!hasSub && CUR.bal != null && isFinite(CUR.bal) && (!a.asOf || a.balUnknown || (CUR.asOf || today()) >= a.asOf)){ if(a.balUnknown){ a.hist = []; delete a.balUnknown; } setBal(a, Math.abs(CUR.bal), CUR.asOf || today()); }
+  stmtKeep(a, hasSub); try{ autoPairs(); }catch(e){}
+  if(hasSub) Object.keys(a.subs || {}).forEach(function(k){ var x = acct(a.subs[k]); if(x && x.id !== a.id) try{ roleApply(x); }catch(e){} });
   if(CUR.key){ db.src = db.src || {}; db.src[CUR.key] = { a:CUR.a, flip:CUR.flip }; }
   IMP.per = IMP.per || {}; IMP.per[a.name] = (IMP.per[a.name]||0) + (CUR.files||[CUR]).length;
   save(); nextFile();
@@ -4222,7 +4254,7 @@ function openReport(m, mine){
   var body = showAI ? '<div class="note" id="repText">' + esc(r.text) + '</div><p class="sub" style="margin-top:6px">In your AI’s words, ' + shortDate(r.d) + '. <a href="#" onclick="openReport(\'' + m + '\',1);return false" style="color:var(--brand);font-weight:800">Show the app’s version</a></p>'
     : '<div id="repText">' + reportParts(m).map(function(p){ return '<div class="card" style="margin-bottom:10px;padding:12px 14px"><h2 style="font-size:16.5px;margin:0 0 4px">' + p.em + ' ' + esc(p.h) + '</h2>' + p.L.map(function(x){ return '<p style="margin:4px 0;font-size:15.5px">' + esc(x) + '</p>'; }).join('') + '</div>'; }).join('') + '</div>'
       + (r ? '<p class="sub"><a href="#" onclick="openReport(\'' + m + '\');return false" style="color:var(--brand);font-weight:800">Show your AI’s version</a></p>' : '');
-  openSheet('<h3>' + monthName(m) + '</h3>' + body
+  openSheet('<h3>' + monthName(m) + '</h3>' + watchBtn('report', '1 min') + body
     + '<div class="row" style="margin-top:8px"><button class="b" onclick="openNote(\'' + m + '\')">📝 The note for both of us</button><button class="b" onclick="printReport(\'' + m + '\',' + (showAI?0:1) + ')">🖨️ Print</button></div>'
     + '<button class="b full" onclick="writeReport(\'' + m + '\')">✨ ' + (r ? 'Ask my AI again' : 'Have my AI say it in warmer words') + '</button>'
     + '<button class="b ghost" style="width:100%" onclick="' + (CK ? 'openCheckup(CK)' : 'closeSheet()') + '">' + (CK ? 'Back to the check-up' : 'Close') + '</button>');
@@ -4406,6 +4438,7 @@ function openGTKY(id){ QL.on = 0; try{ fillShort(); }catch(e){}
     + (ch === 'check' ? '<p class="sub" style="margin:10px 0 4px">📒 The checkbook register usually says. Your bank’s website also shows a picture of each cashed check.</p>' : ch === 'cash' ? '<p class="sub" style="margin:10px 0 4px">💵 Cash: spending money, or for something specific?</p>' : '')
     + '<button class="b full" onclick="askSpouse(\'' + t.id + '\')">💬 Save it for ' + esc(db.spouse || 'my spouse') + ' to answer here</button>'
     + (Q.length > 3 ? '<button class="b full" onclick="openQList()">📋 See all ' + Q.length + ' as a list</button>' : '')
+    + '<div style="text-align:center;margin-top:6px">' + watchBtn('answer', '1 min') + '</div>'
     + (Q.length > 3 ? '<button class="b full" onclick="sortAI()">✨ Let my AI suggest answers for all ' + Q.length + '</button>' : '')
     + '<button class="b ghost" style="width:100%;margin-top:6px" onclick="GK=null;GKA=null;RV=null;closeSheet();render()">Done for now</button>');
 }
@@ -4500,7 +4533,7 @@ function repCheck(id){ var t = db.tx.filter(function(x){ return x.id === id; })[
 var REP = { ids:[] };
 function repLab(){ var b = document.getElementById('rpGo'), c = document.getElementById('rpC'); if(!b || !c) return; var n = document.querySelectorAll('#sheetIn [data-rp]:checked').length; b.textContent = c.value ? '✓ ' + (n === 1 ? 'This one is ' : 'These ' + n + ' are ') + shName(c.value) : '✓ Pick what they are first'; b.disabled = !n || !c.value; }
 function repSave(){ var c = (document.getElementById('rpC') || {}).value; if(!c) return; var n = 0; Array.prototype.forEach.call(document.querySelectorAll('#sheetIn [data-rp]:checked'), function(b){ var x = db.tx.filter(function(y){ return y.id === b.getAttribute('data-rp'); })[0]; if(x){ sortSet(x, c); n++; } });
-  save(); toast(n + ' answered as ' + shName(c) + '.'); closeSheet(); var q = queue()[0]; GK = null; if(q) openGTKY(q.id); else render(); }
+  save(); toast(n + ' answered as ' + shName(c) + '.'); if(QL.on){ var sc = QL.sc || 0; SHBACK = 1; openQList(); var el = document.getElementById('sheetIn'); if(el) el.scrollTop = sc; return; } closeSheet(); var q = queue()[0]; GK = null; if(q) openGTKY(q.id); else render(); }
 /* v11.3 · Jerry, 24 Nov: "PayPal takes out of the bank account, so there should be a corresponding bank charge … if so, we're
    overstating our expenses by a lot." PayPal's own codes: "General Credit Card Deposit" (T0700) is a purchase funded by a card, "Bank
    Deposit to PP Account" (T0300) one funded by the bank — so the same purchase is also on that card or bank statement. It's counted once,
@@ -4524,6 +4557,63 @@ function ppCheck(){ PPD = ppDupes(); var tot = r2(PPD.reduce(function(s,d){ retu
     + '<button class="b ghost" style="width:100%" onclick="sheetBack()">Done for now</button>'); }
 function ppFix1(d){ var x = d.x; x.cat = 'xfer'; delete x.sug; db.asked[x.id] = 1; x.ppPair = d.p.id; db.notSure = db.notSure.filter(function(y){ return y.id !== x.id && y !== x.id; }); db.reclass.unshift({ id:x.id, d:x.d, amt:x.amt, desc:x.desc, what:'Paid through PayPal — counted on the PayPal line', cat:'xfer', at:today(), auto:1 }); }
 function ppFix(i){ var d = PPD[i]; if(!d) return; ppFix1(d); save(); render(); toast('Counted once, on the PayPal line.'); var el = document.getElementById('sheetIn'), sc = el ? el.scrollTop : 0; SHBACK = 1; ppCheck(); if(el) el.scrollTop = sc; }
+/* ── v13.0 · Jerry, 25 Nov: "you need to know their function and how to account for them so the money in and out balances."
+   Every dollar is counted once, where the detail is. Money moving between our own accounts is never spending or income, and
+   each move has a partner on the other account's statement. Card payments from the bank, PayPal top-ups, savings to checking,
+   a payment to a loan: paired here. Interest and fees stay spending. ── */
+function ownAcct(a){ return !!(a && counts(a) && !a.notPersonal); }
+function xferish(t){ return bankish(t.desc) || cardPay(t) || ppFund(t) || /transfer|xfer|payment|pymt|autopay|to share|from share|internet access|online banking|zelle|paypal|venmo/i.test(t.desc); }
+/* the partner of a line: another of our accounts, the other direction, the same amount, within five days */
+function xferPartner(t, used, anySign){ var amt = Math.abs(t.amt), A = acct(t.a); if(!A) return null; var best = null, bd = 99;
+  db.tx.forEach(function(x){ if(x === t || x.a === t.a || x.splitOf || (used && used[x.id])) return; if(Math.abs(Math.abs(x.amt) - amt) > 0.005 || (!anySign && (x.amt > 0) === (t.amt > 0)) || (anySign && x.cat !== 'xfer')) return; var dd = Math.abs(daysBetween(t.d, x.d)); if(dd > 5 || dd >= bd) return; if(!ownAcct(acct(x.a))) return; best = x; bd = dd; });
+  return best; }
+function xferPairs(){ var used = {}, P = [], U = []; db.tx.filter(function(t){ return t.cat === 'xfer' && inWin(t) && !t.splitOf && !t.inv; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }).forEach(function(t){ if(used[t.id]) return;
+    var x = xferPartner(t, used) || xferPartner(t, used, true); if(x){ used[t.id] = used[x.id] = 1; P.push({ t:t, x:x }); } else U.push(t); }); return { P:P, U:U }; }
+/* on load and after every statement: a line still waiting whose partner is plainly a transfer becomes money moving (both sides) */
+function autoPairs(){ var n = 0, used = {};
+  db.tx.forEach(function(t){ if(db.asked[t.id] || used[t.id] || t.splitOf || t.cat === 'xfer' || !ownAcct(acct(t.a)) || !xferish(t)) return; var x = xferPartner(t, used); if(!x || !(xferish(x) || x.cat === 'xfer')) return;
+    if(db.asked[x.id] && x.cat !== 'xfer') return; used[t.id] = used[x.id] = 1; [t, x].forEach(function(y){ if(y.cat !== 'xfer'){ y.cat = 'xfer'; delete y.sug; y.byRole = y.byRole || 'pair'; y.roleWhy = 'Money moving — its partner is on ' + acctLabel(acct((y === t ? x : t).a) || {}); db.asked[y.id] = 1; n++; } }); });
+  try{ ppDupes().forEach(function(d){ if(d.sure && !db.asked[d.x.id]){ ppFix1(d); n++; } }); }catch(e){}
+  if(n) save(); return n; }
+/* why a move has no partner yet */
+function xferWhy(t){ var m = t.d.slice(0,7), A = acct(t.a) || {};
+  var miss = db.accts.filter(function(a){ return a.id !== t.a && ownAcct(a) && tracksLines(a) && !a.subOf && mapMissing(a).indexOf(m) >= 0; });
+  var d0 = t.desc.toLowerCase(), named = A.type === 'card' ? A : db.accts.filter(function(a){ return a.type === 'card' && String(a.inst || a.name).toLowerCase().split(/[^a-z]+/).some(function(w){ return w.length > 3 && d0.indexOf(w) >= 0; }); })[0];
+  if(named){ var rep = named.closed && named.replacedBy ? acct(named.replacedBy) : null; if(A.type !== 'card' && mapMissing(named).indexOf(m) >= 0) return 'No ' + acctLabel(named) + ' statement for ' + monthOnly(m) + ' yet — add it and this pairs up.';
+    return (A.type === 'card' ? 'The bank shows no payment of exactly this amount within five days' : acctLabel(named) + ' shows no payment of exactly this amount within five days') + (rep ? ' (it was replaced by ' + acctLabel(rep) + ')' : '') + ' — check both statements for the amount.'; }
+  if(cardPay(t) || /card|visa|mastercard|amex|discover|capital one|chase|citi/i.test(t.desc)) return 'Goes to a card the app doesn’t have. If a card was closed, open it in the money map and say which one replaced it.';
+  if(miss.length) return 'The other side may be on a statement that isn’t here yet: ' + miss.slice(0,3).map(acctLabel).join(', ') + ' for ' + monthOnly(m) + '.';
+  return 'To or from an account the app follows by its total (investments, a loan) — that’s fine, nothing to do.'; }
+function openXfers(){ var R = xferPairs(); LASTLIST = function(){ openXfers(); };
+  openSheet('<div class="stepno">Lists</div><h3>🔁 Money moving between our accounts</h3>' + watchBtn('report', '1 min') + '<p class="sub">None of this is spending or income. Each move should have a partner on the other account’s statement. ' + R.P.length + ' paired, ' + R.U.length + ' without a partner yet.</p>'
+    + (R.U.length ? '<h4 style="margin:12px 0 4px">No partner yet</h4><ul class="list">' + R.U.slice(0, 150).map(function(t){ return '<li class="tap" onclick="movePick(\'' + t.id + '\')"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '<small>' + esc(acctLabel(acct(t.a) || {})) + ' · ' + esc(xferWhy(t)) + '</small></span><span class="amt">' + money(Math.abs(t.amt)) + '</span></li>'; }).join('') + '</ul>' : '<div class="line ok">✓ Every move has its partner.</div>')
+    + (R.P.length ? '<h4 style="margin:12px 0 4px">Paired ✓</h4><ul class="list">' + R.P.slice(-150).reverse().map(function(p){ var out = p.t.amt > 0 ? p.t : p.x, inn = out === p.t ? p.x : p.t; return '<li><span class="d">' + shortDate(out.d) + '</span><span class="ds">' + esc(acctLabel(acct(out.a) || {})) + ' → ' + esc(acctLabel(acct(inn.a) || {})) + '<small>' + esc(out.desc.slice(0, 50)) + '</small></span><span class="amt">' + money(Math.abs(out.amt)) + '</span></li>'; }).join('') + '</ul>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="openBalance()">⚖️ Does it balance?</button><button class="b full" onclick="sheetBack()">Back</button></div>'); }
+/* ── does it balance? each statement: opening + its lines = closing; and the lines in the app add up to the statement ── */
+function stmtChecks(){ var S = db.stmts || {}, by = {}; Object.keys(S).forEach(function(k){ var st = S[k]; (by[st.a] = by[st.a] || []).push(st); });
+  var out = []; Object.keys(by).forEach(function(aid){ var a = acct(aid); if(!a) return; var L = by[aid].sort(function(x,y){ return x.to < y.to ? -1 : 1; });
+    L.forEach(function(st){ var open = st.open;
+      var read = open != null && st.close != null ? r2(open + st.sum - st.close) : null;
+      var mine = db.tx.filter(function(t){ return t.a === aid && !t.splitOf && t.d >= st.from && t.d <= st.to; }).reduce(function(x,t){ return x + t.amt; }, 0), want = st.flip ? -st.sum : st.sum, inApp = st.n ? r2(mine - want) : 0;
+      out.push({ a:a, st:st, read:read, inApp:inApp, ok:(read == null || Math.abs(read) < 0.02) && Math.abs(inApp) < 0.02 }); }); });
+  return out; }
+function openBalance(){ var C = stmtChecks(), bad = C.filter(function(c){ return !c.ok; }), R = xferPairs(), m = pulseMonth ? pulseMonth() : thisMonth(); LASTLIST = function(){ openBalance(); };
+  var T = db.tx.filter(function(t){ return t.d.slice(0,7) === m && !t.splitOf && ownAcct(acct(t.a)); }), inc = 0, sp = 0, mv = 0;
+  T.forEach(function(t){ if(t.cat === 'inc') inc += -t.amt; else if(t.cat === 'xfer'){ mv += t.amt; } else sp += t.amt; });
+  var byA = {}; C.forEach(function(c){ (byA[c.a.id] = byA[c.a.id] || []).push(c); });
+  openSheet('<div class="stepno">Lists</div><h3>⚖️ Does it balance?</h3>' + watchBtn('report', '1 min') + '<p class="sub">For every statement: its opening balance plus its lines must equal its closing balance, and the lines in the app must add up to the same. When everything ties, nothing is doubled and nothing is missing.</p>'
+    + (C.length ? (bad.length ? '<div class="line warn" style="font-weight:700">' + bad.length + ' statement' + (bad.length===1?' doesn’t':'s don’t') + ' tie yet.</div>' : '<div class="line ok" style="font-weight:700">✓ Every statement ties — ' + C.length + ' checked.</div>') : '<div class="line warn">No statement balances yet. They are kept as statements are read — read your folder again to check the ones already in.</div>')
+    + Object.keys(byA).map(function(aid){ var L = byA[aid], a = L[0].a, nb = L.filter(function(c){ return !c.ok; }).length;
+      return '<div class="card" style="padding:10px 12px;margin:8px 0"><b>' + esc(acctLabel(a)) + '</b> <span style="float:right;font-weight:800;color:' + (nb ? '#B5452E' : 'var(--ok,#2E7D4F)') + '">' + (nb ? nb + ' off' : '✓') + '</span>'
+        + '<table style="width:100%;font-size:13px;margin-top:6px;border-collapse:collapse">' + L.slice(-12).map(function(c){ var st = c.st;
+          return '<tr><td style="padding:3px 0">' + esc(monthName(st.to.slice(0,7), true)) + '</td><td>' + (st.close != null ? money(Math.abs(st.close)) : '') + '</td><td style="text-align:right">'
+            + (c.read != null && Math.abs(c.read) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">statement doesn’t add up by ' + money(Math.abs(c.read)) + ' — a line wasn’t read</span>' : Math.abs(c.inApp) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">app ' + (c.inApp > 0 ? 'has ' : 'is short ') + money(Math.abs(c.inApp)) + '</span>' : c.read == null ? '<span style="color:var(--soft)">no opening balance</span>' : '<span style="color:var(--ok,#2E7D4F);font-weight:700">ties ✓</span>') + '</td></tr>'; }).join('') + '</table></div>'; }).join('')
+    + '<h4 style="margin:14px 0 4px">' + esc(monthName(m)) + ' for the household</h4><div class="card" style="padding:10px 12px"><table style="width:100%;font-size:14px;border-collapse:collapse">'
+    + '<tr><td>Money in (income)</td><td style="text-align:right">' + money(r2(inc)) + '</td></tr><tr><td>Spending</td><td style="text-align:right">− ' + money(r2(sp)) + '</td></tr>'
+    + '<tr><td>Left over</td><td style="text-align:right;font-weight:800">' + money(r2(inc - sp)) + '</td></tr>'
+    + '<tr><td>Money moving between our accounts</td><td style="text-align:right">' + (Math.abs(mv) < 0.02 ? '<span style="color:var(--ok,#2E7D4F);font-weight:700">nets to $0 ✓</span>' : money(r2(Math.abs(mv))) + (mv > 0 ? ' out' : ' in') + ' — to accounts followed by their total, or a partner not here yet') + '</td></tr></table>'
+    + '<p class="sub" style="margin:6px 0 0">' + R.P.length + ' moves paired, ' + R.U.length + ' without a partner.</p></div>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="openXfers()">🔁 Money moving, with partners</button><button class="b full" onclick="sheetBack()">Back</button></div>'); }
 function ppFixAll(){ var n = 0, v = 0; PPD.forEach(function(d){ ppFix1(d); n++; v += d.p.amt; }); save(); render(); toast(n + ' fixed — ' + money(r2(v)) + ' no longer counted twice.'); SHBACK = 1; ppCheck(); }
 function ppNot(i){ var d = PPD[i]; if(!d) return; d.x.ppNot = 1; d.p.ppNot = 1; save(); SHBACK = 1; ppCheck(); }
 function ppFund(t){ var a = acct(t.a); return !!(a && ppAcct(a) && t.amt < 0 && /general credit card deposit|bank deposit to pp|deposit from|funding|general card deposit|transfer from bank/i.test(t.desc)); }
@@ -5400,7 +5490,7 @@ function sortBack(ok, ch, uns){ var n = reguess(), a = acct(SORTA) || {}, s = so
     + '<div class="stickfoot">' + (s.left ? '<button class="b primary full" style="margin-top:0" onclick="sortMake(\'' + a.id + '\')">⬇️ Next month</button>' : '') + '<button class="b' + (s.left ? '' : ' primary') + ' full" style="margin-top:0" onclick="sortHub()">Back to the accounts</button></div>'); }
 
 /* the one round of questions: whatever the sheets left blank, plus checks, cash and money sent to people */
-function askRound(){ db.askList = (db.askList||[]).filter(function(id){ return db.notSure.indexOf(id) < 0; }).concat(db.notSure); db.notSure = []; db.askStarted = 1; save(); GK = null; GKA = null; RV = null; ASKR = 1; if(queue().length > 10) openQList(); else openGTKY(); }
+function askRound(how){ db.askList = (db.askList||[]).filter(function(id){ return db.notSure.indexOf(id) < 0; }).concat(db.notSure); db.notSure = []; db.askStarted = 1; save(); GK = null; GKA = null; RV = null; ASKR = 1; if(how === 'list' || (how !== 'one' && queue().length > 10)) openQList(); else openGTKY(); }
 var ASKR = 0;
 /* v12.0 · Jerry, 25 Nov: "If you're going to do 200 and some odd at a time, you should be able to go down the list, not one at a time …
    see the category and then be able to change it on a list." He chose the mockup: one row per shop, the guess (or the AI's pick) in a
@@ -5422,7 +5512,7 @@ function openQList(){ QL.on = 1; GK = null; var L = qlGroups();
   show = show.slice(0, 150); QL.G = show; QL.more = (QL.mode === 'unsure' ? L.filter(function(g){ return !qlCat(g); }).length : L.length) - show.length;
   var unsure = L.filter(function(g){ return !qlCat(g); }).length;
   var chip = function(m, t){ var on = QL.mode === m; return '<button onclick="QL.mode=\'' + m + '\';openQList()" style="flex:0 0 auto;min-height:0;padding:6px 12px;border-radius:18px;font-size:14px;font-weight:700;border:1px solid ' + (on ? 'var(--brand);background:var(--brand);color:#fff' : 'var(--line);background:#fff;color:inherit') + '">' + t + '</button>'; };
-  openSheet('<div class="stepno">The questions · list</div><h3 id="qlHead"></h3>'
+  openSheet('<div class="stepno">The questions · list</div><h3 id="qlHead"></h3>' + watchBtn('answer', '1 min')
     + '<p class="sub" style="margin:0 0 6px">Tap <b>✓</b> on a row that’s right, or change its category first. Tick several and accept them together at the bottom. Tap a row’s count to change single lines.</p>'
     + (window.djAI && unsure ? '<button class="b full" onclick="sortAI()">✨ Let my AI pick for the ' + unsure + ' it can’t guess</button>' : '')
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + chip('shop', 'By shop') + chip('big', 'Biggest first') + chip('unsure', 'Not sure (' + unsure + ')') + '</div>'
@@ -5435,11 +5525,16 @@ function openQList(){ QL.on = 1; GK = null; var L = qlGroups();
 function qlCard(g, i){ var c = qlCat(g), on = qlOn(g);
   return '<div class="card" id="qlc' + i + '" style="margin:8px 0;padding:10px 12px;overflow:hidden;transition:opacity .25s,max-height .3s,margin .3s,padding .3s;max-height:4000px' + (c ? '' : ';background:#FFF7DD') + '"><div style="display:flex;gap:10px;align-items:center">'
     + '<input type="checkbox" id="qlk' + i + '"' + (on ? ' checked' : '') + ' onchange="qlTick(' + i + ',this.checked)" style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:0;padding:0">'
-    + '<div style="flex:1;min-width:0"><b style="word-break:break-word;font-size:16px">' + esc(g.name) + '</b><small style="display:block;color:var(--soft);font-size:13px"><a href="#" id="qla' + i + '" onclick="qlToggle(' + i + ');return false" style="color:var(--brand);font-weight:700">' + g.lines.length + ' line' + (g.lines.length===1?'':'s') + ' ▾</a> · ' + esc(g.amts) + ' · ' + esc(Object.keys(g.accts).join(', ')) + '</small>'
+    + '<div style="flex:1;min-width:0"><b style="word-break:break-word;font-size:16px">' + esc(g.name) + '</b><small style="display:block;color:var(--soft);font-size:13px"><a href="#" id="qla' + i + '" onclick="qlToggle(' + i + ');return false" style="color:var(--brand);font-weight:700">' + g.lines.length + ' line' + (g.lines.length===1?'':'s') + ' ▾</a> · ' + esc(g.amts) + ' · ' + esc(Object.keys(g.accts).join(', ')) + '</small>' + qlLinks(g)
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><select id="qls' + i + '" onchange="qlPick(' + i + ',this.value)" style="flex:1;min-width:0;font-size:15px;padding:5px 8px;border-radius:10px;min-height:0">' + (c ? '' : '<option value="">— not sure —</option>') + catOptions(c) + '</select>'
     + '<button id="qly' + i + '" onclick="qlOne(' + i + ')" title="This row is right — answer it"' + (c ? '' : ' disabled') + ' style="flex:0 0 auto;min-height:0;padding:6px 12px;border-radius:10px;font-weight:800;font-size:15px;border:0;background:var(--brand);color:#fff;opacity:' + (c ? 1 : .35) + '">✓</button></div>'
     + '<small id="qlt' + i + '" style="display:block;margin-top:3px;font-size:12px;font-weight:700;color:' + (c ? '#7A5BB5' : '#B5762E') + '">' + (c ? (g.ai ? '✨ your AI’s pick' : 'the app’s guess') : 'needs you — pick one') + '</small></div></div>'
     + '<div id="qll' + i + '" style="display:none"></div></div>'; }
+/* v13.0 · Jerry, 25 Nov: "put the web and statement links on each row too." */
+function qlLinks(g){ var t = g.lines[0], st = 'style="color:var(--brand);font-weight:700;font-size:13px;margin-right:12px;white-space:nowrap"';
+  return '<div class="qllinks" style="margin-top:3px">' + (channel(t) === 'check' || channel(t) === 'cash' || bankish(t.desc) ? '' : '<a href="' + webLook(t.desc) + '" target="_blank" rel="noopener" ' + st + '>🔎 Web</a>')
+    + '<a href="#" onclick="qlMark();stmtOpen(\'' + t.id + '\');return false" ' + st + '>📄 Statement</a><a href="#" onclick="qlMark();repCheck(\'' + t.id + '\');return false" ' + st + '>🔁 Repeats</a></div>'; }
+function qlMark(){ var el = document.getElementById('sheetIn'); QL.sc = el ? el.scrollTop : 0; }
 function qlToggle(i){ var g = QL.G[i], box = document.getElementById('qll' + i), a = document.getElementById('qla' + i); if(!g || !box) return;
   if(!box.innerHTML) box.innerHTML = g.lines.map(function(t){ var o = QL.over[t.id]; return '<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:6px 0 0;margin-top:6px;font-size:14px"><span style="color:var(--soft);flex:0 0 52px">' + shortDate(t.d) + '</span><span style="flex:1;min-width:0;word-break:break-word">' + esc(t.desc) + '</span><b>' + money(t.amt) + '</b><select data-qo="' + t.id + '" onchange="QL.over[this.getAttribute(\'data-qo\')]=this.value" style="flex:0 0 38%;max-width:38%;font-size:13px;padding:4px;border-radius:8px;min-height:0"><option value="">same as the row</option>' + catOptions(o || '') + '</select></div>'; }).join('');
   var open = box.style.display === 'none'; box.style.display = open ? 'block' : 'none'; QL.open[g.k] = open; if(a) a.textContent = g.lines.length + ' line' + (g.lines.length===1?'':'s') + (open ? ' ▴' : ' ▾'); }
@@ -5643,7 +5738,7 @@ function glanceHTML(){ var P = pulseData(pulseMonth()), m = P.m, x = three(m), m
   var sentence = P.closed ? mn + ' is closed' + (P.noInc ? '.' : ' — ' + money(Math.abs(P.diff),1) + (P.diff >= 0 ? ' under' : ' over') + ' income.') : P.noInc ? 'Add your monthly income to see where ' + mn + ' stands.' : (ok ? '✅ ' : '⚠️ ') + mn + ' is ' + money(Math.abs(P.diff),1) + (P.diff >= 0 ? ' under' : ' over') + ' income.';
   var h = '<div class="card glance" id="glance" style="padding:16px"><div class="gltop"><b>Our money</b><span>' + esc(monthName(m)) + '</span></div>'
     + '<div id="pulse" class="glstat" style="background:' + tone[0] + ';border-color:' + tone[1] + '"><div id="pulseLine">' + esc(sentence) + '</div><small>' + (P.noInc ? 'Income is set in Settings' : !ok ? 'Spending and bill savings came to ' + money(P.out,1) + '; ' + money(P.inc,1) + ' came in.' : x.take > 0 ? '🏦 ' + money(x.take,1) + ' has to come from savings this month' : '✓ Nothing needs to come from savings this month') + '</small>'
-    + '<button class="b primary full" style="margin:10px 0 0" onclick="' + act[0] + '">' + act[1] + '</button>' + (!P.closed && act[0].indexOf('newMonth') < 0 ? '<button class="b ghost small" style="width:100%;margin-top:4px" onclick="newMonth()">📥 New month — read my folder</button>' : '') + '</div>';
+    + (P.q > 1 ? '<p style="margin:10px 0 0;font-weight:800">' + P.q + ' questions to answer</p><div id="glQ" style="display:flex;gap:8px;margin-top:6px"><button class="b primary" style="flex:1;margin:0" onclick="askRound(\'list\')">📋 As a list</button><button class="b" style="flex:1;margin:0" onclick="askRound(\'one\')">👆 One at a time</button></div>' : '<button class="b primary full" style="margin:10px 0 0" onclick="' + act[0] + '">' + act[1] + '</button>') + (!P.closed && act[0].indexOf('newMonth') < 0 ? '<button class="b ghost small" style="width:100%;margin-top:4px" onclick="newMonth()">📥 New month — read my folder</button>' : '') + '</div>';
   /* dials */
   var got = r2(db.tx.filter(function(t){ return t.cat === 'inc' && t.d.slice(0,7) === m && counts(acct(t.a)); }).reduce(function(s,t){ return s - t.amt; },0)), inc = x.inc;
   var d1 = inc > 0 ? glRing(got / inc, '#2F6E52', kMoney(got), 'of ' + kMoney(inc)) : glRing(0, '', got ? kMoney(got) : '—', got ? 'came in' : 'not set');
@@ -5828,7 +5923,7 @@ function openLists(){
     + (dupList().length ? '<button class="b full" style="text-align:left" onclick="openDups()">👯 Charged twice? (' + dupList().filter(function(x){ return !x.f.done; }).length + ' to check)</button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openRoles()">🧭 How each account works</button>'
     + '<button class="b full" style="text-align:left" onclick="catCheck()">🧹 Check every category</button>'
-    + (db.accts.some(function(a){ return a.type === 'card'; }) ? '<button class="b full" style="text-align:left" onclick="payCheck()">💳 Card payments, matched to the bank</button>' : '')
+    + (db.accts.some(function(a){ return a.type === 'card'; }) ? '<button class="b full" style="text-align:left" onclick="openBalance()">⚖️ Does it balance?</button><button class="b full" style="text-align:left" onclick="openXfers()">🔁 Money moving between our accounts</button><button class="b full" style="text-align:left" onclick="payCheck()">💳 Card payments, matched to the bank</button>' : '')
     + (db.accts.some(ppAcct) ? '<button class="b full" style="text-align:left" onclick="ppCheck()">🔁 Counted twice? PayPal and your other accounts</button>' : '')
     + '<button class="b full" style="text-align:left" onclick="openNotSure()">❔ Not sure yet (' + db.notSure.length + ')</button>'
     + '<button class="b full" style="text-align:left" onclick="openReclass()">🗂️ What you told me (' + db.reclass.length + ')</button>'
@@ -5879,7 +5974,7 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
-function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -6976,7 +7071,7 @@ function folderPath(a){ return 'Family Money / ' + mapGroup(mapOf(a)).folder + '
 function mapMonths(a){ var y = db.historyFrom ? db.historyFrom.slice(0,7) : thisMonth().slice(0,4) + '-01', from = a.openM && a.openM > y ? a.openM : y, to = addMonths(thisMonth(), -1); if(db.historyTo && db.historyTo.slice(0,7) < to) to = db.historyTo.slice(0,7); if(a.closed && a.closedM && a.closedM < to) to = a.closedM;
   var L = []; for(var m = from; m <= to; m = addMonths(m, 1)) L.push(m); return L; }
 function mapHave(a){ var h = {}; db.tx.forEach(function(t){ if(t.a === a.id) h[t.d.slice(0,7)] = 1; }); return h; }
-function mapMissing(a){ if(!tracksLines(a) || (a.mapG || mapOf(a)) === 'pay') return [];   /* a payment app can go quiet for a month; that isn't a missing statement */ var h = mapHave(a); return mapMonths(a).filter(function(m){ return !h[m]; }); }
+function mapMissing(a){ if(a.subOf) return []; if(!tracksLines(a) || (a.mapG || mapOf(a)) === 'pay') return [];   /* a payment app can go quiet for a month; that isn't a missing statement */ var h = mapHave(a); return mapMonths(a).filter(function(m){ return !h[m]; }); }
 function strip(a){ if(!tracksLines(a)) return '<span class="sub" style="font-size:12.5px">' + (a.balUnknown ? 'total not entered yet' : 'total ' + money(a.bal||0,1) + (a.asOf ? ', ' + shortDate(a.asOf) : '')) + '</span>';
   var h = mapHave(a); return '<span style="display:inline-flex;gap:2px;vertical-align:middle">' + mapMonths(a).map(function(m){ return '<i title="' + monthName(m,true) + '" style="width:9px;height:14px;border-radius:2px;display:inline-block;background:' + (h[m] ? 'var(--ok)' : '#E7B7AE') + '"></i>'; }).join('') + '</span>'; }
 function mapScore(){ var want = 0, got = 0;
@@ -7010,13 +7105,20 @@ function mapAdd(k, id){ var g = mapGroup(k), a = id ? acct(id) : null, T = g.typ
     + (g.k !== 'own' ? '<label for="mpN">A name for it, if it needs one</label><input id="mpN" value="' + esc(a && a.inst && a.name !== a.inst ? a.name : '') + '" placeholder="' + 'for example, ' + (g.k === 'edu' ? 'Emma’s 529' : g.k === 'card' ? 'Travel card' : 'Joint checking') + '">' : '')
     + (T.length > 1 ? '<label for="mpT">What kind</label><select id="mpT">' + T.map(function(t){ return '<option value="' + t + '"' + (a && a.type === t ? ' selected' : '') + '>' + TYPES[t].em + ' ' + TYPES[t].t + '</option>'; }).join('') + '</select>' : '')
     + (g.track === 'either' ? '<label for="mpTr">Follow it how?</label><select id="mpTr"><option value="lines"' + (a && a.track === 'lines' ? ' selected' : '') + '>Every line — it has statements to read</option><option value="total"' + (a && a.track !== 'lines' ? ' selected' : '') + '>Just the total — for reporting</option></select>' : '')
+    + mapRoleHTML(g, a)
     + '<label for="mpL4">Last 4 digits (optional)</label><input id="mpL4" inputmode="numeric" maxlength="4" value="' + esc(a ? a.last4 || '' : '') + '">'
     + (g.track !== 'lines' ? '<label for="mpB">' + (g.k === 'loan' ? 'Balance owed today' : 'Total today') + ' (optional)</label><input id="mpB" inputmode="decimal" value="' + (a && !a.balUnknown ? a.bal || '' : '') + '" placeholder="from the latest statement">' : '')
     + '<label class="ck"><input type="checkbox" id="mpCl"' + (a && a.closed ? ' checked' : '') + ' onchange="document.getElementById(\'mpClW\').style.display=this.checked?\'block\':\'none\'"> It was closed this year</label>'
-    + '<div id="mpClW" style="display:' + (a && a.closed ? 'block' : 'none') + '"><label for="mpCM">Its last statement was for</label><input id="mpCM" type="month" value="' + esc(a && a.closedM || '') + '"></div>'
+    + '<div id="mpClW" style="display:' + (a && a.closed ? 'block' : 'none') + '"><label for="mpCM">Its last statement was for</label><input id="mpCM" type="month" value="' + esc(a && a.closedM || '') + '">' + mapRepHTML(g, a) + '</div>'
     + '<label for="mpOM">Opened this year? Its first month (optional)</label><input id="mpOM" type="month" value="' + esc(a && a.openM || '') + '">'
     + '<button class="b primary full" onclick="mapSave(\'' + k + '\',\'' + (id||'') + '\')">' + (g.track === 'total' ? 'Save it' : 'Save — then its statements') + '</button><button class="b ghost" style="width:100%" onclick="mapBack()">Back</button>');
 }
+/* v13.0 · Jerry, 25 Nov: "in the very beginning we have the file and folder mapping. wouldn't that be the time to ask what the function of
+   that folder is." Each account says how it works when it is added, and a closed card says which card took its place. */
+function mapRoleHTML(g, a){ var r = a ? roleOf(a) : (g.pay ? 'pass' : g.k === 'loan' ? 'loan' : /^(inv|ret|edu)/.test(g.k) ? 'invest' : 'everyday');
+  return '<label for="mpRole">How does it work?</label><select id="mpRole" onchange="var d=document.getElementById(\'mpRoleD\');if(d)d.textContent=ROLES[this.value].d">' + Object.keys(ROLES).map(function(k){ return '<option value="' + k + '"' + (k === r ? ' selected' : '') + '>' + ROLES[k].em + ' ' + ROLES[k].t + '</option>'; }).join('') + '</select><p class="sub" id="mpRoleD" style="margin:4px 0 0;font-size:13px">' + esc(ROLES[r].d) + '</p>'; }
+function mapRepHTML(g, a){ var O = db.accts.filter(function(x){ return (!a || x.id !== a.id) && !x.closed && mapOf(x) === g.k; }); if(!O.length) return '';
+  return '<label for="mpRep">Which one took its place?</label><select id="mpRep"><option value="">None — it was just closed</option>' + O.map(function(x){ return '<option value="' + x.id + '"' + (a && a.replacedBy === x.id ? ' selected' : '') + '>' + esc(acctLabel(x)) + '</option>'; }).join('') + '</select><p class="sub" style="margin:4px 0 0;font-size:13px">Its payments and history carry on in the new one.</p>'; }
 function mapSave(k, id){ var g = mapGroup(k), inst = document.getElementById('mpI').value.trim(); if(!inst){ alert('Type the name of the bank or company in the first box. The grey words are only an example.'); var e0 = document.getElementById('mpI'); if(e0) e0.focus(); return; }
   if(/\d{6,}/.test(inst.replace(/\s/g,''))){ alert('That looks like an account number. Use a plain name; only the last 4 digits go in their own box.'); return; }
   var nmE = document.getElementById('mpN'), nick = nmE ? nmE.value.trim() : '', tE = document.getElementById('mpT'), type = tE ? tE.value : g.types[0], trE = document.getElementById('mpTr');
@@ -7025,7 +7127,9 @@ function mapSave(k, id){ var g = mapGroup(k), inst = document.getElementById('mp
   if(type === 'card'){ a.payMode = a.payMode || 'full'; a.autopay = a.payMode === 'full'; }
   a.closed = document.getElementById('mpCl').checked; a.closedM = a.closed ? document.getElementById('mpCM').value : ''; a.openM = document.getElementById('mpOM').value || '';
   var bE = document.getElementById('mpB'); if(bE && bE.value.trim() !== ''){ setBal(a, Math.abs(num(bE.value))); delete a.balUnknown; } else if(!id){ setBal(a, 0); a.balUnknown = 1; }
-  if(!id) db.accts.push(a); save(); render();
+  var rlE = document.getElementById('mpRole'); if(rlE && rlE.value){ var wasR = id ? roleOf(a) : ''; a.role = rlE.value; if(id && wasR !== a.role){ db.tx.forEach(function(t){ if(t.a === a.id && t.byRole && t.byRole !== a.role){ delete db.asked[t.id]; delete t.byRole; delete t.roleWhy; } }); } }
+  var rpE = document.getElementById('mpRep'); a.replacedBy = a.closed && rpE ? rpE.value : '';
+  if(!id) db.accts.push(a); try{ roleApply(a); }catch(e){} save(); render();
   if(ONESK){ fmDone(ONESK); return; }
   if(a.track === 'lines') mapFiles(a.id); else { toast('Saved.'); mapBack(); } }
 function mapFiles(id){ var a = acct(id); if(!a) return mapStep(); var g = mapGroup(mapOf(a)), miss = mapMissing(a), done = MDONE[id] || '';
@@ -7142,7 +7246,11 @@ function pdfParse(lines, name){
     if(mo < 1 || mo > 12 || d < 1 || d > 31) return null; if(!y) y = mo > endM ? endY - 1 : endY; return y + '-' + pad2(mo) + '-' + pad2(d); }
   function amt(s){ var neg = /^\(|\)$|^-|-\s?\$|\s?(cr|-)$/i.test(s.trim()), n = num(s.replace(/cr|dr/ig,'').replace(/[()]/g,'')); return { n:Math.abs(n), minus:neg, cr:/cr$/i.test(s.trim()) }; }
   var prevBal = null, last = null, IN = /deposit|credit(?! card)|refund|dividend|interest paid|payment.{0,12}thank|thank you|returned|reversal|transfer from|from share|ach credit|direct dep|payroll|ssa treas|annuity|pension|cashback|cash back/i;
+  /* v13.0 · Jerry, 25 Nov: one bank statement can hold several accounts — "REGULAR SAVINGS  ACCT# 1 … PRIVILEGE REG CHECKING  ACCT# 8".
+     Each section's lines carry its account number, and each section's own opening and closing balance is kept for the balance check. */
+  var SEC = '', SB = { '':{ name:'', open:null, close:null } };
   lines.forEach(function(l){ var c = l.map(function(x){ return x.s; }), tok = c.join(' ').split(/\s+/);
+    var secM = /^(.*?)\bACCT\s*#\s*(\d{1,4})\b/i.exec(c.join(' ')); if(secM && !/^\d{1,2}\/|^[A-Z]{3}\d{2}/i.test(tok[0] || '')){ SEC = secM[2]; SB[SEC] = SB[SEC] || { name:secM[1].replace(/\s+/g, ' ').trim() || 'Account ' + SEC, open:null, close:null }; prevBal = null; last = null; return; }
     /* split the line back into words, then: a date first (with an optional second, the posting date), money last */
     var d = null, k = 0;
     if(/^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[0])){ d = dateOf(tok[0]); k = 1; if(tok[1] && /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(tok[1])) k = 2; }
@@ -7153,7 +7261,7 @@ function pdfParse(lines, name){
        A line with no date right after such a row finishes its description; "ID:" lines and the wrapped year digit are skipped. */
     if(!d && last && last.more){ if(/^(ref\s*)?id\s*:/i.test(c.join(' '))){ last.more = 0; last = null; return; } var more = c.join(' ').replace(/^\d\s+/, '').replace(/^\d$/, '').replace(/\s*PayPal Balance\b.*$/i, '').trim(); if(last.more === 2 && (/\d\.\d{2}\b/.test(more) || /balance|total|page \d|^date\b|description|thru/i.test(more))) more = ''; if(more && !MONEY_RE.test(more) && !/^(date|description|currency|amount|fees|total)/i.test(more)){ last.desc = (last.desc + ' ' + more).slice(0, 80); if(last.more === 2){ last.more = 0; last = null; } return; } last = null; }
     if(d) last = null;
-    if(!d) { var bm = /(ending|closing|new) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(bm){ out.bal = Math.abs(num(bm[2])); } var sb = /(beginning|opening|previous) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(sb && prevBal == null) prevBal = num(sb[2]); return; }
+    if(!d) { var bm = /(ending|closing|new) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(bm){ out.bal = Math.abs(num(bm[2])); SB[SEC].close = num(bm[2]); } var sb = /(beginning|opening|previous) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(sb && prevBal == null){ prevBal = num(sb[2]); if(SB[SEC].open == null) SB[SEC].open = prevBal; } return; }
     var rest = tok.slice(k), money = [];
     /* gather money from the end: "1,500.00", "- $1,500.00", "(24.50)", "24.50 CR" */
     while(rest.length){ var t = rest[rest.length-1], t2 = rest.length > 1 ? rest[rest.length-2] + ' ' + t : '';
@@ -7161,15 +7269,17 @@ function pdfParse(lines, name){
       if(/^(cr|dr)$/i.test(t) && rest.length > 1 && MONEY_RE.test(rest[rest.length-2])){ money.unshift(rest[rest.length-2] + t); rest.splice(-2, 2); continue; }
       if(MONEY_RE.test(t)){ money.unshift(t); rest.pop(); continue; } break; }
     var desc = rest.join(' ').replace(/\s+/g,' ').trim().replace(/\s+(USD|EUR|GBP|CAD|AUD|MXN)$/, '');   /* a currency column isn't part of the description */
-    if(!money.length || !desc || /^(beginning|opening|previous|ending|closing|new) balance|^total|^balance/i.test(desc)){ if(/balance/i.test(desc) && money.length){ var bv = num(money[money.length-1]); if(/beginning|opening|previous/i.test(desc)) prevBal = bv; else out.bal = Math.abs(bv); } return; }
+    if(!money.length || !desc || /^(beginning|opening|previous|ending|closing|new) balance|^total|^balance/i.test(desc)){ if(/balance/i.test(desc) && money.length){ var bv = num(money[money.length-1]); if(/beginning|opening|previous/i.test(desc)){ prevBal = bv; if(SB[SEC].open == null) SB[SEC].open = bv; } else { out.bal = Math.abs(bv); SB[SEC].close = bv; } } return; }
     var A = amt(money[0]), into;
     if(money.length >= 2){ var bal = num(money[money.length-1].replace(/cr|dr/ig,'')); if(prevBal != null && Math.abs(Math.abs(bal - prevBal) - A.n) < 0.02) into = bal > prevBal; prevBal = bal; out.bal = Math.abs(bal); }
     if(into == null) into = card ? (A.minus || A.cr || /payment|pymt|pmt|credit/i.test(desc) && A.minus) : (A.cr || (!A.minus && IN.test(desc)));
     if(!card && A.minus && !A.cr) into = false;
-    if(A.n){ var row = { d:d, desc:desc.slice(0,80), raw: into ? A.n : -A.n }; out.rows.push(row); last = row; if(/:$/.test(row.desc) || PP_PRE.test(row.desc)) Object.defineProperty(row, 'more', { value:1, writable:true, enumerable:false }); else if(thinDesc(row.desc)) Object.defineProperty(row, 'more', { value:2, writable:true, enumerable:false }); }
+    if(A.n){ var row = { d:d, desc:desc.slice(0,80), raw: into ? A.n : -A.n }; if(SEC){ row.sub = SEC; row.subName = SB[SEC].name; } out.rows.push(row); last = row; if(/:$/.test(row.desc) || PP_PRE.test(row.desc)) Object.defineProperty(row, 'more', { value:1, writable:true, enumerable:false }); else if(thinDesc(row.desc)) Object.defineProperty(row, 'more', { value:2, writable:true, enumerable:false }); }
   });
   if(endY && endM){ out.asOf = endY + '-' + pad2(endM) + '-' + pad2(new Date(endY, endM, 0).getDate()); }
   if(card){ out.bankText += ' credit card'; }
+  out.stmts = Object.keys(SB).map(function(k){ var R = out.rows.filter(function(r){ return (r.sub || '') === k; }); if(!R.length && SB[k].open == null) return null; var D = R.map(function(r){ return r.d; }).sort();
+    return { sub:k, name:SB[k].name, open:SB[k].open, close:SB[k].close, sum:r2(R.reduce(function(x,r){ return x + r.raw; }, 0)), n:R.length, from:D[0] || '', to:D[D.length-1] || '', asOf:out.asOf || '' }; }).filter(Boolean);
   return out;
 }
 function readPDF(f, cb){ pdfLines(f, function(L){ cb(L && L.length ? pdfParse(L, f.name) : null); }); }
@@ -7498,7 +7608,7 @@ function ckSteps(){ var phone = !canFolder(), C = (db && db.ck) || {}, has = !!(
       out.push(x); return out; }, []).map(function(x){ return { k:x[0], em:x[1], t:x[2], sub:x[3], go:x[4], done:!!x[5], hand:C[x[0]] === 1 }; }); }
 function ckHTML(preview){ var S = ckSteps(), n = S.filter(function(s){ return s.done; }).length, nx = S.filter(function(s){ return !s.done; })[0];
   if(!preview && !nx && db.ck && db.ck.hidden) return '';
-  return '<div class="card cklist"><div class="ckhead"><h2 style="margin:0">📝 ' + (preview ? 'Setting up, step by step' : nx ? 'Getting set up' : 'All set up ✓') + '</h2><small>' + (preview ? S.length + ' short steps' : n + ' of ' + S.length + ' done') + '</small></div>'
+  return '<div class="card cklist"><div class="ckhead"><h2 style="margin:0">📝 ' + (preview ? 'Setting up, step by step' : nx ? 'Getting set up' : 'All set up ✓') + '</h2><small>' + (preview ? S.length + ' short steps' : n + ' of ' + S.length + ' done') + '</small></div>' + watchBtn('train', '3 min')
     + (preview ? '' : '<div class="meter" style="margin:8px 0 4px"><i style="width:' + Math.round(n / S.length * 100) + '%;background:var(--ok)"></i></div>')
     + '<ul class="cks">' + S.map(function(s){ var cur = !preview && nx && s.k === nx.k;
       return '<li class="' + (s.done && !preview ? 'done' : cur ? 'cur' : '') + '">'
@@ -7659,6 +7769,12 @@ function videoLearn(){ videoReady(); var by = {}; db.tx.forEach(function(t){ if(
   var k = Object.keys(by).filter(function(x){ return by[x].length >= 3; }).sort(function(x,y){ return by[y].length - by[x].length; })[0]; if(!k) return; var t = by[k][0];
   openGTKY(t.id); var sel = document.getElementById('gkC'); if(!sel) return; for(var i = 0; i < sel.options.length; i++){ var o = sel.options[i]; if(o.value && o.value.charAt(0) !== '_' && o.text !== gkGuess){ sel.selectedIndex = i; break; } } gkLab(); gkGoSave(t.id); }
 function videoNext(){ videoReady(); newMonthDone(0); }
+/* v13.0 · Jerry, 25 Nov: "in those sections when they are chosen, the user can access the video that explains how it operates."
+   Each section has its own short video, one tap away. */
+function watchBtn(mode, mins){ return '<a href="../shop/watch.html?app=familydash' + (mode ? '&mode=' + mode : '') + '" target="_blank" rel="noopener" style="display:inline-block;background:#FFF1D6;border:1px solid #E9C98B;border-radius:18px;padding:4px 12px;font-weight:800;font-size:13px;color:#5A3D10;text-decoration:none;margin:2px 0 6px">▶ Watch how · ' + mins + '</a>'; }
+/* the videos: the example family with enough questions waiting to show the list */
+function videoQ(how, open){ videoReady(); var L = db.tx.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer' && !t.splitOf; }).slice(0, 40); L.forEach(function(t){ delete db.asked[t.id]; t.sug = t.sug || (Math.random() < .5 ? 1 : 0); }); GK = null; QL.pick = {}; QL.off = {};
+  save(); if(how === 'none'){ render(); return; } askRound(how); if(open && how === 'list') try{ qlToggle(0); }catch(e){} }
 function videoReady(){
   ['djTour','djHello','djMenu','djA2HS'].forEach(function(i){ var e = document.getElementById(i); if(e) e.remove(); });
   if(!db || !db.ex || (db.v||1) < 2){ var d = exampleData(); try{ if(parent !== window && parent.tourSet) parent.tourSet(KEY, JSON.stringify(d)); }catch(e){} db = load(); if(!db || !db.ex || (db.v||1) < 2) db = d; }
