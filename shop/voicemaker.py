@@ -244,7 +244,7 @@ EL_RATE = 24000
 # 19 Nov, Jerry, after hearing 1.15: "just a tad too fast … one phrase turns into the
 # next". So a touch slower, a short breath between sentences inside a line, and a
 # longer pause between lines, which is where the topic usually turns.
-EL_SPEED = float(os.environ.get('EL_SPEED', '1.07'))   # 24 Nov, Jerry on Family Money's "Learns as you go": "a little quick … slowed down just a smidge" — that one is recorded at EL_SPEED=1.0
+EL_SPEED = float(os.environ.get('EL_SPEED', '1.0'))   # 25 Nov, Jerry: "The pace is good, use it for all" — the slower pace he heard in Family Money's "Learns as you go" (24 Nov) is now the house default; it was 1.07
 EL_GAP = 0.4
 EL_BREATH = ''   # break tags made it choppy; the model's own sentence pauses are smoother
 
