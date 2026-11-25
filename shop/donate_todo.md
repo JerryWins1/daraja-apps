@@ -44,5 +44,5 @@ a new shape before PHASE flips, and it is a promise already made to people, so i
 The donate branch is already in `Apps (installable site)/nownext/index.html`. Its footer version
 stamp was not bumped, because nothing a person sees changes while PHASE is `'testing'`, and a bump
 would reset the testers' passes for nothing. Bump it in the same change that flips PHASE.
-`Apps (installable site)/nownext/nownext/index.html` is an older copy with no gate and no buy link;
-nothing links to it.
+The older copy at `Apps (installable site)/nownext/nownext/` (no gate, no buy link, nothing linked to it)
+was deleted on 25 Nov 2026; it is in git history.
