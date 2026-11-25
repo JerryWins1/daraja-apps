@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.10 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v12.0 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4378,7 +4378,7 @@ async function fillShort(){ if(FILLED || !FS.h) return; var S = db.tx.filter(fun
       S.forEach(function(t){ if(t.fixedDesc || t.d !== r.d || Math.abs(Math.abs(t.amt) - Math.abs(r.raw)) > 0.005) return; var head = t.desc.replace(/: [A-Z]{3}$/, ':');
         if(full.length > head.length && full.indexOf(head) === 0){ t.desc = full.slice(0, 80); t.fixedDesc = 1; if(!t.f) t.f = files[i].path; if(!db.asked[t.id]){ t.cat = guessCat(t.desc, t.amt, acct(t.a), '') || 'uncat'; delete t.sug; } n++; } }); }); }
   if(n){ save(); toast(n + ' line' + (n===1?'':'s') + ' filled in with the shop name.'); var sh = document.getElementById('sheetIn'); if(GK && sh && /questions|Getting to know you/i.test(sh.textContent)){ var c = queue()[0]; GK = null; if(c) openGTKY(c.id); } else render(); } }
-function openGTKY(id){ try{ fillShort(); }catch(e){}
+function openGTKY(id){ QL.on = 0; try{ fillShort(); }catch(e){}
   var Q = queue(); if(id){ var one = db.tx.filter(function(t){ return t.id === id; })[0]; if(one){ Q = [one].concat(Q.filter(function(t){ return t.id !== id; })); db.notSure = db.notSure.filter(function(x){ return x !== id; }); } }
   if(!GK || id) GK = { total:Q.length, done:0 };
   if(RV && RV.st === 'chk' && GK.done > 0){ var w = RV.walk; RV = null; GK = null; if(w) rvChkNext(); else rvChk(); return; }
@@ -4405,6 +4405,7 @@ function openGTKY(id){ try{ fillShort(); }catch(e){}
     + (db.lists.length ? '<p class="sub" style="margin:10px 0 4px">Also add it to a list:</p>' + db.lists.map(function(l){ return '<label class="ck"><input type="checkbox" data-list="' + l.id + '"' + ((t.tags||[]).indexOf(l.id) >= 0 ? ' checked' : '') + '> ' + esc(l.name) + '</label>'; }).join('') : '')
     + (ch === 'check' ? '<p class="sub" style="margin:10px 0 4px">📒 The checkbook register usually says. Your bank’s website also shows a picture of each cashed check.</p>' : ch === 'cash' ? '<p class="sub" style="margin:10px 0 4px">💵 Cash: spending money, or for something specific?</p>' : '')
     + '<button class="b full" onclick="askSpouse(\'' + t.id + '\')">💬 Save it for ' + esc(db.spouse || 'my spouse') + ' to answer here</button>'
+    + (Q.length > 3 ? '<button class="b full" onclick="openQList()">📋 See all ' + Q.length + ' as a list</button>' : '')
     + (Q.length > 3 ? '<button class="b full" onclick="sortAI()">✨ Let my AI suggest answers for all ' + Q.length + '</button>' : '')
     + '<button class="b ghost" style="width:100%;margin-top:6px" onclick="GK=null;GKA=null;RV=null;closeSheet();render()">Done for now</button>');
 }
@@ -4683,7 +4684,7 @@ function sortAI(){
       var byName = {}; db.cats.forEach(function(c){ byName[catLabel(c).toLowerCase()] = c.id; }); byName[SYS.onetime.name.toLowerCase()] = 'onetime';
       var n = 0; Object.keys(v).forEach(function(k){ var cid = byName[String(v[k]||'').toLowerCase().trim()], tid = by[k]; if(!cid || !tid) return;
         db.tx.forEach(function(t){ if(t.id === tid || (!channel(t) && mkey(t.desc) === k && !db.asked[t.id])){ t.cat = cid; t.sug = 1; n++; } }); });
-      save(); render(); GK = null; toast(n + ' suggestions added. You still say yes to each one.'); openGTKY(); } });
+      save(); render(); GK = null; toast(n + ' suggestions added. You still say yes to each one.'); if(QL.on) openQList(); else openGTKY(); } });
 }
 function openNotSure(){ var L = db.tx.filter(function(t){ return db.notSure.indexOf(t.id) >= 0; });
   openSheet('<h3>Not sure yet</h3><p class="sub">Kept so they can be asked again, or looked up — a check image on the bank’s website often answers it.</p><ul class="list">' + (L.map(function(t){ return '<li class="tap" onclick="openGTKY(\'' + t.id + '\')"><span class="d">' + shortDate(t.d) + '</span><span class="ds">' + esc(t.desc) + '<small>' + esc(acctLabel(acct(t.a)||{})) + '</small></span><span class="amt">' + money(t.amt) + '</span></li>'; }).join('') || '<li>Nothing here.</li>') + '</ul><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
@@ -5399,8 +5400,46 @@ function sortBack(ok, ch, uns){ var n = reguess(), a = acct(SORTA) || {}, s = so
     + '<div class="stickfoot">' + (s.left ? '<button class="b primary full" style="margin-top:0" onclick="sortMake(\'' + a.id + '\')">⬇️ Next month</button>' : '') + '<button class="b' + (s.left ? '' : ' primary') + ' full" style="margin-top:0" onclick="sortHub()">Back to the accounts</button></div>'); }
 
 /* the one round of questions: whatever the sheets left blank, plus checks, cash and money sent to people */
-function askRound(){ db.askList = (db.askList||[]).filter(function(id){ return db.notSure.indexOf(id) < 0; }).concat(db.notSure); db.notSure = []; db.askStarted = 1; save(); GK = null; GKA = null; RV = null; ASKR = 1; openGTKY(); }
+function askRound(){ db.askList = (db.askList||[]).filter(function(id){ return db.notSure.indexOf(id) < 0; }).concat(db.notSure); db.notSure = []; db.askStarted = 1; save(); GK = null; GKA = null; RV = null; ASKR = 1; if(queue().length > 10) openQList(); else openGTKY(); }
 var ASKR = 0;
+/* v12.0 · Jerry, 25 Nov: "If you're going to do 200 and some odd at a time, you should be able to go down the list, not one at a time …
+   see the category and then be able to change it on a list." He chose the mockup: one row per shop, the guess (or the AI's pick) in a
+   dropdown, ticked when there is one. Accepting answers every line in the ticked rows. Rows the app can't guess stay unticked. */
+var QL = { on:0, mode:'shop', open:{}, over:{}, pick:{}, off:{} };
+function qlGroups(){ var G = {}, L = [];
+  queue().forEach(function(t){ var k = channel(t) || cutShort(t.desc) ? 'id:' + t.id : (mkey(t.desc) || 'id:' + t.id); var g = G[k];
+    if(!g){ g = G[k] = { k:k, name:channel(t) || cutShort(t.desc) ? t.desc : webName(t.desc), lines:[], tot:0, accts:{}, cats:{}, ai:0 }; L.push(g); }
+    g.lines.push(t); g.tot += t.amt; g.accts[acctLabel(acct(t.a) || {})] = 1; var c = t.cat || 'uncat'; g.cats[c] = (g.cats[c] || 0) + 1; if(t.sug) g.ai = 1; });
+  L.forEach(function(g){ var best = Object.keys(g.cats).filter(function(c){ return c !== 'uncat'; }).sort(function(a,b){ return g.cats[b] - g.cats[a]; })[0] || ''; g.guess = best;
+    var A = g.lines.map(function(t){ return t.amt; }), lo = Math.min.apply(null, A), hi = Math.max.apply(null, A); g.amts = g.lines.length === 1 ? money(lo) : Math.abs(hi - lo) < 0.005 ? money(lo) + ' each' : money(lo) + '–' + money(hi); });
+  return L; }
+function qlCat(g){ return QL.pick[g.k] != null ? QL.pick[g.k] : g.guess; }
+function qlOn(g){ return QL.off[g.k] ? false : !!qlCat(g); }
+function openQList(){ QL.on = 1; GK = null; var L = qlGroups();
+  if(!L.length){ QL.on = 0; closeSheet(); render(); toast('All answered. ✓'); return; }
+  var show = QL.mode === 'unsure' ? L.filter(function(g){ return !qlCat(g); }) : L.slice();
+  show.sort(QL.mode === 'big' ? function(a,b){ return b.tot - a.tot; } : function(a,b){ var ua = qlCat(a) ? 0 : 1, ub = qlCat(b) ? 0 : 1; return ua - ub || b.lines.length - a.lines.length || b.tot - a.tot; });
+  var lines = L.reduce(function(n,g){ return n + g.lines.length; }, 0), unsure = L.filter(function(g){ return !qlCat(g); }).length, ticked = L.filter(qlOn).reduce(function(n,g){ return n + g.lines.length; }, 0);
+  var chip = function(m, t){ var on = QL.mode === m; return '<button onclick="QL.mode=\'' + m + '\';openQList()" style="flex:0 0 auto;min-height:0;padding:6px 12px;border-radius:18px;font-size:14px;font-weight:700;border:1px solid ' + (on ? 'var(--brand);background:var(--brand);color:#fff' : 'var(--line);background:#fff;color:inherit') + '">' + t + '</button>'; };
+  openSheet('<div class="stepno">The questions · list</div><h3>' + lines + ' line' + (lines===1?'':'s') + ' from ' + L.length + ' shop' + (L.length===1?'':'s') + '</h3>'
+    + '<p class="sub" style="margin:0 0 6px">Change any that are wrong, untick any you’re not sure of, then accept. Tap a row’s count to change single lines.</p>'
+    + (window.djAI && unsure ? '<button class="b full" onclick="sortAI()">✨ Let my AI pick for the ' + unsure + ' it can’t guess</button>' : '')
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + chip('shop', 'By shop') + chip('big', 'Biggest first') + chip('unsure', 'Not sure (' + unsure + ')') + '</div>'
+    + show.slice(0, 150).map(function(g){ var c = qlCat(g), on = qlOn(g), open = QL.open[g.k];
+      return '<div class="card" style="margin:8px 0;padding:10px 12px' + (c ? '' : ';background:#FFF7DD') + '"><div style="display:flex;gap:10px;align-items:center">'
+        + '<input type="checkbox" data-ql="' + esc(g.k) + '"' + (on ? ' checked' : '') + ' onchange="QL.off[this.getAttribute(\'data-ql\')]=!this.checked;qlFoot()" style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:0;padding:0">'
+        + '<div style="flex:1;min-width:0"><b style="word-break:break-word;font-size:16px">' + esc(g.name) + '</b><small style="display:block;color:var(--soft);font-size:13px"><a href="#" onclick="QL.open[\'' + esc(g.k).replace(/'/g, '') + '\']=!QL.open[\'' + esc(g.k).replace(/'/g, '') + '\'];openQList();return false" style="color:var(--brand);font-weight:700">' + g.lines.length + ' line' + (g.lines.length===1?'':'s') + (open ? ' ▴' : ' ▾') + '</a> · ' + esc(g.amts) + ' · ' + esc(Object.keys(g.accts).join(', ')) + '</small>'
+        + '<div style="display:flex;gap:8px;align-items:center;margin-top:4px"><select data-qc="' + esc(g.k) + '" onchange="QL.pick[this.getAttribute(\'data-qc\')]=this.value;if(this.value)QL.off[this.getAttribute(\'data-qc\')]=0;openQList()" style="flex:1;min-width:0;font-size:15px;padding:5px 8px;border-radius:10px;min-height:0">' + (c ? '' : '<option value="">— not sure —</option>') + catOptions(c) + '</select>'
+        + '<small style="flex:0 0 auto;font-size:12px;font-weight:700;color:' + (c ? '#7A5BB5' : '#B5762E') + '">' + (c ? (g.ai ? '✨ AI' : 'guess') : 'needs you') + '</small></div></div></div>'
+        + (open ? g.lines.map(function(t){ var o = QL.over[t.id]; return '<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:6px 0 0;margin-top:6px;font-size:14px"><span style="color:var(--soft);flex:0 0 52px">' + shortDate(t.d) + '</span><span style="flex:1;min-width:0;word-break:break-word">' + esc(t.desc) + '</span><b>' + money(t.amt) + '</b><select data-qo="' + t.id + '" onchange="QL.over[this.getAttribute(\'data-qo\')]=this.value" style="flex:0 0 38%;max-width:38%;font-size:13px;padding:4px;border-radius:8px"><option value="">same as the row</option>' + catOptions(o || '') + '</select></div>'; }).join('') : '')
+        + '</div>'; }).join('')
+    + (show.length > 150 ? '<p class="sub">Showing the first 150 — accept these and the rest move up.</p>' : '')
+    + '<div class="stickfoot"><button class="b primary full" id="qlGo" style="margin-top:0" onclick="qlSave()">✓ Accept ' + ticked + ' ticked line' + (ticked===1?'':'s') + '</button><button class="b full" onclick="QL.on=0;GK=null;openGTKY()">Answer them one by one</button></div>'); }
+function qlFoot(){ var b = document.getElementById('qlGo'); if(!b) return; var n = qlGroups().filter(qlOn).reduce(function(n,g){ return n + g.lines.length; }, 0); b.textContent = '✓ Accept ' + n + ' ticked line' + (n===1?'':'s'); }
+function qlSave(){ var n = 0; qlGroups().forEach(function(g){ if(!qlOn(g)) return; var c = qlCat(g), k = g.k;
+    g.lines.forEach(function(t){ sortSet(t, QL.over[t.id] || c); n++; });
+    if(k.indexOf('id:') !== 0 && !isP3(c) && c !== 'onetime' && c !== 'uncat'){ db.rules = db.rules.filter(function(r){ return r.k !== k; }); db.rules.unshift({ k:k, cat:c }); } });
+  QL.pick = {}; QL.off = {}; QL.over = {}; save(); render(); toast(n + ' answered.'); openQList(); }
 
 /* where the money went: accounts on the left, categories on the right, a band for each, its width the amount */
 function openFlow(){ var A = sortAccts(), by = {}, links = {}, tot = 0;

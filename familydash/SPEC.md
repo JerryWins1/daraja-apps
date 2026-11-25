@@ -1208,3 +1208,16 @@ Jerry: "if I have a transaction up that's $9.95 … it should only bring up the 
 Jerry, on five "Bills once or twice a year · Car insurance (yearly)" in the category list: "just make one car insurance, and I'll put a note in."
 - **`billDupFix`** runs on load. Bills that come once or twice a year and share a name become one category. Their lines, rules and recent picks move to the one kept, and their months, amounts and escrow are combined.
 - Reading statements no longer makes a second copy: an existing bill is matched by name as well as by its search words.
+
+## v12.0 · The questions as a list (25 Nov)
+
+Jerry: "If you're going to do 200 and some odd at a time, you should be able to go down the list, not one at a time … see the category and then be able to change it on a list." He picked the mockup.
+- **`openQList`** shows one row per shop, keyed like the change-all grouping. Cash, check and cut-short lines each get a row of their own.
+  - Each row shows the line count, the amounts and the accounts.
+  - Its category dropdown holds the most common guess, marked "guess", or "✨ AI" when it came from the AI.
+  - Rows with no guess are yellow, unticked and marked "needs you".
+- **Tap a row's count** to see its lines, each with its own dropdown ("same as the row" by default).
+- **Sorting:** By shop (guessed first, most lines first), Biggest first, or Not sure.
+- **"✓ Accept N ticked lines"** answers every line in the ticked rows and learns a rule for each shop. The list then redraws with what's left. "Answer them one by one" goes back to single questions.
+- **"✨ Let my AI pick for the N it can't guess"** uses the same AI call as before and comes back to the list.
+- **Getting there:** "Answer the N questions" opens the list when there are more than 10. Every question also has a "📋 See all N as a list" button.
