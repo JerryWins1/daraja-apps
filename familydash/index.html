@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.0 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.1 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4140,12 +4140,12 @@ function takeFile(){
   /* a statement that holds several accounts: each line goes to its own account; lines read before the split move across first, so nothing doubles */
   var subOf = function(r){ return r.sub && a.subs && a.subs[r.sub] && acct(a.subs[r.sub]) ? a.subs[r.sub] : CUR.a; };
   CUR.rows.forEach(function(r){ var ra = subOf(r); if(ra === CUR.a) return; var amt = r2(CUR.flip ? -r.raw : r.raw);
-    var old = db.tx.filter(function(t){ return t.a === CUR.a && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc === r.desc && !t.movedSub; })[0];
+    var old = db.tx.filter(function(t){ return t.a === CUR.a && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && (t.desc === r.desc || CUR.aiCSV) && !t.movedSub; })[0];
     if(old){ old.a = ra; old.movedSub = 1; if(!db.asked[old.id] || old.byRole){ old.cat = guessCat(old.desc, old.amt, acct(ra), old.bcat); delete db.asked[old.id]; delete old.byRole; } IMP.moved = (IMP.moved || 0) + 1; } });
-  var have = {}; db.tx.forEach(function(t){ if(t.splitOf) return; have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc] = (have[t.a + '|' + t.d + '|' + t.amt + '|' + t.desc]||0) + 1; });
+  var have = {}, kd = function(desc){ return CUR.aiCSV ? '' : desc; }; db.tx.forEach(function(t){ if(t.splitOf) return; var hk = t.a + '|' + t.d + '|' + t.amt + '|' + kd(t.desc); have[hk] = (have[hk]||0) + 1; });
   Object.keys(db.splitKeys || {}).forEach(function(k){ have[k] = (have[k]||0) + db.splitKeys[k]; });   /* a charge that was split counts as already here */
   var seenNow = {};
-  CUR.rows.forEach(function(r){ var ra = subOf(r), amt = r2(CUR.flip ? -r.raw : r.raw), k = ra + '|' + r.d + '|' + amt + '|' + r.desc; seenNow[k] = (seenNow[k]||0) + 1;
+  CUR.rows.forEach(function(r){ var ra = subOf(r), amt = r2(CUR.flip ? -r.raw : r.raw), k = ra + '|' + r.d + '|' + amt + '|' + kd(r.desc); seenNow[k] = (seenNow[k]||0) + 1;
     if((have[k]||0) >= seenNow[k]){ IMP.skipped++; return; }
     /* v11.2 · reading a statement again after a fix: a line already here under its cut-short words ("…Payment: USD") gets its full words, not a twin */
     var old = db.tx.filter(function(t){ return t.a === ra && t.d === r.d && Math.abs(t.amt - amt) < 0.005 && t.desc !== r.desc && (/:( [A-Z]{3})?$/.test(t.desc) || thinDesc(t.desc)) && r.desc.length > t.desc.length && r.desc.indexOf(t.desc.replace(/: [A-Z]{3}$/, ':')) === 0 && !t.fixedDesc; })[0];
@@ -4174,8 +4174,8 @@ function flagSuspicious(ids){ if(!ids.length) return 0; var isNew = {}, n = 0; i
   if(n) save(); return n; }
 function flagLine(){ var n = FLAGNEW; if(!n) return ''; FLAGNEW = 0; return '<div class="line warn" style="font-weight:700">👯 ' + n + ' charge' + (n===1?' looks':'s look') + ' doubled — the same payee, amount and day (or close). ' + (n===1?'It’s':'They’re') + ' on the 👯 Charged twice? list — check them whenever you like, from the top of the main screen or 📋 Lists.</div>'; }
 function afterImport(){
-  if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; MAPA = null; IMP = { added:0, skipped:0 };
-    MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read — a scanned picture, or not a statement. Download CSV or QFX from the bank instead' : '');
+  if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; if(pd) FMF['acct:' + mid] = ((IMP.skip||{}).pdf||[]).slice();   /* v13.1 · the picture PDFs from picking this account's folder, ready for ✨ Read them with AI */ MAPA = null; IMP = { added:0, skipped:0 };
+    MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read by myself — scanned pictures, or not statements. ✨ Read them with AI, below' : '');
     save(); render(); if(FAI){ var fa = acct(FAI.ids[FAI.i]); if(!(fa && fmBadPdfs(fa).length)) FAI.i++; if(FAI.i < FAI.ids.length){ fmAIgo(); return; } FAI = null; } if(ONESK){ fmDone(ONESK); return; } mapFiles(mid); return; }
   if(ROUTE && NEWM){ var rn0 = IMP.added; ROUTE = false; IMP = { added:0, skipped:0 }; newMonthDone(rn0); return; }
   if(ROUTE){ var rn = IMP.added, ru = IMP.unrouted || 0; ROUTE = false; IMP = { added:0, skipped:0 }; save(); render(); toast(rn + ' new lines read' + (ru ? '; ' + ru + ' file group' + (ru===1?'':'s') + ' not in any account’s folder' : '') + '.'); openAudit(); return; }
@@ -7138,6 +7138,7 @@ function mapFiles(id){ var a = acct(id); if(!a) return mapStep(); var g = mapGro
     + '<p class="sub">Keep this account’s downloads in their own folder, named for it:</p><div class="line ok" style="margin-top:0;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;word-break:break-word">📁 ' + esc(folderPath(a)) + '</div>'
     + '<p class="sub" style="margin-top:10px">Each month, save the new download there. On a computer the app reads that folder again with one tap.</p>'
     + '<p style="margin:8px 0">' + strip(a) + '</p>'
+    + (fmBadPdfs(a).length ? '<div class="line warn" style="font-weight:700">📷 ' + fmBadPdfs(a).length + ' statement' + (fmBadPdfs(a).length===1?' is':'s are') + ' in the folder but ' + (fmBadPdfs(a).length===1?'is a scanned picture':'are scanned pictures') + ' the app can’t read by itself: ' + fmBadPdfs(a).slice(0,4).map(function(x){ return esc(String(x).split('/').pop()); }).join(', ') + (fmBadPdfs(a).length > 4 ? '…' : '') + '</div><button class="b primary full" onclick="fmAI(\'' + id + '\')">✨ Read ' + (fmBadPdfs(a).length===1?'it':'them') + ' with AI</button>' : '')
     + (miss.length ? '<p class="sub" style="margin:0">Missing: ' + miss.map(function(m){ return monthName(m,true); }).join(', ') + '</p>' : '<div class="line ok">✓ Every month is here.</div>')
     + (done ? '<div class="line ok">✓ ' + esc(done) + '</div>' : '')
     + (canFolder() ? '<div data-drop="' + id + '" class="dropbox">⬇️ Drag its files or its folder here</div>' : '')
@@ -7491,7 +7492,7 @@ function doorUse(){ var d = db.aiDay = db.aiDay && db.aiDay.d === today() ? db.a
 /* PDFs the app can't read itself: with the family's OK, each is handed to an AI that reads it and sends the lines back.
    Jerry, 16 Nov, chose "both, asking first". Through the Daraja AI door (once it is switched on) that is one tap and the
    PDF goes straight to Claude; until then, the family's own AI opens and they attach the file there. */
-function fmBadPdfs(a){ return (FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []).filter(function(p){ return !FMR[p] && /\.pdf$/i.test(p) && PDFF[p]; }); }
+function fmBadPdfs(a){ var L = (FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfolder)] || []).concat(FMF['acct:' + a.id] || []); return L.filter(function(p, i){ return L.indexOf(p) === i && !FMR[p] && /\.pdf$/i.test(p) && PDFF[p]; }); }
 function fmAI(id){ fmAIask([id]); }
 function fmCap(){ var left = 0; db.accts.forEach(function(x){ left += fmBadPdfs(x).length; });
   openSheet('<h3>That’s today’s AI reading used up</h3><p class="sub">Daraja’s AI connection reads ' + DOOR_CAP + ' times a day for each household. ' + left + ' PDF' + (left===1?' is':'s are') + ' still to read. Open the app tomorrow and read your folder — they’ll go by themselves. Everything read so far is kept.</p>'
@@ -7508,6 +7509,23 @@ function fmPathOf(a){ var L = FMF[(a.mapG || mapOf(a)) + '|' + (a.srel || a.sfol
 /* v6.3 · Jerry, 17 Nov: "it gives them the message, but it doesn't give them the documents." A website can't attach a file to
    another website, so without the Daraja AI connection the app now reads the words off each PDF itself and puts them in the
    question. Nothing to attach. Only a scanned PDF (a picture, with no words to read) still has to be attached by hand. */
+/* v13.1 · Jerry, 25 Nov: "teach the AI reader." His bank's statements are scanned pictures holding five accounts. The AI now writes
+   which account each line is on (Date,Description,Amount,Account) and each account's opening and closing balance, so a picture
+   statement splits and balances like a text one. An ordinary three-column answer is read as before. */
+function aiParse(raw, name){ var txt = String(raw || '').replace(/^```[a-z]*\s*|```\s*$/gm, ''), L = txt.split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean);
+  var h = L.findIndex(function(x){ return /^date\s*,\s*description\s*,\s*amount\s*,\s*account/i.test(x); }); if(h < 0) return parseCSV(raw, name);
+  var R = parseCSVRows(L.slice(h + 1).join('\n')), out = { name:name, rows:[], bal:null, asOf:null, hasDesc:true }, SB = {};
+  var key = function(acc){ var m = /acct\s*#?\s*(\d{1,4})|account\s*#?\s*(\d{1,4})/i.exec(acc || ''); return m ? (m[1] || m[2]) : String(acc || '').trim().toUpperCase(); };
+  var nm = function(acc){ return String(acc || '').replace(/\b(acct|account)\s*#?\s*\d{1,4}\b/i, '').replace(/\s+/g, ' ').trim() || String(acc || '').trim(); };
+  R.forEach(function(r){ if(!r || r.length < 3) return; var d0 = String(r[0] || '').trim(), acc = String(r[3] || '').trim(), k = acc ? key(acc) : '', amt = num(String(r[2] || '').replace(/[$\s]/g, ''));
+    if(k && !SB[k]) SB[k] = { name:nm(acc), open:null, close:null };
+    if(/^opening$/i.test(d0)){ if(k) SB[k].open = amt; return; } if(/^closing$/i.test(d0)){ if(k) SB[k].close = amt; out.bal = Math.abs(amt); return; } if(/^balance$/i.test(d0)){ var b0 = num(String(r[1] || r[2] || '').replace(/[$\s]/g, '')); if(b0) out.bal = Math.abs(b0); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d0) || !isFinite(amt) || !amt) return;
+    var row = { d:d0, desc:String(r[1] || '').replace(/\s+/g, ' ').trim().slice(0, 80), raw:r2(amt) }; if(k){ row.sub = k; row.subName = SB[k].name; } out.rows.push(row); });
+  var D = out.rows.map(function(r){ return r.d; }).sort(); out.asOf = D[D.length-1] || null;
+  out.stmts = Object.keys(SB).map(function(k){ var X = out.rows.filter(function(r){ return r.sub === k; }), dd = X.map(function(r){ return r.d; }).sort();
+    return { sub:k, name:SB[k].name, open:SB[k].open, close:SB[k].close, sum:r2(X.reduce(function(x,r){ return x + r.raw; }, 0)), n:X.length, from:dd[0] || '', to:dd[dd.length-1] || out.asOf || '', asOf:out.asOf || '' }; });
+  return out; }
 function pdfText(f){ return new Promise(function(res){ pdfLines(f, function(L){ res(L && L.length ? L.map(function(r){ return r.map(function(c){ return c.s; }).join('  '); }).join('\n') : ''); }); }); }
 function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a); if(!L.length){ F.i++; if(F.i < F.ids.length) return fmAIgo(); FAI = null; return fmDone(ONESK); }
   db.prof = db.prof || {}; if(DOOR_SEEN) return fmAIgoText(F, id, a, L);
@@ -7515,8 +7533,8 @@ function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a);
   Promise.all(L.map(function(path){ return new Promise(function(res){ var r = new FileReader(); r.onload = function(){ res({ name:String(path).split('/').pop(), media_type:'application/pdf', data:String(r.result).split(',')[1] || '' }); }; r.onerror = function(){ res(null); }; r.readAsDataURL(PDFF[path]); }); })).then(function(files){ files = files.filter(Boolean);
     var names = files.map(function(f){ return f.name; });
     ask({ title:a.name + ': read ' + files.length + ' statement' + (files.length===1?'':'s') + (F.ids.length > 1 ? ' (account ' + (F.i + 1) + ' of ' + F.ids.length + ')' : ''), want:'text', circle:false, file:files[0], files:files,
-      prompt:'I am attaching ' + files.length + ' statement' + (files.length===1?'':'s') + ' as PDF' + (files.length===1?'':'s') + ' from one account (' + names.join(', ') + '). Read every transaction on ' + (files.length===1?'it':'all of them') + ' and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once, even if two statements overlap. Do not include account numbers. If the latest statement shows an ending balance, add one last line: Balance,Ending balance,<the balance as a positive number>',
-      onResult:function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
+      prompt:'I am attaching ' + files.length + ' statement' + (files.length===1?'':'s') + ' as PDF' + (files.length===1?'':'s') + ' from one account (' + names.join(', ') + '). Read every transaction on ' + (files.length===1?'it':'all of them') + ' and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once, even if two statements overlap. Do not include full account numbers. If the latest statement shows an ending balance, add one last line: Balance,Ending balance,<the balance as a positive number>. If a statement holds more than one account (sections such as REGULAR SAVINGS ACCT# 1 and PRIVILEGE REG CHECKING ACCT# 8), use this header instead: Date,Description,Amount,Account — in Account write that section\'s name and its short ACCT# number exactly as printed, like REGULAR SAVINGS ACCT# 1. For every account on every statement also add two lines: Opening,Opening balance,<its previous balance>,<account> and Closing,Closing balance,<its new balance>,<account>. When a transaction\'s shop name is printed on the line under it, put both lines in its description.',
+      onResult:function(v, raw){ var p = aiParse(raw, a.name + ' statements'); if(!p.rows.length){ alert('I could not find any lines in that answer. Try again, and ask it for CSV only.'); return; }
         p.path = L[0]; p.files = [p]; p.forceA = id; p.aiCSV = 1; L.forEach(function(path){ FMR[path] = 1; }); MAPA = id; IMP = { added:0, skipped:0 }; pending = [p]; nextFile(); } }); }); }
 /* v7.5 · Jerry, 18 Nov: it sat on "Reading the words off 12 PDFs…". Now one PDF at a time, with a count, a 20-second limit
    for each (a PDF that hangs is skipped and goes to AI as a file instead of stopping everything), and a Stop button. */
@@ -7533,7 +7551,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
        near-empty texts in one batch and the AI found no lines. A statement counts as text only if its words hold amounts. */
     var hasMoney = function(x){ return !FSCAN[x.path] && (x.text.match(/\d[\d,]*\.\d{2}\b/g) || []).length >= 3; };
     var ok = T.filter(hasMoney), scan = T.filter(function(x){ return !hasMoney(x); });
-    var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>.';
+    var HEAD = 'Read every transaction and answer with CSV only, no other words, starting with this header line:\nDate,Description,Amount\nDate as YYYY-MM-DD. Amount is negative for money spent or charged, positive for money in, payments and refunds. List each transaction once. Leave out balances, totals and interest summaries. On the very last line, write Balance,<the closing balance on the most recent statement>. If a statement holds more than one account (sections such as REGULAR SAVINGS ACCT# 1 and PRIVILEGE REG CHECKING ACCT# 8), use this header instead: Date,Description,Amount,Account — in Account write that section\'s name and its short ACCT# number exactly as printed, like REGULAR SAVINGS ACCT# 1. For every account on every statement also add two lines: Opening,Opening balance,<its previous balance>,<account> and Closing,Closing balance,<its new balance>,<account>. When a transaction\'s shop name is printed on the line under it, put both lines in its description.';
     var title = 'Reading ' + acctLabel(a) + ' with AI' + (F.ids.length > 1 ? ' · account ' + (F.i + 1) + ' of ' + F.ids.length : '');
     function send(o, covered){ o.title = title; o.want = 'text'; o.circle = false; o.agreed = 1; closeSheet();
       if(door) o.onFail = function(msg){ FAI = null; var cap = /all the asks for today/.test(msg); if(cap){ db.aiDay = { d:today(), n:DOOR_CAP }; save(); }
@@ -7542,7 +7560,7 @@ function fmAIgoText(F, id, a, L){ var door = !!(db.prof && db.prof.door), run = 
           + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet();FMAUTO=0;fmAIall()">Try again</button><button class="b ghost" style="width:100%" onclick="closeSheet();render()">Later</button></div>'); };
       var tot = F.tot[id], doneN = tot - L.length, have = db.tx.filter(function(t){ return t.a === id; }).length;
       o.wait = 'Statements ' + (doneN + 1) + (covered.length > 1 ? '–' + (doneN + covered.length) : '') + ' of ' + tot + (have ? ' · ' + have + ' lines in so far' : '') + '. Nothing to tap — it carries on by itself.';
-      o.onResult = function(v, raw){ var p = parseCSV(raw, a.name + ' statements'); if(!p.rows.length){ if(o.partial){ fmAIgo(); return; }
+      o.onResult = function(v, raw){ var p = aiParse(raw, a.name + ' statements'); if(!p.rows.length){ if(o.partial){ fmAIgo(); return; }
           /* no lines: words that gave nothing go again as the PDF itself; a PDF that gives nothing is set aside, not asked about */
           if(o.file){ covered.forEach(function(path){ FMR[path] = 1; }); toast(String(covered[0]).split('/').pop() + ': no lines found in it — set aside.'); }
           else covered.forEach(function(path){ FSCAN[path] = 1; });

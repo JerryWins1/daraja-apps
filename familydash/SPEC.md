@@ -1262,3 +1262,11 @@ The rule, as Quicken, Monarch, Tiller, PocketSmith and Rocket Money all apply it
   - The two new videos, "Answering the questions" and "Does it balance?", are recorded with ElevenLabs at 1.0, with 8 and 7 cues for 8 and 7 lines.
 - **Workflow check done:** the money box, the list ⇄ one at a time, the list rows, repeats → back to the list, and balance ⇄ transfers each jump straight where you want to go.
 - **Not yet:** splitting a mortgage payment into principal and interest (it needs the loan statement). Accounts read before v13.0 have no statement balances until their statements are read again.
+
+## v13.1 · The AI reader splits picture statements by account (25 Nov)
+
+Jerry chose "teach the AI reader". His Community Trust statements are scanned pictures holding several accounts, so the app's own reader gets nothing from them, and the earlier AI reads put every line on one account.
+- **Both AI prompts** now ask: when a statement holds more than one account, answer `Date,Description,Amount,Account`. Account is the section's name and short ACCT# number. Each account on each statement also gets an `Opening` and a `Closing` line, and a shop name printed on the line under a transaction is joined into its description.
+- **`aiParse`** reads that four-column answer into lines that carry their account, plus per-account statement balances, the same shape as a text statement (`row.sub`, `out.stmts`). The split question, the line moving, `stmtKeep` and the balance check then work unchanged. A three-column answer still goes to `parseCSV`.
+- **AI answers word a line differently each time.** For AI-read statements, already-here lines are matched on account, date and amount, not words, so a re-read doesn't double anything.
+- **Statements screen:** picture PDFs found when picking an account's folder are listed — "📷 N statements are in the folder but are scanned pictures…" — with "✨ Read them with AI" (`FMF['acct:'+id]`). The "lines read" message no longer says to download a CSV instead.
