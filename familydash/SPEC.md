@@ -1188,3 +1188,10 @@ Jerry: "why do you wanna see a statement? I just want to see the second line of 
 - **`fillShort`**: the first time the questions open, lines still cut short ("…Payment: USD", "WITHDRAWAL") are filled in from the PDFs in the linked folder. It reads only files for those accounts, by folder, last 4 digits, account name or the remembered file. It matches on date and amount, and the description must start with what was there. Lines not yet answered are guessed again; answered ones keep their category.
 - **Add statements** opens the import box once any account exists, even with setup questions still open. Before that, it starts at the first unanswered question rather than question 1.
 - The 📄 Add statements button in the top box's row is gone; the brown bar at the bottom is the one.
+
+## v11.8 · Check for repeats: tick and answer them all at once (25 Nov)
+
+Jerry: "there's one that match, so some that don't. So I want to be able to check the ones that match and do them all at once."
+- Each charge on the repeats list has a tick box. The same amount and shop come ticked; money moving has no box.
+- "They are" picks the category. "✓ These N are …" answers every ticked line and moves on to the next question (`repSave`).
+- A PayPal line that ran on into its funding line ("PARAMOUNT+ PayPal Balance -8.99 USD") is cut back to the shop name, both when a statement is read and once on load (`ppTidy`).

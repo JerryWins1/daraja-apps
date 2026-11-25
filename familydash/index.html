@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.7 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.8 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3698,6 +3698,8 @@ function ppStrip(d){ return String(d || '').replace(PP_PRE, ''); }
    category … it wants me to lump all these together, but I can't." A line whose shop name is missing (only "Payment: USD", only
    "WITHDRAWAL") stands alone: no shared key, no change-all, nothing learned from it. */
 function cutShort(desc){ var x = String(desc||'').trim(); return /:( [A-Z]{3})?$/.test(x) || thinDesc(x); }
+/* v11.8 · a PayPal line printed "PARAMOUNT+ PayPal Balance -8.99 USD" (the funding line under it ran on); the shop is all that belongs */
+function ppTidy(){ var n = 0; db.tx.forEach(function(t){ if(/ PayPal Balance\b/i.test(t.desc) && /^PreApproved|Payment:/i.test(t.desc)){ t.desc = t.desc.replace(/\s*PayPal Balance\b.*$/i, '').trim(); n++; } }); if(n) save(); }
 function rulesFix(){ var n = (db.rules||[]).length; db.rules = (db.rules||[]).filter(function(r){ return r.k && !thinDesc(r.k) && !/^(usd|eur|gbp|cad|aud|mxn)$/.test(r.k); }); if(db.rules.length !== n) save(); }
 function mkey(desc){ if(cutShort(desc)) return '';
   var s = ppStrip(desc).toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
@@ -4471,11 +4473,21 @@ function repCheck(id){ var t = db.tx.filter(function(x){ return x.id === id; })[
   var exact = L.filter(function(x){ return Math.abs(Math.abs(x.amt) - amt) <= Math.max(0.5, amt * .02); }), months = {}; exact.forEach(function(x){ months[x.d.slice(0,7)] = 1; }); var nm = Object.keys(months).length;
   var gaps = []; for(var i = 1; i < exact.length; i++) gaps.push(daysBetween(exact[i-1].d, exact[i].d)); var monthly = gaps.length >= 1 && gaps.every(function(g){ return g >= 24 && g <= 38; }), yearly = gaps.length && gaps.every(function(g){ return g >= 350 && g <= 380; });
   var days = exact.map(function(x){ return +x.d.slice(8,10); }), avgDay = days.length ? Math.round(days.reduce(function(a,b){ return a + b; }, 0) / days.length) : 0;
+  REP = { ids:L.filter(function(x){ return x.amt > 0 && x.cat !== 'xfer' && x.cat !== 'inc'; }).map(function(x){ return x.id; }) };
   var verdict = nm >= 3 && monthly ? '🔁 Looks like a monthly subscription — ' + money(amt) + ' around the ' + nth(avgDay) + ', ' + nm + ' months in a row.' : nm === 2 && monthly ? '🔁 Charged ' + money(amt) + ' two months running — maybe a subscription. The next statement will tell.' : exact.length <= 1 ? 'Only once in those months — probably not a subscription.' : 'Charged ' + exact.length + ' times, but not on a regular schedule — more likely separate purchases.';
   openSheet('<div class="stepno">Check for repeats</div><h3 style="font-family:ui-monospace,Menlo,monospace;font-size:17px;word-break:break-word">' + esc(t.desc) + '</h3><p class="sub">' + money(amt) + ' on ' + esc(shortDate(t.d)) + ' · ' + esc(acctLabel(acct(t.a) || {})) + '. Looked from ' + esc(monthName(lo.slice(0,7), true)) + ' to ' + esc(monthName(addMonths(hi.slice(0,7), -1), true)) + '.</p>'
     + '<div class="line ' + (nm >= 2 && monthly ? 'ok' : 'warn') + '" style="font-weight:700">' + verdict + '</div>'
-    + '<ul class="list">' + L.map(function(x){ var on = x.id === t.id; return '<li' + (on ? ' style="background:#FFF1C2"' : '') + '><span class="d">' + shortDate(x.d) + '</span><span class="ds">' + esc(x.desc) + '<small>' + esc(acctLabel(acct(x.a) || {})) + (on ? ' · this one' : '') + '</small></span><span class="amt">' + money(Math.abs(x.amt)) + '</span></li>'; }).join('') + '</ul>'
-    + '<button class="b primary full" onclick="sheetBack()">Back</button>'); }
+    + (REP.ids.length ? '<p class="sub" style="margin:10px 0 4px">Tick the ones that are the same thing, pick what they are, and they’re all answered at once.</p>' : '')
+    + '<ul class="list">' + L.map(function(x){ var on = x.id === t.id, can = REP.ids.indexOf(x.id) >= 0, tick = can && (on || (Math.abs(Math.abs(x.amt) - amt) <= Math.max(0.5, amt * .02) && (!k || mkey(x.desc) === k)));
+      return '<li' + (on ? ' style="background:#FFF1C2"' : '') + '>' + (can ? '<input type="checkbox" data-rp="' + x.id + '"' + (tick ? ' checked' : '') + ' onchange="repLab()" style="flex:0 0 22px;width:22px;height:22px;min-height:0;margin:0 8px 0 0;padding:0">' : '<span style="flex:0 0 30px"></span>') + '<span class="d">' + shortDate(x.d) + '</span><span class="ds">' + esc(x.desc) + '<small>' + esc(acctLabel(acct(x.a) || {})) + (on ? ' · this one' : '') + (can ? '' : ' · money moving, not a charge') + '</small></span><span class="amt">' + money(Math.abs(x.amt)) + '</span></li>'; }).join('') + '</ul>'
+    + (REP.ids.length ? '<label for="rpC">They are</label><select id="rpC" style="width:100%;font-size:17px;padding:10px;border-radius:12px" onchange="repLab()">' + (t.cat && t.cat !== 'uncat' ? '' : '<option value="">— pick one —</option>') + catOptions(t.cat === 'uncat' ? '' : t.cat) + '</select>'
+      + '<div class="stickfoot"><button class="b primary full" id="rpGo" style="margin-top:0" onclick="repSave()">✓ Answer the ticked ones</button><button class="b full" onclick="sheetBack()">Back</button></div>' : '<button class="b primary full" onclick="sheetBack()">Back</button>')); repLab(); }
+/* v11.8 · Jerry, 25 Nov, on Check for repeats: "there's one that match, so some that don't. So I want to be able to check the ones that
+   match and do them all at once." Charges get a tick (the same amount and shop come ticked); money moving doesn't. */
+var REP = { ids:[] };
+function repLab(){ var b = document.getElementById('rpGo'), c = document.getElementById('rpC'); if(!b || !c) return; var n = document.querySelectorAll('#sheetIn [data-rp]:checked').length; b.textContent = c.value ? '✓ ' + (n === 1 ? 'This one is ' : 'These ' + n + ' are ') + shName(c.value) : '✓ Pick what they are first'; b.disabled = !n || !c.value; }
+function repSave(){ var c = (document.getElementById('rpC') || {}).value; if(!c) return; var n = 0; Array.prototype.forEach.call(document.querySelectorAll('#sheetIn [data-rp]:checked'), function(b){ var x = db.tx.filter(function(y){ return y.id === b.getAttribute('data-rp'); })[0]; if(x){ sortSet(x, c); n++; } });
+  save(); toast(n + ' answered as ' + shName(c) + '.'); closeSheet(); var q = queue()[0]; GK = null; if(q) openGTKY(q.id); else render(); }
 /* v11.3 · Jerry, 24 Nov: "PayPal takes out of the bank account, so there should be a corresponding bank charge … if so, we're
    overstating our expenses by a lot." PayPal's own codes: "General Credit Card Deposit" (T0700) is a purchase funded by a card, "Bank
    Deposit to PP Account" (T0300) one funded by the bank — so the same purchase is also on that card or bank statement. It's counted once,
@@ -5794,7 +5806,7 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
-function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); rulesFix(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); rulesFix(); ppTidy(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -7066,7 +7078,7 @@ function pdfParse(lines, name){
       if(MON3[(tok[2]||'').replace('.','').toLowerCase()] && /^\d{1,2},?$/.test(tok[3]||'')) k = 4; }
     /* v11.2 · PayPal prints who was paid on the line under "PreApproved Payment Bill User Payment:" (Jerry's July statement, 24 Nov).
        A line with no date right after such a row finishes its description; "ID:" lines and the wrapped year digit are skipped. */
-    if(!d && last && last.more){ if(/^(ref\s*)?id\s*:/i.test(c.join(' '))){ last.more = 0; last = null; return; } var more = c.join(' ').replace(/^\d\s+/, '').replace(/^\d$/, '').trim(); if(last.more === 2 && (/\d\.\d{2}\b/.test(more) || /balance|total|page \d|^date\b|description|thru/i.test(more))) more = ''; if(more && !MONEY_RE.test(more) && !/^(date|description|currency|amount|fees|total)/i.test(more)){ last.desc = (last.desc + ' ' + more).slice(0, 80); if(last.more === 2){ last.more = 0; last = null; } return; } last = null; }
+    if(!d && last && last.more){ if(/^(ref\s*)?id\s*:/i.test(c.join(' '))){ last.more = 0; last = null; return; } var more = c.join(' ').replace(/^\d\s+/, '').replace(/^\d$/, '').replace(/\s*PayPal Balance\b.*$/i, '').trim(); if(last.more === 2 && (/\d\.\d{2}\b/.test(more) || /balance|total|page \d|^date\b|description|thru/i.test(more))) more = ''; if(more && !MONEY_RE.test(more) && !/^(date|description|currency|amount|fees|total)/i.test(more)){ last.desc = (last.desc + ' ' + more).slice(0, 80); if(last.more === 2){ last.more = 0; last = null; } return; } last = null; }
     if(d) last = null;
     if(!d) { var bm = /(ending|closing|new) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(bm){ out.bal = Math.abs(num(bm[2])); } var sb = /(beginning|opening|previous) balance[^\d$-]*(-?\$?[\d,]+\.\d{2})/i.exec(c.join(' ')); if(sb && prevBal == null) prevBal = num(sb[2]); return; }
     var rest = tok.slice(k), money = [];
