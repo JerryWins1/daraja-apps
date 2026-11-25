@@ -1276,3 +1276,7 @@ Jerry chose "teach the AI reader". His Community Trust statements are scanned pi
 Jerry: "The Old account is closed starting in November. We use a new account so what happens then when I put a statement in the new account?"
 - **The "This statement has N accounts" question** now also offers "↪ The same Regular Savings as before" for every account already made from a statement at the same bank. A section with the same name comes pre-picked that way, so the new statements carry on in the same savings and money market accounts, with no second copies.
 - **Only the first checking section is taken to be "this account".** A second one (for example Diane Checking) comes pre-picked as "Another checking account".
+
+## v13.3 · Each month checked on its own (25 Nov)
+
+Jerry's first balance check showed checking "doesn't add up by $4,944.79" and kept one statement per account. The AI had read several months in one answer, and `aiParse` added them together as one statement. Now each `Opening` line starts a new statement for its account and each `Closing` ends it, so every month is kept and checked on its own. Reading the folder with AI again replaces the combined entry.
