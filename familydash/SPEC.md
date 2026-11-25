@@ -1202,3 +1202,9 @@ Jerry: "if I have a transaction up that's $9.95 … it should only bring up the 
 - **Check for repeats** lists only charges at exactly the same price, across the months loaded. The same shop is listed first and comes ticked. Each line shows what it is now, or "not answered yet", so answered lines can be changed here too.
 - **The category picked on the question** comes along as the repeats screen's "They are".
 - **`catFix`**: a line pointing at a category that no longer exists goes back to the questions, and rules pointing at one are dropped.
+
+## v11.10 · One of each bill (25 Nov)
+
+Jerry, on five "Bills once or twice a year · Car insurance (yearly)" in the category list: "just make one car insurance, and I'll put a note in."
+- **`billDupFix`** runs on load. Bills that come once or twice a year and share a name become one category. Their lines, rules and recent picks move to the one kept, and their months, amounts and escrow are combined.
+- Reading statements no longer makes a second copy: an existing bill is matched by name as well as by its search words.
