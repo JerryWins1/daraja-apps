@@ -11,7 +11,7 @@ def voice(tag,i,text,prev,nxt):
   r=urllib.request.urlopen(urllib.request.Request('https://api.elevenlabs.io/v1/text-to-speech/FbDmiCefHcLYTtlx6nyc?output_format=pcm_24000',data=json.dumps(req).encode(),method='POST',headers={'xi-api-key':'dummy','Content-Type':'application/json'}),timeout=120).read()
   raw=out+'.raw.wav'
   with wave.open(raw,'wb') as f: f.setnchannels(1);f.setsampwidth(2);f.setframerate(24000);f.writeframes(r)
-  subprocess.run(['ffmpeg','-nostdin','-y','-loglevel','error','-i',raw,'-af','atempo=1.07,apad=pad_dur=0.5','-ar','24000','-ac','1',out],check=True); os.remove(raw)
+  subprocess.run(['ffmpeg','-nostdin','-y','-loglevel','error','-i',raw,'-af',('atempo=1.07,' if tag in ('promo','promo2','promo3','promo4','promo5','tour') else '')+'apad=pad_dur=0.5','-ar','24000','-ac','1',out],check=True); os.remove(raw)
   return out
 BG=(31,107,79); FG=(255,255,255)
 def load(n): return Image.open(n if n.startswith('/') else SH+n).convert('RGB')
@@ -108,8 +108,21 @@ PROMO5=[
  ("It's free. And every gift helps orphans and students in Kenya.",[],"Free · Every gift helps children in Kenya",None),
  ("Daraja. The apps that ask what you want. Get yours today.",[],"jerrywins1.github.io/daraja-apps/shop",None),
 ]
+PROMO6=[
+ ("Meet Daraja. A family of apps that help you run the things that matter.",[STORE],"Meet Daraja · A family of apps for the things that matter",None),
+ ("Manage your time. Manage your money. Help your church run smoothly. Keep a nonprofit on track.",[],"Your time · Your money · Your church · Your nonprofit",None),
+ ("Every app is complete on its own, with full features from the first tap.",[],"Full features · From the first tap",None),
+ ("Then Daraja adds A.I. It learns as you go. Tell it once, and it remembers how you work.",[],"Built-in AI · Learns as you go",None),
+ ("And it grows with you. Need something the app wasn't built for? Tell the A.I., and it builds it for you.",[],"Need more? Tell the AI · It builds it",None),
+ ("A report nobody else has. Your numbers, your way, in about a minute.",[],"Your numbers · Your way · In a minute",None),
+ ("One icon holds them all. Install once, and everything is inside.",[],"One icon · Every app inside",None),
+ ("No account. No subscription. Your information stays on your phone.",[],"No account · No subscription · Private",None),
+ ("It's free. And every gift helps orphans and students in Kenya.",[],"Free · Every gift helps children in Kenya",None),
+ ("Daraja. Apps that learn as you go. Get yours today.",[],"jerrywins1.github.io/daraja-apps/shop",None),
+]
 which=sys.argv[1]
 if which=='tour': build('tour',TOUR,1080,1920,'Why Daraja - store tour draft 2.mp4')
+elif which=='promo6': build('promo6',PROMO6,1080,1080,'Daraja - AI promo draft 6.mp4')
 elif which=='promo5': build('promo5',PROMO5,1080,1080,'Daraja - AI promo draft 5.mp4')
 elif which=='promo4': build('promo4',PROMO4,1080,1080,'Daraja - AI promo draft 4.mp4')
 elif which=='promo3': build('promo3',PROMO3,1080,1080,'Daraja - AI promo draft 3.mp4')
