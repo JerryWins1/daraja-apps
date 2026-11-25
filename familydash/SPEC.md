@@ -1284,3 +1284,10 @@ Jerry's first balance check showed checking "doesn't add up by $4,944.79" and ke
 ## v13.4 · Rows that open something look like it (25 Nov)
 
 Jerry: "it doesn't look like that's an active link … put a line on it … so they know it's a link." Every list row that opens something (`.list li.tap`) now has a › on the right. On a computer it lightens and underlines its words under the pointer.
+
+## v13.5 · Balance check: no leftovers, no empty "ties", and the AI's own words (25 Nov)
+
+Jerry's check showed a June home-equity entry off by $9,998.21: the old combined figure, still there. It also showed his main checking at $0 "tying" for May and June. He chose to fix all three.
+- **Leftovers:** the first AI reading of an account in a session clears the balance figures kept for it and its split accounts. After that, each month is kept under the account and the month, so a month read again replaces what was kept.
+- **Empty months:** a statement month with no lines and a missing opening or closing balance isn't kept. A kept month with no lines, while the app does have lines for that account that month, shows "no lines were tied to this statement" instead of "ties".
+- **What the AI read:** the AI's answer for each statement is kept (the last 40). Each month on Does it balance? has a "What the AI read" link that shows it word for word.
