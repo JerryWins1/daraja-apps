@@ -3572,7 +3572,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v11.9 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v11.10 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -3702,6 +3702,12 @@ function cutShort(desc){ var x = String(desc||'').trim(); return /:( [A-Z]{3})?$
 function ppTidy(){ var n = 0; db.tx.forEach(function(t){ if(/ PayPal Balance\b/i.test(t.desc) && /^PreApproved|Payment:/i.test(t.desc)){ t.desc = t.desc.replace(/\s*PayPal Balance\b.*$/i, '').trim(); n++; } }); if(n) save(); }
 /* v11.9 · Jerry, 25 Nov: "it didn't keep the category. It went to undefined." A line pointing at no category is put back as a question. */
 function catFix(){ var n = 0; db.tx.forEach(function(t){ var c = t.cat; if(c === 'uncat' || cat(c) || SYS[c] || /^help:/.test(c || '')) return; t.cat = 'uncat'; delete db.asked[t.id]; n++; }); db.rules = (db.rules || []).filter(function(r){ return cat(r.cat) || SYS[r.cat] || /^help:/.test(r.cat || ''); }); if(n) save(); }
+/* v11.10 · Jerry, 25 Nov, on five "Bills once or twice a year · Car insurance (yearly)" in the list: "just make one car insurance, and I'll
+   put a note in." Same-named bills once or twice a year become one; their lines, rules, months and amounts move to it. */
+function billDupFix(){ var seen = {}, gone = {}; db.cats.forEach(function(c){ if(c.g !== 'g_yearly') return; var k = c.name.trim().toLowerCase(), keep = seen[k]; if(!keep){ seen[k] = c; return; }
+    keep.due = (keep.due || []).concat((c.due || []).filter(function(m){ return (keep.due || []).indexOf(m) < 0; })).sort(function(a,b){ return a - b; }); if(keep.yearly == null && c.yearly != null) keep.yearly = c.yearly; if(!keep.each && c.each) keep.each = c.each; if(c.escrow) keep.escrow = 1; gone[c.id] = keep.id; });
+  var ids = Object.keys(gone); if(!ids.length) return; db.tx.forEach(function(t){ if(gone[t.cat]) t.cat = gone[t.cat]; }); (db.rules || []).forEach(function(r){ if(gone[r.cat]) r.cat = gone[r.cat]; }); db.recentCats = (db.recentCats || []).map(function(x){ return gone[x] || x; }).filter(function(x, i, A){ return A.indexOf(x) === i; });
+  db.cats = db.cats.filter(function(c){ return !gone[c.id]; }); save(); }
 function rulesFix(){ var n = (db.rules||[]).length; db.rules = (db.rules||[]).filter(function(r){ return r.k && !thinDesc(r.k) && !/^(usd|eur|gbp|cad|aud|mxn)$/.test(r.k); }); if(db.rules.length !== n) save(); }
 function mkey(desc){ if(cutShort(desc)) return '';
   var s = ppStrip(desc).toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
@@ -5812,7 +5818,7 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
-function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); rulesFix(); ppTidy(); catFix(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -6673,7 +6679,7 @@ function autoFill(SK){
   YCHIPS.forEach(function(c){ var w = (YKW[c[1]] || '').split(',').filter(Boolean); if(!w.length) return;
     var hits = T.filter(function(t){ var d = ' ' + t.desc.toLowerCase() + ' '; return t.amt >= 100 && t.d >= cut && w.some(function(x){ return d.indexOf(x) >= 0; }); });
     var ms = {}; hits.forEach(function(t){ ms[+t.d.slice(5,7)] = 1; }); var n = Object.keys(ms).length; if(!hits.length || n > 4) return;
-    var have = db.cats.filter(function(x){ return x.part === 2 && x.kw === YKW[c[1]]; })[0];
+    var have = db.cats.filter(function(x){ return x.part === 2 && (x.kw === YKW[c[1]] || x.name === c[0]); })[0];
     var cc = have || { id:uid(), g:'g_yearly', name:c[0], part:2, budget:0, kw:YKW[c[1]] }; cc.yearly = r2(hits.reduce(function(a,t){ return a + t.amt; },0)); cc.due = Object.keys(ms).map(Number).sort(function(a,b){ return a - b; }); cc.found = hits.length + ' payment' + (hits.length===1?'':'s') + ' in your statements';
     if(!have) db.cats.push(cc); hits.forEach(function(t){ t.cat = cc.id; }); AF.yr.push(cc.id); });
   ckMark('found'); ckMark('sum'); save(); render(); sortHub();   /* v6.0 · straight to sorting, account by account */
