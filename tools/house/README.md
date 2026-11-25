@@ -6,6 +6,23 @@
 
 Needs Playwright, which a cloud container already has.
 
+## Where the block lives (since 25 Nov 2026)
+
+The block is ONE file, `house/house-v87.js`. A page carries only
+`<script id="dj-house-v87" src="../house/house-v87.js" charset="utf-8"></script>` in the place the
+pasted copy used to be: a plain script tag, never `defer` or `async`, because the block patches
+globals at load and must run before the app's own script.
+
+- **Change the block by editing that one file.** Then bump each app's sw.js cache name, or a phone
+  keeps the old file. (The workers are network-first, so this only matters offline.)
+- `python3 tools/house/sweep.py` moves a page's inline copy out, adds the file to the app's sw.js
+  pre-cache list, bumps its cache name and its footer stamp. Dry run by default, `--write` to do it,
+  safe to run twice. Anything it cannot do cleanly it prints under NEEDS A HAND.
+- A beta copy sits one folder deeper, so `tools/rollout.js` adds one `../` on `start` and takes it
+  off on `promote`.
+- Still inline on purpose: `familydash/` (its own AI-sheet options, no donate mode) and
+  `shop/watch.html` (v65). They are the last to move.
+
 ## Why it is here
 
 On 20 November the back-stack, the microphone and the tell box were each fixed

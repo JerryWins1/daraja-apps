@@ -1,6 +1,6 @@
 // My Scores service worker — network first (so a fix shows on the first open) plus kickoff-alert notifications.
-const CACHE='ff-v11';
-const ASSETS=['./','./index.html'];
+const CACHE='ff-v12';
+const ASSETS=['./','./index.html','../house/house-v87.js'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>Promise.all(ASSETS.map(u=>c.add(u).catch(()=>null)))).then(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('ff-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{ if(e.request.method!=='GET') return;

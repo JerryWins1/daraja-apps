@@ -29,7 +29,10 @@
     var on = false, q = ''; try{ q = location.search; }catch(e){}
     try{
       if(/[?&]dj_sandbox=1/.test(q)){ var s0 = window.sessionStorage; for(var i = s0.length - 1; i >= 0; i--){ var k0 = s0.key(i); if(k0 && k0.indexOf('sbx:') === 0) s0.removeItem(k0); } s0.setItem('dj_sandbox', '1'); on = true; try{ history.replaceState(null, '', location.href.replace(/([?&])dj_sandbox=1&?/, '$1').replace(/[?&](#|$)/, '$1')); }catch(e){} }
-      else if(window.sessionStorage.getItem('dj_sandbox') === '1') on = true;
+      /* 10 Nov 2026: this page keeps the tester's own place in the steps, so it must never run as a test copy. The app opens
+         in the same tab for some testers, sets this flag, and the steps page then read its progress from an empty copy and
+         sent them back to step 1 (Emmanuel). Only an explicit ?dj_sandbox=1 puts this page in a test copy. */
+      else if(window.sessionStorage.getItem('dj_sandbox') === '1' && !/\/testers\//.test(location.pathname)) on = true;
     }catch(e){ on = false; }
     if(!on) return;
     var S = window.sessionStorage, P = 'sbx:';
@@ -2623,10 +2626,11 @@
       if(err){ location.href = 'https://jerrywins1.github.io/daraja-apps/home/'; return; }
       var shelfOf = function(k){ return (typeof DOOR !== 'undefined' && DOOR[k]) || APPS[k].cat; };
       var me = myStoreKey(), cat = me ? shelfOf(me) : null;
-      var NAMES = (typeof DOOR_SHELF !== 'undefined') ? DOOR_SHELF : {home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun'};
+      var NAMES = (typeof DOOR_SHELF !== 'undefined') ? DOOR_SHELF : {home:'Your household', later:'Later life & the people we love', church:'Your church', work:'Your business or nonprofit', free:'Free, and for good', fun:'Just for fun', ownday:'Your own day'};
       var live = (typeof PHASE !== 'undefined' && PHASE === 'live');
       var donate = (typeof PHASE !== 'undefined' && PHASE === 'donate');   /* 13 Nov 2026: in donate mode every app is free — the sheet lists only apps on the store (LAUNCH), no prices */
-      var keys = Object.keys(APPS).filter(function(k){ var a = APPS[k]; return k !== me && k !== 'home' && a.cat && a.cat !== 'off' && (a.try || a.kind === 'download') && (!cat || shelfOf(k) === cat); });
+      var onShelf = function(k, c){ return (typeof djOnShelf === 'function') ? djOnShelf(k, c, typeof DOOR !== 'undefined' ? DOOR : null) : shelfOf(k) === c; };
+      var keys = Object.keys(APPS).filter(function(k){ var a = APPS[k]; return k !== me && k !== 'home' && a.cat && a.cat !== 'off' && (a.try || a.kind === 'download') && (!cat || onShelf(k, cat)); });
       var shelfAll = keys.length;
       if(donate) keys = keys.filter(function(k){ var a = APPS[k]; return a.kind !== 'download' && a.try && (typeof LAUNCH === 'undefined' || LAUNCH.indexOf(k) !== -1); });
       var dark = false; try{ dark = matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.getAttribute('data-theme') !== 'light'; }catch(e){}
