@@ -1061,6 +1061,132 @@ async function door(b, port){
   await ctx.close();
 }
 
+/* 24 Nov 2026. Jerry, through the code-review chat: "fix the AI door so strangers can't
+   use it." The door's only gate was the Origin header, which any script can set, so every
+   ask now carries a Cloudflare Turnstile token proving it came from a real browser on
+   Jerry's own site.
+
+   What is measured here is the client half, and three of these fail silently:
+     - while there is no site key, NOTHING must change. The apps learn to send tokens
+       before Jerry sets the Worker's secret, and if this half misbehaved in between,
+       every app would break for the days it takes him to do his part.
+     - the token has to actually reach the door. One word in the payload.
+     - EVERY ask needs a FRESH one. A Turnstile token is single use and expires in five
+       minutes, so reusing one means the second ask of any session is refused — and it
+       would be refused as "this did not come from a Daraja app", which reads like a bug
+       in the door rather than in the client.
+     - a Turnstile that fails must not kill the ask. It goes without a token and the door
+       decides; before the door enforces, that is simply how it works today.
+
+   Turnstile itself is never contacted: window.turnstile is replaced with a counting
+   stand-in, which is the only way to measure the reset and the per-ask freshness.
+   tools/ai-door/test.mjs covers the door's half. */
+async function guard(b, port){
+  console.log('\nProof that an ask came from a Daraja app — the client half');
+  const mk = async (sitekey) => {
+    const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+    const cfg = { endpoint: 'https://door.test/ask' };
+    if (sitekey) cfg.turnstile_sitekey = sitekey;
+    await ctx.route('**/control/ai.json*', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify(cfg) }));
+    const sent = [];
+    await ctx.route('https://door.test/ask', r => {
+      try { sent.push(JSON.parse(r.request().postData() || '{}')); } catch (e) { sent.push('unparseable'); }
+      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ text: 'ok' }) });
+    });
+    let script = 0;
+    await ctx.route('https://challenges.cloudflare.com/**', r => { script++; return r.fulfill({ body: '' }); });
+    const p = await open(ctx, port, 'advent');
+    await p.evaluate(() => {
+      window.__ts = { renders: 0, resets: 0, execs: 0, n: 0, cb: null, el: null };
+      window.turnstile = {
+        render: (el, o) => { window.__ts.renders++; window.__ts.cb = o.callback; window.__ts.el = el;
+                             window.__ts.opts = { sitekey: o.sitekey, execution: o.execution }; return 'wid-1'; },
+        reset: () => { window.__ts.resets++; },
+        execute: () => { window.__ts.execs++;
+          setTimeout(() => window.__ts.cb('tok-' + (++window.__ts.n)), 10); },
+      };
+    });
+    const ask = async () => {
+      await p.evaluate(() => { window.djAI.ask({ title: 'Ask', prompt: 'hello' }); });
+      await p.waitForTimeout(600);
+      await p.evaluate(() => { const g = document.getElementById('djAIGo'); if (g) g.click(); });
+      await p.waitForTimeout(1400);
+    };
+    return { ctx, p, sent, ask, script: () => script };
+  };
+
+  /* no site key: the whole thing must be inert */
+  {
+    const t = await mk(null);
+    await t.ask();
+    ck('with no site key the ask still goes through', t.sent.length === 1, JSON.stringify(t.sent));
+    ck('  and carries no token', t.sent[0] && !t.sent[0].token, t.sent[0] && t.sent[0].token);
+    ck('  and Turnstile is never even asked to run',
+       (await t.p.evaluate(() => window.__ts.renders + window.__ts.execs)) === 0,
+       await t.p.evaluate(() => JSON.stringify(window.__ts)));
+    await t.ctx.close();
+  }
+
+  /* with a site key: proof on every ask, and a different one each time */
+  {
+    const t = await mk('0x4AAAAAAATEST');
+    await t.ask();
+    ck('with a site key the token reaches the door', !!(t.sent[0] && t.sent[0].token), t.sent[0] && JSON.stringify(t.sent[0].token));
+    ck('  it is the token Turnstile gave, not something made up', t.sent[0].token === 'tok-1', String(t.sent[0].token));
+    const o = await t.p.evaluate(() => window.__ts.opts);
+    ck('  the widget is built with the site key from control/ai.json', o && o.sitekey === '0x4AAAAAAATEST', JSON.stringify(o));
+    ck('  and held back until the ask, rather than running on page load', o && o.execution === 'execute', JSON.stringify(o));
+    ck('  the question still gets through too', t.sent[0].prompt && /hello/.test(t.sent[0].prompt), t.sent[0].prompt);
+
+    /* the one that fails silently: a reused token is refused as if the door were broken */
+    await t.ask();
+    ck('the second ask gets a FRESH token, not the first one again',
+       t.sent.length === 2 && t.sent[1].token === 'tok-2', JSON.stringify(t.sent.map(x => x.token)));
+    const st = await t.p.evaluate(() => window.__ts);
+    ck('  which it gets by resetting the widget, not by building a second one',
+       st.renders === 1 && st.resets === 1, JSON.stringify(st));
+    ck('  and it ran the check once per ask', st.execs === 2, String(st.execs));
+
+    /* nothing a person can see or tap */
+    const vis = await t.p.evaluate(() => {
+      const el = document.getElementById('djTurnstile');
+      if (!el) return 'missing';
+      const r = el.getBoundingClientRect();
+      return { onScreen: r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight, w: Math.round(r.width), h: Math.round(r.height) };
+    });
+    ck('nothing of it is on screen', vis !== 'missing' && vis.onScreen === false, JSON.stringify(vis));
+    await t.ctx.close();
+  }
+
+  /* Turnstile broken: the ask must still go */
+  {
+    const t = await mk('0x4AAAAAAATEST');
+    await t.p.evaluate(() => { window.turnstile.execute = () => { throw new Error('refused'); }; });
+    await t.ask();
+    ck('a Turnstile that throws does not kill the ask', t.sent.length === 1, JSON.stringify(t.sent));
+    ck('  it just goes without a token, and the door decides', !t.sent[0].token, String(t.sent[0].token));
+    await t.ctx.close();
+  }
+  /* A Turnstile that accepts the job and then says nothing. This is the one that would
+     hang an app forever, so the 15-second giving-up is measured rather than asserted:
+     the ask must still be waiting a second and a half in, and must have gone on its own
+     by twenty seconds. Both halves matter — an ask that went straight through would mean
+     the token was never really waited for, and one that never goes means a dead app. */
+  {
+    const t = await mk('0x4AAAAAAATEST');
+    await t.p.evaluate(() => { window.turnstile.execute = () => { window.__ts.execs++; }; });
+    await t.p.evaluate(() => { window.djAI.ask({ title: 'Ask', prompt: 'hello' }); });
+    await t.p.waitForTimeout(600);
+    await t.p.evaluate(() => { const g = document.getElementById('djAIGo'); if (g) g.click(); });
+    await t.p.waitForTimeout(1500);
+    ck('an ask really waits for the token rather than racing past it', t.sent.length === 0, JSON.stringify(t.sent));
+    await t.p.waitForTimeout(18500);
+    ck('a Turnstile that never answers gives up, and the ask goes anyway', t.sent.length === 1, JSON.stringify(t.sent));
+    ck('  without a token, so the door decides', t.sent.length === 1 && !t.sent[0].token, JSON.stringify(t.sent[0] && t.sent[0].token));
+    await t.ctx.close();
+  }
+}
+
 (async () => {
   const only = process.argv[2];
   const s = await serve();
@@ -1076,6 +1202,7 @@ async function door(b, port){
     if (!only || only === 'mine') await mine(b, s.port);
     if (!only || only === 'icons') icons();
     if (!only || only === 'door') await door(b, s.port);
+    if (!only || only === 'guard') await guard(b, s.port);
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }
