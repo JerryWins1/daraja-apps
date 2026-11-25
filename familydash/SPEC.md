@@ -1195,3 +1195,10 @@ Jerry: "there's one that match, so some that don't. So I want to be able to chec
 - Each charge on the repeats list has a tick box. The same amount and shop come ticked; money moving has no box.
 - "They are" picks the category. "✓ These N are …" answers every ticked line and moves on to the next question (`repSave`).
 - A PayPal line that ran on into its funding line ("PARAMOUNT+ PayPal Balance -8.99 USD") is cut back to the shop name, both when a statement is read and once on load (`ppTidy`).
+
+## v11.9 · Repeats: the same price only; the pick carries over; lost categories come back (25 Nov)
+
+Jerry: "if I have a transaction up that's $9.95 … it should only bring up the same price"; "it didn't keep the category. It went to undefined."
+- **Check for repeats** lists only charges at exactly the same price, across the months loaded. The same shop is listed first and comes ticked. Each line shows what it is now, or "not answered yet", so answered lines can be changed here too.
+- **The category picked on the question** comes along as the repeats screen's "They are".
+- **`catFix`**: a line pointing at a category that no longer exists goes back to the questions, and rules pointing at one are dropped.
