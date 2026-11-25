@@ -3576,7 +3576,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.5 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.6 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -4192,7 +4192,7 @@ function flagSuspicious(ids){ if(!ids.length) return 0; var isNew = {}, n = 0; i
   if(n) save(); return n; }
 function flagLine(){ var n = FLAGNEW; if(!n) return ''; FLAGNEW = 0; return '<div class="line warn" style="font-weight:700">👯 ' + n + ' charge' + (n===1?' looks':'s look') + ' doubled — the same payee, amount and day (or close). ' + (n===1?'It’s':'They’re') + ' on the 👯 Charged twice? list — check them whenever you like, from the top of the main screen or 📋 Lists.</div>'; }
 function afterImport(){
-  if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; if(pd) FMF['acct:' + mid] = ((IMP.skip||{}).pdf||[]).slice();   /* v13.1 · the picture PDFs from picking this account's folder, ready for ✨ Read them with AI */ MAPA = null; IMP = { added:0, skipped:0 };
+  if(MAPA){ var mid = MAPA, mn = IMP.added, ms = IMP.skipped, pd = ((IMP.skip||{}).pdf||[]).length; if(pd){ FMF['acct:' + mid] = ((IMP.skip||{}).pdf||[]).slice(); FMF['acct:' + mid].forEach(function(x){ delete FMR[x]; }); }   /* picked again: offer them to the AI again */   /* v13.1 · the picture PDFs from picking this account's folder, ready for ✨ Read them with AI */ MAPA = null; IMP = { added:0, skipped:0 };
     MDONE[mid] = mn + ' lines read' + (ms ? ', ' + ms + ' already here' : '') + (pd ? '. ' + pd + ' PDF' + (pd===1?' had':'s had') + ' no lines I could read by myself — scanned pictures, or not statements. ✨ Read them with AI, below' : '');
     save(); render(); if(FAI){ var fa = acct(FAI.ids[FAI.i]); if(!(fa && fmBadPdfs(fa).length)) FAI.i++; if(FAI.i < FAI.ids.length){ fmAIgo(); return; } FAI = null; } if(ONESK){ fmDone(ONESK); return; } mapFiles(mid); return; }
   if(ROUTE && NEWM){ var rn0 = IMP.added; ROUTE = false; IMP = { added:0, skipped:0 }; newMonthDone(rn0); return; }
@@ -7545,6 +7545,13 @@ function aiParse(raw, name){ var txt = String(raw || '').replace(/^```[a-z]*\s*|
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d0) || !isFinite(amt) || !amt) return;
     var row = { d:d0, desc:String(r[1] || '').replace(/\s+/g, ' ').trim().slice(0, 80), raw:r2(amt) }; if(k){ row.sub = k; row.subName = SB[k].name; cur.rows.push(row); } out.rows.push(row); });
   var D = out.rows.map(function(r){ return r.d; }).sort(); out.asOf = D[D.length-1] || null; out.raw = txt;
+  /* v13.6 · an AI often lists an account's lines in one place and its Opening/Closing in another: a part with lines but no balances
+     next to a part with balances but no lines is one statement, so they are joined */
+  Object.keys(SB).forEach(function(k){ var L = SB[k].per.filter(function(P){ return P.open != null || P.close != null || P.rows.length; }), M = [];
+    L.forEach(function(P){ var q = M[M.length - 1], bal = function(x){ return x.open != null || x.close != null; };
+      if(q && ((q.rows.length && !bal(q) && bal(P) && !P.rows.length) || (!q.rows.length && bal(q) && P.rows.length && !bal(P)))){ q.rows = q.rows.concat(P.rows); if(q.open == null) q.open = P.open; if(P.close != null) q.close = P.close; return; }
+      M.push(P); });
+    SB[k].per = M; });
   out.stmts = []; Object.keys(SB).forEach(function(k){ SB[k].per.forEach(function(P){ if(P.open == null && P.close == null && !P.rows.length) return; var dd = P.rows.map(function(r){ return r.d; }).sort();
     out.stmts.push({ sub:k, name:SB[k].name, open:P.open, close:P.close, sum:r2(P.rows.reduce(function(x,r){ return x + r.raw; }, 0)), n:P.rows.length, from:dd[0] || '', to:dd[dd.length-1] || out.asOf || '', asOf:dd[dd.length-1] || out.asOf || '' }); }); });
   return out; }
