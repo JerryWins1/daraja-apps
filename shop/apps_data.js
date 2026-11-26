@@ -1358,7 +1358,7 @@ const APPS = {
     {"t": "Welcome. This video explains My Safety Plan, gently and in plain words. If you need someone right now, Talk to someone now, at the bottom, calls nine-eight-eight.", "point": "#crisis .talk", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djStart,#djTip{display:none!important}'; document.head.appendChild(s); } }catch(e){} try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"},
     {"t": "First, what a safety plan is. Sometimes a person goes through a very hard time, and may even have thoughts of ending their life. Then it is very hard to think clearly.", "js": "try{ if(!document.getElementById('vidHide')){ var s=document.createElement('style'); s.id='vidHide'; s.textContent='#djStart,#djTip{display:none!important}'; document.head.appendChild(s); } }catch(e){} try{ tab('plan'); window.scrollTo(0,0); }catch(e){}"},
     "A safety plan is a short list, written on a calmer day, of what helps. When a hard moment comes, you do not have to think. You open the plan and follow it.",
-    "Counselors and doctors use this kind of plan. The app follows a well-known method called Stanley-Brown safety planning.",
+    "Counselors and doctors use this kind of plan. The app follows the steps of evidence-based safety planning.",
     "It is for anyone who has hard days, and for the people who love them.",
     "Daraja Studio made this app in memory of Ryan.",
     {"t": "Let us look at the screen. At the top is the name, and a small lock. It says private, stays on this device.", "point": "header"},
