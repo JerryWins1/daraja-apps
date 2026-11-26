@@ -101,7 +101,7 @@ def main():
             ch = chapters(lines, cues)
             total = sum(c[2] for c in ch)
             vids.append({'m': m, 't': title, 'n': len(lines), 's': total, 'ch': ch})
-        if a.get('lines') and a.get('video') is not False: add('overview', 'The 2-minute video', a['lines'])
+        if a.get('lines') and a.get('video') is not False: add('overview', 'The short overview', a['lines'])
         ex = a.get('extra') or {}
         if ex.get('firsttime'): add('firsttime', ex['firsttime'].get('title') or 'Explain it to me', ex['firsttime'].get('lines'))
         if a.get('train'): add('train', 'Step by step', a['train'])

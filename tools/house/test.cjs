@@ -649,7 +649,16 @@ async function mine(b, port){
   await p.evaluate(() => { for (const i of ['djStart', 'introOv', 'fsIntro', 'djGate', 'hello', 'welcome', 'firstRun', 'djCoachCard']) {
     const d = document.getElementById(i); if (d) d.remove(); } });
   await p.waitForTimeout(6000);
-  ck('once their card has gone, it takes its turn', await p.evaluate(() => !!document.getElementById('djSetup')));
+  /* 26 Nov 2026 (Jerry: "fewer jumps"): their welcome card counts as this visit's welcome, like the
+     tour, so the offer does not follow it on the same visit — and that is not taken as a no. */
+  ck('not on the visit that had their card', !(await p.evaluate(() => !!document.getElementById('djSetup'))));
+  ck('  and that is not taken as a no', (await p.evaluate(() => localStorage.getItem('dj_setup_no_duka'))) === null);
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(900);
+  await p.evaluate(() => { for (const i of ['djStart', 'introOv', 'fsIntro', 'djGate', 'hello', 'welcome', 'firstRun', 'djCoachCard']) {
+    const d = document.getElementById(i); if (d) d.remove(); } });
+  await p.waitForTimeout(6000);
+  ck('on a later open without their card, it takes its turn', await p.evaluate(() => !!document.getElementById('djSetup')));
   await p.close(); await ctx.close();
 
   /* 22 Nov, from The Church App chat after they used the DJ_MINE switch: the stacking fix moved
