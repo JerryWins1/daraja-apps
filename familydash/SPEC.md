@@ -1336,3 +1336,11 @@ The checklist disappears once setup is done, so Settings now has a "✨ Set it u
 ## v15.2 · 26 Nov · Ask sits under the dials
 
 Jerry asked for this: "Ask about our money" now sits inside the overview, right under the dials and above Needs you.
+
+## v15.3 · 26 Nov · Payees are told apart properly
+
+When you sort one payment, the app offers to change the other payments from the same payee. That list held payments from completely different payees. The cause: a payee was identified by the first two words of the bank description, and on some banks those words are the bank's own wording ("EFT ACH MASTER FOR FED …"). So a health premium, a mortgage payment and PayPal top-ups were all treated as one payee.
+
+- `mkey` now strips the bank's wording first (`MK_BOILER`), so the payee name is what decides.
+- `mkeyMove` runs once and carries what the app has learned over to the new names. A learned rule whose old name covered several different payees is dropped, so those payees get asked about again.
+- Payments already sorted under one of those dropped rules keep their category until someone changes it.

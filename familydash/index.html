@@ -213,7 +213,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v15.2 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v15.3 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -354,11 +354,29 @@ function billDupFix(){ var seen = {}, gone = {}; db.cats.forEach(function(c){ if
 /* v13.7 · balance lines an AI answer slipped in as if they were money moving are taken out */
 function balLineFix(){ var n0 = db.tx.length; db.tx = db.tx.filter(function(t){ return !/^(opening|closing|beginning|ending|previous|new|starting) balance$/i.test(String(t.desc || '').trim()); }); if(db.tx.length !== n0){ save(); try{ toast((n0 - db.tx.length) + ' balance line' + (n0 - db.tx.length === 1 ? '' : 's') + ' taken out — they were never money moving.'); }catch(e){} } }
 function rulesFix(){ var n = (db.rules||[]).length; db.rules = (db.rules||[]).filter(function(r){ return r.k && !thinDesc(r.k) && !/^(usd|eur|gbp|cad|aud|mxn)$/.test(r.k); }); if(db.rules.length !== n) save(); }
+/* v15.3 · Jerry, 26 Nov: "it gives you a list of the other ones all checked… some are exactly what the initial one was, but then
+   there's some that are so far off." A payee was its first two words, and on his bank those are the bank's own wording —
+   "EFT ACH MASTER FOR FED Blue Cross" and "EFT ACH MASTER FOR FED NEWREZ" were both "eft master", so a health premium, the mortgage
+   and every PayPal top-up counted as one payee. The bank's wording is now taken off first, so the two words name who was paid. */
+var MK_BOILER = /\b(withdrawal|deposit|eft|electronic|master|for|fed|bill|pay|paymt|pmt|payment|dir|dep|inst|xfer|transfer|trnsfr|point|of|sale|checkcard|ext|preauthorized|metavante|to|from)\b/g;
 function mkey(desc){ if(cutShort(desc)) return '';
   var s = ppStrip(desc).toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
     .replace(/\b(pos|debit|credit|purchase|card|recurring|sq|tst|pp|paypal|ach|web|id|ppd|ccd|des|indn|co|inc|llc|www|com|the|online|check|ckcd|visa|mc)\b/g,' ').replace(/\s+/g,' ').trim();
-  return s.split(' ').slice(0,2).join(' ');
+  var t = s.replace(MK_BOILER, ' ').replace(/\s+/g, ' ').trim();
+  if(!t && /paypal/i.test(desc)) return 'paypal';   /* "EFT ACH … PAYPAL INST XFER" is a PayPal top-up, nothing more */
+  return (t || s).split(' ').slice(0,2).join(' ');
 }
+/* the key as it was before v15.3, kept only to carry what was learned over to the new keys */
+function mkeyOld(desc){ if(cutShort(desc)) return '';
+  var s = ppStrip(desc).toLowerCase().replace(/[0-9#*_\/\\.,:;'"()\-]+/g,' ')
+    .replace(/\b(pos|debit|credit|purchase|card|recurring|sq|tst|pp|paypal|ach|web|id|ppd|ccd|des|indn|co|inc|llc|www|com|the|online|check|ckcd|visa|mc)\b/g,' ').replace(/\s+/g,' ').trim();
+  return s.split(' ').slice(0,2).join(' '); }
+function mkeyMove(){ if(db.mk2) return; db.mk2 = 1; var R = db.rules || [], out = [], seen = {};
+  R.forEach(function(r){ var T = db.tx.filter(function(t){ return mkeyOld(t.desc) === r.k; }), K = {}; T.forEach(function(t){ var k = mkey(t.desc); if(k) K[k] = 1; }), ks = Object.keys(K);
+    if(!T.length){ if(!seen[r.k]){ seen[r.k] = 1; out.push(r); } return; }
+    if(ks.length > 1) return;   /* one old key that held several payees was a wrong lesson: it is dropped, and each payee is asked again */
+    ks.forEach(function(k){ if(!seen[k]){ seen[k] = 1; out.push({ k:k, cat:r.cat }); } }); });
+  db.rules = out; save(); }
 var BCAT = [['util',/util|electric|gas & electric|water|sewer|internet|cable|energy/],['groc',/grocer|supermarket/],['eat',/restaurant|dining|food & drink|fast food|coffee/],['car',/gas station|fuel|automotive|\bgas\b|auto/],['subs',/subscription|streaming|digital/],['health',/health|medical|pharmacy|doctor|dental/],['travel',/travel|airline|hotel|lodging/],['cins',/insurance/],['phone',/phone|mobile|wireless|telecom/],['shop',/merchandise|shopping|retail|general/],['fees',/fee|interest charge/],['give',/charit|donation|church/]];
 function guessCat(desc, amt, a, bcat){
   var d = ' ' + String(desc||'').toLowerCase() + ' ', k = mkey(desc);
@@ -2716,7 +2734,7 @@ function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonth
 var FOLD = {};
 function fold(id, title, right, inner, open, bad){ if(!inner) return ''; var o = FOLD[id] != null ? FOLD[id] : !!open;
   return '<details class="fold" id="' + id + '"' + (o ? ' open' : '') + ' ontoggle="FOLD[this.id]=this.open"><summary><span>' + title + '</span><small' + (bad ? ' class="bad"' : '') + '>' + right + '</small></summary><div class="foldin">' + inner + '</div></details>'; }
-function render(){ if(db && !render._cp){ render._cp = 1; try{ balLineFix(); cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLineFix(); cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
