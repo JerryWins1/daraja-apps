@@ -114,7 +114,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If <span class="nameHere">Trip Tab</span> helps your group, a gift to Loving InDeed helps orphans and students in Kenya. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot" id="ver">Trip Tab v0.4 · 2026-11-25 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
+  <p class="foot" id="ver">Trip Tab v0.5 · 2026-11-25 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big add" id="addBtn" onclick="openAdd()">＋ Add a cost</button>
@@ -220,7 +220,7 @@ function render(){
     + (t.exps.length && sq ? '<div class="square">✓ Everyone is square. Nobody owes anything.</div>' : '')
     + (!sq ? '<button class="b primary full" style="margin-top:10px" onclick="openSettle()">🤝 Who pays who</button>' : '') + '</div>';
   var rows = t.exps.slice().reverse().map(function(x){
-      return '<li><button data-cost="' + x.id + '" onclick="openAdd(\'' + x.id + '\')"><div><div class="w">' + esc(x.what || 'A cost') + '</div><div class="by">' + esc(pname(t, x.payer)) + ' paid · ' + esc(splitWords(t, x)) + ' · ' + shortDate(x.d) + '</div></div><span class="amt">' + money(x.amt) + '</span></button></li>'; });
+      return '<li><button data-cost="' + x.id + '" onclick="openAdd(\'' + x.id + '\')"><div><div class="w">' + esc(x.what || 'A cost') + '</div><div class="by">' + esc(pname(t, x.payer)) + ' paid · ' + esc(splitWords(t, x)) + ' · ' + shortDate(x.d) + (x.cur && x.amtOrig ? ' · paid ' + esc(x.cur === 'KSh' ? 'KSh ' : x.cur) + plain(x.amtOrig) + ' at ' + x.rate : '') + '</div></div><span class="amt">' + money(x.amt) + '</span></button></li>'; });
   var paidRows = (t.paid||[]).slice().reverse().map(function(m){
       return '<li class="paidrow"><button onclick="openSettle()"><div><div class="w">🤝 ' + esc(pname(t, m.from)) + ' paid ' + esc(pname(t, m.to)) + ' back</div><div class="by">settling up · ' + shortDate(m.d) + '</div></div><span class="amt">' + money(m.amt) + '</span></button></li>'; });
   h += '<div class="card" id="costs"><h3>Costs</h3>' + (rows.length ? '<p class="meta">Tap a cost to change it or take it off.</p>' : '') + (rows.length ? '<ul class="costs">' + paidRows.join('') + rows.join('') + '</ul>' : '<p class="meta">Nothing yet. When someone pays for something, tap <b>＋ Add a cost</b> at the bottom.</p>') + '</div>';
@@ -334,13 +334,21 @@ function openAdd(editId){
     + (x ? '' : '<div class="quick"><label for="qLine">Quick way: type it in one line</label><div class="row"><input id="qLine" placeholder="' + esc(t.people[0].name) + ' paid 140 dinner split ' + t.people.length + '" autocomplete="off"><button class="b primary" id="qRead" onclick="readLine()">Read it</button></div><div class="saw" id="qSaw">Or fill it in below.</div></div>')
     + '<div class="lab">Who paid?</div><div class="pick" id="payPick">' + t.people.map(function(p){ return '<button type="button" data-payer="' + p.id + '" class="' + (F.payer===p.id?'on':'') + '" onclick="setPayer(\'' + p.id + '\')">' + esc(p.name) + '</button>'; }).join('') + '</div>'
     + '<label for="amt">How much?</label><input id="amt" class="amt" inputmode="decimal" data-nomic placeholder="' + (t.cur==='KSh'?'KSh ':t.cur) + '0" value="' + (x ? plain(x.amt) : '') + '" oninput="splitSay()">'
+    + '<div class="row" style="align-items:center;gap:8px;margin-top:6px"><label for="xCur" style="margin:0;flex:1;font-size:15px">Paid in</label><select id="xCur" onchange="fxShow()" style="flex:1">' + ['$','KSh','£','€'].map(function(c){ var cur = x && x.cur ? x.cur : t.cur; return '<option value="' + c + '"' + (c === cur ? ' selected' : '') + '>' + (c === t.cur ? c + ' (the trip’s money)' : c) + '</option>'; }).join('') + '</select></div>'
+    + '<div id="fxBox" style="display:none"><label for="xRate">How many ' + esc(t.cur) + ' for 1 <span id="fxCur"></span>? <span style="font-weight:400">The rate you actually got.</span></label><input id="xRate" inputmode="decimal" data-nomic autocomplete="off" value="' + (x && x.rate ? x.rate : '') + '" oninput="splitSay()"></div>'
     + '<label for="what">What for?</label><input id="what" placeholder="Dinner · gas · groceries · the cabin" value="' + esc(x ? x.what : '') + '">'
     + '<div class="lab">Who shares it?</div><div class="seg" id="seg"><button type="button" data-type="equal" onclick="setType(\'equal\')">Everyone, equally</button><button type="button" data-type="some" onclick="setType(\'some\')">Only some people</button><button type="button" data-type="custom" onclick="setType(\'custom\')">Different amounts</button></div>'
     + '<div id="splitBox"></div><div class="say" id="splitSay"></div>'
     + '<div class="row" style="margin-top:16px"><button class="b warm" id="addSave" onclick="saveCost()">' + (x ? 'Save changes' : 'Add it') + '</button>' + (x ? '<button class="b" onclick="delCost(\'' + x.id + '\')">🗑 Take it off</button>' : '') + '<button class="b ghost" onclick="closeSheet()">Cancel</button></div>');
   var q = document.getElementById('qLine'); if(q) q.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); readLine(); } });
-  setType(F.type);
+  setType(F.type); fxShow();
+  if(x && x.amtOrig) document.getElementById('amt').value = plain(x.amtOrig);
 }
+/* Overnight B, 26 Nov 2026 (Tricount: a trip has one money; a cost in another is converted at the rate you got). The flight in
+   dollars, everything else in shillings: the cost keeps what was paid and the rate, and counts in the trip's money. */
+function fxShow(){ var t = trip(), c = document.getElementById('xCur'), b = document.getElementById('fxBox'); if(!c || !b) return; var other = c.value !== t.cur;
+  b.style.display = other ? '' : 'none'; document.getElementById('fxCur').textContent = c.value;
+  var r = document.getElementById('xRate'); if(other && r && !r.value && t.rates && t.rates[c.value]) r.value = t.rates[c.value]; }
 function setPayer(id){ F.payer = id; document.querySelectorAll('#payPick button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-payer') === id); }); splitSay(); }
 function setType(k){ F.type = k; var t = trip();
   document.querySelectorAll('#seg button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type') === k); });
@@ -355,6 +363,7 @@ function readShares(){ F.shares = {}; document.querySelectorAll('[data-share]').
 /* one plain line under the split that says what will happen — and whether it adds up */
 function splitSay(){
   var t = trip(), e = document.getElementById('splitSay'); if(!e) return; var a = toCents(document.getElementById('amt').value), bad = false, s;
+  var xc = document.getElementById('xCur'), xr = document.getElementById('xRate'); if(xc && xc.value !== t.cur){ var rr = parseFloat(String(xr && xr.value || '').replace(/[^0-9.]/g,'')); if(rr > 0) a = Math.round(a * rr); }
   if(F.type === 'custom'){ readShares(); var sum = Object.keys(F.shares).reduce(function(z,k){ return z + F.shares[k]; }, 0);
     if(!sum) s = 'Type each person’s part. Leave a box empty for someone who has no part.';
     else if(!a) s = 'The parts add up to ' + money(sum) + '. That will be the cost.';
@@ -376,6 +385,11 @@ function saveCost(){
     if(sum !== a){ toast('The parts don’t add up to ' + money(a) + ' yet.'); return; } x.shares = F.shares; }
   else if(F.type === 'some'){ if(!F.among.length){ toast('Tap the people who share it.'); return; } x.among = F.among.slice(); }
   if(!a){ toast('Type how much.'); return; }
+  var xc = document.getElementById('xCur'), cur = xc ? xc.value : t.cur;
+  if(cur !== t.cur){ var rate = parseFloat(String(document.getElementById('xRate').value).replace(/[^0-9.]/g,''));
+    if(!(rate > 0)){ toast('Type the rate: how many ' + t.cur + ' for 1 ' + cur + '.'); return; }
+    if(F.type === 'custom'){ toast('Different amounts work in the trip’s money only. Pick “Everyone” or “Only some”.'); return; }
+    x.cur = cur; x.rate = rate; x.amtOrig = a; a = Math.round(a * rate); t.rates = t.rates || {}; t.rates[cur] = rate; }
   x.amt = a; x.payer = F.payer; x.what = what;
   if(F.id){ var old = t.exps.filter(function(e){ return e.id === F.id; })[0]; x.id = old.id; x.d = old.d; t.exps[t.exps.indexOf(old)] = x; }
   else { x.id = uid(); x.d = today(); t.exps.push(x); }
