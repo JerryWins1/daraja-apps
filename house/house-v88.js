@@ -3274,6 +3274,16 @@
           w.style.top = Math.min(want, Math.max(0, window.innerHeight - 160)) + 'px';
         }
       }
+      /* 26 Nov: the one plain line a screen now starts with (14d, p.djPurpose) sits just under the
+         header, which is where this note lands, so for 8 seconds it hid the very line that says what
+         the screen is for. When that line is near the top, the note starts under it instead. */
+      var pl = [].slice.call(document.querySelectorAll('p.djPurpose')).filter(function(e){ return e.offsetParent; })[0];
+      if(pl){
+        var pr = pl.getBoundingClientRect(), top = parseInt(w.style.top, 10) || 8;
+        if(pr.height && pr.bottom > top && pr.top < top + 120 && pr.bottom < 320){
+          w.style.top = Math.min(Math.round(pr.bottom + 8), Math.max(0, window.innerHeight - 160)) + 'px';
+        }
+      }
     }catch(e){}
     setTimeout(function(){ w.style.opacity = '1'; }, 50);
     setTimeout(function(){ w.style.opacity = '0'; w.style.pointerEvents = 'none'; setTimeout(function(){ w.remove(); }, 450); }, 8000);
