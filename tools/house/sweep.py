@@ -13,9 +13,9 @@ Copies listed in pinned.json, familydash and shop/watch.html are left alone on p
 import glob, hashlib, json, os, re, sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-VER = '87'
+VER = str(max(int(m.group(1)) for m in (re.match(r'house-v(\d+)\.js$', n) for n in os.listdir(os.path.join(ROOT, 'house'))) if m))
 HOUSE = f'house/house-v{VER}.js'
-TODAY = '2026-11-25'
+TODAY = '2026-11-26'
 SKIP = ['_older', 'familydash/', 'shop/watch.html'] + [p['path'] for p in json.load(open(os.path.join(ROOT, 'tools/house/pinned.json')))['pinned']]
 WRITE = '--write' in sys.argv
 block = open(os.path.join(ROOT, HOUSE), encoding='utf8').read()
