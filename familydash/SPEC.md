@@ -1348,3 +1348,8 @@ When you sort one payment, the app offers to change the other payments from the 
 ## v15.4 · 26 Nov · The category drop-down is in order
 
 `catOptions` lists the categories used last first, then each group A to Z, with that group's categories A to Z inside it. The one-at-a-time screen was already A to Z.
+
+## v15.5 · 26 Nov · Card payments from the bank, and lines read twice
+
+- **Card payments are moving money.** A bank line that pays a credit card (`payToCard`, `CARDPAY`) now counts as moving money, ahead of anything the app has learned. The same goes for topping up a PayPal or Venmo account that the family keeps in the app (`payToApp`). Lines already guessed wrong are corrected when the app loads (`cardPayFix`). A line the family answered themselves is never changed.
+- **Lines read twice.** When two lines in the same account have the same day and the same amount, and their words differ only by the bank's prefix (EFT, ACH, POS and so on), they are flagged on the Charged twice list (`readTwiceFix`, why `read2`). From there, "Remove the copy" deletes the second line, and "Both are real" keeps both. Lines whose words match exactly are still handled by the existing double-charge check.

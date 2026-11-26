@@ -213,7 +213,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v15.4 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v15.5 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -378,7 +378,14 @@ function mkeyMove(){ if(db.mk2) return; db.mk2 = 1; var R = db.rules || [], out 
     ks.forEach(function(k){ if(!seen[k]){ seen[k] = 1; out.push({ k:k, cat:r.cat }); } }); });
   db.rules = out; save(); }
 var BCAT = [['util',/util|electric|gas & electric|water|sewer|internet|cable|energy/],['groc',/grocer|supermarket/],['eat',/restaurant|dining|food & drink|fast food|coffee/],['car',/gas station|fuel|automotive|\bgas\b|auto/],['subs',/subscription|streaming|digital/],['health',/health|medical|pharmacy|doctor|dental/],['travel',/travel|airline|hotel|lodging/],['cins',/insurance/],['phone',/phone|mobile|wireless|telecom/],['shop',/merchandise|shopping|retail|general/],['fees',/fee|interest charge/],['give',/charit|donation|church/]];
+/* v15.5 · Jerry, 26 Nov, on "EFT ACH MASTER FOR FED CHASE CREDIT CRDAUTOPAY" guessed as Healthcare: a bank line that pays a credit
+   card is always money moving, whatever was learned before; so is topping up a PayPal or Venmo the family keeps in the app. */
+var CARDPAY = /(credit ?ca?rd|\bcrd\b|crdautopay|crcardpmt|card ?(payment|pmt|pymt)|cardmember|american express|\bamex\b|discover (e?payment|card|bank)|capital one|citi ?card|chase credit|chase card|barclay|synchrony|apple card|card services)/i;
+function payToCard(desc, amt, a){ var d = String(desc || ''); return !!(a && a.type !== 'card' && amt > 0 && CARDPAY.test(d) && /(pay|pmt|pymt|autopay|epay|crda)/i.test(d)); }
+function payToApp(desc, amt, a){ var d = String(desc || ''), m = /\b(venmo|paypal)\b/i.exec(d); if(!m || !a || a.type === 'card' || amt <= 0 || ppAcct(a)) return false; var w = m[1].toLowerCase();
+  return db.accts.some(function(x){ return x.id !== a.id && !x.closed && (ppAcct(x) || (x.name || '').toLowerCase().indexOf(w) >= 0) && (x.name || x.inst || '').toLowerCase().indexOf(w) >= 0; }); }
 function guessCat(desc, amt, a, bcat){
+  if(payToCard(desc, amt, a) || payToApp(desc, amt, a)) return 'xfer';
   var d = ' ' + String(desc||'').toLowerCase() + ' ', k = mkey(desc);
   for(var i=0;i<db.rules.length;i++){ var r = db.rules[i]; if(r.k && (k === r.k || d.indexOf(r.k) >= 0)) return r.cat; }
   var best = null, bl = 0; for(var j=0;j<db.cats.length;j++){ var c = db.cats[j]; if(!c.kw) continue; var w = c.kw.split(',');
@@ -850,6 +857,13 @@ function flagSuspicious(ids){ if(!ids.length) return 0; var isNew = {}, n = 0; i
     if(!(isNew[a.id] || isNew[b.id]) || a.a !== b.a || a.amt !== b.amt || (mkey(a.desc) || a.desc) !== (mkey(b.desc) || b.desc)) continue;
     var k = 'dup:' + a.id + ':' + b.id; if(db.flagged[k]) continue;
     db.flagged[k] = { ids:[a.id, b.id], why:'dup', at:today() }; b.look = 'Possible double charge — same as ' + shortDate(a.d); if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; n++; }
+  if(n) save(); return n; }
+/* v15.5 · the same line read twice: same account, same day, same amount, and the same words once the bank's own prefix (EFT, ACH,
+   POS…) is set aside — what an AI does when two statements overlap. It goes on the Charged twice list, where one tap removes the copy. */
+function readTwiceFix(){ db.flagged = db.flagged || {}; var norm = function(x){ return String(x || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(eft|ach|pos|withdrawal|debit|credit|electronic|card|purchase)\b/g, ' ').replace(/\s+/g, ''); }, by = {}, n = 0;
+  db.tx.forEach(function(t){ if(t.splitOf || t.inv) return; var k = t.a + '|' + t.d + '|' + t.amt + '|' + norm(t.desc); (by[k] = by[k] || []).push(t); });
+  Object.keys(by).forEach(function(k){ var L = by[k]; if(L.length < 2) return; for(var i = 1; i < L.length; i++){ var a = L[0], b = L[i], fk = 'dup:' + a.id + ':' + b.id; if(db.flagged[fk] || a.desc === b.desc) continue;   /* the very same words are left to the double-charge check */
+    db.flagged[fk] = { ids:[a.id, b.id], why:'read2', at:today() }; b.look = 'Read twice? Same as another line on ' + shortDate(a.d); if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; n++; } });
   if(n) save(); return n; }
 function flagLine(){ var n = FLAGNEW; if(!n) return ''; FLAGNEW = 0; return '<div class="line warn" style="font-weight:700">👯 ' + n + ' charge' + (n===1?' looks':'s look') + ' doubled — the same payee, amount and day (or close). ' + (n===1?'It’s':'They’re') + ' on the 👯 Charged twice? list — check them whenever you like, from the top of the main screen or 📋 Lists.</div>'; }
 function afterImport(){
@@ -1408,7 +1422,7 @@ function invAcctOld(a){ return !!(a && INV_TYPES[a.type]); }
 function tradeLike(d){ return /\(\s*[\d.,]+\s*sh(ares)?\s*@|\b(purchase|sale|sold|bought|reinvest(ment)?|dividend|cap(ital)? gain|buy|sell)\b.*\b(sh|shares|@)\b|\breinvest/i.test(String(d || '')); }
 function invFile(t){ t.cat = 'xfer'; delete t.sug; t.inv = 1; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); }
 function invMark(aid){ var a = acct(aid); if(!a) return; a.role = 'invest'; if(!INV_TYPES[a.type]){ a.oldType = a.type; a.type = 'invest'; a.track = 'lines'; } var n = roleApply(a); save(); render(); toast(a.name + ' is an investment account now — ' + n + ' line' + (n===1?'':'s') + ' stay inside it.'); GK = null; openGTKY(); }
-function cardPayFix(){ db.tx.forEach(function(t){ if(!db.asked[t.id] && invAcct(acct(t.a))) invFile(t); if(!db.asked[t.id] && ppFund(t)){ t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); } }); var n = 0; db.tx.forEach(function(t){ if(db.asked[t.id] || !cardPay(t)) return; t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); n++; }); if(n) save(); return n; }
+function cardPayFix(){ db.tx.forEach(function(t){ if(!db.asked[t.id] && invAcct(acct(t.a))) invFile(t); if(!db.asked[t.id] && ppFund(t)){ t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); } }); var n = 0; db.tx.forEach(function(t){ var a = acct(t.a); if(db.asked[t.id] || t.splitOf || !(cardPay(t) || payToCard(t.desc, t.amt, a) || payToApp(t.desc, t.amt, a))) return; t.cat = 'xfer'; delete t.sug; db.asked[t.id] = 1; db.notSure = db.notSure.filter(function(x){ return x !== t.id; }); n++; }); if(n) save(); return n; }
 function stmtDates(d){ var y = d.slice(0,4), m = d.slice(5,7), dd = d.slice(8,10), mo = new Date(+y, +m - 1, +dd); return [m + '/' + dd, (+m) + '/' + (+dd), d, mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + (+dd), mo.toLocaleDateString('en-US', { month:'short' }) + ' ' + dd]; }
 async function stmtRows(file){ if(/\.csv$/i.test(file.name)) return parseCSVRows(await file.text());
   if(/\.xlsx?$/i.test(file.name)){ if(!window.XLSX) await new Promise(function(res){ var sc = document.createElement('script'); sc.src = XLSX_URL; sc.onload = res; sc.onerror = res; document.head.appendChild(sc); }); if(!window.XLSX) return [];
@@ -2739,7 +2753,7 @@ function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonth
 var FOLD = {};
 function fold(id, title, right, inner, open, bad){ if(!inner) return ''; var o = FOLD[id] != null ? FOLD[id] : !!open;
   return '<details class="fold" id="' + id + '"' + (o ? ' open' : '') + ' ontoggle="FOLD[this.id]=this.open"><summary><span>' + title + '</span><small' + (bad ? ' class="bad"' : '') + '>' + right + '</small></summary><div class="foldin">' + inner + '</div></details>'; }
-function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLineFix(); cardPayFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLineFix(); cardPayFix(); readTwiceFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -2980,9 +2994,11 @@ function openDups(){ var L = dupList(), open = L.filter(function(x){ return !x.f
     + (L.map(function(x){ var i = esc(x.k);
       return '<div class="card" style="padding:12px 14px;margin:8px 0' + (x.f.done ? ';opacity:.75' : ';border:2px solid #E3B04B') + '"><div style="font-weight:800">' + esc(x.b.desc) + ' · ' + money(x.b.amt) + '</div><div class="sub" style="margin:2px 0 0">' + esc(shortDate(x.a.d)) + (x.a.d === x.b.d ? ', twice' : ' and ' + esc(shortDate(x.b.d))) + ' · ' + esc(acctLabel(acct(x.b.a) || {})) + '</div>'
         + (x.f.done ? '<div class="row" style="gap:6px;margin-top:8px;align-items:center"><span style="flex:1;font-weight:700">' + (x.f.done === 'ok' ? '✓ Both are right' : '📞 A mistake — to call about') + '</span><button class="b small ghost" onclick="dupSet(\'' + i + '\',\'\')">Change</button></div>'
+          : x.f.why === 'read2' ? '<div class="sub" style="margin:6px 0 0">Same day, same amount, same words — most likely one statement read twice.</div><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="b small primary" onclick="dupSet(\'' + i + '\',\'remove\')">Remove the copy</button><button class="b small" onclick="dupSet(\'' + i + '\',\'ok\')">Both are real</button></div>'
           : '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="b small primary" onclick="dupSet(\'' + i + '\',\'call\')">It’s a mistake</button><button class="b small" onclick="dupSet(\'' + i + '\',\'ok\')">Both are right</button></div>') + '</div>'; }).join('') || '<p class="sub">Nothing found yet. New statements are checked as they’re read.</p>')
     + '<button class="b ghost" style="width:100%" onclick="closeSheet();render()">Done for now</button>'); }
 function dupSet(k, how){ var f = (db.flagged || {})[k]; if(!f) return; var b = db.tx.filter(function(t){ return t.id === f.ids[1]; })[0];
+  if(how === 'remove' && b){ db.tx = db.tx.filter(function(t){ return t.id !== b.id; }); db.notSure = db.notSure.filter(function(x){ return x !== b.id; }); delete db.flagged[k]; save(); toast('The copy is removed.'); var el0 = document.getElementById('sheetIn'), sc0 = el0.scrollTop; SHBACK = 1; openDups(); el0.scrollTop = sc0; return; }
   if(how){ f.done = how; } else { delete f.done; }
   if(b){ if(how === 'ok'){ db.notSure = db.notSure.filter(function(x){ return x !== b.id; }); delete b.look; }
     else { b.look = how === 'call' ? 'Charged twice — call to have it taken off' : 'Possible double charge'; if(db.notSure.indexOf(b.id) < 0) db.notSure.push(b.id); delete db.asked[b.id]; } }
