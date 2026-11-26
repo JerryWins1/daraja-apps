@@ -115,10 +115,10 @@
 <main>
   <div class="card">
     <h2>1 · Your organization <span style="font-weight:400;color:var(--soft);font-size:13px">(saved on this device)</span></h2>
-    <label>Organization name</label><input id="orgName" placeholder="e.g. Loving InDeed NFP" autocomplete="organization">
-    <label>EIN</label><input id="orgEin" placeholder="e.g. 12-3456789" inputmode="text" autocomplete="off">
+    <label>Organization name</label><input id="orgName" placeholder="e.g. Grace Community Church" autocomplete="organization">
+    <label>EIN (your federal tax number)</label><input id="orgEin" placeholder="e.g. 12-3456789" inputmode="text" autocomplete="off">
     <label>Address</label><input id="orgAddr" placeholder="street, city, state zip">
-    <label>Signer (name & title)</label><input id="orgSigner" placeholder="e.g. Jerry Winslow, President">
+    <label>Signer (name & title)</label><input id="orgSigner" placeholder="e.g. Pat Lee, Treasurer">
   </div>
 
   <div class="card">
@@ -141,9 +141,9 @@
 
   <button class="btn gold" onclick="makeLetters()">✉️ Make the letters</button>
   <button class="btn" onclick="window.print()" id="printBtn" style="display:none">🖨 Print them all</button>
-  <button class="btn" onclick="showYearEndSummary()" id="summaryBtn" style="display:none">📊 Year-end summary</button>
+  <button class="btn" onclick="showYearEndSummary()" id="summaryBtn" style="display:none">📊 Show each donor’s year total</button>
   <p class="hint" id="madeMsg"></p>
-  <p class="hint" id="editHint" style="display:none">✏️ Tap any letter below to change its words before you print.</p>
+  <p class="hint" id="editHint" style="display:none">✏️ Tap any letter below to change its words. When they look right, tap 🖨 Print them all above.</p>
 
   <div id="letters"></div>
   <div id="summary" style="display:none"></div>
@@ -188,7 +188,7 @@ function giftsFromRows(){
 }
 function makeLetters(){
   const org={ name:$('orgName').value.trim(), ein:$('orgEin').value.trim(), addr:$('orgAddr').value.trim(), signer:$('orgSigner').value.trim() };
-  if(!org.name){ alert('Fill in your organization name first.'); return; }
+  if(!org.name){ alert('Fill in your organization name first.'); $('orgName').focus(); return; }
   try{ saveGifts(); }catch(e){}
   const gifts=giftsFromRows();
   if(!gifts.length){ alert('Add at least one gift.'); return; }
@@ -237,28 +237,69 @@ function makeLetters(){
   $('madeMsg').textContent = made+' letter'+(made!==1?'s':'')+' ready below.'+(skipped.length? ' Skipped '+skipped.length+' row(s): '+skipped.join(' | ')+'.' : '')+' Print puts each on its own page.';
   if(made) document.querySelector('.letter').scrollIntoView({behavior:'smooth'});
 }
+/* Overnight B, 26 Nov 2026 (IRS Pub 1771 annual summary): the year-end totals count ONE calendar year — the one picked,
+   by default last year in January–March — and "Mary Smith" and "mary smith " are one donor. Before, every row of every
+   year was added up and labelled with today's year, so a January run for 2026 said 2027. Undated rows are left out and named. */
+function donorKey(n){ return String(n||'').trim().toLowerCase().replace(/[.,]/g,'').replace(/\s+/g,' '); }
+function giftYears(){ const ys={}; giftsFromRows().forEach(function(g){ if(/^\d{4}-\d{2}-\d{2}$/.test(g.d)) ys[g.d.slice(0,4)]=1; }); return Object.keys(ys).sort(); }
+function summaryYear(){
+  const ys=giftYears(); if(window.__rmYear && ys.indexOf(window.__rmYear)>=0) return window.__rmYear;
+  const now=new Date(), def=String(now.getMonth()<3 ? now.getFullYear()-1 : now.getFullYear());
+  return ys.indexOf(def)>=0 ? def : (ys.length ? ys[ys.length-1] : def);
+}
 function aggregateDonorSummary(){
-  const gifts=giftsFromRows();
-  const donors={};
+  const gifts=giftsFromRows(), year=summaryYear(), donors={}, undated=[];
+  const num=function(a){ return Number(String(a).replace(/[$,\s]/g,'')); };
+  const slot=function(n){ const k=donorKey(n); if(!donors[k]) donors[k]={name:n.trim(), total:0, donations:[], inKind:[]}; return donors[k]; };
   for(const g of gifts){
     if(!g.n || !g.a) continue;
-    const inKind=/^in-?kind/i.test(g.a);
-    if(inKind) continue;
-    const amt=fmtAmt(g.a);
-    if(amt===null || Number(String(g.a).replace(/[$,\s]/g,''))<=0) continue;
-    if(!donors[g.n]) donors[g.n]={total:0, donations:[], inKind:[]};
-    donors[g.n].total+=Number(String(g.a).replace(/[$,\s]/g,''));
-    donors[g.n].donations.push({amt:Number(String(g.a).replace(/[$,\s]/g,'')), date:g.d});
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(g.d)){ undated.push(g.n.trim()); continue; }
+    if(g.d.slice(0,4)!==year) continue;
+    if(/^in-?kind/i.test(g.a)){ const d=g.a.replace(/^in-?kind:?\s*/i,'').trim(); if(d) slot(g.n).inKind.push({desc:d, date:g.d}); continue; }
+    if(fmtAmt(g.a)===null || num(g.a)<=0) continue;
+    const x=slot(g.n); x.total+=num(g.a); x.donations.push({amt:num(g.a), date:g.d});
   }
-  for(const g of gifts){
-    if(!g.n || !g.a) continue;
-    const inKind=/^in-?kind/i.test(g.a);
-    if(!inKind) continue;
-    if(!donors[g.n]) donors[g.n]={total:0, donations:[], inKind:[]};
-    donors[g.n].inKind.push({desc:g.a.replace(/^in-?kind:?\s*/i,''), date:g.d});
+  window.__rmUndated=undated;
+  return Object.values(donors).map(function(d){ d.donations.sort(function(a,b){ return a.date<b.date?-1:1; }); return [d.name, d]; }).sort(function(a,b){ return b[1].total-a[1].total; });
+}
+function pickYear(y){ window.__rmYear=y; showYearEndSummary(); }
+/* one letter per donor for the year: the gifts listed, the total, the words the IRS asks for */
+function makeYearLetters(){
+  const org={ name:$('orgName').value.trim(), ein:$('orgEin').value.trim(), addr:$('orgAddr').value.trim(), signer:$('orgSigner').value.trim() };
+  if(!org.name){ alert('Fill in your organization name first.'); $('orgName').focus(); return; }
+  const sorted=aggregateDonorSummary(), year=summaryYear(); if(!sorted.length){ alert('No gifts dated in '+year+'.'); return; }
+  const noGoods=$('noGoods').checked, church=$('isChurch') && $('isChurch').checked, O=escH(org.name);
+  const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  let html='';
+  for(const [name, d] of sorted){
+    const rows=d.donations.map(function(x){ return '<tr><td style="padding:3px 10px 3px 0">'+fmtDate(x.date)+'</td><td style="text-align:right;padding:3px 0">'+fmtAmt(String(x.amt))+'</td></tr>'; }).join('')
+      + d.inKind.map(function(x){ return '<tr><td style="padding:3px 10px 3px 0">'+fmtDate(x.date)+'</td><td style="text-align:right;padding:3px 0">in-kind: '+escH(x.desc)+'</td></tr>'; }).join('');
+    const goods = noGoods
+      ? (church ? 'No goods or services were provided in exchange for these contributions other than intangible religious benefits. '
+                : 'No goods or services were provided in exchange for these contributions. ')
+        + O+' is a tax-exempt organization; this letter serves as your receipt for tax purposes. Please retain it for your records.'
+      : 'In exchange for your gifts you received <i>[describe what they received]</i>, with a good-faith estimated value of <i>[$ value]</i>. The amount you may deduct for federal income tax purposes is limited to the amount of your gifts above that value. Please retain this letter for your records.';
+    html += `<div class="letter" contenteditable="true" spellcheck="false">
+      <div class="org">${O}</div>
+      <div class="small">${[escH(org.addr), org.ein ? 'EIN '+escH(org.ein) : ''].filter(Boolean).join(' · ')}</div>
+      <br><div>${today}</div><br>
+      <div>Dear ${escH(name)},</div><br>
+      <div>Thank you for your generous support of ${O} during ${year}. Here is a record of your gifts:</div>
+      <table style="margin:10px 0;border-collapse:collapse;font-size:15px">${rows}
+        ${d.total>0?'<tr><td style="padding:6px 10px 3px 0;border-top:1px solid #999"><b>Total cash gifts</b></td><td style="text-align:right;padding:6px 0 3px;border-top:1px solid #999"><b>'+fmtAmt(d.total.toFixed(2))+'</b></td></tr>':''}</table>
+      <div>${goods}</div><br>
+      ${d.inKind.length? '<div class="small">Note: for in-kind gifts, the donor determines the value for tax purposes; this letter describes the gift without assigning a value.</div><br>':''}
+      <div>With gratitude,</div><br><br>
+      <div>${escH(org.signer)||'_________________'}</div>
+      <div class="small">${O}</div>
+    </div>`;
   }
-  const sorted=Object.entries(donors).sort((a,b)=>b[1].total-a[1].total);
-  return sorted;
+  closeSummary(); window.__rmEdited=false;
+  $('letters').innerHTML=html; $('printBtn').style.display='inline-block';
+  if($('editHint')) $('editHint').style.display='block';
+  const und=(window.__rmUndated||[]).length;
+  $('madeMsg').textContent=sorted.length+' year-end letter'+(sorted.length!==1?'s':'')+' for '+year+' ready below, one per donor.'+(und?' '+und+' gift'+(und!==1?'s':'')+' with no date '+(und!==1?'were':'was')+' left out.':'')+' Print puts each on its own page.';
+  document.querySelector('.letter').scrollIntoView({behavior:'smooth'});
 }
 function downloadDonorCSV(){
   const org=$('orgName').value.trim();
@@ -273,7 +314,7 @@ function downloadDonorCSV(){
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const link=document.createElement('a');
   link.href=URL.createObjectURL(blob);
-  const year=new Date().getFullYear();
+  const year=summaryYear();
   link.download=`${org.replace(/[^\w\s]/g,'')}_donors_${year}.csv`;
   document.body.appendChild(link);
   link.click();
@@ -283,10 +324,10 @@ function showYearEndSummary(){
   const org={name:$('orgName').value.trim(), ein:$('orgEin').value.trim(), addr:$('orgAddr').value.trim(), signer:$('orgSigner').value.trim()};
   if(!org.name) return;
   const sorted=aggregateDonorSummary();
-  if(!sorted.length){alert('No cash donations to summarize.'); return;}
-  const year=new Date().getFullYear();
+  const year=summaryYear(), ys=giftYears();
+  if(!sorted.length){alert(ys.length?'No gifts dated in '+year+'.':'Give each gift a date first — the year-end total counts one year.'); return;}
   const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  let html=`<div style="max-width:900px;margin:40px auto;padding:40px;border:1px solid #ddd;border-radius:12px;background:#fff;font-family:Arial,sans-serif;line-height:1.6;"><div style="text-align:center;margin-bottom:30px;"><h1 style="margin:0;font-size:24px;font-weight:bold;">${escH(org.name)}</h1><p style="margin:4px 0;font-size:13px;color:#666;">${org.ein?'EIN '+escH(org.ein)+' · ':''}${escH(org.addr)}</p><h2 style="margin:12px 0 4px;font-size:16px;font-weight:bold;">Year-End Donor Summary ${year}</h2><p style="margin:0;font-size:12px;color:#999;">Generated ${today}</p></div><table style="width:100%;border-collapse:collapse;margin:20px 0;"><thead><tr style="background:#f5f5f5;border-bottom:2px solid #333;"><th style="text-align:left;padding:12px;border:1px solid #ddd;font-weight:bold;">Donor Name</th><th style="text-align:right;padding:12px;border:1px solid #ddd;font-weight:bold;">Total Amount</th><th style="text-align:center;padding:12px;border:1px solid #ddd;font-weight:bold;">Gifts</th><th style="text-align:left;padding:12px;border:1px solid #ddd;font-weight:bold;">Dates</th></tr></thead><tbody>`;
+  let html=`<div style="max-width:900px;margin:40px auto;padding:40px;border:1px solid #ddd;border-radius:12px;background:#fff;font-family:Arial,sans-serif;line-height:1.6;"><div style="text-align:center;margin-bottom:30px;"><h1 style="margin:0;font-size:24px;font-weight:bold;">${escH(org.name)}</h1><p style="margin:4px 0;font-size:13px;color:#666;">${org.ein?'EIN '+escH(org.ein)+' · ':''}${escH(org.addr)}</p><h2 style="margin:12px 0 4px;font-size:16px;font-weight:bold;">Year-End Donor Summary ${year}</h2>${ys.length>1?'<p style="margin:6px 0">Year: '+ys.map(function(y){ return '<button onclick="pickYear(\''+y+'\')" style="margin:2px;padding:6px 12px;border-radius:8px;border:1px solid #23504F;'+(y===year?'background:#23504F;color:#fff':'background:#fff;color:#23504F')+'">'+y+'</button>'; }).join('')+'</p>':''}${(window.__rmUndated||[]).length?'<p style="margin:4px 0;font-size:13px;color:#8a3b12">Not counted (no date): '+window.__rmUndated.map(escH).join(', ')+'</p>':''}<p style="margin:0;font-size:12px;color:#999;">Generated ${today}</p></div><table style="width:100%;border-collapse:collapse;margin:20px 0;"><thead><tr style="background:#f5f5f5;border-bottom:2px solid #333;"><th style="text-align:left;padding:12px;border:1px solid #ddd;font-weight:bold;">Donor Name</th><th style="text-align:right;padding:12px;border:1px solid #ddd;font-weight:bold;">Total Amount</th><th style="text-align:center;padding:12px;border:1px solid #ddd;font-weight:bold;">Gifts</th><th style="text-align:left;padding:12px;border:1px solid #ddd;font-weight:bold;">Dates</th></tr></thead><tbody>`;
   let grandTotal=0;let totalGifts=0;
   for(const [name, data] of sorted){
     const dates=data.donations.map(d=>fmtDate(d.date)).join(', ');
@@ -295,7 +336,7 @@ function showYearEndSummary(){
   }
   html+=`<tr style="background:#f5f5f5;border-top:2px solid #333;border-bottom:2px solid #333;font-weight:bold;"><td style="padding:12px;border:1px solid #ddd;">TOTAL</td><td style="text-align:right;padding:12px;border:1px solid #ddd;font-family:monospace;font-size:16px;">$${grandTotal.toFixed(2)}</td><td style="text-align:center;padding:12px;border:1px solid #ddd;">${totalGifts}</td><td style="padding:12px;border:1px solid #ddd;"></td></tr></tbody></table>`;
   if(sorted.some(([,d])=>d.inKind.length)){html+=`<div style="margin-top:30px;padding-top:20px;border-top:1px solid #ddd;"><h3 style="margin:0 0 10px;font-size:14px;font-weight:bold;">In-Kind Contributions</h3>`;for(const [name, data] of sorted){if(!data.inKind.length) continue;html+=`<div style="margin:10px 0;"><strong>${escH(name)}:</strong> ${data.inKind.map(ik=>`${escH(ik.desc)} (${fmtDate(ik.date)})`).join('; ')}</div>`;}html+=`</div>`;}
-  html+=`<div style="margin-top:30px;text-align:center;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#999;">This summary is for reference only. Not tax advice — when in doubt, ask your accountant.</div><div style="margin-top:20px;text-align:center;"><button onclick="downloadDonorCSV()" style="padding:10px 20px;margin:5px;background:#23504F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Download CSV</button> <button onclick="window.print()" style="padding:10px 20px;margin:5px;background:#23504F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">🖨 Print Summary</button> <button onclick="closeSummary()" style="padding:10px 20px;margin:5px;background:#ccc;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">Close</button></div></div>`;
+  html+=`<div style="margin-top:30px;text-align:center;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#999;">This summary is for reference only. Not tax advice — when in doubt, ask your accountant.</div><div style="margin-top:20px;text-align:center;"><button onclick="makeYearLetters()" style="padding:10px 20px;margin:5px;background:#23504F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">✉️ Make one year-end letter per donor</button> <button onclick="downloadDonorCSV()" style="padding:10px 20px;margin:5px;background:#23504F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Download as a spreadsheet (CSV)</button> <button onclick="window.print()" style="padding:10px 20px;margin:5px;background:#23504F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">🖨 Print Summary</button> <button onclick="closeSummary()" style="padding:10px 20px;margin:5px;background:#ccc;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">Close the summary</button></div></div>`;
   $('summary').innerHTML=html;$('summary').style.display='block';$('letters').style.display='none';
   document.querySelector('#summary').scrollIntoView({behavior:'smooth'});
 }
@@ -304,7 +345,7 @@ function closeSummary(){$('summary').style.display='none';$('summary').innerHTML
 
 <footer style="text-align:center;font-size:11.5px;color:var(--soft);padding:20px;line-height:1.6">
   Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
-  <span style="opacity:.8">Receipt Maker v1.13 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
+  <span style="opacity:.8">Receipt Maker v1.14 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
 </footer>
 <script>window.DJ_START = {"slug": "receipts", "em": "🧾", "title": "Welcome — this writes your donor letters.", "lede": "Every gift of $250 or more needs a letter with the words the IRS requires. This writes one for each gift, all at once, so nobody spends January on it.", "cta": "Start with my details →", "firstSelector": "input, button", "dataKeys": ["receipts_v1", "np_receipts_v1"], "steps": ["<b>Put your organization's details in</b> — name, address, EIN.", "<b>Add your gifts</b> — one donor, one amount, one date at a time.", "<b>Make the letters</b>, tap any one to change its words, then print the lot."]};</script>
 
