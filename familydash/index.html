@@ -200,7 +200,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.8 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v13.9 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -1214,8 +1214,36 @@ function xferPartner(t, used, anySign){ var amt = Math.abs(t.amt), A = acct(t.a)
 function xferPairs(){ var used = {}, P = [], U = []; db.tx.filter(function(t){ return t.cat === 'xfer' && inWin(t) && !t.splitOf && !t.inv; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; }).forEach(function(t){ if(used[t.id]) return;
     var x = xferPartner(t, used) || xferPartner(t, used, true); if(x){ used[t.id] = used[x.id] = 1; P.push({ t:t, x:x }); } else U.push(t); }); return { P:P, U:U }; }
 /* on load and after every statement: a line still waiting whose partner is plainly a transfer becomes money moving (both sides) */
-function autoPairs(){ var n = 0, used = {};
+/* Overnight B, 26 Nov 2026 — a mortgage or loan payment is spending, counted once, from checking (YNAB: a payment to a loan
+   must keep a category; Monarch: loan payments count as spending). The loan statement's own line is the money moving.
+   Before, the checking line was paired with the loan line and BOTH became "money moving", so the mortgage vanished from
+   the month. This puts such lines back, and stops it happening again. */
+function isLoanA(a){ return roleOf(a) === 'loan'; }
+function loanPayFix(){ var n = 0;
+  db.tx.forEach(function(t){ var A = acct(t.a); if(!A || isLoanA(A) || !ownAcct(A) || t.splitOf || t.amt <= 0 || t.loanPay) return;
+    if(!(t.cat === 'xfer' && (t.byRole === 'pair' || !db.asked[t.id]))) return;
+    var x = xferPartner(t, null, true); if(!x || !isLoanA(acct(x.a))) return;
+    var g = guessCat(t.desc, t.amt, A, t.bcat), L = acct(x.a) || {};
+    if(g === 'xfer' || g === 'uncat' || g === 'inc'){ var m = /^(mortgage|heloc)$/.test(L.type) || /mortgage|home loan|mtg/i.test(t.desc + ' ' + (L.name || '')) ? catByKw('mortgage') : '__none'; g = m !== '__none' ? m : 'uncat'; }
+    t.cat = g; t.loanPay = x.id; delete t.byRole; t.roleWhy = 'Your payment to ' + acctLabel(L) + ' — counted once, here. The loan statement’s line is the money moving.';
+    if(g === 'uncat') delete db.asked[t.id]; else db.asked[t.id] = 1; n++; });
+  return n; }
+/* Overnight B, 26 Nov 2026 — money back from a shop is a refund, not income (YNAB and Copilot put it back in the category
+   it came from). On a checking or debit account every money-in line used to be guessed as income, so a Target return
+   raised income and left groceries too high. A refund pairs with the shop's charge (same shop, within 90 days, no bigger
+   than the charge, and either the same amount or the word refund/return on it) and takes that charge's category. */
+function shopWord(d){ var w = String(mkey(d) || '').split(' ')[0]; return w.length >= 3 ? w : ''; }   /* the shop's first word: TARGET 123 DES MOINES and TARGET REFUND are both target */
+function refundFix(){ var n = 0, NOT = { xfer:1, inc:1, uncat:1 }, IX = null;
+  var byKey = function(k){ if(!IX){ IX = {}; db.tx.forEach(function(x){ if(x.amt > 0 && !NOT[x.cat] && !x.splitOf){ var kk = shopWord(x.desc); (IX[kk] = IX[kk] || []).push(x); } }); } return IX[k] || []; };
+  db.tx.forEach(function(t){ if(t.amt >= 0 || t.cat !== 'inc' || db.asked[t.id] || t.refundOf || t.splitOf) return; var A = acct(t.a); if(!A || !ownAcct(A) || isLoanA(A)) return;
+    var k = shopWord(t.desc); if(!k) return; var word = /refund|return|reversal|credit adj|merchandise credit|rfnd/i.test(t.desc), best = null, bd = 999;
+    byKey(k).forEach(function(x){ var dd = daysBetween(x.d, t.d); if(dd < 0 || dd > 90 || -t.amt > x.amt + 0.005) return;
+      if(!word && Math.abs(x.amt + t.amt) > 0.005) return; if(dd < bd){ best = x; bd = dd; } });
+    if(!best) return; t.cat = best.cat; t.refundOf = best.id; t.roleWhy = 'Money back from ' + k + ' — it lowers that spending instead of counting as income.'; db.asked[t.id] = 1; n++; });
+  return n; }
+function autoPairs(){ var n = loanPayFix() + refundFix(), used = {};
   db.tx.forEach(function(t){ if(db.asked[t.id] || used[t.id] || t.splitOf || t.cat === 'xfer' || !ownAcct(acct(t.a)) || !xferish(t)) return; var x = xferPartner(t, used); if(!x || !(xferish(x) || x.cat === 'xfer')) return;
+    if(isLoanA(acct(t.a)) !== isLoanA(acct(x.a))){ var ev = isLoanA(acct(t.a)) ? x : t; if(ev.amt > 0) return; }   /* a payment out to a loan stays spending (loanPayFix) */
     if(db.asked[x.id] && x.cat !== 'xfer') return; used[t.id] = used[x.id] = 1; [t, x].forEach(function(y){ if(y.cat !== 'xfer'){ y.cat = 'xfer'; delete y.sug; y.byRole = y.byRole || 'pair'; y.roleWhy = 'Money moving — its partner is on ' + acctLabel(acct((y === t ? x : t).a) || {}); db.asked[y.id] = 1; n++; } }); });
   try{ ppDupes().forEach(function(d){ if(d.sure && !db.asked[d.x.id]){ ppFix1(d); n++; } }); }catch(e){}
   if(n) save(); return n; }
