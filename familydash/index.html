@@ -213,11 +213,11 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v15.0 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v15.1 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
-  <button class="big two" id="repBtn" onclick="openReport()">📝 Monthly report</button>
+  <button class="big two" id="repBtn" onclick="openMonth()">📝 The month</button>
 </div></div>
 
 <div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="in" id="sheetIn"></div></div>
@@ -405,8 +405,12 @@ function acctBack(){ if(ACCT_DONE){ var f = ACCT_DONE; ACCT_DONE = null; f(); } 
 function delAcct(id){ var n = db.tx.filter(function(t){ return t.a === id; }).length;
   if(!confirm('Remove this' + (n ? ' and its ' + n + ' spending lines' : '') + '? If it is only closed, tick “closed” instead and its history stays.')) return;
   db.accts = db.accts.filter(function(a){ return a.id !== id; }); db.tx = db.tx.filter(function(t){ return t.a !== id; }); save(); render(); acctBack(); }
-function openAccounts(){ ACCT_DONE = null;
-  openSheet('<h3>Our accounts</h3><p class="sub">Tap one to change it, mark it closed, or keep it out of the personal numbers.</p>' + acctListHTML() + '<button class="b warm full" onclick="openAcct()">＋ Add one</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
+function openAccounts(){ ACCT_DONE = null; LASTLIST = function(){ openAccounts(); };   /* v15.1 · tiles by kind, with a line under any that needs a look */
+  var by = {}, order = []; db.accts.forEach(function(a){ var T = TYPES[a.type] || TYPES.otherA, k = a.closed ? 'Closed' : T.t; if(!by[k]){ by[k] = []; order.push(k); } by[k].push(a); }); order.sort(function(x, y){ return (x === 'Closed') - (y === 'Closed'); });
+  var tile = function(a){ var T = TYPES[a.type] || TYPES.otherA, miss = 0; try{ if(!a.closed && tracksLines(a) && !a.notPersonal){ var h = mapHave(a); miss = mapMonths(a).filter(function(m){ return !h[m]; }).length; } }catch(e){}
+    var fl = miss ? '<span class="fl">' + miss + ' statement' + (miss===1?'':'s') + ' missing ›</span>' : a.notPersonal ? '<span class="fl amb">not ours</span>' : a.balUnknown && !a.closed ? '<span class="fl amb">balance unknown</span>' : '';
+    return '<button class="gtile" style="margin:0" onclick="openAcct(\'' + a.id + '\')"><span class="nm" style="white-space:normal">' + T.em + ' ' + esc(acctLabel(a)) + '</span><span class="am">' + (a.balUnknown ? '—' : T.s === 'n' ? Math.round(a.bal||0).toLocaleString('en-US') + ' pts' : money(a.bal||0,1) + (T.s === 'l' ? ' owed' : '')) + (a.asOf ? ' · ' + shortDate(a.asOf) : '') + '</span>' + fl + '</button>'; };
+  openSheet('<h3>Our accounts</h3><p class="sub">Tap one to change it, mark it closed, or keep it out of the personal numbers.</p>' + (db.accts.length ? order.map(function(k){ return '<h4 style="margin:12px 0 0">' + esc(k) + '</h4><div class="gtiles" style="margin-top:6px">' + by[k].map(tile).join('') + '</div>'; }).join('') : '<p class="sub">Nothing added yet.</p>') + '<button class="b warm full" onclick="openAcct()">＋ Add one</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>'); }
 function openBalances(){
   var A = db.accts.filter(function(a){ return !a.closed; });
   if(!A.length){ openAcct(); return; }
@@ -904,6 +908,18 @@ function openCatTx(id){ LASTLIST = function(){ openCatTx(id); };
 var CK = null;
 function plain(t){ return String(t).replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'"); }
 function reportMonth(){ var last = addMonths(thisMonth(),-1); return months().indexOf(last) >= 0 && view >= last ? last : view; }
+/* v15.1 · Jerry, 26 Nov: the same look for the month. The check-up, the report and the note were three screens; now one page opens each. */
+function openMonth(m){ m = m || reportMonth(); LASTLIST = function(){ openMonth(m); }; var P = pulseData(m), K = ckupSteps(m), closed = db.closedM && db.closedM[m], ms = months();
+  var line = P.noInc ? 'Add your monthly income to see where it stands.' : money(Math.abs(P.diff),1) + (P.diff >= 0 ? ' under' : ' over') + ' income.';
+  var row = function(go, t, sub, pill){ return '<li class="tap" onclick="' + go + '"><span class="ds" style="font-weight:800">' + t + '<small style="display:block;font-weight:600;color:var(--soft)">' + sub + '</small></span>' + (pill ? '<span class="pill" style="align-self:center">' + pill + '</span>' : '') + '</li>'; };
+  openSheet('<div class="stepno">The month</div><div style="display:flex;align-items:center;gap:8px"><button class="b small" style="margin:0" aria-label="Earlier month"' + (ms.indexOf(addMonths(m,-1)) < 0 ? ' disabled' : '') + ' onclick="openMonth(\'' + addMonths(m,-1) + '\')">‹</button><h3 style="margin:0;flex:1;text-align:center">' + esc(monthName(m)) + '</h3><button class="b small" style="margin:0" aria-label="Later month"' + (addMonths(m,1) > thisMonth() ? ' disabled' : '') + ' onclick="openMonth(\'' + addMonths(m,1) + '\')">›</button></div>'
+    + '<div class="line ' + (P.noInc ? 'warn' : P.diff >= 0 ? 'ok' : 'bad') + '" style="font-weight:800">' + (closed ? '✅ Closed · ' : '') + esc(line) + '</div>'
+    + '<ul class="list">'
+    + row('openCheckup(\'' + m + '\')', '🗓️ Check-up', 'five short steps: statements, questions, bills, balances, the report', K.n === 5 ? '✓' : K.n + ' of 5')
+    + (db.budgetSet ? row('openReport(\'' + m + '\')', '📝 Report', 'the month in plain words, against the budget', (db.read||{})[m] ? '✓ read' : 'new') : row('budStart()', '📝 Report', 'make the budget first — the report compares against it', ''))
+    + row('openNote(\'' + m + '\')', '💬 The note', 'eight or so plain lines to read together', '')
+    + (!closed && !P.q && !P.miss.length ? row('closeMonth(\'' + m + '\')', '✅ Close the month', 'everything is in and sorted', '') : '')
+    + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet()">Close</button></div>'); }
 function openReport(m, mine){
   if(!db.budgetSet){ alert('Make the budget first — the report compares against it.'); return; }
   m = m || reportMonth(); db.read = db.read || {}; if(!db.read[m]){ db.read[m] = 1; save(); render(); }
@@ -911,7 +927,7 @@ function openReport(m, mine){
   var body = showAI ? '<div class="note" id="repText">' + esc(r.text) + '</div><p class="sub" style="margin-top:6px">In your AI’s words, ' + shortDate(r.d) + '. <a href="#" onclick="openReport(\'' + m + '\',1);return false" style="color:var(--brand);font-weight:800">Show the app’s version</a></p>'
     : '<div id="repText">' + reportParts(m).map(function(p){ return '<div class="card" style="margin-bottom:10px;padding:12px 14px"><h2 style="font-size:16.5px;margin:0 0 4px">' + p.em + ' ' + esc(p.h) + '</h2>' + p.L.map(function(x){ return '<p style="margin:4px 0;font-size:15.5px">' + esc(x) + '</p>'; }).join('') + '</div>'; }).join('') + '</div>'
       + (r ? '<p class="sub"><a href="#" onclick="openReport(\'' + m + '\');return false" style="color:var(--brand);font-weight:800">Show your AI’s version</a></p>' : '');
-  openSheet('<h3>' + monthName(m) + '</h3>' + watchBtn('report', '1 min') + body
+  openSheet('<h3>' + monthName(m) + '</h3>' + body
     + '<div class="row" style="margin-top:8px"><button class="b" onclick="openNote(\'' + m + '\')">📝 The note for both of us</button><button class="b" onclick="printReport(\'' + m + '\',' + (showAI?0:1) + ')">🖨️ Print</button></div>'
     + '<button class="b full" onclick="writeReport(\'' + m + '\')">✨ ' + (r ? 'Ask my AI again' : 'Have my AI say it in warmer words') + '</button>'
     + '<button class="b ghost" style="width:100%" onclick="' + (CK ? 'openCheckup(CK)' : 'closeSheet()') + '">' + (CK ? 'Back to the check-up' : 'Close') + '</button>');
@@ -2764,17 +2780,26 @@ function p2Tile(){ var have = 0, need = 0, warn = 0; p2Cats().forEach(function(c
 /* v15.0 · nineteen buttons become four tiles; each opens a short list where every button says what it does */
 var TOOLS = {
   budget:{ t:'📊 Budget', s:'amounts, how often, yearly bills' },
-  check:{ t:'🔎 Check', s:'sort, balance, doubles' },
+  check:{ t:'🔎 Check the books', s:'waiting, balance, doubles' },
   reports:{ t:'📝 Reports', s:'month, year, where it went' },
   home:{ t:'🏡 Household', s:'accounts, advisors, backup' } };
 function toolRows(k){ var q = queue().length, IA = invAccts(), ai = (db.prof||{}).mode === 'ai';
   var R = { budget:[['openBudget()','✏️ Our budget','move each monthly amount up or down'],['budStart()','🔁 How often each kind comes','every month, up and down, once or twice a year'],['openPart2()','📅 Bills once or twice a year','what is set aside for each, and when it is due'],['rvSubsStart()','🔁 Subscriptions','what repeats every month: keep or cancel'],['budgetXlsx()','⬇️ Budget spreadsheet','parts 1, 2 and 3, with formulas'],['yearPick()','📅 Our year','which twelve months we are working on · ' + esc(winLabel())]],
-    check:[['openGTKY()','❓ Questions','sort the purchases the app couldn’t guess · ' + (q ? q + ' waiting' : 'all caught up')],ai ? ['aiHandoff(1)','📥 New month from ' + esc(aiWho().name),'same chat, one spreadsheet back'] : ['sortHub()','📊 Sort each account','one account at a time, one payee at a time'],['openTx()','📃 Everything this month','every line, ' + txIn(view).length + ' of them'],['openBalance()','⚖️ Does it balance?','each statement against what the app read'],['openXfers()','🔁 Money moving between our accounts','card payments and transfers, each with its partner'],['rvOpen()','📌 What’s still open','anything not settled yet'],['openLists()','📋 Lists','help, business, 529, not sure']],
-    reports:[['openReport()','📝 Monthly report','the month in plain words'],['openFlow()','🗺️ Where the money went','a picture from each account to each kind of spending'],['openCompare()','📊 This year vs last','each kind of spending, side by side'],['openMap()','🗺️ Our money map','what is set up, account by account · ' + mapScore() + '% complete']],
+    check:[['openWaiting()','⏳ Waiting on us','everything set aside for later, in one list', waitN() || ''],['openBalance()','⚖️ Does it balance?','each statement against what the app read', (function(){ try{ return stmtChecks().filter(function(c){ return !c.ok; }).length || '✓'; }catch(e){ return ''; } })()],['openXfers()','🔁 Money moving between our accounts','card payments and transfers, each with its partner', (function(){ try{ return xferPairs().U.length || '✓'; }catch(e){ return ''; } })()],['openDups()','👯 Charged twice?','same shop, same amount, a day or two apart', (function(){ try{ return dupList().filter(function(z){ return !z.f.done; }).length || '✓'; }catch(e){ return ''; } })()],db.accts.some(ppAcct) ? ['ppCheck()','🔁 PayPal counted twice?','a PayPal purchase that also shows on a card', (function(){ try{ return ppDupes().length || '✓'; }catch(e){ return ''; } })()] : null,ai ? ['aiHandoff(1)','📥 New month from ' + esc(aiWho().name),'same chat, one spreadsheet back'] : ['sortHub()','📊 Sort each account','one account at a time, one payee at a time'],['openTx()','📃 Everything this month','every line, ' + txIn(view).length + ' of them'],['rvOpen()','📌 What’s still open','anything not settled yet'],['openLists()','📋 Lists','help, business, 529, not sure']],
+    reports:[['openMonth()','📅 The month','check-up, report and the note together'],['openFlow()','🗺️ Where the money went','a picture from each account to each kind of spending'],['openCompare()','📊 This year vs last','each kind of spending, side by side'],['openMap()','🗺️ Our money map','what is set up, account by account · ' + mapScore() + '% complete']],
     home:[['openHome()','🏡 Our household','due dates, where things are, documents'],['openAccounts()','🏦 Our accounts','every account, what it is for, open or closed'],['openBalances()','🧮 Update balances','bank, cards, home, car — for net worth'],['openNetWorth()','📊 Net worth','what we own minus what we owe'],IA.length ? ['openInvest()','📈 Investments', IA.length + ' account' + (IA.length===1?'':'s')] : null,['openPaidFrom()','🔗 What’s paid from where','if an account ever closes, what moves with it'],['openAway()','🧭 If I’m away','what’s due, and who to call'],['openAdvisors()','🧑‍💼 Our advisors','CPA and financial advisor'],['backupOpen()','💾 Backup', db.backupAt ? 'saved ' + shortDate(db.backupAt) : 'not saved yet'],['openSettings()','⚙️ Settings','every setup answer, and Set it up with me']] };
   return (R[k] || []).filter(Boolean); }
 function openTools(k){ var t = TOOLS[k]; LASTLIST = function(){ openTools(k); };
-  openSheet('<h3>' + t.t + '</h3><ul class="list">' + toolRows(k).map(function(r){ return '<li class="tap" onclick="' + r[0] + '"><span class="ds" style="font-weight:800">' + r[1] + '<small style="display:block;font-weight:600;color:var(--soft)">' + r[2] + '</small></span></li>'; }).join('') + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet()">Close</button></div>'); }
+  openSheet('<h3>' + t.t + '</h3><ul class="list">' + toolRows(k).map(function(r){ return '<li class="tap" onclick="' + r[0] + '"><span class="ds" style="font-weight:800">' + r[1] + '<small style="display:block;font-weight:600;color:var(--soft)">' + r[2] + '</small></span>' + (r[3] !== undefined && r[3] !== '' ? '<span class="pill" style="align-self:center;' + (r[3] === '✓' ? 'color:var(--ok)' : 'background:#FFF1D6;color:var(--amber)') + '">' + r[3] + '</span>' : '') + '</li>'; }).join('') + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet()">Close</button></div>'); }
+/* v15.1 · one Waiting list: the questions, a spouse's questions, what was set aside to look into, and charges that might be doubled */
+function waitParts(){ var sq = (db.spouseQ||[]).filter(function(id){ return !db.asked[id]; }).length, lk = 0, dl = 0; try{ lk = lookList().length; }catch(e){} try{ dl = dupList().filter(function(z){ return !z.f.done; }).length; }catch(e){}
+  return [['askRound()','❓ Purchases to sort','the app couldn’t guess these', queue().length],['spouseRound()','💬 For ' + esc(db.spouse || 'your spouse'),'questions you passed on', sq],['openLook()','🔍 To look into','set aside to check on a website, a receipt, or together', lk],['openDups()','👯 Charged twice?','same shop, same amount, a day or two apart', dl]]; }
+function waitN(){ return waitParts().reduce(function(s,x){ return s + x[3]; }, 0); }
+function openWaiting(){ var W = waitParts(), n = waitN(); LASTLIST = function(){ openWaiting(); };
+  openSheet('<h3>⏳ Waiting on us</h3><p class="sub">' + (n ? n + ' thing' + (n===1?'':'s') + ' set aside for later. Nothing here is lost; each comes back until it is answered.' : 'Nothing waiting. ✓') + '</p><ul class="list">'
+    + W.filter(function(x){ return x[3]; }).map(function(x){ return '<li class="tap" onclick="' + x[0] + '"><span class="ds" style="font-weight:800">' + x[1] + '<small style="display:block;font-weight:600;color:var(--soft)">' + x[2] + '</small></span><span class="pill" style="align-self:center;background:#FFF1D6;color:var(--amber)">' + x[3] + '</span></li>'; }).join('')
+    + '<li class="tap" onclick="openLists()"><span class="ds" style="font-weight:800">📋 Lists<small style="display:block;font-weight:600;color:var(--soft)">help, business, 529 — kept apart on purpose</small></span></li></ul>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sheetBack()">Back</button></div>'); }
 /* v8.6 · Jerry, 19 Nov: two homes, each with its own Utilities — "I want to know what we pay for utilities". Each group
    card already has its own subtotal; this adds the other way round, only when a name is in more than one group. */
 function acrossCard(sp){ var by = {}; db.cats.forEach(function(c){ if(part(c) === 3) return; var k = c.name.toLowerCase(); (by[k] = by[k] || []).push(c); });
@@ -3361,9 +3386,12 @@ function saveAcct(id){
 
 /* ── the monthly routine: five steps ── */
 function checkupDue(){ var last = addMonths(thisMonth(), -1); if(new Date().getDate() < 3) return null; if((db.read||{})[last] || db.reports[last]) return null; if(db.made && db.made.slice(0,7) > last) return null; return last; }
-function openCheckup(m){
-  CK = m; var stA = stmtAccts().filter(function(a){ return counts(a); }), haveTx = stA.filter(function(a){ return db.tx.some(function(t){ return t.a === a.id && t.d.slice(0,7) === m; }); }).length;
+/* v15.1 · the five check-up steps, shared by the check-up and the Month page */
+function ckupSteps(m){ var stA = stmtAccts().filter(function(a){ return counts(a); }), haveTx = stA.filter(function(a){ return db.tx.some(function(t){ return t.a === a.id && t.d.slice(0,7) === m; }); }).length;
   var s1 = stA.length && haveTx === stA.length, q = queue().length, s2 = !q, s3 = !db.threePart || !p2Cats().length || !!db.p2seen[thisMonth()], s4 = db.accts.filter(function(a){ return !a.closed; }).every(function(a){ return a.asOf && a.asOf >= addMonths(m,1) + '-01'; }), s5 = !!((db.read||{})[m] || db.reports[m]);
+  return { stA:stA, haveTx:haveTx, q:q, s1:s1, s2:s2, s3:s3, s4:s4, s5:s5, n:[s1,s2,s3,s4,s5].filter(Boolean).length }; }
+function openCheckup(m){
+  CK = m; var K = ckupSteps(m), stA = K.stA, haveTx = K.haveTx, s1 = K.s1, q = K.q, s2 = K.s2, s3 = K.s3, s4 = K.s4, s5 = K.s5;
   function row(done, t, sub, go, btn){ return '<div class="chk' + (done ? ' done' : '') + '"><span class="tick">' + (done ? '✓' : '') + '</span><span class="tx">' + t + '<small>' + sub + '</small></span><button class="b small' + (done ? '' : ' primary') + '" onclick="' + go + '">' + btn + '</button></div>'; }
   openSheet('<h3>' + monthOnly(m) + '’s check-up</h3><p class="sub">The app sorts what it already knows on its own. Five steps for you, in order.</p>'
     + row(s1, '1. Bring in ' + monthOnly(m) + '’s statements', haveTx + ' of ' + stA.length + ' accounts so far · card payments and accounts that aren’t yours are left out', 'openImport()', s1 ? 'Add more' : 'Add')
@@ -3406,9 +3434,11 @@ function openSettings(){
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="spaceOpen()">' + (SPACE === 'practice' ? '🧪 Practice — switch back to Ours' : '🏡 Ours, the real one · 🧪 Practice') + '</button>'
     + (function(){ var A = SQ.map(sqSum), done = A.filter(function(x){ return x.ok; }).length, nx = A.map(function(x, i){ return x.ok ? -1 : i; }).filter(function(i){ return i >= 0; })[0];
         return '<p class="sub" style="margin:8px 0 4px"><b>' + done + ' of ' + SQ.length + ' answered.</b></p>' + (nx != null ? '<button class="b primary full" style="text-align:left" onclick="setupQ(' + nx + ', true)">▶ Pick up where you left off<small style="display:block;font-weight:600;opacity:.85">' + esc(SQ[nx].ask) + '</small></button>' : '')
-          + SQ.map(function(q, i){ var x = A[i]; return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + (x.ok ? '<span style="color:var(--ok)">✓</span> ' : '') + q.ask + '<small style="display:block;font-weight:600;margin-top:3px;color:' + (x.ok ? 'var(--soft)' : 'var(--amber)') + '">' + (x.ok ? esc(x.t || 'Answered') : 'Not answered yet') + '</small></button>'; }).join(''); })()
+          + (function(){ var G = []; SQ.forEach(function(q, i){ var g = G.filter(function(z){ return z.k === q.sec; })[0]; if(!g){ g = { k:q.sec, I:[] }; G.push(g); } g.I.push(i); });   /* v15.1 · one fold per section, saying how much of it is answered */
+              return G.map(function(g){ var n = g.I.filter(function(i){ return A[i].ok; }).length;
+                return fold('st' + g.k.replace(/[^A-Za-z]/g, ''), g.k, n + ' of ' + g.I.length + ' answered', g.I.map(function(i){ var x = A[i], q = SQ[i]; return '<button class="b full" style="text-align:left;font-weight:700" onclick="setupQ(' + i + ', true)">' + (x.ok ? '<span style="color:var(--ok)">✓</span> ' : '') + q.ask + '<small style="display:block;font-weight:600;margin-top:3px;color:' + (x.ok ? 'var(--soft)' : 'var(--amber)') + '">' + (x.ok ? esc(x.t || 'Answered') : 'Not answered yet') + '</small></button>'; }).join(''), 0, n < g.I.length); }).join(''); })(); })()
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="openRoles()">🧭 How each account works</button>'
-    + '<h4>More</h4>' + (LOCK ? '<button class="b full" onclick="lockNow()">🔒 Lock it now</button><button class="b full" onclick="lockOff()">🔓 Take the passcode off</button>' : '<button class="b full" onclick="promiseScreen()">🔐 Lock it with a passcode</button>') + '<button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
+    + fold('stMore', 'More', 'passcode, categories, money, reminder', (LOCK ? '<button class="b full" onclick="lockNow()">🔒 Lock it now</button><button class="b full" onclick="lockOff()">🔓 Take the passcode off</button>' : '<button class="b full" onclick="promiseScreen()">🔐 Lock it with a passcode</button>') + '<button class="b full" onclick="openCats()">🗂️ Categories and groups</button>'
     + '<button class="b full" onclick="openPart2()">📅 Yearly bills and bookings</button>'
     + '<button class="b full" onclick="pickBudgetFile()">📊 Start the budget from my spreadsheet</button>'
     + '<label for="stCur">Money</label><select id="stCur" onchange="db.cur=this.value;save();render()">' + ['$','KSh','£','€'].map(function(c){ return '<option' + (db.cur===c?' selected':'') + '>' + c + '</option>'; }).join('') + '</select>'
@@ -3416,7 +3446,7 @@ function openSettings(){
     + '<button class="b full" onclick="window.djAI && djAI.choose()">🤖 Which AI do I use?</button>'
     + (jbjJars() ? '<button class="b full" onclick="var n=bringJars();save();render();toast(n+\' jars brought in from Jar by Jar.\')">🫙 Bring in my Jar by Jar jars</button>' : '')
     + '<button class="b full" onclick="if(confirm(\'Forget the shops and patterns the app has learned?\')){db.rules=[];db.pats=[];save();toast(\'Forgotten.\');}">Forget what it has learned (' + (db.rules.length + db.pats.length) + ')</button>'
-    + '<button class="b full" style="color:var(--red)" onclick="startOver()">Start over</button>'
+    + '<button class="b full" style="color:var(--red)" onclick="startOver()">Start over</button>')
     + '<button class="b ghost" style="width:100%" onclick="closeSheet()">Close</button>');
 }
 
