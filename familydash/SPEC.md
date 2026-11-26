@@ -1314,3 +1314,12 @@ Each statement that doesn't tie on "Does it balance?" gets a "See what's differe
 ## v14.2 · 26 Nov · Set it up with me from Settings
 
 The checklist disappears once setup is done, so Settings now has a "✨ Set it up with me" button at the top. It runs the questions again with the answers already filled in.
+
+## v15.0 · 26 Nov · The main screen, tightened
+
+- **Overview:** the glance puts its dials beside Safe to spend, Net worth and Investments; on a computer they sit side by side. "Needs you" shows only when something needs attention. "Coming up" folds into a single line that shows how many are due and how many are short. The Ask, Budget and Lists button row is gone.
+- **Groups:** each group is a small tile (`gTile`), two across on a phone and three on a computer, with a bar. When the group is over its budget, a line under the tile says by how much; when only one of its lines is over, it names that line. Tapping a tile opens the group (`openGroup`). "Goes up and down" and "Yearly bills" (`p2Tile`) are tiles too.
+- **Folded sections:** "In three parts", Worth a look, Added together, Biggest gaps, Statements and Getting set up are each one line (`fold`) that opens on a tap and stays open through a redraw (`FOLD`).
+- **Tools:** the old net worth, investments and household cards are gone. The 19 tool buttons are now four tiles (`TOOLS`, `openTools`), and each button inside them says what it does.
+- **Wider layout:** on a computer the page is up to 980px wide.
+- **Videos:** the folded sections the videos talk about are open in the videos. Two lines in the overview video were reworded and re-recorded.
