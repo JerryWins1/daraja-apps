@@ -8,8 +8,8 @@ Needs Playwright, which a cloud container already has.
 
 ## Where the block lives (since 25 Nov 2026)
 
-The block is ONE file, `house/house-v87.js`. A page carries only
-`<script id="dj-house-v87" src="../house/house-v87.js" charset="utf-8"></script>` in the place the
+The block is ONE file, `house/house-v88.js` (the number follows the house version). A page carries only
+`<script id="dj-house-v88" src="../house/house-v88.js" charset="utf-8"></script>` in the place the
 pasted copy used to be: a plain script tag, never `defer` or `async`, because the block patches
 globals at load and must run before the app's own script.
 
@@ -20,8 +20,9 @@ globals at load and must run before the app's own script.
   safe to run twice. Anything it cannot do cleanly it prints under NEEDS A HAND.
 - A beta copy sits one folder deeper, so `tools/rollout.js` adds one `../` on `start` and takes it
   off on `promote`.
-- Still inline on purpose: `familydash/` (its own AI-sheet options, no donate mode) and
-  `shop/watch.html` (v65). They are the last to move.
+- `familydash/` and `shop/watch.html` carry their own copies, moved out unchanged to
+  `house/house-v88-familydash.js` and `house/house-v65-watch.js`. Family Dash's has its own AI-sheet
+  options and no donate mode; folding it into the shared file would change what that app does.
 
 ## Why it is here
 
