@@ -213,7 +213,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v15.5 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v15.6 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -384,6 +384,27 @@ var CARDPAY = /(credit ?ca?rd|\bcrd\b|crdautopay|crcardpmt|card ?(payment|pmt|py
 function payToCard(desc, amt, a){ var d = String(desc || ''); return !!(a && a.type !== 'card' && amt > 0 && CARDPAY.test(d) && /(pay|pmt|pymt|autopay|epay|crda)/i.test(d)); }
 function payToApp(desc, amt, a){ var d = String(desc || ''), m = /\b(venmo|paypal)\b/i.exec(d); if(!m || !a || a.type === 'card' || amt <= 0 || ppAcct(a)) return false; var w = m[1].toLowerCase();
   return db.accts.some(function(x){ return x.id !== a.id && !x.closed && (ppAcct(x) || (x.name || '').toLowerCase().indexOf(w) >= 0) && (x.name || x.inst || '').toLowerCase().indexOf(w) >= 0; }); }
+/* v15.6 · Jerry, 26 Nov: "I know we have Arizona items, Illinois house items… how do you know how to put it in the category?" With two
+   homes, both have a Utilities, and a shop the app hasn't learned went to whichever came first. A statement line usually ends with
+   the city and state ("FRYS-FOOD PEORIA AZ"), so a guess that lands in one home's category moves to the same category in the home
+   in that state. A home's state is what Settings says, or the state in its name ("Arizona house"), or else the state most of the
+   lines already sorted into it show. What the family taught the app about a shop always wins. */
+var USST = { AL:'alabama', AK:'alaska', AZ:'arizona', AR:'arkansas', CA:'california', CO:'colorado', CT:'connecticut', DE:'delaware', FL:'florida', GA:'georgia', HI:'hawaii', ID:'idaho', IL:'illinois', IN:'indiana', IA:'iowa', KS:'kansas', KY:'kentucky', LA:'louisiana', ME:'maine', MD:'maryland', MA:'massachusetts', MI:'michigan', MN:'minnesota', MS:'mississippi', MO:'missouri', MT:'montana', NE:'nebraska', NV:'nevada', NH:'new hampshire', NJ:'new jersey', NM:'new mexico', NY:'new york', NC:'north carolina', ND:'north dakota', OH:'ohio', OK:'oklahoma', OR:'oregon', PA:'pennsylvania', RI:'rhode island', SC:'south carolina', SD:'south dakota', TN:'tennessee', TX:'texas', UT:'utah', VT:'vermont', VA:'virginia', WA:'washington', WV:'west virginia', WI:'wisconsin', WY:'wyoming', DC:'district of columbia' };
+function descState(desc){ var w = String(desc || '').toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').trim().split(/\s+/), seen = 0;
+  for(var i = w.length - 1; i >= 1 && seen < 3; i--){ var x = w[i]; if(/\d/.test(x)) continue; seen++; if(x.length === 2 && USST[x]) return x; } return ''; }
+function homeOf(c){ if(!c) return -1; var m = /^g_home(\d+)$/.exec(c.g || ''); if(m) return +m[1]; var H = db.homes || []; for(var i = 0; i < H.length; i++) if(H[i] && new RegExp(' · ' + H[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$').test(c.name)) return i; return -1; }
+var HSM = { t:0, v:null };
+function homeStates(){ if(HSM.v && Date.now() - HSM.t < 1500) return HSM.v; var H = db.homes || [], out = H.map(function(h, i){ var set = (db.homeSt || [])[i]; if(set) return set;
+    var lo = ' ' + String(h || '').toLowerCase().replace(/[^a-z ]/g, ' ') + ' '; for(var k in USST) if(lo.indexOf(' ' + USST[k] + ' ') >= 0 || lo.indexOf(' ' + k.toLowerCase() + ' ') >= 0 && k !== 'IN' && k !== 'ME' && k !== 'OR' && k !== 'OK' && k !== 'HI') return k; return ''; });
+  if(H.length > 1 && out.some(function(x){ return !x; })){ var V = H.map(function(){ return {}; }); db.tx.forEach(function(t){ if(!db.asked[t.id]) return; var i = homeOf(cat(t.cat)); if(i < 0 || out[i]) return; var st = descState(t.desc); if(st) V[i][st] = (V[i][st] || 0) + 1; });
+    V.forEach(function(v, i){ if(out[i]) return; var ks = Object.keys(v).sort(function(x, y){ return v[y] - v[x]; }), tot = ks.reduce(function(s, k){ return s + v[k]; }, 0); if(ks.length && v[ks[0]] >= 2 && v[ks[0]] >= tot * .6) out[i] = ks[0]; }); }
+  HSM = { t:Date.now(), v:out }; return out; }
+function stateHome(cid, desc){ var H = db.homes || []; if(H.length < 2) return cid; var c = cat(cid), i = homeOf(c); if(i < 0) return cid; var st = descState(desc); if(!st) return cid;
+  var S = homeStates(); if(S[i] === st) return cid; var j = S.indexOf(st); if(j < 0) return cid;
+  var base = c.name.replace(new RegExp(' · ' + H[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'), ''), twin = db.cats.filter(function(x){ return x.id !== c.id && (/^g_home/.test(c.g) ? x.g === 'g_home' + j && x.name === c.name : x.name === base + ' · ' + H[j]); })[0];
+  return twin ? twin.id : cid; }
+/* lines the app guessed (never ones the family answered) move to the home in their state */
+function stateFix(){ if((db.homes||[]).length < 2) return; var n = 0; db.tx.forEach(function(t){ if(db.asked[t.id] || t.splitOf) return; var c = stateHome(t.cat, t.desc); if(c !== t.cat){ t.cat = c; n++; } }); if(n) save(); }
 function guessCat(desc, amt, a, bcat){
   if(payToCard(desc, amt, a) || payToApp(desc, amt, a)) return 'xfer';
   var d = ' ' + String(desc||'').toLowerCase() + ' ', k = mkey(desc);
@@ -395,8 +416,8 @@ function guessCat(desc, amt, a, bcat){
   if(XFER.test(d) && !billAuto) return 'xfer';
   if(bankOf(d) && /pmt|pymt|payment|autopay|epay/i.test(d) && !/fee|interest/i.test(d)) return 'xfer';   /* paying a card from the bank account moves money; it is not spending */
   if(amt < 0){ if(INCOME.test(d) || (a && a.type !== 'card')) return 'inc'; }
-  if(best) return best;
-  if(bcat && amt > 0){ for(var b=0;b<BCAT.length;b++) if(BCAT[b][1].test(bcat.toLowerCase())){ var id = catByKw(BCAT[b][0]); if(id !== '__none') return id; } }
+  if(best) return stateHome(best, desc);
+  if(bcat && amt > 0){ for(var b=0;b<BCAT.length;b++) if(BCAT[b][1].test(bcat.toLowerCase())){ var id = catByKw(BCAT[b][0]); if(id !== '__none') return stateHome(id, desc); } }
   return 'uncat';
 }
 function learn(desc, cid){ var k = mkey(desc); if(!k) return 0; db.rules = db.rules.filter(function(r){ return r.k !== k; }); db.rules.unshift({ k:k, cat:cid });
@@ -2753,7 +2774,7 @@ function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonth
 var FOLD = {};
 function fold(id, title, right, inner, open, bad){ if(!inner) return ''; var o = FOLD[id] != null ? FOLD[id] : !!open;
   return '<details class="fold" id="' + id + '"' + (o ? ' open' : '') + ' ontoggle="FOLD[this.id]=this.open"><summary><span>' + title + '</span><small' + (bad ? ' class="bad"' : '') + '>' + right + '</small></summary><div class="foldin">' + inner + '</div></details>'; }
-function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLineFix(); cardPayFix(); readTwiceFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
+function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLineFix(); cardPayFix(); readTwiceFix(); stateFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
@@ -3095,7 +3116,7 @@ SQ = [
     save:function(){ db.peopleTap = tapVal('ppl'); db.people = document.getElementById('qP').value.trim(); if(db.people && !db.name) db.name = db.people; } },
   { sec:'Household', ask:'Do you have more than one home? Name each one.',
     html:function(){ var n = (db.homes||[]).length || 1; return taps('homes', [['1','One home'],['2','Two homes','each becomes its own group'],['3','Three homes']], String(n)) + '<div id="qHomes"></div>'; },
-    after:function(){ sqHomes(); }, save:function(){ var n = +(tapVal('homes')||1), H = []; for(var k=0;k<n;k++){ var el = document.getElementById('qH' + k); H.push((el && el.value.trim()) || (n === 1 ? 'Our home' : 'Home ' + (k+1))); } db.homes = H; } },
+    after:function(){ sqHomes(); }, save:function(){ var n = +(tapVal('homes')||1), H = []; for(var k=0;k<n;k++){ var el = document.getElementById('qH' + k); H.push((el && el.value.trim()) || (n === 1 ? 'Our home' : 'Home ' + (k+1))); var se = document.getElementById('qHS' + k); if(se){ db.homeSt = db.homeSt || []; db.homeSt[k] = se.value; } } db.homes = H; } },
   { sec:'Household', ask:'Do you have cars? Name each one.', sum:function(){ return db.cars ? (db.cars.length ? db.cars.join(' · ') : 'No cars') : ''; },
     html:function(){ return '<p class="sub">So their insurance and registration can be asked about by name — “Car insurance · the Tesla”. None? Just tap Next.</p><div id="qCars"></div><div class="row" style="gap:8px;margin-top:8px"><input id="qCN" placeholder="e.g. The Tesla" style="flex:1" onkeydown="if(event.key===\'Enter\'){event.preventDefault();carAdd();}"><button class="b" style="margin:0;flex:0 0 auto" onclick="carAdd()">＋ Add</button></div>'; },
     after:function(){ db.cars = db.cars || []; carRows(); }, save:function(){ db.cars = db.cars || []; var el = document.getElementById('qCN'); if(el && el.value.trim()) db.cars.push(el.value.trim()); } },
@@ -3142,7 +3163,7 @@ SQ = [
     html:function(){ return '<p class="sub">The app points out tax and investment questions and leaves the decisions to them.</p><label for="qCpa">CPA</label><input id="qCpa" value="' + esc(db.cpa) + '" placeholder="Name (optional)"><label for="qAdv">Financial advisor</label><input id="qAdv" value="' + esc(db.advisor) + '" placeholder="Name (optional)">'; },
     save:function(){ db.cpa = document.getElementById('qCpa').value.trim(); db.advisor = document.getElementById('qAdv').value.trim(); } }
 ];
-function sqHomes(){ var el = document.getElementById('qHomes'); if(!el) return; var n = +(tapVal('homes')||1); el.innerHTML = n < 2 ? '' : Array.apply(null, Array(n)).map(function(_, k){ return '<label for="qH' + k + '">Name for home ' + (k+1) + '</label><input id="qH' + k + '" value="' + esc((db.homes||[])[k] || '') + '" placeholder="e.g. The lake house">'; }).join(''); }
+function sqHomes(){ var el = document.getElementById('qHomes'); if(!el) return; var n = +(tapVal('homes')||1); el.innerHTML = n < 2 ? '' : Array.apply(null, Array(n)).map(function(_, k){ return '<label for="qH' + k + '">Name for home ' + (k+1) + '</label><div class="row" style="gap:8px;flex-wrap:nowrap"><input id="qH' + k + '" value="' + esc((db.homes||[])[k] || '') + '" placeholder="e.g. The lake house" style="flex:1;min-width:0"><select id="qHS' + k + '" aria-label="Its state" style="flex:0 0 auto;width:auto"><option value="">State</option>' + Object.keys(USST).sort().map(function(c){ return '<option' + ((db.homeSt||[])[k] === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>'; }).join('') + (n >= 2 ? '<p class="sub" style="margin-top:6px">The state lets a new shop go to the right home: a bill that says Peoria AZ goes to the Arizona home.</p>' : ''); }
 window.tap_homes = function(){ sqHomes(); };
 function incRows(){ var el = document.getElementById('qInc'); if(!el) return; el.innerHTML = db.incomes.map(function(i, k){ return '<div class="row" style="margin:8px 0;align-items:center;flex-wrap:nowrap"><input data-in="' + k + '" value="' + esc(i.name) + '" placeholder="Source" style="flex:1.4;min-width:0"><input data-ia="' + k + '" inputmode="decimal" value="' + (i.amt||'') + '" placeholder="$ a month" style="flex:1;min-width:0"><button class="b small" style="flex:none" aria-label="Remove" onclick="incRead();db.incomes.splice(' + k + ',1);incRows()">✕</button></div>'; }).join('') + (db.incomes.length ? '<div class="line ok">Total: ' + money(income(),1) + ' a month</div>' : ''); }
 function incRead(){ db.incomes.forEach(function(i, k){ var n = document.querySelector('[data-in="' + k + '"]'), a = document.querySelector('[data-ia="' + k + '"]'); if(n) i.name = n.value.trim() || 'Income'; if(a) i.amt = Math.abs(num(a.value)); }); }
