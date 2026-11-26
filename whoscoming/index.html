@@ -137,7 +137,7 @@
 
   <!-- 6 Nov (Jerry): the guest page is the only page an invited person ever sees, and it had no way
        through to the store. One link in the footer that was already here, rather than a second footer. -->
-  <p class="foot">Who’s Coming v1.22 · 2026-11-25 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
+  <p class="foot">Who’s Coming v1.23 · 2026-11-25 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -189,6 +189,8 @@ function peopleOf(gid){ const g=db.groups.find(x=>x.id===gid); return g?g.people
 /* 13 Oct (Kenya testers): when someone can't come they may say why — optional, one line, never required */
 const WHY_CHIPS=['Working','Travelling','Not feeling well','Something else'];
 function isNo(o){ return /^\s*(no\b|nope|can[’']?t|cannot|not\b|won[’']?t|unable)/i.test(String(o||'')); }
+/* Overnight B, 26 Nov: a Maybe is not a Yes. It was counted as coming, so the head count and the "only the ones coming" text were wrong. */
+function isMaybe(o){ return /^\s*(maybe|not sure|might|possibly|perhaps|tbd)\b/i.test(String(o||'')); }
 function whyPicker(cur){ cur=String(cur||''); const known=WHY_CHIPS.indexOf(cur)>=0 && cur!=='Something else';
   return `<div class="chips whyChips" role="group" aria-label="Reasons to choose from">${WHY_CHIPS.map(c=>`<button type="button" class="chip${cur===c?' on':''}" aria-pressed="${cur===c}" onclick="whyChip(this)">${esc(c)}</button>`).join('')}</div>
     <input id="whyTxt" maxlength="80" autocomplete="off" placeholder="Or say it in a few words" aria-label="Reason, in a few words (optional)" value="${known?'':esc(cur)}">`; }
@@ -260,15 +262,17 @@ function askText(a, nudge){ const ppl=peopleOf(a.groupId);
 function waAsk(id,nudge){ const a=db.asks.find(x=>x.id===id); if(!a) return;
   if(!db.me.name){ toast('Add your name first — tap 📨 Send to the group once and it will ask'); return; }
   waSend(askText(a,nudge)); }
-function comingYes(a,p){ const x=(a.answers||{})[p.id]; return !!x && !isNo(x.a); }
+function comingYes(a,p){ const x=(a.answers||{})[p.id]; return !!x && !isNo(x.a) && !isMaybe(x.a); }
 function summaryText(a){
-  const ppl=peopleOf(a.groupId), yes=[], no=[], quiet=[];
+  const ppl=peopleOf(a.groupId), yes=[], no=[], quiet=[], maybe=[];
   ppl.forEach(p=>{ const x=(a.answers||{})[p.id];
     if(!x) quiet.push(p.name);
     else if(isNo(x.a)) no.push(p.name + (x.why?' ('+x.why+')':''));
+    else if(isMaybe(x.a)) maybe.push(p.name + (x.why?' \u2014 '+x.why:''));
     else yes.push(p.name + (x.why?' \u2014 '+x.why:'')); });
   const L=[a.q, ''];
   L.push('Coming (' + yes.length + ')' + (yes.length?': '+yes.join(', '):''));
+  if(maybe.length) L.push('Maybe (' + maybe.length + '): ' + maybe.join(', '));
   if(no.length) L.push('Can\u2019t come (' + no.length + '): ' + no.join(', '));
   if(quiet.length) L.push('Not heard from (' + quiet.length + '): ' + quiet.join(', '));
   if(db.me.name) L.push('', '\u2014 ' + db.me.name);
@@ -363,7 +367,7 @@ function shareMode(){
     r.innerHTML='<div class="reply"><h2>This link didn\u2019t open.</h2><p class="small">It may have been cut short when it was copied. Ask whoever sent it to send it again.</p></div>';
     return true; }
   const rows=d.p.filter(x=>Array.isArray(x)).map(x=>({ name:String(x[0]||''), a:String(x[1]||''), why:String(x[2]||'') }));
-  const yes=rows.filter(x=>x.a && !isNo(x.a)), no=rows.filter(x=>x.a && isNo(x.a)), quietFolk=rows.filter(x=>!x.a);
+  const yes=rows.filter(x=>x.a && !isNo(x.a) && !isMaybe(x.a)), maybeFolk=rows.filter(x=>x.a && isMaybe(x.a)), no=rows.filter(x=>x.a && isNo(x.a)), quietFolk=rows.filter(x=>!x.a);
   /* bold means "what they are bringing" (the organiser's follow-up); a reason for
      not coming is quieter, in brackets, because it is nobody else's business */
   const list=(arr,bold)=>'<ul style="margin:6px 0 0;padding-left:20px;font-size:17px;line-height:1.6">'+arr.map(function(x){
@@ -375,6 +379,7 @@ function shareMode(){
     + '<div style="margin-top:14px"><b style="font-size:18px">\u2705 Coming ('+yes.length+')</b>'
       + (yes.length?list(yes,true):'<p class="small">Nobody yet.</p>')
       + (d.f&&yes.some(x=>x.why)?'<p class="small" style="margin-top:4px">In bold: '+esc(d.f)+'</p>':'')+'</div>'
+    + (maybeFolk.length?'<div style="margin-top:14px"><b style="font-size:18px">🤔 Maybe ('+maybeFolk.length+')</b>'+list(maybeFolk,true)+'</div>':'')
     + (no.length?'<div style="margin-top:14px"><b style="font-size:18px">\u274c Can\u2019t come ('+no.length+')</b>'+list(no,false)+'</div>':'')
     + (quietFolk.length?'<div style="margin-top:14px"><b style="font-size:18px">\u2753 Not heard from ('+quietFolk.length+')</b>'+list(quietFolk,false)+'</div>':'')
     + '<p class="small" style="margin-top:16px">This is the list as '+(d.n?esc(d.n):'the organiser')+' had it'+(d.d?' on '+esc(d.d):'')+'. It does not change by itself \u2014 ask for a fresh link if you want the latest.</p>'
