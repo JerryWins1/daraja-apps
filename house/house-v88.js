@@ -2965,6 +2965,7 @@
       var hosts; try{ hosts = document.querySelectorAll(it.sel); }catch(e){ continue; }
       for(var j = 0; j < hosts.length; j++){
         var h = hosts[j], have = null;
+        if(h.closest && h.closest('#djDock,#djShowSheet,#djDockSheet,#djTour,#djMenu,#djSetup,#djMoreSheet,#djAISheet')) continue;   /* never inside the house's own panels */
         for(var c = h.firstElementChild; c; c = c.nextElementSibling){ if(c.classList && c.classList.contains('djPurpose')){ have = c; break; } }
         if(!have && it.after){ var hh = null; try{ hh = h.querySelector(it.after); }catch(e){} if(hh && hh.nextElementSibling && hh.nextElementSibling.classList && hh.nextElementSibling.classList.contains('djPurpose')) have = hh.nextElementSibling; }
         if(have){ if(have.textContent !== it.t) have.textContent = it.t; continue; }
