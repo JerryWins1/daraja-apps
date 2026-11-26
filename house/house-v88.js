@@ -1904,6 +1904,17 @@
     }catch(e){ return false; }
   }
   var DJ_TOURED = 0;
+  /* 26 Nov 2026: is the setup offer due on this open? Then it takes the start menu's place this once,
+     so the second visit is one screen, not the menu and then the offer on top of it. */
+  function setupDue(){
+    try{
+      if(djMineOff() || DJ_TOURED || DJ_TYPED) return false;
+      if(djProfile().done) return false;
+      if(localStorage.getItem('dj_setup_no_' + djRefKey(slugOf())) === '1') return false;
+      if(window.DJ_TOUR && !localStorage.getItem('dj_tour_' + window.DJ_TOUR.slug)) return false;
+      return true;
+    }catch(e){ return false; }
+  }
   function setupOffer(force, tries){
     if(!force && djMineOff()) return;
     if(document.getElementById('djSetup')) return;
@@ -3758,6 +3769,7 @@
   function openMenu(force){
     var M = window.DJ_MENU; if(!M || !document.body || document.getElementById('djMenu')) return;
     if(document.getElementById('djTour')) return;
+    if(!force && (setupDue() || document.getElementById('djSetup'))) return;   /* 26 Nov: the one-time setup offer has this open; the menu comes next time */
     try{ localStorage.setItem('dj_menu_seen_' + M.slug, String(Date.now())); }catch(e){}
     var h = new Date().getHours(), greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     var nm = djName();

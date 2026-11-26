@@ -590,7 +590,14 @@ async function mine(b, port){
   await p.waitForTimeout(2500);
   up = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
     .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
-  ck('then the setup offer comes up, alone', up.includes('djSetup') && !up.includes('djHello'), up);
+  /* 26 Nov 2026 (Jerry: "fewer jumps"): someone who has just been through the tour is not met by a
+     third full screen on the same visit. The offer takes its turn on the NEXT open, alone. */
+  ck('not straight after the tour, on the same visit', !up.includes('djSetup'), up);
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4500);
+  up = await p.evaluate(() => Array.from(document.querySelectorAll('html > *, body > *'))
+    .filter(e => e.id && e.checkVisibility() && (getComputedStyle(e).position === 'fixed' || +getComputedStyle(e).zIndex > 100)).map(e => e.id));
+  ck('on the next open the setup offer comes up, alone', up.includes('djSetup') && !up.includes('djHello') && !up.includes('djTour'), up);
   ck('it says how long it takes before asking anything', /Four questions, all taps/.test(await p.evaluate(() => document.getElementById('djSetup').innerText)));
   await p.evaluate(() => document.querySelector('#djSetup button[data-go]').click());
   for (let i = 0; i < 4; i++) { await p.evaluate(() => document.querySelector('#djSetup button[data-a]').click()); await p.waitForTimeout(150); }
@@ -655,11 +662,13 @@ async function mine(b, port){
     p = await ctx.newPage();
     await p.goto(`http://localhost:${port}/whoscoming/`, { waitUntil: 'domcontentloaded' });
     await p.waitForTimeout(1500);
-    if (typed) await p.evaluate(() => { const i = document.createElement('input');
-      document.body.appendChild(i); i.value = 'Grace Chapel Nakuru'; i.dispatchEvent(new Event('input', { bubbles: true })); });
-    await p.waitForTimeout(2500);
     await p.evaluate(() => { const t = document.getElementById('djTour'); if (t) t.remove();
       try { localStorage.setItem('dj_tour_' + (window.DJ_TOUR || {}).slug, 'done'); } catch (e) {} });
+    /* 26 Nov: the offer never follows the tour on the same visit, so this is checked on the next open */
+    await p.reload({ waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(1200);
+    if (typed) await p.evaluate(() => { const i = document.createElement('input');
+      document.body.appendChild(i); i.value = 'Grace Chapel Nakuru'; i.dispatchEvent(new Event('input', { bubbles: true })); });
     await p.waitForTimeout(6000);
     const shown = await p.evaluate(() => !!document.getElementById('djSetup'));
     const refused = await p.evaluate(() => localStorage.getItem('dj_setup_no_whoscoming'));
