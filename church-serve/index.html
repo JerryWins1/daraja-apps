@@ -112,7 +112,7 @@
 
 <footer>
   Lives on this device — Print, or text each person straight from the board. (Team sync is the next version.)<br><br>
-  <span style="opacity:.8">Serve Board v1.14 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
+  <span style="opacity:.8">Serve Board v1.15 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
 </footer>
 
 <script>
@@ -303,7 +303,13 @@ window.fill=function(wi,role){
   var w=db.weeks[wi], R=roleOf(role);
   var able=db.roster.filter(function(p){ return p.n && (!(p.can||[]).length || p.can.indexOf(role)>=0); });
   var others=db.roster.filter(function(p){ return p.n && able.indexOf(p)<0; });
-  var chip=function(p){ return '<button onclick="pick('+wi+','+jsa(role)+','+jsa(p.n)+')" style="font:inherit;font-size:15px;font-weight:700;padding:10px 14px;border-radius:999px;border:1.5px solid #2F6E52;background:transparent;color:inherit;cursor:pointer;margin:0 6px 6px 0">'+esc2(p.n)+'</button>'; };
+  /* Overnight B, 26 Nov 2026 (Planning Center's auto-schedule picks whoever served longest ago, and warns on a double booking):
+     the people who can do this are listed fairest first — never served, then longest since they served — and anyone
+     already on another job that Sunday goes to the end, with the job named. */
+  var onToday=function(n){ var r=''; Object.keys(w.slots||{}).forEach(function(k){ if(k!==role && w.slots[k]===n) r=k; }); return r; };
+  var lastBy=function(n){ var d=''; db.weeks.forEach(function(x){ if(x.date<w.date && Object.keys(x.slots||{}).some(function(k){ return x.slots[k]===n; }) && x.date>d) d=x.date; }); return d; };
+  able.sort(function(a,b){ var A=onToday(a.n)?1:0, B=onToday(b.n)?1:0; if(A!==B) return A-B; var la=lastBy(a.n), lb=lastBy(b.n); return la<lb?-1:la>lb?1:0; });
+  var chip=function(p){ var on=onToday(p.n); return '<button onclick="pick('+wi+','+jsa(role)+','+jsa(p.n)+')" style="font:inherit;font-size:15px;font-weight:700;padding:10px 14px;border-radius:999px;border:1.5px solid #2F6E52;background:transparent;color:inherit;cursor:pointer;margin:0 6px 6px 0'+(on?';opacity:.6':'')+'">'+esc2(p.n)+(on?' <span style="font-weight:400;font-size:13px">· on '+esc2(on)+'</span>':'')+'</button>'; };
   sheet(esc2(role)+' — '+label(w.date),
     (R.req? '<div style="background:rgba(242,177,52,.18);border:1.5px solid rgba(242,177,52,.6);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px"><b>This role requires:</b> '+esc2(R.req)+'</div>':'')
     + (able.length? '<div style="font-size:13px;opacity:.75;margin-bottom:6px">Your people who can do this:</div><div style="margin-bottom:10px">'+able.map(chip).join('')+'</div>' : '<p style="opacity:.75;font-size:14px">Nobody in your people can do this yet — type a name below, or add people in 👥 My people.</p>')
@@ -318,6 +324,8 @@ window.fill=function(wi,role){
 window.pick=function(wi,role,name){
   var w=db.weeks[wi]; name=String(name||'').trim();
   if(name){
+    var also=Object.keys(w.slots||{}).filter(function(k){ return k!==role && w.slots[k]===name; })[0];
+    if(also && !confirm(name+' is already on '+also+' that Sunday. Put them on '+role+' too?')) return;
     w.slots[role]=name;
     if(!db.roster.some(function(p){ return p.n===name; })) db.roster.push({n:name,ph:'',em:'',can:[role]});
     save();
