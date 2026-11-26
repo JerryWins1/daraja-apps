@@ -111,6 +111,9 @@
         <div id="followWrap"><label for="askFollow">If they say yes, also ask them… <span class="small" style="font-weight:400">(optional)</span></label>
         <input id="askFollow" maxlength="80" placeholder="e.g. What are you bringing?" aria-label="A follow-up question for the people who say yes">
         <p class="small" style="margin:4px 0 0">Only the people who say yes see this. They can skip it. Whatever they type comes back with their answer.</p></div>
+        <div id="slotWrap"><label for="askSlots">Things to bring <span class="small" style="font-weight:400">(optional, one per line, “x3” for how many)</span></label>
+        <textarea id="askSlots" rows="3" placeholder="Salad x3&#10;Dessert x2&#10;Drinks"></textarea>
+        <p class="small" style="margin:4px 0 0">For a potluck: when someone says yes, you tap what they’re bringing, and the summary shows what is still needed.</p></div>
         <label for="askWhen">Answer by (optional)</label>
         <input id="askWhen" type="date">
         <div class="row" style="margin-top:12px"><button class="primary" style="flex:1" onclick="createAsk()">Save and send →</button><button class="ghost" onclick="toggleNew(false)">Cancel</button></div>
@@ -140,7 +143,7 @@
 
   <!-- 6 Nov (Jerry): the guest page is the only page an invited person ever sees, and it had no way
        through to the store. One link in the footer that was already here, rather than a second footer. -->
-  <p class="foot">Who’s Coming v1.26 · 2026-11-25 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
+  <p class="foot">Who’s Coming v1.27 · 2026-11-25 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -209,12 +212,13 @@ function whyValue(){ const t=$('whyTxt'), on=document.querySelector('.whyChips .
 function whyFor(aid,pid){ const a=db.asks.find(x=>x.id===aid); if(!a) return; const ans=(a.answers||{})[pid]; if(!ans) return; const p=peopleOf(a.groupId).find(x=>x.id===pid)||{name:'them'};
   /* 6 Nov: the same sheet serves both — a reason when they can't come, the organiser's own follow-up when they can */
   const no=isNo(ans.a);
-  if(!no){ sheet(`<h3>${esc(a.followQ||'What did they say?')}</h3><p class="small">${esc(p.name)} said ${esc(ans.a)}. Only if they told you — it’s optional. It shows next to their name and in the copied tally.</p>
+  if(!no){ const SL=a.slots||[]; window.__slotPick=ans.bring||''; sheet(`<h3>${esc(a.followQ||(SL.length?'What is '+p.name+' bringing?':'What did they say?'))}</h3><p class="small">${esc(p.name)} said ${esc(ans.a)}. Only if they told you — it’s optional. It shows next to their name and in the copied tally.</p>
+    ${SL.length?`<div class="whyChips" id="slotChips" style="margin:8px 0">${SL.map(x=>{ const t=slotTaken(a,x.id)-(ans.bring===x.id?1:0); return `<button type="button" class="chip${ans.bring===x.id?' on':''}" data-sl="${x.id}" onclick="window.__slotPick=(window.__slotPick===this.dataset.sl?'':this.dataset.sl); document.querySelectorAll('#slotChips .chip').forEach(c=>c.classList.toggle('on',c.dataset.sl===window.__slotPick));">${esc(x.label)} <small>${t} of ${x.want}</small></button>`; }).join('')}</div>`:''}
     <input id="whyTxt" maxlength="80" autocomplete="off" placeholder="In a few words" aria-label="${esc(a.followQ||'Their answer')}" value="${esc(ans.why||'')}">
     <div class="row" style="margin-top:12px"><button class="primary" style="flex:1" id="whySave">Save</button>${ans.why?'<button id="whyDel">Remove</button>':''}<button class="ghost" onclick="closeSheet()">Cancel</button></div>`); }
   else sheet(`<h3>Why can’t ${esc(p.name)} come?</h3><p class="small">Only if they told you — it’s optional. It shows next to their name and in the copied tally.</p>${whyPicker(ans.why)}
     <div class="row" style="margin-top:12px"><button class="primary" style="flex:1" id="whySave">Save</button>${ans.why?'<button id="whyDel">Remove reason</button>':''}<button class="ghost" onclick="closeSheet()">Cancel</button></div>`);
-  $('whySave').onclick=()=>{ const v=no?whyValue():($('whyTxt').value||'').trim().slice(0,80); if(v) ans.why=v; else delete ans.why; save(); closeSheet(); render(); toast(v?'Saved ✓':(no?'No reason — that’s fine':'Nothing recorded — that’s fine')); };
+  $('whySave').onclick=()=>{ const v=no?whyValue():($('whyTxt').value||'').trim().slice(0,80); if(v) ans.why=v; else delete ans.why; if(!no&&(a.slots||[]).length){ if(window.__slotPick) ans.bring=window.__slotPick; else delete ans.bring; } save(); closeSheet(); render(); toast(v||ans.bring?'Saved ✓':(no?'No reason — that’s fine':'Nothing recorded — that’s fine')); };
   if($('whyDel')) $('whyDel').onclick=()=>{ delete ans.why; save(); closeSheet(); render(); toast('Reason removed'); };
   $('whyTxt').onkeydown=e=>{ if(e.key==='Enter') $('whySave').click(); }; }
 function tallyText(a){ const t={}; let heads=0, extra=false; Object.values(a.answers||{}).forEach(x=>{ t[x.a]=(t[x.a]||0)+1; if(!isNo(x.a)&&!isMaybe(x.a)&&a.kind!=='free'){ heads+=x.n>1?x.n:1; if(x.n>1) extra=true; } }); return (Object.entries(t).map(([k,v])=>v+' '+k).join(' · ')||'no answers yet')+(extra?' · '+heads+' people coming':''); }
@@ -229,7 +233,9 @@ function createAsk(){
   if(askKind==='pick' && options.length<2){ alert('Give them at least two choices.'); return; }
   const followQ = askKind==='free' ? '' : ($('askFollow').value||'').trim().slice(0,80);
   const a={id:uid(), groupId:gid, q, kind:askKind, options, followQ, when:$('askWhen').value||'', made:today(), answers:{}, closed:false};
-  db.asks.unshift(a); save(); $('askQ').value=''; $('askOpts').value=''; $('askFollow').value=''; toggleNew(false); render(); sendAsk(a.id,false);
+  const sl=askKind==='free'?[]:String(($('askSlots')||{}).value||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20).map((x,i)=>{ const m=/^(.*?)\s*[x×*]\s*(\d{1,2})$/i.exec(x); return { id:'s'+i, label:(m?m[1]:x).slice(0,40), want:m?Math.max(1,+m[2]):1 }; });
+  if(sl.length) a.slots=sl;
+  db.asks.unshift(a); save(); $('askQ').value=''; $('askOpts').value=''; $('askFollow').value=''; if($('askSlots')) $('askSlots').value=''; toggleNew(false); render(); sendAsk(a.id,false);
 }
 function replyLink(a,p){ const u=new URL(location.href.split('?')[0]); u.searchParams.set('r',a.id); u.searchParams.set('p',p.id); u.searchParams.set('q',a.q); u.searchParams.set('o',a.options.join('|')); if(a.followQ) u.searchParams.set('f',a.followQ); u.searchParams.set('to',db.me.phone||''); u.searchParams.set('from',db.me.name||''); return u.toString(); }
 function sendAsk(id,nudge){
@@ -243,7 +249,7 @@ function sendAsk(id,nudge){
   if(nudge && !ppl.length){ toast('Everyone has answered ✓ — nobody to nudge'); return; } /* 7 Oct deep check: it used to say there were no numbers */
   const withPhone=ppl.filter(p=>(p.phone||'').replace(/\D/g,'').length>=7);
   const noPhone=ppl.filter(p=>withPhone.indexOf(p)<0); /* 7 Oct deep check: say who is left out of the group text */
-  const body=(nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+whenTxt(a.when):'')+'\n\nTap to answer: '+replyLink(a,{id:'all'});
+  const body=(nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+whenTxt(a.when):'')+slotNeedTxt(a)+'\n\nTap to answer: '+replyLink(a,{id:'all'});
   const nums=withPhone.map(p=>p.phone.replace(/[^\d+]/g,''));
   if(!nums.length){ copyOrShow(body, ()=>alert('No mobile numbers on this group yet — the message is copied. Paste it into your group text, or add numbers under People.'), 'No mobile numbers on this group yet.'); return; }
   /* iPhone needs the two-slash form to open ONE group text to everybody; with one slash it only took the first number.
@@ -255,7 +261,7 @@ function sendAsk(id,nudge){
   location.href=url;
 }
 function openAsk(id){ const el=document.getElementById('ask-'+id); if(el){ el.scrollIntoView({behavior:'smooth',block:'start'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'), 3000); } }
-function setAnswer(aid,pid,val){ const a=db.asks.find(x=>x.id===aid); a.answers=a.answers||{}; if(val===null){ delete a.answers[pid]; } else { const note = a.kind==='free' ? prompt('What did they say?', (a.answers[pid]||{}).a||'') : null; if(a.kind==='free'){ if(note===null) return; a.answers[pid]={a:note.trim()||'(said something)',at:today()}; } else { const old=a.answers[pid]; a.answers[pid]={a:val,at:today()}; if(old && old.a===val && old.why) a.answers[pid].why=old.why; else if(isNo(val)) setTimeout(()=>toast('Recorded — tap 💬 Why? if they said why (optional)'),50); } } save(); render(); }
+function setAnswer(aid,pid,val){ const a=db.asks.find(x=>x.id===aid); a.answers=a.answers||{}; if(val===null){ delete a.answers[pid]; } else { const note = a.kind==='free' ? prompt('What did they say?', (a.answers[pid]||{}).a||'') : null; if(a.kind==='free'){ if(note===null) return; a.answers[pid]={a:note.trim()||'(said something)',at:today()}; } else { const old=a.answers[pid]; a.answers[pid]={a:val,at:today()}; if(old && old.a===val){ if(old.why) a.answers[pid].why=old.why; if(old.n) a.answers[pid].n=old.n; if(old.bring) a.answers[pid].bring=old.bring; } else if(isNo(val)) setTimeout(()=>toast('Recorded — tap 💬 Why? if they said why (optional)'),50); } } save(); render(); }
 function closeAsk(id){ const a=db.asks.find(x=>x.id===id); a.closed=!a.closed; save(); render(); }
 function delAsk(id){ if(!confirm('Delete this question and its answers?')) return; db.asks=db.asks.filter(x=>x.id!==id); save(); render(); }
 function copyTally(id){ const a=db.asks.find(x=>x.id===id); const ppl=peopleOf(a.groupId); const lines=[a.q, '', ...ppl.map(p=>{ const x=(a.answers||{})[p.id]; return `${p.name}: ${x?x.a+(x.why?' ('+x.why+')':''):'—'}`; }), '', tallyText(a)]; copyOrShow(lines.join('\n'), ()=>toast('Copied — paste it anywhere'), 'Here is the tally.'); }
@@ -266,7 +272,7 @@ function waSend(text, said){ /* 6 Nov (Jerry): WhatsApp, for the people who do n
   toast(said||'Opening WhatsApp — pick the chat, then press send');
   location.href='https://wa.me/?text='+encodeURIComponent(text); }
 function askText(a, nudge){ const ppl=peopleOf(a.groupId);
-  return (nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+whenTxt(a.when):'')+'\n\nTap to answer: '+replyLink(a,{id:'all'}); }
+  return (nudge?'Quick nudge — ':'')+(db.me.name?db.me.name+' asks: ':'')+a.q+(a.options.length?' ('+a.options.join(' / ')+')':'')+(a.when?' · answer by '+whenTxt(a.when):'')+slotNeedTxt(a)+'\n\nTap to answer: '+replyLink(a,{id:'all'}); }
 function waAsk(id,nudge){ const a=db.asks.find(x=>x.id===id); if(!a) return;
   if(!db.me.name){ toast('Add your name first — tap 📨 Send to the group once and it will ask'); return; }
   waSend(askText(a,nudge)); }
@@ -276,6 +282,12 @@ function partyOf(aid,pid){ const a=db.asks.find(x=>x.id===aid); const ans=a&&(a.
   const v=prompt('How many people are coming, counting '+p.name+'?', String(ans.n||1)); if(v===null) return; const n=Math.max(1,Math.min(50,parseInt(String(v).replace(/[^0-9]/g,''),10)||1));
   if(n>1) ans.n=n; else delete ans.n; save(); render(); toast(n>1?p.name+' + '+(n-1)+' ✓':'Just '+p.name+' ✓'); }
 function headCount(a,ppl){ return ppl.reduce((t,p)=>{ const x=(a.answers||{})[p.id]; return t+(x&&!isNo(x.a)&&!isMaybe(x.a)?(x.n>1?x.n:1):0); },0); }
+/* Overnight B, 26 Nov 2026 (SignUpGenius "number wanted"): a potluck bring list. Each yes can take one thing; the summary
+   and the nudge say what is still needed. No server, so the count is what the host has recorded — it never blocks anyone. */
+function slotTaken(a,sid){ return Object.values(a.answers||{}).filter(x=>x.bring===sid&&!isNo(x.a)).length; }
+function slotNeed(a){ return (a.slots||[]).map(s=>({s, left:Math.max(0,s.want-slotTaken(a,s.id))})).filter(x=>x.left>0); }
+function slotNeedTxt(a){ const n=slotNeed(a); return (a.slots||[]).length&&n.length?'\nStill needed: '+n.map(x=>x.s.label+(x.left>1?' ×'+x.left:'')).join(', '):''; }
+function slotOf(a,x){ const s=x&&x.bring&&(a.slots||[]).find(y=>y.id===x.bring); return s?s.label:''; }
 function comingYes(a,p){ const x=(a.answers||{})[p.id]; return !!x && !isNo(x.a) && !isMaybe(x.a); }
 function summaryText(a){
   const ppl=peopleOf(a.groupId), yes=[], no=[], quiet=[], maybe=[];
@@ -283,13 +295,14 @@ function summaryText(a){
     if(!x) quiet.push(p.name);
     else if(isNo(x.a)) no.push(p.name + (x.why?' ('+x.why+')':''));
     else if(isMaybe(x.a)) maybe.push(p.name + (x.why?' \u2014 '+x.why:''));
-    else yes.push(p.name + (x.n>1?' +'+(x.n-1):'') + (x.why?' \u2014 '+x.why:'')); });
+    else yes.push(p.name + (x.n>1?' +'+(x.n-1):'') + (slotOf(a,x)?' \u2014 '+slotOf(a,x):'') + (x.why?' \u2014 '+x.why:'')); });
   const L=[a.q, ''];
   const heads=headCount(a,ppl);
   L.push('Coming (' + yes.length + (heads>yes.length?' \u00b7 '+heads+' people':'') + ')' + (yes.length?': '+yes.join(', '):''));
   if(maybe.length) L.push('Maybe (' + maybe.length + '): ' + maybe.join(', '));
   if(no.length) L.push('Can\u2019t come (' + no.length + '): ' + no.join(', '));
   if(quiet.length) L.push('Not heard from (' + quiet.length + '): ' + quiet.join(', '));
+  if((a.slots||[]).length){ L.push('', 'Bring list: ' + a.slots.map(s=>s.label+' '+slotTaken(a,s.id)+' of '+s.want).join(' \u00b7 ')); const nt=slotNeedTxt(a); if(nt) L.push(nt.trim()); }
   if(db.me.name) L.push('', '\u2014 ' + db.me.name);
   return L.join('\n');
 }
@@ -410,7 +423,7 @@ function renderAsks(){
     const tally={}; a.options.forEach(o=>tally[o]=0); Object.values(a.answers||{}).forEach(x=>{ tally[x.a]=(tally[x.a]||0)+1; });
     return `<div class="card ask" id="ask-${a.id}" style="${a.closed?'opacity:.7':''}"><h2>${esc(a.q)}</h2><p>${g?esc(g.name)+' · '+(ppl.length?answered+' of '+ppl.length+' answered':'nobody in it yet — add people under People'):Object.keys(a.answers||{}).length+' answered before the group was removed'}${a.when?' · by '+esc(whenTxt(a.when)):''}${a.closed?' · closed':''}</p>
       ${a.options.length?`<div class="tally">${a.options.map(o=>`<div class="tile"><b>${tally[o]||0}</b><span>${esc(o)}</span></div>`).join('')}</div>`:''}
-      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+(ans.why?' · <span class="why">“'+esc(ans.why)+'”</span>':'')+' · '+esc(/^\d{4}-\d\d-\d\d$/.test(ans.at||'')?whenTxt(ans.at):(ans.at||'')):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" aria-label="${ans?'Change':'Record'} what ${esc(p.name)} said" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'Change it':'Record what they said'}</button>`}${ans&&a.kind!=='free'&&isNo(ans.a)?`<button class="ghost whyBtn" aria-label="Reason ${esc(p.name)} can’t come (optional)" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit why':'Why?'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&a.followQ?`<button class="ghost whyBtn" aria-label="${esc(a.followQ)} — ${esc(p.name)}" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit':'Add'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&!isMaybe(ans.a)?`<button class="ghost whyBtn" aria-label="How many people, counting ${esc(p.name)}" onclick="partyOf('${a.id}','${p.id}')">👥 ${ans.n>1?ans.n:'1'}</button>`:''}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
+      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+(ans.why?' · <span class="why">“'+esc(ans.why)+'”</span>':'')+' · '+esc(/^\d{4}-\d\d-\d\d$/.test(ans.at||'')?whenTxt(ans.at):(ans.at||'')):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" aria-label="${ans?'Change':'Record'} what ${esc(p.name)} said" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'Change it':'Record what they said'}</button>`}${ans&&a.kind!=='free'&&isNo(ans.a)?`<button class="ghost whyBtn" aria-label="Reason ${esc(p.name)} can’t come (optional)" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit why':'Why?'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&(a.followQ||(a.slots||[]).length)?`<button class="ghost whyBtn" aria-label="${esc(a.followQ||'What they are bringing')} — ${esc(p.name)}" onclick="whyFor('${a.id}','${p.id}')">${(a.slots||[]).length&&!a.followQ?'🥗 '+(slotOf(a,ans)?esc(slotOf(a,ans)):'Bringing?'):'💬 '+(ans.why?'Edit':'Add')}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&!isMaybe(ans.a)?`<button class="ghost whyBtn" aria-label="How many people, counting ${esc(p.name)}" onclick="partyOf('${a.id}','${p.id}')">👥 ${ans.n>1?ans.n:'1'}</button>`:''}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
       <div class="row" style="margin-top:10px">${ppl.length?`<button class="primary" onclick="sendAsk('${a.id}',false)">📨 Text the group</button><button onclick="waAsk('${a.id}',false)">💬 WhatsApp</button>${answered<ppl.length?`<button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button>`:''}`:''}<button onclick="copyTally('${a.id}')">📋 Copy the tally</button>${answered?`<button onclick="sendSummary('${a.id}')">📤 Send the summary</button>`:''}<button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete this question" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
 }
 
