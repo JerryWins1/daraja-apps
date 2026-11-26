@@ -1262,6 +1262,7 @@
     if(document.getElementById('djA2HS')) return;
     /* 22 Nov: never behind, or straight after, the install screen — that was the pile-up. */
     if(!force && (djHold() || window.__djIS)) return;
+    if(!force && (DJ_TOURED || document.getElementById('djSetup'))) return;   /* 26 Nov: not on the visit that already had a welcome tour, a welcome card or the setup offer — next time */
     try{
       var ua = navigator.userAgent || '';
       var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
@@ -1950,6 +1951,7 @@
          next open (and is always under ? → Make it mine). Not a refusal: nothing is written. */
       if(DJ_TOURED) return;
       var own = false; try{ own = cardOpen(); }catch(e){}
+      if(own) DJ_TOURED = 1;   /* 26 Nov: the app's own welcome card counts as this visit's welcome, like the tour */
       if(djHold() || document.getElementById('djTour') || pending || own){
         if((tries || 0) < 40) setTimeout(function(){ try{ setupOffer(false, (tries || 0) + 1); }catch(e){} }, 1500);
         return;
