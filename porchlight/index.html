@@ -467,7 +467,7 @@ function sampleCopy(e) {
 const canAsk = () => caps.sample && !caps.sampleOff;
 
 /* ---------- render root ---------- */
-const PL_VER = "On Guard v1.10 · 2026-11-25 · Daraja Studio";
+const PL_VER = "On Guard v1.11 · 2026-11-26 · Daraja Studio";
 function render() {
   const app = $("#app");
   app.replaceChildren();
@@ -1199,7 +1199,7 @@ Today is ${new Date().toLocaleDateString(undefined, { weekday: "long", month: "l
 function viewChat() {
   const log = h("div", { class: "chat", id: "chatlog" });
   if (!chatTurns.length) log.append(helperSays(`Hi ${P().name}! Ask me anything. I can tell you a joke, explain a confusing email or text, help you write a note, or add things to your to-do list.`));
-  for (const t of chatTurns) log.append(t.role === "user" ? h("div", { class: "mine" }, h("div", { class: "bubble me" }, t.content)) : helperSays(t.content));
+  for (const t of chatTurns) { log.append(t.role === "user" ? h("div", { class: "mine" }, h("div", { class: "bubble me" }, t.content)) : helperSays(t.content)); if (t.warn) log.append(warnBubble(t.warn)); }
   const input = h("textarea", { class: "input", id: "f-chat", placeholder: "Type here. You can also paste a text message you got." , rows: 3 });
   const status = h("div");
   const send = (text) => sendChat(text || input.value, input, status, log);
@@ -1226,17 +1226,24 @@ const SCAM_SIGNS = [
   [/you.?ve won|you have won|lottery|\bprize\b|unclaimed|inheritance|refund (is )?(waiting|due)/i, 2, "It promises a prize or money back."],
   [/bit\.ly|tinyurl|click (here|this link)|verify your (account|identity)|confirm your (details|password|account)/i, 1, "It pushes you to click a link."]];
 function scamScore(text) { const flags = SCAM_SIGNS.filter((x) => x[0].test(text)); return { score: flags.reduce((a, x) => a + x[1], 0), why: flags.map((x) => x[2]) }; }
-function scamNote(text) { if (String(text).length < 30) return null; const r = scamScore(text); if (r.score < 3) return null;
+/* review fix: check what looks like a message someone received, not the person's own question ("how do I send money with Zelle?") */
+function looksReceived(text) { const t = String(text).trim(); const prev = chatTurns.length > 1 ? chatTurns[chatTurns.length - 2] : null;
+  if (prev && prev.role === "user" && /scam/i.test(prev.content)) return true;
+  if (/https?:\/\/|www\.|\b\d{3}[-.\s)]{1,2}\d{3}[-.\s]\d{4}\b/i.test(t)) return true;
+  if (/^(how|what|can|could|should|would|is|are|do|does|did|why|when|where|who|will|remind|help|tell|please|i want|i need)\b/i.test(t)) return false;
+  return t.length >= 60; }
+function scamNote(text) { if (String(text).length < 30 || !looksReceived(text)) return null; const r = scamScore(text); if (r.score < 3) return null;
   return (r.score >= 6 ? "🛑 Stop — this has the signs of a scam." : "⚠️ Be careful with this one.") + "\n• " + r.why.join("\n• ")
     + "\nBefore you pay, click or call back, stop and talk to someone you trust. If it says it’s your bank or a family member, call them on the number you already have — not one in the message."
     + "\nAlready paid or gave a password? Call your bank on the number on your card now. For gift cards, call the company on the back of the card. You can report it at ReportFraud.ftc.gov."; }
+function warnBubble(w) { const b = helperSays(w); const p = b.querySelector(".bubble p"); if (p) p.style.whiteSpace = "pre-line"; return b; }
 async function sendChat(text, input, status, log) {
   text = (text || "").trim();
   if (!text || chatBusy) return;
   chatTurns.push({ role: "user", content: text.slice(0, 4000) });
   if (input) input.value = "";
   log.append(h("div", { class: "mine" }, h("div", { class: "bubble me" }, text)));
-  const warn = scamNote(text); if (warn) { const L = warn.split("\n"); log.append(helperSays(L[0], ...L.slice(1).map((ln) => h("p", { style: "margin:4px 0 0" }, ln)))); }   /* shown, not added to the AI conversation */
+  const warn = scamNote(text); if (warn) { chatTurns[chatTurns.length - 1].warn = warn; log.append(warnBubble(warn)); }   /* kept with the message, shown on every redraw, never sent to the AI */
   const p = h("p", null, "Thinking…");
   const bubble = h("div", { class: "bubble" }, p);
   const row = h("div", { class: "say" }, h("div", { class: "avatar", "aria-hidden": "true" }, (P().helper || "S").charAt(0).toUpperCase()), bubble);
@@ -1257,7 +1264,7 @@ async function sendChat(text, input, status, log) {
   chatCtl = new AbortController();
   const stop = h("button", { class: "btn btn-quiet", type: "button", onclick: () => chatCtl && chatCtl.abort() }, "Stop");
   status.replaceChildren(stop);
-  const turns = [{ role: "user", content: chatRules() }].concat(chatTurns.slice(-16));
+  const turns = [{ role: "user", content: chatRules() }].concat(chatTurns.slice(-16).map((t) => ({ role: t.role, content: t.content })));
   const opts = { modelTier: "quick", signal: chatCtl.signal, onText: ({ text }) => { p.textContent = text; } };
   const lim = await caps.sample.limits().catch(() => null);
   if (lim && lim.tools) {
