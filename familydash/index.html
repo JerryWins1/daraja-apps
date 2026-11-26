@@ -200,7 +200,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v14.0 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v14.1 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -1613,7 +1613,16 @@ function rvTimeStart(){ RV = { st:'time', L:rvTimeCats(), i:0 }; rvTime(); }
 var RV_T = { month:['Every month, about the same','mortgage, utilities, phone, groceries, dues'], var:['Most months, but it goes up and down','gas, healthcare, golf, repairs — planned at its average'],
   year:['Once or twice a year','property tax, insurance paid yearly, pool, annual fees — saved for monthly'], once:['One-time — it won’t repeat on a schedule','a car, a cruise, a family event — kept out of the averages'],
   need:['As needed — help or gifts when they come up','never budgeted monthly; paid from savings'] };
-function budStart(top){ var L = rvTimeCats(), i = !top && db.budI && db.budI < L.length ? db.budI : 0; RV = { st:'time', L:L, i:i, bud:1, back:i }; if(!L.length){ RV = null; openFirstLoad(); return; } rvTime(); }
+/* v14.1 · the budget's "how often" is one list instead of one screen per kind: each row is filled in from the statements */
+var BL = [];
+function budStart(){ BL = rvTimeCats(); if(!BL.length){ openFirstLoad(); return; } LASTLIST = function(){ budStart(); };
+  openSheet('<div class="stepno">The budget · step 1 of 2</div><h3>How often does each kind come?</h3>' + watchBtn('budget', '1 min')
+    + '<p class="sub">Each one is filled in from your statements. Change any that are wrong, then set the amounts.</p>'
+    + '<div class="card" style="padding:6px 12px">' + BL.map(function(x, j){ return '<div class="trow" style="align-items:center;gap:8px"><span style="min-width:0">' + esc(catLabel(x.c))
+      + '<small style="display:block;color:var(--soft)">' + x.seen + ' of ' + x.of + ' months · ' + money(x.tot,1) + ' · <a href="#" onclick="budWhat(\'' + x.c.id + '\');return false">what’s in it</a></small></span>'
+      + '<select id="bl_' + j + '" aria-label="How often for ' + esc(x.c.name) + '" style="max-width:46%;width:auto">' + Object.keys(RV_T).map(function(k){ return '<option value="' + k + '"' + (k === x.sug ? ' selected' : '') + '>' + ({ month:'Every month', var:'Goes up and down', year:'Once or twice a year', once:'One-time', need:'As needed' })[k] + '</option>'; }).join('') + '</select></div>'; }).join('') + '</div>'
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="budListSave()">Next — set the amounts</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Not now</button></div>'); }
+function budListSave(){ BL.forEach(function(x, j){ var el = document.getElementById('bl_' + j); if(el) rvTimeApply(x, el.value); }); save(); rvMark('time'); openFirstLoad(); }
 function rvTime(){ var R = RV, x = R.L[R.i]; if(R.bud) db.budI = R.i; if(!x){ if(R.bud){ db.budI = 0; rvMark('time'); RV = null; openFirstLoad(); return; } rvNextPart('time'); return; }
   var one = x.n === 1 ? '<div class="line warn">Only one payment seen. If it has a partner at another time of year — a pool opening and its closing — the yearly amount should include both; you can change it in Our budget.</div>' : '';
   openSheet('<div class="stepno">' + (R.bud ? 'The budget · ' : 'Part 2 · ') + 'kind ' + (R.i + 1) + ' of ' + R.L.length + '</div><h3>' + esc(catLabel(x.c)) + '</h3>'
@@ -1633,13 +1642,13 @@ function budWhat(cid){ var c = cat(cid); if(!c) return; LASTLIST = function(){ b
     + '<ul class="list">' + T.slice().sort(function(a,b){ return b.amt - a.amt; }).map(txRow).join('') + '</ul>'
     + '<button class="b full" onclick="catCheck()">🧹 Check every category for lines in the wrong place</button>'
     + '<button class="b primary full" onclick="sheetBack()">Back</button>'); }
-function rvTimeSave(){ var R = RV, x = R.L[R.i], c = x.c, v = tapVal('rv'); if(!v){ alert('Tap one of the answers first.'); return; }
+function rvTimeSave(){ var R = RV, x = R.L[R.i], v = tapVal('rv'); if(!v){ alert('Tap one of the answers first.'); return; } rvTimeApply(x, v); save(); R.i++; rvTime(); }
+function rvTimeApply(x, v){ var c = x.c;
   db.threePart = true; c.timing = v; c.asNeeded = v === 'need';
   if(v === 'month' || v === 'var'){ c.part = 1; c.variable = v === 'var'; if(v === 'month' && !c.budget) c.budget = niceRound(x.tot / Math.max(1, x.seen)); }
   else if(v === 'year'){ c.part = 2; c.variable = false; var yr = addMonths(thisMonth(), -12), s = 0, due = {};
     Object.keys(x.m).forEach(function(m){ if(m >= yr){ s += x.m[m]; due[+m.slice(5)] = 1; } }); c.yearly = r2(s || x.tot); c.due = Object.keys(due).map(Number).sort(function(a,b){ return a - b; }); ensureYearlyGroup(); }
-  else { c.part = 3; c.variable = false; }
-  save(); R.i++; rvTime(); }
+  else { c.part = 3; c.variable = false; } }
 
 /* part 3 · subscriptions: the same merchant at about the same amount on a regular cycle, on every account */
 var SUBSY = /netflix|hulu|disney|max\b|hbo|peacock|paramount|spotify|apple\.com|itunes|google \*|google play|youtube|prime video|amazon prime|audible|sirius|britbox|pure ?flix|acorn|espn|patreon|icloud|dropbox|microsoft|adobe|subscription|membership/i;
@@ -3125,7 +3134,7 @@ function billSave(){ var c = cat(BW.ids[BW.i]); if(!c) return; c.name = (documen
 function billDone(){ var B = BW, L = B.ids.map(cat).filter(Boolean), tot = 0; L.forEach(function(c){ if(c.part === 2 && c.yearly) tot += c.yearly; });
   openSheet('<div class="stepno">Bills that don’t come every month</div><h3>Your list</h3><ul class="list">' + L.map(function(c){ return '<li><span class="ds">' + esc(c.name) + '<small>' + (c.escrow ? 'paid inside the mortgage' : c.part === 1 ? 'most months — planned at its average' : (c.due && c.due.length ? c.due.map(function(m){ return MONS[m-1]; }).join(', ') : 'months not set') + (c.each != null ? ' · ' + money(c.each,1) + ' each' : ' · amount not known yet')) + '</small></span><span class="amt">' + (c.part === 2 && c.yearly ? money(c.yearly,1) + '/yr' : '') + '</span></li>'; }).join('') + '</ul>'
     + '<p class="sub">Set aside each month for these: <b>' + money(r2(tot / 12),1) + '</b>.</p><button class="b primary full" onclick="billOn()">' + (B.edit ? 'Save' : 'Next question') + '</button>'); }
-function billOn(){ var B = BW; BW = null; rebuildPlan(); save(); render(); if(B.edit){ openSettings(); toast('Saved.'); } else setupQ(B.q + 1); }
+function billOn(){ var B = BW; BW = null; rebuildPlan(); save(); render(); if(B.edit){ openSettings(); toast('Saved.'); } else if(CO){ db.sqDone = db.sqDone || {}; db.sqDone[SQ[B.q].ask] = 1; save(); CO.i++; CO.said = []; coShow(); } else setupQ(B.q + 1); }
 /* "Goes up and down" ticked from the statements: a kind whose monthly total moves more than about 15% from month to month */
 function varGuess(){ var by = {}, n = 0, v = {}; db.tx.forEach(function(t){ var c = cat(t.cat); if(!c || t.amt <= 0 || !counts(acct(t.a)) || !inWin(t)) return; var m = t.d.slice(0,7); (by[c.id] = by[c.id] || {})[m] = ((by[c.id] || {})[m] || 0) + t.amt; });
   Object.keys(by).forEach(function(id){ var V = Object.keys(by[id]).map(function(m){ return by[id][m]; }); if(V.length < 3) return; var avg = V.reduce(function(a,b){ return a + b; }, 0) / V.length, sd = Math.sqrt(V.reduce(function(s,x){ return s + Math.pow(x - avg, 2); }, 0) / V.length); v[id] = avg ? sd / avg > 0.15 : false; n++; });
@@ -3164,19 +3173,89 @@ function rebuildPlan(){   /* keep what exists; add home groups for new homes; dr
   db.cats = db.cats.filter(function(c){ var m = /^g_home(\d+)$/.exec(c.g); return !m || +m[1] < (db.homes||[]).length; });
   if(db.cats.some(function(c){ return c.part === 2; })) ensureYearlyGroup();
 }
+/* v14.1 · Jerry, 25 Nov: "let the AI set it up for him, talk him through, just like you talk to me… have the AI bring each step up
+   one at a time, have it so they could ask some questions." The household questions now come one at a time from a helper that says
+   why it asks and answers "what does that mean?". One AI call words the whole run; each question the person asks is one more, up to 8.
+   The AI sees totals and the questions only — never a statement line, a shop name or an account number. With no AI, the same run
+   goes with plain words. Answers are saved by the app's own questions, only when the person taps Next. */
+var CO = null, CO_MAX = 8;
+var COSKIP = { start:1, accts:1, email:1 };   /* the year and the accounts are done at the folder; email is never read */
+var COWHY = { ppl:'Names make the reports read like yours, and tell me whether a spouse answers questions too.',
+  homes:'Each home gets its own group, so its mortgage, utilities and upkeep add up in one place.',
+  cars:'Each car gets its own lines for gas, insurance and repairs, so you can see what each one costs.',
+  inc:'Income is the line every budget is measured against.',
+  three:'The three-part budget keeps regular bills, once-a-year bills and big one-time costs apart, so one big month doesn’t look like overspending.',
+  yearly:'A bill that comes once or twice a year gets a little set aside each month, so it never surprises you.',
+  setAside:'Moving the set-aside to its own savings account keeps it from being spent by accident.',
+  variable:'Lines that go up and down are planned at their average instead of a fixed number.',
+  rule:'If the budget must stay under income, I’ll warn you whenever it doesn’t.',
+  e529:'Money paid back from a 529 plan shouldn’t count as income, so I keep those apart.',
+  biz:'Business costs on a personal card are kept out of the family’s spending.',
+  lists:'Some families track a parent’s or a child’s costs on their own list.',
+  flags:'These are the kinds of charges I’ll bring to you instead of sorting quietly.',
+  thr:'Anything over this amount gets a question, so nothing big slips by.',
+  who:'If a spouse answers too, their questions go to their own list.',
+  adv:'Their names go on the reports you might share with them. Nothing is ever sent.' };
+function coList(){ return SQ.map(function(q, i){ return i; }).filter(function(i){ var k = SQ[i].key; return !COSKIP[k] && !(db.ansd && db.ansd[k]); }); }
+function coAI(){ var P = db.prof || {}; return !!(window.djAI && djAI.ask && P.door && doorLeft() > 2); }
+function coFacts(){ var by = {}; db.accts.forEach(function(a){ if(a.closed || !TYPES[a.type]) return; var k = TYPES[a.type].t; by[k] = (by[k] || 0) + 1; });
+  var ms = months(); return moneyTotals().concat([ 'Accounts by kind: ' + (Object.keys(by).map(function(k){ return by[k] + ' ' + k; }).join(', ') || 'none yet'), 'Months of statements read: ' + ms.length ]); }
+function coachStart(at){ if(!db){ db = blank(); save(); } var L = coList(); CO = { L:L, i:Math.max(0, Math.min(at || 0, L.length)), txt:{}, ai:coAI(), asks:0, said:[] };
+  if(!L.length){ setupSummary(); return; }
+  if(!CO.ai){ coShow(); return; }
+  var Q = L.map(function(i){ return '- ' + SQ[i].key + ': ' + SQ[i].ask.replace(/<[^>]+>/g, ''); }).join('\n');
+  var o = { title:'✨ Set it up with me', want:'json', circle:false, wait:'Getting your questions ready…',
+    prompt:'You are a warm, plain-spoken helper setting up a family budgeting app with them, one question at a time, the way a friend who is good with money would. '
+      + 'Below are the family’s totals and the setup questions the app will show, each with its key. For each question write "say": one or two short sentences that introduce it in your own friendly words (under 35 words, no jargon, no figures you were not given), and "why": one short sentence on why it matters for them. Also write "intro": two short sentences welcoming them and saying this takes about five minutes. '
+      + 'Do not give tax, legal or investment advice. Answer with JSON only: {"intro":"…","q":{"<key>":{"say":"…","why":"…"}}}\n\nTheir totals:\n- ' + coFacts().join('\n- ') + '\n\nThe questions:\n' + Q,
+    onResult:function(v){ if(v && typeof v === 'object'){ CO.txt = v.q || {}; CO.intro = v.intro || ''; } coShow(); },
+    onFail:function(){ CO.ai = false; coShow(); } };
+  doorUse(); ask(o); }
+function coShow(){ var C = CO; if(!C) return; var i = C.L[C.i]; if(i == null){ CO = null; setupSummary(); return; } var q = SQ[i], t = C.txt[q.key] || {};
+  db.sq = i; save();
+  var say = String(t.say || '').trim(), why = String(t.why || COWHY[q.key] || '').trim();
+  openSheet('<div class="stepno">✨ Set it up with me · ' + (C.i + 1) + ' of ' + C.L.length + '</div><div class="meter" style="margin:6px 0 10px"><i style="width:' + Math.round((C.i + 1) / C.L.length * 100) + '%;background:var(--accent)"></i></div>'
+    + (C.i === 0 && C.intro ? '<div class="line" style="background:var(--paper);margin:0 0 8px"><b>✨</b> ' + esc(C.intro) + '</div>' : '')
+    + (say ? '<div class="line" style="background:var(--paper);margin:0 0 8px"><b>✨</b> ' + esc(say) + '</div>' : '')
+    + watchBtn('setup', '1 min') + '<h3>' + q.ask + '</h3>' + (why ? '<p class="sub" style="margin:-2px 0 10px"><b>Why I ask:</b> ' + esc(why) + '</p>' : '')
+    + q.html()
+    + '<div id="coSaid">' + C.said.map(function(x){ return '<div class="line ok" style="margin:8px 0 4px 24px">' + esc(x.q) + '</div><div class="line" style="background:var(--paper);margin:4px 0"><b>✨</b> ' + esc(x.a) + '</div>'; }).join('') + '</div>'
+    + (C.ai && C.asks < CO_MAX ? '<div class="row" style="gap:8px;margin-top:10px"><input id="coQ" placeholder="Ask about this question" style="flex:1" onkeydown="if(event.key===\'Enter\')coAsk()"><button class="b" style="margin:0;flex:0 0 auto;padding:0 14px" onclick="coAsk()">Ask</button></div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' + ['What does that mean?','Can I change it later?'].map(function(x){ return '<button class="b small" style="margin:0" onclick="document.getElementById(\'coQ\').value=this.textContent;coAsk()">' + x + '</button>'; }).join('') + '</div>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="coNext()">Next</button><div class="row">' + (C.i ? '<button class="b ghost" onclick="coBack()">Back</button>' : '') + '<button class="b ghost" onclick="coLater()">Done for now</button></div></div>');
+  if(q.after) q.after(); }
+/* the videos: the helper on a given question, with words written in, so no AI is called while recording */
+function videoCoach(at, said){ videoReady(); var L = SQ.map(function(q, i){ return i; }).filter(function(i){ return !COSKIP[SQ[i].key]; }), i = typeof at === 'string' ? L.findIndex(function(j){ return SQ[j].key === at; }) : at || 0;
+  CO = { L:L, i:Math.max(0, i), ai:true, asks:0, intro:i ? '' : 'Hi! This takes about five minutes. I’ll ask one thing at a time, and you can ask me anything along the way.',
+    txt:{ ppl:{ say:'First, who is in the family? I’ll use the names on your reports.' }, yearly:{ say:'Your statements show a few bills that only come once or twice a year. Let’s make sure none of them surprises you.' } },
+    said:said ? [{ q:'What does that mean?', a:'Just the names you’d like shown on the reports, like Pat and Lee. You can change them any time in Settings.' }] : [] }; coShow(); }
+function videoBud(step){ videoReady(); budStart(); if(step === 2) budListSave(); }
+function coSave(){ var q = SQ[CO.L[CO.i]]; if(q.save && q.save() === false) return false; db.sqDone = db.sqDone || {}; db.sqDone[q.ask] = 1; save(); return true; }
+function coNext(){ if(!coSave()) return; CO.i++; CO.said = []; coShow(); }
+function coBack(){ coSave(); CO.i = Math.max(0, CO.i - 1); CO.said = []; coShow(); }
+function coLater(){ coSave(); closeSheet(); render(); toast('Saved. Tap “Set it up with me” to carry on.'); }
+function coAsk(){ var el = document.getElementById('coQ'), v = el ? el.value.trim() : ''; if(!v || !CO || CO.asks >= CO_MAX) return; var q = SQ[CO.L[CO.i]];
+  try{ if(q.save) q.save(); }catch(e){} CO.asks++;
+  var o = { title:'✨ Set it up with me', want:'text', circle:false, agreed:1, wait:'Thinking…',
+    prompt:'You are helping a family set up a budgeting app, one question at a time. The question on their screen is: "' + q.ask.replace(/<[^>]+>/g, '') + '". Why it is asked: ' + (COWHY[q.key] || '') + '\nThey ask: ' + v + '\nAnswer in two or three short, plain sentences. Everything they answer can be changed later in Settings. Do not give tax, legal or investment advice; for those, suggest their CPA or advisor.',
+    onResult:function(r, raw){ CO.said.push({ q:v, a:String(raw || r || '').trim().slice(0, 600) }); coShow(); },
+    onFail:function(){ CO.said.push({ q:v, a:'I couldn’t reach the AI just now. You can carry on — everything here can be changed later in Settings.' }); coShow(); } };
+  doorUse(); ask(o); }
+
 function setupSummary(){
   rebuildPlan(); save();
   function line(i, v){ return '<div class="trow"><span>' + SQ[i].ask.replace(/<[^>]+>/g,'') + '<small>' + v + '</small></span><button class="b small" onclick="setupQ(' + i + ')">Edit</button></div>'; }
   var y = yList();
   openSheet('<div class="stepno">Setup · all done</div><h3>Here’s what you told me</h3>'
-    + line(0, esc(db.people || '—')) + line(1, esc((db.homes||[]).join(', '))) + line(2, db.incomes.length ? db.incomes.map(function(i){ return esc(i.name) + ' ' + money(num(i.amt),1); }).join(', ') + ' = ' + money(income(),1) : 'none yet')
-    + line(3, 'Budget from ' + monthName(db.budgetFrom) + ' · history from ' + (db.historyFrom ? shortDate(db.historyFrom) + ', ' + db.historyFrom.slice(0,4) : '—')) + line(4, db.accts.length + ' account' + (db.accts.length===1?'':'s'))
-    + line(5, db.threePart ? 'Yes' : 'No') + line(6, y.length ? y.map(function(c){ return esc(c.name) + ' ' + (c.yearly == null ? 'unknown' : money(c.yearly,1)); }).join(', ') : 'none') + line(7, db.setAside ? 'Yes' : 'No')
-    + line(8, db.cats.filter(function(c){ return c.variable; }).map(function(c){ return esc(c.name); }).join(', ') || 'none') + line(9, db.rule ? 'Yes' : 'No')
-    + line(10, db.helpees.map(function(h){ return esc(h.name) + ' (' + h.kind + ')'; }).join(', ') || 'no one') + line(11, db.uses529 ? 'Yes' : 'No') + line(12, db.bizCard ? 'Yes' : 'No')
-    + line(13, db.lists.map(function(l){ return esc(l.name); }).join(', ') || 'no one') + line(14, Object.keys(FLAGS).filter(function(k){ return db.flagsOn[k]; }).map(function(k){ return FLAGS[k][0]; }).join(', ') || 'none')
-    + line(15, money(db.threshold,1)) + line(16, db.emailOk === 'no' ? 'Never' : 'Ask again when it can') + line(17, db.whoAnswers === 'spouse' ? 'Me, and ' + esc(db.spouse || 'my spouse') : 'Me')
-    + line(18, esc([db.cpa, db.advisor].filter(Boolean).join(' · ') || 'none named'))
+    + [['ppl', esc(db.people || '—')], ['homes', esc((db.homes||[]).join(', '))], ['cars', esc(db.cars ? (db.cars.length ? db.cars.join(', ') : 'No cars') : '—')],
+       ['inc', db.incomes.length ? db.incomes.map(function(i){ return esc(i.name) + ' ' + money(num(i.amt),1); }).join(', ') + ' = ' + money(income(),1) : 'none yet'],
+       ['start', 'Budget from ' + monthName(db.budgetFrom) + ' · history from ' + (db.historyFrom ? shortDate(db.historyFrom) + ', ' + db.historyFrom.slice(0,4) : '—')], ['accts', db.accts.length + ' account' + (db.accts.length===1?'':'s')],
+       ['three', db.threePart ? 'Yes' : 'No'], ['yearly', y.length ? y.map(function(c){ return esc(c.name) + ' ' + (c.yearly == null ? 'unknown' : money(c.yearly,1)); }).join(', ') : 'none'], ['setAside', db.setAside ? 'Yes' : 'No'],
+       ['variable', db.cats.filter(function(c){ return c.variable; }).map(function(c){ return esc(c.name); }).join(', ') || 'none'], ['rule', db.rule ? 'Yes' : 'No'],
+       ['e529', db.uses529 ? 'Yes' : 'No'], ['biz', db.bizCard ? 'Yes' : 'No'], ['lists', db.lists.map(function(l){ return esc(l.name); }).join(', ') || 'no one'],
+       ['flags', Object.keys(FLAGS).filter(function(k){ return db.flagsOn[k]; }).map(function(k){ return FLAGS[k][0]; }).join(', ') || 'none'], ['thr', money(db.threshold,1)],
+       ['email', db.emailOk === 'no' ? 'Never' : 'Ask again when it can'], ['who', db.whoAnswers === 'spouse' ? 'Me, and ' + esc(db.spouse || 'my spouse') : 'Me'], ['adv', esc([db.cpa, db.advisor].filter(Boolean).join(' · ') || 'none named')]]
+      .map(function(x){ var i = SQ.findIndex(function(q){ return q.key === x[0]; }); return i < 0 ? '' : line(i, x[1]); }).join('')
     + '<button class="b primary full" id="suGo" onclick="suGo()">' + (db.tx.length ? 'Looks right — finish' : 'Looks right — bring in statements') + '</button>');
 }
 function restartSetup(){ LOCK = null; if(!confirm('Start setup over? Everything this app has read or been told so far is cleared from this device. Your files are not touched.')) return; try{ localStorage.removeItem(KEY); }catch(e){} db = null; view = null; AF = null; render(); setupQ(0); }
@@ -3209,7 +3288,7 @@ function adjTot(){ var t = 0; p1Cats().forEach(function(c){ t += c.variable ? mB
   if(db.rule && inc > 0) lines += '<div class="line ' + (reg <= inc ? 'ok' : 'bad') + '" style="margin:6px 0 0">📏 ' + (reg <= inc ? money(inc - reg,1) + ' under' : money(reg - inc,1) + ' OVER') + ' income of ' + money(inc,1) + (reg > inc ? ' — trim a line, or plan to cover it from investments' : '') + '</div>';
   el.innerHTML = lines; }
 function saveBudget(){ p1Cats().forEach(function(c){ if(!c.variable) c.budget = r2(ADJ[c.id]||0); }); var first = !db.budgetSet; db.budgetSet = true; save(); closeSheet(); view = null; render(); window.scrollTo(0,0);
-  toast(first ? 'That’s your budget. Each month, a check-up keeps it honest.' : 'Budget saved.'); if(first) setTimeout(openReminder, 1200); }
+  toast(first ? 'That’s your budget. Each month, a check-up keeps it honest.' : 'Budget saved.'); }
 function openCats(){
   openSheet('<h3>Categories</h3><p class="sub">Tap a name to rename it. “Average” lines use their 3-month average. Spending in a removed category goes back to “not sorted”.</p>'
     + db.groups.map(function(g){ return '<h4><input value="' + esc(g.name) + '" aria-label="Group name" onchange="group(\'' + g.id + '\').name=this.value.trim()||\'Group\';save();render()" style="font-weight:800"></h4>'
@@ -3557,7 +3636,7 @@ function autoSummary(){
     + (groups.length || other.length ? '<h4>🔁 Bills and payments every month</h4>' + groups.map(function(x){ return '<p style="margin:10px 0 0;font-weight:800">' + x[0] + '</p>' + rows(x[1]); }).join('') + (other.length ? '<p style="margin:10px 0 0;font-weight:800">Other regular payments</p>' + rows(other.slice(0, 25)) : '') : '')
     + '<h4>📅 Bills once or twice a year</h4>' + (yr.length ? '<ul class="list">' + yr.map(function(c){ return '<li><span class="ds">' + esc(c.name) + '<small>' + esc(c.found) + ' · due ' + c.due.map(function(m){ return new Date(2026, m-1, 1).toLocaleDateString('en-US',{ month:'short' }); }).join(', ') + '</small></span><span class="amt">' + money(c.yearly,1) + ' a year</span></li>'; }).join('') + '</ul><p class="sub">From the last 12 months. If your statements cover less than a year, check these.</p>' : '<p class="sub">None spotted. You can add them in a moment.</p>')
     + setAsideHTML()
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="ckMark(\'sum\');setupQ(0)">Looks right — on to the questions</button></div>');
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="ckMark(\'sum\');coachStart()">Looks right — set it up with me</button></div>');
 }
 function setAsideHTML(){ var sk = AF.sk || {}, h = '';
   if((sk.pdf||[]).length) h += '<p style="margin:12px 0 0;font-weight:800">📄 PDF statements set aside (' + sk.pdf.length + ')</p><p class="sub" style="margin:2px 0 0">If your pension or a bank isn’t showing above, its statements are probably among these. Download that bank’s activity as CSV from its website, or bring the PDFs in one at a time with your AI.</p><ul class="list">' + sk.pdf.slice(0,8).map(function(x){ return '<li style="font-size:14px">' + esc(x) + '</li>'; }).join('') + (sk.pdf.length > 8 ? '<li style="font-size:14px">…and ' + (sk.pdf.length - 8) + ' more</li>' : '') + '</ul>';
@@ -3983,7 +4062,7 @@ function readPDF(f, cb){ pdfLines(f, function(L){ cb(L && L.length ? pdfParse(L,
    answers to the questions… gather all the folders by type then analyze them then fill in the details"). After the
    accounts are checked, each finding is a card: the answer the statements suggest, the lines that show it, and Yes or
    No. A Yes fills in the setup question, and that question is then skipped. ── */
-var SQKEY = ['ppl','homes','inc','start','accts','three','yearly','setAside','variable','rule','help','e529','biz','lists','flags','thr','email','who','adv'];
+var SQKEY = ['ppl','homes','cars','inc','start','accts','three','yearly','setAside','variable','rule','e529','biz','lists','flags','thr','email','who','adv'];   /* v14.1 · cars sits third and help is gone, so the keys follow the questions again */
 SQKEY.forEach(function(k, i){ if(SQ[i]) SQ[i].key = k; });
 var FIND = null;
 function spendTx(){ return db.tx.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer' && counts(acct(t.a)) && inWin(t); }); }
@@ -4322,7 +4401,7 @@ function ckSteps(){ var phone = !canFolder(), C = (db && db.ck) || {}, has = !!(
     ['sort','📊','Sort each account','checking first, then the cards — one payee at a time, right here', 'db.hfSet && db.accts.length ? (AF || db.cats.length ? sortHub() : autoFill({})) : fmStart()', C.sort || (db && db.accts.length && sortAccts().every(function(a){ return !sortState(a.id).left; }))],
     ['ask','❓','Answer the questions, one at a time','checks, cash, money sent to people, and anything left blank', 'askRound()', C.ask],
     ['flow','🗺️','See where the money went','each account flowing into its categories', 'openFlow()', C.flow],
-    ['qs','🏡','A few questions about your household','income, homes, who answers — anything known is skipped', 'setupQ(db.sq || 0)', db && db.setup],
+    ['qs','✨','Set it up with me','one question at a time, with a helper that says why it asks — anything known is skipped', 'coachStart()', db && db.setup],
     ['budget','✏️','Set the budget','how often each kind comes, then the monthly amounts', 'budStart()', db && db.budgetSet]
   ].filter(Boolean).reduce(function(out, x){ if(P.mode !== 'ai') { out.push(x); return out; }
       if(x[0] === 'aiset' || x[0] === 'check') return out;
