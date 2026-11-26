@@ -1344,3 +1344,7 @@ When you sort one payment, the app offers to change the other payments from the 
 - `mkey` now strips the bank's wording first (`MK_BOILER`), so the payee name is what decides.
 - `mkeyMove` runs once and carries what the app has learned over to the new names. A learned rule whose old name covered several different payees is dropped, so those payees get asked about again.
 - Payments already sorted under one of those dropped rules keep their category until someone changes it.
+
+## v15.4 · 26 Nov · The category drop-down is in order
+
+`catOptions` lists the categories used last first, then each group A to Z, with that group's categories A to Z inside it. The one-at-a-time screen was already A to Z.
