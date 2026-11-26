@@ -92,7 +92,18 @@ const RATE_PER_MINUTE = 20;
  * from what the model already knows, by sending  web: true  alongside the prompt.
  * Family Money's "What is this?" is the first to want it.
  *
- * THIS IS OFF UNTIL JERRY SAYS A PRICE. Searching is the one thing in this door that
+ * JERRY DECIDED ON 25 NOV THAT THIS STAYS OFF, AND IT IS NOT A PENDING DECISION.
+ * He was offered three ceilings and a fourth answer, and chose the fourth: searching
+ * never runs on his key. Anyone who wants a looked-up answer uses their own AI, which
+ * every app already offers — and ChatGPT, Claude and the rest search the web themselves,
+ * on that person's account. So this costs him nothing and loses almost nothing.
+ *
+ * DO NOT FLIP THE SWITCH BECAUSE THIS COMMENT ONCE SAID "until Jerry says a price".
+ * It did, and the price was found and put to him: $10 USD per 1,000 searches on the
+ * Claude API, a penny a search, plus the tokens the results spend as input. He first
+ * said the limit should be the person's own choice rather than a system number, and
+ * when it was pointed out that the person choosing is not the person paying, he chose
+ * to keep it off his key entirely. Turning it on is a money decision and his alone. Searching is the one thing in this door that
  * costs money per use rather than per token: $10 USD per 1,000 searches on the Claude
  * API, so a penny a search, on top of the tokens the results spend as input. Under
  * CLAUDE.md money waits for Jerry however long he is away, so the switch below ships
