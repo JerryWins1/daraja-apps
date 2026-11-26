@@ -106,7 +106,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If Jar by Jar helps your family, a gift to Loving InDeed helps orphans and students in Kenya. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Jar by Jar v1.5 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone.</p>
+  <p class="foot">Jar by Jar v1.6 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this phone.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big spend" id="spendBtn" onclick="openSpend()">− I spent money</button>
@@ -123,7 +123,7 @@
    an honest line before anything is planned, and videoReady() for the store's videos. */
 var KEY = 'dj_jarbyjar_v1'; window.DJ_OWNS = { k:[KEY], p:['dj_jarbyjar_'] };   /* every name this app writes, so the house Start fresh finds them */
 var db = load();
-function blank(){ return { v:1, cur:'$', month:monthKey(new Date()), income:0, jars:[], ins:[], outs:[], moves:[], past:[] }; }
+function blank(){ return { v:1, cur:'$', fill:'came', month:monthKey(new Date()), income:0, jars:[], ins:[], outs:[], moves:[], past:[] }; }
 function load(){ try{ var s = localStorage.getItem(KEY); if(s){ var d = JSON.parse(s); if(d && d.jars) return d; } }catch(e){} return null; }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ alert('This phone would not save that. Nothing was lost on screen — try again in a moment.'); } }
 function monthKey(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
@@ -139,7 +139,13 @@ function shortDate(d){ var p = d.split('-'); return new Date(+p[0], +p[1]-1, +p[
 function jar(id){ for(var i=0;i<db.jars.length;i++) if(db.jars[i].id===id) return db.jars[i]; return null; }
 function spentIn(id){ return db.outs.filter(function(o){ return o.jar===id; }).reduce(function(a,o){ return a+o.amt; },0); }
 function movedIn(id){ return db.moves.reduce(function(a,m){ return a + (m.to===id?m.amt:0) - (m.from===id?m.amt:0); },0); }
-function inJar(id){ var j = jar(id); return r2(j.plan + (j.carry||0) + movedIn(id)); }
+/* Jerry, 26 Nov 2026 (Goodbudget's rule — you only spend money you really have): jars fill from the money that has come in,
+   in jar order (Give first), each up to its plan. New months start this way; a month begun before keeps filling to plan
+   until the person switches in Settings. The example family stays as it was, so the videos still match. */
+function filledMap(){ var m = {}; if(db.fill !== 'came'){ db.jars.forEach(function(j){ m[j.id] = j.plan; }); return m; }
+  var pot = cameIn(); db.jars.forEach(function(j){ var f = Math.max(0, Math.min(j.plan, pot)); m[j.id] = r2(f); pot = r2(pot - f); }); return m; }
+function waitingIn(){ return db.fill === 'came' ? Math.max(0, r2(planned() - cameIn())) : 0; }
+function inJar(id){ var j = jar(id); return r2(filledMap()[id] + (j.carry||0) + movedIn(id)); }
 function leftIn(id){ return r2(inJar(id) - spentIn(id)); }
 function planned(){ return r2(db.jars.reduce(function(a,j){ return a + j.plan; },0)); }
 function cameIn(){ return r2(db.ins.reduce(function(a,i){ return a+i.amt; },0)); }
@@ -175,6 +181,7 @@ function render(){
     + '<div><b>' + money(cameIn(),1) + '</b><span>came in<br>of ' + money(inc,1) + '</span></div>'
     + '<div><b>' + money(sp,1) + '</b><span>out of<br>the jars</span></div>'
     + '<div><b style="color:var(--ok)">' + money(left,1) + '</b><span>left in<br>the jars</span></div></div>'
+    + (waitingIn() > 0 ? '<div class="small" id="waitLine" style="margin:6px 0 0">⏳ ' + money(waitingIn()) + ' of the plan hasn’t come in yet. The jars fill as it arrives, Give first.</div>' : '')
     + '<div class="place ' + pc + '" id="placeLine"><span>' + pt + '</span>' + (toPlace !== 0 || none ? '<button class="b small primary" onclick="openPlan()">' + (none ? 'Plan the month' : 'Fix the plan') + '</button>' : '') + '</div></div>';
   h += '<div class="jars" id="jars">';
   db.jars.forEach(function(j, i){
@@ -344,7 +351,7 @@ function openGiving(){ var y = db.month.slice(0,4), rows = db.past.filter(functi
 /* a new month: leftovers stay in their jars, or sweep into savings */
 function openNewMonth(){ var left = r2(db.jars.slice(1).reduce(function(a,j){ return a + Math.max(0, leftIn(j.id)); },0));
   var sv = db.jars.filter(function(j){ return /sav/i.test(j.name); })[0];
-  openSheet('<h3>Start next month</h3><p class="sub">Your plan carries over. The jars fill back up to plan. What’s left this month: <b>' + money(left) + '</b>.</p>'
+  openSheet('<h3>Start next month</h3><p class="sub">Your plan carries over. ' + (db.fill==='came' ? 'The jars fill again as money comes in.' : 'The jars fill back up to plan.') + ' What’s left this month: <b>' + money(left) + '</b>.</p>'
     + '<button class="b primary" style="width:100%;min-height:56px" onclick="newMonth(\'keep\')">Keep leftovers in their jars</button>'
     + (sv ? '<button class="b" style="width:100%;min-height:56px;margin-top:8px" onclick="newMonth(\'sweep\')">Put all leftovers in ' + esc(sv.em + ' ' + sv.name) + '</button>' : '')
     + '<div class="row" style="margin-top:10px"><button class="b ghost" onclick="closeSheet()">Not yet</button></div>'); }
@@ -362,13 +369,14 @@ function newMonth(how){ var sv = db.jars.filter(function(j){ return /sav/i.test(
 
 function openSettings(){ openSheet('<h3>Settings</h3>'
   + '<label for="curSel">Money</label><select id="curSel" onchange="db.cur=this.value;save();render()">' + ['$','KSh','£','€'].map(function(c){ return '<option' + (db.cur===c?' selected':'') + '>' + c + '</option>'; }).join('') + '</select>'
+  + '<label for="fillSel" style="margin-top:12px">How the jars fill</label><select id="fillSel" onchange="db.fill=this.value;save();render()"><option value="came"' + (db.fill==='came'?' selected':'') + '>As money comes in (only spend what you have)</option><option value="plan"' + (db.fill!=='came'?' selected':'') + '>Straight to the plan</option></select>'
   + '<p class="small" style="color:var(--soft);font-size:14px">Everything you put in Jar by Jar stays on this phone. There is no account and no bank login, so nobody else can see it — not even us.</p>'
   + '<div class="row" style="margin-top:10px"><button class="b" onclick="if(confirm(\'Clear every jar and start again?\')){ localStorage.removeItem(KEY); db=null; closeSheet(); render(); }">Start over</button><button class="b ghost" onclick="closeSheet()">Close</button></div>'); }
 
 /* ── first open ── */
 function startOwn(){ db = blank(); var J = [['Give','🙏'],['Save','🏦'],['House','🏠'],['Groceries','🛒'],['Bills','💡'],['Car & gas','⛽'],['Pocket money','👛']];
   db.jars = J.map(function(x, i){ return { id:uid(), name:x[0], em:x[1], plan:0, color:COLORS[i] }; }); save(); render(); openPlan(); }
-function exampleData(){ var db = blank(); db.ex = true; var now = new Date(), tday = now.getDate();
+function exampleData(){ var db = blank(); db.ex = true; db.fill = 'plan'; var now = new Date(), tday = now.getDate();
   var J = [['Give','🙏',485],['Save','🏦',300],['House','🏠',1450],['Groceries','🛒',760],['Bills','💡',640],['Car & gas','⛽',420],['Christmas','🎄',250],['Kids','🧒',200],['Eating out','🍔',120],['Pocket money','👛',225]];
   db.jars = J.map(function(x, i){ return { id:'j' + i, name:x[0], em:x[1], plan:x[2], color:COLORS[i] }; });
   db.income = 4850;
