@@ -114,7 +114,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If <span class="nameHere">Trip Tab</span> helps your group, a gift to Loving InDeed helps orphans and students in Kenya. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot" id="ver">Trip Tab v0.3 · 2026-11-25 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
+  <p class="foot" id="ver">Trip Tab v0.4 · 2026-11-25 · Daraja Studio · Free. No account. Everything stays on this phone.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big add" id="addBtn" onclick="openAdd()">＋ Add a cost</button>
@@ -168,10 +168,17 @@ function sharesOf(t, x){
   if(x.type === 'custom'){ Object.keys(x.shares||{}).forEach(function(k){ if(x.shares[k]) out[k] = x.shares[k]; }); return out; }
   var among = x.type === 'some' ? t.people.filter(function(p){ return x.among.indexOf(p.id) > -1; }).map(function(p){ return p.id; }) : t.people.map(function(p){ return p.id; });
   if(!among.length) return out;
-  var base = Math.floor(x.amt / among.length), rem = x.amt - base * among.length;
-  among.forEach(function(id, i){ out[id] = base + (i < rem ? 1 : 0); });
+  /* Overnight B, 26 Nov (Settle Up's family weights): a person can count as more than one — "the Smiths are 4".
+     Shares follow the weights; the odd cents go to the biggest leftover fractions first, so the parts always add up exactly. */
+  var W = among.map(function(id){ return wOf(t, id); }), tw = W.reduce(function(a,b){ return a + b; }, 0);
+  if(tw <= 0){ W = among.map(function(){ return 1; }); tw = among.length; }
+  var given = 0, fr = among.map(function(id, i){ var ex = x.amt * W[i] / tw, f = Math.floor(ex + 1e-9); out[id] = f; given += f; return { id:id, r:ex - f, i:i }; });
+  fr.sort(function(a,b){ return (b.r - a.r) || (a.i - b.i); });
+  for(var k = 0; given < x.amt && k < fr.length * 2; k++){ out[fr[k % fr.length].id] += 1; given++; }
   return out;
 }
+function wOf(t, id){ var p = person(t, id); var w = p && +p.w; return w > 0 ? w : 1; }
+function weighted(t){ return t.people.some(function(p){ return +p.w > 0 && +p.w !== 1; }); }
 function standing(t){   /* per person: paid, share, and balance (+ gets back, − owes) */
   var S = {}; t.people.forEach(function(p){ S[p.id] = { paid:0, share:0, bal:0 }; });
   t.exps.forEach(function(x){ if(S[x.payer]) S[x.payer].paid += x.amt; var sh = sharesOf(t, x); Object.keys(sh).forEach(function(k){ if(S[k]) S[k].share += sh[k]; }); });
@@ -205,8 +212,8 @@ function render(){
     + (t.done ? '<div class="card exnote"><span>✅ This trip is finished. It is kept here so you can look back.</span><button class="b" onclick="reopenTrip()">Open it again</button></div>' : '')
     + '<div class="card"><div class="tripTop"><div><h2 id="tripName">' + esc(t.name) + '</h2>'
     + '<div class="meta">' + t.people.length + ' people · ' + t.exps.length + (t.exps.length === 1 ? ' cost' : ' costs') + ' · ' + money(spent(t)) + ' spent</div></div>'
-    + '<button class="b small" onclick="openTrip()" aria-label="Change the trip name, people or money">✏️ Edit</button></div></div>';
-  h += '<div class="card" id="balances"><h3>Where everyone stands</h3><ul class="people">' + t.people.map(function(p, i){ var s = S[p.id];
+    + '<button class="b small" onclick="openTrip()" aria-label="Change the trip name, people or money">✏️ Edit trip</button></div></div>';
+  h += '<div class="card" id="balances"><h3>Where everyone stands</h3><p class="meta">Green gets money back. Red owes.</p><ul class="people">' + t.people.map(function(p, i){ var s = S[p.id];
       var st = s.bal > 0 ? '<span class="st gets">gets back<br>' + money(s.bal) + '</span>' : s.bal < 0 ? '<span class="st owes">owes<br>' + money(-s.bal) + '</span>' : '<span class="st even">all square ✓</span>';
       return '<li data-person="' + p.id + '"><span class="av" style="background:' + AV[i % AV.length] + '">' + esc(p.name.charAt(0).toUpperCase()) + '</span>'
         + '<div><div class="nm">' + esc(p.name) + '</div><div class="sm">paid ' + money(s.paid) + ' · share ' + money(s.share) + '</div></div>' + st + '</li>'; }).join('') + '</ul>'
@@ -216,7 +223,7 @@ function render(){
       return '<li><button data-cost="' + x.id + '" onclick="openAdd(\'' + x.id + '\')"><div><div class="w">' + esc(x.what || 'A cost') + '</div><div class="by">' + esc(pname(t, x.payer)) + ' paid · ' + esc(splitWords(t, x)) + ' · ' + shortDate(x.d) + '</div></div><span class="amt">' + money(x.amt) + '</span></button></li>'; });
   var paidRows = (t.paid||[]).slice().reverse().map(function(m){
       return '<li class="paidrow"><button onclick="openSettle()"><div><div class="w">🤝 ' + esc(pname(t, m.from)) + ' paid ' + esc(pname(t, m.to)) + ' back</div><div class="by">settling up · ' + shortDate(m.d) + '</div></div><span class="amt">' + money(m.amt) + '</span></button></li>'; });
-  h += '<div class="card" id="costs"><h3>Costs</h3>' + (rows.length ? '<ul class="costs">' + paidRows.join('') + rows.join('') + '</ul>' : '<p class="meta">Nothing yet. When someone pays for something, tap <b>＋ Add a cost</b> at the bottom.</p>') + '</div>';
+  h += '<div class="card" id="costs"><h3>Costs</h3>' + (rows.length ? '<p class="meta">Tap a cost to change it or take it off.</p>' : '') + (rows.length ? '<ul class="costs">' + paidRows.join('') + rows.join('') + '</ul>' : '<p class="meta">Nothing yet. When someone pays for something, tap <b>＋ Add a cost</b> at the bottom.</p>') + '</div>';
   h += '<div class="tools">'
     + '<button class="tool" onclick="openTrip()">👥 People &amp; trip name</button>'
     + '<button class="tool" onclick="openTrips()">🗂 All my trips</button>'
@@ -228,7 +235,7 @@ function splitWords(t, x){
   if(x.type === 'custom') return 'different amounts';
   if(x.type === 'some'){ var n = t.people.filter(function(p){ return x.among.indexOf(p.id) > -1; }).map(function(p){ return p.name; });
     return n.length <= 3 ? 'split by ' + listWords(n) : 'split ' + n.length + ' ways'; }
-  return 'split ' + t.people.length + ' ways';
+  return weighted(t) ? 'split by family size' : 'split ' + t.people.length + ' ways';
 }
 function listWords(a){ return a.length < 2 ? a.join('') : a.slice(0,-1).join(', ') + ' and ' + a[a.length-1]; }
 function welcomeHTML(){
@@ -241,8 +248,8 @@ function welcomeHTML(){
 function tripsHTML(onScreen){
   var on = db.trips.filter(function(t){ return !t.done; }), off = db.trips.filter(function(t){ return t.done; });
   var li = function(t){ return '<li><button class="open" onclick="pickTrip(\'' + t.id + '\')"><div class="t">' + esc(t.name) + '</div><div class="s">' + t.people.length + ' people · ' + money(spent(t), t) + (t.done ? ' · finished ' + shortDate(t.done) : '') + '</div></button>'
-    + (t.done ? '<button class="b small ghost" aria-label="Delete ' + esc(t.name) + '" onclick="delTrip(\'' + t.id + '\')">🗑</button>' : '') + '</li>'; };
-  return (onScreen ? '<div class="card">' : '') + '<h3>' + (onScreen ? 'Your trips' : 'All my trips') + '</h3>'
+    + (t.done ? '<button class="b small ghost" aria-label="Delete the trip ' + esc(t.name) + '" onclick="delTrip(\'' + t.id + '\')">🗑</button>' : '') + '</li>'; };
+  return (onScreen ? '<div class="card">' : '') + '<h3>' + (onScreen ? 'Your trips' : 'All my trips') + '</h3><p class="meta">Tap a trip to open it.</p>'
     + (on.length ? '<ul class="trips">' + on.map(li).join('') + '</ul>' : '<p class="meta">No trip going right now.</p>')
     + '<button class="b primary full" style="margin-top:10px" onclick="openNewTrip()">＋ Start a new trip</button>'
     + (off.length ? '<div class="lab">Finished trips</div><ul class="trips">' + off.map(li).join('') + '</ul>' : '')
@@ -287,11 +294,13 @@ function saveNewTrip(){
   db.trips.push(t); db.open = t.id; save(); closeSheet(); render(); window.scrollTo(0,0); toast(t.name + ' is ready. Add the first cost.');
 }
 function openTrip(){ var t = trip();
-  openSheet('<h3>People &amp; trip name</h3>'
+  openSheet('<h3>People &amp; trip name</h3><p class="sub">Change the name, add someone, or pick the money.</p>'
     + '<label for="tpName">Trip name</label><input id="tpName" value="' + esc(t.name) + '">'
     + '<div class="lab">Who is on the trip</div><div id="tpPeople">' + t.people.map(function(p, i){ return pRow(p.name, i, p.id); }).join('') + '</div>'
     + '<button class="b small" onclick="morePerson()">＋ Another person</button>'
     + '<p class="meta" style="font-size:14px">To take someone off, clear their name. You can only take off someone who has no costs on the trip.</p>'
+    + '<div class="lab">Families: how many each name counts for</div><p class="meta" style="font-size:14px">For a name that stands for a family, like “The Smiths”. Every cost split evenly follows this, past costs too.</p>'
+    + t.people.map(function(p){ var w = +p.w > 0 ? +p.w : 1; return '<div class="row" style="align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1">' + esc(p.name) + '</span><select data-w="' + esc(p.id) + '" aria-label="How many ' + esc(p.name) + ' counts for">' + [0.5,1,2,3,4,5,6,7,8].map(function(n){ return '<option value="' + n + '"' + (n === w ? ' selected' : '') + '>counts as ' + (n === 0.5 ? '½ (a child)' : n) + '</option>'; }).join('') + '</select></div>'; }).join('')
     + '<label for="tpCur">Money</label>' + curSel('tpCur', t.cur)
     + '<div class="row" style="margin-top:16px"><button class="b primary" id="tpSave" onclick="saveTrip()">Save</button><button class="b ghost" onclick="closeSheet()">Cancel</button></div>');
 }
@@ -302,13 +311,14 @@ function saveTrip(){ var t = trip(), keep = [], stuck = [];
     else if(v) keep.push({ id:uid(), name:v }); });
   if(keep.length < 2){ toast('A trip needs at least two people.'); return; }
   t.people = keep; t.name = document.getElementById('tpName').value.trim() || t.name; t.cur = document.getElementById('tpCur').value;
+  [].forEach.call(document.querySelectorAll('[data-w]'), function(e){ var p = person(t, e.getAttribute('data-w')); if(p && p.id === e.getAttribute('data-w')){ var w = +e.value; if(w > 0 && w !== 1) p.w = w; else delete p.w; } });
   t.exps.forEach(function(x){ if(x.type === 'some') x.among = x.among.filter(function(id){ return keep.some(function(p){ return p.id === id; }); }); });
   save(); closeSheet(); render(); toast(stuck.length ? listWords(stuck) + ' stayed — they have costs on this trip.' : 'Saved');
 }
 function openTrips(){ openSheet(tripsHTML(false) + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>', { k:'trips', fn:openTrips }); }
 function pickTrip(id){ if(EX && !db.trips.some(function(t){ return t.id === id; })) return; db.open = id; save(); closeSheet(); render(); window.scrollTo(0,0); }
 function finishTrip(){ var t = trip(), left = settle(t).length;
-  if(!confirm((left ? 'Not everyone is square yet (' + left + (left === 1 ? ' payment' : ' payments') + ' to go). ' : '') + 'Finish “' + t.name + '” and put it away? You can still open it later.')) return;
+  if(left && !confirm('Not everyone is square yet (' + left + (left === 1 ? ' payment' : ' payments') + ' to go). Finish “' + t.name + '” and put it away? You can still open it later.')) return;
   t.done = today(); db.open = null; save(); render(); toast(t.name + ' is put away with your finished trips.'); }
 function reopenTrip(){ var t = trip(); delete t.done; save(); render(); toast(t.name + ' is open again.'); }
 function delTrip(id){ var t = db.trips.filter(function(x){ return x.id === id; })[0]; if(!t) return;
@@ -320,7 +330,7 @@ var F = null;   /* the form while it is open */
 function openAdd(editId){
   var t = trip(), x = editId ? t.exps.filter(function(e){ return e.id === editId; })[0] : null;
   F = { id: x ? x.id : null, payer: x ? x.payer : null, type: x ? x.type : 'equal', among: x && x.type === 'some' ? x.among.slice() : t.people.map(function(p){ return p.id; }), shares: x && x.type === 'custom' ? JSON.parse(JSON.stringify(x.shares)) : {} };
-  openSheet('<h3>' + (x ? 'Change this cost' : 'Add a cost') + '</h3>'
+  openSheet('<h3>' + (x ? 'Change this cost' : 'Add a cost') + '</h3><p class="sub">Who paid, how much, and who shares it.</p>'
     + (x ? '' : '<div class="quick"><label for="qLine">Quick way: type it in one line</label><div class="row"><input id="qLine" placeholder="' + esc(t.people[0].name) + ' paid 140 dinner split ' + t.people.length + '" autocomplete="off"><button class="b primary" id="qRead" onclick="readLine()">Read it</button></div><div class="saw" id="qSaw">Or fill it in below.</div></div>')
     + '<div class="lab">Who paid?</div><div class="pick" id="payPick">' + t.people.map(function(p){ return '<button type="button" data-payer="' + p.id + '" class="' + (F.payer===p.id?'on':'') + '" onclick="setPayer(\'' + p.id + '\')">' + esc(p.name) + '</button>'; }).join('') + '</div>'
     + '<label for="amt">How much?</label><input id="amt" class="amt" inputmode="decimal" data-nomic placeholder="' + (t.cur==='KSh'?'KSh ':t.cur) + '0" value="' + (x ? plain(x.amt) : '') + '" oninput="splitSay()">'
@@ -427,13 +437,26 @@ function openSettle(){ var t = trip(), P = settle(t), txt = settleText(t), body 
       : '<div class="square" id="pays">✓ Everyone is square.</div>')
     + '<div class="note" id="settleNote">' + esc(txt) + '</div>'
     + '<div class="row" style="margin-top:12px"><button class="b primary" id="copyBtn" onclick="copySettle()">📋 Copy the settle-up</button></div>'
-    + '<div class="row" style="margin-top:8px"><a class="b" id="smsBtn" href="sms:?&body=' + body + '">💬 Text it</a><a class="b wa" id="waBtn" href="https://wa.me/?text=' + body + '">WhatsApp</a></div>'
+    + '<div class="row" style="margin-top:8px"><a class="b" id="smsBtn" href="sms:?&body=' + body + '">📨 Text it</a><a class="b wa" id="waBtn" href="https://wa.me/?text=' + body + '">💬 Send on WhatsApp</a></div>'
+    + '<div class="row" style="margin-top:8px"><button class="b" id="anyPayBtn" onclick="openAnyPay()">＋ Record a payment of any amount</button></div>'
     + ((t.paid||[]).length ? '<div class="lab">Already paid</div><ul class="pays">' + t.paid.slice().reverse().map(function(m){ return '<li class="done"><span>✓ ' + esc(pname(t, m.from)) + ' paid ' + esc(pname(t, m.to)) + ' · ' + shortDate(m.d) + '</span><span class="amt">' + money(m.amt) + '</span><button class="b small ghost" onclick="undoPaid(\'' + m.id + '\')">Undo</button></li>'; }).join('') + '</ul>' : '')
     + '<div class="row" style="margin-top:12px"><button class="b ghost" onclick="closeSheet()">Close</button></div>');
 }
 function markPaid(i){ var t = trip(), p = settle(t)[i]; if(!p) return;
   t.paid = t.paid || []; t.paid.push({ id:uid(), from:p.from, to:p.to, amt:p.amt, d:today() }); save(); render(); openSettle();
   toast(pname(t, p.from) + ' paid ' + pname(t, p.to) + ' ' + money(p.amt) + ' ✓'); }
+/* Overnight B, 26 Nov (Splitwise / Settle Up): settling happens in pieces — "Tom paid Maya $50 of the $120".
+   Any amount between any two people goes into t.paid, which standing() already counts; Settle up then shows what is left. */
+function openAnyPay(){ var t = trip(), P = settle(t), p0 = P[0] || {}, opts = function(sel){ return t.people.map(function(p){ return '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join(''); };
+  openSheet('<h3>Record a payment</h3><p class="sub">Money one person gave another, any amount. What is left to settle updates by itself.</p>'
+    + '<label for="apFrom">Who paid</label><select id="apFrom">' + opts(p0.from) + '</select>'
+    + '<label for="apTo">Who got it</label><select id="apTo">' + opts(p0.to) + '</select>'
+    + '<label for="apAmt">How much (' + esc(t.cur) + ')</label><input id="apAmt" inputmode="decimal" autocomplete="off" placeholder="' + (p0.amt ? plain(p0.amt) : '50') + '">'
+    + '<div class="row" style="margin-top:16px"><button class="b primary" onclick="saveAnyPay()">✓ Save this payment</button><button class="b ghost" onclick="openSettle()">Back to settle up</button></div>');
+}
+function saveAnyPay(){ var t = trip(), f = document.getElementById('apFrom').value, to = document.getElementById('apTo').value, c = toCents(document.getElementById('apAmt').value);
+  if(f === to){ toast('Pick two different people.'); return; } if(!(c > 0)){ toast('Type how much was paid.'); return; }
+  t.paid = t.paid || []; t.paid.push({ id:uid(), from:f, to:to, amt:c, d:today() }); save(); render(); openSettle(); toast(pname(t, f) + ' paid ' + pname(t, to) + ' ' + money(c) + ' ✓'); }
 function undoPaid(id){ var t = trip(); t.paid = t.paid.filter(function(m){ return m.id !== id; }); save(); render(); openSettle(); }
 function copySettle(){ var txt = settleText(trip()), done = function(){ toast('Copied. Paste it in the group chat.'); };
   var fall = function(){ var a = document.createElement('textarea'); a.value = txt; a.setAttribute('readonly',''); a.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(a); a.select(); try{ document.execCommand('copy'); done(); }catch(e){ toast('Could not copy — press on the words above to copy them.'); } a.remove(); };
