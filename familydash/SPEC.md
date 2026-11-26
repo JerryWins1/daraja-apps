@@ -1303,3 +1303,10 @@ Jerry's June checking and home equity showed balances with "no lines tied". The 
 ## v14.0 · 26 Nov · See what's different
 
 Each statement that doesn't tie on "Does it balance?" gets a "See what's different ›" link. It lists the lines on the statement that the app doesn't hold, and the lines the app holds for those dates that aren't on the statement (matched by amount, same day or within four days). The statement's lines come from the AI's kept answer. If the statement doesn't add up by itself, it says so: the AI missed or misread a line.
+
+## v14.1 · 26 Nov · Set it up with me, and the budget on one list
+
+- **Set it up with me** (`coachStart`, `coShow`, `coAsk`) runs the household questions one at a time, each with a "Why I ask" line. One AI call words the whole run, and each question the person asks costs one more, capped at 8. Every call is counted against the daily limit. The AI sees totals, account kinds and the question wording only. With no AI connection, the same run uses plain wording (`COWHY`). Answers are saved by each question's own `save()`, only when Next is tapped. The year, accounts and email questions are skipped, because the folder step already covers them.
+- `SQKEY` lines up with the questions again (cars was added and help was removed), so answers found in the statements now skip the right question. `setupSummary` builds its lines by key.
+- **The budget** asks "how often" on one list with a drop-down per row, filled in from the statements (`budStart`, `budListSave`, `rvTimeApply`), then moves to the amounts. The calendar reminder no longer pops up on its own after the first budget.
+- New videos: `setup` and `budget`.
