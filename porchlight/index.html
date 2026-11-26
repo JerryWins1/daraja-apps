@@ -467,7 +467,7 @@ function sampleCopy(e) {
 const canAsk = () => caps.sample && !caps.sampleOff;
 
 /* ---------- render root ---------- */
-const PL_VER = "On Guard v1.8 · 2026-11-25 · Daraja Studio";
+const PL_VER = "On Guard v1.9 · 2026-11-25 · Daraja Studio";
 function render() {
   const app = $("#app");
   app.replaceChildren();
@@ -1213,12 +1213,29 @@ function viewChat() {
         chatTurns.length ? h("button", { class: "btn btn-quiet", type: "button", onclick: () => { chatTurns = []; lsSet(LS_KEY + ".chat", chatTurns); render(); } }, "Start a new talk") : null)),
   ];
 }
+/* Overnight B, 26 Nov 2026 — a scam check that works on this phone alone, before any AI, built on the FTC's four signs
+   (pretends to be someone you know · a problem or a prize · pressure to act now · a payment method you can't undo) and
+   "before you do anything else, tell someone". It never says a message is safe: no warning signs is not proof. */
+const SCAM_SIGNS = [
+  [/gift ?cards?|google play card|apple (gift )?card|itunes card|steam card|numbers? on the back|scratch (off )?the back/i, 4, "It asks for gift cards. No real business or government office is ever paid that way."],
+  [/wire (transfer|the money|money)|western union|moneygram|\bzelle\b|\bvenmo\b|cash ?app|bitcoin|crypto|deposit (this|the) check|send (the )?(rest|money) back/i, 4, "It wants money sent in a way that can’t be undone."],
+  [/anydesk|teamviewer|remote access|let me (connect|get into|access)|download (this|the) app|screen ?share/i, 4, "It wants to get into your computer or phone."],
+  [/don.?t tell|do not tell|keep (this|it) (between us|secret|quiet)|don.?t (call|talk to) (anyone|your)/i, 3, "It asks you to keep it secret."],
+  [/within (24|48) hours|immediately|right away|act now|final notice|today only|\burgent\b|be arrested|\bwarrant\b|suspended|locked|in jail/i, 2, "It rushes you."],
+  [/\b(irs|social security|medicare|amazon|apple|microsoft|paypal|your bank|police|sheriff|fbi|grandson|granddaughter|grandma|grandpa)\b/i, 2, "It says it’s from someone you know or trust."],
+  [/you.?ve won|you have won|lottery|\bprize\b|unclaimed|inheritance|refund (is )?(waiting|due)/i, 2, "It promises a prize or money back."],
+  [/bit\.ly|tinyurl|click (here|this link)|verify your (account|identity)|confirm your (details|password|account)/i, 1, "It pushes you to click a link."]];
+function scamScore(text) { const flags = SCAM_SIGNS.filter((x) => x[0].test(text)); return { score: flags.reduce((a, x) => a + x[1], 0), why: flags.map((x) => x[2]) }; }
+function scamNote(text) { if (String(text).length < 30) return null; const r = scamScore(text); if (r.score < 3) return null;
+  return (r.score >= 6 ? "🛑 Stop — this has the signs of a scam." : "⚠️ Be careful with this one.") + "\n• " + r.why.join("\n• ")
+    + "\nBefore you pay, click or call back, stop and talk to someone you trust. If it says it’s your bank or a family member, call them on the number you already have — not one in the message."; }
 async function sendChat(text, input, status, log) {
   text = (text || "").trim();
   if (!text || chatBusy) return;
   chatTurns.push({ role: "user", content: text.slice(0, 4000) });
   if (input) input.value = "";
   log.append(h("div", { class: "mine" }, h("div", { class: "bubble me" }, text)));
+  const warn = scamNote(text); if (warn) { const L = warn.split("\n"); log.append(helperSays(L[0], ...L.slice(1).map((ln) => h("p", { style: "margin:4px 0 0" }, ln)))); }   /* shown, not added to the AI conversation */
   const p = h("p", null, "Thinking…");
   const bubble = h("div", { class: "bubble" }, p);
   const row = h("div", { class: "say" }, h("div", { class: "avatar", "aria-hidden": "true" }, (P().helper || "S").charAt(0).toUpperCase()), bubble);
