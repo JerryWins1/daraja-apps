@@ -181,7 +181,7 @@
 
 <script>
 'use strict';
-const VERSION = 'v1.2.2 · 2026-11-25';
+const VERSION = 'v1.2.3 · 2026-11-25';
 const KEY = 'dj_duka_v1';
 window.DJ_OWNS = { k:['dj_duka_v1'], p:['dj_duka_'] };
 
@@ -591,11 +591,16 @@ function parseMpesa(t) {
   const bal = (t.match(/balance is K\s?sh\.?\s?([\d,]+(?:\.\d{1,2})?)/i) || [])[1];
   return { ref, amt, name, phone, date, bal: bal ? N(bal) : null, dir };
 }
+/* Overnight B, 26 Nov: an M-Pesa code is used once. The check was only on money out; a code typed twice on a sale or a
+   payment counted the money twice in the cash-up. Asks first, never blocks. */
+function refUsed(ref) { const r = String(ref || '').trim().toUpperCase(); if (r.length < 6) return false; return [].concat(D.sales || [], D.inn || [], D.out || []).some((x) => x.ref && String(x.ref).trim().toUpperCase() === r); }
+function refOk(ref) { return !refUsed(ref) || confirm('This code ' + String(ref).trim() + ' is already recorded. Save it twice?'); }
 function saveSale() {
   if (!CART.length) { toast('Add something to the sale first.'); return; }
   const n = SELL.cname.trim(); let c = n ? D.custs.find((x) => x.name.toLowerCase() === n.toLowerCase()) : null;
   if (SELL.pay === 'Deni' && (!n || (!c && !String(SELL.phone).trim()))) { toast('Deni needs the customer’s name and phone.'); const s = $('sCust'); if (s) s.focus(); return; }
   if (SELL.pay === 'M-Pesa' && SELL.msgAmt != null && Math.round(SELL.msgAmt) !== Math.round(cartTotal()) && !confirm('The M-Pesa message amount does not match the total. Save anyway?')) return;
+  if ((SELL.pay === 'M-Pesa' || SELL.pay === 'Card') && !refOk(SELL.ref)) return;
   if (n && !c) { c = { id: uid(), name: n, phone: String(SELL.phone).trim(), ok: !!SELL.ok, notes: '', added: Date.now() }; D.custs.push(c); }
   const t = Date.now();
   const s = { id: uid(), no: ++D.n.sale, at: t, lines: CART.map((l) => { const it = item(l.iid) || {}; return { iid: l.iid, name: l.name, qty: l.qty, price: N(l.price), cost: N(l.cost), wty: it.wty ? addMonths(t, it.wty) : 0 }; }),
@@ -699,7 +704,9 @@ function restockSheet(id) {
 function saveRestock(id) {
   const i = item(id), q = Math.round(N($('rQty').value)), cost = N($('rCost').value);
   if (q <= 0) { toast('How many came in?'); return; }
-  i.qty = N(i.qty) + q; if (cost) i.cost = cost;
+  /* Overnight B, 26 Nov (moving average, as Vyapar/AS 2 allow): 10 at 800 + 10 at 1,000 costs 900 each, not 1,000 — before, the last price
+     overwrote the cost, so profit on the older stock looked smaller than it was. */
+  const had = Math.max(0, N(i.qty)); if (cost) i.cost = (had > 0 && N(i.cost) > 0) ? Math.round((had * N(i.cost) + q * cost) / (had + q)) : cost; i.qty = N(i.qty) + q;
   const from = $('rFrom').value;
   if (from !== 'Not paid yet' && cost) D.out.push({ id: uid(), at: Date.now(), payee: $('rSup').value.trim() || 'Supplier', cat: 'Stock purchase', amt: q * cost, from, ref: $('rRef').value.trim(), rcpt: from === 'M-Pesa' ? 'M-Pesa message' : 'No — chase it', note: q + ' × ' + i.name, by: D.shop.owner });
   save(); closeSheet(); route(); toast(q + ' added. ' + i.name + ': ' + i.qty + ' in stock.');
@@ -781,6 +788,7 @@ function saveDeniPay(sid) {
   const s = D.sales.find((x) => x.id === sid), amt = N($('dAmt').value);
   if (amt <= 0) { toast('How much did they pay?'); return; }
   if (amt > owed(s) && !confirm('That is more than they owe. Save anyway?')) return;
+  if (!refOk($('dRef').value)) return;
   D.inn.push({ id: uid(), at: Date.now(), cat: 'Deni payment', amt, to: $('dTo').value, from: custName(s.cid), ref: $('dRef').value.trim(), sid, by: D.shop.owner });
   save(); closeSheet(); route(); toast(owed(s) ? 'Saved. Still owed: ' + money(owed(s)) : 'Saved. Fully paid ✅');
 }
@@ -1007,6 +1015,7 @@ MONEY.in = function (b) {
 function inFill() { const m = parseMpesa($('iMsg').value); if (!m) { toast('That does not look like an M-Pesa message.'); return; } $('iAmt').value = m.amt; if (m.ref) $('iRef').value = m.ref; if (m.name) $('iFrom').value = titleCase(m.name); $('iTo').value = 'M-Pesa'; toast('Filled from the message.'); }
 function saveIn() {
   const amt = N($('iAmt').value); if (amt <= 0) { toast('How much came in?'); return; }
+  if (!refOk($('iRef').value)) return;
   D.inn.push({ id: uid(), at: Date.now(), cat: $('iCat').value, amt, to: $('iTo').value, from: $('iFrom').value.trim(), ref: $('iRef').value.trim(), by: D.shop.owner });
   save(); route(); toast('Saved: ' + money(amt) + ' in.');
 }
