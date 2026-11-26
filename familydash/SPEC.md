@@ -1332,3 +1332,7 @@ The checklist disappears once setup is done, so Settings now has a "✨ Set it u
 - **Waiting on us** (`openWaiting`): one list holding the purchases to sort, the spouse's questions, what was set aside to look into, and possible double charges. It links to Lists.
 - **Our accounts:** tiles grouped by kind, with closed accounts last. A line under a tile says when statements are missing, when the account isn't ours, or when its balance is unknown.
 - **Video:** the report video's line about the monthly report was reworded and the video re-recorded.
+
+## v15.2 · 26 Nov · Ask sits under the dials
+
+Jerry asked for this: "Ask about our money" now sits inside the overview, right under the dials and above Needs you.
