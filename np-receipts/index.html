@@ -185,7 +185,7 @@ function giftsFromRows(){
   var out=[];
   document.querySelectorAll('#giftRows .giftRow').forEach(function(r){
     var n=r.querySelector('.gName').value.trim(), a=r.querySelector('.gAmt').value.trim(), d=r.querySelector('.gDate').value.trim(), gw=r.querySelector('.gGot'), gv=r.querySelector('.gVal');
-    if(n || a || d) out.push({n:n,a:a,d:d,w:gw?gw.value.trim():'',v:gv?gv.value.trim():''});
+    if(n || a || d) out.push({n:n,a:a,d:d,w:gw?gw.value.trim():'',v:gv?gv.value.trim():'',r:r.getAttribute('data-r')||'',el:r});
   });
   return out;
 }
@@ -201,6 +201,10 @@ function makeLetters(){
   const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   const O=escH(org.name);
   let html='', made=0, skipped=[];
+  /* Overnight B, 26 Nov 2026: each letter gets a receipt number (year-0001…), kept with its gift so making the letters
+     again never renumbers them, and a treasurer can show which receipt went to whom. */
+  const nextNo=function(g){ if(g.r) return g.r; const y=(/^\d{4}/.test(g.d)?g.d.slice(0,4):String(new Date().getFullYear())); let sq={}; try{ sq=JSON.parse(localStorage.getItem('receiptmaker_seq_v1')||'{}')||{}; }catch(e){}
+    sq[y]=(+sq[y]||0)+1; try{ localStorage.setItem('receiptmaker_seq_v1', JSON.stringify(sq)); }catch(e){} g.r=y+'-'+String(sq[y]).padStart(4,'0'); if(g.el) g.el.setAttribute('data-r', g.r); return g.r; };
   for(const g of gifts){
     const label=[g.n,g.a,g.d].filter(Boolean).join(' · ');
     if(!g.n || !g.a){ skipped.push(label+(g.n?' (no amount)':' (no name)')); continue; }
@@ -222,7 +226,7 @@ function makeLetters(){
     html += `<div class="letter" contenteditable="true" spellcheck="false">
       <div class="org">${O}</div>
       <div class="small">${[escH(org.addr), org.ein ? 'EIN '+escH(org.ein) : ''].filter(Boolean).join(' · ')}</div>
-      <br><div>${today}</div><br>
+      <br><div>${today}<span style="float:right;font-size:13px">Receipt no. ${escH(nextNo(g))}</span></div><br>
       <div>Dear ${escH(g.n)},</div><br>
       <div>Thank you for ${giftLine}${dateOk? ', received on '+fmtDate(g.d):''}. Your support makes our work possible, and we are truly grateful.</div><br>
       <div>${goods}</div><br>
@@ -233,7 +237,7 @@ function makeLetters(){
     </div>`;
     made++;
   }
-  $('letters').innerHTML=html;
+  $('letters').innerHTML=html; try{ saveGifts(); }catch(e){}
   $('printBtn').style.display= made? 'inline-block':'none';
   $('summaryBtn').style.display= made? 'inline-block':'none';
   if($('editHint')) $('editHint').style.display= made? 'block':'none';
@@ -362,7 +366,7 @@ function closeSummary(){$('summary').style.display='none';$('summary').innerHTML
 
 <footer style="text-align:center;font-size:11.5px;color:var(--soft);padding:20px;line-height:1.6">
   Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
-  <span style="opacity:.8">Receipt Maker v1.15 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
+  <span style="opacity:.8">Receipt Maker v1.16 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
 </footer>
 <script>window.DJ_START = {"slug": "receipts", "em": "🧾", "title": "Welcome — this writes your donor letters.", "lede": "Every gift of $250 or more needs a letter with the words the IRS requires. This writes one for each gift, all at once, so nobody spends January on it.", "cta": "Start with my details →", "firstSelector": "input, button", "dataKeys": ["receipts_v1", "np_receipts_v1"], "steps": ["<b>Put your organization's details in</b> — name, address, EIN.", "<b>Add your gifts</b> — one donor, one amount, one date at a time.", "<b>Make the letters</b>, tap any one to change its words, then print the lot."]};</script>
 
@@ -484,8 +488,8 @@ function closeSummary(){$('summary').style.display='none';$('summary').innerHTML
    something in there... make each entry its own little box." The comma-separated textarea is
    still here behind "Paste a list instead", because pasting from a spreadsheet is genuinely
    faster once you have fifty donors. But typing one is now three plain boxes. */
-function giftRowHTML(n, name, amt, date, got, val){
-  return '<div class="giftRow" style="display:flex;gap:6px;align-items:center;margin-bottom:7px;flex-wrap:wrap">'
+function giftRowHTML(n, name, amt, date, got, val, rno){
+  return '<div class="giftRow" data-r="'+escH(rno||'')+'" style="display:flex;gap:6px;align-items:center;margin-bottom:7px;flex-wrap:wrap">'
     + '<span style="flex:none;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.07);'
     + 'display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">'+n+'</span>'
     + '<input class="gName" placeholder="donor name" value="'+escH(name)+'" style="flex:2;min-width:130px" autocomplete="off" aria-label="donor name">'
@@ -510,10 +514,10 @@ function dwUpd(e){ var t=e.target; if(!t || !t.classList || !t.classList.contain
 function renumber(){
   document.querySelectorAll('#giftRows .giftRow').forEach(function(r,i){ r.firstChild.textContent = i+1; });
 }
-function addGift(name, amt, date, got, val){
+function addGift(name, amt, date, got, val, rno){
   var w=document.getElementById('giftRows');
   var n=w.querySelectorAll('.giftRow').length+1;
-  w.insertAdjacentHTML('beforeend', giftRowHTML(n, name, amt, date, got, val));
+  w.insertAdjacentHTML('beforeend', giftRowHTML(n, name, amt, date, got, val, rno));
   var rows=w.querySelectorAll('.giftRow');
   var last=rows[rows.length-1]; var inp=last.querySelector('.gName');
   if(inp && !name) inp.focus();
@@ -582,7 +586,7 @@ function saveGifts(){
     var rows=[];
     document.querySelectorAll('#giftRows .giftRow').forEach(function(r){
       var n=r.querySelector('.gName').value.trim(), a=r.querySelector('.gAmt').value.trim(), d=r.querySelector('.gDate').value.trim(), gw=r.querySelector('.gGot'), gv=r.querySelector('.gVal');
-      if(n||a||d){ var o={n:n,a:a,d:d}; if(gw&&gw.value.trim()) o.w=gw.value.trim(); if(gv&&gv.value.trim()) o.v=gv.value.trim(); rows.push(o); }
+      if(n||a||d){ var o={n:n,a:a,d:d}; if(gw&&gw.value.trim()) o.w=gw.value.trim(); if(gv&&gv.value.trim()) o.v=gv.value.trim(); if(r.getAttribute('data-r')) o.r=r.getAttribute('data-r'); rows.push(o); }
     });
     if(rows.length) localStorage.setItem(GKEY, JSON.stringify(rows)); else localStorage.removeItem(GKEY);
   }catch(e){}
@@ -598,7 +602,7 @@ document.addEventListener('change', function(e){
     var w=document.getElementById('giftRows'); if(!w || w.querySelector('.giftRow')) return;
     var saved=[]; try{ saved=JSON.parse(localStorage.getItem(GKEY)||'[]')||[]; }catch(e){}
     if(Array.isArray(saved) && saved.length){
-      _booting=true; saved.forEach(function(g){ addGift(g.n||'', g.a||'', g.d||'', g.w||'', g.v||''); }); _booting=false;
+      _booting=true; saved.forEach(function(g){ addGift(g.n||'', g.a||'', g.d||'', g.w||'', g.v||'', g.r||''); }); _booting=false;
       var f=w.querySelector('.gName'); if(f) f.blur();
     } else { addGift(); var f0=w.querySelector('.gName'); if(f0) f0.blur(); }   /* 2 Oct 2026: no focus on open — it put the 🎤 on top of the welcome card */
   }
