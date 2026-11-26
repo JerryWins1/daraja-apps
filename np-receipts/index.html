@@ -135,6 +135,9 @@
       <button class="btn" type="button" onclick="pasteIntoRows()" style="margin-top:8px">↧ Put these into the boxes</button>
     </div>
     <label style="display:flex;align-items:flex-start;gap:10px;margin-top:10px;font-size:13.5px;color:var(--ink)"><input type="checkbox" id="noGoods" checked style="width:22px;height:22px;flex:none;margin-top:1px"> <span>No goods or services were provided in exchange for these gifts <span style="color:var(--soft)">(uncheck if a dinner or auction item was involved — each letter then gets a blank for what they received and its value, which you fill in by tapping the letter)</span></span></label>
+    <p class="hint" id="qpqHint" style="display:none;font-size:13.5px;margin:6px 0 0">Unticked: under each gift, say what they got back (a dinner ticket, an auction item) and what it was worth. The letter works out how much they can deduct. Leave it blank if they got nothing.</p>
+    <style>#giftRows .giftRow .gQ{ display:none; } body.rmQ #giftRows .giftRow .gQ{ display:flex; }</style>
+    <script>(function(){ function q(){ var c=document.getElementById('noGoods'); if(!c) return; document.body.classList.toggle('rmQ', !c.checked); var h=document.getElementById('qpqHint'); if(h) h.style.display=c.checked?'none':'block'; } document.addEventListener('change', function(e){ if(e.target && e.target.id==='noGoods') q(); }); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', q); else q(); })();</script>
     <label style="display:flex;align-items:flex-start;gap:10px;margin-top:8px;font-size:13.5px;color:var(--ink)"><input type="checkbox" id="isChurch" style="width:22px;height:22px;flex:none;margin-top:1px"> <span>We are a church <span style="color:var(--soft)">(the letter then says “other than intangible religious benefits,” the IRS wording for churches)</span></span></label>
     <style>/* 7 Oct deep check: on a phone the donor name gets the whole line */ @media (max-width:520px){ #giftRows .giftRow .gName{ flex:1 1 calc(100% - 40px) !important; } #giftRows .giftRow .gAmt{ flex:1 1 90px !important; min-width:0 !important; } #giftRows .giftRow .gDate{ flex:1.4 1 148px !important; min-width:148px !important; } }</style>
   </div>
@@ -181,8 +184,8 @@ function escH(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){retu
 function giftsFromRows(){
   var out=[];
   document.querySelectorAll('#giftRows .giftRow').forEach(function(r){
-    var n=r.querySelector('.gName').value.trim(), a=r.querySelector('.gAmt').value.trim(), d=r.querySelector('.gDate').value.trim();
-    if(n || a || d) out.push({n:n,a:a,d:d});
+    var n=r.querySelector('.gName').value.trim(), a=r.querySelector('.gAmt').value.trim(), d=r.querySelector('.gDate').value.trim(), gw=r.querySelector('.gGot'), gv=r.querySelector('.gVal');
+    if(n || a || d) out.push({n:n,a:a,d:d,w:gw?gw.value.trim():'',v:gv?gv.value.trim():''});
   });
   return out;
 }
@@ -215,7 +218,7 @@ function makeLetters(){
       ? (church ? 'No goods or services were provided in exchange for this contribution other than intangible religious benefits. '
                 : 'No goods or services were provided in exchange for this contribution. ')
         + O+' is a tax-exempt organization; this letter serves as your receipt for tax purposes. Please retain it for your records.'
-      : 'In exchange for your gift you received <i>[describe what they received]</i>, with a good-faith estimated value of <i>[$ value]</i>. The amount you may deduct for federal income tax purposes is limited to the amount of your gift above that value. Please retain this letter for your records.';
+      : qpqText(g, amt, inKind, church, O);
     html += `<div class="letter" contenteditable="true" spellcheck="false">
       <div class="org">${O}</div>
       <div class="small">${[escH(org.addr), org.ein ? 'EIN '+escH(org.ein) : ''].filter(Boolean).join(' · ')}</div>
@@ -247,6 +250,18 @@ function summaryYear(){
   const now=new Date(), def=String(now.getMonth()<3 ? now.getFullYear()-1 : now.getFullYear());
   return ys.indexOf(def)>=0 ? def : (ys.length ? ys[ys.length-1] : def);
 }
+/* Overnight B, 26 Nov 2026 (IRS quid pro quo rule: over $75 the letter must give a good-faith estimate of what the donor
+   received, and only the part above it is deductible). With "No goods or services" unticked, each gift row can say what
+   they got and its value; the letter then writes the sentence and works out the deductible amount. A row left blank keeps
+   the old fill-in-the-blanks wording, and a row with nothing received gets the no-goods sentence. */
+function qpqNum(v){ var t=String(v||'').replace(/[$,\s]/g,''); return /^\d+(\.\d+)?$/.test(t)?Number(t):null; }
+function qpqText(g, amtTxt, inKind, church, O){
+  var val=qpqNum(g.v), got=String(g.w||'').trim(), a=Number(String(g.a).replace(/[$,\s]/g,''));
+  var keep=' Please retain this letter for your records.';
+  if(!inKind && val!==null && val>0 && got){ var ded=Math.max(0, a-val);
+    return 'In exchange for your gift you received <b>'+escH(got)+'</b>, with a good-faith estimated value of <b>'+fmtAmt(val.toFixed(2))+'</b>. The amount you may deduct for federal income tax purposes is limited to the amount of your gift above that value: <b>'+fmtAmt(ded.toFixed(2))+'</b>.'+keep; }
+  if(val===0 || (got && /^(nothing|none|no)$/i.test(got))) return (church ? 'No goods or services were provided in exchange for this contribution other than intangible religious benefits. ' : 'No goods or services were provided in exchange for this contribution. ')+O+' is a tax-exempt organization; this letter serves as your receipt for tax purposes.'+keep;
+  return 'In exchange for your gift you received <i>'+(got?escH(got):'[describe what they received]')+'</i>, with a good-faith estimated value of <i>[$ value]</i>. The amount you may deduct for federal income tax purposes is limited to the amount of your gift above that value.'+keep; }
 function aggregateDonorSummary(){
   const gifts=giftsFromRows(), year=summaryYear(), donors={}, undated=[];
   const num=function(a){ return Number(String(a).replace(/[$,\s]/g,'')); };
@@ -257,7 +272,7 @@ function aggregateDonorSummary(){
     if(g.d.slice(0,4)!==year) continue;
     if(/^in-?kind/i.test(g.a)){ const d=g.a.replace(/^in-?kind:?\s*/i,'').trim(); if(d) slot(g.n).inKind.push({desc:d, date:g.d}); continue; }
     if(fmtAmt(g.a)===null || num(g.a)<=0) continue;
-    const x=slot(g.n); x.total+=num(g.a); x.donations.push({amt:num(g.a), date:g.d});
+    const x=slot(g.n); x.total+=num(g.a); x.donations.push({amt:num(g.a), date:g.d, v:qpqNum(g.v), w:g.w||''});
   }
   window.__rmUndated=undated;
   return Object.values(donors).map(function(d){ d.donations.sort(function(a,b){ return a.date<b.date?-1:1; }); return [d.name, d]; }).sort(function(a,b){ return b[1].total-a[1].total; });
@@ -272,13 +287,15 @@ function makeYearLetters(){
   const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   let html='';
   for(const [name, d] of sorted){
-    const rows=d.donations.map(function(x){ return '<tr><td style="padding:3px 10px 3px 0">'+fmtDate(x.date)+'</td><td style="text-align:right;padding:3px 0">'+fmtAmt(String(x.amt))+'</td></tr>'; }).join('')
+    const recv=noGoods?0:d.donations.reduce(function(t,x){ return t+(x.v>0?x.v:0); },0);
+    const rows=d.donations.map(function(x){ return '<tr><td style="padding:3px 10px 3px 0">'+fmtDate(x.date)+'</td><td style="text-align:right;padding:3px 0">'+fmtAmt(String(x.amt))+(!noGoods&&x.v>0?'<div style="font-size:12.5px">you received '+escH(x.w||'something')+', worth '+fmtAmt(x.v.toFixed(2))+'</div>':'')+'</td></tr>'; }).join('')
       + d.inKind.map(function(x){ return '<tr><td style="padding:3px 10px 3px 0">'+fmtDate(x.date)+'</td><td style="text-align:right;padding:3px 0">in-kind: '+escH(x.desc)+'</td></tr>'; }).join('');
     const goods = noGoods
       ? (church ? 'No goods or services were provided in exchange for these contributions other than intangible religious benefits. '
                 : 'No goods or services were provided in exchange for these contributions. ')
         + O+' is a tax-exempt organization; this letter serves as your receipt for tax purposes. Please retain it for your records.'
-      : 'In exchange for your gifts you received <i>[describe what they received]</i>, with a good-faith estimated value of <i>[$ value]</i>. The amount you may deduct for federal income tax purposes is limited to the amount of your gifts above that value. Please retain this letter for your records.';
+      : (recv>0 ? 'For the gifts marked above you received goods or services, with the good-faith estimated values shown. The amount you may deduct for federal income tax purposes is limited to your gifts above those values: <b>'+fmtAmt(Math.max(0,d.total-recv).toFixed(2))+'</b>. Please retain this letter for your records.'
+        : 'In exchange for your gifts you received <i>[describe what they received]</i>, with a good-faith estimated value of <i>[$ value]</i>. The amount you may deduct for federal income tax purposes is limited to the amount of your gifts above that value. Please retain this letter for your records.');
     html += `<div class="letter" contenteditable="true" spellcheck="false">
       <div class="org">${O}</div>
       <div class="small">${[escH(org.addr), org.ein ? 'EIN '+escH(org.ein) : ''].filter(Boolean).join(' · ')}</div>
@@ -345,7 +362,7 @@ function closeSummary(){$('summary').style.display='none';$('summary').innerHTML
 
 <footer style="text-align:center;font-size:11.5px;color:var(--soft);padding:20px;line-height:1.6">
   Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
-  <span style="opacity:.8">Receipt Maker v1.14 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
+  <span style="opacity:.8">Receipt Maker v1.15 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
 </footer>
 <script>window.DJ_START = {"slug": "receipts", "em": "🧾", "title": "Welcome — this writes your donor letters.", "lede": "Every gift of $250 or more needs a letter with the words the IRS requires. This writes one for each gift, all at once, so nobody spends January on it.", "cta": "Start with my details →", "firstSelector": "input, button", "dataKeys": ["receipts_v1", "np_receipts_v1"], "steps": ["<b>Put your organization's details in</b> — name, address, EIN.", "<b>Add your gifts</b> — one donor, one amount, one date at a time.", "<b>Make the letters</b>, tap any one to change its words, then print the lot."]};</script>
 
@@ -467,7 +484,7 @@ function closeSummary(){$('summary').style.display='none';$('summary').innerHTML
    something in there... make each entry its own little box." The comma-separated textarea is
    still here behind "Paste a list instead", because pasting from a spreadsheet is genuinely
    faster once you have fifty donors. But typing one is now three plain boxes. */
-function giftRowHTML(n, name, amt, date){
+function giftRowHTML(n, name, amt, date, got, val){
   return '<div class="giftRow" style="display:flex;gap:6px;align-items:center;margin-bottom:7px;flex-wrap:wrap">'
     + '<span style="flex:none;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.07);'
     + 'display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">'+n+'</span>'
@@ -476,6 +493,7 @@ function giftRowHTML(n, name, amt, date){
     + '<input class="gDate" type="date" value="'+escH(date)+'" style="flex:1;min-width:132px" aria-label="date received">'
     + '<button aria-label="remove this row" type="button" class="gDel" onclick="delGift(this)" title="remove this row" '
     + 'style="flex:none;border:none;background:transparent;color:#b44;font-size:19px;cursor:pointer;padding:0 6px">×</button>'
+    + '<span class="gQ" style="flex:1 1 100%;gap:6px;margin:0 0 0 30px;flex-wrap:wrap"><input class="gGot" placeholder="what they got back, e.g. dinner ticket" value="'+escH(got||'')+'" style="flex:2;min-width:150px" autocomplete="off" aria-label="what the donor got in return"><input class="gVal" inputmode="decimal" placeholder="its value, e.g. 40" value="'+escH(val||'')+'" style="flex:1;min-width:110px" autocomplete="off" aria-label="value of what they got"></span>'
     + '<span class="gDateWords" aria-live="polite" style="flex:1 1 100%;margin:-2px 0 0 30px;font-size:13px;opacity:.75;min-height:0">'+dateWords(date)+'</span>'
     + '</div>';
 }
@@ -492,10 +510,10 @@ function dwUpd(e){ var t=e.target; if(!t || !t.classList || !t.classList.contain
 function renumber(){
   document.querySelectorAll('#giftRows .giftRow').forEach(function(r,i){ r.firstChild.textContent = i+1; });
 }
-function addGift(name, amt, date){
+function addGift(name, amt, date, got, val){
   var w=document.getElementById('giftRows');
   var n=w.querySelectorAll('.giftRow').length+1;
-  w.insertAdjacentHTML('beforeend', giftRowHTML(n, name, amt, date));
+  w.insertAdjacentHTML('beforeend', giftRowHTML(n, name, amt, date, got, val));
   var rows=w.querySelectorAll('.giftRow');
   var last=rows[rows.length-1]; var inp=last.querySelector('.gName');
   if(inp && !name) inp.focus();
@@ -563,8 +581,8 @@ function saveGifts(){
   try{
     var rows=[];
     document.querySelectorAll('#giftRows .giftRow').forEach(function(r){
-      var n=r.querySelector('.gName').value.trim(), a=r.querySelector('.gAmt').value.trim(), d=r.querySelector('.gDate').value.trim();
-      if(n||a||d) rows.push({n:n,a:a,d:d});
+      var n=r.querySelector('.gName').value.trim(), a=r.querySelector('.gAmt').value.trim(), d=r.querySelector('.gDate').value.trim(), gw=r.querySelector('.gGot'), gv=r.querySelector('.gVal');
+      if(n||a||d){ var o={n:n,a:a,d:d}; if(gw&&gw.value.trim()) o.w=gw.value.trim(); if(gv&&gv.value.trim()) o.v=gv.value.trim(); rows.push(o); }
     });
     if(rows.length) localStorage.setItem(GKEY, JSON.stringify(rows)); else localStorage.removeItem(GKEY);
   }catch(e){}
@@ -580,7 +598,7 @@ document.addEventListener('change', function(e){
     var w=document.getElementById('giftRows'); if(!w || w.querySelector('.giftRow')) return;
     var saved=[]; try{ saved=JSON.parse(localStorage.getItem(GKEY)||'[]')||[]; }catch(e){}
     if(Array.isArray(saved) && saved.length){
-      _booting=true; saved.forEach(function(g){ addGift(g.n||'', g.a||'', g.d||''); }); _booting=false;
+      _booting=true; saved.forEach(function(g){ addGift(g.n||'', g.a||'', g.d||'', g.w||'', g.v||''); }); _booting=false;
       var f=w.querySelector('.gName'); if(f) f.blur();
     } else { addGift(); var f0=w.querySelector('.gName'); if(f0) f0.blur(); }   /* 2 Oct 2026: no focus on open — it put the 🎤 on top of the welcome card */
   }
