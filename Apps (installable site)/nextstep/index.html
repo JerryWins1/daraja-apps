@@ -51,7 +51,7 @@
   .name { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; }
   .name .em { font-size:20px; }
   .status { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; white-space:nowrap; }
-  .status.active { background:var(--ok-soft); color:var(--ok); } .status.waiting { background:var(--warn-soft); color:var(--warn); } .status.paused { background:var(--surface-2); color:var(--faint); } .status.blocked { background:var(--coral-soft); color:var(--coral); }
+  .status.active { background:var(--ok-soft); color:var(--ok); } .status.waiting { background:var(--warn-soft); color:var(--warn); } .status.done { background:var(--ok-soft); color:var(--ok); } .status.paused { background:var(--surface-2); color:var(--faint); } .status.blocked { background:var(--coral-soft); color:var(--coral); }
   .one { font-size:13.5px; color:var(--soft); }
   .next { background:var(--brand-soft); border-left:3px solid var(--brand); border-radius:0 8px 8px 0; padding:8px 12px; font-size:14px; }
   .next b { display:block; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--brand); margin-bottom:2px; }
@@ -138,14 +138,14 @@
 <style id="dj-contrast-v5">.acts{flex-wrap:wrap;} .acts button{white-space:normal;} @media (prefers-color-scheme:light){ .status{ color:#2B3532 !important; font-weight:800; } .card b, .item b, li b{ color:#2B3532 !important; } }</style>
 </head>
 <body>
-<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🗂</div><div style="font-size:28px;font-weight:800">Next Step Board</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.15 · 2026-11-25</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">🗂</div><div style="font-size:28px;font-weight:800">Next Step Board</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.16 · 2026-11-25</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
 
 <button id="pwaInstall">⬇ Install app</button>
 <div id="pwaTip"><button onclick="this.parentNode.classList.remove('show');localStorage.setItem('pwaTipSeen','1')" aria-label="Remove" title="Remove">×</button><b>Install on iPhone:</b> tap the Share button <span style="font-size:16px">&#x2B06;&#xFE0E;</span>, then <b>“Add to Home Screen”</b>. It becomes an app icon and works offline.</div>
 <header><div class="hrow">
   <h1><span id="boardName" onclick="renameBoard()" title="Tap to rename" style="cursor:pointer">My Next Step Board</span> <small id="stamp"></small></h1>
   <div class="filters" id="filters">
-    <button data-f="all" class="on">All</button><button data-f="active">Active</button><button data-f="waiting">Waiting</button><button data-f="blocked">Blocked</button><button data-f="paused">Paused</button><button data-f="mine">Needs me</button>
+    <button data-f="all" class="on">All</button><button data-f="active">Active</button><button data-f="waiting">Waiting</button><button data-f="blocked">Blocked</button><button data-f="paused">Paused</button><button data-f="done" id="fDone" hidden>✓ Finished</button><button data-f="mine">Needs me</button>
   </div>
 </div></header>
 <main>
@@ -164,7 +164,7 @@
   <button onclick="exportJSON()">Backup</button>
   <label><input type="file" accept="application/json" style="display:none" onchange="importJSON(event)">Restore a backup</label>
   <button onclick="resetSeed()">Reset to examples</button><button onclick="startBlank()">Start a blank board</button>
-  <span>Stored in this browser · Backup weekly · <b>Next Step Board</b> v1.15 · 2026-11-25 — 📝 meeting notes into minutes · <i>daraja</i> studio — every download builds a bridge</span>
+  <span>Stored in this browser · Backup weekly · <b>Next Step Board</b> v1.16 · 2026-11-25 — 📝 meeting notes into minutes · <i>daraja</i> studio — every download builds a bridge</span>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -192,7 +192,9 @@ function save(){ localStorage.setItem(KEY,JSON.stringify(db)); }
 function toast(t){ const e=document.getElementById('toast'); e.textContent=t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),1600); }
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const days=d=>{const t=new Date();t.setHours(0,0,0,0);return Math.max(0,Math.round((t-new Date(String(d).slice(0,10)+'T00:00:00'))/864e5));};
-const order={active:0,waiting:1,blocked:2,paused:3};
+const order={active:0,waiting:1,blocked:2,paused:3,done:4};
+/* Overnight B, 26 Nov 2026 (Pipedrive sets 'rotting' per stage): waiting goes stale fast, paused and done never */
+const STALE={active:14,waiting:5,blocked:3,paused:Infinity,done:Infinity};
 
 window.aiCopyPrompt=()=>{ navigator.clipboard.writeText(AI_PROMPT).then(()=>toast('Prompt copied — paste it to your AI and tell it your plate')); };
 const AI_PROMPT = "I'm going to describe everything on my plate. Turn it into a project board.\n\nReply with ONLY a JSON code block, exactly this shape, nothing else:\n{\"projects\":[{\"emoji\":\"🚀\",\"name\":\"Project name\",\"status\":\"active\",\"one\":\"one-line description\",\"next\":\"the single next step, small and specific\",\"who\":\"Me · 30 min\",\"tasks\":[[\"a task\",\"Me\",0],[\"another task\",\"Me\",0]]}]}\n\nRules: 3-8 projects. status is active, waiting, or paused - be honest. Every next step must be doable in under an hour. tasks third value: 0=open, 1=done.\n\nHere is my plate:\n[TELL IT EVERYTHING - just talk: work stuff, home stuff, the thing you keep putting off]";
@@ -379,20 +381,20 @@ window.minutesView=(id,i)=>{ const p=db.projects.find(x=>x.id===id); const m=p&&
 };
 function render(){
   document.getElementById('stamp').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
-  const ps=db.projects.filter(p=>filter==='all'||(filter==='mine'?(p.status!=='paused'&&p.status!=='waiting'&&!/^(—|-|claude|them|waiting on them)/i.test((p.who||'').trim())):p.status===filter)).sort((a,b)=>(order[a.status]-order[b.status])||((a.pri||3)-(b.pri||3))||((a.due||'9999').localeCompare(b.due||'9999')));
+  const ps=db.projects.filter(p=>(filter==='all'&&p.status!=='done')||(filter==='mine'&&p.status!=='done'?(p.status!=='paused'&&p.status!=='waiting'&&!/^(—|-|claude|them|waiting on them)/i.test((p.who||'').trim())):p.status===filter)).sort((a,b)=>(order[a.status]-order[b.status])||((a.pri||3)-(b.pri||3))||((a.due||'9999').localeCompare(b.due||'9999')));
   const waiting=db.projects.filter(p=>p.status==='waiting').length, blocked=db.projects.filter(p=>p.status==='blocked').length;   /* 7 Oct deep check */
-  const open=db.projects.reduce((t,p)=>t+p.tasks.filter(x=>!x[2]).length,0);
-  const first=db.projects.filter(p=>p.status==='active').sort((a,b)=>a.touched.localeCompare(b.touched))[0]||db.projects.find(p=>p.status!=='paused');
+  const open=db.projects.filter(p=>p.status!=='done').reduce((t,p)=>t+p.tasks.filter(x=>!x[2]).length,0);
+  const first=db.projects.filter(p=>p.status==='active').sort((a,b)=>a.touched.localeCompare(b.touched))[0]||db.projects.find(p=>p.status!=='paused'&&p.status!=='done');
   document.getElementById('banner').innerHTML=`<span>👋</span><div><b>Where you left off:</b> ${waiting} project${waiting!==1?'s':''} waiting${blocked?` · ${blocked} blocked`:''} · ${open} open item${open!==1?'s':''}${first?` · Start with <b>${esc(first.emoji+' '+first.name)}</b>: ${esc(first.next)}`:''}</div>`;
   document.getElementById('boardName').textContent=db.name||'My Next Step Board'; document.title=(db.name||'Next Step Board')+' — Next Step Board';
   if(!db.projects.length){ document.getElementById('grid').innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;color:var(--faint)">No projects yet. Tap <b>+ Add project</b> below — or <b>Reset to examples</b> to see how cards work.</div>'; document.getElementById('count').textContent='0 projects'; return; }
   document.getElementById('grid').innerHTML=ps.map(p=>{
-    const stale=days(p.touched); const openT=p.tasks.filter(t=>!t[2]);
-    return `<div class="card ${p.status==='paused'?'paused':''}" data-id="${p.id}">
+    const stale=days(p.touched), late=days((p.status==='waiting'||p.status==='blocked')&&p.waitSince?p.waitSince:p.touched)>STALE[p.status||'active']; const openT=p.tasks.filter(t=>!t[2]);
+    return `<div class="card ${p.status==='paused'||p.status==='done'?'paused':''}" data-id="${p.id}">
       <div class="top"><div class="name"><span class="em">${p.emoji}</span>${esc(p.name)}</div><span class="status ${p.status}">${p.status}</span></div>
       <div class="one">${esc(p.one)}</div>
       <div class="next"><b>Next step</b>${esc(p.next)}<div class="who">${esc(p.who)}${p.link?` · <span style="color:var(--brand)">📄 ${esc(p.link)}</span>`:''}</div></div>
-      <div class="meta"><span class="pri"><button aria-label="higher priority" onclick="pri('${p.id}',-1)" title="higher priority">▲</button><b>P${p.pri||3}</b><button aria-label="lower priority" onclick="pri('${p.id}',1)" title="lower priority">▼</button></span>${p.due?`<span class="due ${dueClass(p.due)}" onclick="editDue('${p.id}')" style="cursor:pointer">${dueLabel(p.due)}</span>`:`<span class="due" role="button" tabindex="0" aria-label="Add a due date" onclick="editDue('${p.id}')" style="cursor:pointer">+ due date</span>`}<span class="${stale>14?'stale':''}">${stale===0?'worked on today':stale===1?'worked on yesterday':'last worked on '+stale+' days ago'}</span></div>
+      <div class="meta"><span class="pri"><button aria-label="higher priority" onclick="pri('${p.id}',-1)" title="higher priority">▲</button><b>P${p.pri||3}</b><button aria-label="lower priority" onclick="pri('${p.id}',1)" title="lower priority">▼</button></span>${p.due?`<span class="due ${dueClass(p.due)}" onclick="editDue('${p.id}')" style="cursor:pointer">${dueLabel(p.due)}</span>`:`<span class="due" role="button" tabindex="0" aria-label="Add a due date" onclick="editDue('${p.id}')" style="cursor:pointer">+ due date</span>`}<span class="${late?'stale':''}">${stale===0?'worked on today':stale===1?'worked on yesterday':'last worked on '+stale+' days ago'}</span></div>
       <div class="acts">
         <button class="primary" onclick="editNext('${p.id}')">✏️ Next</button>
         <button onclick="setStatus('${p.id}')">Status ▸</button>
@@ -404,12 +406,14 @@ function render(){
         <div class="tasks">${p.tasks.map((t,i)=>`<div class="task ${t[2]?'done':''}"><label><input type="checkbox" ${t[2]?'checked':''} onchange="toggleTask('${p.id}',${i},this.checked)"><span>${esc(t[0])}<span class="who">— ${esc(t[1])}</span></span></label></div>`).join('')}
         <div class="add"><input placeholder="add an item…" id="add-${p.id}" onkeydown="if(event.key==='Enter')addTask('${p.id}')"><button onclick="addTask('${p.id}')">Add</button></div></div>
       </details>
+      ${(p.hist&&p.hist.length)?`<details class="mins"><summary>✓ Done so far (${p.hist.length}) ▾</summary><div class="tasks">${p.hist.slice().reverse().map(h=>`<div class="task"><span>${esc(h.d)} · ${esc(h.step)}${h.who?`<span class="who">— ${esc(h.who)}</span>`:''}</span></div>`).join('')}</div></details>`:''}
       ${(p.minutes&&p.minutes.length)?`<details class="mins"><summary>📝 Minutes (${p.minutes.length}) ▾</summary><div class="tasks">${p.minutes.map((m,i)=>`<div class="task"><button type="button" class="mnRow" onclick="minutesView('${p.id}',${i})">${esc(m.d)} · ${esc(m.title)}</button></div>`).join('')}</div></details>`:''}
     </div>`; }).join('');
-  document.getElementById('count').textContent=`${db.projects.length} project${db.projects.length!==1?'s':''}`;
+  const nDone=db.projects.filter(p=>p.status==='done').length, fd=document.getElementById('fDone'); if(fd){ fd.hidden=!nDone; fd.textContent='✓ Finished'+(nDone?' ('+nDone+')':''); }
+  document.getElementById('count').textContent=`${db.projects.length-nDone} project${db.projects.length-nDone!==1?'s':''}`+(nDone?` · ${nDone} finished`:'');
   renderDue();
   (function(){ const el=document.getElementById('allclear'); if(!el) return;
-    const overdue=db.projects.some(p=>p.due&&p.status!=='paused'&&(new Date(p.due+'T23:59:59')-Date.now())<0);
+    const overdue=db.projects.some(p=>p.due&&p.status!=='paused'&&p.status!=='done'&&(new Date(p.due+'T23:59:59')-Date.now())<0);
     const waiting=db.projects.filter(p=>p.status==='waiting'||p.status==='blocked').length;
     const anyOpen=db.projects.some(p=>p.tasks&&p.tasks.some(t=>!t[2]));
     if(db.projects.length&&!overdue&&!waiting){ el.classList.add('show'); el.textContent = anyOpen? '🌤 Nothing overdue, nothing waiting on you. Whatever you do next is a choice, not a debt.' : '🏆 Every checklist clear, nothing waiting, nothing overdue. Go enjoy the day — the board will hold the fort.'; }
@@ -425,7 +429,7 @@ window.editDue=id=>{ const p=db.projects.find(x=>x.id===id); const v=prompt('Due
   let m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/), y,mo,da; if(m){ y=+m[1]; mo=+m[2]; da=+m[3]; } else if((m=t.match(/^(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?$/))){ mo=+m[1]; da=+m[2]; y=m[3]?(m[3].length===2?2000+(+m[3]):+m[3]):new Date().getFullYear(); }
   const dt=m?new Date(y,mo-1,da):null; if(!dt||dt.getMonth()!==mo-1||dt.getDate()!==da){ toast('Try a date like 10/15/2026 — your old date is kept'); return; }
   p.due=y+'-'+String(mo).padStart(2,'0')+'-'+String(da).padStart(2,'0'); save(); render(); toast('Due date set'); };
-function renderDue(){ const items=db.projects.filter(p=>p.due&&p.status!=='paused').map(p=>({p,n:dueDays(p.due)})).filter(x=>x.n<=7).sort((a,b)=>a.n-b.n);
+function renderDue(){ const items=db.projects.filter(p=>p.due&&p.status!=='paused'&&p.status!=='done').map(p=>({p,n:dueDays(p.due)})).filter(x=>x.n<=7).sort((a,b)=>a.n-b.n);
   const bar=document.getElementById('duebar'); if(!items.length){ bar.classList.remove('show'); return; }
   bar.classList.add('show'); bar.innerHTML=`<b>⏰ Coming up:</b> `+items.map(x=>`${x.p.emoji} <b style="color:var(--ink)">${esc(x.p.name)}</b> — ${esc(x.p.next)} <span class="due ${dueClass(x.p.due)}">${dueLabel(x.p.due)}</span><span class="ics" onclick="ics('${x.p.id}')">add to calendar</span>`).join('<br>');
   // browser notification (only while the page is open) — once per day per project
@@ -441,8 +445,14 @@ window.toggleTask=(id,i,v)=>{ const p=db.projects.find(x=>x.id===id); p.tasks[i]
     toast('🏁 '+p.emoji+' '+p.name+' — checklist CLEAR. Set the next step or let it rest.');
     setTimeout(()=>{ if(card) card.classList.remove('clear-glow'); },1700); } };
 window.addTask=id=>{ const el=document.getElementById('add-'+id); const v=el.value.trim(); if(!v) return; const p=db.projects.find(x=>x.id===id); p.tasks.push([v,'Me',0]); p.touched=today(); save(); render(); toast('Added'); };
-window.editNext=id=>{ const p=db.projects.find(x=>x.id===id); const v=prompt('Next step for '+p.name+':',p.next); if(v===null) return; p.next=v.trim(); const w=prompt('Who does it, and about how long? (like: Me · 20 min)',p.who); if(w!==null) p.who=w.trim(); p.touched=today(); save(); render(); };
-window.setStatus=id=>{ const p=db.projects.find(x=>x.id===id); const opts=['active','waiting','blocked','paused']; const cur=opts.indexOf(p.status); p.status=opts[(cur+1)%opts.length]; p.touched=today(); save(); render(); toast('Now '+p.status+' — tap Status again to move it on'); };
+window.editNext=id=>{ const p=db.projects.find(x=>x.id===id); const v=prompt('Next step for '+p.name+':',p.next); if(v===null) return;
+  /* Overnight B: the step being replaced is kept as done, so the card shows what got finished (board minutes need it) */
+  if(p.next && v.trim() && v.trim()!==p.next){ (p.hist=p.hist||[]).push({d:today(),step:p.next,who:p.who||''}); if(p.hist.length>50) p.hist=p.hist.slice(-50); }
+  p.next=v.trim(); const w=prompt('Who does it, and about how long? (like: Me · 20 min)',p.who); if(w!==null) p.who=w.trim(); p.touched=today(); save(); render(); };
+window.setStatus=id=>{ const p=db.projects.find(x=>x.id===id); const opts=['active','waiting','blocked','paused']; const cur=opts.indexOf(p.status); const was=p.status; p.status=opts[(cur+1)%opts.length]; p.touched=today();
+  /* Overnight B, 26 Nov 2026: 'done' finishes a project and keeps its record (it used to be delete or nothing); 'waiting since' starts the chase clock */
+  if((p.status==='waiting'||p.status==='blocked')&&!(was==='waiting'||was==='blocked')) p.waitSince=today(); else if(!(p.status==='waiting'||p.status==='blocked')) delete p.waitSince;
+  delete p.doneAt; save(); render(); toast('Now '+p.status+' — tap Status again to move it on'); };
 window.touch=id=>{ const p=db.projects.find(x=>x.id===id); p.touched=today(); save(); render(); toast('Marked as worked on today'); };
 /* 7 Oct deep check: one small form instead of five pop-ups */
 window.addProject=()=>{ if(document.getElementById('apOv')) return;
@@ -457,7 +467,12 @@ window.addProject=()=>{ if(document.getElementById('apOv')) return;
   g('apGo').onclick=()=>{ const n=g('apN').value.trim(); if(!n){ g('apN').focus(); g('apN').style.borderColor='#B4432F'; return; }
     const em=g('apE').value||'📁', one=g('apO').value, nx=g('apX').value, who=g('apW').value||'Me'; close(); addProjectNow(n,em,one,nx,who); }; };
 window.addProjectNow=(n,em,one,nx,who)=>{ db.projects.push({id:'p'+Date.now().toString(36),emoji:em.trim().slice(0,4),name:n.trim(),status:'active',one:one.trim(),next:nx.trim(),who:who.trim(),link:'',touched:today(),tasks:[]}); save(); render(); toast('Project added'); };
-window.delProject=id=>{ const p=db.projects.find(x=>x.id===id); if(!confirm('Delete "'+p.name+'" and its checklist? (Backup first if unsure)')) return; db.projects=db.projects.filter(x=>x.id!==id); save(); render(); toast('Deleted'); };
+/* Overnight B, 26 Nov 2026 (Trello archives finished cards; Jobber has a final "Converted"): finishing a project used to mean
+   deleting it and its record. Now ✕ first offers to keep it under ✓ Finished, with every step that got done. */
+window.delProject=id=>{ const p=db.projects.find(x=>x.id===id); if(!p) return;
+  if(p.status!=='done' && confirm('Is "'+p.name+'" finished?\n\nOK = keep it under ✓ Finished, with what got done\nCancel = more choices')){ if(p.next) (p.hist=p.hist||[]).push({d:today(),step:p.next,who:p.who||''}); p.prevStatus=p.status; p.status='done'; p.doneAt=today(); save(); render(); toast('✓ Finished — it’s under the Finished button now'); return; }
+  if(p.status==='done' && confirm('Bring "'+p.name+'" back onto the board?\n\nOK = bring it back\nCancel = more choices')){ p.status=p.prevStatus||'active'; delete p.doneAt; p.touched=today(); save(); render(); toast('Back on the board'); return; }
+  if(!confirm('Delete "'+p.name+'" and its checklist for good? (Backup first if unsure)')) return; db.projects=db.projects.filter(x=>x.id!==id); save(); render(); toast('Deleted'); };
 window.renameBoard=()=>{ const v=prompt('Board name:',db.name||'My Next Step Board'); if(v===null) return; db.name=v.trim()||'My Next Step Board'; save(); render(); };
 window.editProject=id=>{ const p=db.projects.find(x=>x.id===id); const n=prompt('Project name:',p.name); if(n===null) return; p.name=n.trim()||p.name; const em=prompt('Emoji:',p.emoji); if(em!==null&&em.trim()) p.emoji=em.trim().slice(0,4); const one=prompt('One line — what is it?',p.one); if(one!==null) p.one=one.trim(); save(); render(); };
 async function download(name,text){ let dl=null; try{ if(window.claude&&claude.use) dl=await claude.use('downloads'); }catch(e){} if(dl){ try{ await dl.save({filename:name,data:text}); return; }catch(e){ toast(e&&e.code==='declined'?'Cancelled':'Open the file directly to export'); return; } } const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
