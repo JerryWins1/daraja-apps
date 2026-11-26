@@ -326,7 +326,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.32 · 2026-11-25</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.33 · 2026-11-25</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -404,6 +404,7 @@ input, textarea, select{ background:var(--surface-2); }
         <div class="field"><label>How long</label><select id="rgMins"><option value="5">5 min</option><option value="10">10 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 hour</option><option value="90">1.5 hours</option></select></div>
         <div class="field"><label>Repeats</label><div class="seg" id="rgKind"><button class="on" data-k="daily" onclick="rgKind('daily')">Every day</button><button data-k="weekly" onclick="rgKind('weekly')">Days of the week</button><button data-k="monthly" onclick="rgKind('monthly')">Day of month</button></div>
           <div class="days" id="rgDays" style="display:none"></div>
+          <select id="rgWk" style="display:none;margin-top:6px" aria-label="How often in the month"><option value="">Every week</option><option value="alt">Every other week</option><option value="1">The 1st one of the month</option><option value="2">The 2nd one of the month</option><option value="3">The 3rd one of the month</option><option value="4">The 4th one of the month</option><option value="-1">The last one of the month</option></select>
           <div id="rgMonthly" style="display:none;margin-top:6px"><select id="rgDom"></select></div></div>
         <button class="done-btn" style="background:var(--next);font-size:16px;padding:12px" onclick="addRegular()">Save regular</button>
       </details>
@@ -478,7 +479,7 @@ input, textarea, select{ background:var(--surface-2); }
       <input type="tel" id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)" autocomplete="tel">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">One Thing v7.32 River · 2026-11-25 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">One Thing v7.33 River · 2026-11-25 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -612,7 +613,12 @@ let MORNING=null;
   const carried=db.tasks.filter(t=>!t.done);
   MORNING={done:done, carry:carried.map(t=>({text:t.text,mins:t.mins,notes:t.notes||[],att:t.att||null,chk:!!t.chk}))}; db.mcar=MORNING;
   db.tasks=[]; db.dayKey=today(); save(); } })();
-function dueToday(r, d){ d=d||new Date(); if(r.kind==='daily') return true; if(r.kind==='weekly') return (r.days||[]).includes(d.getDay()); if(r.kind==='monthly'){ const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); return d.getDate()===Math.min(r.dom||1,last); } return false; }
+/* Overnight B, 26 Nov 2026 (Todoist "every other week", "every 3rd Tuesday"): church and payday schedules are rarely
+   plain weekly. A weekly regular can be every other week (counted from the week it was made) or the 1st–4th or last
+   one of its weekday in the month. */
+function wkOk(r, d){ const w=r.wk; if(!w) return true; if(w==='alt'){ const a=r.anchor?new Date(r.anchor+'T12:00:00'):d; const sun=x=>{ const y=new Date(x); y.setHours(12,0,0,0); y.setDate(y.getDate()-y.getDay()); return y; }; return Math.round((sun(d)-sun(a))/6048e5)%2===0; }
+  const n=+w, dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); return n===-1 ? d.getDate()+7>dim : Math.ceil(d.getDate()/7)===n; }
+function dueToday(r, d){ d=d||new Date(); if(r.kind==='daily') return true; if(r.kind==='weekly') return (r.days||[]).includes(d.getDay()) && wkOk(r, d); if(r.kind==='monthly'){ const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); return d.getDate()===Math.min(r.dom||1,last); } return false; }
 function dlabel(k){ const [y,m,d]=k.split('-').map(Number); const dt=new Date(y,m-1,d); const t=today(); const tm=(()=>{const x=new Date(); x.setDate(x.getDate()+1); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');})();
   if(k===t) return 'Today'; if(k===tm) return 'Tomorrow'; if(k<t) return 'Missed · '+dt.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'});
   return dt.toLocaleDateString('en',{weekday:'long',month:'short',day:'numeric'}); }
@@ -1160,13 +1166,13 @@ window.saveBuddy=()=>{ db.buddy=Object.assign(buddy(),{name:$('buddyName').value
 window.dump=()=>{ const v=$('dumpBox').value.trim(); if(!v) return; (db.dump=db.dump||[]).push({id:uid(),t:v,d:today()}); $('dumpBox').value=''; save(); render(); toast('Parked. Let it go.'); };
 window.toTask=id=>{ const d=db.dump.find(x=>x.id===id); db.tasks.push({id:uid(),text:d.t.slice(0,80),mins:10,done:false}); db.dump=db.dump.filter(x=>x.id!==id); save(); render(); toast('Now it\'s a task'); };
 window.rmDump=id=>{ db.dump=db.dump.filter(x=>x.id!==id); save(); render(); };
-function whenLabel(r){ if(r.kind==='daily') return 'every day'; if(r.kind==='weekly') return 'every '+(r.days||[]).slice().sort().map(d=>DOW[d]).join(' '); if(r.kind==='monthly') return 'the '+r.dom+(r.dom===1?'st':r.dom===2?'nd':r.dom===3?'rd':'th')+' of each month'; return ''; }
+function whenLabel(r){ if(r.kind==='daily') return 'every day'; if(r.kind==='weekly'){ const dl=(r.days||[]).slice().sort().map(d=>DOW[d]).join(' '); return r.wk==='alt'?'every other '+dl:r.wk?('the '+({'1':'1st','2':'2nd','3':'3rd','4':'4th','-1':'last'})[r.wk]+' '+dl+' of the month'):'every '+dl; } if(r.kind==='monthly') return 'the '+r.dom+(r.dom===1?'st':r.dom===2?'nd':r.dom===3?'rd':'th')+' of each month'; return ''; }
 function renderRegulars(){ const el=$('regList'); if(!el) return; const rs=db.regulars||[];
   el.innerHTML = rs.length? rs.map(r=>`<div class="reg"><span class="t">${esc(r.text)} <span class="mins">${r.mins}m</span><span class="when">${whenLabel(r)}${dueToday(r)?' · <b style="color:var(--now)">today</b>':''}${r.memo?` · 🔁 ${esc(r.memo)}`:''}</span></span><button aria-label="Puts it on today" onclick="regNow('${r.id}')" title="Puts it on today's list right now, ahead of its usual day">→ add to today</button><button aria-label="Removes this regular for good" class="x" onclick="rmRegular('${r.id}')" title="Removes this regular for good">🗑</button></div>`).join('') : '<div class="small">No regulars yet. Things like: Wash clothes (Wed) · Pay bills (Fri) · Soccer (Tue/Thu) · Take out trash (Mon).</div>';
   const dd=$('rgDays'); if(dd&&!dd.children.length){ dd.innerHTML=DOW.map((d,i)=>`<button class="${rgDaysV.includes(i)?'on':''}" onclick="rgDay(${i})">${d}</button>`).join(''); }
   const dm=$('rgDom'); if(dm&&!dm.children.length){ dm.innerHTML=Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}${i===0?'st':i===1?'nd':i===2?'rd':'th'} of the month</option>`).join(''); }
 }
-window.rgKind=k=>{ rgKindV=k; document.querySelectorAll('#rgKind button').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); $('rgDays').style.display=k==='weekly'?'flex':'none'; $('rgMonthly').style.display=k==='monthly'?'block':'none'; };
+window.rgKind=k=>{ rgKindV=k; document.querySelectorAll('#rgKind button').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); $('rgDays').style.display=k==='weekly'?'flex':'none'; if($('rgWk')) $('rgWk').style.display=k==='weekly'?'block':'none'; $('rgMonthly').style.display=k==='monthly'?'block':'none'; };
 window.rgDay=i=>{ rgDaysV=rgDaysV.includes(i)?rgDaysV.filter(x=>x!==i):[...rgDaysV,i]; document.querySelectorAll('#rgDays button').forEach((b,j)=>b.classList.toggle('on',rgDaysV.includes(j))); };
 
 /* idle nudge (2026-09-01, Jerry): if things are waiting and nothing has run for a while, say so gently */
@@ -1185,7 +1191,7 @@ window.rgDay=i=>{ rgDaysV=rgDaysV.includes(i)?rgDaysV.filter(x=>x!==i):[...rgDay
     if(Notification && Notification.permission==='granted') new Notification('One Thing', {body:'Your list is waiting \u2014 one small thing?'});
   }catch(e){} }, 60000);
 })();
-window.addRegular=()=>{ const t=$('rgText').value.trim(); if(!t){ toast('Give it a name'); return; } if(rgKindV==='weekly'&&!rgDaysV.length){ toast('Tick at least one day of the week'); return; } const _rt=($('rgTime')&&$('rgTime').value)||''; const _rtl=_rt?(' · '+(function(x){var h=+x.slice(0,2),m=x.slice(3,5);var ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m+' '+ap;})(_rt)):''; const r={id:uid(),text:t+_rtl,mins:Number($('rgMins').value)||15,kind:rgKindV,days:rgKindV==='weekly'?rgDaysV.slice():[],dom:rgKindV==='monthly'?Number($('rgDom').value)||1:null}; (db.regulars=db.regulars||[]).push(r); $('rgText').value=''; save(); pullRegulars(); render(); (function(){ var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; var when = r.kind==='weekly' ? (r.days&&r.days.length? 'every '+r.days.map(function(x){return dn[x];}).join(' & ') : 'weekly') : r.kind==='monthly' ? ('the '+r.dom+' of each month') : 'daily'; toast('\u2713 '+r.text+' saved \u2014 it will appear '+when, 4200); var el=document.getElementById('regList'); if(el){ try{ el.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} } })(); };
+window.addRegular=()=>{ const t=$('rgText').value.trim(); if(!t){ toast('Give it a name'); return; } if(rgKindV==='weekly'&&!rgDaysV.length){ toast('Tick at least one day of the week'); return; } const _rt=($('rgTime')&&$('rgTime').value)||''; const _rtl=_rt?(' · '+(function(x){var h=+x.slice(0,2),m=x.slice(3,5);var ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m+' '+ap;})(_rt)):''; const r={id:uid(),text:t+_rtl,mins:Number($('rgMins').value)||15,kind:rgKindV,days:rgKindV==='weekly'?rgDaysV.slice():[],dom:rgKindV==='monthly'?Number($('rgDom').value)||1:null}; if(rgKindV==='weekly'&&$('rgWk')&&$('rgWk').value){ r.wk=$('rgWk').value; r.anchor=today(); $('rgWk').value=''; } (db.regulars=db.regulars||[]).push(r); $('rgText').value=''; save(); pullRegulars(); render(); (function(){ var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; var when = r.kind==='weekly' ? (r.wk ? whenLabel(r) : r.days&&r.days.length? 'every '+r.days.map(function(x){return dn[x];}).join(' & ') : 'weekly') : r.kind==='monthly' ? ('the '+r.dom+' of each month') : 'daily'; toast('\u2713 '+r.text+' saved \u2014 it will appear '+when, 4200); var el=document.getElementById('regList'); if(el){ try{ el.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} } })(); };
 function renderUpcoming(){ const el=$('upList'); if(!el) return; const us=(db.upcoming||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
   el.innerHTML = us.length? us.map(u=>`<div class="reg"><span class="t">${esc(u.text)} <span class="mins">${tlabel(u.mins)}</span><span class="when">${dlabel(u.date)}${(u.notes&&u.notes.length)?' · 💬 '+u.notes.length:''}</span></span><button aria-label="notes & attachments" onclick="openNotes('up','${u.id}')" title="notes & attachments">📎</button><button aria-label="put it on your phone" onclick="upIcs('${u.id}')" title="put it on your phone's calendar">📅</button><button onclick="upNow('${u.id}')">add now</button><button class="x" onclick="rmUpcoming('${u.id}')" aria-label="Remove" title="Remove">×</button></div>`).join('') : '<div class="small">Nothing scheduled. Know about something next Tuesday? Put it here and let it go.</div>';
   const di=$('upDate'); if(di&&!di.min){ di.min=today(); } }
