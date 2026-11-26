@@ -1235,9 +1235,10 @@ function loanPayFix(){ var n = 0;
 function shopWord(d){ var w = String(mkey(d) || '').split(' ')[0]; return w.length >= 3 ? w : ''; }   /* the shop's first word: TARGET 123 DES MOINES and TARGET REFUND are both target */
 function refundFix(){ var n = 0, NOT = { xfer:1, inc:1, uncat:1 }, IX = null;
   var byKey = function(k){ if(!IX){ IX = {}; db.tx.forEach(function(x){ if(x.amt > 0 && !NOT[x.cat] && !x.splitOf){ var kk = shopWord(x.desc); (IX[kk] = IX[kk] || []).push(x); } }); } return IX[k] || []; };
-  db.tx.forEach(function(t){ if(t.amt >= 0 || t.cat !== 'inc' || db.asked[t.id] || t.refundOf || t.splitOf) return; var A = acct(t.a); if(!A || !ownAcct(A) || isLoanA(A)) return;
+  var notShop = function(d){ return P2P.test(d) || CASHW.test(d) || CHECK.test(d) || /deposit|transfer|xfer|payroll|direct dep|interest|dividend/i.test(d); };   /* money between people, cash and checks are never a shop's refund */
+  db.tx.forEach(function(t){ if(t.amt >= 0 || t.cat !== 'inc' || db.asked[t.id] || t.refundOf || t.splitOf || notShop(t.desc)) return; var A = acct(t.a); if(!A || !ownAcct(A) || isLoanA(A)) return;
     var k = shopWord(t.desc); if(!k) return; var word = /refund|return|reversal|credit adj|merchandise credit|rfnd/i.test(t.desc), best = null, bd = 999;
-    byKey(k).forEach(function(x){ var dd = daysBetween(x.d, t.d); if(dd < 0 || dd > 90 || -t.amt > x.amt + 0.005) return;
+    byKey(k).forEach(function(x){ if(notShop(x.desc)) return; var dd = daysBetween(x.d, t.d); if(dd < 0 || dd > 90 || -t.amt > x.amt + 0.005) return;
       if(!word && Math.abs(x.amt + t.amt) > 0.005) return; if(dd < bd){ best = x; bd = dd; } });
     if(!best) return; t.cat = best.cat; t.refundOf = best.id; t.roleWhy = 'Money back from ' + k + ' — it lowers that spending instead of counting as income.'; db.asked[t.id] = 1; n++; });
   return n; }
