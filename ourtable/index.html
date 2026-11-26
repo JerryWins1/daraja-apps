@@ -178,7 +178,7 @@
     </div>
   </section>
 
-  <p class="foot">Our Table v1.23 · 2026-11-25 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
+  <p class="foot">Our Table v1.24 · 2026-11-25 · Daraja Studio · everything stays on this phone · donations help orphans and students in Kenya</p>
 </div>
 
 <nav>
@@ -495,15 +495,16 @@ function rmExtra(id){ rmItem('e',id); }
 function rmItem(kind,id){ const arr=kind==='s'?db.shop:db.extras; const o=arr.find(x=>x.id===id); if(!o) return; const u=otSnap();
   if(kind==='s') db.shop=db.shop.filter(x=>x.id!==id); else db.extras=db.extras.filter(x=>x.id!==id); save(); renderShop(); hostLine(); otUndoOffer('Took '+o.text+' off', u); }
 function rmTicked(){ const n=[...db.shop,...db.extras].filter(x=>x.done).length; if(!n){ toast('Nothing is ticked yet'); return; } if(!confirm('Take the '+n+' ticked thing'+(n===1?'':'s')+' off the list?')) return; const u=otSnap();
-  db.shop=db.shop.filter(x=>!x.done); db.extras=db.extras.filter(x=>!x.done); save(); renderShop(); hostLine(); otUndoOffer(n+' ticked thing'+(n===1?'':'s')+' taken off', u); }
+  db.shop=db.shop.filter(x=>!x.done); db.extras=db.extras.filter(x=>!x.done||x.every); db.extras.forEach(x=>{ if(x.every) x.done=false; }); save(); renderShop(); hostLine(); otUndoOffer(n+' ticked thing'+(n===1?'':'s')+' taken off'+(db.extras.some(x=>x.every)?' — ⭐ every-week things stay for next time':''), u); }
 function clearShop(){ const n=db.shop.length+db.extras.length; if(!n){ toast('The list is already empty'); return; } if(!confirm('Clear the whole shopping list ('+n+' thing'+(n===1?'':'s')+')? Your week and recipes stay, and you can build it again any time.')) return; const u=otSnap();
-  db.shop=[]; db.extras=[]; delete db.shopSig; save(); render(); otUndoOffer('The shopping list is cleared', u); }
+  db.shop=[]; db.extras=db.extras.filter(x=>x.every).map(x=>Object.assign(x,{done:false})); delete db.shopSig; save(); render(); otUndoOffer('The shopping list is cleared'+(db.extras.length?' — ⭐ every-week things stay':''), u); }
 function clearTicks(){ db.shop.forEach(x=>x.done=false); db.extras.forEach(x=>x.done=false); save(); renderShop(); }
 function renderShop(){ const all=[...db.shop.map(x=>({...x,kind:'s'})),...db.extras.map(x=>({...x,kind:'e'}))]; try{ $('shopClearRow').style.display=all.length?'':'none'; }catch(e){} if(!all.length){ $('shopList').innerHTML='<div class="empty">Nothing yet. Plan the week, then tap “Build the shopping list”.</div>'+pantryClearHTML(); $('shopNote').textContent='Built from this week’s dinners. Tick things off in the store; add anything else below.'; return; }
   const need=all.filter(x=>!atHome(x)), home=all.filter(atHome);
   const order=['Produce','Meat & fish','Dairy & eggs','Bakery','Frozen','Pantry','Other']; const by={}; need.forEach(x=>{ (by[x.aisle]=by[x.aisle]||[]).push(x); }); if(need.some(x=>order.indexOf(x.aisle)<0)) need.filter(x=>order.indexOf(x.aisle)<0).forEach(x=>{ x.aisle='Other'; (by.Other=by.Other||[]).push(x); });
-  $('shopList').innerHTML=(shopStale()?staleHTML():'')+order.filter(a=>by[a]).map(a=>`<div class="aisle">${a}</div>`+by[a].map(x=>`<div class="item ${x.done?'done':''}"><input type="checkbox" id="c-${x.id}" ${x.done?'checked':''} onchange="tick('${x.kind}','${x.id}')"><label for="c-${x.id}">${esc(x.text)}${x.for?` <small>(${x.for.join(', ')})</small>`:''}</label><button type="button" class="ghost have" data-act="have" data-k="${x.kind}" data-id="${esc(x.id)}" aria-label="Already have it at home">🏠 Have it</button><button type="button" class="ghost" style="min-height:44px;min-width:44px;padding:4px 10px" aria-label="Take ${esc(x.text)} off the list" data-act="shop-rm" data-k="${x.kind}" data-id="${esc(x.id)}">✕</button></div>`).join('')).join('')
+  $('shopList').innerHTML=(shopStale()?staleHTML():'')+order.filter(a=>by[a]).map(a=>`<div class="aisle">${a}</div>`+by[a].map(x=>`<div class="item ${x.done?'done':''}"><input type="checkbox" id="c-${x.id}" ${x.done?'checked':''} onchange="tick('${x.kind}','${x.id}')"><label for="c-${x.id}">${esc(x.text)}${x.for?` <small>(${x.for.join(', ')})</small>`:''}</label><button type="button" class="ghost have" data-act="have" data-k="${x.kind}" data-id="${esc(x.id)}" aria-label="Already have it at home">🏠 Have it</button><button type="button" class="ghost" style="min-height:44px;min-width:44px;padding:4px 10px" aria-label="Take ${esc(x.text)} off the list" data-act="shop-rm" data-k="${x.kind}" data-id="${esc(x.id)}">✕</button>${x.kind==='e'?`<button type="button" class="ghost" style="min-height:44px;min-width:44px;padding:4px 8px" data-act="staple" data-id="${esc(x.id)}" aria-pressed="${x.every?'true':'false'}" aria-label="${x.every?'On the list every week — tap to stop':'Put '+esc(x.text)+' on the list every week'}">${x.every?'⭐':'☆'}</button>`:''}</div>`).join('')).join('')
     + (need.length?'':'<div class="empty">Nothing to buy — you have it all at home.</div>')
+    + (db.extras.length?'<p class="small" style="margin:6px 0 0">☆ next to something you added keeps it on the list every week, like milk or bread.</p>':'')
     + (home.length?`<div class="aisle" style="color:var(--ok)">🏠 Already have it</div><p class="small" style="margin:0 0 4px">These stay ticked from week to week. Tap “Need it” when you run out.</p>`+home.map(x=>`<div class="item athome"><label>${esc(x.text)}</label><button type="button" class="ghost have" data-act="need" data-k="${x.kind}" data-id="${esc(x.id)}" aria-label="Need it again">Need it</button></div>`).join(''):'')
     + pantryClearHTML();
   const done=need.filter(x=>x.done).length; const f=servingsNote(); $('shopNote').textContent=`${need.length-done} to get · ${done} in the cart`+(home.length?` · ${home.length} at home`:'')+(f?` · ${f}`:''); }
@@ -821,6 +822,9 @@ document.addEventListener('click',function(e){ const b=e.target&&e.target.closes
   else if(a==='pantry-clear'){ if(!confirm('Clear every “already have it” tick? Those things go back on the list.')) return; const u=otSnap(); db.pantry={}; save(); renderShop(); hostLine(); otUndoOffer('“Already have it” cleared', u); }
   else if(a==='undo') otUndoNow();
   else if(a==='shop-rm') rmItem(D('k'),D('id'));
+  /* Overnight B, 26 Nov 2026 (Plan to Eat's Staples list): ☆ on something you added keeps it on the list every week — milk,
+     bread, coffee. Clearing the list or taking ticked things off unticks it instead of removing it; ✕ still removes it. */
+  else if(a==='staple'){ const o=db.extras.find(x=>x.id===D('id')); if(o){ o.every=!o.every; save(); renderShop(); toast(o.every?'⭐ '+o.text+' will be on the list every week':o.text+' is a one-time thing again'); } }
   else if(a==='shop-rm-ticked') rmTicked();
   else if(a==='shop-clear') clearShop();
   else if(a==='rec-del') delRecipe(D('r'));
