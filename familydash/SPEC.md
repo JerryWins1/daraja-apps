@@ -1323,3 +1323,12 @@ The checklist disappears once setup is done, so Settings now has a "✨ Set it u
 - **Tools:** the old net worth, investments and household cards are gone. The 19 tool buttons are now four tiles (`TOOLS`, `openTools`), and each button inside them says what it does.
 - **Wider layout:** on a computer the page is up to 980px wide.
 - **Videos:** the folded sections the videos talk about are open in the videos. Two lines in the overview video were reworded and re-recorded.
+
+## v15.1 · 26 Nov · The same look on five more screens
+
+- **Settings:** each section folds into one line that says how many of its questions are answered. The extras fold under "More".
+- **The month** (`openMonth`): one page per month, with ‹ › to change month. From it you open the check-up (with "n of 5" done, from the shared `ckupSteps`), the report and the note, and close the month once everything is in. The bottom button now reads "📝 The month". The report no longer plays the balance video.
+- **Check the books:** each check shows a count, or ✓ when it's clear: Waiting on us, Does it balance, Money moving, Charged twice, and PayPal doubles when there's a PayPal account.
+- **Waiting on us** (`openWaiting`): one list holding the purchases to sort, the spouse's questions, what was set aside to look into, and possible double charges. It links to Lists.
+- **Our accounts:** tiles grouped by kind, with closed accounts last. A line under a tile says when statements are missing, when the account isn't ours, or when its balance is unknown.
+- **Video:** the report video's line about the monthly report was reworded and the video re-recorded.
