@@ -262,8 +262,8 @@ function qpqNum(v){ var t=String(v||'').replace(/[$,\s]/g,''); return /^\d+(\.\d
 function qpqText(g, amtTxt, inKind, church, O){
   var val=qpqNum(g.v), got=String(g.w||'').trim(), a=Number(String(g.a).replace(/[$,\s]/g,''));
   var keep=' Please retain this letter for your records.';
-  if(!inKind && val!==null && val>0 && got){ var ded=Math.max(0, a-val);
-    return 'In exchange for your gift you received <b>'+escH(got)+'</b>, with a good-faith estimated value of <b>'+fmtAmt(val.toFixed(2))+'</b>. The amount you may deduct for federal income tax purposes is limited to the amount of your gift above that value: <b>'+fmtAmt(ded.toFixed(2))+'</b>.'+keep; }
+  if(!inKind && val!==null && val>0){ var ded=Math.max(0, a-val);
+    return 'In exchange for your gift you received <b>'+(got?escH(got):'goods or services')+'</b>, with a good-faith estimated value of <b>'+fmtAmt(val.toFixed(2))+'</b>. The amount you may deduct for federal income tax purposes is limited to the amount of your gift above that value: <b>'+fmtAmt(ded.toFixed(2))+'</b>.'+keep; }
   if(val===0 || (got && /^(nothing|none|no)$/i.test(got))) return (church ? 'No goods or services were provided in exchange for this contribution other than intangible religious benefits. ' : 'No goods or services were provided in exchange for this contribution. ')+O+' is a tax-exempt organization; this letter serves as your receipt for tax purposes.'+keep;
   return 'In exchange for your gift you received <i>'+(got?escH(got):'[describe what they received]')+'</i>, with a good-faith estimated value of <i>[$ value]</i>. The amount you may deduct for federal income tax purposes is limited to the amount of your gift above that value.'+keep; }
 function aggregateDonorSummary(){
@@ -315,6 +315,7 @@ function makeYearLetters(){
       <div class="small">${O}</div>
     </div>`;
   }
+  if(window.__rmEdited && !confirm('Make the year-end letters?\n\nThe changes you typed into the letters below will be replaced.')) return;
   closeSummary(); window.__rmEdited=false;
   $('letters').innerHTML=html; $('printBtn').style.display='inline-block';
   if($('editHint')) $('editHint').style.display='block';
@@ -366,7 +367,7 @@ function closeSummary(){$('summary').style.display='none';$('summary').innerHTML
 
 <footer style="text-align:center;font-size:11.5px;color:var(--soft);padding:20px;line-height:1.6">
   Everything stays on this device. Not tax advice — when in doubt, ask your accountant.<br>
-  <span style="opacity:.8">Receipt Maker v1.16 · 2026-11-25 · Daraja Studio · donations help orphans and students in Kenya</span>
+  <span style="opacity:.8">Receipt Maker v1.17 · 2026-11-26 · Daraja Studio · donations help orphans and students in Kenya</span>
 </footer>
 <script>window.DJ_START = {"slug": "receipts", "em": "🧾", "title": "Welcome — this writes your donor letters.", "lede": "Every gift of $250 or more needs a letter with the words the IRS requires. This writes one for each gift, all at once, so nobody spends January on it.", "cta": "Start with my details →", "firstSelector": "input, button", "dataKeys": ["receipts_v1", "np_receipts_v1"], "steps": ["<b>Put your organization's details in</b> — name, address, EIN.", "<b>Add your gifts</b> — one donor, one amount, one date at a time.", "<b>Make the letters</b>, tap any one to change its words, then print the lot."]};</script>
 
@@ -551,6 +552,8 @@ function pasteIntoRows(){
   var lines=ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
   if(!lines.length) return;
   var badDates=[];
+  /* Overnight B (review fix): the same gift pasted back keeps its receipt number and what-they-got-back, so a gift never gets two numbers */
+  var keep={}; giftsFromRows().forEach(function(g){ if(g.r||g.w||g.v){ var k=[donorKey(g.n),String(g.a).replace(/[$,\s]/g,''),g.d].join('|'); (keep[k]=keep[k]||[]).push(g); } });
   document.getElementById('giftRows').innerHTML='';
   lines.forEach(function(l){
     var p=l.split(',').map(function(x){return x.trim();});
@@ -572,7 +575,8 @@ function pasteIntoRows(){
     if(k<0){ for(i=1;i<p.length;i++){ var t=p.slice(i).join(','); if(/^\$?\s*(\d{1,3}(,\d{3})+|\d+)(\.\d+)?$/.test(t)){ k=i; break; } } }
     if(k<0) k=Math.min(1,p.length);
     name=p.slice(0,k).join(', '); amt=k<p.length? (/^in-?kind/i.test(p[k])? p.slice(k).join(', ') : p.slice(k).join(',')) : '';
-    addGift(name, amt, date);
+    var kk=[donorKey(name),String(amt).replace(/[$,\s]/g,''),date].join('|'), old=keep[kk]&&keep[kk].shift();
+    addGift(name, amt, date, old?old.w:'', old?old.v:'', old?old.r:'');
   });
   renumber(); syncGifts(); saveGifts(); togglePaste();
   if(badDates.length){ var mm=document.getElementById('madeMsg'); if(mm) mm.textContent='Added without a date (fill the date box in): '+badDates.join(' | ')+'. Write dates as month/day/year, e.g. 3/14/2026, or 2026-03-14.'; }
