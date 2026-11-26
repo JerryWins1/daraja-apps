@@ -222,7 +222,7 @@
 </style>
 </head>
 <body>
-<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">📖</div><div style="font-size:28px;font-weight:800">In My Own Words</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.19 · 2026-11-25</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
+<div id="dsSplash" style="position:fixed;inset:0;z-index:9999;background:#f6f1e7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s;color:#2b2620;font-family:-apple-system,sans-serif"><div style="font-size:62px">📖</div><div style="font-size:28px;font-weight:800">In My Own Words</div><div style="font-size:13px;color:#8a8272;font-weight:700">v1.20 · 2026-11-25</div><div style="font-size:11px;color:#b8ab94;font-weight:700">daraja studio</div></div><script>setTimeout(function(){var s=document.getElementById("dsSplash");if(s){s.style.opacity="0";setTimeout(function(){s.remove();},500);}},1300);</script>
 
 
 <div id="top">
@@ -360,7 +360,7 @@ My pictures live in three places —
   <button id="nBook" onclick="openBook()"><span class="em">📖</span>Your book</button>
 </div>
 
-<div id="ver">In My Own Words v1.19 · 2026-11-25 · now keeps your voice too · formerly Story Keeper · Daraja Studio — donations help orphans and students in Kenya</div>
+<div id="ver">In My Own Words v1.20 · 2026-11-25 · now keeps your voice too · formerly Story Keeper · Daraja Studio — donations help orphans and students in Kenya</div>
 
 <script>
 /* ================= DATA ================= */
@@ -759,7 +759,10 @@ function qowPick(){
   CHAPTERS.forEach(c=>c.qs.forEach((q,qi)=>all.push({c:c.id, qi, q})));
   const now=new Date();
   const week=Math.floor((now - new Date(now.getFullYear(),0,1))/(7*24*3600*1000));
-  return all[(now.getFullYear()*53+week) % all.length];
+  /* Overnight B, 26 Nov: like StoryWorth and Remento, never hand out a question already told. Same pick all week. */
+  const told=x=>{ const a=db.ans&&db.ans[x.c+':'+x.qi]; return !!(a&&((a.text||'').trim()||(a.voice&&a.voice.length))); };
+  const open=all.filter(x=>!told(x)), pool=open.length?open:all;
+  return pool[(now.getFullYear()*53+week) % pool.length];
 }
 function openQow(){
   const w=qowPick();
@@ -1435,6 +1438,34 @@ window.DJ_AI = { title:'What should I ask next?',
   window.skPlay = function(id){ if(playing === id){ try{ audio.pause(); }catch(e){} playing = null; list(); return; }
     get(id).then(function(blob){ if(!blob){ try{ toast('That recording is not on this phone any more.'); }catch(e){} return; } try{ audio && audio.pause(); }catch(e){} audio = new Audio(URL.createObjectURL(blob)); playing = id; list(); audio.onended = function(){ playing = null; list(); }; audio.play().catch(function(){ playing = null; list(); }); }); };
   window.skSave = function(id){ get(id).then(function(blob){ if(!blob) return; var ext = /mp4/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : 'webm'; var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = ((db.name||'story') + '-' + id + '.' + ext).replace(/\s+/g,'_'); document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 800); }); };
+  /* Overnight B, 26 Nov: the backup file now carries the voice too. Before, it held the words only, so a lost or
+     replaced phone lost every recording. Restore puts the clips back (adding them; a clip already here is kept). */
+  function allClips(){ return open().then(function(d){ return new Promise(function(ok){ var out = {}, r = d.transaction(ST).objectStore(ST).openCursor(); r.onsuccess = function(){ var c = r.result; if(!c) return ok(out); out[c.key] = c.value; c.continue(); }; r.onerror = function(){ ok(out); }; }); }).catch(function(){ return {}; }); }
+  function toURL(b){ return new Promise(function(ok){ var f = new FileReader(); f.onload = function(){ ok(f.result); }; f.onerror = function(){ ok(null); }; f.readAsDataURL(b); }); }
+  function fromURL(u){ var m = /^data:([^;,]*)(;base64)?,(.*)$/.exec(u || ''); if(!m) return null; var bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]), a = new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: m[1] || 'audio/webm' }); }
+  var _backup = window.backup, _restore = window.restore;
+  window.backup = function(){
+    allClips().then(function(cl){ var ids = Object.keys(cl); if(!ids.length) return _backup();
+      return Promise.all(ids.map(function(id){ return toURL(cl[id]).then(function(u){ return [id, u]; }); })).then(function(pairs){
+        var voice = {}; pairs.forEach(function(p){ if(p[1]) voice[p[0]] = p[1]; });
+        var ask = null; try{ ask = JSON.parse(localStorage.getItem('story_ask_v1')||'null'); }catch(e){}
+        var blob = new Blob([JSON.stringify({ app:'story_keeper', ver:2, saved:djYMD(), data:db, ask:ask, voice:voice })], { type:'application/json' });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = 'story_keeper_backup_' + (db.name||'my').toLowerCase().replace(/[^a-z0-9]+/g,'_') + '_' + djYMD() + '.json';
+        document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+        var n = Object.keys(voice).length; try{ toast('Backup saved, with your words and ' + n + ' recording' + (n===1?'':'s') + ' ✓'); }catch(e){}
+      }); }).catch(function(){ _backup(); });
+  };
+  window.restore = function(files){
+    var f = files && files[0]; if(!f) return;
+    var rd = new FileReader();
+    rd.onload = function(){ var j = null; try{ j = JSON.parse(rd.result); }catch(e){}
+      var v = j && j.voice && typeof j.voice === 'object' ? j.voice : null;
+      if(!v) return _restore([f]);
+      Promise.all(Object.keys(v).map(function(id){ return get(id).then(function(have){ if(have) return; var b = fromURL(v[id]); return b ? put(id, b) : null; }).catch(function(){}); })).then(function(){ _restore([f]); });
+    };
+    rd.readAsText(f);
+  };
   window.skDrop = function(id){ if(!confirm('Remove this recording from the phone? The words stay.')) return; var a = getA(); a.voice = (a.voice||[]).filter(function(v){ return v.id !== id; }); putA(a); del(id).then(list); };
   var _showQ = window.showQ; window.showQ = function(){ _showQ(); playing = null; try{ audio && audio.pause(); }catch(e){} list(); };
 
