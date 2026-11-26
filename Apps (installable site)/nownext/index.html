@@ -326,7 +326,7 @@ input, textarea, select{ background:var(--surface-2); }
 <div id="splash" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s">
   <div style="font-size:64px">🎯</div>
   <div style="font-size:26px;font-weight:800;line-height:1.15">One <span style="color:var(--now)">Thing</span></div>
-  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.31 · 2026-11-25</div>
+  <div style="font-size:13px;color:var(--faint);font-weight:700" id="splashVer">v7.32 · 2026-11-25</div>
 </div>
 <script>(function(){
   var first=false; try{ first=!localStorage.getItem('fs_coach_nownext') && !localStorage.getItem('now_next_v1') && !localStorage.getItem('now_next_profiles_v1') && !localStorage.getItem('nn_code_v1'); }catch(e){}
@@ -478,7 +478,7 @@ input, textarea, select{ background:var(--surface-2); }
       <input type="tel" id="setPhone" inputmode="tel" placeholder="e.g. 5551234567" onchange="phoneSel()" style="width:100%;font:inherit;font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink)" autocomplete="tel">
     </div>
     <div class="card"><h3>For grown-ups</h3><p class="small">Stars are for finishing, not for being perfect. Praise the start ("you began!") as much as the finish. If a task keeps not getting done, it's too big — split it. Backup: <button class="small" style="border:1px solid var(--line-strong);background:var(--surface-2);border-radius:8px;padding:2px 8px;cursor:pointer" onclick="exportAll()">save</button> · <label class="small" style="cursor:pointer;text-decoration:underline">restore<input type="file" accept="application/json" style="display:none" onchange="importAll(event)"></label></p></div>
-    <p class="foot">One Thing v7.30 River · 2026-11-20 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
+    <p class="foot">One Thing v7.32 River · 2026-11-25 · by Daraja Studio · built for kids (and grown-ups) whose brains run fast · not medical advice — a tool, not a treatment</p>
   </section>
 </main>
 <nav>
@@ -620,7 +620,16 @@ function pullUpcoming(){ db.upcoming=db.upcoming||[]; const k=today(); const due
   due.sort((a,b)=>a.date<b.date?-1:1).forEach(u=>db.tasks.push({id:uid(),text:u.text,mins:u.mins,done:false,up:u.id,late:u.date<k,notes:u.notes||[],att:u.att||null}));
   db.upcoming=db.upcoming.filter(u=>u.date>k); save(); setTimeout(()=>toast(due.length+(due.length>1?' things':' thing')+' from Coming up landed on today'),900); }
 function pullRegulars(){ db.regulars=db.regulars||[]; db.regDone=db.regDone||{}; const k=today(); let added=0;
-  db.regulars.forEach(r=>{ if(dueToday(r) && db.regDone[r.id]!==k){ db.tasks.push({id:uid(),text:r.text,mins:r.mins,done:false,reg:r.id,notes:r.memo?[{t:'Last time: '+r.memo,at:r.memoAt||'',by:'you'}]:[]}); db.regDone[r.id]=k; added++; } });
+  /* Overnight B, 26 Nov 2026 (Todoist and Things keep a missed repeat until it is done): a weekly or monthly regular whose
+     day passed while the app was closed used to vanish — "bins out on Tuesday", opened Wednesday, gone. Now ONE copy lands
+     today marked missed (never one per missed day), looking back up to 31 days from the last time it landed. */
+  const ymd=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+  const missedDay=r=>{ if(r.kind==='daily'||!db.regDone[r.id]) return null; const [y,m,dd]=db.regDone[r.id].split('-').map(Number); const from=new Date(y,m-1,dd); const now=new Date(); now.setHours(12,0,0,0); let hit=null;
+    for(let i=1;i<=31;i++){ const d=new Date(from); d.setDate(d.getDate()+i); d.setHours(12,0,0,0); if(d>=now||ymd(d)>=k) break; if(dueToday(r,d)) hit=d; } return hit; };
+  db.regulars.forEach(r=>{ if(db.regDone[r.id]===k) return; const due=dueToday(r), miss=due?null:missedDay(r); if(!due && !miss) return;
+    if(miss && db.tasks.some(t=>t.reg===r.id && !t.done)){ db.regDone[r.id]=k; return; }
+    const notes=r.memo?[{t:'Last time: '+r.memo,at:r.memoAt||'',by:'you'}]:[];
+    db.tasks.push(Object.assign({id:uid(),text:r.text,mins:r.mins,done:false,reg:r.id,notes:notes}, miss?{missed:miss.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'})}:{})); db.regDone[r.id]=k; added++; });
   if(added){ save(); setTimeout(()=>toast(added+' regular'+(added>1?'s':'')+' added for today'),300); } }
 
 const PEMS={kid:['🧒','👧','👦','🦖','🦄','🐯'],adult:['🧑','👩','👨','🧔','👵','👴']};
@@ -706,7 +715,7 @@ function render(){
   $('nextCard').innerHTML = n? `<div><div class="lbl">Next (don't think about it yet)</div><b>${esc(n.text)}</b></div><button onclick="makeNow('${n.id}')">do this first</button>` : `<div><div class="lbl">Next</div><b style="color:var(--faint)">—</b></div>`;
   (function(){ const open=db.tasks.filter(t=>!t.done), done=db.tasks.filter(t=>t.done);
     const row=(t,i,n,isOpen)=>{ const simple=!db.simpleOff; const open=expandedId===t.id;
-      const badges=`${t.from?` <small style="color:var(--next);font-weight:700">· from ${esc(t.from)}</small>`:''}${t.up?` <small style="color:var(--faint);font-weight:700">· 📅${t.late?' missed day':''}</small>`:''}${t.said?` <small style="color:var(--faint);font-weight:700">· 🎤</small>`:''}`;
+      const badges=`${t.from?` <small style="color:var(--next);font-weight:700">· from ${esc(t.from)}</small>`:''}${t.up?` <small style="color:var(--faint);font-weight:700">· 📅${t.late?' missed day':''}</small>`:''}${t.reg&&t.missed?` <small style="color:var(--faint);font-weight:700">· 🔁 was due ${esc(t.missed)}</small>`:''}${t.said?` <small style="color:var(--faint);font-weight:700">· 🎤</small>`:''}`;
       const pends=`${t.pend?`<button class="pend" onclick="chkDecide('${t.id}')">✋ grown-up looks ✓</button>`:''}${(t.chk&&!t.pend&&!t.done)?` <small title="A grown-up checks this one before coins">✋</small>`:''}${t.rmPend?`<button class="pend" style="background:var(--now);color:#fff" onclick="rmDecide('${t.id}')">🕊 remove? grown-up decides</button>`:''}`;
       const ctrls=`<button aria-label="Change how long this takes (∞ = open-ended)" class="mins" onclick="editMins('${t.id}')" title="Change how long this takes (∞ = open-ended)">${t.wait?'🫧 ':''}${tlabel(t.mins)} ✎</button><button aria-label="Notes, checklist, link, person, place, photo — they show when you start it" class="mins" onclick="openNotes('task','${t.id}')" title="Notes, checklist, link, person, place, photo — they show when you start it">${(t.notes&&t.notes.length)?'💬'+t.notes.length:'💬'}${attCount(t)?' 📎'+attCount(t):''}</button>${isOpen?`<div class="mv"><button aria-label="Move up — the top one is NOW" onclick="move('${t.id}',-1)" ${i===0?'disabled':''} title="Move up — the top one is NOW">▲</button><button aria-label="Move down" onclick="move('${t.id}',1)" ${i===n-1?'disabled':''} title="Move down">▼</button></div>`:''}<button aria-label="Remove (there" class="x" onclick="rm('${t.id}')" title="Remove (there's an Undo)">×</button>`;
       if(!simple) return `<div class="task-row ${t.done?'done':''}" onclick="if(!event.target.closest('button')&&!event.target.closest('input')&&!event.target.closest('a')&&!${t.done?'true':'false'})makeNow('${t.id}')" style="cursor:pointer"><div class="chk" onclick="toggle('${t.id}')">${t.done?'✓':''}</div><span class="tap" onclick="makeNow('${t.id}')">${esc(t.text)}${badges}</span>${pends}${ctrls}</div>`;
