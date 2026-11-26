@@ -467,7 +467,7 @@ function sampleCopy(e) {
 const canAsk = () => caps.sample && !caps.sampleOff;
 
 /* ---------- render root ---------- */
-const PL_VER = "On Guard v1.7 · 2026-11-25 · Daraja Studio";
+const PL_VER = "On Guard v1.8 · 2026-11-25 · Daraja Studio";
 function render() {
   const app = $("#app");
   app.replaceChildren();
@@ -600,7 +600,7 @@ const SETUP = {
     ];
   },
   name() {
-    const input = h("input", { class: "input", id: "f-name", autocomplete: "given-name", value: P().name, placeholder: "For example: Jerry" });
+    const input = h("input", { class: "input", id: "f-name", autocomplete: "given-name", value: P().name, placeholder: "For example: Margaret" });
     return [
       helperSays("First things first. What would you like me to call you?"),
       h("div", { class: "field" }, h("label", { for: "f-name" }, "Your name"), input),
@@ -933,9 +933,14 @@ const SCAM_RE = /(gift ?card|wire transfer|verify your (account|identity)|accoun
 const LATER_RE = /(unsubscribe|newsletter|% off|sale|deal|webinar|promo|no-?reply|noreply|digest)/i;
 function ruleSort(m) {
   const hay = `${m.from} ${m.subject} ${m.snippet}`.toLowerCase();
-  const vip = P().vips.some((v) => v && hay.includes(v.toLowerCase()));
+  /* Overnight B, 26 Nov: the scam check runs first, and an important person is matched on the SENDER only.
+     Before, a "send gift cards, love Kevin" mail with Kevin on the list went to Reply. */
+  const from = String(m.from || "").toLowerCase();
+  const vip = P().vips.some((v) => v && from.includes(v.toLowerCase()));
+  const scam = SCAM_RE.test(hay);
+  if (scam && vip) return { group: "scam", why: "It looks like it’s from someone you know, but it asks for what scammers ask for. Call them on their usual number first." };
+  if (scam) return { group: "scam", why: "Has warning signs of a scam. Don't click links." };
   if (vip) return { group: "reply", why: "From someone on your important list." };
-  if (SCAM_RE.test(hay)) return { group: "scam", why: "Has warning signs of a scam. Don't click links." };
   if (m.labels.some((l) => /CATEGORY_(PROMOTIONS|SOCIAL|FORUMS)/.test(l)) || LATER_RE.test(hay)) return { group: "later", why: "Looks like an ad or newsletter." };
   if (m.labels.includes("IMPORTANT")) return { group: "important", why: "Gmail marked this as important." };
   return { group: "important", why: "Worth a look when you have time." };
@@ -988,7 +993,7 @@ ${JSON.stringify(list)}`;
 }
 
 function viewMail() {
-  const out = [h("div", { class: "hello" }, h("h1", null, "My mail"))];
+  const out = [h("div", { class: "hello" }, h("h1", null, "My mail"), h("p", { class: "muted" }, "Your newest emails, sorted. Start at the top."))];
   if (mail.status === "idle") {
     out.push(helperSays(`Want me to go through your mail, ${P().name}? I'll put what needs an answer on top and warn you about anything that looks like a scam.`),
       h("button", { class: "btn btn-primary btn-big", type: "button", onclick: sortMail }, "Go through my mail"));
@@ -1161,7 +1166,7 @@ function viewTodo() {
     h("span", { class: "text" }, t.text, t.from ? h("span", { class: "from" }, "From an email by " + t.from) : null),
     h("button", { class: "del", type: "button", "aria-label": "Remove " + t.text, onclick: () => { S.tasks = S.tasks.filter((x) => x !== t); save(); render(); } }, "Remove"));
   return [
-    h("div", { class: "hello" }, h("h1", null, "My to-do list")),
+    h("div", { class: "hello" }, h("h1", null, "My to-do list"), h("p", { class: "muted" }, "Things to remember. Tap the box when one is done.")),
     h("div", { class: "card" }, h("div", { class: "field" }, h("label", { for: "f-task" }, "Add something to remember"), input), h("button", { class: "btn btn-primary btn-big", type: "button", onclick: add }, "Add to my list")),
     open.length ? h("ul", { class: "list" }, open.map(item)) : helperSays("Your list is empty. Add anything you want me to remember, or ask me on the Talk page, like “Remind me to call Sarah.”"),
     done.length ? h("h2", null, `Finished (${done.length})`) : null,
@@ -1177,7 +1182,7 @@ function viewMessages() {
   const tabs = h("div", { class: "tabs", role: "tablist" },
     h("button", { type: "button", role: "tab", "aria-selected": ui.msgTab === "chat" ? "true" : "false", onclick: () => { ui.msgTab = "chat"; render(); } }, `Talk with ${P().helper}`),
     h("button", { type: "button", role: "tab", "aria-selected": ui.msgTab === "family" ? "true" : "false", onclick: () => { ui.msgTab = "family"; render(); } }, "Family notes"));
-  return [h("div", { class: "hello" }, h("h1", null, "Talk")), tabs].concat(ui.msgTab === "chat" ? viewChat() : viewFamily());
+  return [h("div", { class: "hello" }, h("h1", null, "Talk"), h("p", { class: "muted" }, `Ask ${P().helper} anything, or check a text for scams.`)), tabs].concat(ui.msgTab === "chat" ? viewChat() : viewFamily());
 }
 
 let chatBusy = false, chatCtl = null;
@@ -1317,7 +1322,7 @@ let confirmErase = false;
 function viewSettings() {
   const conn = (ok, label) => h("li", null, h("b", null, label + ": "), ok);
   const out = [
-    h("div", { class: "hello" }, h("h1", null, "My Setup")),
+    h("div", { class: "hello" }, h("h1", null, "My Setup"), h("p", { class: "muted" }, "Change your answers, the word size, or what On Guard may use.")),
     h("div", { class: "card" },
       h("h2", null, `${P().name}'s helper, ${P().helper}`),
       h("p", null, "Want to change what I help with, your email, or your favorite websites? I'll ask the questions again with your answers already filled in."),
