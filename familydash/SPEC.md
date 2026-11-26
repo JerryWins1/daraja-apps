@@ -1299,3 +1299,7 @@ Jerry's June checking and home equity showed balances with "no lines tied". The 
 ## v13.7 · Dated balance lines (25 Nov)
 
 "What the AI read" showed the AI writing each balance as a dated line, for example `<date>,Opening balance,<amount>,<account>`. The app was reading these as transactions, so nothing tied and fake "Opening balance" lines landed in the accounts. `aiParse` now goes by the words in the Description ("Opening balance", "Closing balance" and their usual synonyms), not only the first column. `balLineFix` runs on load and removes any line whose whole description is a balance line.
+
+## v14.0 · 26 Nov · See what's different
+
+Each statement that doesn't tie on "Does it balance?" gets a "See what's different ›" link. It lists the lines on the statement that the app doesn't hold, and the lines the app holds for those dates that aren't on the statement (matched by amount, same day or within four days). The statement's lines come from the AI's kept answer. If the statement doesn't add up by itself, it says so: the AI missed or misread a line.

@@ -200,7 +200,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v13.9 · 2026-11-25 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v14.0 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -1270,8 +1270,28 @@ function stmtChecks(){ var S = db.stmts || {}, by = {}; Object.keys(S).forEach(f
       var empty = !st.n && db.tx.some(function(t){ return t.a === aid && !t.splitOf && t.d.slice(0,7) === String(st.to).slice(0,7); });
       out.push({ a:a, st:st, read:read, inApp:inApp, empty:empty, ok:!empty && (read == null || Math.abs(read) < 0.02) && Math.abs(inApp) < 0.02 }); }); });
   return out; }
+/* v14.0 · Jerry, 26 Nov, on six statements that don't tie: show which lines differ, so the gap has a name.
+   The statement's own lines come from the AI's kept answer; the app's are that account's lines in the same dates. */
+var LASTC = [];
+function stmtDiff(i){ var c = LASTC[i]; if(!c) return; var st = c.st, a = c.a, raw = (db.aiRaw || {})[st.f], S = [];
+  if(raw){ var o = aiParse(raw, ''); (o.stmts || []).forEach(function(x){ if(S.length) return; if(x.open === st.open && x.close === st.close && String(x.to).slice(0,7) === String(st.to).slice(0,7)) S = x.rows || []; }); }
+  var sg = st.flip ? -1 : 1, from = st.n ? st.from : String(st.to).slice(0,7) + '-01', to = st.n ? st.to : String(st.to).slice(0,7) + '-31';
+  var A = db.tx.filter(function(t){ return t.a === a.id && !t.splitOf && t.d >= from && t.d <= to; }).map(function(t){ return { d:t.d, desc:t.desc, amt:r2(t.amt), hit:0 }; });
+  var miss = []; S.forEach(function(r){ var v = r2(sg * r.raw), m = A.filter(function(x){ return !x.hit && x.d === r.d && Math.abs(x.amt - v) < 0.005; })[0]
+      || A.filter(function(x){ return !x.hit && Math.abs(x.amt - v) < 0.005 && Math.abs(new Date(x.d) - new Date(r.d)) <= 4*864e5; })[0];
+    if(m) m.hit = 1; else miss.push({ d:r.d, desc:r.desc, amt:v }); });
+  var extra = A.filter(function(x){ return !x.hit; });
+  var row = function(x){ return '<tr><td style="padding:3px 6px 3px 0;white-space:nowrap">' + esc(x.d.slice(5)) + '</td><td style="padding:3px 6px 3px 0;text-align:left">' + esc(String(x.desc || '').slice(0, 60)) + '</td><td style="text-align:right;white-space:nowrap">' + money(x.amt) + '</td></tr>'; };
+  var tbl = function(L){ return '<div class="card" style="padding:8px 10px"><table style="width:100%;font-size:13px;border-collapse:collapse">' + L.map(row).join('') + '</table></div>'; };
+  openSheet('<div class="stepno">Does it balance?</div><h3>' + esc(acctLabel(a)) + ' · ' + esc(monthName(String(st.to).slice(0,7))) + '</h3>'
+    + '<p class="sub">Statement: opening ' + (st.open != null ? money(st.open) : '—') + ', closing ' + (st.close != null ? money(st.close) : '—') + ', ' + (st.n || 0) + ' lines. The app holds ' + A.length + ' lines for these dates.</p>'
+    + (c.read != null && Math.abs(c.read) >= 0.02 ? '<div class="line warn">The statement itself is off by ' + money(Math.abs(c.read)) + ': opening plus its lines doesn’t reach the closing balance, so the AI missed or misread a line.</div>' : '')
+    + (!raw ? '<div class="line warn">The AI’s answer for this statement isn’t kept, so only the app’s side can be shown.</div>' : '')
+    + '<h4 style="margin:12px 0 4px">On the statement, not in the app · ' + miss.length + '</h4>' + (miss.length ? tbl(miss) : '<p class="sub">None.</p>')
+    + '<h4 style="margin:12px 0 4px">In the app, not on the statement · ' + extra.length + '</h4>' + (extra.length ? tbl(extra) : '<p class="sub">None.</p>')
+    + '<div class="stickfoot">' + (raw ? '<button class="b full" style="margin-top:0" onclick="aiRawShow(' + JSON.stringify(st.f).replace(/"/g, '&quot;') + ')">What the AI read</button>' : '') + '<button class="b primary full" onclick="sheetBack()">Back</button></div>'); }
 function aiRawShow(path){ var r = (db.aiRaw || {})[path]; if(!r) return; openSheet('<div class="stepno">What the AI read</div><h3 style="word-break:break-word">' + esc(String(path).split('/').pop()) + '</h3><p class="sub">The AI’s answer for this statement, word for word. Opening and Closing lines are each account’s balances; the rest are its lines.</p><pre style="white-space:pre-wrap;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:60vh;overflow:auto">' + esc(r) + '</pre><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sheetBack()">Back</button></div>'); }
-function openBalance(){ var C = stmtChecks(), bad = C.filter(function(c){ return !c.ok; }), R = xferPairs(), m = pulseMonth ? pulseMonth() : thisMonth(); LASTLIST = function(){ openBalance(); };
+function openBalance(){ var C = stmtChecks(); LASTC = C; var bad = C.filter(function(c){ return !c.ok; }), R = xferPairs(), m = pulseMonth ? pulseMonth() : thisMonth(); LASTLIST = function(){ openBalance(); };
   var T = db.tx.filter(function(t){ return t.d.slice(0,7) === m && !t.splitOf && ownAcct(acct(t.a)); }), inc = 0, sp = 0, mv = 0;
   T.forEach(function(t){ if(t.cat === 'inc') inc += -t.amt; else if(t.cat === 'xfer'){ mv += t.amt; } else sp += t.amt; });
   var byA = {}; C.forEach(function(c){ (byA[c.a.id] = byA[c.a.id] || []).push(c); });
@@ -1281,7 +1301,7 @@ function openBalance(){ var C = stmtChecks(), bad = C.filter(function(c){ return
       return '<div class="card" style="padding:10px 12px;margin:8px 0"><b>' + esc(acctLabel(a)) + '</b> <span style="float:right;font-weight:800;color:' + (nb ? '#B5452E' : 'var(--ok,#2E7D4F)') + '">' + (nb ? nb + ' off' : '✓') + '</span>'
         + '<table style="width:100%;font-size:13px;margin-top:6px;border-collapse:collapse">' + L.slice(-12).map(function(c){ var st = c.st;
           return '<tr><td style="padding:3px 0">' + esc(monthName(st.to.slice(0,7), true)) + '</td><td>' + (st.close != null ? money(Math.abs(st.close)) : '') + '</td><td style="text-align:right">'
-            + (c.empty ? '<span style="color:#B5452E;font-weight:700">no lines were tied to this statement, but the app has lines this month</span>' : c.read != null && Math.abs(c.read) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">statement doesn’t add up by ' + money(Math.abs(c.read)) + ' — a line wasn’t read</span>' : Math.abs(c.inApp) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">app ' + (c.inApp > 0 ? 'has ' : 'is short ') + money(Math.abs(c.inApp)) + '</span>' : c.read == null ? '<span style="color:var(--soft)">no opening balance</span>' : '<span style="color:var(--ok,#2E7D4F);font-weight:700">ties ✓</span>') + (st.f && db.aiRaw && db.aiRaw[st.f] ? ' <a href="#" onclick="aiRawShow(' + JSON.stringify(st.f).replace(/"/g, '&quot;') + ');return false" style="color:var(--brand);font-weight:700;font-size:12px;white-space:nowrap">What the AI read</a>' : '') + '</td></tr>'; }).join('') + '</table></div>'; }).join('')
+            + (!c.ok ? '<a href="#" onclick="stmtDiff(' + LASTC.indexOf(c) + ');return false" style="display:block;color:var(--brand);font-weight:800;font-size:12.5px">See what’s different ›</a>' : '') + (c.empty ? '<span style="color:#B5452E;font-weight:700">no lines were tied to this statement, but the app has lines this month</span>' : c.read != null && Math.abs(c.read) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">statement doesn’t add up by ' + money(Math.abs(c.read)) + ' — a line wasn’t read</span>' : Math.abs(c.inApp) >= 0.02 ? '<span style="color:#B5452E;font-weight:700">app ' + (c.inApp > 0 ? 'has ' : 'is short ') + money(Math.abs(c.inApp)) + '</span>' : c.read == null ? '<span style="color:var(--soft)">no opening balance</span>' : '<span style="color:var(--ok,#2E7D4F);font-weight:700">ties ✓</span>') + (st.f && db.aiRaw && db.aiRaw[st.f] ? ' <a href="#" onclick="aiRawShow(' + JSON.stringify(st.f).replace(/"/g, '&quot;') + ');return false" style="color:var(--brand);font-weight:700;font-size:12px;white-space:nowrap">What the AI read</a>' : '') + '</td></tr>'; }).join('') + '</table></div>'; }).join('')
     + '<h4 style="margin:14px 0 4px">' + esc(monthName(m)) + ' for the household</h4><div class="card" style="padding:10px 12px"><table style="width:100%;font-size:14px;border-collapse:collapse">'
     + '<tr><td>Money in (income)</td><td style="text-align:right">' + money(r2(inc)) + '</td></tr><tr><td>Spending</td><td style="text-align:right">− ' + money(r2(sp)) + '</td></tr>'
     + '<tr><td>Left over</td><td style="text-align:right;font-weight:800">' + money(r2(inc - sp)) + '</td></tr>'
@@ -4209,7 +4229,7 @@ function aiParse(raw, name){ var txt = String(raw || '').replace(/^```[a-z]*\s*|
       M.push(P); });
     SB[k].per = M; });
   out.stmts = []; Object.keys(SB).forEach(function(k){ SB[k].per.forEach(function(P){ if(P.open == null && P.close == null && !P.rows.length) return; var dd = P.rows.map(function(r){ return r.d; }).sort();
-    out.stmts.push({ sub:k, name:SB[k].name, open:P.open, close:P.close, sum:r2(P.rows.reduce(function(x,r){ return x + r.raw; }, 0)), n:P.rows.length, from:dd[0] || '', to:dd[dd.length-1] || out.asOf || '', asOf:dd[dd.length-1] || out.asOf || '' }); }); });
+    out.stmts.push({ sub:k, name:SB[k].name, open:P.open, close:P.close, sum:r2(P.rows.reduce(function(x,r){ return x + r.raw; }, 0)), n:P.rows.length, rows:P.rows, from:dd[0] || '', to:dd[dd.length-1] || out.asOf || '', asOf:dd[dd.length-1] || out.asOf || '' }); }); });
   return out; }
 function pdfText(f){ return new Promise(function(res){ pdfLines(f, function(L){ res(L && L.length ? L.map(function(r){ return r.map(function(c){ return c.s; }).join('  '); }).join('\n') : ''); }); }); }
 function fmAIgo(){ var F = FAI, id = F.ids[F.i], a = acct(id), L = fmBadPdfs(a); if(!L.length){ F.i++; if(F.i < F.ids.length) return fmAIgo(); FAI = null; return fmDone(ONESK); }
