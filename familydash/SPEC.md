@@ -1310,3 +1310,7 @@ Each statement that doesn't tie on "Does it balance?" gets a "See what's differe
 - `SQKEY` lines up with the questions again (cars was added and help was removed), so answers found in the statements now skip the right question. `setupSummary` builds its lines by key.
 - **The budget** asks "how often" on one list with a drop-down per row, filled in from the statements (`budStart`, `budListSave`, `rvTimeApply`), then moves to the amounts. The calendar reminder no longer pops up on its own after the first budget.
 - New videos: `setup` and `budget`.
+
+## v14.2 · 26 Nov · Set it up with me from Settings
+
+The checklist disappears once setup is done, so Settings now has a "✨ Set it up with me" button at the top. It runs the questions again with the answers already filled in.
