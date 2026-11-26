@@ -140,7 +140,7 @@
 
   <!-- 6 Nov (Jerry): the guest page is the only page an invited person ever sees, and it had no way
        through to the store. One link in the footer that was already here, rather than a second footer. -->
-  <p class="foot">Who’s Coming v1.24 · 2026-11-25 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
+  <p class="foot">Who’s Coming v1.25 · 2026-11-25 · nothing is sent unless you tap Send · donations help orphans and students in Kenya<br><a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:#2F6E52;font-weight:700;white-space:nowrap">See the other Daraja apps ›</a></p>
 </div>
 
 <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" multiple style="display:none" onchange="readVcf(this)">
@@ -212,7 +212,7 @@ function whyFor(aid,pid){ const a=db.asks.find(x=>x.id===aid); if(!a) return; co
   $('whySave').onclick=()=>{ const v=no?whyValue():($('whyTxt').value||'').trim().slice(0,80); if(v) ans.why=v; else delete ans.why; save(); closeSheet(); render(); toast(v?'Saved ✓':(no?'No reason — that’s fine':'Nothing recorded — that’s fine')); };
   if($('whyDel')) $('whyDel').onclick=()=>{ delete ans.why; save(); closeSheet(); render(); toast('Reason removed'); };
   $('whyTxt').onkeydown=e=>{ if(e.key==='Enter') $('whySave').click(); }; }
-function tallyText(a){ const t={}; Object.values(a.answers||{}).forEach(x=>{ t[x.a]=(t[x.a]||0)+1; }); return Object.entries(t).map(([k,v])=>v+' '+k).join(' · ')||'no answers yet'; }
+function tallyText(a){ const t={}; let heads=0, extra=false; Object.values(a.answers||{}).forEach(x=>{ t[x.a]=(t[x.a]||0)+1; if(!isNo(x.a)&&!isMaybe(x.a)&&a.kind!=='free'){ heads+=x.n>1?x.n:1; if(x.n>1) extra=true; } }); return (Object.entries(t).map(([k,v])=>v+' '+k).join(' · ')||'no answers yet')+(extra?' · '+heads+' people coming':''); }
 
 /* ── asks ────────────────────────────────────────────────────── */
 let askKind='yn';
@@ -265,6 +265,12 @@ function askText(a, nudge){ const ppl=peopleOf(a.groupId);
 function waAsk(id,nudge){ const a=db.asks.find(x=>x.id===id); if(!a) return;
   if(!db.me.name){ toast('Add your name first — tap 📨 Send to the group once and it will ask'); return; }
   waSend(askText(a,nudge)); }
+/* Overnight B, 26 Nov 2026 (Evite and Partiful count plus-ones): "who's coming" is really "how many plates". A Yes can carry
+   how many people it stands for; the summary gives the head count beside the number of answers. */
+function partyOf(aid,pid){ const a=db.asks.find(x=>x.id===aid); const ans=a&&(a.answers||{})[pid]; if(!ans) return; const p=peopleOf(a.groupId).find(x=>x.id===pid)||{name:'them'};
+  const v=prompt('How many people are coming, counting '+p.name+'?', String(ans.n||1)); if(v===null) return; const n=Math.max(1,Math.min(50,parseInt(String(v).replace(/[^0-9]/g,''),10)||1));
+  if(n>1) ans.n=n; else delete ans.n; save(); render(); toast(n>1?p.name+' + '+(n-1)+' ✓':'Just '+p.name+' ✓'); }
+function headCount(a,ppl){ return ppl.reduce((t,p)=>{ const x=(a.answers||{})[p.id]; return t+(x&&!isNo(x.a)&&!isMaybe(x.a)?(x.n>1?x.n:1):0); },0); }
 function comingYes(a,p){ const x=(a.answers||{})[p.id]; return !!x && !isNo(x.a) && !isMaybe(x.a); }
 function summaryText(a){
   const ppl=peopleOf(a.groupId), yes=[], no=[], quiet=[], maybe=[];
@@ -272,9 +278,10 @@ function summaryText(a){
     if(!x) quiet.push(p.name);
     else if(isNo(x.a)) no.push(p.name + (x.why?' ('+x.why+')':''));
     else if(isMaybe(x.a)) maybe.push(p.name + (x.why?' \u2014 '+x.why:''));
-    else yes.push(p.name + (x.why?' \u2014 '+x.why:'')); });
+    else yes.push(p.name + (x.n>1?' +'+(x.n-1):'') + (x.why?' \u2014 '+x.why:'')); });
   const L=[a.q, ''];
-  L.push('Coming (' + yes.length + ')' + (yes.length?': '+yes.join(', '):''));
+  const heads=headCount(a,ppl);
+  L.push('Coming (' + yes.length + (heads>yes.length?' \u00b7 '+heads+' people':'') + ')' + (yes.length?': '+yes.join(', '):''));
   if(maybe.length) L.push('Maybe (' + maybe.length + '): ' + maybe.join(', '));
   if(no.length) L.push('Can\u2019t come (' + no.length + '): ' + no.join(', '));
   if(quiet.length) L.push('Not heard from (' + quiet.length + '): ' + quiet.join(', '));
@@ -398,7 +405,7 @@ function renderAsks(){
     const tally={}; a.options.forEach(o=>tally[o]=0); Object.values(a.answers||{}).forEach(x=>{ tally[x.a]=(tally[x.a]||0)+1; });
     return `<div class="card ask" id="ask-${a.id}" style="${a.closed?'opacity:.7':''}"><h2>${esc(a.q)}</h2><p>${g?esc(g.name)+' · '+(ppl.length?answered+' of '+ppl.length+' answered':'nobody in it yet — add people under People'):Object.keys(a.answers||{}).length+' answered before the group was removed'}${a.when?' · by '+esc(whenTxt(a.when)):''}${a.closed?' · closed':''}</p>
       ${a.options.length?`<div class="tally">${a.options.map(o=>`<div class="tile"><b>${tally[o]||0}</b><span>${esc(o)}</span></div>`).join('')}</div>`:''}
-      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+(ans.why?' · <span class="why">“'+esc(ans.why)+'”</span>':'')+' · '+esc(/^\d{4}-\d\d-\d\d$/.test(ans.at||'')?whenTxt(ans.at):(ans.at||'')):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" aria-label="${ans?'Change':'Record'} what ${esc(p.name)} said" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'Change it':'Record what they said'}</button>`}${ans&&a.kind!=='free'&&isNo(ans.a)?`<button class="ghost whyBtn" aria-label="Reason ${esc(p.name)} can’t come (optional)" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit why':'Why?'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&a.followQ?`<button class="ghost whyBtn" aria-label="${esc(a.followQ)} — ${esc(p.name)}" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit':'Add'}</button>`:''}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
+      <div>${ppl.map(p=>{ const ans=(a.answers||{})[p.id]; return `<div class="person"><div class="nm">${esc(p.name)}<small>${ans?esc(ans.a)+(ans.why?' · <span class="why">“'+esc(ans.why)+'”</span>':'')+' · '+esc(/^\d{4}-\d\d-\d\d$/.test(ans.at||'')?whenTxt(ans.at):(ans.at||'')):'not yet'}</small></div><div class="ans row">${a.options.length?a.options.map(o=>`<button class="${ans&&ans.a===o?'on':''}" data-ask="${a.id}" data-who="${p.id}" data-ans="${esc(o)}" onclick="setAnswer(this.dataset.ask,this.dataset.who,this.dataset.ans)">${esc(o)}</button>`).join(''):`<button class="${ans?'on':''}" aria-label="${ans?'Change':'Record'} what ${esc(p.name)} said" onclick="setAnswer('${a.id}','${p.id}','x')">${ans?'Change it':'Record what they said'}</button>`}${ans&&a.kind!=='free'&&isNo(ans.a)?`<button class="ghost whyBtn" aria-label="Reason ${esc(p.name)} can’t come (optional)" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit why':'Why?'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&a.followQ?`<button class="ghost whyBtn" aria-label="${esc(a.followQ)} — ${esc(p.name)}" onclick="whyFor('${a.id}','${p.id}')">💬 ${ans.why?'Edit':'Add'}</button>`:''}${ans&&a.kind!=='free'&&!isNo(ans.a)&&!isMaybe(ans.a)?`<button class="ghost whyBtn" aria-label="How many people, counting ${esc(p.name)}" onclick="partyOf('${a.id}','${p.id}')">👥 ${ans.n>1?ans.n:'1'}</button>`:''}${ans?`<button class="ghost" aria-label="Clear ${esc(p.name)}’s answer" onclick="setAnswer('${a.id}','${p.id}',null)">✕</button>`:''}</div></div>`; }).join('')}</div>
       <div class="row" style="margin-top:10px">${ppl.length?`<button class="primary" onclick="sendAsk('${a.id}',false)">📨 Text the group</button><button onclick="waAsk('${a.id}',false)">💬 WhatsApp</button>${answered<ppl.length?`<button onclick="sendAsk('${a.id}',true)">Nudge the quiet ones</button>`:''}`:''}<button onclick="copyTally('${a.id}')">📋 Copy the tally</button>${answered?`<button onclick="sendSummary('${a.id}')">📤 Send the summary</button>`:''}<button class="ghost" onclick="closeAsk('${a.id}')">${a.closed?'Reopen':'Close'}</button><button class="ghost" aria-label="Delete this question" onclick="delAsk('${a.id}')">🗑</button></div></div>`; }).join('');
 }
 
