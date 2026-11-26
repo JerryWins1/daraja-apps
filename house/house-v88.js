@@ -876,6 +876,7 @@
       dockEl.appendChild(toggleBtn);
     }
     if(toggleBtn) dockEl.appendChild(toggleBtn);   /* always the bottom of the stack */
+    var smp = document.getElementById('djShowMe'); if(smp && toggleBtn && smp.nextSibling !== toggleBtn) dockEl.insertBefore(smp, toggleBtn);
     paint();
   }
 
@@ -936,7 +937,7 @@
     if(crisisPage()){ try{ var cb = document.getElementById('crisis'); if(cb){ cb.style.setProperty('z-index','2147483647','important'); w.style.setProperty('padding-bottom','104px','important'); } }catch(e){} }   /* v63: the 988 bar is never covered by the ? sheet */
     w.style.cssText = 'position:fixed;inset:0;z-index:2147482400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
     var box = document.createElement('div');
-    box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
+    box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;max-height:92vh;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';   /* 26 Nov: on a 360×780 phone the sheet had 14 rows and no scroll, so the top ones (Text size, Ask an AI) were off the screen for good */
     var h = document.createElement('div'); h.style.cssText = 'font-weight:900;font-size:18px;margin:2px 4px 2px'; h.textContent = 'Help and settings'; box.appendChild(h);
     /* Which version am I on? On five apps the stamp sat inside a tab you had to find first,
        so nobody could answer that. It is now always one tap away, in every app. (21 Sep 2026) */
@@ -944,9 +945,17 @@
     vLine.style.cssText = 'margin:0 4px 10px;font-size:13.5px;color:#55605B';
     vLine.textContent = 'You are on ' + (appStamp() || 'a version this app does not show');
     box.appendChild(vLine);
+    /* 14c: the app's own videos, played right here — this screen's part first when there is one */
+    if(!smOff()){
+      var sm = document.createElement('button'); sm.type = 'button';
+      sm.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+      sm.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">▶</span><span style="flex:1">Show me how it works<br><small style="font-weight:600;color:#55605B">' + (SM_BEST ? 'this screen, or the whole video — played right here' : 'this app’s videos, played right here') + '</small></span>';
+      sm.onclick = function(){ w.remove(); djBackPush(dockSheet); smSheet(null); };
+      box.appendChild(sm);
+    }
     var n = 0;
     for(var i = 0; i < dockEl.children.length; i++){
-      var c = dockEl.children[i]; if(c === toggleBtn) continue;
+      var c = dockEl.children[i]; if(c === toggleBtn || c.id === 'djShowMe') continue;
       var lab = DOCK_LABELS[c.id] || [ (c.textContent||'').trim().slice(0,2), c.getAttribute('aria-label') || c.title || 'Option' ];
       (function(btn, lab){
         var row = document.createElement('button'); row.type = 'button';
@@ -1084,6 +1093,7 @@
     for(var i=0; i<dockEl.children.length; i++){
       var c = dockEl.children[i];
       if(c === toggleBtn){ show(c, narrow); continue; }
+      if(c.id === 'djShowMe') continue;   /* 14c: the ▶ Show me pill shows itself, only when this screen has a part */
       show(c, !narrow || openDock);
     }
   }
@@ -1893,6 +1903,7 @@
       return localStorage.getItem('dj_setup_no_' + djRefKey(slugOf())) !== '1';
     }catch(e){ return false; }
   }
+  var DJ_TOURED = 0;
   function setupOffer(force, tries){
     if(!force && djMineOff()) return;
     if(document.getElementById('djSetup')) return;
@@ -1923,6 +1934,10 @@
          the one that was reported. Measured after: church-hq's own card is alone again, and the
          seven apps checked with it are unchanged. */
       if(DJ_TYPED) return;   /* they are working: not this visit, and not a refusal either */
+      /* 26 Nov 2026 (overnight, Jerry: "fewer jumps"): a person who has just been through the welcome tour
+         and its keep-or-start-fresh question is not met by a third full screen. The offer waits for their
+         next open (and is always under ? → Make it mine). Not a refusal: nothing is written. */
+      if(DJ_TOURED) return;
       var own = false; try{ own = cardOpen(); }catch(e){}
       if(djHold() || document.getElementById('djTour') || pending || own){
         if((tries || 0) < 40) setTimeout(function(){ try{ setupOffer(false, (tries || 0) + 1); }catch(e){} }, 1500);
@@ -2083,7 +2098,7 @@
      Screens opened through the house's own sheet() get the chip and the wiring for free. */
   var DJ_BACK = [], DJ_BACK_NAV = 0, DJ_HIST = 0, DJ_EAT = 0, DJ_MARK = -1;
   var DJ_BACK_CSS = 'font:inherit;font-weight:800;font-size:14px;color:#23504F;background:#fff;border:1.5px solid #C9C1AE;border-radius:999px;min-height:40px;padding:6px 14px;margin:0 0 10px;cursor:pointer';
-  function djHouseSheet(){ return document.getElementById('djAISheet') || document.getElementById('djDockSheet'); }
+  function djHouseSheet(){ return document.getElementById('djAISheet') || document.getElementById('djDockSheet') || document.getElementById('djShowSheet'); }   /* 14c: the ▶ Show me sheet closes and goes Back the same way */
   /* v70: one history entry covers the whole trail, whoever started it — an app's push or a house
      sheet. Without this, djBack.push bought an app the chip but never the phone's Back button,
      because nothing had been pushed for Back to consume. Reported the same day, with the same
@@ -2741,6 +2756,237 @@
   }
 
 
+  /* ── 14c · ▶ Show me — this app's own videos, played inside the app (26 Nov 2026) ──
+     Jerry, 25 Nov: can each app's videos play INSIDE the app, in parts, right at the screen
+     they explain, instead of sending people away? So:
+     · a small "▶ Show me" pill sits just above the ? when the screen in front of the person
+       has its own part in one of the app's videos (a part = the lines between two screen
+       changes, cut by tools/showme/build.py into shop/showme/<key>.json, a few KB);
+     · ? → "▶ Show me how it works" lists that part first, then the whole videos;
+     · either opens one sheet over the app with shop/watch.html?embed=1 playing just that
+       part. Nothing plays until the person taps ▶ inside it (no sound by surprise), the
+       player is only fetched on that tap, and with no connection the sheet says so in one
+       line instead of an error. ✕, the phone's Back, or "Back to the app" closes it, and
+       the app is exactly where it was.
+     Never inside the video player's own window (its demo app would grow a second pill),
+     never on a guest's reply page. A page can opt out with window.DJ_SHOWME = false. */
+  var SM_ROOT = 'https://jerrywins1.github.io/daraja-apps/shop/', SM_DATA = null, SM_LOADING = false, SM_BEST = null, SM_T = 0, SM_WAIT = [];
+  function smOff(){
+    try{ if(window.DJ_SHOWME === false || guestVisit()) return true; }catch(e){}
+    try{ var fe = window.frameElement; if(fe && (fe.id === 'appFrame' || fe.id === 'djShowFrame')) return true; }catch(e){}
+    try{ if(embedded && /\/shop\/watch\.html$/.test(window.parent.location.pathname)) return true; }catch(e){}
+    return /\/(shop|control|testday|inspect|whats-new|try|thanks|help)\//.test(location.pathname);
+  }
+  function smKey(idx){
+    var pp = decodeURIComponent(location.pathname).replace(/index\.html$/,''), best = null, bl = 0;
+    if(!/\/$/.test(pp)) pp = pp.replace(/[^\/]*$/, '');
+    pp = pp.replace(/\/beta\/$/, '/');
+    Object.keys(idx.paths || {}).forEach(function(p){ if(pp.indexOf(p) === 0 && p.length > bl){ best = idx.paths[p]; bl = p.length; } });
+    var md = idx.modes && Object.keys(idx.modes).filter(function(p){ return pp.indexOf(p) === 0; })[0];
+    if(md){ var m = (location.search.match(/[?&]mode=([a-z]+)/) || [])[1]; if(m && idx.modes[md][m]) best = idx.modes[md][m]; }
+    return best;
+  }
+  function smLoad(cb){
+    if(SM_DATA){ cb(SM_DATA.vids ? SM_DATA : null); return; }
+    if(!window.fetch){ cb(null); return; }
+    SM_WAIT.push(cb); if(SM_LOADING) return;      /* a tap while the file is still coming waits for it */
+    SM_LOADING = true;
+    var done = function(){ var q = SM_WAIT; SM_WAIT = []; q.forEach(function(f){ try{ f(SM_DATA.vids ? SM_DATA : null); }catch(e){} }); };
+    var h = Math.floor(Date.now() / 36e5);   /* hourly, like the 🌉 sheet: a re-cut video reaches the apps within the hour */
+    fetch(SM_ROOT + 'showme/index.json?h=' + h).then(function(r){ return r.ok ? r.json() : null; }).then(function(idx){
+      var k = idx && smKey(idx);
+      if(!k) return null;
+      return fetch(SM_ROOT + 'showme/' + encodeURIComponent(k) + '.json?h=' + h).then(function(r){ return r.ok ? r.json() : null; });
+    }).then(function(d){ SM_DATA = (d && d.vids && d.vids.length) ? d : {}; SM_LOADING = false; done(); })
+      .catch(function(){ SM_DATA = {}; SM_LOADING = false; done(); });   /* offline or a missing file: no pill, no error */
+  }
+  function smSeen(el){
+    if(!el || !el.getBoundingClientRect) return false;
+    var r = el.getBoundingClientRect(); if(r.width < 2 || r.height < 2) return false;
+    if(r.bottom < 0 || r.top > (window.innerHeight || 800) * 1.4) return false;
+    try{ var cs = getComputedStyle(el); if(cs.visibility === 'hidden' || +cs.opacity === 0) return false; }catch(e){}
+    return true;
+  }
+  /* Which part of which video is about the screen in front of the person? Each part names the
+     controls its lines ring or open. A visible tab button that is the SELECTED one is the
+     strongest sign (3); any other of its controls on screen counts 1; tab buttons that are not
+     selected, and anything hidden on another screen, count nothing. Step by step wins a tie. */
+  function smMatch(d){
+    var best = null, order = { train: 3, firsttime: 2, overview: 1 };
+    (d.vids || []).forEach(function(v){ (v.ch || []).forEach(function(c){
+      var sc = 0, sels = c[4] || [];
+      for(var i = 0; i < sels.length; i++){
+        var el = null; try{ el = document.querySelector(sels[i]); }catch(e){}
+        if(!smSeen(el)) continue;
+        var tab = el.closest && el.closest('nav,[role=tablist],.tabs,#tabs,.tabbar,.nav');
+        if(tab || el.hasAttribute('data-t') || el.hasAttribute('data-tab')){
+          var on = /(^|\s)(on|active|sel|selected|cur|current|is-on)(\s|$)/.test(el.className || '') || el.getAttribute('aria-selected') === 'true' || el.hasAttribute('aria-current');
+          if(on) sc += 3;
+        } else sc += 1;
+      }
+      if(c[0] === 0 && c[1] === v.n - 1) sc = 0;   /* a "part" that is the whole video is not a part */
+      if(sc >= 2 && (!best || sc > best.sc || (sc === best.sc && order[v.m] > order[best.v.m]))) best = { sc: sc, v: v, c: c };
+    }); });
+    return best;
+  }
+  function smPill(){
+    if(!dockEl || smOff()) return;
+    var p = document.getElementById('djShowMe');
+    var busy = document.querySelector('[id^="djTour"],#djStart,#djInstall,#djMenu,#djSetup') || document.getElementById('djShowSheet') || djHouseSheet();   /* never over the welcome tour, the start menu or the install screen */
+    SM_BEST = (SM_DATA && SM_DATA.vids && !busy) ? smMatch(SM_DATA) : null;
+    if(!SM_BEST){ if(p) p.style.display = 'none'; return; }
+    if(!p){
+      p = document.createElement('button'); p.type = 'button'; p.id = 'djShowMe';
+      p.textContent = '▶ Show me';
+      p.style.cssText = 'pointer-events:auto;min-height:44px;height:44px;padding:0 14px;margin:0;border-radius:999px;border:1.5px solid rgba(128,128,128,.45);background:#23504F;color:#fff;font:800 15px/1 -apple-system,system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);flex:0 0 auto;white-space:nowrap';
+      p.onclick = function(){ smSheet(SM_BEST); };
+    }
+    p.setAttribute('aria-label', 'Show me this screen — a ' + SM_BEST.c[2] + '-second part of the ' + SM_BEST.v.t.toLowerCase() + ', played right here');
+    if(p.parentElement !== dockEl || p.nextSibling !== toggleBtn){ if(toggleBtn && toggleBtn.parentElement === dockEl) dockEl.insertBefore(p, toggleBtn); else dockEl.appendChild(p); }
+    p.style.display = '';
+    /* never on top of something the person might tap: if any button, link or box of the app's sits under
+       the pill, it steps aside (the ? → Show me row is still there) and comes back once the page scrolls */
+    try{
+      var q = p.getBoundingClientRect(), hit = false;
+      [[.12,.3],[.5,.3],[.88,.3],[.12,.75],[.5,.75],[.88,.75]].forEach(function(f){
+        if(hit) return;
+        var els = document.elementsFromPoint(q.left + q.width * f[0], q.top + q.height * f[1]) || [];
+        for(var i = 0; i < els.length; i++){ var el = els[i];
+          if(el === p || dockEl.contains(el) || el === document.body || el === document.documentElement) continue;
+          if(el.closest && el.closest('button,a[href],input,select,textarea,label,[onclick],[role=button],[contenteditable=true]')){ hit = true; break; } }
+      });
+      if(hit) p.style.display = 'none';
+    }catch(e){}
+  }
+  function smSoon(){ clearTimeout(SM_T); SM_T = setTimeout(function(){ try{ smPill(); }catch(e){} }, 700); }
+  function showMeLater(){
+    if(smOff()) return;
+    /* the small file is fetched once the page has settled — never in the way of the app's own start */
+    setTimeout(function(){ smLoad(function(d){ if(d){ smPill(); document.addEventListener('click', smSoon, true); window.addEventListener('hashchange', smSoon); window.addEventListener('scroll', function(){ smSoon(); }, { passive: true }); setInterval(smPill, 4000); } }); }, 3500);
+  }
+  function smSecs(s){ s = Math.max(5, Math.round(s || 0)); return s < 90 ? ('about ' + (Math.round(s / 5) * 5 || 5) + ' seconds') : ('about ' + Math.round(s / 60) + ' minute' + (Math.round(s / 60) === 1 ? '' : 's')); }
+  function smSheet(pick, direct){
+    if(document.getElementById('djShowSheet')) return;
+    if(DJ_MARK < 0) DJ_MARK = DJ_BACK.length;
+    djHistOn();
+    var w = document.createElement('div'); w.id = 'djShowSheet'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Show me how it works');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147482600;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 -apple-system,system-ui,sans-serif';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#FAF6EE;color:#1F2622;width:100%;max-width:640px;height:94vh;height:94dvh;display:flex;flex-direction:column;border-radius:22px 22px 0 0;padding:12px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35)';
+    w.appendChild(box); document.body.appendChild(w);
+    w.addEventListener('click', function(e){ if(e.target === w) djHouseClose(); });
+    var d = SM_DATA && SM_DATA.vids ? SM_DATA : null;
+    var name = (d && d.name) || (document.title || 'this app').split(/ [—·|-] /)[0];
+    var RS = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-weight:800;font-size:17px;min-height:54px;padding:10px 14px;margin-bottom:8px;border-radius:14px;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;cursor:pointer';
+    function head(sub){ return '<div style="display:flex;align-items:center;gap:10px;margin:0 2px 8px"><div style="flex:1;min-width:0"><div style="font-weight:900;font-size:18px">▶ Show me · ' + escH(name) + '</div><div style="font-size:14px;color:#55605B">' + sub + '</div></div><button type="button" class="djSmX" aria-label="Close the video and go back to the app" style="width:44px;height:44px;min-height:44px;border-radius:50%;border:1.5px solid #E2DCCF;background:#fff;color:#1F2622;font:800 18px/1 sans-serif;cursor:pointer;flex:none">✕</button></div>'; }
+    function wireX(){ var x = box.querySelector('.djSmX'); if(x) x.onclick = function(){ djHouseClose(); }; }
+    function offline(msg){
+      box.innerHTML = head('The app is right where you left it.') + '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px"><div style="font-size:40px">\u{1F4F6}</div><p style="font-weight:800;font-size:17px;margin:10px 0 6px">' + msg + '</p><p style="color:#55605B;margin:0 0 14px">Nothing in the app is lost. Try again when you have a connection.</p><button type="button" class="djSmAgain" style="' + RS + ';width:auto;justify-content:center">↻ Try again</button></div>';
+      wireX(); var a = box.querySelector('.djSmAgain'); if(a) a.onclick = function(){ w.remove(); smSheet(pick); };
+    }
+    function play(v, c){
+      if(navigator.onLine === false){ offline('The videos need the internet.'); return; }
+      var u = SM_ROOT + 'watch.html?app=' + encodeURIComponent(d.key) + (v.m === 'overview' ? '' : '&mode=' + v.m) + '&embed=1' + (c ? '&from=' + c[0] + '&to=' + c[1] : '');
+      playUrl(u, c ? ('This screen · ' + smSecs(c[2]) + ' · tap ▶, sound on') : (escH(v.t) + ' · ' + smSecs(v.s) + ' · tap ▶, sound on'));
+    }
+    function playUrl(u, sub){
+      if(navigator.onLine === false){ offline('The videos need the internet.'); return; }
+      box.innerHTML = head(sub) + (rowsBack ? '<button type="button" class="djSmList" style="' + DJ_BACK_CSS + ';align-self:flex-start">← All the videos</button>' : '') + '<div class="djSmWait" style="flex:1;display:flex;align-items:center;justify-content:center;color:#55605B;font-weight:700">Loading the video…</div>';
+      wireX(); var l = box.querySelector('.djSmList'); if(l) l.onclick = function(){ list(); };
+      var f = document.createElement('iframe'); f.id = 'djShowFrame'; f.title = 'The video'; f.setAttribute('allow', 'autoplay');
+      f.style.cssText = 'flex:1;width:100%;border:0;border-radius:14px;background:#f6f1e7;display:none';
+      var ok = false, t = setTimeout(function(){ if(!ok && document.body.contains(f)) offline('The video did not load.'); }, 15000);
+      f.onload = function(){ ok = true; clearTimeout(t); var wt = box.querySelector('.djSmWait'); if(wt) wt.remove(); f.style.display = 'block'; };
+      f.src = u; box.appendChild(f);
+    }
+    var rowsBack = false;
+    function list(){
+      if(!d){ offline(navigator.onLine === false ? 'The videos need the internet.' : 'The videos did not load.'); return; }
+      rowsBack = true;
+      box.innerHTML = head('Played right here, over the app. Nothing starts until you tap ▶.');
+      wireX();
+      var wrapR = document.createElement('div'); wrapR.style.cssText = 'overflow:auto;flex:1';
+      function row(em, t, sub, fn){ var r = document.createElement('button'); r.type = 'button'; r.style.cssText = RS; r.innerHTML = '<span style="font-size:22px;width:32px;text-align:center">' + em + '</span><span style="flex:1">' + t + (sub ? '<br><small style="font-weight:600;color:#55605B">' + sub + '</small>' : '') + '</span>'; r.onclick = fn; wrapR.appendChild(r); }
+      var b = pick || smMatch(d);
+      if(b) row('\u{1F446}', 'Just this screen', smSecs(b.c[2]) + ' · “' + escH(b.c[3]) + '”', function(){ play(b.v, b.c); });
+      var EM = { overview: '▶', firsttime: '\u{1F4A1}', train: '\u{1F393}' };
+      var SUB = { overview: 'what it does and why it helps', firsttime: 'for a first-timer: every screen, slowly', train: 'setting it up, one step at a time' };
+      d.vids.forEach(function(v){ row(EM[v.m] || '▶', escH(v.t), smSecs(v.s) + ' · ' + (SUB[v.m] || ''), function(){ play(v, null); }); });
+      box.appendChild(wrapR);
+    }
+    if(direct){ rowsBack = !!d; playUrl(direct.url, 'Tap ▶, sound on'); }
+    else if(pick && d){ rowsBack = true; play(pick.v, pick.c); }
+    else if(d) list();
+    else { box.innerHTML = head('One moment…'); wireX(); smLoad(function(dd){ d = dd; if(!document.body.contains(w)) return; list(); }); }
+  }
+  function escH(x){ return String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+  /* Every "watch the video" link INSIDE an app — the start menu's 🎬 row, an app's own ▶ buttons — used to
+     leave the app for the store's player. Once this page knows it is an app (its small file has loaded),
+     such a link plays in the same sheet instead, and the app stays underneath. Offline, or on a page that
+     is not an app, the link behaves exactly as before. */
+  function smWatchHere(url){
+    try{
+      if(smOff() || navigator.onLine === false || (SM_DATA && !SM_DATA.vids)) return false;
+      var u = new URL(url, location.href); if(!/\/shop\/watch\.html$/.test(u.pathname)) return false;
+      if(document.getElementById('djShowSheet')) return true;
+      var away = u.href;
+      u.searchParams.set('embed', '1'); u.searchParams.delete('from'); u.searchParams.delete('to');
+      if(SM_DATA) smSheet(null, { url: u.href });
+      else smLoad(function(d){ if(d) smSheet(null, { url: u.href }); else location.href = away; });   /* tapped before this page knew it is an app: find out, then play here or go as before */
+      return true;
+    }catch(e){ return false; }
+  }
+  document.addEventListener('click', function(e){
+    try{
+      if(e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      var a = e.target && e.target.closest && e.target.closest('a[href*="watch.html"]');
+      if(!a || (a.closest && a.closest('#djMoreSheet'))) return;   /* the 🌉 sheet is about OTHER apps: those still open the store */
+      if(smWatchHere(a.href)){ e.preventDefault(); e.stopPropagation(); }
+    }catch(err){}
+  }, true);
+  /* the player inside the sheet says "Back to the app" with a message */
+  window.addEventListener('message', function(e){
+    try{ if(e.origin !== location.origin || !e.data || e.data.djShowMe !== 'close') return; }catch(err){ return; }
+    if(document.getElementById('djShowSheet')) djHouseClose();
+  });
+  window.djShowMe = function(){ if(smOff()) return false; smSheet(null); return true; };
+
+  /* ── 14d · One plain line on every screen (26 Nov 2026) ──────────────────────
+     Jerry, 25 Nov: "every screen gets one plain line saying what it's for." An app lists its screens:
+         window.DJ_SCREENS = [ { sel:'#p-week', t:'Your dinners for the next seven nights. Tap a night to change it.' }, … ]
+     and the house puts that sentence at the top of each one (after its heading when `after` names one
+     inside it, e.g. after:'h2'). The line lives INSIDE the screen, so it shows and hides with it and can
+     never sit on top of anything. An app that redraws a screen gets its line back on the next pass.
+     Not printed. Words belong to the app's own chat; the look and the mechanics live here. */
+  function purposeLines(){
+    var L = window.DJ_SCREENS; if(!L || !L.length || !document.body) return;
+    for(var i = 0; i < L.length; i++){
+      var it = L[i]; if(!it || !it.sel || !it.t) continue;
+      var hosts; try{ hosts = document.querySelectorAll(it.sel); }catch(e){ continue; }
+      for(var j = 0; j < hosts.length; j++){
+        var h = hosts[j], have = null;
+        for(var c = h.firstElementChild; c; c = c.nextElementSibling){ if(c.classList && c.classList.contains('djPurpose')){ have = c; break; } }
+        if(!have && it.after){ var hh = null; try{ hh = h.querySelector(it.after); }catch(e){} if(hh && hh.nextElementSibling && hh.nextElementSibling.classList && hh.nextElementSibling.classList.contains('djPurpose')) have = hh.nextElementSibling; }
+        if(have){ if(have.textContent !== it.t) have.textContent = it.t; continue; }
+        var p = document.createElement('p'); p.className = 'djPurpose'; p.setAttribute('data-dj', 'purpose'); p.textContent = it.t;
+        p.style.cssText = 'margin:2px 0 12px;padding:0;font-size:15px;line-height:1.45;font-weight:600;color:inherit;opacity:.82;max-width:60ch';
+        var anchor = null; if(it.after){ try{ anchor = h.querySelector(it.after); }catch(e){} }
+        if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(p, anchor.nextSibling);
+        else h.insertBefore(p, h.firstChild);
+      }
+    }
+  }
+  function purposeLater(){
+    if(!window.DJ_SCREENS) return;
+    try{ var st = document.createElement('style'); st.textContent = '@media print{.djPurpose{display:none !important}}'; document.head.appendChild(st); }catch(e){}
+    [0, 600, 2000].forEach(function(ms){ setTimeout(function(){ try{ purposeLines(); }catch(e){} }, ms); });
+    var t = 0;
+    try{ new MutationObserver(function(recs){
+      for(var i = 0; i < recs.length; i++){ var n = recs[i].target; if(n && n.closest && n.closest('#djDock,#djShowSheet,#djDockSheet,#djTour,#djMenu,#djSetup')) continue;
+        clearTimeout(t); t = setTimeout(function(){ try{ purposeLines(); }catch(e){} }, 250); return; }
+    }).observe(document.body, { childList: true, subtree: true }); }catch(e){}
+  }
+
   /* ── 14b · Sales signals (13 Nov 2026) ───────────────────────────────────────
      Jerry approved knowing who is interested, which app raised money and which apps are
      used — without breaking "your information stays on your phone". Three small things:
@@ -3338,6 +3584,7 @@
     if(!force){ var gt = document.getElementById('djGate'); if(gt){ var gs = getComputedStyle(gt); if(gs.display !== 'none' && gs.visibility !== 'hidden' && gt.getBoundingClientRect().height > 40){ setTimeout(function(){ try{ startTour(false); }catch(e){} }, 1500); return; } } }
     if(!force){ try{ if(localStorage.getItem(TOUR_DONE(T.slug))) return; }catch(e){ return; } var isNew = true; if(T.isNew){ try{ isNew = !!(new Function('return (' + T.isNew + ')'))(); }catch(e){} } if(!isNew){ try{ localStorage.setItem(TOUR_DONE(T.slug), 'returning'); }catch(e){} return; } }
     if(document.getElementById('djTour')) return;
+    DJ_TOURED = 1;   /* the setup offer waits for another visit */
     var INK = '#1F2622', SOFT = '#55605B', BR = '#23504F';
     var BIG = 'font:inherit;font-weight:800;font-size:17px;min-height:52px;padding:10px 16px;border-radius:14px;cursor:pointer;';
     var wrap = document.createElement('div'); wrap.id = 'djTour'; wrap.setAttribute('role','dialog'); wrap.setAttribute('aria-label','Welcome tour');
@@ -3454,7 +3701,7 @@
       }
       if(st.kind === 'video'){
         place(null); shade.style.display = 'block'; card.style.top = '10px'; card.style.bottom = '10px'; card.style.transform = 'translateX(-50%)';
-        card.innerHTML = dots() + '<p style="margin:0 0 8px;font-weight:700">' + st.say + '</p><iframe src="' + st.url + (st.url.indexOf('?') > 0 ? '&' : '?') + 'v=' + Date.now() + '" title="' + esc(T.name) + ' video" allow="autoplay" style="width:100%;height:calc(100% - 175px);min-height:300px;border:0;border-radius:14px;background:#000"></iframe>' + nav('Next ›');
+        card.innerHTML = dots() + '<p style="margin:0 0 8px;font-weight:700">' + st.say + '</p><iframe src="' + st.url + (st.url.indexOf('?') > 0 ? '&' : '?') + (/\/shop\/watch\.html/.test(st.url) ? 'embed=1&' : '') + 'v=' + Date.now() + '" title="' + esc(T.name) + ' video" allow="autoplay" style="width:100%;height:calc(100% - 175px);min-height:300px;border:0;border-radius:14px;background:#000"></iframe>' + nav('Next ›');
         wire(); tourHush(); return;
       }
       if(st.kind === 'choose' && T.choose === false){
@@ -3532,7 +3779,7 @@
     (M.items || []).filter(function(it){ if(!it.show) return true; try{ return !!(new Function('return (' + it.show + ')'))(); }catch(e){ return false; } }).forEach(function(it){
       var b = document.createElement('button'); b.type = 'button'; b.style.cssText = BTN;
       b.innerHTML = '<span style="font-size:30px;width:40px;text-align:center">' + (it.em || '•') + '</span><span style="flex:1"><b style="font-size:19px">' + esc(it.t) + '</b>' + (it.sub ? '<br><span style="color:#55605B;font-size:15px">' + esc(it.sub) + '</span>' : '') + '</span><span style="font-size:22px;color:#B5832A">›</span>';
-      b.onclick = function(){ w.remove(); setTimeout(function(){ menuRun(it.go); }, 60); };
+      b.onclick = function(){ w.remove(); var wu = String(it.go || '').match(/https?:\/\/[^'"\s]*\/shop\/watch\.html[^'"\s]*/); if(wu && smWatchHere(wu[0])) return; setTimeout(function(){ menuRun(it.go); }, 60); };   /* 14c: Watch how it works plays inside the app */
       box.appendChild(b);
     });
     w.querySelector('#djMenuBack').onclick = function(){ w.remove(); };
@@ -3566,7 +3813,7 @@
     }, tries ? 1000 : 1300);
   }
 
-  function seniorsPass(){ try{ installScreen(); }catch(e){} try{ if(!document.getElementById('djInstall')) setTimeout(function(){ try{ setupOffer(); }catch(e){} }, 2500); }catch(e){} try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
+  function seniorsPass(){ try{ installScreen(); }catch(e){} try{ if(!document.getElementById('djInstall')) setTimeout(function(){ try{ setupOffer(); }catch(e){} }, 2500); }catch(e){} try{ glassCSS(); }catch(e){} printCSS(); applyTextSize(); if(!embedded){ aaButton(); tellButton(); askButton(); moreButton(); } offlineNote(); updatedNote(); tourLater(); menuLater(); try{ showMeLater(); }catch(e){} try{ purposeLater(); }catch(e){} setTimeout(homeScreenGuide, 2500); setTimeout(function(){ try{ dailyHello(); }catch(e){} try{ weeklyNote(); }catch(e){} try{ openPing(); }catch(e){} }, 1200); }
 
   /* Inside Feedback Studio the app runs in a window within a page that already has
      its own help button and its own microphone. Running ours too put a second "?"

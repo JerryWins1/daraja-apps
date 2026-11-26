@@ -129,7 +129,7 @@
   <button class="cbtn" id="sndBtn" onclick="toggleSound()">🔊 Sound on</button>
 </div>
 <div id="vidHub" style="display:none"></div>
-<div id="ver">Daraja Store video player v3.7 · 2026-11-26 — ⏪ Back moves one sentence, so you can hear a line again without starting the whole video over (Ruth asked for this). No forward skip, on purpose: the videos are meant to be watched through · v3.5 · 2026-10-22 — Back returns to the group page you came from (?from=business · organize · churchapps · start) · v3.4 · 2026-10-22 — a video left open in another tab no longer puts its example person (Porchlight’s “Margaret”) into the real app · v3.3 · 2026-10-21 — the membership each app comes with under its name (no old one-time prices); “Back to the store” returns to the store you came from · v3.2 · 2026-10-10 — 🎬 every video for this app in one row (2 minutes · Explain it to me · step by step), and a Next video button at the end; the first line's scene now runs once the app has loaded · ?mode=explain plays the Kenya Student Test Week explainers (kenya/&lt;app&gt;.json) · v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
+<div id="ver">Daraja Store video player v3.8 · 2026-11-26 — ▶ Show me: an app can play one part of a video inside itself (&amp;embed=1&amp;from=&amp;to=) · v3.7 · 2026-11-26 — ⏪ Back moves one sentence, so you can hear a line again without starting the whole video over (Ruth asked for this). No forward skip, on purpose: the videos are meant to be watched through · v3.5 · 2026-10-22 — Back returns to the group page you came from (?from=business · organize · churchapps · start) · v3.4 · 2026-10-22 — a video left open in another tab no longer puts its example person (Porchlight’s “Margaret”) into the real app · v3.3 · 2026-10-21 — the membership each app comes with under its name (no old one-time prices); “Back to the store” returns to the store you came from · v3.2 · 2026-10-10 — 🎬 every video for this app in one row (2 minutes · Explain it to me · step by step), and a Next video button at the end; the first line's scene now runs once the app has loaded · ?mode=explain plays the Kenya Student Test Week explainers (kenya/&lt;app&gt;.json) · v3.1 · 2026-10-07 — real recorded narration on every device (no more waiting, gaps or repeats) · watch the tour, then use the real app right here</div>
 
 <script>document.write('<scr'+'ipt src="apps_data.js?v='+Date.now()+'"></scr'+'ipt>')</script>
 <script>
@@ -145,6 +145,19 @@ if(params.get('mode')==='explain'){ try{ const x=new XMLHttpRequest(); x.open('G
 const EXTRA = KZ || (app.extra && params.get('mode') && app.extra[params.get('mode')]) || null; /* extra short videos, e.g. ?mode=draft · ?mode=firsttime */
 const MODE = (params.get('mode')==='train' && app.train) ? 'train' : EXTRA ? 'extra' : 'overview';
 const LINES = MODE==='train' ? app.train : EXTRA ? EXTRA.lines : app.lines;
+/* v3.8 · 26 Nov 2026 — ▶ Show me (house section 14c). An app opens this page in a sheet over itself with
+   &embed=1, and with &from=A&to=B to play just the part of the video about the screen the person is on
+   (line A to line B, both counted from 0; tools/showme/build.py cuts the parts). Embedded, the page drops
+   the store's own links (Back to the store, the video row, Get it): the end screen says "Back to the app",
+   which tells the app to close the sheet. Nothing here starts on its own; the ▶ is still a tap. */
+const EMBED = params.get('embed')==='1';
+const PART = (function(){ const n=(LINES||[]).length, a=parseInt(params.get('from'),10), b=parseInt(params.get('to'),10);
+  if(!n || isNaN(a) || a<0 || a>=n) return null; const z=(isNaN(b)||b<a) ? n-1 : Math.min(b, n-1);
+  return (a===0 && z===n-1) ? null : {from:a, to:z}; })();
+const P_FROM = PART ? PART.from : 0, P_TO = PART ? PART.to : (LINES||[]).length-1;
+function toApp(){ try{ parent.postMessage({djShowMe:'close'}, location.origin); }catch(e){} }
+if(EMBED){ try{ const st=document.createElement('style'); st.textContent='#back,#vidHub,#ver,#tryBtn,#getBtn,#hereBtn,#nextVid{display:none !important} body{min-height:0;background:#f6f1e7} #movie,#movie.tall,#movie.live{width:100%;max-width:520px;height:calc(100vh - 78px) !important;margin-top:4px;border-radius:14px;aspect-ratio:auto} #ctrl{padding:8px 6px} .cbtn{min-height:44px}'; document.head.appendChild(st); }catch(e){}
+  try{ parent.postMessage({djShowMe:'ready'}, location.origin); }catch(e){} }
 /* v3 · 7 Oct 2026 — RECORDED narration (voicemaker.py). Jerry on the iPad: the browser's own voice waited 10–15 s,
    repeated itself and stalled. A real recording plays the same on every device. One m4a per video, a cue per line;
    a line whose words changed since recording falls back to the browser voice.
@@ -230,6 +243,7 @@ if(MODE==='train'){
   $('slidePrice').textContent = '🎓 Training';
 }
 
+if(PART){ const w=(LINES.slice(P_FROM,P_TO+1).map(lineText).join(' ').length/14.5)|0; $('ovSub').textContent = 'Just this screen: about '+Math.max(10, Math.round(w/5)*5)+' seconds. Sound on.'; }
 const OPEN_TITLE = $('ovTitle').textContent, OPEN_SUB = $('ovSub').textContent;
 /* v3.2 · 10 Oct 2026 — Jerry: "put all the videos you can on everything you can, so it's very clear and everything is
    available to each app." Every app has up to three: the 2-minute video, Explain it to me (a first-timer's four minutes)
@@ -386,7 +400,8 @@ function play(){
   $('movie').classList.add('tall'); /* the app is portrait — give it room, keep captions off its content */
   $('pBtn').style.display='inline-block';
   $('bBtn').style.display='inline-block';
-  playing=true; paused=false; i=-1;
+  playing=true; paused=false; i=P_FROM-1;
+  if(PART){ for(let k=P_FROM-1;k>=0;k--){ const l0=LINES[k]; if(l0 && typeof l0!=='string' && l0.js){ setTimeout(function(){ try{ direct({js:l0.js}); }catch(e){} }, 900); break; } } }   /* a part that opens mid-screen gets the screen its first line is on */
   if(window.speechSynthesis) speechSynthesis.getVoices();
   next();
 }
@@ -475,17 +490,17 @@ function jump(d){
   segCb=null; segStop();
   if(window.speechSynthesis){ try{ speechSynthesis.cancel(); }catch(e){} }
   if(paused){ paused=false; $('pBtn').textContent='⏸ Pause'; }
-  i = Math.max(-1, Math.min(i + d - 1, LINES.length - 1));
+  i = Math.max(P_FROM-1, Math.min(i + d - 1, P_TO));
   next();
 }
 function next(){
   if(!playing || paused) return;
   i++;
-  if(i >= LINES.length){ end(); return; }
+  if(i >= LINES.length || i > P_TO){ end(); return; }
   const l = LINES[i];
   direct(l);
   $('capText').textContent = written(lineText(l));
-  $('prog').style.width = Math.round(((i+1)/LINES.length)*100)+'%';
+  $('prog').style.width = Math.round(((i+1-P_FROM)/(P_TO-P_FROM+1))*100)+'%';
   const g = ++gen;                     /* a jump bumps gen, stranding this continuation */
   const nx=()=>setTimeout(function(){ if(g===gen) next(); }, VOICE?450:950);
   if(VOICE && AUD && soundOn && cueFits(VOICE.cues[i], lineText(l))) playSeg(i, nx);
@@ -499,6 +514,9 @@ function end(){
   $('ovSub').textContent = 'It opens right in your browser — nothing to install to try it.';
   $('bigPlay').style.display='none';
   $('endBtns').style.display='flex';
+  if(EMBED){ $('ovTitle').textContent = PART ? 'That was this screen' : 'That was '+NAME; $('ovSub').textContent = 'The app is right where you left it.';
+    if(!$('toAppBtn')){ const b=document.createElement('button'); b.className='btn'; b.id='toAppBtn'; b.textContent='✓ Back to the app'; b.style.cssText='background:var(--gold);color:#221;'; b.onclick=toApp; $('endBtns').insertBefore(b, $('endBtns').firstChild);
+      const r=document.createElement('button'); r.className='btn try'; r.textContent='↻ Watch it again'; r.onclick=restart; $('endBtns').appendChild(r); } }
   $('ov').style.display='flex';
 }
 function restart(){

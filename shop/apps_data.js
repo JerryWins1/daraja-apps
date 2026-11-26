@@ -1,4 +1,5 @@
-/* Daraja Store — one shared catalog. v3.5 · 2026-11-21 (Jerry: every video says the app is AI-powered — one line added to 103 videos, tied to what that app's ✨ button really does; not on My Safety Plan, The Clubhouse or Daraja HQ, where the house hides the AI. Spliced in his voice: shop/voicemaker.py --splice)
+/* Daraja Store — one shared catalog. v3.7 · 2026-11-26 (store wording: the toolkit bundle card no longer names a price; the donate-mode note says it is approved)
+   v3.5 · 2026-11-21 (Jerry: every video says the app is AI-powered — one line added to 103 videos, tied to what that app's ✨ button really does; not on My Safety Plan, The Clubhouse or Daraja HQ, where the house hides the AI. Spliced in his voice: shop/voicemaker.py --splice)
    v3.4 · 2026-11-06 (the Daraja HQ videos show the page instead of its password box — control/?tour=1; the video rules written out below instead of buried in this line)
    v3.3 · 2026-11-06 (every video recorded — 54 of them, incl. the 👋 Karibuni greeting for the testers; voicemaker --check says when one goes stale)
    v3.2 · 2026-11-06 (the three Daraja HQ videos are recorded now, not read aloud by the browser — shop/voicemaker.py)
@@ -39,8 +40,8 @@
    'live'    = launched store (banner gone, badges gone, Get buttons use each app's buy link)
    Launch day = change this ONE word + tell Claude "we're live" (gates come off the apps).
    'donate'  = 12 Nov 2026, Jerry: a trial of a few months where every app is free to everyone,
-               with an optional suggested donation the size of the app's price. HELD until the
-               Loving InDeed board approves and the CPA answers — do not flip it before both.
+               with an optional suggested donation the size of the app's price. The Loving InDeed
+               board approved it and the CPA answered (Jerry, 23 Nov 2026); it has been on since 12 Nov.
                In donate mode every card says Free, Get gives the app itself, nothing is locked
                behind giving, and One Thing hands out a free copy that stays free for good, even
                if the store later goes back to paid. What still needs doing is in
@@ -75,7 +76,7 @@ function djDonateHref(key){
 
 /* The catalogue's own version, in code rather than only in the comment at the top, so a page can
    show which copy of the store it is holding. Bump it with the header above, same string. */
-const STORE_V = 'v3.6 · 2026-11-23';
+const STORE_V = 'v3.7 · 2026-11-26';
 
 /* ══ ON SALE, ONE APP AT A TIME ══ 3 Nov 2026. PHASE above is all-or-nothing: flipping it
    to 'live' puts prices on all 29 cards and strands every app without a buy link on
@@ -1841,7 +1842,7 @@ const APPS = {
  tplbundle: {
   name:'The Whole Toolkit', em:'🧰', sub:'all five, together', cat:'work',
   price:'$49 (worth $75)', kind:'download', file:'everything above',
-  tag:'All five business kits in one download \u2014 $75 of things for $49'},
+  tag:'All five business kits in one download'},
  nourishdairy: {
   name:'Dairy-Free Family Dinners', em:'🥗', sub:'a fortnight of real dinners', cat:'home',
   price:'$12', kind:'download', file:'PDF \u2014 print or keep on your phone',
