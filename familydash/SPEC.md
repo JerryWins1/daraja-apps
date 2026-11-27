@@ -1556,3 +1556,8 @@ Jerry, 28 Nov: the app had grown too complicated. It now comes in three levels:
 
 - Jerry, 28 Nov: "Do we have a back button on the screen?… you can push one [answer] and get back, but it isn't that obvious."
 - Every chat question now has a **‹ Back** button first in the row of answers, once there's an answer to go back to. It reopens the last answer given, the same as tapping that answer. Going back to the level question asks it again, as long as no statements have been read yet; after that it opens the level screen.
+
+## v19.4 · a new category from the chat; the helper offer doesn't follow you
+
+- **＋ A new category** in the chat's sorting question. Name it and pick its group (Other spending by default), and the payment goes straight into it. Asked for by Jerry on 28 Nov.
+- **The "First time here?" offer closes when the screen changes.** Jerry said the box "doesn't go away when you go screen to screen". It's offered once per screen not seen yet. An active walk-through isn't affected.

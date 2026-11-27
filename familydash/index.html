@@ -249,7 +249,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v19.3 · 2026-11-28 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v19.4 · 2026-11-28 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -306,7 +306,9 @@ function daysBetween(a, b){ return Math.round((Date.parse(b) - Date.parse(a)) / 
    thinking, one payee at a time — which has its own Back) aren't kept. */
 var SHST = [], SHCUR = null, SHBACK = 0;
 function shKeep(h){ return h && !/Reading the words|Thinking it over|Asking…|class="stepno">Sort · |class="stepno">Ask about our money|<!--t-->/.test(h); }
-function openSheet(html){ var on = document.getElementById('sheet').classList.contains('on'); gdAfterSheet();
+/* v19.4 · Jerry, 28 Nov: the "First time here?" box stayed up from screen to screen. An offer that wasn't taken goes when the screen changes. */
+function gdOfferGone(){ clearTimeout(window._gdOf); if(!GD){ var ob = document.getElementById('gdBox'); if(ob) ob.remove(); } }
+function openSheet(html){ gdOfferGone(); var on = document.getElementById('sheet').classList.contains('on'); gdAfterSheet();
   if(!SHBACK){ if(on && shKeep(SHCUR) && SHCUR !== html){ SHST.push(SHCUR); if(SHST.length > 20) SHST.shift(); } if(!on){ SHST = []; try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } }
   SHBACK = 0; SHCUR = html;
   document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = '<div class="shtop">' + (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + '<button class="shx" id="sheetX" aria-label="Close this screen" title="Close" onclick="sheetX()">✕</button></div>' + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
@@ -317,7 +319,7 @@ function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK
 /* v9.9 · Jerry, 20 Nov: "every screen you get in, you need to be able to get out of … just put an X on top." Every screen has
    an ✕ at the top right. Anything already answered is saved as it goes, so nothing is lost; a walk-through picks up where it was. */
 function sheetX(){ closeSheet(); try{ render(); }catch(e){} }
-function closeSheet(){ if(GD && GD.key !== 'main') gdEnd(); if(db && db.mode === 'guided') setTimeout(function(){ try{ render(); }catch(e){} }, 0); document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
+function closeSheet(){ gdOfferGone(); if(GD && GD.key !== 'main') gdEnd(); if(db && db.mode === 'guided') setTimeout(function(){ try{ render(); }catch(e){} }, 0); document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
 window.addEventListener('popstate', function(){ var on = document.getElementById('sheet').classList.contains('on'); if(!on) return; if(SHST.length){ sheetBack(); try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } else closeSheet(); });
 function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2800); }
 function ask(o){ if(window.djAI && djAI.ask) djAI.ask(o); else alert('The AI helper has not loaded yet. Check the internet and try again.'); }
@@ -3085,9 +3087,17 @@ function gvSortCard(){ var Q = queue(); if(!Q.length) return null; var t = Q[0],
   var say = Q.length + ' payment' + (Q.length===1?'':'s') + ' I couldn’t sort myself. ' + (Q.length > 1 ? 'Here’s the first: ' : '') + '<b>' + esc(webName(t.desc)) + ', ' + money(Math.abs(t.amt)) + '</b> on ' + esc(shortDate(t.d)) + ', ' + esc(acctLabel(a || {})) + '.' + (c ? ' I think it’s <b>' + esc(catLabel(c)) + '</b>.' : ' I’m not sure what it is.');
   var ans = (c ? '<button class="rec" onclick="gvSort(\'' + t.id + '\',\'' + c.id + '\')">✓ Yes, ' + esc(catLabel(c)) + '</button>' : '')
     + '<div style="display:flex;gap:8px"><select id="gvPick" style="flex:1;min-width:0;font-size:16px;border-radius:12px;padding:10px" aria-label="Pick a category"><option value="">' + (c ? 'It was something else…' : 'Pick what it was…') + '</option>' + catOptions('') + '</select><button style="flex:0 0 auto" onclick="var v=document.getElementById(\'gvPick\').value;if(v)gvSort(\'' + t.id + '\',v)">Save</button></div>'
+    + '<button onclick="var n=document.getElementById(\'gvNewRow\');n.style.display=n.style.display===\'none\'?\'grid\':\'none\';if(n.style.display===\'grid\')document.getElementById(\'gvNewN\').focus()">＋ A new category</button>'
+    + '<div id="gvNewRow" style="display:none;gap:8px;width:100%"><input id="gvNewN" placeholder="Name it, e.g. Grandkids’ gifts" style="font-size:16px"><div style="display:flex;gap:8px"><select id="gvNewG" style="flex:1;min-width:0;font-size:16px;border-radius:12px;padding:10px" aria-label="Which group it goes in">' + db.groups.map(function(g){ return '<option value="' + g.id + '"' + (g.id === 'g_other' ? ' selected' : '') + '>In ' + esc(g.name) + '</option>'; }).join('') + (group('g_other') ? '' : '<option value="g_other" selected>In Other spending</option>') + '</select><button class="rec" style="flex:0 0 auto" onclick="gvNewCat(\'' + t.id + '\')">Save</button></div></div>'
     + '<button onclick="gvUnsure(\'' + t.id + '\')">Not sure — keep it for later</button>' + (Q.length > 3 ? '<button onclick="askRound(\'list\')">Show me them all as a list</button>' : '');
   return { say:say, html:ans }; }
 function gvSort(id, c){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return; gvSay(webName(t.desc) + ' → ' + (shName(c) || catName(c)), 'sort:' + id); GVQ = 1; try{ gkSave(id, c, ''); }finally{ GVQ = 0; } }
+/* v19.4 · Jerry, 28 Nov: "I don't have a category that I want to use, and I don't see a way to add a new category on the chat version."
+   ＋ A new category: name it, pick its group, and this payment goes straight into it. */
+function gvNewCat(tid){ var n = (document.getElementById('gvNewN').value || '').trim(), g = document.getElementById('gvNewG').value || 'g_other'; if(!n){ document.getElementById('gvNewN').focus(); return; }
+  var c = db.cats.filter(function(x){ return x.name.toLowerCase() === n.toLowerCase() && x.g === g; })[0];
+  if(!c){ if(!group(g)) db.groups.push({ id:'g_other', name:'Other spending', em:'📦' }); c = { id:uid(), g:g, name:n, budget:0, part:1, kw:'' }; db.cats.push(c); }
+  save(); gvSort(tid, c.id); }
 function gvUnsure(id){ var t = db.tx.filter(function(x){ return x.id === id; })[0]; if(!t) return; gvLater('sort'); gvSay('Not sure about ' + webName(t.desc)); if(db.notSure.indexOf(id) < 0) db.notSure.push(id); save(); render(); }
 function gvHTML(){ var G = gv(), J = GVJOBS[G.job];
   if(!J && !G.paused && !G.last){ var nj = gvNextJob(); G.job = nj[0]; G.step = 0; G.log = []; G.done = []; G.m = pulseMonth(); save(); J = GVJOBS[G.job]; }
@@ -3185,7 +3195,7 @@ function gdExplain(k){ db.guide.seen[k] = 1; save(); var title = k.slice(3), sub
     onFail:function(){ GUIDE[k] = { name:title, steps:plain }; GD = { key:k, i:0 }; gdStep(); } };
   doorUse(); ask(o); }
 function guideOffer(key){ clearTimeout(_gdSc); if(db && db.mode === 'guided') return; if(key !== 'main' && db){ var sk = gdScreenKey(); if(sk){ db.guide = db.guide || { seen:{} }; if(!db.guide.seen[key]) db.guide.seen[sk] = 1; } } var G = GUIDE[key]; if(GD_MUTE || !G || !db || db.ex && key !== 'main') return; db.guide = db.guide || { seen:{} }; if(db.guide.off || db.guide.seen[key] || GD) return;
-  setTimeout(function(){ if(GD || document.getElementById('gdBox')) return; gdBox('<div class="gdn">👋 First time here?</div><p>Would you like me to walk you through ' + esc(G.name) + '? It takes a minute.</p><div class="gdb"><button class="go" onclick="guideRun(\'' + key + '\')">Yes, show me</button><button class="soft" onclick="guideNo(\'' + key + '\')">Not now</button><button class="soft" onclick="guideOff()">Never offer</button></div>'); }, 500); }
+  clearTimeout(window._gdOf); window._gdOf = setTimeout(function(){ if(GD || document.getElementById('gdBox')) return; gdBox('<div class="gdn">👋 First time here?</div><p>Would you like me to walk you through ' + esc(G.name) + '? It takes a minute.</p><div class="gdb"><button class="go" onclick="guideRun(\'' + key + '\')">Yes, show me</button><button class="soft" onclick="guideNo(\'' + key + '\')">Not now</button><button class="soft" onclick="guideOff()">Never offer</button></div>'); }, 500); }
 function gdBox(html){ var b = document.getElementById('gdBox'); if(!b){ b = document.createElement('div'); b.id = 'gdBox'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-live', 'polite'); document.body.appendChild(b); } b.innerHTML = html; }
 function gdClear(){ var o = document.querySelectorAll('.gdHi'); for(var i = 0; i < o.length; i++) o[i].classList.remove('gdHi'); }
 function gdEnd(){ try{ speechSynthesis.cancel(); }catch(e){} gdClear(); var b = document.getElementById('gdBox'); if(b) b.remove(); GD = null; }
