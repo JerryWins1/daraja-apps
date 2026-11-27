@@ -306,7 +306,9 @@ function daysBetween(a, b){ return Math.round((Date.parse(b) - Date.parse(a)) / 
    thinking, one payee at a time — which has its own Back) aren't kept. */
 var SHST = [], SHCUR = null, SHBACK = 0;
 function shKeep(h){ return h && !/Reading the words|Thinking it over|Asking…|class="stepno">Sort · |class="stepno">Ask about our money|<!--t-->/.test(h); }
-function openSheet(html){ var on = document.getElementById('sheet').classList.contains('on'); gdAfterSheet();
+/* v19.4 · Jerry, 28 Nov: the "First time here?" box stayed up from screen to screen. An offer that wasn't taken goes when the screen changes. */
+function gdOfferGone(){ clearTimeout(window._gdOf); if(!GD){ var ob = document.getElementById('gdBox'); if(ob) ob.remove(); } }
+function openSheet(html){ gdOfferGone(); var on = document.getElementById('sheet').classList.contains('on'); gdAfterSheet();
   if(!SHBACK){ if(on && shKeep(SHCUR) && SHCUR !== html){ SHST.push(SHCUR); if(SHST.length > 20) SHST.shift(); } if(!on){ SHST = []; try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } }
   SHBACK = 0; SHCUR = html;
   document.getElementById('sheetIn').classList.remove('wide'); document.getElementById('sheetIn').innerHTML = '<div class="shtop">' + (SHST.length && shKeep(html) ? '<button class="b small ghost" id="sheetBackBtn" style="margin:0;padding:0 12px" onclick="sheetBack()">← Back</button>' : '') + '<button class="shx" id="sheetX" aria-label="Close this screen" title="Close" onclick="sheetX()">✕</button></div>' + html; document.getElementById('sheet').classList.add('on'); document.getElementById('sheetIn').scrollTop = 0; }
@@ -317,7 +319,7 @@ function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK
 /* v9.9 · Jerry, 20 Nov: "every screen you get in, you need to be able to get out of … just put an X on top." Every screen has
    an ✕ at the top right. Anything already answered is saved as it goes, so nothing is lost; a walk-through picks up where it was. */
 function sheetX(){ closeSheet(); try{ render(); }catch(e){} }
-function closeSheet(){ if(GD && GD.key !== 'main') gdEnd(); if(db && db.mode === 'guided') setTimeout(function(){ try{ render(); }catch(e){} }, 0); document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
+function closeSheet(){ gdOfferGone(); if(GD && GD.key !== 'main') gdEnd(); if(db && db.mode === 'guided') setTimeout(function(){ try{ render(); }catch(e){} }, 0); document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
 window.addEventListener('popstate', function(){ var on = document.getElementById('sheet').classList.contains('on'); if(!on) return; if(SHST.length){ sheetBack(); try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } else closeSheet(); });
 function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2800); }
 function ask(o){ if(window.djAI && djAI.ask) djAI.ask(o); else alert('The AI helper has not loaded yet. Check the internet and try again.'); }
@@ -3193,7 +3195,7 @@ function gdExplain(k){ db.guide.seen[k] = 1; save(); var title = k.slice(3), sub
     onFail:function(){ GUIDE[k] = { name:title, steps:plain }; GD = { key:k, i:0 }; gdStep(); } };
   doorUse(); ask(o); }
 function guideOffer(key){ clearTimeout(_gdSc); if(db && db.mode === 'guided') return; if(key !== 'main' && db){ var sk = gdScreenKey(); if(sk){ db.guide = db.guide || { seen:{} }; if(!db.guide.seen[key]) db.guide.seen[sk] = 1; } } var G = GUIDE[key]; if(GD_MUTE || !G || !db || db.ex && key !== 'main') return; db.guide = db.guide || { seen:{} }; if(db.guide.off || db.guide.seen[key] || GD) return;
-  setTimeout(function(){ if(GD || document.getElementById('gdBox')) return; gdBox('<div class="gdn">👋 First time here?</div><p>Would you like me to walk you through ' + esc(G.name) + '? It takes a minute.</p><div class="gdb"><button class="go" onclick="guideRun(\'' + key + '\')">Yes, show me</button><button class="soft" onclick="guideNo(\'' + key + '\')">Not now</button><button class="soft" onclick="guideOff()">Never offer</button></div>'); }, 500); }
+  clearTimeout(window._gdOf); window._gdOf = setTimeout(function(){ if(GD || document.getElementById('gdBox')) return; gdBox('<div class="gdn">👋 First time here?</div><p>Would you like me to walk you through ' + esc(G.name) + '? It takes a minute.</p><div class="gdb"><button class="go" onclick="guideRun(\'' + key + '\')">Yes, show me</button><button class="soft" onclick="guideNo(\'' + key + '\')">Not now</button><button class="soft" onclick="guideOff()">Never offer</button></div>'); }, 500); }
 function gdBox(html){ var b = document.getElementById('gdBox'); if(!b){ b = document.createElement('div'); b.id = 'gdBox'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-live', 'polite'); document.body.appendChild(b); } b.innerHTML = html; }
 function gdClear(){ var o = document.querySelectorAll('.gdHi'); for(var i = 0; i < o.length; i++) o[i].classList.remove('gdHi'); }
 function gdEnd(){ try{ speechSynthesis.cancel(); }catch(e){} gdClear(); var b = document.getElementById('gdBox'); if(b) b.remove(); GD = null; }
