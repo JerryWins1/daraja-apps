@@ -1430,3 +1430,11 @@ The switch at the top of the main screen chooses between two ways of using the a
 
 - **Skip from the first screen.** The setup card for the passcode, and the card for setting up the AI, now has "Skip this for now" right under "Do this now". Before, the only way to skip was to open the next screen.
 - **"What changed" now has something to say.** The "Updated to" banner's "What changed" button showed "Small fixes" because `control/fixed.json` held no Family Money notes. It now has notes for v15.0, v16.1, v16.3 and v17.1.
+
+## v17.2 · 27 Nov · A link to start fresh in practice
+
+- `?practice=fresh` empties the practice copy and opens the app at its welcome screen.
+- `?practice=1` switches to the practice copy.
+- `?practice=0` goes back to the real one.
+
+The real copy (`dj_familydash_v1`) is never touched. The setting is removed from the address after it is read.
