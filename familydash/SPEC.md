@@ -1438,3 +1438,7 @@ The switch at the top of the main screen chooses between two ways of using the a
 - `?practice=0` goes back to the real one.
 
 The real copy (`dj_familydash_v1`) is never touched. The setting is removed from the address after it is read.
+
+## v17.3 · 27 Nov · The "how often" choices say what they mean
+
+The choices are now: Every month · same; Every month · changes; A few times a year (quarterly, twice or once); One time; and Only when it comes up. Quarterly estimated tax goes under "a few times a year", which saves a twelfth of the yearly total each month. Repairs and upkeep are suggested as "Only when it comes up", which means no monthly amount; it comes from savings. The budget and first-time videos were reworded to match and re-recorded.
