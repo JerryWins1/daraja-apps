@@ -1364,3 +1364,13 @@ Where a home's state comes from, in order:
 3. The state shown by most of the lines the family has already sorted into it (at least 2 lines and 60%).
 
 What the family taught the app about a shop, and anything they answered themselves, always wins.
+
+## v16.0 · 26 Nov · The helper walks you through
+
+The first time a part of the app opens, a helper offers to walk the person through it (`GUIDE`, `guideOffer`, `guideRun`, `gdStep`). The parts covered are the main screen, the questions list, the budget, the month, Check the books, Our accounts and Settings.
+
+- **One thing at a time.** The helper points at a single thing on the screen with a gold outline and explains it in a sentence or two. Next, Back and Stop work at every step.
+- **It asks and remembers.** Where there is a choice, it asks and saves the answer (`gdPick`). For now that is one choice: the main screen asks list or one at a time, saved as `db.prefQ`, which `askRound` then uses.
+- **The offer is easy to turn down.** "Not now" marks that part as seen. "Never offer" turns the helper off for good.
+- **Bringing it back.** Settings › 🧭 Show me around (`guideAgain`) clears what was seen and starts again from the main screen.
+- **Videos.** The videos switch the helper off (`GD_MUTE`). A step whose thing isn't on screen is skipped.

@@ -60,6 +60,12 @@
   .big{ font:inherit; font-weight:900; font-size:17px; min-height:60px; border-radius:18px; border:0; cursor:pointer; flex:1; }
   .big.one{ background:var(--accent); color:#fff; } .big.two{ background:var(--brand); color:#fff; }
   .tools{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:4px; }
+  /* v16.0 · the guide: a helper bubble that points at one thing at a time */
+  #gdBox{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom)); width:min(440px, calc(100vw - 24px)); z-index:2147482000; background:#1F3B4D; color:#fff; border-radius:18px; padding:14px 16px; box-shadow:0 8px 28px rgba(0,0,0,.35); font-size:16px; line-height:1.4; }
+  #gdBox .gdn{ font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; opacity:.75; margin-bottom:4px; } #gdBox p{ margin:0 0 10px; }
+  #gdBox .gdb{ display:flex; gap:8px; flex-wrap:wrap; } #gdBox button{ font:inherit; font-size:15px; font-weight:800; border-radius:12px; border:0; padding:10px 14px; cursor:pointer; min-height:44px; }
+  #gdBox .go{ background:#F2B25B; color:#1F2A2E; flex:1; } #gdBox .soft{ background:rgba(255,255,255,.14); color:#fff; } #gdBox .opt{ background:#fff; color:#1F3B4D; flex:1 1 100%; text-align:left; }
+  .gdHi{ outline:3px solid #F2B25B !important; outline-offset:3px; border-radius:12px; box-shadow:0 0 0 9999px rgba(0,0,0,.28) !important; position:relative; z-index:2147481900; }
   /* v15.0 · the main screen: small tiles side by side, and folds that open only when wanted */
   .gtiles{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:8px 0 12px; }
   .gtile{ font:inherit; color:inherit; text-align:left; cursor:pointer; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:10px 11px; display:flex; flex-direction:column; gap:5px; min-width:0; }
@@ -213,7 +219,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v15.6 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v16.0 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -275,7 +281,7 @@ function sheetBack(){ var p = SHST.pop(); if(!p){ closeSheet(); return; } SHBACK
 /* v9.9 · Jerry, 20 Nov: "every screen you get in, you need to be able to get out of … just put an X on top." Every screen has
    an ✕ at the top right. Anything already answered is saved as it goes, so nothing is lost; a walk-through picks up where it was. */
 function sheetX(){ closeSheet(); try{ render(); }catch(e){} }
-function closeSheet(){ document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
+function closeSheet(){ if(GD && GD.key !== 'main') gdEnd(); document.getElementById('sheet').classList.remove('on'); SHST = []; SHCUR = null; }
 window.addEventListener('popstate', function(){ var on = document.getElementById('sheet').classList.contains('on'); if(!on) return; if(SHST.length){ sheetBack(); try{ history.pushState({ fmSheet:1 }, ''); }catch(e){} } else closeSheet(); });
 function toast(t){ var e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2800); }
 function ask(o){ if(window.djAI && djAI.ask) djAI.ask(o); else alert('The AI helper has not loaded yet. Check the internet and try again.'); }
@@ -972,7 +978,7 @@ function openMonth(m){ m = m || reportMonth(); LASTLIST = function(){ openMonth(
     + (db.budgetSet ? row('openReport(\'' + m + '\')', '📝 Report', 'the month in plain words, against the budget', (db.read||{})[m] ? '✓ read' : 'new') : row('budStart()', '📝 Report', 'make the budget first — the report compares against it', ''))
     + row('openNote(\'' + m + '\')', '💬 The note', 'eight or so plain lines to read together', '')
     + (!closed && !P.q && !P.miss.length ? row('closeMonth(\'' + m + '\')', '✅ Close the month', 'everything is in and sorted', '') : '')
-    + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet()">Close</button></div>'); }
+    + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet()">Close</button></div>'); guideOffer('month'); }
 function openReport(m, mine){
   if(!db.budgetSet){ alert('Make the budget first — the report compares against it.'); return; }
   m = m || reportMonth(); db.read = db.read || {}; if(!db.read[m]){ db.read[m] = 1; save(); render(); }
@@ -1709,8 +1715,8 @@ function budStart(){ BL = rvTimeCats(); if(!BL.length){ openFirstLoad(); return;
     + '<div class="card" style="padding:6px 12px">' + BL.map(function(x, j){ return '<div class="trow" style="align-items:center;gap:8px"><span style="min-width:0">' + esc(catLabel(x.c))
       + '<small style="display:block;color:var(--soft)">' + x.seen + ' of ' + x.of + ' months · ' + money(x.tot,1) + ' · <a href="#" onclick="budWhat(\'' + x.c.id + '\');return false">what’s in it</a></small></span>'
       + '<select id="bl_' + j + '" aria-label="How often for ' + esc(x.c.name) + '" style="max-width:46%;width:auto">' + Object.keys(RV_T).map(function(k){ return '<option value="' + k + '"' + (k === x.sug ? ' selected' : '') + '>' + ({ month:'Every month', var:'Goes up and down', year:'Once or twice a year', once:'One-time', need:'As needed' })[k] + '</option>'; }).join('') + '</select></div>'; }).join('') + '</div>'
-    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="budListSave()">Next — set the amounts</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Not now</button></div>'); }
-function budListSave(){ BL.forEach(function(x, j){ var el = document.getElementById('bl_' + j); if(el) rvTimeApply(x, el.value); }); save(); rvMark('time'); openFirstLoad(); }
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="budListSave()">Next — set the amounts</button><button class="b ghost" style="width:100%" onclick="closeSheet()">Not now</button></div>'); guideOffer('budget'); }
+function budListSave(){ gdEnd();  BL.forEach(function(x, j){ var el = document.getElementById('bl_' + j); if(el) rvTimeApply(x, el.value); }); save(); rvMark('time'); openFirstLoad(); }
 function rvTime(){ var R = RV, x = R.L[R.i]; if(R.bud) db.budI = R.i; if(!x){ if(R.bud){ db.budI = 0; rvMark('time'); RV = null; openFirstLoad(); return; } rvNextPart('time'); return; }
   var one = x.n === 1 ? '<div class="line warn">Only one payment seen. If it has a partner at another time of year — a pool opening and its closing — the yearly amount should include both; you can change it in Our budget.</div>' : '';
   openSheet('<div class="stepno">' + (R.bud ? 'The budget · ' : 'Part 2 · ') + 'kind ' + (R.i + 1) + ' of ' + R.L.length + '</div><h3>' + esc(catLabel(x.c)) + '</h3>'
@@ -2281,7 +2287,8 @@ function sortBack(ok, ch, uns){ var n = reguess(), a = acct(SORTA) || {}, s = so
     + '<div class="stickfoot">' + (s.left ? '<button class="b primary full" style="margin-top:0" onclick="sortMake(\'' + a.id + '\')">⬇️ Next month</button>' : '') + '<button class="b' + (s.left ? '' : ' primary') + ' full" style="margin-top:0" onclick="sortHub()">Back to the accounts</button></div>'); }
 
 /* the one round of questions: whatever the sheets left blank, plus checks, cash and money sent to people */
-function askRound(how){ db.askList = (db.askList||[]).filter(function(id){ return db.notSure.indexOf(id) < 0; }).concat(db.notSure); db.notSure = []; db.askStarted = 1; save(); GK = null; GKA = null; RV = null; ASKR = 1; if(how === 'list' || (how !== 'one' && queue().length > 10)) openQList(); else openGTKY(); }
+function askRound(how){ if(!how && db.prefQ) how = db.prefQ;   /* v16.0 · the way they chose with the guide */
+  db.askList = (db.askList||[]).filter(function(id){ return db.notSure.indexOf(id) < 0; }).concat(db.notSure); db.notSure = []; db.askStarted = 1; save(); GK = null; GKA = null; RV = null; ASKR = 1; if(how === 'list' || (how !== 'one' && queue().length > 10)) openQList(); else openGTKY(); }
 var ASKR = 0;
 /* v12.0 · Jerry, 25 Nov: "If you're going to do 200 and some odd at a time, you should be able to go down the list, not one at a time …
    see the category and then be able to change it on a list." He chose the mockup: one row per shop, the guess (or the AI's pick) in a
@@ -2770,6 +2777,66 @@ function notices(m){
 function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonths(m, 1)), b = mBud(c, m); return a == null ? null : { c:c, avg:a, bud:b, gap:r2(a - b) }; }).filter(function(x){ return x && Math.abs(x.gap) >= 1; }).sort(function(a,b){ return Math.abs(b.gap) - Math.abs(a.gap); }).slice(0,3); }
 
 /* ── the main screen ── */
+/* v16.0 · Jerry, 26 Nov: "if this is the first time that the user uses an option, maybe ask them if they want you to lead them through it
+   and explain it as you go… especially for us older guys… you can ask some questions when you get to something if you want to do one
+   thing or the other, and then you would learn as you go." The first time a part of the app opens, a helper offers to walk through it:
+   it points at one thing, says what it is in a sentence or two, and waits for Next. Where there is a choice, it asks, and remembers.
+   Stop means stop: it never offers that part again. Settings › Show me around brings every walk-through back. */
+var GUIDE = {
+  main:{ name:'the main screen', steps:[
+    ['#pulse', 'This box says how the month stands: under or over your income. Green is good, red means more went out than came in.'],
+    ['#glance .gldials', 'Three dials: the income that has come in, what you have spent against the budget, and how much is saved up for bills that come once or twice a year. Tap one to see what is behind it.'],
+    ['#glance .gltiles', 'Safe to spend is what is left this month after the bills still to come. Net worth and investments sit beside it. Tap any of them.'],
+    ['#askCard', 'Ask a question in plain words, like “can we afford a new car?”. The AI asks what it needs, one thing at a time. Only totals go to it, never your statements.'],
+    ['#glance .glbox', 'Needs you only shows up when something does: questions to answer, a missing statement, a bill coming up short. Tap a line to deal with it.'],
+    ['.gtiles', 'Each group of spending is a small tile, with a bar for its budget. A red line under a tile means it is over; tap it to see why.'],
+    ['details.fold', 'These lines open with a tap: the month in three parts, things worth a look, your statements. They stay closed until you want them.'],
+    ['.ttiles', 'Four tiles hold everything else: the budget, checking the books, reports, and your household. Each one says what its buttons do.'],
+    ['#bar', 'At the very bottom: add a new month’s statements, and open the month — the check-up, the report and a short note to read together.'],
+    { ask:'When there are payments to sort, how would you like to answer them?', key:'prefQ', opts:[['list','As a list — many at once'],['one','One at a time — one screen each']] } ] },
+  qlist:{ name:'the questions list', steps:[
+    ['#qlc0', 'Each row is one shop. The app’s guess is already picked.'],
+    ['#qls0', 'If the guess is wrong, choose another category here first.'],
+    ['#qly0', 'Then tap the check mark, and the row folds away. One answer sorts every line from that shop, and the app remembers it next month.'],
+    ['#qll0', 'Tap the number of lines to see each payment, if one of them was something else.'],
+    ['#qlc0 .qllinks', 'These links search the web for the shop, open the real statement, or look for repeats at the same price.'],
+    ['#qlGo', 'Many at once: leave the rows ticked and tap here to accept them all together.'] ] },
+  budget:{ name:'the budget', steps:[
+    ['#sheetIn .card', 'Every kind of spending, with how often it comes. Each one is filled in from your statements.'],
+    ['#bl_0', 'Every month is for bills like the mortgage. Goes up and down is for groceries or gas, planned at its average. Once or twice a year is saved a little each month.'],
+    ['#sheetIn .stickfoot .b.primary', 'When the list looks right, this goes on to the amounts, where you move each one up or down.'] ] },
+  month:{ name:'the month', steps:[
+    ['#sheetIn .line', 'The month in one line: under or over your income.'],
+    ['#sheetIn .list li', 'The check-up: five short steps for each month — bring in the statements, answer the questions, check the yearly bills, update balances, read the report.'],
+    ['#sheetIn h3', 'The arrows either side change the month.'] ] },
+  check:{ name:'Check the books', steps:[
+    ['#sheetIn .list li', 'Each check has a number beside it when something needs a look, or a tick when it is fine. Start with anything that has a number.'],
+    ['#sheetIn h3', 'Does it balance compares each statement with what the app read. Money moving pairs each card payment with its partner, so nothing counts twice.'] ] },
+  accounts:{ name:'Our accounts', steps:[
+    ['#sheetIn .gtiles', 'Every account, grouped by kind. A red line under one means a statement is missing; tap the account to see which.'],
+    ['#sheetIn .b.warm', 'Add a new account here — a new card, or the account that replaced a closed one.'] ] },
+  settings:{ name:'Settings', steps:[
+    ['#sheetIn .b.primary', 'Set it up with me goes through the setup questions again, one at a time, with your answers already filled in.'],
+    ['details.fold', 'Every answer from setup, by section. Each line says how many are answered; tap to open and change any.'] ] } };
+var GD = null, GD_MUTE = 0;
+function guideOffer(key){ var G = GUIDE[key]; if(GD_MUTE || !G || !db || db.ex && key !== 'main') return; db.guide = db.guide || { seen:{} }; if(db.guide.off || db.guide.seen[key] || GD) return;
+  setTimeout(function(){ if(GD || document.getElementById('gdBox')) return; gdBox('<div class="gdn">👋 First time here?</div><p>Would you like me to walk you through ' + esc(G.name) + '? It takes a minute.</p><div class="gdb"><button class="go" onclick="guideRun(\'' + key + '\')">Yes, show me</button><button class="soft" onclick="guideNo(\'' + key + '\')">Not now</button><button class="soft" onclick="guideOff()">Never offer</button></div>'); }, 500); }
+function gdBox(html){ var b = document.getElementById('gdBox'); if(!b){ b = document.createElement('div'); b.id = 'gdBox'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-live', 'polite'); document.body.appendChild(b); } b.innerHTML = html; }
+function gdClear(){ var o = document.querySelectorAll('.gdHi'); for(var i = 0; i < o.length; i++) o[i].classList.remove('gdHi'); }
+function gdEnd(){ gdClear(); var b = document.getElementById('gdBox'); if(b) b.remove(); GD = null; }
+function guideNo(key){ db.guide.seen[key] = 1; save(); gdEnd(); toast('Okay. Settings › Show me around brings it back.'); }
+function guideOff(){ db.guide.off = 1; save(); gdEnd(); toast('I won’t offer again. Settings › Show me around brings it back.'); }
+function guideRun(key){ GD = { key:key, i:0 }; db.guide.seen[key] = 1; save(); gdStep(); }
+function gdStep(dir){ var G = GUIDE[GD.key], L = G.steps; gdClear();
+  while(GD.i >= 0 && GD.i < L.length){ var st = L[GD.i]; if(st.ask || document.querySelector(st[0])) break; GD.i += dir || 1; }
+  if(GD.i < 0) GD.i = 0; if(GD.i >= L.length){ gdBox('<div class="gdn">That’s ' + esc(G.name) + '</div><p>You can come back to this any time from Settings › Show me around.</p><div class="gdb"><button class="go" onclick="gdEnd()">Done</button></div>'); return; }
+  var st = L[GD.i], n = '<div class="gdn">' + esc(G.name) + ' · ' + (GD.i + 1) + ' of ' + L.length + '</div>';
+  if(st.ask){ gdBox(n + '<p>' + esc(st.ask) + '</p><div class="gdb">' + st.opts.map(function(o){ return '<button class="opt" onclick="gdPick(\'' + st.key + '\',\'' + o[0] + '\')">' + esc(o[1]) + '</button>'; }).join('') + '<button class="soft" onclick="GD.i++;gdStep()">Skip</button></div>'); return; }
+  var el = document.querySelector(st[0]); el.classList.add('gdHi'); try{ el.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
+  gdBox(n + '<p>' + esc(st[1]) + '</p><div class="gdb">' + (GD.i ? '<button class="soft" onclick="GD.i--;gdStep(-1)">Back</button>' : '') + '<button class="go" onclick="GD.i++;gdStep()">' + (GD.i === L.length - 1 ? 'Finish' : 'Next') + '</button><button class="soft" onclick="gdEnd()">Stop</button></div>'); }
+function gdPick(k, v){ db[k] = v; save(); toast('Got it — I’ll remember that.'); GD.i++; gdStep(); }
+[['openQList','qlist'],['openAccounts','accounts'],['openSettings','settings']].forEach(function(x){ var f = window[x[0]]; if(typeof f !== 'function') return; window[x[0]] = function(){ var r = f.apply(this, arguments); guideOffer(x[1]); return r; }; });
+function guideAgain(){ db.guide = { seen:{} }; save(); closeSheet(); render(); window.scrollTo(0, 0); guideRun('main'); }
 /* v15.0 · a section that stays closed until it is wanted; its open or closed state survives a redraw */
 var FOLD = {};
 function fold(id, title, right, inner, open, bad){ if(!inner) return ''; var o = FOLD[id] != null ? FOLD[id] : !!open;
@@ -2825,6 +2892,7 @@ function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLi
   var CK = ckSteps(), ckn = CK.filter(function(z){ return z.done; }).length; if(ckn < CK.length) h += fold('fCk', '📝 Getting set up', ckn + ' of ' + CK.length + ' done', ckHTML());
   h += '<div class="ttiles">' + Object.keys(TOOLS).map(function(k){ var t = TOOLS[k]; return '<button class="ttile" onclick="openTools(\'' + k + '\')"><b>' + t.t + '</b>' + t.s + '</button>'; }).join('') + '</div>';
   main.innerHTML = h;
+  if(db.setup || db.peek) guideOffer('main');
 }
 /* v15.0 · a group as a small tile: spent against budget, and a line under it only when something needs a look */
 function gCats(key){ if(key === 'var') return p1Cats().filter(function(c){ return c.variable; }); var g = key.slice(2); return catsIn(g).filter(function(c){ return part(c) === 1 && !c.variable; }); }
@@ -2849,7 +2917,7 @@ function toolRows(k){ var q = queue().length, IA = invAccts(), ai = (db.prof||{}
     home:[['openHome()','🏡 Our household','due dates, where things are, documents'],['openAccounts()','🏦 Our accounts','every account, what it is for, open or closed'],['openBalances()','🧮 Update balances','bank, cards, home, car — for net worth'],['openNetWorth()','📊 Net worth','what we own minus what we owe'],IA.length ? ['openInvest()','📈 Investments', IA.length + ' account' + (IA.length===1?'':'s')] : null,['openPaidFrom()','🔗 What’s paid from where','if an account ever closes, what moves with it'],['openAway()','🧭 If I’m away','what’s due, and who to call'],['openAdvisors()','🧑‍💼 Our advisors','CPA and financial advisor'],['backupOpen()','💾 Backup', db.backupAt ? 'saved ' + shortDate(db.backupAt) : 'not saved yet'],['openSettings()','⚙️ Settings','every setup answer, and Set it up with me']] };
   return (R[k] || []).filter(Boolean); }
 function openTools(k){ var t = TOOLS[k]; LASTLIST = function(){ openTools(k); };
-  openSheet('<h3>' + t.t + '</h3><ul class="list">' + toolRows(k).map(function(r){ return '<li class="tap" onclick="' + r[0] + '"><span class="ds" style="font-weight:800">' + r[1] + '<small style="display:block;font-weight:600;color:var(--soft)">' + r[2] + '</small></span>' + (r[3] !== undefined && r[3] !== '' ? '<span class="pill" style="align-self:center;' + (r[3] === '✓' ? 'color:var(--ok)' : 'background:#FFF1D6;color:var(--amber)') + '">' + r[3] + '</span>' : '') + '</li>'; }).join('') + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet()">Close</button></div>'); }
+  openSheet('<h3>' + t.t + '</h3><ul class="list">' + toolRows(k).map(function(r){ return '<li class="tap" onclick="' + r[0] + '"><span class="ds" style="font-weight:800">' + r[1] + '<small style="display:block;font-weight:600;color:var(--soft)">' + r[2] + '</small></span>' + (r[3] !== undefined && r[3] !== '' ? '<span class="pill" style="align-self:center;' + (r[3] === '✓' ? 'color:var(--ok)' : 'background:#FFF1D6;color:var(--amber)') + '">' + r[3] + '</span>' : '') + '</li>'; }).join('') + '</ul><div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="closeSheet()">Close</button></div>'); if(k === 'check') guideOffer('check'); }
 /* v15.1 · one Waiting list: the questions, a spouse's questions, what was set aside to look into, and charges that might be doubled */
 function waitParts(){ var sq = (db.spouseQ||[]).filter(function(id){ return !db.asked[id]; }).length, lk = 0, dl = 0; try{ lk = lookList().length; }catch(e){} try{ dl = dupList().filter(function(z){ return !z.f.done; }).length; }catch(e){}
   return [['askRound()','❓ Purchases to sort','the app couldn’t guess these', queue().length],['spouseRound()','💬 For ' + esc(db.spouse || 'your spouse'),'questions you passed on', sq],['openLook()','🔍 To look into','set aside to check on a website, a receipt, or together', lk],['openDups()','👯 Charged twice?','same shop, same amount, a day or two apart', dl]]; }
@@ -3492,6 +3560,7 @@ function spaceFresh(copy){ if(!confirm(copy ? 'Replace Practice with a copy of O
 function openSettings(){
   openSheet('<h3>Settings</h3><p class="sub">Every answer from setup. Tap one to change it.</p>'
     + '<button class="b primary full" style="text-align:left" onclick="coachStart()">✨ Set it up with me<small style="display:block;font-weight:600;opacity:.85">go through the questions again, one at a time — your answers are already filled in</small></button>'
+    + '<button class="b full" style="text-align:left;font-weight:800" onclick="guideAgain()">🧭 Show me around<small style="display:block;font-weight:600;color:var(--soft)">walk through each part of the app again, one thing at a time</small></button>'
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="spaceOpen()">' + (SPACE === 'practice' ? '🧪 Practice — switch back to Ours' : '🏡 Ours, the real one · 🧪 Practice') + '</button>'
     + (function(){ var A = SQ.map(sqSum), done = A.filter(function(x){ return x.ok; }).length, nx = A.map(function(x, i){ return x.ok ? -1 : i; }).filter(function(i){ return i >= 0; })[0];
         return '<p class="sub" style="margin:8px 0 4px"><b>' + done + ' of ' + SQ.length + ' answered.</b></p>' + (nx != null ? '<button class="b primary full" style="text-align:left" onclick="setupQ(' + nx + ', true)">▶ Pick up where you left off<small style="display:block;font-weight:600;opacity:.85">' + esc(SQ[nx].ask) + '</small></button>' : '')
@@ -4692,7 +4761,7 @@ function watchBtn(mode, mins){ return '<a href="../shop/watch.html?app=familydas
 /* the videos: the example family with enough questions waiting to show the list */
 function videoQ(how, open){ videoReady(); var L = db.tx.filter(function(t){ return t.amt > 0 && t.cat !== 'xfer' && !t.splitOf; }).slice(0, 40); L.forEach(function(t){ delete db.asked[t.id]; t.sug = t.sug || (Math.random() < .5 ? 1 : 0); }); GK = null; QL.pick = {}; QL.off = {};
   save(); if(how === 'none'){ render(); return; } askRound(how); if(open && how === 'list') try{ qlToggle(0); }catch(e){} }
-function videoReady(){ FOLD = { fSum:1, fNot:1, fSq:1 };   /* v15.0 · the videos show the folded sections they talk about */
+function videoReady(){ FOLD = { fSum:1, fNot:1, fSq:1 }; GD_MUTE = 1; try{ gdEnd(); }catch(e){}   /* v15.0 · the videos show the folded sections they talk about */
   ['djTour','djHello','djMenu','djA2HS'].forEach(function(i){ var e = document.getElementById(i); if(e) e.remove(); });
   if(!db || !db.ex || (db.v||1) < 2){ var d = exampleData(); try{ if(parent !== window && parent.tourSet) parent.tourSet(KEY, JSON.stringify(d)); }catch(e){} db = load(); if(!db || !db.ex || (db.v||1) < 2) db = d; }
   GK = null; CK = null; closeSheet(); view = addMonths(thisMonth(), -1); render(); window.scrollTo(0,0);
