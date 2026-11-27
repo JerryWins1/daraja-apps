@@ -1425,3 +1425,8 @@ The switch at the top of the main screen chooses between two ways of using the a
 - **The walk-through offers stay out of Guided.**
 
 **The new-month job has five steps:** bring in the statements, sort what's new, the check-up, read the report, and the note together, which can also close the month.
+
+## v17.1 · 27 Nov · Skip on the first screen, and real notes behind "What changed"
+
+- **Skip from the first screen.** The setup card for the passcode, and the card for setting up the AI, now has "Skip this for now" right under "Do this now". Before, the only way to skip was to open the next screen.
+- **"What changed" now has something to say.** The "Updated to" banner's "What changed" button showed "Small fixes" because `control/fixed.json` held no Family Money notes. It now has notes for v15.0, v16.1, v16.3 and v17.1.
