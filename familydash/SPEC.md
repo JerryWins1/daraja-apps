@@ -1442,3 +1442,15 @@ The real copy (`dj_familydash_v1`) is never touched. The setting is removed from
 ## v17.3 · 27 Nov · The "how often" choices say what they mean
 
 The choices are now: Every month · same; Every month · changes; A few times a year (quarterly, twice or once); One time; and Only when it comes up. Quarterly estimated tax goes under "a few times a year", which saves a twelfth of the yearly total each month. Repairs and upkeep are suggested as "Only when it comes up", which means no monthly amount; it comes from savings. The budget and first-time videos were reworded to match and re-recorded.
+
+## v17.4 · 27 Nov · Guided runs like a script
+
+Jerry: "you need to be in control if it's guided… like a script… you ask me the question, I answer, you give me the next question."
+
+- **It starts on its own.** Guided begins the next job straight away (`gvNextJob`). If setup isn't finished, the job is **Set up our money**.
+- **Setup is one flow, in the order a budget is built:** statements, sorting, how often each kind comes (`gvLoopOften`), the monthly amounts (`gvLoopAmount`), the yearly bills (`gvLoopYearly`), and the balance sheet (`gvLoopBal`), which gives net worth.
+- **Every question is asked in the conversation, one at a time.** No other screen opens.
+- **Done steps pass by themselves.** A step whose goal is already met is ticked and skipped (`done()`), so coming back from anything lands on the next real question.
+- **Fewer side branches.** The check-up and report steps just say what they found and move on.
+- **Pausing.** ⏸ Pause (`gvPause`) stops the job; switching back to Guided carries on from the same question.
+- **Finishing.** When a job ends, the helper says what to do next. In Guided, the bottom bar is hidden.
