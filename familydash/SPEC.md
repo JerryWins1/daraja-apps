@@ -1483,3 +1483,13 @@ In the chat, "⏸ Pause — finish later" keeps the conversation (`gvPauseChat`)
 
 - **The last step of setup** now has the button "Done — show me the dashboard" (`gvFinish`). It marks the household as set up and leaves the chat, showing the dashboard.
 - **No more circling.** The "what next" suggestion counts an item answered "later" as handled, so the chat no longer sends you back into a finished setup.
+
+## v18.5 · 27 Nov · How often and the amounts, each in one message
+
+Jerry: there were too many "how often" and amount questions, one at a time.
+
+- **How often:** one card lists every kind of spending with the app's guess already picked (`gvLoopOftenAll`). Change only the wrong ones, then tap Yes, use these.
+- **Amounts:** one card lists every line, filled in from what was really spent, with a running total against income (`gvLoopAmountAll`, `gvAmtTot`). Change any amount, then tap Use this budget.
+- **One at a time** is still there for anyone who prefers it.
+- **Changing your mind:** tapping either answer later reopens the whole card.
+- **Result:** a full setup of the example family went from 69 taps to 26.

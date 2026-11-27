@@ -245,7 +245,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v18.4 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v18.5 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2829,6 +2829,23 @@ function gvNext(said){ var G = gv(), J = GVJOBS[G.job]; if(said) gvSay(said); va
 /* v17.4 · Jerry, 27 Nov: "you need to be in control if it's guided… like a script… you ask me the question, I answer, you give me the next
    question." Each part of setting up is now asked right here, one thing at a time; no screen opens and there is nothing to choose
    between except the answer itself. */
+/* v18.5 · Jerry, 27 Nov: the how-often and amount questions were too many, one at a time. Both now come as one message: every line with
+   the app's guess already filled in, changed only where it is wrong, then one tap. One at a time is still there for anyone who wants it. */
+function gvLoopOftenAll(){ var G = gv(); if(G.oftOne) return gvLoopOften(); var L = rvTimeCats().filter(function(x){ return !x.c.timing; }); if(!L.length){ rvMark('time'); return null; }
+  var opt = { month:'Every month · same', var:'Every month · changes', year:'A few times a year', once:'One time', need:'Only when it comes up' };
+  return { say:'Here’s how often I think each kind of spending comes, from your statements. Change any that are wrong, then tap <b>Yes, use these</b>.',
+    card:'<div class="gvcCard" style="display:grid;gap:6px">' + L.map(function(x){ return '<label style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin:0;font-weight:600"><span style="min-width:0">' + esc(catLabel(x.c)) + '<small style="display:block;color:var(--soft);font-weight:600">' + x.seen + ' of ' + x.of + ' months · ' + money(x.tot, 1) + '</small></span><select data-oft="' + x.c.id + '" style="width:auto;max-width:52%">' + Object.keys(opt).map(function(k){ return '<option value="' + k + '"' + (k === x.sug ? ' selected' : '') + '>' + opt[k] + '</option>'; }).join('') + '</select></label>'; }).join('') + '</div>',
+    html:'<button class="rec" onclick="gvOftenAll()">Yes, use these</button><button onclick="gv().oftOne=1;save();render()">Go through them one at a time</button>' }; }
+function gvOftenAll(){ var n = 0; Array.prototype.forEach.call(document.querySelectorAll('[data-oft]'), function(el){ var x = rvTimeCats().filter(function(y){ return y.c.id === el.getAttribute('data-oft'); })[0]; if(x){ rvTimeApply(x, el.value); n++; } }); rvMark('time'); gvSay('How often: ' + n + ' kinds set', 'often:' + ((p1Cats()[0] || {}).id || '')); save(); render(); }
+function gvLoopAmountAll(){ var G = gv(); if(G.amtOne) return gvLoopAmount(); var A = averages(), L = p1Cats().filter(function(c){ return !c.variable && !c.gvAmt; }); if(!L.length){ db.budgetSet = true; save(); return null; }
+  var V = p1Cats().filter(function(c){ return c.variable; }), vt = V.reduce(function(s, c){ return s + mBud(c); }, 0);
+  return { say:'Here’s a monthly budget built from what you really spent. Change any amount you’d like, then tap <b>Use this budget</b>.' + (V.length ? ' Lines that change every month (' + V.length + ') are planned at their average, ' + money(vt, 1) + ' in all.' : ''),
+    card:'<div class="gvcCard" style="display:grid;gap:6px">' + L.map(function(c){ var avg = Math.max(0, A.avg[c.id] || 0); return '<label style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin:0;font-weight:600"><span style="min-width:0">' + esc(catLabel(c)) + '<small style="display:block;color:var(--soft);font-weight:600">spent about ' + money(avg, 1) + ' a month</small></span><input data-amt="' + c.id + '" inputmode="decimal" value="' + niceRound(avg) + '" style="width:110px;text-align:right" oninput="gvAmtTot()"></label>'; }).join('')
+      + '<div id="gvAmtTot" style="border-top:1px solid var(--line);padding-top:8px;font-weight:800;display:flex;justify-content:space-between"></div></div>', after:gvAmtTot,
+    html:'<button class="rec" onclick="gvAmtAll()">Use this budget</button><button onclick="gv().amtOne=1;save();render()">Go through them one at a time</button>' }; }
+function gvAmtTot(){ var el = document.getElementById('gvAmtTot'); if(!el) return; var t = 0; Array.prototype.forEach.call(document.querySelectorAll('[data-amt]'), function(x){ t += Math.max(0, num(x.value) || 0); }); var V = p1Cats().filter(function(c){ return c.variable; }).reduce(function(s, c){ return s + mBud(c); }, 0), inc = income();
+  el.innerHTML = '<span>Each month' + (V ? ', with the changing lines' : '') + '</span><span>' + money(r2(t + V), 1) + (inc ? ' <small style="color:' + (t + V <= inc ? 'var(--ok)' : 'var(--red)') + '">of ' + money(inc, 1) + ' income</small>' : '') + '</span>'; }
+function gvAmtAll(){ var n = 0; Array.prototype.forEach.call(document.querySelectorAll('[data-amt]'), function(el){ var c = cat(el.getAttribute('data-amt')); if(c){ c.budget = r2(Math.max(0, num(el.value) || 0)); c.gvAmt = 1; n++; } }); db.budgetSet = true; gvSay('Budget: ' + n + ' lines set', 'amt:' + ((p1Cats().filter(function(c){ return !c.variable; })[0] || {}).id || '')); save(); render(); }
 function gvLoopOften(){ var L = rvTimeCats().filter(function(x){ return !x.c.timing; }); if(!L.length){ rvMark('time'); return null; } var x = L[0], all = rvTimeCats().length;
   var say = 'How often does <b>' + esc(catLabel(x.c)) + '</b> come? It showed up in ' + x.seen + ' of ' + x.of + ' months, ' + money(x.tot, 1) + ' in all. <span style="opacity:.75">(' + (all - L.length + 1) + ' of ' + all + ')</span>';
   return { say:say, html:Object.keys(RV_T).map(function(k){ return '<button' + (k === x.sug ? ' class="rec"' : '') + ' onclick="gvOften(\'' + x.c.id + '\',\'' + k + '\')">' + esc(RV_T[k][0]) + (k === x.sug ? ' ✓' : '') + '<small style="display:block;font-weight:600;color:var(--soft);font-size:13px">' + esc(RV_T[k][1]) + '</small></button>'; }).join('') }; }
@@ -2895,8 +2912,8 @@ function gvIncYes(){ db.incomes = gvFoundInc().map(function(x){ return { id:uid(
    answer in the chat can be tapped: the question it answered is asked again, and the chat carries on from there. */
 function gvRedo(r){ var G = gv(), i = r.indexOf(':'), kind = r.slice(0, i), id = r.slice(i + 1), c = cat(id), a = acct(id);
   if(kind === 'sq'){ var q = SQ.filter(function(x){ return x.key === id; })[0]; if(q && db.sqDone) delete db.sqDone[q.ask]; G.edit = G.edit || {}; G.edit[id] = 1; }
-  else if(kind === 'often' && c){ delete c.timing; if(db.rv) delete db.rv.time; }
-  else if(kind === 'amt' && c){ delete c.gvAmt; db.budgetSet = false; }
+  else if(kind === 'often'){ if(G.oftOne && c) delete c.timing; else db.cats.forEach(function(x){ delete x.timing; }); if(db.rv) delete db.rv.time; }
+  else if(kind === 'amt'){ if(G.amtOne && c) delete c.gvAmt; else db.cats.forEach(function(x){ delete x.gvAmt; }); db.budgetSet = false; }
   else if(kind === 'yr' && c){ c.yearly = null; delete c.gvSkip; }
   else if(kind === 'bal' && a){ a.balUnknown = true; delete a.gvSkip; }
   else if(kind === 'sort'){ delete db.asked[id]; }
@@ -2960,8 +2977,8 @@ var GVJOBS = {
     { t:'Bring in the statements', video:'train', done:function(){ return db.tx.length > 0; }, say:function(){ return 'Everything starts from your statements: I read them to see what comes in and what goes out. Download them from each bank and card into one Family Money folder, then let me read it. ' + (SPACE === 'practice' ? 'This is the practice copy, so you can use the example family’s statements instead.' : ''); }, ans:function(){ return (SPACE === 'practice' || !db.accts.length ? [['gvExample()', 'Use the example statements', SPACE === 'practice' ? 1 : 0]] : []).concat([['fmStart()', 'Read my folder', SPACE === 'practice' ? 0 : 1], ['openImport()', 'Pick the files myself']]); }, sum:function(){ return db.tx.length + ' lines read'; } },
     { t:'What your statements show', done:function(){ return gvHHDone(['homes','cars','inc']); }, loop:function(){ return gvLoopFound(); }, sum:function(){ return 'confirmed'; } },
     { t:'Sort what the app couldn’t', video:'answer', sort:1, done:function(){ return !queue().length; }, sum:function(){ return 'all sorted'; } },
-    { t:'How often each kind comes', video:'budget', done:function(){ return !!(db.rv && db.rv.time); }, loop:function(){ return gvLoopOften(); } },
-    { t:'The monthly amounts', video:'budget', done:function(){ return !!db.budgetSet; }, loop:function(){ return gvLoopAmount(); } },
+    { t:'How often each kind comes', video:'budget', done:function(){ return !!(db.rv && db.rv.time); }, loop:function(){ return gvLoopOftenAll(); } },
+    { t:'The monthly amounts', video:'budget', done:function(){ return !!db.budgetSet; }, loop:function(){ return gvLoopAmountAll(); } },
     { t:'Bills that come a few times a year', video:'budget', done:function(){ return gvP2Ok() || !p2Cats().some(function(c){ return p2State(c).unknown && !c.gvSkip; }); }, loop:function(){ return gvLoopYearly(); }, sum:function(){ return gvP2Ok() ? 'all set' : 'some to fill in later'; } },
     { t:'What we own and what we owe', video:'report', done:function(){ return gvBalOk() || !gvBalTodo().length; }, loop:function(){ return gvLoopBal(); }, sum:function(){ var nw = netWorth(); return 'net worth ' + money(nw.net, 1); } },
     { t:'You’re set up', say:function(){ var x = three(pulseMonth()); return 'That’s everything. Your budget is ' + money(x.reg, 1) + ' a month' + (x.inc ? ' against income of ' + money(x.inc, 1) : '') + '. From now on, once a month, add the new statements and I’ll walk you through the month.'; }, ans:function(){ return [['gvFinish()', 'Done — show me the dashboard', 1]]; } } ] },
