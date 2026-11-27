@@ -1394,3 +1394,12 @@ The first time a part of the app opens, a helper offers to walk the person throu
   - Step 7 now points at "In three parts".
   - Step 9 now points at the month button, and the helper moves to the top of the screen when what it points at is low down.
   - The list-or-one question now says how many payments are waiting and what each choice means.
+
+## v16.3 · 27 Nov · Three lines, and room on a phone
+
+Jerry, testing on his phone, found the box crowded and the explanation too general. Changes:
+
+- **Three short lines.** A new screen is now explained in three lines: Why you're here, Do this now, What happens next. The AI also names the one button to tap, and the helper outlines it. Without the AI, the app uses the screen's own note and its main button.
+- **One row of buttons.** The row holds ‹, Next or Got it, 🔊 and ⋯. Stop this one, Stop guiding me and Ask about this sit behind ⋯.
+- **Smaller on a phone.** On phones the box uses smaller type and is capped at 42% of the screen height.
+- **A hint for silent iPhones.** On an iPhone, 🔊 reminds the person that the silent switch also mutes reading aloud.
