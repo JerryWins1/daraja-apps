@@ -1478,3 +1478,8 @@ Jerry: "almost a Claude chat style… ask questions, answer questions, give an a
 ## v18.3 · 27 Nov · Pause and continue
 
 In the chat, "⏸ Pause — finish later" keeps the conversation (`gvPauseChat`). The main screen then shows "▶ Continue where we left off", which reopens the chat on the same question with a "Welcome back" line. This works even after a reload.
+
+## v18.4 · 27 Nov · Done goes to the dashboard
+
+- **The last step of setup** now has the button "Done — show me the dashboard" (`gvFinish`). It marks the household as set up and leaves the chat, showing the dashboard.
+- **No more circling.** The "what next" suggestion counts an item answered "later" as handled, so the chat no longer sends you back into a finished setup.
