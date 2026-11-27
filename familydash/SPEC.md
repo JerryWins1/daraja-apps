@@ -1511,3 +1511,9 @@ Jerry: there were too many "how often" and amount questions, one at a time.
   - Waiting on us › Sort them with me, when payments are waiting
 - A job started this way returns to the main screen when it's done.
 - When statements are missing, the screen behind "Statements missing" (the audit) now starts with 📂 Read my folder now, so it no longer takes three taps to get to it.
+
+## v18.8 · nothing skipped gets lost
+
+- Skipping is still allowed in a chat. A skipped step is remembered when it isn't really done: statements to bring in, transfers without their other half, statements that don't balance, a yearly bill or balance answered "later", or a payment marked not sure.
+- A chat's last message lists what was set aside, each with a ↩ button straight back to it, and says it stays under Needs you.
+- Needs you on the main screen shows each one with its count until it's really done, then drops it. Statements and payments to sort were already there, so they aren't listed twice.
