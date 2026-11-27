@@ -1474,3 +1474,7 @@ Jerry: "almost a Claude chat style… ask questions, answer questions, give an a
   - **Income:** found from regular deposits (`gvFoundInc`). Same-source deposits of different amounts, such as two people's Social Security, count as separate incomes, and the common sources get plain names (`gvIncName`).
   - **Changing an answer:** "No, let me change it", or "＋ There's more" for income, opens the form already filled in with what was found.
 - **Tap any answer to change it.** Each answer in the chat can be tapped (✎). The question is then asked again and the chat carries on from there (`gvRedo`).
+
+## v18.3 · 27 Nov · Pause and continue
+
+In the chat, "⏸ Pause — finish later" keeps the conversation (`gvPauseChat`). The main screen then shows "▶ Continue where we left off", which reopens the chat on the same question with a "Welcome back" line. This works even after a reload.
