@@ -1539,3 +1539,9 @@ Jerry, 28 Nov: the app had grown too complicated. It now comes in three levels:
 - **At Level 1, the main screen counts what really came in and went out** (`flow1`), with no budget and no set-asides. It says "$X more came in than went out". The dials are Income in, Spent and Left over, and the month screen shows Does it balance and Where it went instead of the check-up and report.
 - **The setup chat skips the steps above the family's level** (`lv` on a step): how often, amounts and yearly bills from Level 2, balances from Level 3. The month chat's report is Level 2. The job menu hides Change the budget and Once a year below Level 2.
 - **The tool lists show only rows for the family's level.** Below Level 3, Household is accounts, backup and Settings.
+
+## v19.1 · the folder, explained up front
+
+- The setup chat's first message now explains how the app works: everything comes from statements, which are kept in one **Family Money** folder with a folder for each kind of account. The app reads them, sorts every line and asks only what it can't work out.
+- The chat's statements step shows the same folder map as Do it myself, right in the chat. It offers: Use the example statements (practice only), Make the empty folders for me, My folder is ready — read it, and Pick the files myself.
+- **Same folders at every level.** Levels 1 and 2 use folders 1–3: Bank accounts, Credit cards and Payment apps. Level 3 adds 4–8 in the same place with the same numbers, so moving up never moves anything (`lvTree()`). The empty-folders download follows the level.
