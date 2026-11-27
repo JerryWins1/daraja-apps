@@ -1383,3 +1383,14 @@ The first time a part of the app opens, a helper offers to walk the person throu
 - **⭐ Your shortcuts** shows the up to 4 parts you open most, once each has been opened 3 times, and appears under the overview.
 - **Tidying up:** after 30 days of use, a section on the main screen that has never been opened is offered to be tucked away (`tidyHTML`, `db.hide`). Only one is offered at a time, at most every two weeks, and only when you say yes.
 - **Settings › ✨ Made for you** (`openMadeForYou`) lists the answers you gave (each with Undo), your shortcuts (each with Remove), the sections you tucked away (each with Show it again), and what you use most.
+
+## v16.2 · 27 Nov · The helper follows you through a job
+
+- **Every new screen offers help.** The first time any screen opens, the helper offers to explain it (`gdScreen`). Once the person says yes, the helper follows them from screen to screen (`GD_FOLLOW`) until they tap Stop guiding me.
+- **How a screen gets explained.** Screens that have their own walk-through use it. Any other screen is explained by the AI (`gdExplain`), working only from its headings, notes, labels and buttons (`gdSkeleton`). Numbers are masked, and lists, tables and inputs are removed, so no amounts or shop names are sent. The AI answers with steps that point at "@words" on the screen (`gdFind`). Without the AI, the helper shows the screen's own note instead.
+- **🔊 Read it aloud** on each step (`gdSpeak`, `gdSay`). It plays only when tapped.
+- **Fixes from Jerry's run-through:**
+  - The AI's own Send it box had been opening behind the helper. Now the helper steps aside while it is open (`gdPaused`).
+  - Step 7 now points at "In three parts".
+  - Step 9 now points at the month button, and the helper moves to the top of the screen when what it points at is low down.
+  - The list-or-one question now says how many payments are waiting and what each choice means.
