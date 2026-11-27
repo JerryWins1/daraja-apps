@@ -219,7 +219,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v16.0 · 2026-11-26 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v16.1 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -968,7 +968,7 @@ var CK = null;
 function plain(t){ return String(t).replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'"); }
 function reportMonth(){ var last = addMonths(thisMonth(),-1); return months().indexOf(last) >= 0 && view >= last ? last : view; }
 /* v15.1 · Jerry, 26 Nov: the same look for the month. The check-up, the report and the note were three screens; now one page opens each. */
-function openMonth(m){ m = m || reportMonth(); LASTLIST = function(){ openMonth(m); }; var P = pulseData(m), K = ckupSteps(m), closed = db.closedM && db.closedM[m], ms = months();
+function openMonth(m){ m = m || reportMonth(); if(db.noteFirst === 'yes' && !openMonth._n){ openMonth._n = 1; setTimeout(function(){ openMonth._n = 0; }, 2000); openNote(m); return; } LASTLIST = function(){ openMonth(m); }; var P = pulseData(m), K = ckupSteps(m), closed = db.closedM && db.closedM[m], ms = months();
   var line = P.noInc ? 'Add your monthly income to see where it stands.' : money(Math.abs(P.diff),1) + (P.diff >= 0 ? ' under' : ' over') + ' income.';
   var row = function(go, t, sub, pill){ return '<li class="tap" onclick="' + go + '"><span class="ds" style="font-weight:800">' + t + '<small style="display:block;font-weight:600;color:var(--soft)">' + sub + '</small></span>' + (pill ? '<span class="pill" style="align-self:center">' + pill + '</span>' : '') + '</li>'; };
   openSheet('<div class="stepno">The month</div><div style="display:flex;align-items:center;gap:8px"><button class="b small" style="margin:0" aria-label="Earlier month"' + (ms.indexOf(addMonths(m,-1)) < 0 ? ' disabled' : '') + ' onclick="openMonth(\'' + addMonths(m,-1) + '\')">‹</button><h3 style="margin:0;flex:1;text-align:center">' + esc(monthName(m)) + '</h3><button class="b small" style="margin:0" aria-label="Later month"' + (addMonths(m,1) > thisMonth() ? ' disabled' : '') + ' onclick="openMonth(\'' + addMonths(m,1) + '\')">›</button></div>'
@@ -2793,7 +2793,8 @@ var GUIDE = {
     ['details.fold', 'These lines open with a tap: the month in three parts, things worth a look, your statements. They stay closed until you want them.'],
     ['.ttiles', 'Four tiles hold everything else: the budget, checking the books, reports, and your household. Each one says what its buttons do.'],
     ['#bar', 'At the very bottom: add a new month’s statements, and open the month — the check-up, the report and a short note to read together.'],
-    { ask:'When there are payments to sort, how would you like to answer them?', key:'prefQ', opts:[['list','As a list — many at once'],['one','One at a time — one screen each']] } ] },
+    { ask:'When there are payments to sort, how would you like to answer them?', key:'prefQ', opts:[['list','As a list — many at once'],['one','One at a time — one screen each']] },
+    { ask:'Would you like a monthly reminder in your calendar, when the new statements are ready to add?', key:'wantRem', opts:[['yes','Yes — set it up after this','openReminder()'],['no','No thanks']] } ] },
   qlist:{ name:'the questions list', steps:[
     ['#qlc0', 'Each row is one shop. The app’s guess is already picked.'],
     ['#qls0', 'If the guess is wrong, choose another category here first.'],
@@ -2808,10 +2809,12 @@ var GUIDE = {
   month:{ name:'the month', steps:[
     ['#sheetIn .line', 'The month in one line: under or over your income.'],
     ['#sheetIn .list li', 'The check-up: five short steps for each month — bring in the statements, answer the questions, check the yearly bills, update balances, read the report.'],
-    ['#sheetIn h3', 'The arrows either side change the month.'] ] },
+    ['#sheetIn h3', 'The arrows either side change the month.'],
+    { ask:'Should the month open with a short note the two of you can read together?', key:'noteFirst', opts:[['yes','Yes, the note first'],['no','No, the check-up first']] } ] },
   check:{ name:'Check the books', steps:[
     ['#sheetIn .list li', 'Each check has a number beside it when something needs a look, or a tick when it is fine. Start with anything that has a number.'],
-    ['#sheetIn h3', 'Does it balance compares each statement with what the app read. Money moving pairs each card payment with its partner, so nothing counts twice.'] ] },
+    ['#sheetIn h3', 'Does it balance compares each statement with what the app read. Money moving pairs each card payment with its partner, so nothing counts twice.'],
+    { ask:'Above what amount should I always ask you about a charge, even when I think I know what it is?', key:'threshold', num:1, opts:[['250','$250'],['500','$500 — most families'],['1000','$1,000']] } ] },
   accounts:{ name:'Our accounts', steps:[
     ['#sheetIn .gtiles', 'Every account, grouped by kind. A red line under one means a statement is missing; tap the account to see which.'],
     ['#sheetIn .b.warm', 'Add a new account here — a new card, or the account that replaced a closed one.'] ] },
@@ -2831,16 +2834,55 @@ function gdStep(dir){ var G = GUIDE[GD.key], L = G.steps; gdClear();
   while(GD.i >= 0 && GD.i < L.length){ var st = L[GD.i]; if(st.ask || document.querySelector(st[0])) break; GD.i += dir || 1; }
   if(GD.i < 0) GD.i = 0; if(GD.i >= L.length){ gdBox('<div class="gdn">That’s ' + esc(G.name) + '</div><p>You can come back to this any time from Settings › Show me around.</p><div class="gdb"><button class="go" onclick="gdEnd()">Done</button></div>'); return; }
   var st = L[GD.i], n = '<div class="gdn">' + esc(G.name) + ' · ' + (GD.i + 1) + ' of ' + L.length + '</div>';
-  if(st.ask){ gdBox(n + '<p>' + esc(st.ask) + '</p><div class="gdb">' + st.opts.map(function(o){ return '<button class="opt" onclick="gdPick(\'' + st.key + '\',\'' + o[0] + '\')">' + esc(o[1]) + '</button>'; }).join('') + '<button class="soft" onclick="GD.i++;gdStep()">Skip</button></div>'); return; }
+  if(st.ask){ gdBox(n + '<p>' + esc(st.ask) + '</p><div class="gdb">' + st.opts.map(function(o, oi){ return '<button class="opt" onclick="gdPick(' + oi + ')">' + esc(o[1]) + '</button>'; }).join('') + '<button class="soft" onclick="GD.i++;gdStep()">Skip</button></div>' + gdAskHTML(st.ask)); return; }
   var el = document.querySelector(st[0]); el.classList.add('gdHi'); try{ el.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
-  gdBox(n + '<p>' + esc(st[1]) + '</p><div class="gdb">' + (GD.i ? '<button class="soft" onclick="GD.i--;gdStep(-1)">Back</button>' : '') + '<button class="go" onclick="GD.i++;gdStep()">' + (GD.i === L.length - 1 ? 'Finish' : 'Next') + '</button><button class="soft" onclick="gdEnd()">Stop</button></div>'); }
-function gdPick(k, v){ db[k] = v; save(); toast('Got it — I’ll remember that.'); GD.i++; gdStep(); }
+  gdBox(n + '<p>' + esc(st[1]) + '</p><div class="gdb">' + (GD.i ? '<button class="soft" onclick="GD.i--;gdStep(-1)">Back</button>' : '') + '<button class="go" onclick="GD.i++;gdStep()">' + (GD.i === L.length - 1 ? 'Finish' : 'Next') + '</button><button class="soft" onclick="gdEnd()">Stop</button></div>' + gdAskHTML(st[1])); }
+/* v16.1 · an answer in the walk-through changes the app there and then; each is listed in Made for you, where it can be undone */
+function gdPick(oi){ var st = GUIDE[GD.key].steps[GD.i], o = st.opts[oi]; if(!o) return; var old = db[st.key];
+  db[st.key] = st.num ? +o[0] : o[0]; db.learned = (db.learned || []).filter(function(x){ return x.k !== st.key; }).concat([{ k:st.key, q:st.ask, a:o[1], old:old == null ? null : old, d:today() }]); save(); render();
+  toast('Got it — I’ll remember that. Change it any time in Settings › Made for you.'); GD.i++; if(o[2]){ var go = o[2]; gdEnd(); setTimeout(function(){ try{ eval(go); }catch(e){} }, 300); return; } gdStep(); }
+/* ✨ Ask on any step: one plain question to the AI about what is on screen, a few per day */
+var GDQ = 0;
+function gdAskHTML(about){ if(!coAI() || GDQ >= 6) return ''; return '<div style="display:flex;gap:6px;margin-top:10px"><input id="gdQ" placeholder="✨ Ask about this…" style="flex:1;min-width:0;border-radius:10px;border:0;padding:8px 10px;font:inherit;font-size:15px" onkeydown="if(event.key===\'Enter\')gdAsk()"><button class="soft" style="flex:0 0 auto" onclick="gdAsk()">Ask</button></div><div id="gdA" style="margin-top:8px;font-size:15px"></div>'; }
+function gdAsk(){ var el = document.getElementById('gdQ'), v = el ? el.value.trim() : ''; if(!v || !GD) return; var st = GUIDE[GD.key].steps[GD.i], about = st.ask || st[1], A = document.getElementById('gdA'); if(A) A.textContent = 'Thinking…'; GDQ++;
+  var o = { title:'✨ Ask about this', want:'text', circle:false, agreed:GDQ > 1 ? 1 : 0, wait:'Thinking…',
+    prompt:'You are a patient helper showing an older person around a family budgeting app, one thing at a time. On their screen now: "' + about + '" (part of ' + GUIDE[GD.key].name + '). They ask: ' + v + '\nAnswer in two or three short, plain sentences, no jargon. Do not give tax, legal or investment advice.',
+    onResult:function(r, raw){ var B = document.getElementById('gdA'); if(B) B.textContent = '✨ ' + String(raw || r || '').trim().slice(0, 500); },
+    onFail:function(){ var B = document.getElementById('gdA'); if(B) B.textContent = 'I couldn’t reach the AI just now. Tap Next to carry on.'; } };
+  doorUse(); ask(o); }
+/* v16.1 · Jerry, 26 Nov: "one thing you will learn is what features the user uses, so is there a way you customize the UI especially for
+   the user… think forward and futuristic." The app counts which parts each family opens (on this device only, never sent anywhere).
+   What they use most comes up as Your shortcuts; a section never opened is offered to be tucked away, and only with their yes. */
+var FEAT = { openBudget:['✏️','Our budget'], budStart:['🔁','How often'], openPart2:['📅','Yearly bills'], rvSubsStart:['🔁','Subscriptions'], budgetXlsx:['⬇️','Budget spreadsheet'],
+  openWaiting:['⏳','Waiting on us'], openBalance:['⚖️','Does it balance?'], openXfers:['🔁','Money moving'], openDups:['👯','Charged twice?'], sortHub:['📊','Sort each account'], openTx:['📃','Everything this month'], openLists:['📋','Lists'],
+  openMonth:['📅','The month'], openReport:['📝','Report'], openNote:['💬','The note'], openCheckup:['🗓️','Check-up'], openFlow:['🗺️','Where it went'], openCompare:['📊','This year vs last'],
+  openHome:['🏡','Our household'], openAccounts:['🏦','Our accounts'], openBalances:['🧮','Update balances'], openNetWorth:['📊','Net worth'], openInvest:['📈','Investments'], openAway:['🧭','If I’m away'], openAdvisors:['🧑‍💼','Our advisors'], backupOpen:['💾','Backup'], openSettings:['⚙️','Settings'], openImport:['＋','Add statements'] };
+function useNote(k){ if(!db || GD_MUTE || db.ex) return; db.use = db.use || {}; var u = db.use[k] = db.use[k] || { n:0, last:'' }, now = Date.now(); if(u.t && now - u.t < 20 * 60000) return; u.n++; u.t = now; u.last = today(); db.useFrom = db.useFrom || today(); save(); }
+Object.keys(FEAT).forEach(function(k){ var f = window[k]; if(typeof f !== 'function') return; window[k] = function(){ if(!SHBACK) useNote(k); return f.apply(this, arguments); }; });
+function shortcuts(){ var U = db.use || {}, H = db.hide || {}; return Object.keys(U).filter(function(k){ return FEAT[k] && U[k].n >= 3 && !(db.noShort || {})[k]; }).sort(function(a, b){ return U[b].n - U[a].n; }).slice(0, 4); }
+function shortHTML(){ var S = shortcuts(); if(!S.length) return ''; return '<div style="margin:2px 0 10px"><div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:0 2px 6px">⭐ Your shortcuts</div><div style="display:grid;grid-template-columns:repeat(' + Math.min(4, S.length) + ',minmax(0,1fr));gap:6px">' + S.map(function(k){ return '<button class="ttile" style="min-height:0;padding:10px 6px;text-align:center" onclick="' + k + '()"><b style="font-size:20px">' + FEAT[k][0] + '</b>' + esc(FEAT[k][1]) + '</button>'; }).join('') + '</div></div>'; }
+/* a fold never opened in a month of use is offered to be tucked away, one at a time, at most every two weeks */
+var FOLDN = { fNot:'Worth a look', fAcross:'Added together', fGap:'Biggest gaps', fSum:'In three parts', fCome:'Coming up' };
+function tidyHTML(){ if(!db.useFrom || daysBetween(db.useFrom, today()) < 30 || (db.tidyAt && daysBetween(db.tidyAt, today()) < 14)) return ''; var U = db.use || {}, H = db.hide || {};
+  var k = Object.keys(FOLDN).filter(function(id){ return !H[id] && !(db.keep || {})[id] && !(U['fold:' + id] && U['fold:' + id].n) && !!document.getElementById(id); })[0]; if(!k) return '';
+  return '<div class="glbox" style="background:#EEF4F8"><h3>✨ Made for you</h3><div class="glrow" style="border:0;flex-wrap:wrap"><span class="t">You haven’t opened <b>' + FOLDN[k] + '</b> in a month. Tuck it away? You can bring it back in Settings.</span><button class="b small primary" style="margin:0" onclick="tidyDo(\'' + k + '\',1)">Tuck it away</button><button class="b small" style="margin:0" onclick="tidyDo(\'' + k + '\',0)">Keep it</button></div></div>'; }
+function tidyDo(k, hide){ db.tidyAt = today(); if(hide){ db.hide = db.hide || {}; db.hide[k] = 1; db.learned = (db.learned || []).concat([{ k:'hide:' + k, q:'Show ' + FOLDN[k] + ' on the main screen?', a:'Tucked away', d:today() }]); } else { db.keep = db.keep || {}; db.keep[k] = 1; } save(); render(); toast(hide ? 'Tucked away. Settings › Made for you brings it back.' : 'Kept.'); }
+/* Settings › Made for you: everything the app has learned about how this family works, each with an undo */
+function openMadeForYou(){ LASTLIST = function(){ openMadeForYou(); }; var L = db.learned || [], U = db.use || {}, S = shortcuts(), H = Object.keys(db.hide || {});
+  var top = Object.keys(U).filter(function(k){ return FEAT[k]; }).sort(function(a, b){ return U[b].n - U[a].n; }).slice(0, 8);
+  openSheet('<div class="stepno">Settings</div><h3>✨ Made for you</h3><p class="sub">What the app has learned about how you like to work. It stays on this device. Change or undo anything here.</p>'
+    + '<h4>Your answers along the way</h4>' + (L.filter(function(x){ return !/^hide:/.test(x.k); }).length ? '<ul class="list">' + L.filter(function(x){ return !/^hide:/.test(x.k); }).map(function(x){ return '<li><span class="ds">' + esc(x.q) + '<small style="display:block">' + esc(x.a) + ' · ' + shortDate(x.d) + '</small></span><button class="b small" style="margin:0;align-self:center" onclick="mfyUndo(\'' + x.k + '\')">Undo</button></li>'; }).join('') + '</ul>' : '<p class="sub">Nothing yet. The walk-throughs ask as they go.</p>')
+    + '<h4>Your shortcuts</h4>' + (S.length ? '<ul class="list">' + S.map(function(k){ return '<li><span class="ds">' + FEAT[k][0] + ' ' + esc(FEAT[k][1]) + '<small style="display:block">opened ' + U[k].n + ' times · last ' + shortDate(U[k].last) + '</small></span><button class="b small" style="margin:0;align-self:center" onclick="db.noShort=db.noShort||{};db.noShort[\'' + k + '\']=1;save();render();openMadeForYou()">Remove</button></li>'; }).join('') + '</ul>' : '<p class="sub">The parts you open most come up here, and as shortcuts at the top of the main screen, once you have used them a few times.</p>')
+    + (H.length ? '<h4>Tucked away</h4><ul class="list">' + H.map(function(k){ return '<li><span class="ds">' + esc(FOLDN[k] || k) + '</span><button class="b small" style="margin:0;align-self:center" onclick="delete db.hide[\'' + k + '\'];save();render();openMadeForYou()">Show it again</button></li>'; }).join('') + '</ul>' : '')
+    + (top.length ? '<h4>What you use most</h4><p class="sub">' + top.map(function(k){ return esc(FEAT[k][1]) + ' ' + U[k].n; }).join(' · ') + '</p>' : '')
+    + '<div class="stickfoot"><button class="b primary full" style="margin-top:0" onclick="sheetBack()">Back</button></div>'); }
+function mfyUndo(k){ var x = (db.learned || []).filter(function(y){ return y.k === k; })[0]; if(!x) return; if(x.old == null) delete db[k]; else db[k] = x.old; db.learned = db.learned.filter(function(y){ return y.k !== k; }); save(); render(); toast('Undone.'); openMadeForYou(); }
 [['openQList','qlist'],['openAccounts','accounts'],['openSettings','settings']].forEach(function(x){ var f = window[x[0]]; if(typeof f !== 'function') return; window[x[0]] = function(){ var r = f.apply(this, arguments); guideOffer(x[1]); return r; }; });
 function guideAgain(){ db.guide = { seen:{} }; save(); closeSheet(); render(); window.scrollTo(0, 0); guideRun('main'); }
 /* v15.0 · a section that stays closed until it is wanted; its open or closed state survives a redraw */
 var FOLD = {};
-function fold(id, title, right, inner, open, bad){ if(!inner) return ''; var o = FOLD[id] != null ? FOLD[id] : !!open;
-  return '<details class="fold" id="' + id + '"' + (o ? ' open' : '') + ' ontoggle="FOLD[this.id]=this.open"><summary><span>' + title + '</span><small' + (bad ? ' class="bad"' : '') + '>' + right + '</small></summary><div class="foldin">' + inner + '</div></details>'; }
+function fold(id, title, right, inner, open, bad){ if(!inner || (db && db.hide && db.hide[id])) return ''; var o = FOLD[id] != null ? FOLD[id] : !!open;
+  return '<details class="fold" id="' + id + '"' + (o ? ' open' : '') + ' ontoggle="FOLD[this.id]=this.open;if(this.open)useNote(\'fold:\'+this.id)"><summary><span>' + title + '</span><small' + (bad ? ' class="bad"' : '') + '>' + right + '</small></summary><div class="foldin">' + inner + '</div></details>'; }
 function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLineFix(); cardPayFix(); readTwiceFix(); stateFix(); rolesAll(); billDupFix(); rulesFix(); ppTidy(); catFix(); autoPairs(); }catch(e){} }
   var main = document.getElementById('main'), bar = document.getElementById('bar'), band = document.getElementById('spaceBand'); clearTimeout(render._sd); render._sd = setTimeout(function(){ try{ shareDue(); }catch(e){} }, 800); if(band) band.style.display = SPACE === 'practice' ? 'flex' : 'none';
   document.getElementById('hhName').textContent = db && (db.name || db.people) ? (db.name || db.people) : 'what we spend · what we set aside · what comes from savings';
@@ -2850,7 +2892,7 @@ function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLi
   bar.style.display = '';
   var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
   var h = '', q = queue().length;
-  if(!db.ex) h += headsUpHTML() + glanceHTML();   /* v7.1 · the month in one sentence comes first */
+  if(!db.ex) h += headsUpHTML() + glanceHTML() + shortHTML() + tidyHTML();   /* v7.1 · the month in one sentence comes first */
   if(db.ex) h += '<div class="card exnote"><span>👀 This is an example family, the Hendersons. Tap anything — it is pretend money.</span><button class="b primary" onclick="leaveExample()">Set up our own</button></div>' + headsUpHTML() + glanceHTML();
   if(!db.tx.length) h += '<div class="card callout"><div class="stepno">Next</div><h2 style="margin-top:4px">Bring in your statements</h2><p style="margin:0 0 4px">From ' + (db.historyFrom ? shortDate(db.historyFrom) : 'a few months back') + ' to now. The app sorts what it can, then asks you about the rest, one at a time.</p><button class="b primary" onclick="openImport()">＋ Add statements</button></div>';
   else if(db.ex && q && (!db.budgetSet || q >= 5)) h += '<div class="card callout"><div class="stepno">Getting to know you</div><h2 style="margin-top:4px">' + q + ' payment' + (q===1?'':'s') + ' I’m not sure about</h2><p style="margin:0 0 4px">One question at a time. Each answer is remembered.</p><button class="b primary" id="gkBtn" onclick="openGTKY()">Start</button></div>';
@@ -3560,6 +3602,7 @@ function spaceFresh(copy){ if(!confirm(copy ? 'Replace Practice with a copy of O
 function openSettings(){
   openSheet('<h3>Settings</h3><p class="sub">Every answer from setup. Tap one to change it.</p>'
     + '<button class="b primary full" style="text-align:left" onclick="coachStart()">✨ Set it up with me<small style="display:block;font-weight:600;opacity:.85">go through the questions again, one at a time — your answers are already filled in</small></button>'
+    + '<button class="b full" style="text-align:left;font-weight:800" onclick="openMadeForYou()">✨ Made for you<small style="display:block;font-weight:600;color:var(--soft)">what the app has learned about how you work — undo anything</small></button>'
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="guideAgain()">🧭 Show me around<small style="display:block;font-weight:600;color:var(--soft)">walk through each part of the app again, one thing at a time</small></button>'
     + '<button class="b full" style="text-align:left;font-weight:800" onclick="spaceOpen()">' + (SPACE === 'practice' ? '🧪 Practice — switch back to Ours' : '🏡 Ours, the real one · 🧪 Practice') + '</button>'
     + (function(){ var A = SQ.map(sqSum), done = A.filter(function(x){ return x.ok; }).length, nx = A.map(function(x, i){ return x.ok ? -1 : i; }).filter(function(i){ return i >= 0; })[0];

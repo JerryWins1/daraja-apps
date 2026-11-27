@@ -1374,3 +1374,12 @@ The first time a part of the app opens, a helper offers to walk the person throu
 - **The offer is easy to turn down.** "Not now" marks that part as seen. "Never offer" turns the helper off for good.
 - **Bringing it back.** Settings › 🧭 Show me around (`guideAgain`) clears what was seen and starts again from the main screen.
 - **Videos.** The videos switch the helper off (`GD_MUTE`). A step whose thing isn't on screen is skipped.
+
+## v16.1 · 27 Nov · The app learns how you work
+
+- **The walk-through asks more, and the answers take effect at once.** It asks how you like to answer questions, whether you want a monthly calendar reminder, above what amount every charge should be questioned (`db.threshold`), and whether the month should open on the note first. Each answer is saved to `db.learned` with its previous value, so it can be undone.
+- **✨ Ask about this** appears on every step when the Daraja AI connection is on. It allows up to 6 questions each time the app is opened, and each one counts toward the daily limit.
+- **Usage is counted on this device only** (`FEAT`, `useNote`, `db.use`). Each part is counted at most once every 20 minutes, and going Back doesn't count.
+- **⭐ Your shortcuts** shows the up to 4 parts you open most, once each has been opened 3 times, and appears under the overview.
+- **Tidying up:** after 30 days of use, a section on the main screen that has never been opened is offered to be tucked away (`tidyHTML`, `db.hide`). Only one is offered at a time, at most every two weeks, and only when you say yes.
+- **Settings › ✨ Made for you** (`openMadeForYou`) lists the answers you gave (each with Undo), your shortcuts (each with Remove), the sections you tucked away (each with Show it again), and what you use most.
