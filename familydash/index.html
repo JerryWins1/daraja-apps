@@ -245,7 +245,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v18.3 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v18.4 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2936,12 +2936,15 @@ function gvType(){ var el = document.getElementById('gvQ'), v = el ? el.value.tr
     onResult:function(r, raw){ db.guide = db.guide || { seen:{} }; db.guide.aiOk = 1; gv().chat.push({ w:'ai', h:esc(String(raw || r || '').trim().slice(0, 700)) }); save(); render(); },
     onFail:function(){ gv().chat.push({ w:'ai', h:'I couldn’t reach the AI just now. Use the buttons below to carry on.' }); save(); render(); } };
   doorUse(); ask(o); }
+/* v18.4 · Jerry, 27 Nov: "it says done, and then I hit done and it doesn't go anywhere." Finishing setup now marks the household as set up
+   and opens the dashboard; a step answered "later" no longer sends the chat round in a circle. */
+function gvFinish(){ var G = gv(); db.setup = true; db.sq = SQ.length; db.peek = 1; rebuildPlan(); G.job = ''; G.step = 0; G.last = ''; G.held = 0; G.chat.push({ w:'me', t:'Done' }, { w:'ai', h:'✓ You’re all set up.' }); db.mode = ''; save(); render(); window.scrollTo(0, 0); toast('All set — here’s your dashboard.'); }
 function gvSkip(){ var G = gv(), J = GVJOBS[G.job], st = J && J.steps[G.step]; if(st){ G.done = (G.done || []).concat([st.t + ' · skipped for now']); } G.step++; save(); render(); }
 function gvEnd(){ var G = gv(); G.last = G.job ? GVJOBS[G.job].t : ''; G.job = ''; G.step = 0; G.log = []; G.done = []; save(); render(); window.scrollTo(0, 0); }
 /* what comes next, in the order a budget is built and then kept */
 function gvNextJob(){ var S = GVJOBS.setup.steps; if(S.slice(0, 4).some(function(x){ return !x.done(); })) return ['setup', '🧭 Set up our money — I’ll take you through it, step by step'];
   if(queue().length) return ['sort', '❓ Sort the ' + queue().length + ' payment' + (queue().length===1?'':'s') + ' waiting'];
-  if(!gvP2Ok() || !gvBalOk()) return ['setup', '🧭 Finish setting up — the yearly bills and balances'];
+  if(GVJOBS.setup.steps.slice(4).some(function(x){ return x.done && !x.done(); })) return ['setup', '🧭 Finish setting up — the yearly bills and balances'];
   return ['month', '📅 A new month — statements, sorting, the check-up']; }
 function gvDo(js, said){ if(said) gvSay(said); save(); try{ eval(js); }catch(e){} }
 /* v17.4 · Jerry, 27 Nov: "when I said I was done, it came back to that same screen… I thought you would lead me through it rather than
@@ -2961,7 +2964,7 @@ var GVJOBS = {
     { t:'The monthly amounts', video:'budget', done:function(){ return !!db.budgetSet; }, loop:function(){ return gvLoopAmount(); } },
     { t:'Bills that come a few times a year', video:'budget', done:function(){ return gvP2Ok() || !p2Cats().some(function(c){ return p2State(c).unknown && !c.gvSkip; }); }, loop:function(){ return gvLoopYearly(); }, sum:function(){ return gvP2Ok() ? 'all set' : 'some to fill in later'; } },
     { t:'What we own and what we owe', video:'report', done:function(){ return gvBalOk() || !gvBalTodo().length; }, loop:function(){ return gvLoopBal(); }, sum:function(){ var nw = netWorth(); return 'net worth ' + money(nw.net, 1); } },
-    { t:'You’re set up', say:function(){ var x = three(pulseMonth()); return 'That’s everything. Your budget is ' + money(x.reg, 1) + ' a month' + (x.inc ? ' against income of ' + money(x.inc, 1) : '') + '. From now on, once a month, add the new statements and I’ll walk you through the month.'; }, ans:function(){ return [['gvEnd()', 'Done', 1]]; } } ] },
+    { t:'You’re set up', say:function(){ var x = three(pulseMonth()); return 'That’s everything. Your budget is ' + money(x.reg, 1) + ' a month' + (x.inc ? ' against income of ' + money(x.inc, 1) : '') + '. From now on, once a month, add the new statements and I’ll walk you through the month.'; }, ans:function(){ return [['gvFinish()', 'Done — show me the dashboard', 1]]; } } ] },
   month:{ t:'A new month', steps:[
     { t:'Bring in the statements', video:'train', done:function(){ return !pulseData(gv().m).miss.length; }, say:function(){ var P = pulseData(gv().m); return P.miss.length ? 'First, this month’s statements. ' + P.miss.length + ' account' + (P.miss.length===1?' is':'s are') + ' still missing a statement for ' + monthName(P.m) + '. Save the new downloads in your Family Money folder, then let me read it.' : 'Every account already has its statement for ' + monthName(P.m) + '. Nothing to bring in.'; },
       ans:function(){ var P = pulseData(gv().m); return P.miss.length ? [['newMonth()', 'Read my folder now', 1], ['openImport()', 'Pick the files myself'], ['gvNext()', 'Skip for now']] : [['gvNext()', 'Good — next', 1]]; }, sum:function(){ var P = pulseData(gv().m); return P.miss.length ? P.miss.length + ' still missing' : 'all in'; } },
