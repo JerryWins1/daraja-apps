@@ -1551,3 +1551,8 @@ Jerry, 28 Nov: the app had grown too complicated. It now comes in three levels:
 - Jerry, 28 Nov, on the iPad: "This screen doesn't work. I hit all those buttons and nothing happened." The chat's "read my folder" button opened the old setup screen over the chat, which then led to a second screen.
 - The chat's button now opens the picker itself: **Pick Family Money.zip** on an iPad or iPhone, or **My folder is ready — pick it** on a computer. No screen is laid over the chat and there's no second hop.
 - The chat message carries the iPad instructions: open Files, press and hold Family Money, tap Compress, then pick the zip. It also says which year is being worked on (Jan to Dec of this year unless changed in Settings), so there's no separate year screen.
+
+## v19.3 · ‹ Back in the chat
+
+- Jerry, 28 Nov: "Do we have a back button on the screen?… you can push one [answer] and get back, but it isn't that obvious."
+- Every chat question now has a **‹ Back** button first in the row of answers, once there's an answer to go back to. It reopens the last answer given, the same as tapping that answer. Going back to the level question asks it again, as long as no statements have been read yet; after that it opens the level screen.
