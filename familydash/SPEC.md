@@ -1493,3 +1493,9 @@ Jerry: there were too many "how often" and amount questions, one at a time.
 - **One at a time** is still there for anyone who prefers it.
 - **Changing your mind:** tapping either answer later reopens the whole card.
 - **Result:** a full setup of the example family went from 69 taps to 26.
+
+## v18.6 · how often, grouped by what the statements show
+
+- The how-often card in the chat now groups every kind of spending under a heading: every month about the same, every month the amount changes, a few times a year, once, only when something comes up. Each heading shows a count.
+- Items under "a few times a year" show when they came: "twice · Mar and Sep", "3 times · …", "about quarterly · …".
+- With five or more months of statements, a kind seen up to 40% of months (at most 4) is guessed as "a few times a year", so quarterly and twice-yearly bills land there instead of "the amount changes".
