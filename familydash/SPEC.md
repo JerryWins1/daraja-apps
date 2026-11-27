@@ -1454,3 +1454,14 @@ Jerry: "you need to be in control if it's guided… like a script… you ask me 
 - **Fewer side branches.** The check-up and report steps just say what they found and move on.
 - **Pausing.** ⏸ Pause (`gvPause`) stops the job; switching back to Guided carries on from the same question.
 - **Finishing.** When a job ends, the helper says what to do next. In Guided, the bottom bar is hidden.
+
+## v18.0 · 27 Nov · Guided is a chat
+
+Jerry: "almost a Claude chat style… ask questions, answer questions, give an answer, show something… a conversation block rather than a flat app."
+
+- **The whole screen is the chat** (`gvChat`). Messages run top to bottom with the newest at the bottom. The answer buttons sit just above a typing box. ✕ Back to the app leaves the conversation and keeps it.
+- **It starts at the very beginning.** "✨ Set it up with me, in a chat" on the welcome screen (`gvFresh`) opens it.
+- **Set up our money now starts with the household:** who is in it, the homes, the cars and the income (`gvLoopHH`, using the setup questions' own forms as cards in the chat). Then it goes through statements, sorting, how often, amounts, yearly bills and balances.
+- **Practice copy.** In the practice copy, "Use the example statements" (`gvExample`) loads the example family's statements and clears their budget, so setup can be seen with real-looking numbers.
+- **Typing.** A typed number answers an amount question (`gvType`). Anything else is asked of the AI.
+- **What is kept.** The conversation is saved (`db.gv.chat`, up to 120 messages).
