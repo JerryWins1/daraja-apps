@@ -1407,3 +1407,21 @@ Jerry, testing on his phone, found the box crowded and the explanation too gener
 ## v16.4 · 27 Nov · Videos play over the app
 
 The "▶ Watch how" buttons (`watchBtn`) now open the video over the app (`openVideo`), using the player's embed mode. When the video ends, its "Back to the app" button (or ✕) closes it (`closeVideo`) and leaves the person on the screen they were on. Before this, a finished video went back to the store.
+
+## v17.0 · 27 Nov · Guided mode
+
+The switch at the top of the main screen chooses between two ways of using the app (`gvSwitch`, `db.mode`):
+
+- **Do it myself** is the app as it was.
+- **✨ Guided** (`gvHTML`) is one screen that reads down like a conversation.
+
+**How Guided works**
+- **It starts with one question:** "What would you like to do today?" The answers are A new month, Sort payments, Set the budget, Something that comes once a year, and Just look around. Just look around switches back to Do it myself and starts the main-screen walk-through.
+- **Each job is a list of steps** (`GVJOBS`). Each step says what it is, offers answers, and folds into a ✓ line when it is finished. On a computer, a list of the job's steps sits beside the conversation.
+- **Payments are sorted in place:** the payee, the amount, the app's guess, a drop-down for anything else, and a "Not sure" button (`gvSortCard`, `gvSort`). Answers are saved through `gkSave` without opening any other screen (`GVQ`).
+- **Opened screens come back:** a screen a person opens from a step (yearly bills, the full report, the note) returns to the same step when it is closed.
+- **Steps that need explaining** offer "▶ Why I'm asking — a short video", which plays over the app.
+- **🔊 reads each step aloud.** An "Ask me anything" box answers through the AI when that connection is on.
+- **The walk-through offers stay out of Guided.**
+
+**The new-month job has five steps:** bring in the statements, sort what's new, the check-up, read the report, and the note together, which can also close the month.
