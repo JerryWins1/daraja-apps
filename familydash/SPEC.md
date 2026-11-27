@@ -1517,3 +1517,8 @@ Jerry: there were too many "how often" and amount questions, one at a time.
 - Skipping is still allowed in a chat. A skipped step is remembered when it isn't really done: statements to bring in, transfers without their other half, statements that don't balance, a yearly bill or balance answered "later", or a payment marked not sure.
 - A chat's last message lists what was set aside, each with a ↩ button straight back to it, and says it stays under Needs you.
 - Needs you on the main screen shows each one with its count until it's really done, then drops it. Statements and payments to sort were already there, so they aren't listed twice.
+
+## v18.9 · Done means done
+
+- When a chat job ends, the chat no longer starts another job by itself. That was why tapping Done after "A new month" kept going round. It says "Nicely done", recommends **Done — back to the app**, and offers the next job only as a second choice. If the next job would be the same one again, it doesn't offer it.
+- A chat started for the very first time still begins on its own.
