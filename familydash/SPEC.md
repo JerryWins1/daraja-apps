@@ -1545,3 +1545,9 @@ Jerry, 28 Nov: the app had grown too complicated. It now comes in three levels:
 - The setup chat's first message now explains how the app works: everything comes from statements, which are kept in one **Family Money** folder with a folder for each kind of account. The app reads them, sorts every line and asks only what it can't work out.
 - The chat's statements step shows the same folder map as Do it myself, right in the chat. It offers: Use the example statements (practice only), Make the empty folders for me, My folder is ready — read it, and Pick the files myself.
 - **Same folders at every level.** Levels 1 and 2 use folders 1–3: Bank accounts, Credit cards and Payment apps. Level 3 adds 4–8 in the same place with the same numbers, so moving up never moves anything (`lvTree()`). The empty-folders download follows the level.
+
+## v19.2 · the folder picker straight from the chat
+
+- Jerry, 28 Nov, on the iPad: "This screen doesn't work. I hit all those buttons and nothing happened." The chat's "read my folder" button opened the old setup screen over the chat, which then led to a second screen.
+- The chat's button now opens the picker itself: **Pick Family Money.zip** on an iPad or iPhone, or **My folder is ready — pick it** on a computer. No screen is laid over the chat and there's no second hop.
+- The chat message carries the iPad instructions: open Files, press and hold Family Money, tap Compress, then pick the zip. It also says which year is being worked on (Jan to Dec of this year unless changed in Settings), so there's no separate year screen.
