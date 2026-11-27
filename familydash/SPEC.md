@@ -1499,3 +1499,15 @@ Jerry: there were too many "how often" and amount questions, one at a time.
 - The how-often card in the chat now groups every kind of spending under a heading: every month about the same, every month the amount changes, a few times a year, once, only when something comes up. Each heading shows a count.
 - Items under "a few times a year" show when they came: "twice · Mar and Sep", "3 times · …", "about quarterly · …".
 - With five or more months of statements, a kind seen up to 40% of months (at most 4) is guessed as "a few times a year", so quarterly and twice-yearly bills land there instead of "the amount changes".
+
+## v18.7 · more of the app as a conversation
+
+- **Check the books** is a guided chat job. It asks about charges that may have come twice (one at a time, with Both are right / It's a mistake / Remove the copy), transfers whose other half hasn't been found, statements that don't balance (straight to what's different), and then the payments still to sort. Any step with nothing to do is ticked and skipped.
+- **Set the budget** (the chat's Change the budget) now stays in the chat. It uses the same grouped how-often card and amounts card as the setup, showing every line rather than only new ones. The amounts start at the current budget. Then come the yearly bills still unknown.
+- Each Do it myself list starts with a ✨ row that opens the same job as a chat:
+  - Budget › Go through it with me
+  - Check the books › Check them with me
+  - Reports › Go through the month with me
+  - Waiting on us › Sort them with me, when payments are waiting
+- A job started this way returns to the main screen when it's done.
+- When statements are missing, the screen behind "Statements missing" (the audit) now starts with 📂 Read my folder now, so it no longer takes three taps to get to it.
