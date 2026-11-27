@@ -1522,3 +1522,20 @@ Jerry: there were too many "how often" and amount questions, one at a time.
 
 - When a chat job ends, the chat no longer starts another job by itself. That was why tapping Done after "A new month" kept going round. It says "Nicely done", recommends **Done — back to the app**, and offers the next job only as a second choice. If the next job would be the same one again, it doesn't offer it.
 - A chat started for the very first time still begins on its own.
+
+## v19.0 · three levels (Release 1)
+
+Jerry, 28 Nov: the app had grown too complicated. It now comes in three levels:
+
+| Level | What it does | What's hidden |
+| --- | --- | --- |
+| **1 · Simple** | Bring in every statement (bank, cards, PayPal). Every transaction is sorted and tracked, and checking is balanced each month. | Budget, yearly bills, net worth, investments, household binder |
+| **2 · With a budget** | Level 1, plus the monthly budget, how often, the yearly bills, the check-up and report, and the giving goal. | Net worth, investments, household binder |
+| **3 · The whole family picture** | Everything, including net worth, investments, household, advisors, If I'm away, paid from where, this year vs last, and the money map. | Nothing |
+
+- **One screen picks the level.** It is the first question in the setup chat and the 🪜 row at the top of Settings. Each level is one button with its explanation on it, and one tap chooses it. No Next, no Save.
+- **Existing households** (no level saved) are treated as Level 3, so nothing disappears for anyone already using the app.
+- **Moving down hides screens; nothing entered is lost.** `db.level` holds the choice. `lvl()` reads it, and `budOn()` is "budget set and level 2+".
+- **At Level 1, the main screen counts what really came in and went out** (`flow1`), with no budget and no set-asides. It says "$X more came in than went out". The dials are Income in, Spent and Left over, and the month screen shows Does it balance and Where it went instead of the check-up and report.
+- **The setup chat skips the steps above the family's level** (`lv` on a step): how often, amounts and yearly bills from Level 2, balances from Level 3. The month chat's report is Level 2. The job menu hides Change the budget and Once a year below Level 2.
+- **The tool lists show only rows for the family's level.** Below Level 3, Household is accounts, backup and Settings.
