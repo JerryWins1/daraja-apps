@@ -1403,3 +1403,7 @@ Jerry, testing on his phone, found the box crowded and the explanation too gener
 - **One row of buttons.** The row holds ‹, Next or Got it, 🔊 and ⋯. Stop this one, Stop guiding me and Ask about this sit behind ⋯.
 - **Smaller on a phone.** On phones the box uses smaller type and is capped at 42% of the screen height.
 - **A hint for silent iPhones.** On an iPhone, 🔊 reminds the person that the silent switch also mutes reading aloud.
+
+## v16.4 · 27 Nov · Videos play over the app
+
+The "▶ Watch how" buttons (`watchBtn`) now open the video over the app (`openVideo`), using the player's embed mode. When the video ends, its "Back to the app" button (or ✕) closes it (`closeVideo`) and leaves the person on the screen they were on. Before this, a finished video went back to the store.
