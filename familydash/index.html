@@ -245,7 +245,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v18.2 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v18.3 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -2820,7 +2820,7 @@ function gaps(m){ return p1Cats().map(function(c){ var a = avgFor(c.id, addMonth
    A job is a short list of steps; each step says what it is, offers answers, and knows when it is done. Nothing pops up over it,
    except the screens a person chooses to open, which come back here when closed. */
 var GVQ = 0;
-function gvSwitch(){ if(!db || !(db.setup || db.peek)) return ''; var g = db.mode === 'guided'; return '<div class="gvSw" role="tablist" aria-label="How to use the app"><button class="' + (g ? '' : 'on') + '" onclick="gvMode(0)">Do it myself</button><button class="' + (g ? 'on' : '') + '" onclick="gvMode(1)">✨ Guided</button></div>'; }
+function gvSwitch(){ if(db && db.gv && db.gv.held) return '<button class="b primary full" style="margin:2px 0 10px;font-size:18px" onclick="gvMode(1)">▶ Continue where we left off</button>'; if(!db || !(db.setup || db.peek)) return ''; var g = db.mode === 'guided'; return '<div class="gvSw" role="tablist" aria-label="How to use the app"><button class="' + (g ? '' : 'on') + '" onclick="gvMode(0)">Do it myself</button><button class="' + (g ? 'on' : '') + '" onclick="gvMode(1)">✨ Guided</button></div>'; }
 function gvMode(on){ db.mode = on ? 'guided' : ''; if(on && db.gv){ db.gv.paused = 0; db.gv.last = ''; } save(); gdEnd(); render(); window.scrollTo(0, 0); }
 function gv(){ db.gv = db.gv || { job:'', step:0, log:[] }; return db.gv; }
 function gvSay(t, redo){ var G = gv(); G.log.push({ w:'me', t:t }); if(G.log.length > 30) G.log = G.log.slice(-30); G.chat = G.chat || []; if(G.cur) G.chat.push({ w:'ai', h:String(G.cur).replace(/<small>[\s\S]*?<\/small>/, '') }); G.chat.push({ w:'me', t:t, r:redo || '' }); G.cur = ''; if(G.chat.length > 120) G.chat = G.chat.slice(-120); }
@@ -2902,7 +2902,10 @@ function gvRedo(r){ var G = gv(), i = r.indexOf(':'), kind = r.slice(0, i), id =
   else if(kind === 'sort'){ delete db.asked[id]; }
   if(kind !== 'sort' || !GVJOBS[G.job]) G.job = 'setup'; G.step = 0; G.cur = ''; G.chat.push({ w:'ai', h:'Okay — let’s change that one.' }); save(); render(); }
 function gvHH(i){ var q = SQ[i]; if(q.save && q.save() === false) return; db.sqDone = db.sqDone || {}; db.sqDone[q.ask] = 1; if(!db.groups.length) rebuildPlan(); gvSay(q.key === 'ppl' && db.people ? db.people : q.key === 'inc' ? 'Income: ' + money(income(), 1) + ' a month' : q.key === 'cars' ? ((db.cars || []).length ? db.cars.join(', ') : 'No cars') : q.key === 'homes' ? (db.homes || []).join(' and ') : q.ask.replace(/<[^>]+>/g, '').slice(0, 60) + ' — done', 'sq:' + q.key); if(gv().edit) delete gv().edit[q.key]; save(); render(); }
-function gvChat(){ var G = gv(); G.chat = G.chat || []; var J = GVJOBS[G.job];
+/* v18.3 · Jerry, 27 Nov: "I have to leave now, so how do I stop and come back to this point? It needs to be a button to say pause and
+   continue where you left off." Pause keeps the conversation; the main screen then shows ▶ Continue where we left off. */
+function gvPauseChat(){ var G = gv(); G.held = 1; db.mode = ''; save(); render(); window.scrollTo(0, 0); toast('Paused. Tap ▶ Continue where we left off when you’re back.'); }
+function gvChat(){ var G = gv(); G.chat = G.chat || []; if(G.held){ G.held = 0; G.chat.push({ w:'ai', h:'Welcome back! Let’s pick up right where we left off.' }); save(); } var J = GVJOBS[G.job];
   if(!J && !G.paused){ var nj = !db.tx.length || !gvHHDone(GVHH) ? ['setup'] : gvNextJob(); G.job = nj[0]; G.step = 0; G.m = pulseMonth(); if(!G.chat.length) G.chat.push({ w:'ai', h:'Hello! I’ll walk you through your family’s money one question at a time. Answer with the buttons at the bottom, or type in your own words — you can ask me anything along the way.' }); save(); J = GVJOBS[G.job]; }
   var body = G.chat.slice(-60).map(function(m){ return m.w === 'me' ? (m.r ? '<button class="gvcM" style="border:0;font:inherit;font-weight:700;cursor:pointer;text-align:right" title="Tap to change this answer" onclick="gvRedo(\'' + m.r + '\')">' + esc(m.t) + ' <span style="opacity:.7;font-size:13px">✎</span></button>' : '<div class="gvcM">' + esc(m.t) + '</div>') : '<div class="gvcA">' + m.h + '</div>'; }).join(''), chips = '', card = '', cur = '', after = null;
   if(J){ var guard = 0; while(J.steps[G.step] && J.steps[G.step].done && J.steps[G.step].done() && guard++ < 12){ var sd = J.steps[G.step]; G.chat.push({ w:'ai', h:'✓ ' + esc(sd.t) + (sd.sum ? ' — ' + esc(sd.sum()) : '') }); G.step++; save(); }
@@ -2918,7 +2921,7 @@ function gvChat(){ var G = gv(); G.chat = G.chat || []; var J = GVJOBS[G.job];
     body += '<div class="gvcA">' + G.cur + '</div>'; chips = '<button class="rec" onclick="gvJob(\'' + nx[0] + '\')">Let’s do it</button><button onclick="gvMode(0)">Not now — back to the app</button>';
   }
   gvAfter._fn = after;
-  return '<div class="gvc" role="dialog" aria-label="Guided chat"><div class="gvcH"><b>✨ Family Money</b>' + (SPACE === 'practice' ? '<span class="pill">🧪 Practice</span>' : '') + '<button onclick="gvMode(0)">✕ Back to the app</button></div>'
+  return '<div class="gvc" role="dialog" aria-label="Guided chat"><div class="gvcH"><b>✨ Family Money</b>' + (SPACE === 'practice' ? '<span class="pill">🧪 Practice</span>' : '') + '<button onclick="gvPauseChat()">⏸ Pause — finish later</button></div>'
     + '<div class="gvcB" id="gvcB"><div class="gvcIn">' + body + '<div id="gvA"></div></div></div>'
     + '<div class="gvcF"><div class="in"><div class="gvcChips">' + chips + '</div><div class="gvcType"><input id="gvQ" placeholder="Type an answer or ask a question…" onkeydown="if(event.key===\'Enter\')gvType()"><button onclick="gvType()">Send</button></div></div></div></div>'; }
 function gvAfter(){ var f = gvAfter._fn; if(f) try{ f(); }catch(e){} setTimeout(function(){ var b = document.getElementById('gvcB'); if(b) b.scrollTop = b.scrollHeight; }, 30); }
@@ -3161,7 +3164,7 @@ function render(){ if(db && !render._cp){ render._cp = 1; try{ mkeyMove(); balLi
   if(PENDING_ENC){ bar.style.display = 'none'; main.innerHTML = lockHTML(); setTimeout(function(){ var e = document.getElementById('lkPass'); if(e) e.focus(); }, 50); return; }
   if(!db){ bar.style.display = 'none'; main.innerHTML = welcomeHTML(); return; }
   if(db.mode === 'guided'){ bar.style.display = 'none'; main.innerHTML = gvChat(); gvAfter(); return; }
-  if(!db.setup && !db.peek){ bar.style.display = 'none'; main.innerHTML = nextStepHTML() + (db.tx.length ? '<div class="card" style="text-align:center"><button class="b primary full" style="margin:0" onclick="db.peek=1;save();view=null;render();window.scrollTo(0,0)">📊 Show me the dashboard now</button><p class="sub" style="margin:6px 0 0;font-size:13px">The steps still to do stay on it, so you can come back to them.</p></div>' : '') + (db.tx.length ? askHTML().replace('</h2>', '</h2><p class="sub" style="margin:-4px 0 8px;font-size:13px">Answers get better once the budget is set — that’s near the end of setup.</p>') : '') + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
+  if(!db.setup && !db.peek){ bar.style.display = 'none'; main.innerHTML = (db.gv && db.gv.held ? gvSwitch() : '') + nextStepHTML() + (db.tx.length ? '<div class="card" style="text-align:center"><button class="b primary full" style="margin:0" onclick="db.peek=1;save();view=null;render();window.scrollTo(0,0)">📊 Show me the dashboard now</button><p class="sub" style="margin:6px 0 0;font-size:13px">The steps still to do stay on it, so you can come back to them.</p></div>' : '') + (db.tx.length ? askHTML().replace('</h2>', '</h2><p class="sub" style="margin:-4px 0 8px;font-size:13px">Answers get better once the budget is set — that’s near the end of setup.</p>') : '') + '<div class="card" style="text-align:center"><p class="sub" style="margin:0 0 6px">Everything so far is saved. Tap any step to go to it, or tick one off yourself.</p><button class="b" id="restartBtn" onclick="restartSetup()">Start setup over</button></div>'; return; }
   bar.style.display = '';
   var ms = months(); if(!view) view = ms.length ? (ms.indexOf(thisMonth()) >= 0 ? thisMonth() : ms[ms.length-1]) : thisMonth();
   var h = '', q = queue().length;
