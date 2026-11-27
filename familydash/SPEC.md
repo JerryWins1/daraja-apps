@@ -1465,3 +1465,12 @@ Jerry: "almost a Claude chat style… ask questions, answer questions, give an a
 - **Practice copy.** In the practice copy, "Use the example statements" (`gvExample`) loads the example family's statements and clears their budget, so setup can be seen with real-looking numbers.
 - **Typing.** A typed number answers an amount question (`gvType`). Anything else is asked of the AI.
 - **What is kept.** The conversation is saved (`db.gv.chat`, up to 120 messages).
+
+## v18.1–18.2 · 27 Nov · The chat checks what the statements already say
+
+- **The statements come in right after the names.** Homes, cars and income are then asked as "here's what I found — is that right?" (`gvLoopFound`):
+  - **Homes:** found from the states on the utility bills (`gvFoundHomes`).
+  - **Cars:** found from car loans and auto insurance (`gvFoundCars`).
+  - **Income:** found from regular deposits (`gvFoundInc`). Same-source deposits of different amounts, such as two people's Social Security, count as separate incomes, and the common sources get plain names (`gvIncName`).
+  - **Changing an answer:** "No, let me change it", or "＋ There's more" for income, opens the form already filled in with what was found.
+- **Tap any answer to change it.** Each answer in the chat can be tapped (✎). The question is then asked again and the chat carries on from there (`gvRedo`).
