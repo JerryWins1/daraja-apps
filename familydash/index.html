@@ -245,7 +245,7 @@
   </header>
   <div id="main"></div>
   <div class="give">If this helps your family, a gift to Loving InDeed helps an orphan or a student in Kenya stay in school. <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">Daraja store</a></div>
-  <p class="foot">Family Money Dashboard v18.5 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
+  <p class="foot">Family Money Dashboard v18.6 · 2026-11-27 · Daraja Studio · Free. No account. No bank login. Everything stays on this device. The AI only ever drafts; it never moves money.</p>
 </div>
 <div class="bar" id="bar" style="display:none"><div class="in">
   <button class="big one" id="addBtn" onclick="openImport()">＋ Add statements</button>
@@ -1732,7 +1732,7 @@ function rvTimeCats(){ var ms = months(), by = {};
   db.tx.forEach(function(t){ var c = cat(t.cat); if(!c || !counts(acct(t.a)) || t.amt <= 0 || !inWin(t)) return; var b = by[c.id] = by[c.id] || { c:c, m:{}, n:0, tot:0 }; b.m[t.d.slice(0,7)] = (b.m[t.d.slice(0,7)]||0) + t.amt; b.n++; b.tot += t.amt; });
   return Object.keys(by).map(function(k){ var b = by[k], v = Object.keys(b.m).map(function(m){ return b.m[m]; }), mean = b.tot / Math.max(1, ms.length), seen = v.length;
     var avgSeen = b.tot / seen, sd = Math.sqrt(v.reduce(function(s,x){ return s + Math.pow(x - avgSeen, 2); },0) / seen), cv = avgSeen ? sd / avgSeen : 0, sug;
-    if(seen >= Math.max(2, ms.length * .6)) sug = cv < .25 ? 'month' : 'var'; else if(seen <= 2 && ms.length >= 5) sug = 'year'; else sug = 'var';
+    if(seen >= Math.max(2, ms.length * .6)) sug = cv < .25 ? 'month' : 'var'; else if(ms.length >= 5 && seen <= Math.max(2, Math.min(4, Math.floor(ms.length * .4)))) sug = 'year';   /* v18.6 · quarterly and twice-a-year bills land in “a few times a year” */ else sug = 'var';
     var hi = Object.keys(b.m).sort(function(x,y){ return b.m[y] - b.m[x]; });
     if(/repair|upkeep|maintenance/i.test(b.c.name) && sug !== 'month') sug = 'need';   /* v17.3 · repairs come when something breaks */
     return { c:b.c, seen:seen, of:ms.length, n:b.n, tot:r2(b.tot), avg:r2(mean), hi:hi[0], lo:hi[hi.length-1], m:b.m, sug:b.c.timing || (part(b.c) === 2 ? 'year' : sug) }; }).sort(function(a,b){ return b.tot - a.tot; }); }
@@ -2833,8 +2833,14 @@ function gvNext(said){ var G = gv(), J = GVJOBS[G.job]; if(said) gvSay(said); va
    the app's guess already filled in, changed only where it is wrong, then one tap. One at a time is still there for anyone who wants it. */
 function gvLoopOftenAll(){ var G = gv(); if(G.oftOne) return gvLoopOften(); var L = rvTimeCats().filter(function(x){ return !x.c.timing; }); if(!L.length){ rvMark('time'); return null; }
   var opt = { month:'Every month · same', var:'Every month · changes', year:'A few times a year', once:'One time', need:'Only when it comes up' };
-  return { say:'Here’s how often I think each kind of spending comes, from your statements. Change any that are wrong, then tap <b>Yes, use these</b>.',
-    card:'<div class="gvcCard" style="display:grid;gap:6px">' + L.map(function(x){ return '<label style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin:0;font-weight:600"><span style="min-width:0">' + esc(catLabel(x.c)) + '<small style="display:block;color:var(--soft);font-weight:600">' + x.seen + ' of ' + x.of + ' months · ' + money(x.tot, 1) + '</small></span><select data-oft="' + x.c.id + '" style="width:auto;max-width:52%">' + Object.keys(opt).map(function(k){ return '<option value="' + k + '"' + (k === x.sug ? ' selected' : '') + '>' + opt[k] + '</option>'; }).join('') + '</select></label>'; }).join('') + '</div>',
+  /* v18.6 · Jerry: "you're going to know the frequency of most of them… you listed the ones that were monthly, bi-monthly, quarterly, every
+     6 months." The card is grouped by what the statements show, each group under its own heading, so a wrong one stands out. */
+  var GRP = [['month','Every month, about the same'],['var','Every month, the amount changes'],['year','A few times a year'],['once','Once — won’t repeat'],['need','Only when something comes up']], ord = {}; GRP.forEach(function(g, i){ ord[g[0]] = i; });
+  L = L.slice().sort(function(a, b){ return ((ord[a.sug] || 0) - (ord[b.sug] || 0)) || (b.tot - a.tot); });
+  var often = function(x){ if(x.sug !== 'year') return ''; var M = Object.keys(x.m || {}).sort().map(function(m){ return MONS[+m.slice(5) - 1]; }), n = M.length; return n >= 4 ? 'about quarterly · ' + M.join(', ') : n === 3 ? '3 times · ' + M.join(', ') : n === 2 ? 'twice · ' + M.join(' and ') : n ? 'once · ' + M[0] : ''; };
+  return { say:'Here’s how often each kind of spending comes, from your statements, grouped. Move any that are in the wrong group, then tap <b>Yes, use these</b>.',
+    card:'<div class="gvcCard" style="display:grid;gap:6px">' + L.map(function(x, i){ var head = !i || L[i - 1].sug !== x.sug ? '<div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin-top:' + (i ? '10px' : '0') + '">' + esc((GRP[ord[x.sug]] || [0, 'Other'])[1]) + ' · ' + L.filter(function(y){ return y.sug === x.sug; }).length + '</div>' : '';
+      return head + '<label style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin:0;font-weight:600"><span style="min-width:0">' + esc(catLabel(x.c)) + '<small style="display:block;color:var(--soft);font-weight:600">' + (often(x) || x.seen + ' of ' + x.of + ' months') + ' · ' + money(x.tot, 1) + '</small></span><select data-oft="' + x.c.id + '" style="width:auto;max-width:52%">' + Object.keys(opt).map(function(k){ return '<option value="' + k + '"' + (k === x.sug ? ' selected' : '') + '>' + opt[k] + '</option>'; }).join('') + '</select></label>'; }).join('') + '</div>',
     html:'<button class="rec" onclick="gvOftenAll()">Yes, use these</button><button onclick="gv().oftOne=1;save();render()">Go through them one at a time</button>' }; }
 function gvOftenAll(){ var n = 0; Array.prototype.forEach.call(document.querySelectorAll('[data-oft]'), function(el){ var x = rvTimeCats().filter(function(y){ return y.c.id === el.getAttribute('data-oft'); })[0]; if(x){ rvTimeApply(x, el.value); n++; } }); rvMark('time'); gvSay('How often: ' + n + ' kinds set', 'often:' + ((p1Cats()[0] || {}).id || '')); save(); render(); }
 function gvLoopAmountAll(){ var G = gv(); if(G.amtOne) return gvLoopAmount(); var A = averages(), L = p1Cats().filter(function(c){ return !c.variable && !c.gvAmt; }); if(!L.length){ db.budgetSet = true; save(); return null; }
