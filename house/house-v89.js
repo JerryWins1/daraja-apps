@@ -3936,6 +3936,7 @@
     + '.gdcType input{flex:1;min-width:0;font:inherit;font-size:16px;border:1.5px solid var(--line,#E3DED1);border-radius:14px;padding:12px}'
     + '.gdcType button{border:0;background:var(--accent,#2F6E52);color:#fff;border-radius:14px;min-height:48px;padding:0 18px;font:inherit;font-weight:800;cursor:pointer}'
     + '.gdCard{background:var(--surface,#fff);border:1.5px solid var(--line,#E3DED1);border-radius:16px;padding:12px 14px}'
+    + '.djGdRow{display:flex;align-items:center;gap:10px;width:100%;border:1.5px solid var(--line,#E3DED1);background:#fff;border-radius:16px;min-height:56px;padding:0 14px;font:inherit;font-size:16px;font-weight:700;text-align:left;cursor:pointer}'
     + '.gdPill{display:inline-block;background:#1B3A5C;color:#fff;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;letter-spacing:.04em}';
   function gdCSS(){ if(document.getElementById('djGuideCSS')) return;
     try{ var s = document.createElement('style'); s.id = 'djGuideCSS'; s.textContent = GD_CSS; document.head.appendChild(s); }catch(e){} }
