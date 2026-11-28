@@ -1345,6 +1345,73 @@ async function guide(b, port){
      /Made it/.test(await p.evaluate(() => (document.querySelector('.gdc .gdcIn') || {}).innerText || '')),
      String(await p.evaluate(() => djGuide.state().step)));
 
+  /* ── 28 Nov: seven things the Family Money chat found when it read djGuide against its
+     own, after Jerry had walked that chat screen by screen. Four were look-and-feel and are
+     one line each in the CSS; these three change behaviour, so they are measured.
+
+     Each of them would otherwise fail quietly: a job's closing words silently replaced by a
+     tick, a set-aside item silently dropped off the list, and Done redrawing before the app
+     had moved. */
+  await setup();
+  await p.evaluate(() => {
+    const G = window.__g;
+    G.pending = 2;                       /* two things set aside inside a step */
+    G.afterAt = null;
+    djGuide.define({
+      badge: '✨ Test app',
+      jobs: { j: { t: 'A job', steps: [
+        { t: 'Put one off', say: 'Shall we?', ans: () => [['djGuide.later("bills");djGuide.next()', 'Not now']] },
+        { t: 'The ending', say: 'Your budget is $6,980 a month.', ans: () => [['djGuide.end()', 'Finish']] },
+      ] } },
+      later: { bills: { t: 'Bills a few times a year', go: 'j', step: 0, n: () => G.pending } },
+      state: () => G.state, save: () => { G.saves++; },
+      render: () => { G.draws++; window.__redraw(); },
+      after: () => { G.afterAt = G.draws; },     /* which redraw had happened when Done ran */
+    });
+    djGuide.start('j'); window.__redraw();
+  });
+  await p.waitForTimeout(300);
+  await tap('Not now'); await p.waitForTimeout(300);
+
+  let t2 = await text();
+  ck('a job’s own closing words are not painted over with a tick',
+     /Your budget is \$6,980/.test(t2) && !/✓ A job — done/.test(t2), t2.slice(-220));
+  ck('something set aside INSIDE a step is still on the list',
+     /Bills a few times a year/.test(t2), t2.slice(-220));
+  ck('  with how many are waiting', /\(2\)/.test(t2), t2.slice(-220));
+  /* the app's own closing button stands; the ↩ list goes beside it, not instead of it.
+     A first draft of this check expected djGuide's own "Done for now" here and got the app's
+     "Finish" — which is right: on a step the app wrote, the button is the app's business.
+     djGuide supplies that label only when a job runs out of steps and nothing else has. */
+  ck('  the app’s own closing button stands, with the list beside it',
+     (await chips()).some(c => /Finish/.test(c)) && (await chips()).some(c => /↩/.test(c)),
+     JSON.stringify(await chips()));
+
+  /* it drops off by itself once the app says none are left */
+  await p.evaluate(() => { window.__g.pending = 0; window.__redraw(); });
+  await p.waitForTimeout(250);
+  t2 = await text();
+  ck('it drops off the list by itself once none are waiting',
+     !/Bills a few times a year/.test(t2.slice(-200)), t2.slice(-200));
+
+  const drawsBefore = await p.evaluate(() => window.__g.draws);
+  await tap('Finish'); await p.waitForTimeout(250);
+  ck('Done returns the app to its own screen BEFORE redrawing',
+     (await p.evaluate(() => window.__g.afterAt)) === drawsBefore,
+     JSON.stringify({ afterAt: await p.evaluate(() => window.__g.afterAt), drawsBefore }));
+
+  /* and the four that are look-and-feel, read off the live stylesheet rather than assumed */
+  const look = await p.evaluate(() => {
+    const el = document.querySelector('.gdc'), body = document.querySelector('.gdcB');
+    if (!el) return null;
+    const cs = getComputedStyle(el), cb = getComputedStyle(body);
+    return { z: cs.zIndex, grow: cb.flexGrow, minH: cb.minHeight };
+  });
+  ck('the chat sits below the app’s own screens, not above them',
+     look && +look.z <= 1000, JSON.stringify(look));
+  ck('a short conversation does not leave a gap down the screen',
+     look && look.grow === '0' && look.minH === '0px', JSON.stringify(look));
+
   await ctx.close();
 }
 

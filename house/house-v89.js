@@ -3918,14 +3918,25 @@
   function gdVal(v){ try{ return typeof v === 'function' ? v() : v; }catch(e){ return ''; } }
 
   /* the chat's own look. Kept here so every app's chat is the same chat. */
-  var GD_CSS = '.gdc{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;background:var(--paper,#FFFDF7);color:var(--ink,#1C2B29)}'
+  /* 28 Nov, from the Family Money chat after Jerry walked their chat screen by screen:
+     THE CHAT SITS BELOW THE APP'S OWN SCREENS, not above them. An answer in the chat can open
+     one ("Show me them", "See every statement"), and at the top of the stack the chat would
+     cover whatever it just opened. Family Money's own chat sits at 1000, under its sheets, and
+     that is the number here. An app that stacks differently sets --djg-z. */
+  var GD_CSS = '.gdc{position:fixed;inset:0;z-index:var(--djg-z,1000);display:flex;flex-direction:column;background:var(--paper,#FFFDF7);color:var(--ink,#1C2B29)}'
     + '.gdcH{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line,#E3DED1);font-size:17px;flex:0 0 auto}'
     + '.gdcH b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
     + '.gdcH button{border:1px solid var(--line,#E3DED1);background:#fff;border-radius:999px;min-height:44px;padding:0 14px;font:inherit;font-size:15px;font-weight:700;cursor:pointer}'
-    + '.gdcB{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px}'
+    /* flex:0 1 auto, not 1 1 auto. With 1 1 auto a short conversation is pinned to the top of a
+       tall screen and the answers to the very bottom, with nothing in between. Jerry, looking at
+       it: "Do you think that big gap should be there?" min-height:0 is what lets it still scroll. */
+    + '.gdcB{flex:0 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px}'
     + '.gdcIn{max-width:640px;margin:0 auto;display:grid;gap:10px}'
     + '.gdcA{background:#fff;border:1px solid var(--line,#E3DED1);border-radius:16px 16px 16px 4px;padding:12px 14px;font-size:17px;line-height:1.55;justify-self:start;max-width:92%}'
-    + '.gdcM{background:var(--accent,#2F6E52);color:#fff;border-radius:16px 16px 4px 16px;padding:10px 14px;font-size:16px;font-weight:700;justify-self:end;max-width:92%}'
+    /* an app whose accent is a warm colour sets --djg-me to the one it wants on a person's own
+       words; Family Money uses its dark blue. Explicit rather than chained to --brand, so no app
+       gets a colour it did not choose. */
+    + '.gdcM{background:var(--djg-me,var(--accent,#2F6E52));color:#fff;border-radius:16px 16px 4px 16px;padding:10px 14px;font-size:16px;font-weight:700;justify-self:end;max-width:92%}'
     + '.gdcF{flex:0 0 auto;border-top:1px solid var(--line,#E3DED1);background:var(--paper,#FFFDF7);padding:10px 14px calc(10px + env(safe-area-inset-bottom))}'
     + '.gdcF .in{max-width:640px;margin:0 auto}'
     + '.gdcChips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}'
@@ -3949,20 +3960,41 @@
     if(G.chat.length > 120) G.chat = G.chat.slice(-120); }
   function gdLastR(){ var C = gdS().chat || []; for(var i = C.length - 1; i >= 0; i--){ if(C[i].w === 'me' && C[i].r) return C[i].r; } return ''; }
 
-  /* WHAT WAS SKIPPED. A step marked `later` that is left unfinished is remembered by
-     name, listed when the job ends, and offered back with a ↩ button. Without this,
-     "I'll do it later" quietly means never. */
+  /* WHAT WAS SKIPPED, and it is not only whole steps.
+   *
+   * The first version of this remembered a step marked `later` and nothing else. Family
+   * Money sets things aside INSIDE a step too — one yearly bill answered "I don't know
+   * yet", one balance left for later, one payment marked "not sure" — and keeps them
+   * under Needs you on its main screen with a count until they are done. A list that only
+   * knows whole steps loses every one of those, and "later" quietly means never, which is
+   * the thing this exists to prevent.
+   *
+   * So an app can declare a catalogue of things that can be put off:
+   *     later: { yearly:{ t:'Bills a few times a year', go:'setup', n:function(){ ... } } }
+   * where n() counts how many are still waiting and go is the job to reopen. Anything in
+   * the catalogue drops off the list by itself the moment n() reaches zero, however it
+   * got done. A step's own `later:` key still works and needs no catalogue entry.
+   */
   function gdLater(k){ if(!k) return; var G = gdS(); G.later = G.later || {}; G.later[k] = 1; gdSave(); }
   function gdClearLater(k){ var G = gdS(); if(G.later) delete G.later[k]; gdSave(); }
-  function gdLeft(){ var G = gdS(), L = G.later || {}, out = [];
+  function gdLeft(){
+    /* an app that keeps its own list hands it over whole */
+    if(GD && typeof GD.left === 'function'){ try{ return GD.left() || []; }catch(e){ return []; } }
+    var G = gdS(), L = G.later || {}, CAT = (GD && GD.later) || {}, out = [];
     Object.keys(L).forEach(function(k){
+      var c = CAT[k];
+      if(c){
+        var n = 0; try{ n = c.n ? c.n() : 1; }catch(e){ n = 0; }
+        if(!n){ delete L[k]; return; }                 /* done another way */
+        out.push({ k:k, job:c.go || '', step:c.step == null ? 0 : c.step, t:c.t || k, n:n });
+        return;
+      }
       var job, idx = -1;
       Object.keys(GD.jobs).forEach(function(j){ (GD.jobs[j].steps || []).forEach(function(st, i){ if(st.later === k){ job = j; idx = i; } }); });
-      if(job == null) { delete L[k]; return; }
+      if(job == null){ delete L[k]; return; }
       var st = GD.jobs[job].steps[idx];
-      /* if it has since been done another way, it is not waiting any more */
       try{ if(st.done && st.done()){ delete L[k]; return; } }catch(e){}
-      out.push({ k:k, job:job, step:idx, t:st.t });
+      out.push({ k:k, job:job, step:idx, t:st.t, n:0 });
     });
     return out; }
 
@@ -4005,14 +4037,34 @@
     if(G.held){ G.held = 0; G.chat.push({ w:'ai', h:'Welcome back. Let’s pick up right where we left off.' }); gdSave(); }
     var J = gdJob(), nxt = J ? gdAdvance() : null, body, chips = '', card = '', after = null;
 
-    /* the job ran out of steps: say so, offer what is still waiting, and stop.
-       Done means done — it never starts the next job by itself. */
+    /* THE JOB RAN OUT OF STEPS.
+     *
+     * The last step's own words stand. An earlier version always wrote "✓ <job> — done."
+     * here, which painted over the ending a job had written for itself: Family Money's jobs
+     * finish on a step that says what came of it ("Your budget is $6,980 a month…"), and
+     * replacing that with a tick threw away the only part worth reading. So the tick is added
+     * only when the last thing said was not the job's own closing words.
+     *
+     * Under it goes what is still waiting, each with a way back in, and "Done for now",
+     * which is the honest label while something is still on the list. Done never starts the
+     * next job by itself.
+     */
     if(J && !nxt){
-      if(!G.ended || G.ended !== G.job){ G.ended = G.job; G.chat.push({ w:'ai', h:'✓ ' + esc(J.t) + ' — done.' }); }
+      if(!G.ended || G.ended !== G.job){
+        G.ended = G.job;
+        /* closing WORDS, not merely the last tick. A first version suppressed the job's line
+           whenever the transcript ended on anything from the helper, which included the tick
+           for the step that had just finished — so a job that simply ran out of steps lost its
+           ending entirely. A tick starts with ✓; the job's own closing sentence does not. */
+        var last = G.chat.length ? G.chat[G.chat.length - 1] : null;
+        var closedItself = !!(last && last.w === 'ai' && String(last.h || '').indexOf('✓') !== 0);
+        if(!closedItself) G.chat.push({ w:'ai', h:'✓ ' + esc(J.t) + ' — done.' });
+      }
       var left = gdLeft();
-      if(left.length) G.chat.push({ w:'ai', h:'Still waiting whenever you want it: ' + left.map(function(x){ return esc(x.t); }).join(' · ') });
+      if(left.length) G.chat.push({ w:'ai', h:'Still waiting whenever you want it: '
+        + left.map(function(x){ return esc(x.t) + (x.n > 1 ? ' (' + x.n + ')' : ''); }).join(' · ') });
       chips = left.map(function(x){ return '<button onclick="djGuide.back_to(' + gdQ(x.job) + ',' + x.step + ')">↩ ' + esc(x.t) + '</button>'; }).join('')
-            + '<button class="rec" onclick="djGuide.end()">Done</button>';
+            + '<button class="rec" onclick="djGuide.end()">' + (left.length ? 'Done for now' : 'Done') + '</button>';
       gdSave();
     }
 
@@ -4029,6 +4081,20 @@
       if(nxt.st.video && GD.video){ try{ why = ' ' + (GD.video(nxt.st.video) || ''); }catch(e){} }
       body += '<div class="gdcA">' + G.cur + why + '</div>' + card;
       chips = nxt.html;
+      /* ON THE LAST STEP, what is still waiting goes under the app's own words and its own
+         button, rather than only when a job runs out of steps. Family Money's jobs end on a
+         step that says what came of it and offers "Done for now"; without this the skipped
+         list simply never appeared for a job shaped that way, which is most of them. */
+      if(J.steps.indexOf(nxt.st) === J.steps.length - 1){
+        var lastLeft = gdLeft();
+        if(lastLeft.length){
+          G.chat.push({ w:'ai', h:'Still waiting whenever you want it: '
+            + lastLeft.map(function(x){ return esc(x.t) + (x.n > 1 ? ' (' + x.n + ')' : ''); }).join(' · ') });
+          body += '<div class="gdcA">' + G.chat[G.chat.length - 1].h + '</div>';
+          chips += lastLeft.map(function(x){ return '<button onclick="djGuide.back_to(' + gdQ(x.job) + ',' + x.step + ')">↩ ' + esc(x.t) + '</button>'; }).join('');
+          G.chat.pop();   /* shown under this step, not kept in the transcript twice */
+        }
+      }
       if(gdLastR()) chips = '<button class="gdBack" onclick="djGuide.back()" aria-label="Back to the last question">‹ Back</button>' + chips;
       gdSave();
     }
@@ -4056,7 +4122,9 @@
   function gdType(){
     var el = document.getElementById('gdcQ'), v = el ? String(el.value || '').trim() : '';
     if(!v) return;
-    var box = document.querySelector('.gdc .gdCard input[inputmode]');
+    /* any number box inside the chat, whatever class the app's card uses — looking only inside
+       .gdCard meant an app with its own card class silently lost this. */
+    var box = document.querySelector('.gdc input[inputmode]');
     if(box && /^[$£€]?\s*[\d,]+(\.\d+)?\s*$/.test(v)){
       box.value = v.replace(/[$£€,\s]/g, '');
       var b = box.parentNode && box.parentNode.querySelector('button'); if(b){ b.click(); return; }
@@ -4128,9 +4196,13 @@
     /* Pause keeps the place and comes back to it. Done clears the job and does not
        start another one by itself — Jerry asked for that specifically. */
     pause: function(){ var G = gdS(); G.held = 1; G.paused = 1; gdSave(); gdDraw(); try{ djNote('Paused. You can carry on where you left off.'); }catch(e){} },
+    /* after() runs BEFORE the redraw, not after it. An app that uses it to return to the
+       screen the chat was started from was being redrawn first and moved second, which showed
+       the wrong screen for a frame. */
     end: function(){ var G = gdS(); G.last = gdJob() ? gdJob().t : ''; G.job = ''; G.step = 0; G.cur = ''; G.ended = ''; G.paused = 1;
-      gdSave(); gdDraw(); try{ window.scrollTo(0, 0); }catch(e){}
-      if(GD && GD.after) try{ GD.after(); }catch(e){} },
+      gdSave();
+      if(GD && GD.after) try{ GD.after(); }catch(e){}
+      gdDraw(); try{ window.scrollTo(0, 0); }catch(e){} },
 
     /* the ✨ AI row that starts a job from a list of tools */
     row: function(job, label){ if(!gdOn()) return '';
