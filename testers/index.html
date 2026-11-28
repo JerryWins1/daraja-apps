@@ -146,7 +146,7 @@
     </div>
   </section>
 
-  <p class="foot">Testers’ List v1.9 · 2026-11-25 · Daraja Studio · <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">the store</a> · <a href="https://jerrywins1.github.io/daraja-apps/home/" style="color:var(--brand);font-weight:800">the door</a> · every app helps a student in Kenya stay in school</p>
+  <p class="foot">Testers’ List v1.10 · 2026-11-28 · Daraja Studio · <a href="https://jerrywins1.github.io/daraja-apps/shop/" style="color:var(--brand);font-weight:800">the store</a> · <a href="https://jerrywins1.github.io/daraja-apps/home/" style="color:var(--brand);font-weight:800">the door</a> · every app helps a student in Kenya stay in school</p>
 </div>
 
 <nav>
@@ -400,6 +400,7 @@ function tsDraw(){
       ${step.type?`<div class="tsType"><span class="small">Type this:</span> <code>${esc(step.type)}</code> <button class="ghost" id="tsCopy">Copy</button></div>`:''}
       <div class="lbl">You should see</div><p class="see">${escLinks(step.see)}</p>
       ${step.tip?`<p class="small tsTip">💡 ${escLinks(step.tip)}</p>`:''}
+      <div class="row" style="margin:10px 0 2px;align-items:center;gap:8px"><label class="btn ghost" for="tsFull" style="cursor:pointer">📷 ${tsPend[step.id]?'Change the screenshot':'Add a screenshot of what you see'}</label><input type="file" id="tsFull" accept="image/*" hidden>${tsPend[step.id]?`<img src="${tsPend[step.id]}" alt="your screenshot" style="height:56px;border-radius:8px;border:1px solid var(--line)"><span class="small">✓ ready</span>`:'<span class="small">on any step: it helps the person fixing the app</span>'}</div>
       <div id="tsAsk">${tsDraft&&tsDraft.sid===step.id?tsAskHTML(step):`
       <div class="tsAns">
         <button class="ok ${a&&a.a==='y'?'on':''}" data-ans="y">✅ It worked</button>
@@ -410,6 +411,7 @@ function tsDraw(){
     <div class="row tsNav"><button class="ghost" id="tsPrev" ${i===0?'disabled':''}>‹ Step back</button>${a&&i<N-1?'<button class="ghost" id="tsNext">Next step ›</button>':''}</div>
     <details class="vlist tsList"><summary>All ${N} steps</summary>${s.steps.map((x,j)=>{ const y=st.ans[x.id]; return `<div class="vrow" style="flex-wrap:nowrap"><span style="min-width:30px;font-weight:800">${y?(y.a==='y'?'✅':y.a==='n'?'❌':'🤷'):j+1}</span><span style="flex:1">${esc(x.do)}</span></div>`; }).join('')}</details>`;
   tsShown=Date.now();
+  { const f=$('tsFull'); if(f) f.onchange=e=>{ const fl=e.target.files&&e.target.files[0]; if(!fl) return; tsShotFull(fl).then(u=>{ if(u){ tsPend[step.id]=u; tsDraw(); } else toast('That picture would not load'); }); }; }
   $('tsBack').onclick=tsStop;
   $('tsOpen').onclick=()=>tsOpenApp(false);
   const c=$('tsCopy'); if(c) c.onclick=()=>{ const t=step.type; try{ const p=navigator.clipboard&&navigator.clipboard.writeText(t); if(p&&p.then) p.then(()=>toast('Copied — paste it in the app'),()=>toast('Type it in the app')); else toast('Type it in the app'); }catch(e){ toast('Type it in the app'); } };
@@ -459,6 +461,27 @@ function tsShrink(file){ return new Promise(res=>{ try{ const rd=new FileReader(
     for(const [w,q] of tries){ const sc=Math.min(1,w/im.width), c=document.createElement('canvas'); c.width=Math.max(1,Math.round(im.width*sc)); c.height=Math.max(1,Math.round(im.height*sc));
       c.getContext('2d').drawImage(im,0,0,c.width,c.height); out=c.toDataURL('image/jpeg',q); if(out.length<=14000) break; }
     res(out.length<=14000?out:''); }; im.onerror=()=>res(''); im.src=rd.result; }; rd.onerror=()=>res(''); rd.readAsDataURL(file); }catch(e){ res(''); } }); }
+/* 28 Nov: a full-size screenshot on ANY step (not only ❌ and 🤷), kept for the app's builder.
+   It is squeezed to ~1000 px wide (words stay readable, about 100-200 KB) and sent to the training database's
+   script_answers table (public key, like the Zuri testers' page), tagged with the app and the step. The app's chat reads
+   them with tools/shots/fetch.py. They never travel inside the text message to HQ. */
+const TS_SB='https://dlpdjdswzfpmqymdswsg.supabase.co', TS_SBK='sb_publishable_DiInkgUuq_4vl6M-rC7B_g_whohrpB1';
+const tsPend={}, tsRetry=[];
+function tsShotFull(file){ return new Promise(res=>{ try{ const rd=new FileReader(); rd.onload=()=>{ const im=new Image(); im.onload=()=>{
+    const tries=[[1000,.72],[900,.62],[800,.55],[700,.5],[600,.45]]; let out='';
+    for(const [w,q] of tries){ const sc=Math.min(1,w/im.width), c=document.createElement('canvas'); c.width=Math.max(1,Math.round(im.width*sc)); c.height=Math.max(1,Math.round(im.height*sc));
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height); out=c.toDataURL('image/jpeg',q); if(out.length<=260000) break; }
+    res(out.length<=400000?out:''); }; im.onerror=()=>res(''); im.src=rd.result; }; rd.onerror=()=>res(''); rd.readAsDataURL(file); }catch(e){ res(''); } }); }
+async function tsSendShot(row){
+  try{ const r=await fetch(TS_SB+'/rest/v1/script_answers',{method:'POST',headers:{apikey:TS_SBK,Authorization:'Bearer '+TS_SBK,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(row)}); return r.ok; }catch(e){ return false; } }
+async function tsShotsFlush(){ for(let i=tsRetry.length-1;i>=0;i--){ if(await tsSendShot(tsRetry[i])) tsRetry.splice(i,1); } }
+window.addEventListener('online',tsShotsFlush);
+function tsUploadShot(step,a,note,secs){
+  const shot=tsPend[step.id]; if(!shot) return; delete tsPend[step.id];
+  const row={tester:db.name||'Anonymous',role:'daraja',device:(db.id||'web').toString().slice(0,24),script_version:String(TS.version||'').slice(0,40),session:TSK,step:step.id,
+    answer:a==='y'?'ok':a==='n'?'fail':'unsure',note:note||null,shot,secs:secs||0,session_secs:0,client_at:new Date().toISOString()};
+  tsSendShot(row).then(ok=>{ if(!ok){ tsRetry.push(row); toast('The picture is saved on this phone and will go when there is signal'); } });
+}
 function tsAnswer(a){
   const st=tsState(TSK), step=TS.steps[Math.min(st.cur,TS.steps.length-1)], secs=Math.round((Date.now()-tsShown)/1000);
   if(secs<6) toast('Take your time — try it in the app first. You can change an answer any time.');
@@ -470,6 +493,7 @@ function tsCommit(step,a,note,shot,secs){
   const st=tsState(TSK), now=new Date().toISOString(), N=TS.steps.length, idx=TS.steps.indexOf(step);
   if(!st.started){ st.started=now; st.finishBy=new Date(Date.now()+7*864e5).toISOString(); }
   st.ans[step.id]={a,at:now,secs:secs||0,note:note||'',shot:shot||''}; st.last=now; st.cur=idx+1; tsDraft=null; save();
+  tsUploadShot(step,a,note,secs);
   tsQueue({action:'tried',app:('ts:'+TSK+':'+step.id+':'+a+':'+Math.min(secs||0,999)).slice(0,40)});
   if(a!=='y') tsQueue({action:'report',app:TSK,text:tsProblemText(step,idx,a,note,shot)});
   tsDraw(); window.scrollTo({top:0});
