@@ -1611,3 +1611,7 @@ Found by the new walk-through tester (scratchpad `walk.js` with `walk_jerry.json
 35. Each warning appears once in the report. When Big-bill savings shows it, Flags doesn't repeat it.
 
 Tested: two clean walk-throughs, iPad and phone, 53 steps each (`familydash/test/walk.js` with `walk_jerry.json`).
+
+## v19.8 · one way to set up
+
+36. The old 12-step "Setting up, step by step" checklist is gone from the first page and the main screen. It was a second, longer way to set up, and the chat does setup now. "Set up ours, screen by screen" stays for anyone who wants the old way.
