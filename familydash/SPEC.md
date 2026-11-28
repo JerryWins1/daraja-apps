@@ -1579,3 +1579,19 @@ Jerry, 28 Nov: the app had grown too complicated. It now comes in three levels:
 13. Moving up to Level 2 starts the budget in the chat, and the main screen's Make our budget does the same.
 
 Videos aren't re-checked or recorded during this run of fixes, at Jerry's request. They get one pass when the app is done.
+
+## v19.6 · round two of the walk-through (items 14–24)
+
+14. "Every month, about the same" only for amounts that barely move. Groceries, dining, gas, shopping, spending cash, hobbies, health and utilities are always planned as changing.
+15. Amounts in the budget card read as money ($2,150).
+16. A box for typing a number (a yearly bill, a balance, another amount) sits right under its question in the chat, with the cursor in it.
+17. The month chat's statements button opens the picker straight from the chat on a phone or tablet (Pick Family Money.zip).
+18. What the chat set up counts as answered in Settings: the three-part budget and which spending goes up and down.
+19. Moving up to Level 3 starts "What we own and what we owe" in the chat.
+20. With no balances in yet, Net worth reads "—" with "add your balances" (✨ AI), not $0. Tapping it asks again.
+21. The small "✓ …" messages show at the top of the screen and go when the screen changes or you answer.
+22. If every balance is put off, the chat says there's no net worth yet instead of "$0".
+23. "Later for all N" puts every balance off in one tap.
+24. During the chat, the house's "Saved ✓" badge sits at the top, clear of the answer buttons. This is set in the app's own CSS; the house layer is unchanged.
+
+Found by the new walk-through tester (scratchpad `walk.js` with `walk_jerry.json`): it taps only visible buttons by their words, from the real first page. It screenshots every step for Claude to read, and flags loops, repeated lines, floating helper boxes, and taps that change nothing. Items 21–24 came from Claude reading those screenshots.
