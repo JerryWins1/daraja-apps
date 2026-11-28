@@ -19,14 +19,15 @@ fs.mkdirSync(out, { recursive: true });
     const lines = await p.evaluate(() => [...document.querySelectorAll('.gvc .gvcA, .gvc .gvcM')].map(x => x.innerText.replace(/\s+/g, ' ').trim()).filter(Boolean));
     const dup = lines.filter((x, i) => i && x === lines[i - 1]); if(dup.length) issues.push(label + ': the same line twice in a row — "' + dup[0].slice(0, 60) + '"');
     const key = t; seen[key] = (seen[key] || 0) + 1; if(seen[key] === 3 && !/type|name the/.test(label)) issues.push(label + ': this screen has come back 3 times — a loop?');
+    const noOut = await p.evaluate(() => { const sh = document.getElementById('sheet'); if(!sh || !sh.classList.contains('on')) return false; return ![...document.querySelectorAll('#sheetIn button, #sheetIn a')].some(b => b.id !== 'sheetX' && /^(close|done|done for now|looks right)$/i.test((b.textContent || '').trim())); }); if(noOut) issues.push(label + ': no Close or Done at the bottom — only ✕ and Back');
     const box = await p.evaluate(() => !!document.getElementById('gdBox')); if(box) issues.push(label + ': a helper box is floating on screen');
     const faint = await p.evaluate(() => [...document.querySelectorAll('button, .tap')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.height && getComputedStyle(e).opacity < .5; }).length); if(faint > 2) issues.push(label + ': ' + faint + ' buttons look greyed out');
     return t; };
   const tapText = async (txt) => { // the visible button or row whose words match, the topmost layer first
     return p.evaluate((txt) => { const vis = e => { const r = e.getBoundingClientRect(); if(!r.width || !r.height) return false; const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none'; };
       const layers = [document.getElementById('sheet') && document.getElementById('sheet').classList.contains('on') ? document.getElementById('sheetIn') : null, document.querySelector('.gvc'), document.body].filter(Boolean);
-      for(const L of layers){ const all = [...L.querySelectorAll('button, .tap, a, label, [onclick]')].filter(vis); const hit = all.find(e => e.innerText.replace(/\s+/g, ' ').trim().toLowerCase() === txt.toLowerCase()) || all.find(e => e.innerText.replace(/\s+/g, ' ').toLowerCase().includes(txt.toLowerCase()));
-        if(hit){ hit.scrollIntoView({ block:'center' }); hit.click(); return hit.innerText.replace(/\s+/g, ' ').trim().slice(0, 60); } }
+      for(const L of layers){ const all = [...L.querySelectorAll('button, .tap, a, label, [onclick]')].filter(vis); const nz = x => x.toLowerCase().replace(/[^a-z0-9’' ]+/g, ' ').replace(/\s+/g, ' ').trim(); const hit = all.find(e => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase() === txt.toLowerCase()) || all.find(e => nz(e.innerText || e.textContent || '') === nz(txt)) || all.find(e => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').toLowerCase().includes(txt.toLowerCase()));
+        if(hit){ hit.scrollIntoView({ block:'center' }); hit.click(); return (hit.innerText || hit.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60); } }
       return null; }, txt); };
   let before = await look('start'); const log = [{ n:1, step:'start', shot:await snap('start') }];
   for(const st of S.steps){ const label = st.say || st.tap || st.type;

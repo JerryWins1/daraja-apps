@@ -1595,3 +1595,19 @@ Videos aren't re-checked or recorded during this run of fixes, at Jerry's reques
 24. During the chat, the house's "Saved ✓" badge sits at the top, clear of the answer buttons. This is set in the app's own CSS; the house layer is unchanged.
 
 Found by the new walk-through tester (scratchpad `walk.js` with `walk_jerry.json`): it taps only visible buttons by their words, from the real first page. It screenshots every step for Claude to read, and flags loops, repeated lines, floating helper boxes, and taps that change nothing. Items 21–24 came from Claude reading those screenshots.
+
+## v19.7 · walk-through round three (items 25–35)
+
+25. The household tick line says what was chosen ("Just me").
+26. The chat's answers follow right under a short conversation instead of sitting at the bottom of a tall screen.
+27. **One bar, always on screen:** ＋ Statements · 🔎 Check · 📝 Reports · 📊 Budget · 🏡 Household. Budget shows from Level 2. The tiles at the foot of the page are gone, and The month lives in Reports.
+28. Net worth and Investments agree. A balance not entered yet reads "— tap to enter" and is left out of both totals. With none entered, the title says "add your balances".
+29. If I'm away shows tidy names ("Lakeside Mortgage Servicing"), not the bank's capitals.
+30. Coming due drops dates already past.
+31. Where the money went draws each band as a shape whose ends are exactly its share of each bar, so nothing runs past the bottom.
+32. Every screen has a one-tap way back to the main screen. A screen without Close, Done or Looks right gets Close at the bottom. The walk-through tester now flags any screen without one.
+33. The month opens with ✨ AI Go through the month with me. The older five-step check-up screens are no longer offered there.
+34. The big-bill line never says a negative amount set aside. It says "$X more paid than was set aside so far".
+35. Each warning appears once in the report. When Big-bill savings shows it, Flags doesn't repeat it.
+
+Tested: two clean walk-throughs, iPad and phone, 53 steps each (`familydash/test/walk.js` with `walk_jerry.json`).
