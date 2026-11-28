@@ -2,7 +2,7 @@
 
     node tools/house/test.cjs            all of it
     node tools/house/test.cjs back       one group, named:
-                                         back, mic, tell, beta, hello, filekind, door, guard, fresh, same
+                                         back, mic, tell, beta, hello, filekind, door, guard, guide, fresh, same
 
 Needs Playwright, which a cloud container already has.
 
