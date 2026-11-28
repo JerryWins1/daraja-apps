@@ -3371,6 +3371,286 @@
     try{ new MutationObserver(function(recs){ for(var i=0;i<recs.length;i++){ var t=recs[i].target; if(!t || t.id==='djDock' || (dockEl && dockEl.contains(t)) || t.id==='djSaved' || t.id==='djHello') continue; clearTimeout(window.__djDockT2); window.__djDockT2=setTimeout(function(){ try{ dock(); liftTip(); floatPad(); yieldDock(); }catch(e){} }, 250); return; } }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class','style','hidden']}); }catch(e){}   /* a helper button made late (Ahead of It’s ? arrives after 1.5 s) still joins the dock */
     window.addEventListener('resize', fabLift); floorsSoon(); try{ tipWatch(); }catch(e){} [900, 2500, 6000].forEach(function(ms){ setTimeout(floatPad, ms); }); window.addEventListener('resize', floatPad);
     try{ new MutationObserver(function(){ clearTimeout(window.__djFloorT); window.__djFloorT=setTimeout(function(){ try{ floors(); }catch(e){} try{ inputFloor(); }catch(e){} try{ buttonInk(); }catch(e){} try{ backupHome(); }catch(e){} }, 250); }).observe(document.body,{childList:true,subtree:true}); }catch(e){} }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 16 · djGuide — ONE GUIDED CHAT, FOR EVERY APP (28 Nov 2026)
+   *
+   * Jerry: "How about the AI logic or option in the other apps that need a way to
+   * walk the user through the steps needed. Anything that AI can do it should."
+   *
+   * Family Money built this first and it works: a full-screen chat that walks a
+   * person through a multi-step job, one question at a time, with tap answers.
+   * It lived inside that one app. This is the engine lifted out so any app can
+   * declare its jobs and get the same thing — and so a fix to the chat is a fix
+   * everywhere rather than in one app.
+   *
+   * WHAT THE HOUSE OWNS: the chat shell and its look, the step runner, the
+   * transcript, tap-an-answer-to-change-it, the Back / Pause / Done controls,
+   * the typed box going to the AI, the list of what was skipped, and the ✨ AI pill.
+   *
+   * WHAT THE APP OWNS: its jobs and steps, and the four callbacks below. This
+   * split is not arbitrary. Family Money's undo knew about categories, accounts,
+   * levels and its own question bank — there is no way for a shared engine to
+   * guess what undoing an answer means in someone else's app. So the house
+   * REMEMBERS which answer can be changed and offers the button; the app is told
+   * which one and does the undoing.
+   *
+   * AN APP DECLARES ITSELF ONCE:
+   *
+   *   djGuide.define({
+   *     jobs:   GVJOBS,                        // required: { key: { t, steps:[...] } }
+   *     state:  function(){ return db.gv = db.gv || {}; },   // where the chat keeps its place
+   *     save:   function(){ save(); },         // persist that state
+   *     render: function(){ render(); },       // redraw the app behind the chat
+   *     level:  function(){ return lvl(); },   // optional: steps with a higher lv are skipped
+   *     redo:   function(key){ ... },          // optional: undo one answer (see above)
+   *     video:  function(k){ ... },            // optional: HTML for a "why I ask" button
+   *     badge:  '✨ Family Money',             // the chat's own heading
+   *     pill:   function(){ ... },             // optional: a pill beside it, e.g. 🧪 Practice
+   *     after:  function(){ ... }              // optional: what to suggest when a job ends
+   *   });
+   *
+   * A STEP is { t, lv?, video?, later?, done?, loop?, say?, ans?, sum? } — the same
+   * shape Family Money already uses, so it can move across without rewriting its jobs.
+   *   done()  true if the goal is already met: the step is ticked and skipped.
+   *   loop()  the next thing to ask about, as { say, card?, html?, after? }, or null
+   *           when there is nothing left — which ticks the step and moves on.
+   *   say     what the helper says; a string or a function.
+   *   ans()   the tap answers, as [[javascript, label, recommended?], ...].
+   *   sum()   one line for the ticked list.
+   *
+   * AN APP WITH ONE SCREEN AND NO MULTI-STEP JOB SHOULD NOT USE THIS. It already
+   * has the ✨ Ask box, and a chat in front of a single button is a hurdle, not help.
+   * ────────────────────────────────────────────────────────────────────── */
+  var GD = null;                  /* what the app declared */
+  function gdOn(){ return !!(GD && GD.jobs); }
+  function gdS(){ try{ return (GD.state && GD.state()) || {}; }catch(e){ return {}; } }
+  function gdSave(){ try{ GD.save && GD.save(); }catch(e){} }
+  function gdDraw(){ try{ GD.render && GD.render(); }catch(e){} }
+  function gdLvl(){ try{ return (GD.level && GD.level()) || 0; }catch(e){ return 0; } }
+  function gdJob(){ return gdOn() && GD.jobs[gdS().job]; }
+  function gdVal(v){ try{ return typeof v === 'function' ? v() : v; }catch(e){ return ''; } }
+
+  /* the chat's own look. Kept here so every app's chat is the same chat. */
+  var GD_CSS = '.gdc{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;background:var(--paper,#FFFDF7);color:var(--ink,#1C2B29)}'
+    + '.gdcH{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line,#E3DED1);font-size:17px;flex:0 0 auto}'
+    + '.gdcH b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    + '.gdcH button{border:1px solid var(--line,#E3DED1);background:#fff;border-radius:999px;min-height:44px;padding:0 14px;font:inherit;font-size:15px;font-weight:700;cursor:pointer}'
+    + '.gdcB{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px}'
+    + '.gdcIn{max-width:640px;margin:0 auto;display:grid;gap:10px}'
+    + '.gdcA{background:#fff;border:1px solid var(--line,#E3DED1);border-radius:16px 16px 16px 4px;padding:12px 14px;font-size:17px;line-height:1.55;justify-self:start;max-width:92%}'
+    + '.gdcM{background:var(--accent,#2F6E52);color:#fff;border-radius:16px 16px 4px 16px;padding:10px 14px;font-size:16px;font-weight:700;justify-self:end;max-width:92%}'
+    + '.gdcF{flex:0 0 auto;border-top:1px solid var(--line,#E3DED1);background:var(--paper,#FFFDF7);padding:10px 14px calc(10px + env(safe-area-inset-bottom))}'
+    + '.gdcF .in{max-width:640px;margin:0 auto}'
+    + '.gdcChips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}'
+    + '.gdcChips button{border:1.5px solid var(--line,#E3DED1);background:#fff;border-radius:999px;min-height:48px;padding:0 16px;font:inherit;font-size:16px;font-weight:700;cursor:pointer}'
+    + '.gdcChips button.rec{background:var(--accent,#2F6E52);color:#fff;border-color:var(--accent,#2F6E52)}'
+    + '.gdcChips .gdBack{background:transparent;border-style:dashed}'
+    + '.gdcType{display:flex;gap:8px}'
+    + '.gdcType input{flex:1;min-width:0;font:inherit;font-size:16px;border:1.5px solid var(--line,#E3DED1);border-radius:14px;padding:12px}'
+    + '.gdcType button{border:0;background:var(--accent,#2F6E52);color:#fff;border-radius:14px;min-height:48px;padding:0 18px;font:inherit;font-weight:800;cursor:pointer}'
+    + '.gdCard{background:var(--surface,#fff);border:1.5px solid var(--line,#E3DED1);border-radius:16px;padding:12px 14px}'
+    + '.djGdRow{display:flex;align-items:center;gap:10px;width:100%;border:1.5px solid var(--line,#E3DED1);background:#fff;border-radius:16px;min-height:56px;padding:0 14px;font:inherit;font-size:16px;font-weight:700;text-align:left;cursor:pointer}'
+    + '.gdPill{display:inline-block;background:#1B3A5C;color:#fff;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;letter-spacing:.04em}';
+  function gdCSS(){ if(document.getElementById('djGuideCSS')) return;
+    try{ var s = document.createElement('style'); s.id = 'djGuideCSS'; s.textContent = GD_CSS; document.head.appendChild(s); }catch(e){} }
+
+  /* the transcript. `r` on a line from the person is the key their answer can be
+     changed by: it is what puts the ✎ on the bubble and what ‹ Back sends to the app. */
+  function gdSay(t, redo){ var G = gdS(); G.chat = G.chat || [];
+    if(G.cur) G.chat.push({ w:'ai', h:String(G.cur) });
+    G.chat.push({ w:'me', t:String(t), r:redo || '' }); G.cur = '';
+    if(G.chat.length > 120) G.chat = G.chat.slice(-120); }
+  function gdLastR(){ var C = gdS().chat || []; for(var i = C.length - 1; i >= 0; i--){ if(C[i].w === 'me' && C[i].r) return C[i].r; } return ''; }
+
+  /* WHAT WAS SKIPPED. A step marked `later` that is left unfinished is remembered by
+     name, listed when the job ends, and offered back with a ↩ button. Without this,
+     "I'll do it later" quietly means never. */
+  function gdLater(k){ if(!k) return; var G = gdS(); G.later = G.later || {}; G.later[k] = 1; gdSave(); }
+  function gdClearLater(k){ var G = gdS(); if(G.later) delete G.later[k]; gdSave(); }
+  function gdLeft(){ var G = gdS(), L = G.later || {}, out = [];
+    Object.keys(L).forEach(function(k){
+      var job, idx = -1;
+      Object.keys(GD.jobs).forEach(function(j){ (GD.jobs[j].steps || []).forEach(function(st, i){ if(st.later === k){ job = j; idx = i; } }); });
+      if(job == null) { delete L[k]; return; }
+      var st = GD.jobs[job].steps[idx];
+      /* if it has since been done another way, it is not waiting any more */
+      try{ if(st.done && st.done()){ delete L[k]; return; } }catch(e){}
+      out.push({ k:k, job:job, step:idx, t:st.t });
+    });
+    return out; }
+
+  /* ── the step runner ──────────────────────────────────────────────────
+     Walks forward from where the chat is until it finds a step that actually has
+     something to ask. A step is skipped, silently, when it is above the family's
+     level; ticked and skipped when its goal is already met; and ticked when its
+     loop runs out of items. The guard is not decoration: a `done` that never
+     becomes true and a `loop` that always returns null would spin forever, and
+     the person would see a frozen screen with no clue why. */
+  function gdAdvance(){
+    var G = gdS(), J = gdJob(), guard = 0;
+    if(!J) return null;
+    while(J.steps[G.step] && guard++ < 60){
+      var st = J.steps[G.step];
+      if((st.lv || 0) > gdLvl()){ G.step++; continue; }
+      var met = false; try{ met = !!(st.done && st.done()); }catch(e){}
+      if(met){ gdTick(st); G.step++; continue; }
+      if(st.loop){
+        var lc = null; try{ lc = st.loop(); }catch(e){ lc = null; }
+        if(!lc){ gdTick(st); G.step++; continue; }
+        return { st:st, say:lc.say, card:lc.card || '', html:lc.html || '', after:lc.after };
+      }
+      return { st:st, say:gdVal(st.say), card:'', html:gdAns(st), after:null };
+    }
+    return null;   /* the job is finished */
+  }
+  function gdTick(st){ var G = gdS(); G.tk = G.tk || {};
+    if(G.tk[st.t]) return; G.tk[st.t] = 1;
+    var sum = ''; try{ sum = st.sum ? st.sum() : ''; }catch(e){}
+    G.chat = G.chat || []; G.chat.push({ w:'ai', h:'✓ ' + esc(st.t) + (sum ? ' — ' + esc(sum) : '') }); }
+  function gdAns(st){ var A = []; try{ A = (st.ans && st.ans()) || []; }catch(e){ A = []; }
+    if(!A.length) A = [['djGuide.next()', 'Next', 1]];
+    return A.map(function(a){ return '<button' + (a[2] ? ' class="rec"' : '') + ' onclick="djGuide.do(' + gdQ(a[0]) + ',' + gdQ(a[1]) + ')">' + esc(a[1]) + '</button>'; }).join(''); }
+  function gdQ(s){ return JSON.stringify(String(s == null ? '' : s)).split('"').join('&quot;'); }
+
+  /* ── the chat itself ────────────────────────────────────────────────── */
+  function gdChatHTML(){
+    var G = gdS(); G.chat = G.chat || [];
+    if(G.held){ G.held = 0; G.chat.push({ w:'ai', h:'Welcome back. Let’s pick up right where we left off.' }); gdSave(); }
+    var J = gdJob(), nxt = J ? gdAdvance() : null, body, chips = '', card = '', after = null;
+
+    /* the job ran out of steps: say so, offer what is still waiting, and stop.
+       Done means done — it never starts the next job by itself. */
+    if(J && !nxt){
+      if(!G.ended || G.ended !== G.job){ G.ended = G.job; G.chat.push({ w:'ai', h:'✓ ' + esc(J.t) + ' — done.' }); }
+      var left = gdLeft();
+      if(left.length) G.chat.push({ w:'ai', h:'Still waiting whenever you want it: ' + left.map(function(x){ return esc(x.t); }).join(' · ') });
+      chips = left.map(function(x){ return '<button onclick="djGuide.back_to(' + gdQ(x.job) + ',' + x.step + ')">↩ ' + esc(x.t) + '</button>'; }).join('')
+            + '<button class="rec" onclick="djGuide.end()">Done</button>';
+      gdSave();
+    }
+
+    body = G.chat.slice(-60).map(function(m){
+      if(m.w !== 'me') return '<div class="gdcA">' + m.h + '</div>';
+      return m.r
+        ? '<button class="gdcM" style="border:0;font:inherit;cursor:pointer;text-align:right" title="Tap to change this answer" onclick="djGuide.redo(' + gdQ(m.r) + ')">' + esc(m.t) + ' <span style="opacity:.75;font-size:13px">✎</span></button>'
+        : '<div class="gdcM">' + esc(m.t) + '</div>';
+    }).join('');
+
+    if(nxt){
+      G.cur = nxt.say || ''; card = nxt.card; after = nxt.after;
+      var why = '';
+      if(nxt.st.video && GD.video){ try{ why = ' ' + (GD.video(nxt.st.video) || ''); }catch(e){} }
+      body += '<div class="gdcA">' + G.cur + why + '</div>' + card;
+      chips = nxt.html;
+      if(gdLastR()) chips = '<button class="gdBack" onclick="djGuide.back()" aria-label="Back to the last question">‹ Back</button>' + chips;
+      gdSave();
+    }
+
+    var pill = '';
+    try{ var p = GD.pill && GD.pill(); if(p) pill = ' <span class="gdPill">' + esc(p) + '</span>'; }catch(e){}
+    setTimeout(function(){
+      var b = document.getElementById('gdcB'); if(b) b.scrollTop = b.scrollHeight;
+      if(after) try{ after(); }catch(e){}
+    }, 30);
+
+    return '<div class="gdc" role="dialog" aria-label="Guided chat"><div class="gdcH"><b>' + esc(GD.badge || '✨ Guided') + '</b>' + pill
+      + '<button onclick="djGuide.pause()">⏸ Pause</button></div>'
+      + '<div class="gdcB" id="gdcB"><div class="gdcIn">' + body + '<div id="gdcA"></div></div></div>'
+      + '<div class="gdcF"><div class="in"><div class="gdcChips">' + chips + '</div>'
+      + '<div class="gdcType"><input id="gdcQ" placeholder="Type an answer or ask a question…" onkeydown="if(event.key===\'Enter\')djGuide.type()"><button onclick="djGuide.type()">Send</button></div>'
+      + '</div></div></div>';
+  }
+
+  /* A TYPED ANSWER. If the step put a number box on screen and what was typed is a
+     number, it goes in that box rather than to the AI — someone answering "250" in
+     the wrong place should not get a paragraph back about budgeting. Anything else
+     is a real question and goes through the house's own AI, which shows the words
+     before it sends, like every other AI path here. */
+  function gdType(){
+    var el = document.getElementById('gdcQ'), v = el ? String(el.value || '').trim() : '';
+    if(!v) return;
+    var box = document.querySelector('.gdc .gdCard input[inputmode]');
+    if(box && /^[$£€]?\s*[\d,]+(\.\d+)?\s*$/.test(v)){
+      box.value = v.replace(/[$£€,\s]/g, '');
+      var b = box.parentNode && box.parentNode.querySelector('button'); if(b){ b.click(); return; }
+    }
+    var G = gdS(); G.chat = G.chat || [];
+    if(G.cur) G.chat.push({ w:'ai', h:G.cur });
+    G.chat.push({ w:'me', t:v }); G.cur = ''; gdSave();
+    if(el) el.value = '';
+    var A = document.getElementById('gdcA'); if(A) A.innerHTML = '<div class="gdcA">Thinking…</div>';
+    var J = gdJob(), st = J && J.steps[gdS().step];
+    djAI.ask({ title:'✨ Ask', want:'text', __guide:1,
+      prompt:'You are a warm, patient helper chatting with an older person, walking them through one step at a time. '
+        + (J ? 'Right now you are doing: ' + J.t + (st ? ', at the step: ' + st.t : '') + '. ' : '')
+        + 'Answer in two or three short sentences, plainly, and do not invent anything about their own figures. '
+        + 'Their question: ' + v,
+      onResult:function(ans){ var G2 = gdS(); G2.chat = G2.chat || []; G2.chat.push({ w:'ai', h:esc(String(ans)) }); gdSave(); gdDraw(); }
+    });
+  }
+
+  /* ── what an app calls ──────────────────────────────────────────────── */
+  window.djGuide = {
+    define: function(o){ GD = o || null; gdCSS(); return this; },
+    on: gdOn,
+    state: gdS,
+
+    /* the chat's HTML, for the app to put on screen while it is in guided mode. */
+    html: function(){ if(!gdOn()) return ''; gdCSS(); return gdChatHTML(); },
+
+    start: function(job){ if(!gdOn()) return; var G = gdS();
+      G.job = job; G.step = 0; G.chat = []; G.tk = {}; G.cur = ''; G.ended = ''; G.paused = 0; G.held = 0;
+      var J = GD.jobs[job]; if(J) { G.chat.push({ w:'ai', h:esc(J.t) }); }
+      gdSave(); gdDraw(); try{ window.scrollTo(0, 0); }catch(e){} },
+
+    /* a tap answer: say it in the transcript, then run whatever the app asked for. */
+    do: function(js, said){ if(!gdOn()) return;
+      if(said) gdSay(said);
+      var G = gdS(), J = gdJob(), st = J && J.steps[G.step];
+      if(js === 'djGuide.next()' && st && st.later){ var met = false; try{ met = !!(st.done && st.done()); }catch(e){} if(!met) gdLater(st.later); }
+      gdSave();
+      try{ (new Function(js))(); }catch(e){ try{ djNote('That did not work.'); }catch(e2){} gdDraw(); } },
+
+    next: function(said){ if(!gdOn()) return; var G = gdS();
+      if(said) gdSay(said);
+      G.step++; gdSave(); gdDraw(); },
+
+    say: function(t, redo){ gdSay(t, redo); gdSave(); },
+    later: gdLater,
+    left: gdLeft,
+    type: gdType,
+
+    /* ‹ Back. The house knows WHICH answer can be undone; only the app knows what
+       undoing it means, so it is handed over. An app with no redo() simply has no
+       Back button, which is better than one that pretends. */
+    back: function(){ var r = gdLastR(); if(r) this.redo(r); },
+    redo: function(key){ if(!gdOn() || !GD.redo) return;
+      var G = gdS(), C = G.chat || [];
+      for(var i = C.length - 1; i >= 0; i--){ if(C[i].w === 'me' && C[i].r === key){ G.chat = C.slice(0, i); break; } }
+      G.tk = {}; G.cur = ''; G.ended = '';
+      try{ GD.redo(key); }catch(e){}
+      gdSave(); gdDraw(); },
+
+    /* jump back to a step that was left for later */
+    back_to: function(job, step){ if(!gdOn()) return; var G = gdS();
+      var J = GD.jobs[job]; if(!J) return;
+      var st = J.steps[step]; if(st && st.later) gdClearLater(st.later);
+      G.job = job; G.step = step; G.ended = ''; G.tk = {}; G.cur = '';
+      gdSave(); gdDraw(); },
+
+    /* Pause keeps the place and comes back to it. Done clears the job and does not
+       start another one by itself — Jerry asked for that specifically. */
+    pause: function(){ var G = gdS(); G.held = 1; G.paused = 1; gdSave(); gdDraw(); try{ djNote('Paused. You can carry on where you left off.'); }catch(e){} },
+    end: function(){ var G = gdS(); G.last = gdJob() ? gdJob().t : ''; G.job = ''; G.step = 0; G.cur = ''; G.ended = ''; G.paused = 1;
+      gdSave(); gdDraw(); try{ window.scrollTo(0, 0); }catch(e){}
+      if(GD && GD.after) try{ GD.after(); }catch(e){} },
+
+    /* the ✨ AI row that starts a job from a list of tools */
+    row: function(job, label){ if(!gdOn()) return '';
+      return '<button class="djGdRow" onclick="djGuide.start(' + gdQ(job) + ')"><span class="gdPill">✨ AI</span> ' + esc(label || (GD.jobs[job] || {}).t || '') + '</button>'; }
+  };
+
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();

@@ -1205,6 +1205,149 @@ async function guard(b, port){
   }
 }
 
+/* 28 Nov 2026. Jerry: "the AI logic or option in the other apps that need a way to walk
+   the user through the steps needed. Anything that AI can do it should." Family Money's
+   guided chat moved into the house so every app can declare jobs and get the same one.
+
+   These drive a job declared here rather than any real app's, so the engine is what is
+   being graded and a change to Family Money cannot quietly break or fix them.
+
+   Four of these cover things that fail silently:
+     - a step whose goal is already met must be TICKED AND SKIPPED, not asked again. An
+       engine that re-asks looks like it is working.
+     - a step above the family's level must vanish without a word.
+     - a step left for later must come back at the end with a way in. "Later" that means
+       never is the whole reason the skipped list exists.
+     - a job that can never finish must not spin. A done() that is never true and a loop()
+       that always returns null is an infinite walk, and on a phone it is a frozen screen
+       with nothing on it to say why. */
+async function guide(b, port){
+  console.log('\nThe guided chat \u2014 one engine, every app');
+  const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  const p = await open(ctx, port, 'advent');
+
+  /* a job of our own, with every shape of step the engine claims to handle */
+  const setup = async (over = {}) => p.evaluate((o) => {
+    window.__g = { state:{}, saves:0, draws:0, redone:[], level:1, items:['milk','bread'], met:false, spin:false };
+    const G = window.__g;
+    window.__host = document.getElementById('gdHost') || (() => {
+      const d = document.createElement('div'); d.id = 'gdHost'; document.body.appendChild(d); return d;
+    })();
+    djGuide.define({
+      badge: '\u2728 Test app',
+      jobs: {
+        j1: { t: 'The job', steps: [
+          { t: 'Already done', later:'a', done: () => true, sum: () => 'nothing to do' },
+          { t: 'Too advanced', lv: 9, done: () => false },
+          { t: 'One at a time', loop: () => G.items.length
+              ? { say: 'What about <b>' + G.items[0] + '</b>?',
+                  card: '<div class="gdCard"><input inputmode="decimal" id="num"><button onclick="window.__g.items.shift();djGuide.say(\'set\',\'k:\'+Date.now());djGuide.state().cur=\'\';window.__redraw()">Save</button></div>',
+                  html: '<button onclick="window.__g.items.shift();djGuide.say(\'skip\',\'k:x\');window.__redraw()">Skip it</button>' }
+              : null,
+            sum: () => 'all of them' },
+          { t: 'Left for later', later: 'wait', done: () => G.met,
+            say: 'Shall we do the slow one?', ans: () => [['djGuide.next()', 'Not now']] },
+          { t: 'The spinner', done: () => !G.spin ? true : false, loop: () => null },
+        ] },
+        j2: { t: 'Another job', steps: [ { t: 'Only step', say: 'Hello from j2', ans: () => [['djGuide.end()', 'Finish']] } ] },
+      },
+      state: () => G.state,
+      save: () => { G.saves++; },
+      render: () => { G.draws++; window.__redraw(); },
+      level: () => G.level,
+      redo: (k) => { G.redone.push(k); },
+      pill: () => 'test',
+    });
+    window.__redraw = () => { window.__host.innerHTML = djGuide.html(); };
+    Object.assign(G, o);
+  }, over);
+
+  const text = () => p.evaluate(() => (document.querySelector('.gdc .gdcIn') || {}).innerText || '');
+  const chips = () => p.evaluate(() => Array.from(document.querySelectorAll('.gdc .gdcChips button')).map(b => b.textContent.trim()));
+  const tap = (label) => p.evaluate((l) => {
+    const b = Array.from(document.querySelectorAll('.gdc .gdcChips button, .gdc .gdCard button')).find(x => x.textContent.trim().includes(l));
+    if (b) b.click(); return !!b;
+  }, label);
+
+  await setup();
+  await p.evaluate(() => { djGuide.start('j1'); window.__redraw(); });
+  await p.waitForTimeout(300);
+
+  let t = await text();
+  ck('a step whose goal is already met is ticked, not asked', /\u2713 Already done/.test(t), t.slice(0, 160));
+  ck('  and its summary is shown with the tick', /nothing to do/.test(t), t.slice(0, 160));
+  ck('a step above the level vanishes without a word', !/Too advanced/.test(t), t.slice(0, 200));
+  ck('the loop asks about the first item', /What about milk/.test(t), t.slice(0, 200));
+
+  ck('there is no Back button before any answer', !(await chips()).some(c => /Back/.test(c)), JSON.stringify(await chips()));
+
+  await tap('Skip it'); await p.waitForTimeout(250);
+  t = await text();
+  ck('answering moves to the next item', /What about bread/.test(t), t.slice(-200));
+  ck('the answer is in the transcript', /skip/.test(t), t.slice(-200));
+  ck('and Back appears once there is something to undo', (await chips()).some(c => /Back/.test(c)), JSON.stringify(await chips()));
+
+  await tap('Back'); await p.waitForTimeout(250);
+  ck('Back hands the key to the app, which owns the undoing',
+     (await p.evaluate(() => window.__g.redone.length)) === 1, await p.evaluate(() => JSON.stringify(window.__g.redone)));
+  t = await text();
+  ck('  and the answer is taken back out of the transcript', !/skip/.test(t), t.slice(-200));
+
+  /* run the loop dry */
+  await p.evaluate(() => { window.__g.items = []; window.__redraw(); });
+  await p.waitForTimeout(250);
+  t = await text();
+  ck('a loop with nothing left ticks its step and moves on', /\u2713 One at a time/.test(t), t.slice(-250));
+  ck('  and the next step is asked', /slow one/.test(t), t.slice(-250));
+
+  await tap('Not now'); await p.waitForTimeout(300);
+  t = await text();
+  ck('the job finishes', /\u2713 The job \u2014 done\.|\u2713 The job/.test(t), t.slice(-250));
+  ck('what was left for later comes back at the end', /Left for later/.test(t), t.slice(-250));
+  ck('  with a way back into it', (await chips()).some(c => /\u21a9/.test(c)), JSON.stringify(await chips()));
+
+  await tap('Done'); await p.waitForTimeout(250);
+  ck('Done clears the job', (await p.evaluate(() => djGuide.state().job)) === '', await p.evaluate(() => djGuide.state().job));
+  ck('  and does NOT start another one by itself',
+     !/Another job|Hello from j2/.test(await text()), (await text()).slice(-150));
+
+  /* THE RUNAWAY GUARD, exercised rather than asserted. An earlier version of this check
+     used a step with done() false and loop() null and called it "a job that can never
+     finish" — but the engine ticks that step and walks on, so the guard was never
+     reached and the check proved nothing. What the guard actually bounds is how far one
+     render will walk: 60 steps. So that is what is measured, with a job far longer than
+     any real one, and the ceiling is stated rather than discovered by someone later. */
+  await p.evaluate(() => {
+    const G = window.__g;
+    const many = []; for (let i = 0; i < 80; i++) many.push({ t: 'step ' + i, done: () => true });
+    many.push({ t: 'the far end', say: 'Made it', ans: () => [['djGuide.end()', 'Done']] });
+    djGuide.define(Object.assign({}, { badge: '\u2728 Test app', state: () => G.state, save: () => { G.saves++; },
+      render: () => { G.draws++; window.__redraw(); }, level: () => G.level, redo: (k) => { G.redone.push(k); },
+      jobs: { big: { t: 'A very long job', steps: many } } }));
+    djGuide.start('big');
+  });
+  const walked = await p.evaluate(() => {
+    const t0 = Date.now();
+    try { window.__redraw(); } catch (e) { return { err: e.message }; }
+    return { ms: Date.now() - t0, chat: !!document.querySelector('.gdc') };
+  });
+  ck('a job longer than the guard renders instead of hanging',
+     !walked.err && walked.ms < 2000 && walked.chat, JSON.stringify(walked));
+  /* This pair caught a wrong assumption of mine, which is the point of writing it as a
+     measurement. The guard bounds ONE render pass at 60 steps, not the job: the place is
+     saved, so the next render carries on from there. A first draft of this check asserted
+     the job stopped at 60 and it reported 80 — the engine had walked the whole thing
+     across two renders. That is the better behaviour (a long job finishes rather than
+     being silently truncated), so it is what is now checked. */
+  await p.evaluate(() => window.__redraw());
+  await p.waitForTimeout(200);
+  ck('  and a long job finishes rather than being silently truncated at the guard',
+     /Made it/.test(await p.evaluate(() => (document.querySelector('.gdc .gdcIn') || {}).innerText || '')),
+     String(await p.evaluate(() => djGuide.state().step)));
+
+  await ctx.close();
+}
+
 (async () => {
   const only = process.argv[2];
   const s = await serve();
@@ -1221,6 +1364,7 @@ async function guard(b, port){
     if (!only || only === 'icons') icons();
     if (!only || only === 'door') await door(b, s.port);
     if (!only || only === 'guard') await guard(b, s.port);
+    if (!only || only === 'guide') await guide(b, s.port);
     if (!only || only === 'fresh') await fresh(b, s.port);
     if (!only || only === 'same') await same();
   } finally { await b.close(); s.stop(); }
