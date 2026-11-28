@@ -1561,3 +1561,21 @@ Jerry, 28 Nov: the app had grown too complicated. It now comes in three levels:
 
 - **＋ A new category** in the chat's sorting question. Name it and pick its group (Other spending by default), and the payment goes straight into it. Asked for by Jerry on 28 Nov.
 - **The "First time here?" offer closes when the screen changes.** Jerry said the box "doesn't go away when you go screen to screen". It's offered once per screen not seen yet. An active walk-through isn't affected.
+
+## v19.5 · the 13 fixes from Jerry's walk-through (28 Nov)
+
+1. The first page's **Set it up with me, in a chat** stands out: a gold ring, the ✨ AI pill and "recommended". The old setup is now "Set up ours, screen by screen".
+2. The level buttons sit right under the question in the chat, not at the bottom of the screen.
+3. ‹ Back rewinds the chat to before that answer. It no longer adds "Okay — let's change that one" and repeated ✓ lines.
+4. "Use the example statements" shows once.
+5. Each ✓ step line shows once per job.
+6. The household answer says what was chosen (Just me / Me and my spouse / Our family, or the names), not "— done".
+7. Payments marked Not sure are listed in a chat's Still to do.
+8. The "First time here?" and "New screen" boxes are off. Settings › Show me around still runs the walk-through.
+9. At Level 1, Check the books drops Sort each account, What's still open and Lists.
+10. One **✨ AI** pill marks everything the chat does, replacing the faint ✨.
+11. A chat job other than setup starts on a clean screen.
+12. Settings shows only the questions for the family's level: the budget from Level 2, special categories and advisors at Level 3.
+13. Moving up to Level 2 starts the budget in the chat, and the main screen's Make our budget does the same.
+
+Videos aren't re-checked or recorded during this run of fixes, at Jerry's request. They get one pass when the app is done.
